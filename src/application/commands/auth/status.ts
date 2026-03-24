@@ -1,0 +1,105 @@
+import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+
+import type { AuthAccount } from "../../schemas/auth.ts";
+import {
+    emptyAuthCommandInputSchema,
+    formatAuthStrong,
+    readCurrentAuth,
+    writeAuthBlock,
+} from "./shared.ts";
+
+export const authStatusCommand: CliCommandDefinition = {
+    name: "status",
+    summaryKey: "commands.auth.status.summary",
+    descriptionKey: "commands.auth.status.description",
+    inputSchema: emptyAuthCommandInputSchema,
+    handler: async (_, context) => {
+        const { authFile, currentAccount } = await readCurrentAuth(context);
+
+        if (!currentAccount) {
+            writeAuthBlock(context, {
+                tone: authFile.id === "" ? "warning" : "danger",
+                summary: context.translator.t(
+                    authFile.id === ""
+                        ? "auth.status.loggedOut"
+                        : "auth.status.missing",
+                ),
+                details: authFile.id === ""
+                    ? []
+                    : [
+                            {
+                                label: context.translator.t("auth.status.accountId"),
+                                value: authFile.id,
+                            },
+                        ],
+            });
+            return;
+        }
+
+        const apiKeyStatus = await readApiKeyStatus(currentAccount, context);
+        writeAuthBlock(context, {
+            tone: readAuthStatusTone(apiKeyStatus),
+            summary: context.translator.t("auth.status.loggedIn", {
+                endpoint: formatAuthStrong(context, currentAccount.endpoint),
+                name: formatAuthStrong(context, currentAccount.name),
+            }),
+            details: [
+                {
+                    label: context.translator.t("auth.status.activeAccount"),
+                    value: "true",
+                },
+                {
+                    label: context.translator.t("auth.status.apiKeyStatus"),
+                    value: context.translator.t(readApiKeyStatusKey(apiKeyStatus)),
+                },
+            ],
+        });
+    },
+};
+
+async function readApiKeyStatus(
+    account: AuthAccount,
+    context: Pick<CliExecutionContext, "fetcher">,
+): Promise<"invalid" | "request_failed" | "valid"> {
+    try {
+        const response = await context.fetcher(
+            `https://api.${account.endpoint}/v1/users/profile`,
+            {
+                headers: {
+                    Authorization: account.apiKey,
+                },
+            },
+        );
+
+        return response.status === 200 ? "valid" : "invalid";
+    }
+    catch {
+        return "request_failed";
+    }
+}
+
+function readAuthStatusTone(
+    apiKeyStatus: "invalid" | "request_failed" | "valid",
+): "danger" | "success" | "warning" {
+    switch (apiKeyStatus) {
+        case "invalid":
+            return "danger";
+        case "request_failed":
+            return "warning";
+        case "valid":
+            return "success";
+    }
+}
+
+function readApiKeyStatusKey(
+    apiKeyStatus: "invalid" | "request_failed" | "valid",
+): "auth.status.apiKeyInvalid" | "auth.status.apiKeyRequestFailed" | "auth.status.apiKeyValid" {
+    switch (apiKeyStatus) {
+        case "invalid":
+            return "auth.status.apiKeyInvalid";
+        case "request_failed":
+            return "auth.status.apiKeyRequestFailed";
+        case "valid":
+            return "auth.status.apiKeyValid";
+    }
+}

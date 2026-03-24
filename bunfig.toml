@@ -1,0 +1,12 @@
+telemetry = false
+
+[console]
+depth = 10
+
+[test]
+coverage = true
+coverageReporter = [
+    "text",
+    "lcov"
+]
+coverageSkipTestFiles = true

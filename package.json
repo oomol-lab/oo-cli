@@ -1,0 +1,37 @@
+{
+  "name": "oo",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "module": "index.ts",
+  "bin": {
+    "oo": "./index.ts"
+  },
+  "scripts": {
+    "dev": "bun run index.ts",
+    "test": "bun test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "ts-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
+    "ajv-i18n": "^4.2.0",
+    "ansis": "4.2.0",
+    "commander": "^14.0.3",
+    "pino": "^10.3.1",
+    "smol-toml": "^1.6.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^7.7.3",
+    "@types/bun": "latest",
+    "eslint": "^10.0.3",
+    "eslint-plugin-format": "^2.0.1",
+    "pino-pretty": "^13.1.3"
+  }
+}

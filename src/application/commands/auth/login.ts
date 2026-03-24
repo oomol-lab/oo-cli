@@ -1,0 +1,92 @@
+import type {
+    CliCommandDefinition,
+    CliExecutionContext,
+} from "../../contracts/cli.ts";
+
+import { Ansis } from "ansis";
+import { startAuthLoginSession } from "../../auth/login-flow.ts";
+import { upsertAuthAccount } from "../../schemas/auth.ts";
+import {
+    emptyAuthCommandInputSchema,
+    formatAuthStrong,
+    writeAuthBlock,
+    writeAuthLine,
+} from "./shared.ts";
+
+const loginUrlColor = "#c09ff5";
+const defaultAuthEndpoint = "oomol.com";
+
+export const authLoginCommand: CliCommandDefinition = {
+    name: "login",
+    summaryKey: "commands.auth.login.summary",
+    descriptionKey: "commands.auth.login.description",
+    inputSchema: emptyAuthCommandInputSchema,
+    handler: async (_, context) => {
+        const session = await startAuthLoginSession(context.translator);
+        const loginUrl = createAuthLoginUrl(context, session.redirectUrl);
+        writeAuthLine(
+            context,
+            context.translator.t("auth.login.openManually", {
+                url: formatLoginUrl(context, loginUrl.toString()),
+            }),
+        );
+        writeAuthLine(
+            context,
+            context.translator.t("auth.login.waitingForBrowser"),
+        );
+
+        const account = await session.waitForAccount();
+
+        await context.authStore.update(authFile =>
+            upsertAuthAccount(authFile, account),
+        );
+
+        writeAuthBlock(context, {
+            tone: "success",
+            summary: context.translator.t("auth.login.success", {
+                endpoint: formatAuthStrong(context, account.endpoint),
+                name: formatAuthStrong(context, account.name),
+            }),
+            details: [
+                {
+                    label: context.translator.t("auth.status.activeAccount"),
+                    value: "true",
+                },
+            ],
+        });
+    },
+};
+
+function formatLoginUrl(
+    context: CliExecutionContext,
+    url: string,
+): string {
+    const colors = new Ansis(context.stdout.hasColors?.() ? 3 : 0);
+
+    return colors.hex(loginUrlColor)(url);
+}
+
+function createAuthLoginUrl(
+    context: Pick<CliExecutionContext, "env">,
+    redirectUrl: string,
+): URL {
+    const loginUrl = new URL(
+        `https://api.${readAuthEndpoint(context.env)}/v1/auth/redirect`,
+    );
+
+    loginUrl.searchParams.set("redirect", redirectUrl);
+    loginUrl.searchParams.set("cli_login", "true");
+    return loginUrl;
+}
+
+function readAuthEndpoint(
+    env: CliExecutionContext["env"],
+): string {
+    const configuredEndpoint = env.OOMOL_ENDPOINT?.trim();
+
+    if (!configuredEndpoint) {
+        return defaultAuthEndpoint;
+    }
+
+    return configuredEndpoint;
+}
