@@ -1,15 +1,28 @@
 # oo
 
-To install dependencies:
+[English](./README.md) | [简体中文](./README-ZH_CN.md)
+
+`oo` is OOMOL's command-line interface for working with OOMOL accounts,
+packages, and cloud tasks from the terminal.
+
+## Overview
+
+`oo` provides a terminal interface for common OOMOL workflows. It covers
+account authentication, persisted CLI configuration, package discovery, package
+inspection, cloud task execution, and shell completion generation.
+
+## Installation
 
 ```bash
-bun install
+bun install -g @oomol-lab/oo-cli
+oo --help
 ```
 
-To run:
+## Documentation
 
-```bash
-bun run index.ts
-```
+- [Command reference](./docs/commands.md)
 
-This project was created using `bun init` in bun v1.3.8. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Contributing
+
+For contribution workflow and repository conventions, see
+[CONTRIBUTING.md](./CONTRIBUTING.md).
