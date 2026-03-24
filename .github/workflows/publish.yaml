@@ -1,0 +1,99 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Expected version (for example 1.2.3). Leave empty to auto-bump from the latest tag.
+        required: false
+        type: string
+        default: ""
+      version_bump:
+        description: Version segment to bump when expected_version is empty.
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+permissions:
+  id-token: write
+  contents: write
+
+concurrency:
+  group: publish-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  compute-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+      tag_name: ${{ steps.compute.outputs.tag_name }}
+      previous_tag: ${{ steps.compute.outputs.previous_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Compute Version
+        id: compute
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          VERSION_BUMP: ${{ inputs.version_bump }}
+        run: bun run contrib/ci/compute-release-version.ts
+
+  publish:
+    needs: compute-version
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_VERSION: ${{ needs.compute-version.outputs.version }}
+      RELEASE_TAG: ${{ needs.compute-version.outputs.tag_name }}
+      PREVIOUS_TAG: ${{ needs.compute-version.outputs.previous_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.3.0
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Prepare Release Manifest
+        run: bun run contrib/ci/release-workflow.ts prepare-manifest
+
+      - name: Pack
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          bun pm pack --destination dist --quiet
+
+      - name: Publish to npm
+        run: npm publish --access public dist/*.tgz
+
+      - name: Create GitHub Release
+        run: bun run contrib/ci/release-workflow.ts create-github-release dist/*.tgz
