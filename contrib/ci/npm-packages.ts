@@ -38,6 +38,7 @@ interface RuntimeLike {
 
 const wrapperFiles = [
     "bin/oo.cjs",
+    "bin/postinstall.cjs",
     "bin/platform-runtime.cjs",
     "bin/platform-targets.json",
     "README.md",
@@ -108,6 +109,9 @@ export function buildWrapperPackageManifest(
             access: "public",
         },
         repository: baseManifest.repository,
+        scripts: {
+            postinstall: "node ./bin/postinstall.cjs",
+        },
         type: "commonjs",
         version: releaseVersion,
     };
@@ -195,6 +199,10 @@ export async function buildNpmReleasePackages(options: {
     copyFile(
         join(rootDir, "contrib/npm/oo.cjs"),
         join(wrapperDir, "bin/oo.cjs"),
+    );
+    copyFile(
+        join(rootDir, "contrib/npm/postinstall.cjs"),
+        join(wrapperDir, "bin/postinstall.cjs"),
     );
     copyFile(
         join(rootDir, "contrib/npm/platform-runtime.cjs"),

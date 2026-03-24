@@ -15,6 +15,7 @@ export type SupportedShell = (typeof supportedShellValues)[number];
 export interface Writer {
     write: (chunk: string) => void;
     hasColors?: () => boolean;
+    isTTY?: boolean;
 }
 
 export interface InteractiveInput {
@@ -89,6 +90,7 @@ export interface CliExecutionContext {
     env: Record<string, string | undefined>;
     stdin: InteractiveInput;
     logger: Logger;
+    packageName: string;
     settingsStore: SettingsStore;
     stdout: Writer;
     stderr: Writer;

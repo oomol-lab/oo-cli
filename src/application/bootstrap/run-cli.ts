@@ -26,6 +26,7 @@ import { createTranslator } from "../../i18n/translator.ts";
 import { createCliCatalog } from "../commands/catalog.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
+import { maybeNotifyAboutCliUpdate } from "../update/update-notifier.ts";
 
 export interface CliInvocation {
     argv: readonly string[];
@@ -34,11 +35,13 @@ export interface CliInvocation {
     cwd: string;
     env: Record<string, string | undefined>;
     fetcher?: Fetcher;
+    packageName?: string;
     stdin?: InteractiveInput;
     stdout: Writer;
     stderr: Writer;
     settingsStore?: SettingsStore;
     systemLocale?: string;
+    version?: string;
 }
 
 export async function runCli(argv: string[]): Promise<number> {
@@ -115,6 +118,8 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             level: invocation.env.OO_LOG_LEVEL ?? "silent",
         });
         const completionRenderer = new StaticCompletionRenderer(translator);
+        const packageName = invocation.packageName ?? packageManifest.name;
+        const version = invocation.version ?? packageManifest.version;
         const context: CliExecutionContext = {
             authStore,
             cacheStore,
@@ -123,13 +128,14 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             env: invocation.env,
             stdin: invocation.stdin ?? process.stdin,
             logger,
+            packageName,
             settingsStore,
             stdout: invocation.stdout,
             stderr: invocation.stderr,
             translator,
             completionRenderer,
             catalog,
-            version: packageManifest.version,
+            version,
         };
         const adapter = new CommanderCliAdapter();
 
@@ -138,6 +144,13 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             catalog,
             context,
         });
+
+        if (exitCode === 0) {
+            await maybeNotifyAboutCliUpdate({
+                argv: invocation.argv,
+                context,
+            });
+        }
     }
     catch (error) {
         exitCode = writeBootstrapError(error, translator, invocation.stderr);

@@ -2443,6 +2443,11 @@ describe("runCli", () => {
                     "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                     "# lang = \"en\"",
                     "",
+                    "# updateNotifier controls whether the CLI checks for newer releases and shows upgrade notices.",
+                    "# Supported values: true, false.",
+                    "# Default: true.",
+                    "# updateNotifier = false",
+                    "",
                 ].join("\n"),
             );
         }
@@ -2458,6 +2463,12 @@ describe("runCli", () => {
             const invalidLang = await sandbox.run(["--lang", "fr", "--help"]);
             const invalidKey = await sandbox.run(["config", "get", "theme"]);
             const invalidConfigValue = await sandbox.run(["config", "set", "lang", "fr"]);
+            const invalidUpdateNotifierValue = await sandbox.run([
+                "config",
+                "set",
+                "update-notifier",
+                "maybe",
+            ]);
             const unknownCommand = await sandbox.run(["cnfig"]);
 
             expect(invalidLang.exitCode).toBe(2);
@@ -2469,6 +2480,11 @@ describe("runCli", () => {
 
             expect(invalidConfigValue.exitCode).toBe(2);
             expect(invalidConfigValue.stderr).toContain("Invalid lang value");
+
+            expect(invalidUpdateNotifierValue.exitCode).toBe(2);
+            expect(invalidUpdateNotifierValue.stderr).toContain(
+                "Invalid update-notifier value",
+            );
 
             expect(unknownCommand.exitCode).toBe(2);
             expect(unknownCommand.stderr).toContain("Unknown command");

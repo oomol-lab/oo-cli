@@ -166,6 +166,7 @@ function createPackageInfoContext(options: {
         logger: pino({
             enabled: false,
         }),
+        packageName: "@oomol-lab/oo-cli",
         settingsStore: createSettingsStore({}),
         stdout: stdout.writer,
         stderr: stderr.writer,

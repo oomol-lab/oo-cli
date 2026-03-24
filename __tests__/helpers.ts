@@ -17,13 +17,16 @@ export interface TextBuffer {
 
 export interface TextBufferOptions {
     hasColors?: boolean;
+    isTTY?: boolean;
 }
 
 export interface CliRunOptions {
     fetcher?: Fetcher;
+    packageName?: string;
     stderr?: TextBufferOptions;
     stdin?: InteractiveInput;
     stdout?: TextBufferOptions;
+    version?: string;
 }
 
 export interface CliSandbox {
@@ -49,6 +52,10 @@ export function createTextBuffer(options: TextBufferOptions = {}): TextBuffer {
         const hasColors = options.hasColors;
 
         writer.hasColors = () => hasColors;
+    }
+
+    if (options.isTTY !== undefined) {
+        writer.isTTY = options.isTTY;
     }
 
     return {
@@ -87,10 +94,12 @@ export async function createCliSandbox(): Promise<CliSandbox> {
                 cwd,
                 env,
                 fetcher: options.fetcher,
+                packageName: options.packageName,
                 stdin: options.stdin,
                 stdout: stdout.writer,
                 stderr: stderr.writer,
                 systemLocale: "en-US",
+                version: options.version,
             };
             const exitCode = await executeCli(invocation);
 

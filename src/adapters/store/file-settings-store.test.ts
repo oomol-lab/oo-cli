@@ -28,6 +28,11 @@ describe("FileSettingsStore", () => {
                 "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                 "# lang = \"en\"",
                 "",
+                "# updateNotifier controls whether the CLI checks for newer releases and shows upgrade notices.",
+                "# Supported values: true, false.",
+                "# Default: true.",
+                "# updateNotifier = false",
+                "",
             ].join("\n"),
         );
     });
@@ -45,6 +50,7 @@ describe("FileSettingsStore", () => {
 
         await store.write({
             lang: "zh",
+            updateNotifier: false,
         });
 
         expect(store.getFilePath()).toEndWith("settings.toml");
@@ -54,12 +60,19 @@ describe("FileSettingsStore", () => {
                 "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
                 "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                 "# lang = \"en\"",
+                "",
+                "# updateNotifier controls whether the CLI checks for newer releases and shows upgrade notices.",
+                "# Supported values: true, false.",
+                "# Default: true.",
+                "# updateNotifier = false",
                 "lang = \"zh\"",
+                "updateNotifier = false",
                 "",
             ].join("\n"),
         );
         expect(await store.read()).toEqual({
             lang: "zh",
+            updateNotifier: false,
         });
     });
 
@@ -83,6 +96,11 @@ describe("FileSettingsStore", () => {
                 "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                 "# lang = \"en\"",
                 "",
+                "# updateNotifier controls whether the CLI checks for newer releases and shows upgrade notices.",
+                "# Supported values: true, false.",
+                "# Default: true.",
+                "# updateNotifier = false",
+                "",
             ].join("\n"),
         );
     });
@@ -101,12 +119,13 @@ describe("FileSettingsStore", () => {
         await mkdir(dirname(store.getFilePath()), { recursive: true });
         await writeFile(
             store.getFilePath(),
-            "lang = \"zh\"\n",
+            "lang = \"zh\"\nupdateNotifier = false\n",
             "utf8",
         );
 
         expect(await store.read()).toEqual({
             lang: "zh",
+            updateNotifier: false,
         });
     });
 

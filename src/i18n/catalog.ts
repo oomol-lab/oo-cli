@@ -150,6 +150,8 @@ export const enMessages = {
     "errors.config.invalidKey": "Invalid config key: {value}.",
     "errors.config.invalidLangValue":
         "Invalid lang value: {value}. Use en or zh.",
+    "errors.config.invalidUpdateNotifierValue":
+        "Invalid update-notifier value: {value}. Use on or off.",
     "errors.lang.invalidFlag":
         "Invalid value for --lang: {value}. Use en or zh.",
     "errors.search.activeAccountMissing":
@@ -187,6 +189,10 @@ export const enMessages = {
     "errors.store.writeFailed":
         "Failed to write the settings file at {path}.",
     "errors.unexpected": "Unexpected error: {message}",
+    "update.available.message":
+        "Update available {currentVersion} → {latestVersion}",
+    "update.available.command":
+        "Run {command} to update",
     "help.arguments": "Arguments:",
     "help.commands": "Commands:",
     "help.extra.choices": "choices",
@@ -384,6 +390,8 @@ export const zhMessages = {
     "errors.config.invalidKey": "无效的配置键：{value}。",
     "errors.config.invalidLangValue":
         "无效的 lang 值：{value}。请使用 en 或 zh。",
+    "errors.config.invalidUpdateNotifierValue":
+        "无效的 update-notifier 值：{value}。请使用 on 或 off。",
     "errors.lang.invalidFlag":
         "--lang 的值无效：{value}。请使用 en 或 zh。",
     "errors.search.activeAccountMissing":
@@ -417,6 +425,10 @@ export const zhMessages = {
     "errors.store.readFailed": "读取配置文件 {path} 失败。",
     "errors.store.writeFailed": "写入配置文件 {path} 失败。",
     "errors.unexpected": "发生了未预期错误：{message}",
+    "update.available.message":
+        "发现新版本 {currentVersion} → {latestVersion}",
+    "update.available.command":
+        "运行 {command} 进行升级",
     "help.arguments": "参数：",
     "help.commands": "命令：",
     "help.extra.choices": "可选值",

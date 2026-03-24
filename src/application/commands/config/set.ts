@@ -1,11 +1,11 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
+import type { AppSettings } from "../../schemas/settings.ts";
 
 import type { ConfigSetInput } from "./shared.ts";
 import { z } from "zod";
 import {
     configKeyChoices,
     configKeySchema,
-    createConfigSetInput,
     createInvalidConfigKeyError,
     getConfigDefinition,
     getConfigDefinitionByRawKey,
@@ -29,7 +29,10 @@ const configSetInputSchema = z.object({
         return z.NEVER;
     }
 
-    return createConfigSetInput(input.key, valueResult.data);
+    return {
+        key: input.key,
+        value: valueResult.data,
+    } as ConfigSetInput;
 });
 
 export const configSetCommand: CliCommandDefinition<ConfigSetInput> = {
@@ -60,8 +63,8 @@ export const configSetCommand: CliCommandDefinition<ConfigSetInput> = {
         return definition.createInvalidValueError(rawInput.value);
     },
     handler: async (input, context) => {
-        await context.settingsStore.update(settings =>
-            getConfigDefinition(input.key).setValue(settings, input.value),
+        await context.settingsStore.update(
+            settings => setConfigValue(settings, input),
         );
         writeLine(
             context,
@@ -72,3 +75,18 @@ export const configSetCommand: CliCommandDefinition<ConfigSetInput> = {
         );
     },
 };
+
+function setConfigValue(
+    settings: AppSettings,
+    input: ConfigSetInput,
+): AppSettings {
+    switch (input.key) {
+        case "lang":
+            return getConfigDefinition("lang").setValue(settings, input.value);
+        case "update-notifier":
+            return getConfigDefinition("update-notifier").setValue(
+                settings,
+                input.value,
+            );
+    }
+}

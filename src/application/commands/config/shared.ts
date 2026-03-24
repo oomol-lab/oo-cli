@@ -7,7 +7,13 @@ import type { AppSettings } from "../../schemas/settings.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { localeSchema } from "../../schemas/settings.ts";
+import {
+    localeSchema,
+    updateNotifierSchema,
+} from "../../schemas/settings.ts";
+
+const updateNotifierValueSchema = z.enum(["on", "off"]);
+type UpdateNotifierConfigValue = z.output<typeof updateNotifierValueSchema>;
 
 export interface ConfigDefinition<TValue extends string> {
     createInvalidValueError: (rawValue: unknown) => CliUserError;
@@ -25,7 +31,7 @@ function defineConfigDefinition<TValue extends string>(
 }
 
 export const configDefinitions = {
-    lang: defineConfigDefinition({
+    "lang": defineConfigDefinition({
         createInvalidValueError(rawValue: unknown): CliUserError {
             return new CliUserError("errors.config.invalidLangValue", 2, {
                 value: String(rawValue ?? ""),
@@ -49,6 +55,42 @@ export const configDefinitions = {
         },
         valueChoices: localeSchema.options,
         valueSchema: localeSchema,
+    }),
+    "update-notifier": defineConfigDefinition({
+        createInvalidValueError(rawValue: unknown): CliUserError {
+            return new CliUserError(
+                "errors.config.invalidUpdateNotifierValue",
+                2,
+                {
+                    value: String(rawValue ?? ""),
+                },
+            );
+        },
+        getValue(settings: AppSettings): UpdateNotifierConfigValue | undefined {
+            if (settings.updateNotifier === undefined) {
+                return undefined;
+            }
+
+            return settings.updateNotifier ? "on" : "off";
+        },
+        setValue(
+            settings: AppSettings,
+            value: UpdateNotifierConfigValue,
+        ): AppSettings {
+            return {
+                ...settings,
+                updateNotifier: updateNotifierSchema.parse(value === "on"),
+            };
+        },
+        unsetValue(settings: AppSettings): AppSettings {
+            const nextSettings = { ...settings };
+
+            delete nextSettings.updateNotifier;
+
+            return nextSettings;
+        },
+        valueChoices: updateNotifierValueSchema.options,
+        valueSchema: updateNotifierValueSchema,
     }),
 } as const;
 
