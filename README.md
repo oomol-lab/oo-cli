@@ -14,6 +14,10 @@ inspection, cloud task execution, and shell completion generation.
 ## Installation
 
 ```bash
+npm install -g @oomol-lab/oo-cli
+# or
+pnpm add -g @oomol-lab/oo-cli
+# or
 bun install -g @oomol-lab/oo-cli
 oo --help
 ```

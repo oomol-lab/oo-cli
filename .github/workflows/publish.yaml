@@ -83,17 +83,16 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      - name: Prepare Release Manifest
-        run: bun run contrib/ci/release-workflow.ts prepare-manifest
-
-      - name: Pack
-        run: |
-          rm -rf dist
-          mkdir -p dist
-          bun pm pack --destination dist --quiet
+      - name: Build npm packages
+        run: bun run contrib/ci/release-workflow.ts build-npm-packages
 
       - name: Publish to npm
-        run: npm publish --access public dist/*.tgz
+        run: |
+          while IFS= read -r package_file; do
+            npm publish --access public "$package_file"
+          done < dist/npm-publish-order.txt
 
       - name: Create GitHub Release
-        run: bun run contrib/ci/release-workflow.ts create-github-release dist/*.tgz
+        run: |
+          mapfile -t release_assets < dist/npm-publish-order.txt
+          bun run contrib/ci/release-workflow.ts create-github-release "${release_assets[@]}"

@@ -11,14 +11,46 @@ flows through the i18n catalog.
 bun install
 ```
 
+For quick local development, run the CLI directly from source:
+
+```bash
+bun run dev --help
+```
+
+This is the fastest way to verify argument parsing and command output while
+iterating on local changes.
+
 Useful commands:
 
 ```bash
+bun run build
+bun run build:current-platform
+bun run dev --help
 bun run index.ts --help
 bun run lint:fix
 bun run ts-check
 bun run test
 ```
+
+## Local Package Builds
+
+Use the build scripts when you need to verify the npm distribution artifacts
+locally.
+
+- `bun run build`: builds the wrapper package plus every configured platform
+  package into `dist/`
+- `bun run build:current-platform`: builds the wrapper package plus only the
+  package for the current machine
+- `BUILD_DIST_DIR=/tmp/oo-dist bun run build`: writes tarballs to a custom
+  output directory
+- `BUILD_VERSION=1.2.3 bun run build`: overrides the version used in generated
+  package manifests without editing `package.json`
+- `BUILD_TARGETS=darwin-arm64,linux-x64-musl bun run build`: limits the build
+  to specific target ids
+
+Both build commands always emit the top-level wrapper package and write the
+publish order to `dist/npm-publish-order.txt` or the custom `BUILD_DIST_DIR`
+path.
 
 ## Project Layout
 

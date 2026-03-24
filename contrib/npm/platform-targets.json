@@ -1,0 +1,70 @@
+[
+  {
+    "id": "darwin-arm64",
+    "packageName": "@oomol-lab/oo-cli-darwin-arm64",
+    "bunTarget": "bun-darwin-arm64",
+    "os": "darwin",
+    "cpu": "arm64",
+    "executableFileName": "oo"
+  },
+  {
+    "id": "darwin-x64",
+    "packageName": "@oomol-lab/oo-cli-darwin-x64",
+    "bunTarget": "bun-darwin-x64",
+    "os": "darwin",
+    "cpu": "x64",
+    "executableFileName": "oo"
+  },
+  {
+    "id": "linux-arm64-gnu",
+    "packageName": "@oomol-lab/oo-cli-linux-arm64-gnu",
+    "bunTarget": "bun-linux-arm64",
+    "os": "linux",
+    "cpu": "arm64",
+    "libc": "glibc",
+    "executableFileName": "oo"
+  },
+  {
+    "id": "linux-arm64-musl",
+    "packageName": "@oomol-lab/oo-cli-linux-arm64-musl",
+    "bunTarget": "bun-linux-arm64-musl",
+    "os": "linux",
+    "cpu": "arm64",
+    "libc": "musl",
+    "executableFileName": "oo"
+  },
+  {
+    "id": "linux-x64-gnu",
+    "packageName": "@oomol-lab/oo-cli-linux-x64-gnu",
+    "bunTarget": "bun-linux-x64-baseline",
+    "os": "linux",
+    "cpu": "x64",
+    "libc": "glibc",
+    "executableFileName": "oo"
+  },
+  {
+    "id": "linux-x64-musl",
+    "packageName": "@oomol-lab/oo-cli-linux-x64-musl",
+    "bunTarget": "bun-linux-x64-musl-baseline",
+    "os": "linux",
+    "cpu": "x64",
+    "libc": "musl",
+    "executableFileName": "oo"
+  },
+  {
+    "id": "win32-arm64",
+    "packageName": "@oomol-lab/oo-cli-win32-arm64",
+    "bunTarget": "bun-windows-arm64",
+    "os": "win32",
+    "cpu": "arm64",
+    "executableFileName": "oo.exe"
+  },
+  {
+    "id": "win32-x64",
+    "packageName": "@oomol-lab/oo-cli-win32-x64",
+    "bunTarget": "bun-windows-x64-baseline",
+    "os": "win32",
+    "cpu": "x64",
+    "executableFileName": "oo.exe"
+  }
+]

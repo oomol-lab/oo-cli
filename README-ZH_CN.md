@@ -12,6 +12,10 @@
 ## 安装
 
 ```bash
+npm install -g @oomol-lab/oo-cli
+# or
+pnpm add -g @oomol-lab/oo-cli
+# or
 bun install -g @oomol-lab/oo-cli
 oo --help
 ```

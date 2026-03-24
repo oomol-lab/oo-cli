@@ -1,5 +1,6 @@
 import process from "node:process";
 
+import { buildNpmReleasePackages } from "./npm-packages.ts";
 import { buildCreateReleaseCommand, preparePackageManifest } from "./release-steps.ts";
 
 async function runPrepareManifest(): Promise<void> {
@@ -31,6 +32,16 @@ async function runCreateGitHubRelease(assets: readonly string[]): Promise<void> 
     }
 }
 
+async function runBuildNpmPackages(): Promise<void> {
+    const releaseVersion = readRequiredEnv("RELEASE_VERSION");
+    const outDir = process.env.RELEASE_DIST_DIR ?? "dist";
+
+    await buildNpmReleasePackages({
+        outDir,
+        releaseVersion,
+    });
+}
+
 function readRequiredEnv(name: string): string {
     const value = process.env[name];
     if (value === undefined || value === "") {
@@ -46,6 +57,9 @@ export async function main(args: readonly string[]): Promise<void> {
     switch (command) {
         case "prepare-manifest":
             await runPrepareManifest();
+            return;
+        case "build-npm-packages":
+            await runBuildNpmPackages();
             return;
         case "create-github-release":
             await runCreateGitHubRelease(commandArgs);
