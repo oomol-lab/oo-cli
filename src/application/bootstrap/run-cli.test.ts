@@ -16,8 +16,8 @@ const searchDisplayNameColor = "#59F78D";
 const defaultAuthEndpoint = "oomol.com";
 
 describe("runCli", () => {
-    test("keeps the app name constant aligned with package metadata", () => {
-        expect(APP_NAME).toBe(packageManifest.name);
+    test("keeps the cli command name aligned with package metadata", () => {
+        expect(APP_NAME in packageManifest.bin).toBeTrue();
     });
 
     test("prints the package version", async () => {

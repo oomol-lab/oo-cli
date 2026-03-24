@@ -1,12 +1,32 @@
 {
-  "name": "oo",
+  "name": "@oomol-lab/oo-cli",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.0.0-development",
   "private": true,
+  "description": "OOMOL's command-line interface for accounts, packages, and cloud tasks.",
+  "author": "BlackHole1 <bh@bugs.cc>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oomol-lab/oo-cli.git"
+  },
+  "keywords": [
+    "oomol",
+    "cli",
+    "cloud-task",
+    "package",
+    "terminal",
+    "bun"
+  ],
   "module": "index.ts",
   "bin": {
     "oo": "./index.ts"
   },
+  "files": [
+    "!src/**/*.test.ts",
+    "index.ts",
+    "src/**/*.ts"
+  ],
   "scripts": {
     "dev": "bun run index.ts",
     "test": "bun test",
