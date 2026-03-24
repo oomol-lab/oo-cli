@@ -8,6 +8,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 const require = createRequire(import.meta.url);
 const postinstallModule = require("./postinstall.cjs") as {
     detectPackageManager: (env?: Record<string, string | undefined>) => string | undefined;
+    detectPackageManagerFromExecPath: (rawValue: unknown) => string | undefined;
     parsePackageManagerToken: (rawValue: unknown) => string | undefined;
     writeInstallContextFile: (options?: {
         baseDirectory?: string;
@@ -49,6 +50,24 @@ describe("postinstall", () => {
         expect(await readFile(join(directory, "install-context.json"), "utf8")).toBe(
             "{\n  \"packageManager\": \"bun\"\n}\n",
         );
+    });
+
+    test("does not match unrelated exec paths by substring", () => {
+        expect(
+            postinstallModule.detectPackageManagerFromExecPath(
+                "/Users/demo/aabunxx/bin/custom-cli.js",
+            ),
+        ).toBeUndefined();
+        expect(
+            postinstallModule.detectPackageManagerFromExecPath(
+                "/Users/demo/tools/pnpm-helper.js",
+            ),
+        ).toBeUndefined();
+        expect(
+            postinstallModule.detectPackageManagerFromExecPath(
+                "/Users/demo/bin/npm-cli.js",
+            ),
+        ).toBe("npm");
     });
 
     test("skips writing the install context file when the package manager is unknown", async () => {

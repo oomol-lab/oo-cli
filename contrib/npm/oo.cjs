@@ -45,27 +45,38 @@ function run() {
     });
 }
 
-function resolveChildEnvironment(env = process.env) {
+function resolveChildEnvironment(
+    env = process.env,
+    options = {},
+) {
     if (env.OO_INSTALL_PACKAGE_MANAGER) {
         return env;
     }
 
-    const installContext = readInstallContext();
-
-    if (!installContext) {
-        return env;
-    }
+    const installContext = readInstallContext(
+        options.installContextFilePath ?? installContextFilePath,
+    );
+    const packageManager = installContext?.packageManager
+        ?? detectPackageManagerFromOoPath(
+            options.ooPathCandidates
+            ?? [
+                env._,
+                process.argv[1],
+                __filename,
+            ],
+        )
+        ?? "npm";
 
     return {
         ...env,
-        OO_INSTALL_PACKAGE_MANAGER: installContext.packageManager,
+        OO_INSTALL_PACKAGE_MANAGER: packageManager,
     };
 }
 
-function readInstallContext() {
+function readInstallContext(filePath = installContextFilePath) {
     try {
         const parsedContent = JSON.parse(
-            readFileSync(installContextFilePath, "utf8"),
+            readFileSync(filePath, "utf8"),
         );
 
         if (
@@ -84,6 +95,39 @@ function readInstallContext() {
     return undefined;
 }
 
+function detectPackageManagerFromOoPath(paths) {
+    for (const rawPath of paths) {
+        const pathSegments = splitPathSegments(rawPath);
+
+        if (pathSegments.includes(".bun")) {
+            return "bun";
+        }
+
+        if (pathSegments.includes("pnpm")) {
+            return "pnpm";
+        }
+
+        if (pathSegments.includes("fnm_multishells")) {
+            return "npm";
+        }
+    }
+
+    return undefined;
+}
+
+function splitPathSegments(rawPath) {
+    if (typeof rawPath !== "string" || rawPath.trim() === "") {
+        return [];
+    }
+
+    return rawPath
+        .trim()
+        .replaceAll("\\", "/")
+        .split("/")
+        .map(segment => segment.trim().toLowerCase())
+        .filter(Boolean);
+}
+
 function isSupportedPackageManager(value) {
     return value === "npm"
         || value === "pnpm"
@@ -92,7 +136,9 @@ function isSupportedPackageManager(value) {
 }
 
 module.exports = {
+    detectPackageManagerFromOoPath,
     readInstallContext,
     resolveChildEnvironment,
     run,
+    splitPathSegments,
 };

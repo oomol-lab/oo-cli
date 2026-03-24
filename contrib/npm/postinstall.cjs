@@ -56,29 +56,62 @@ function parsePackageManagerToken(rawValue) {
 }
 
 function detectPackageManagerFromExecPath(rawValue) {
-    if (typeof rawValue !== "string" || rawValue.trim() === "") {
-        return undefined;
-    }
+    const pathSegments = splitPathSegments(rawValue);
+    const fileName = pathSegments.at(-1) ?? "";
 
-    const normalizedValue = rawValue.trim().toLowerCase();
-
-    if (normalizedValue.includes("pnpm")) {
+    if (
+        pathSegments.includes("pnpm")
+        || fileName === "pnpm"
+        || fileName === "pnpm.cjs"
+        || fileName === "pnpm.js"
+        || fileName === "pnpm.exe"
+    ) {
         return "pnpm";
     }
 
-    if (normalizedValue.includes("yarn")) {
+    if (
+        pathSegments.includes("yarn")
+        || fileName === "yarn"
+        || fileName === "yarn.js"
+        || fileName === "yarn.cjs"
+        || fileName === "yarn.exe"
+    ) {
         return "yarn";
     }
 
-    if (normalizedValue.includes("bun")) {
+    if (
+        pathSegments.includes(".bun")
+        || fileName === "bun"
+        || fileName === "bun.exe"
+    ) {
         return "bun";
     }
 
-    if (normalizedValue.includes("npm")) {
+    if (
+        pathSegments.includes("npm")
+        || fileName === "npm"
+        || fileName === "npm.js"
+        || fileName === "npm.cjs"
+        || fileName === "npm-cli.js"
+        || fileName === "npm.exe"
+    ) {
         return "npm";
     }
 
     return undefined;
+}
+
+function splitPathSegments(rawValue) {
+    if (typeof rawValue !== "string" || rawValue.trim() === "") {
+        return [];
+    }
+
+    return rawValue
+        .trim()
+        .replaceAll("\\", "/")
+        .split("/")
+        .map(segment => segment.trim().toLowerCase())
+        .filter(Boolean);
 }
 
 function normalizePackageManagerName(value) {
@@ -95,7 +128,9 @@ function normalizePackageManagerName(value) {
 
 module.exports = {
     detectPackageManager,
+    detectPackageManagerFromExecPath,
     normalizePackageManagerName,
     parsePackageManagerToken,
+    splitPathSegments,
     writeInstallContextFile,
 };
