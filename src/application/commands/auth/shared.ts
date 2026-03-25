@@ -1,8 +1,9 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
+import type { TerminalColors } from "../../terminal-colors.ts";
 
-import { Ansis } from "ansis";
 import { z } from "zod";
 import { getCurrentAuthAccount } from "../../schemas/auth.ts";
+import { createWriterColors } from "../../terminal-colors.ts";
 
 export const emptyAuthCommandInputSchema = z.object({});
 
@@ -65,11 +66,11 @@ export function writeAuthBlock(
     }
 }
 
-function createAuthColors(context: CliExecutionContext): Ansis {
-    return new Ansis(context.stdout.hasColors?.() ? 3 : 0);
+function createAuthColors(context: CliExecutionContext): TerminalColors {
+    return createWriterColors(context.stdout);
 }
 
-function readAuthIcon(tone: AuthBlockTone, colors: Ansis): string {
+function readAuthIcon(tone: AuthBlockTone, colors: TerminalColors): string {
     switch (tone) {
         case "danger":
             return colors.red("X");

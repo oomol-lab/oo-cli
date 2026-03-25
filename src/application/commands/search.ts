@@ -1,10 +1,11 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../contracts/cli.ts";
 
 import type { AuthAccount } from "../schemas/auth.ts";
-import { Ansis } from "ansis";
+import type { TerminalColors } from "../terminal-colors.ts";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../i18n/locale.ts";
 import { CliUserError } from "../contracts/cli.ts";
+import { createWriterColors } from "../terminal-colors.ts";
 import { readCurrentAuth } from "./auth/shared.ts";
 import { jsonOutputOptions } from "./json-output.ts";
 
@@ -274,7 +275,7 @@ function readSearchPackageIds(response: SearchResponse): string[] {
 function formatSearchPackage(
     pkg: SearchResponse["packages"][number],
     context: SearchTextContext,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const lines = [readPackageLabel(pkg, context, colors)];
 
@@ -296,7 +297,7 @@ function formatSearchPackage(
 function formatSearchBlock(
     block: SearchResponse["packages"][number]["blocks"][number],
     context: SearchTextContext,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string[] {
     const label = readBlockLabel(block, context, colors);
 
@@ -310,7 +311,7 @@ function formatSearchBlock(
 function readPackageLabel(
     pkg: SearchResponse["packages"][number],
     context: SearchTextContext,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const packageId = readPackageId(pkg);
 
@@ -349,7 +350,7 @@ function readPackageId(pkg: SearchResponse["packages"][number]): string {
 function readBlockLabel(
     block: SearchResponse["packages"][number]["blocks"][number],
     context: SearchTextContext,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     if (block.title !== "") {
         const title = colors.hex(searchBlockTitleColor)(block.title);
@@ -373,6 +374,6 @@ function readBlockLabel(
 
 function createSearchColors(
     context: Pick<CliExecutionContext, "stdout">,
-): Ansis {
-    return new Ansis(context.stdout.hasColors?.() ? 3 : 0);
+): TerminalColors {
+    return createWriterColors(context.stdout);
 }

@@ -2,12 +2,12 @@ import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 
 import { join } from "node:path";
-import { Ansis } from "ansis";
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox, createTextBuffer } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { APP_NAME } from "../config/app-config.ts";
+import { createTerminalColors } from "../terminal-colors.ts";
 import { executeCli } from "./run-cli.ts";
 
 const loginUrlColor = "#c09ff5";
@@ -127,7 +127,7 @@ describe("runCli", () => {
 
     test("renders branded colors in help when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
-        const colors = new Ansis(3);
+        const colors = createTerminalColors(true);
 
         try {
             const result = await sandbox.run(
@@ -338,7 +338,7 @@ describe("runCli", () => {
 
     test("renders the auth login url and success block with color styling when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
-        const colors = new Ansis(3);
+        const colors = createTerminalColors(true);
 
         try {
             const login = await runPrintedAuthLogin(sandbox, "secret-1", {
@@ -759,7 +759,7 @@ describe("runCli", () => {
 
     test("renders search output with field-specific colors", async () => {
         const sandbox = await createCliSandbox();
-        const colors = new Ansis(3);
+        const colors = createTerminalColors(true);
 
         try {
             const authFilePath = join(
@@ -811,7 +811,7 @@ describe("runCli", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(new Ansis(3).strip(result.stdout)).toBe(
+            expect(createTerminalColors(true).strip(result.stdout)).toBe(
                 [
                     "Image Tools (@oomol/image-tools@1.2.3)",
                     "Powerful image processing toolkit",
@@ -2031,7 +2031,7 @@ describe("runCli", () => {
 
     test("renders cloud-task result text output with colors and grouped details", async () => {
         const sandbox = await createCliSandbox();
-        const colors = new Ansis(3);
+        const colors = createTerminalColors(true);
 
         try {
             const authFilePath = join(
@@ -2072,7 +2072,7 @@ describe("runCli", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(new Ansis(3).strip(result.stdout)).toBe(
+            expect(createTerminalColors(true).strip(result.stdout)).toBe(
                 [
                     "✓ success",
                     "  Task ID: task-1",
@@ -2095,7 +2095,7 @@ describe("runCli", () => {
 
     test("renders cloud-task list text output with colors and summary blocks", async () => {
         const sandbox = await createCliSandbox();
-        const colors = new Ansis(3);
+        const colors = createTerminalColors(true);
 
         try {
             const authFilePath = join(
@@ -2158,7 +2158,7 @@ describe("runCli", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(new Ansis(3).strip(result.stdout)).toBe(
+            expect(createTerminalColors(true).strip(result.stdout)).toBe(
                 [
                     "▶ running",
                     "  Task ID: task-1",
@@ -2387,7 +2387,7 @@ describe("runCli", () => {
 
     test("renders the auth switch success block with gh-style emphasis when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
-        const colors = new Ansis(3);
+        const colors = createTerminalColors(true);
 
         try {
             const authFilePath = join(
@@ -2618,7 +2618,7 @@ async function waitForLoginUrl(
 }
 
 function findLoginUrl(output: string): string | undefined {
-    const plainOutput = new Ansis(3).strip(output);
+    const plainOutput = createTerminalColors(true).strip(output);
 
     for (const line of plainOutput.split("\n")) {
         const urlStart = line.indexOf("https://");

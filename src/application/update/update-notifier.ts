@@ -1,7 +1,8 @@
 import type { CliExecutionContext, Fetcher } from "../contracts/cli.ts";
 
-import { Ansis } from "ansis";
+import type { TerminalColors } from "../terminal-colors.ts";
 import { APP_NAME } from "../config/app-config.ts";
+import { createWriterColors } from "../terminal-colors.ts";
 
 const defaultRegistryUrl = "https://registry.npmjs.org/";
 const latestReleaseCacheTtlMs = 1000 * 60 * 60 * 24;
@@ -82,7 +83,7 @@ function renderUpdateNotice(options: {
     latestVersion: string;
     updateCommand: string;
 }): string {
-    const colors = new Ansis(options.context.stderr.hasColors?.() ? 3 : 0);
+    const colors = createWriterColors(options.context.stderr);
     const lines = [
         options.context.translator.t("update.available.message", {
             currentVersion: colors.dim(options.context.version),
@@ -98,7 +99,7 @@ function renderUpdateNotice(options: {
 
 function renderNoticeBox(
     lines: readonly string[],
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const horizontalPadding = 2;
     const contentWidth = lines.reduce((maxWidth, line) => {
@@ -130,7 +131,7 @@ function renderNoticeBox(
 function renderNoticeBodyLine(
     line: string,
     width: number,
-    colors: Ansis,
+    colors: TerminalColors,
     horizontalPadding: number,
 ): string {
     const visibleLineWidth = measureDisplayWidth(colors.strip(line));

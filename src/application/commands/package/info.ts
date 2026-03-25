@@ -1,10 +1,11 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type { TerminalColors } from "../../terminal-colors.ts";
 import type { PackageInfoResponse } from "./shared.ts";
-import { Ansis } from "ansis";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
+import { createWriterColors } from "../../terminal-colors.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
 import { jsonOutputOptions } from "../json-output.ts";
 import {
@@ -114,7 +115,7 @@ function formatPackageInfoResponseAsText(
 function formatPackageInfoBlock(
     block: PackageInfoResponse["blocks"][number],
     context: PackageInfoTextContext,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string[] {
     const lines = [readPackageInfoBlockLabel(block, colors)];
 
@@ -353,7 +354,7 @@ function trimTrailingWhitespace(value: string): string {
 
 function readPackageInfoLabel(
     response: PackageInfoResponse,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const packageId = `${response.packageName}@${response.packageVersion}`;
 
@@ -372,7 +373,7 @@ function readPackageInfoLabel(
 
 function readPackageInfoBlockLabel(
     block: PackageInfoResponse["blocks"][number],
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     if (block.title !== "") {
         const title = colors.hex(packageInfoBlockTitleColor)(block.title);
@@ -393,6 +394,6 @@ function readPackageInfoBlockLabel(
 
 function createPackageInfoColors(
     context: Pick<CliExecutionContext, "stdout">,
-): Ansis {
-    return new Ansis(context.stdout.hasColors?.() ? 3 : 0);
+): TerminalColors {
+    return createWriterColors(context.stdout);
 }

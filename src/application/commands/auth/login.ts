@@ -3,9 +3,9 @@ import type {
     CliExecutionContext,
 } from "../../contracts/cli.ts";
 
-import { Ansis } from "ansis";
 import { startAuthLoginSession } from "../../auth/login-flow.ts";
 import { upsertAuthAccount } from "../../schemas/auth.ts";
+import { createWriterColors } from "../../terminal-colors.ts";
 import {
     emptyAuthCommandInputSchema,
     formatAuthStrong,
@@ -61,7 +61,7 @@ function formatLoginUrl(
     context: CliExecutionContext,
     url: string,
 ): string {
-    const colors = new Ansis(context.stdout.hasColors?.() ? 3 : 0);
+    const colors = createWriterColors(context.stdout);
 
     return colors.hex(loginUrlColor)(url);
 }

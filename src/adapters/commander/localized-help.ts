@@ -1,9 +1,9 @@
 import type { Argument, Command, Option } from "commander";
 import type { Translator } from "../../application/contracts/translator.ts";
 
-import { Ansis } from "ansis";
 import { Help } from "commander";
 import { APP_NAME } from "../../application/config/app-config.ts";
+import { createTerminalColors } from "../../application/terminal-colors.ts";
 
 const OO_BRAND_NAME = APP_NAME;
 const OOMOL_BRAND_NAME = "OOMOL";
@@ -101,7 +101,7 @@ function formatChoices(choices: readonly string[]): string {
 }
 
 function createBrandColors(enabled: boolean) {
-    return new Ansis(enabled ? 3 : 0);
+    return createTerminalColors(enabled);
 }
 
 function formatHelpDescription(

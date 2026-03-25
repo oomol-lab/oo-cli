@@ -1,11 +1,12 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
+import type { TerminalColors } from "../../terminal-colors.ts";
 
 import type {
     CloudTaskListResponse,
     CloudTaskResultResponse,
     CloudTaskStatus,
 } from "./shared.ts";
-import { Ansis } from "ansis";
+import { createWriterColors } from "../../terminal-colors.ts";
 
 const cloudTaskPackageColor = "#59F78D";
 const cloudTaskBlockColor = "#CAA8FA";
@@ -104,7 +105,7 @@ export function formatCloudTaskListAsText(
 function formatCloudTaskListTask(
     task: CloudTaskListResponse["tasks"][number],
     context: CloudTaskTextContext,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const lines = [readCloudTaskHeading(task.status, context, colors)];
 
@@ -187,14 +188,14 @@ function formatCloudTaskListTask(
 function readCloudTaskHeading(
     status: CloudTaskStatus,
     context: CloudTaskTextContext,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     return `${readCloudTaskStatusIcon(status, colors)} ${readCloudTaskStatusLabel(status, context, colors)}`;
 }
 
 function readCloudTaskStatusIcon(
     status: CloudTaskStatus,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     switch (status) {
         case "queued":
@@ -213,7 +214,7 @@ function readCloudTaskStatusIcon(
 function readCloudTaskStatusLabel(
     status: CloudTaskStatus,
     context: CloudTaskTextContext,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const label = context.translator.t(`cloudTask.status.${status}`);
 
@@ -234,7 +235,7 @@ function readCloudTaskStatusLabel(
 function formatCloudTaskDetailLine(
     label: string,
     value: string,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const valueLines = value.split("\n");
     const firstValueLine = valueLines[0] ?? "";
@@ -253,7 +254,7 @@ function formatCloudTaskDetailLine(
 function formatCloudTaskDataBlock(
     label: string,
     value: unknown,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const json = JSON.stringify(value, null, 2);
 
@@ -271,7 +272,7 @@ function formatCloudTaskDataBlock(
 
 function readCloudTaskPackageBlock(
     task: CloudTaskListResponse["tasks"][number],
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const packageId = task.packageID
         ? colors.hex(cloudTaskPackageColor)(task.packageID)
@@ -284,7 +285,7 @@ function readCloudTaskPackageBlock(
 function formatCloudTaskProgress(
     progress: number,
     status: CloudTaskStatus,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     const normalizedProgress = Math.max(0, Math.min(100, Math.round(progress)));
     const filledSlots = Math.round(normalizedProgress / 10);
@@ -301,7 +302,7 @@ function formatCloudTaskTimestamp(timestamp: number): string {
 function colorizeCloudTaskByStatus(
     value: string,
     status: CloudTaskStatus,
-    colors: Ansis,
+    colors: TerminalColors,
 ): string {
     switch (status) {
         case "queued":
@@ -319,8 +320,8 @@ function colorizeCloudTaskByStatus(
 
 function createCloudTaskColors(
     context: Pick<CliExecutionContext, "stdout">,
-): Ansis {
-    return new Ansis(context.stdout.hasColors?.() ? 3 : 0);
+): TerminalColors {
+    return createWriterColors(context.stdout);
 }
 
 function formatCloudTaskLabel(label: string): string {

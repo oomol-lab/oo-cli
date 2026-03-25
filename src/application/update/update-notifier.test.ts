@@ -1,7 +1,7 @@
-import { Ansis } from "ansis";
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../__tests__/helpers.ts";
+import { createTerminalColors } from "../terminal-colors.ts";
 import {
     compareReleaseVersions,
     resolvePackageManagerUpgradeCommand,
@@ -73,7 +73,7 @@ describe("update notifier", () => {
                     version: "1.0.0",
                 },
             );
-            const strippedOutput = new Ansis(3).strip(firstResult.stderr);
+            const strippedOutput = createTerminalColors(true).strip(firstResult.stderr);
 
             expect(firstResult.exitCode).toBe(0);
             expect(firstResult.stderr).toContain("\u001B[");
