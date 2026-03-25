@@ -40,7 +40,7 @@ describe("skills commands", () => {
                 ).toBe(await Bun.file(file.sourcePath).text());
             }
             expect(await readFile(ownershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: false",
+                "allow_implicit_invocation: true",
             );
             expect(await readFile(versionFilePath, "utf8")).toBe(
                 `${resultVersion}\n`,

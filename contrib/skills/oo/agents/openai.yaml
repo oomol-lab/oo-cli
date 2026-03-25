@@ -4,4 +4,4 @@ interface:
   default_prompt: "Use $oo to translate my request into English search terms, choose the best package and block, stop when auth or input requirements are not proven, ask only for missing inputs, run the task, and handle long waits safely."
 
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true
