@@ -21,14 +21,15 @@ stop conditions.
 Before doing anything substantial:
 
 - Prefer `oo --lang en ...`.
-- If `oo` is unavailable, stop and explain that the environment does not have a
-  runnable `oo` CLI.
-- If authentication is uncertain, run `oo --lang en auth status` before the
-  first remote command.
+- Do not probe for `oo` with `which`, `command -v`, or similar prechecks. Run
+  the intended `oo` command directly.
+- Do not run `oo --lang en auth status` as a routine precheck.
+- If a remote `oo` command fails and auth may be the cause, run
+  `oo --lang en auth status` to inspect the current account state.
 - Treat auth as usable only when the status output shows a valid active
   account.
 - If auth status says logged out, missing, invalid, or request failed, stop and
-  ask the user to repair authentication before continuing.
+  ask the user to repair authentication before retrying.
 
 ## Non-negotiable rules
 
@@ -39,8 +40,8 @@ Before doing anything substantial:
 - Never add `--json` to `cloud-task wait`.
 - Never invent package IDs, versions, block IDs, handle names, defaults, or
   task results.
-- Do not continue past auth precheck unless `oo --lang en auth status` confirms
-  a valid active account.
+- If a remote command fails with an auth-related error or unclear account
+  state, inspect with `oo --lang en auth status` before retrying.
 - `cloud-task run` must use `PACKAGE_NAME@SEMVER`.
 - `cloud-task run` must include a real `--block-id`.
 - If `search` returns zero packages, stop and tell the user that `oo` does not
@@ -174,20 +175,9 @@ If `contentMediaType` exists and is not `oomol/secret`, stop. The current
 not pretend file, image, or other special payloads can be passed safely as
 normal JSON values.
 
-### 6. Validate before creating the task
+### 6. Run the task once required inputs are ready
 
-If the payload is non-trivial, or if the user just confirmed important values,
-first run:
-
-```bash
-oo --lang en cloud-task run "<packageName>@<version>" \
-  --block-id "<blockId>" \
-  --data '<json object>' \
-  --dry-run \
-  --json
-```
-
-If dry-run succeeds, run the real task:
+When the payload is ready, run the task directly:
 
 ```bash
 oo --lang en cloud-task run "<packageName>@<version>" \
@@ -195,6 +185,10 @@ oo --lang en cloud-task run "<packageName>@<version>" \
   --data '<json object>' \
   --json
 ```
+
+`cloud-task run` already performs local input validation before task creation,
+so do not add a separate validation-only step unless the user explicitly asks
+for it.
 
 Read `taskID` from the JSON response.
 

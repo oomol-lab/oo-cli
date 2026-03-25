@@ -12,13 +12,12 @@ Canonical entrypoint:
 oo --lang en ...
 ```
 
-If `oo` is unavailable, stop.
-
 ## Authentication
 
 - `search`, `package info`, `cloud-task run`, `cloud-task result`, and
   `cloud-task wait` all require a current authenticated account.
-- If auth state is uncertain, use:
+- Do not run `auth status` as a routine precheck.
+- If a remote command fails and auth might be the cause, use:
 
 ```bash
 oo --lang en auth status
@@ -160,16 +159,6 @@ oo --lang en cloud-task run "<packageName>@<version>" \
   --json
 ```
 
-Dry-run form:
-
-```bash
-oo --lang en cloud-task run "<packageName>@<version>" \
-  --block-id "<blockName>" \
-  --data '<json object>' \
-  --dry-run \
-  --json
-```
-
 Facts:
 
 - The package specifier must contain an explicit semver version.
@@ -177,22 +166,13 @@ Facts:
 - `--block-id` is required.
 - `--data` must be a JSON object string or `@path/to/file.json`.
 - If `--data` is omitted, the CLI uses `{}`.
-- Local validation runs before task creation.
+- Local validation runs before task creation, even for the direct run command.
 
 Expected success JSON:
 
 ```json
 {
   "taskID": "task-id"
-}
-```
-
-Expected dry-run JSON:
-
-```json
-{
-  "dryRun": true,
-  "ok": true
 }
 ```
 
