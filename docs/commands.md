@@ -88,6 +88,35 @@ Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported value: `lang`.
 
+## Codex Skills
+
+### `oo skills install`
+
+Install one bundled skill into the local Codex skills directory.
+
+- Managed skill: `oo`.
+- Target directory: `${CODEX_HOME:-~/.codex}/skills/oo`.
+- Metadata: the installation writes the current `oo` version into a hidden
+  version file inside the skill directory.
+- Notes: the command exits with an error when the Codex home directory does
+  not exist, which indicates Codex is not installed on the current machine.
+- Notes: an existing `oo/agents/openai.yaml` is considered managed by
+  `oo` only when it contains the string `OOMOL`. Otherwise `oo` treats it as a
+  different skill and will not overwrite it.
+- Notes: on the first `oo` run, when there is no existing config, auth, or log
+  data yet, `oo` silently installs the managed skill automatically if the
+  Codex home directory already exists.
+- Notes: when a bundled skill is already installed, every `oo` startup checks
+  whether its recorded version matches the current CLI version and silently
+  refreshes the installed files when needed.
+
+### `oo skills uninstall`
+
+Remove one bundled skill from the local Codex skills directory.
+
+- Managed skill: `oo`.
+- Target directory: `${CODEX_HOME:-~/.codex}/skills/oo`.
+
 ## Logs
 
 ### `oo log path`

@@ -12,12 +12,38 @@
 ## 安装
 
 ```bash
-npm install -g @oomol-lab/oo-cli
-# or
-pnpm add -g @oomol-lab/oo-cli
-# or
 bun install -g @oomol-lab/oo-cli
-oo --help
+```
+
+## 快速开始
+
+1. 登录：
+
+```bash
+oo login
+```
+
+2. 打开 Codex，输入下面这句开始工作：
+
+```text
+$oo 帮我生成 OOMOL 字符串的二维码
+```
+
+## Codex Skill
+
+首次打开 `oo`，或者执行 `oo skills install` 之后，Codex 中会生成内置的
+`oo` skill，位置在 `${CODEX_HOME:-~/.codex}/skills/oo`。
+
+然后你就可以在 Codex 中这样使用：
+
+```text
+$oo 帮我生成 OOMOL 字符串的二维码
+```
+
+也可以手动执行安装：
+
+```bash
+oo skills install
 ```
 
 ## 文档

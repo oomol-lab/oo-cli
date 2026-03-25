@@ -85,6 +85,15 @@ export const enMessages = {
     "commands.search.description":
         "Search packages with free-form text against the intent search API.",
     "commands.search.summary": "Search packages by intent",
+    "commands.skills.description":
+        "Install or remove bundled Codex-only skills from the local Codex directory.",
+    "commands.skills.summary": "Manage bundled Codex skills",
+    "commands.skills.install.description":
+        "Install one bundled Codex skill into the local Codex skills directory.",
+    "commands.skills.install.summary": "Install a bundled Codex skill",
+    "commands.skills.uninstall.description":
+        "Remove one bundled Codex skill from the local Codex skills directory.",
+    "commands.skills.uninstall.summary": "Remove a bundled Codex skill",
     "config.set.success": "Set {key} to {value}.",
     "config.unset.success": "Removed {key}.",
     "errors.commander.excessArguments": "Too many arguments were provided.",
@@ -196,6 +205,12 @@ export const enMessages = {
         "The package info request failed: {message}",
     "errors.packageInfo.requestFailed":
         "The package info request returned HTTP {status}.",
+    "errors.skills.codexNotInstalled":
+        "Codex is not installed. Expected the Codex home directory at {path}.",
+    "errors.skills.nameConflict":
+        "Skill name {name} is already used by a non-OOMOL Codex skill at {path}.",
+    "errors.skills.notInstalled":
+        "Codex skill {name} is not installed at {path}.",
     "errors.store.invalidToml":
         "The settings file at {path} is not valid TOML.",
     "errors.store.invalidSchema":
@@ -242,6 +257,8 @@ export const enMessages = {
         "Set how long to wait before timing out (default 6h, range 10s to 24h)",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
+    "skills.install.success": "Installed Codex skill {name} to {path}.",
+    "skills.uninstall.success": "Removed Codex skill {name} from {path}.",
     "versionInfo.version": "Version",
     "versionInfo.buildTime": "Build Time",
     "versionInfo.commit": "Commit",
@@ -250,6 +267,7 @@ export const enMessages = {
     "arguments.key": "Configuration key",
     "arguments.packageSpecifier": "Package specifier",
     "arguments.shell": "Target shell",
+    "arguments.skill": "Bundled skill name",
     "arguments.taskId": "Task id",
     "arguments.text": "Search text",
     "arguments.value": "Configuration value",
@@ -360,6 +378,12 @@ export const zhMessages = {
     "commands.package.summary": "包相关工具",
     "commands.search.description": "使用自由文本通过意图搜索 API 搜索包。",
     "commands.search.summary": "按意图搜索包",
+    "commands.skills.description": "在本地 Codex 目录中安装或移除内置的仅限 Codex 使用的 skill。",
+    "commands.skills.summary": "管理内置 Codex skill",
+    "commands.skills.install.description": "将一个内置 Codex skill 安装到本地 Codex skills 目录。",
+    "commands.skills.install.summary": "安装一个内置 Codex skill",
+    "commands.skills.uninstall.description": "从本地 Codex skills 目录移除一个内置 Codex skill。",
+    "commands.skills.uninstall.summary": "移除一个内置 Codex skill",
     "config.set.success": "已将 {key} 设置为 {value}。",
     "config.unset.success": "已移除 {key}。",
     "errors.commander.excessArguments": "提供了过多的参数。",
@@ -464,6 +488,12 @@ export const zhMessages = {
         "包信息请求失败：{message}",
     "errors.packageInfo.requestFailed":
         "包信息请求返回了 HTTP {status}。",
+    "errors.skills.codexNotInstalled":
+        "未检测到 Codex 安装。期望的 Codex 根目录为 {path}。",
+    "errors.skills.nameConflict":
+        "Skill 名称 {name} 已被 {path} 中的非 OOMOL Codex skill 占用。",
+    "errors.skills.notInstalled":
+        "Codex skill {name} 未安装在 {path}。",
     "errors.store.invalidToml": "配置文件 {path} 不是有效的 TOML。",
     "errors.store.invalidSchema": "配置文件 {path} 的结构不受支持。",
     "errors.store.readFailed": "读取配置文件 {path} 失败。",
@@ -505,6 +535,8 @@ export const zhMessages = {
     "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
+    "skills.install.success": "已将 Codex skill {name} 安装到 {path}。",
+    "skills.uninstall.success": "已从 {path} 移除 Codex skill {name}。",
     "versionInfo.version": "版本",
     "versionInfo.buildTime": "构建时间",
     "versionInfo.commit": "提交",
@@ -513,6 +545,7 @@ export const zhMessages = {
     "arguments.key": "配置键",
     "arguments.packageSpecifier": "包标识",
     "arguments.shell": "目标 shell",
+    "arguments.skill": "内置 skill 名称",
     "arguments.taskId": "任务 ID",
     "arguments.text": "搜索文本",
     "arguments.value": "配置值",

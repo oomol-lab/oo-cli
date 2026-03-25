@@ -82,6 +82,32 @@
 
 - 参数：`<key>` 为配置键。目前仅支持 `lang`。
 
+## Codex Skill
+
+### `oo skills install`
+
+将一个内置 skill 安装到本地 Codex skills 目录。
+
+- 内置 skill：`oo`。
+- 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
+- 元数据：安装时会在 skill 目录内写入一个隐藏的 `oo` 版本记录文件。
+- 说明：当 Codex 根目录不存在时，命令会直接报错退出，这表示当前机器上没有
+  安装 Codex。
+- 说明：只有当 `oo/agents/openai.yaml` 中包含 `OOMOL` 字符串时，`oo`
+  才会认为这是自己管理的 skill；否则会视为其他 skill，并拒绝覆盖。
+- 说明：如果这是 `oo` 的首次运行，且当前还没有已有的 config、auth、log
+  数据，那么只要 Codex 根目录已经存在，`oo` 就会静默自动安装这个受管
+  skill。
+- 说明：如果内置 skill 已经安装，`oo` 每次启动都会检查其记录版本是否与当前
+  CLI 版本一致；不一致时会静默刷新已安装的文件。
+
+### `oo skills uninstall`
+
+从本地 Codex skills 目录移除一个内置 skill。
+
+- 内置 skill：`oo`。
+- 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
+
 ## 日志
 
 ### `oo log path`
