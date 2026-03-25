@@ -375,6 +375,8 @@ export function buildCompileCommandArgs(
         "build",
         "--compile",
         "--bytecode",
+        "--format",
+        "esm",
         "--minify",
         "--no-compile-autoload-dotenv",
         "--no-compile-autoload-bunfig",

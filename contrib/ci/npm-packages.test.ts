@@ -247,6 +247,8 @@ describe("npm-packages", () => {
             "build",
             "--compile",
             "--bytecode",
+            "--format",
+            "esm",
             "--minify",
             "--no-compile-autoload-dotenv",
             "--no-compile-autoload-bunfig",
