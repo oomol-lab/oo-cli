@@ -4,6 +4,7 @@ import { cloudTaskListCommand } from "./list.ts";
 import { cloudTaskLogCommand } from "./log.ts";
 import { cloudTaskResultCommand } from "./result.ts";
 import { cloudTaskRunCommand } from "./run.ts";
+import { cloudTaskWaitCommand } from "./wait.ts";
 
 export const cloudTaskCommand: CliCommandDefinition = {
     name: "cloud-task",
@@ -11,6 +12,7 @@ export const cloudTaskCommand: CliCommandDefinition = {
     descriptionKey: "commands.cloudTask.description",
     children: [
         cloudTaskRunCommand,
+        cloudTaskWaitCommand,
         cloudTaskResultCommand,
         cloudTaskLogCommand,
         cloudTaskListCommand,

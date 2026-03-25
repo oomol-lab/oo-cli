@@ -106,6 +106,10 @@ export class CommanderCliAdapter {
             .description(context.translator.t(descriptionKey))
             .helpOption("-h, --help", context.translator.t("options.help"));
 
+        for (const alias of definition.aliases ?? []) {
+            command.alias(alias);
+        }
+
         if (definition.children?.length) {
             command.helpCommand(
                 "help [command]",

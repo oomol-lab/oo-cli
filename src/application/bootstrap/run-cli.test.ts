@@ -2304,6 +2304,143 @@ describe("runCli", () => {
         }
     });
 
+    test("supports cloud-task wait and its alias with timeout parsing", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+
+            const requests: Request[] = [];
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+
+                requests.push(request);
+
+                return new Response(JSON.stringify({
+                    resultData: {
+                        output: "ok",
+                    },
+                    status: "success",
+                }));
+            };
+
+            const waitResponse = await sandbox.run(
+                ["cloud-task", "wait", "task-1", "--timeout=360"],
+                {
+                    fetcher,
+                },
+            );
+            const aliasResponse = await sandbox.run(
+                ["cloud-task", "wati", "task-2", "--timeout=1m"],
+                {
+                    fetcher,
+                },
+            );
+
+            expect(waitResponse.exitCode).toBe(0);
+            expect(waitResponse.stderr).toBe("");
+            expect(createTerminalColors(true).strip(waitResponse.stdout)).toBe(
+                [
+                    "✓ success",
+                    "  Task ID: task-1",
+                    "  Result data:",
+                    "    {",
+                    "      \"output\": \"ok\"",
+                    "    }",
+                    "",
+                ].join("\n"),
+            );
+            expect(aliasResponse.exitCode).toBe(0);
+            expect(aliasResponse.stderr).toBe("");
+            expect(createTerminalColors(true).strip(aliasResponse.stdout)).toBe(
+                [
+                    "✓ success",
+                    "  Task ID: task-2",
+                    "  Result data:",
+                    "    {",
+                    "      \"output\": \"ok\"",
+                    "    }",
+                    "",
+                ].join("\n"),
+            );
+            expect(requests.map(request => request.url)).toEqual([
+                "https://cloud-task.oomol.com/v3/users/me/tasks/task-1/result",
+                "https://cloud-task.oomol.com/v3/users/me/tasks/task-2/result",
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("validates cloud-task wait timeout values", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+
+            let fetchCount = 0;
+            const result = await sandbox.run(
+                ["cloud-task", "wait", "task-1", "--timeout=9s"],
+                {
+                    fetcher: async () => {
+                        fetchCount += 1;
+
+                        return new Response(JSON.stringify({
+                            status: "success",
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Invalid value for --timeout: 9s. Use 10s to 24h, with optional s, m, or h suffixes.\n",
+            );
+            expect(fetchCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("treats omitted input handles with default values as optional in cloud-task run", async () => {
         const sandbox = await createCliSandbox();
 

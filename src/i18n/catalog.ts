@@ -40,6 +40,9 @@ export const enMessages = {
     "commands.cloudTask.run.description":
         "Validate input values and create a cloud task for a package block.",
     "commands.cloudTask.run.summary": "Create a cloud task",
+    "commands.cloudTask.wait.description":
+        "Wait for a cloud task to finish by polling its result.",
+    "commands.cloudTask.wait.summary": "Wait for cloud task completion",
     "commands.cloudTask.summary": "Manage cloud tasks",
     "commands.completion.description":
         "Output a shell completion script for a supported shell.",
@@ -118,6 +121,12 @@ export const enMessages = {
         "The cloud task request failed: {message}",
     "errors.cloudTask.requestFailed":
         "The cloud task request returned HTTP {status}.",
+    "errors.cloudTaskWait.failed":
+        "Cloud task {taskId} finished with a failed status.",
+    "errors.cloudTaskWait.invalidTimeout":
+        "Invalid value for {option}: {value}. Use 10s to 24h, with optional s, m, or h suffixes.",
+    "errors.cloudTaskWait.timedOut":
+        "Timed out after {timeout} while waiting for cloud task {taskId}.",
     "errors.cloudTaskList.blockIdRequiresPackageId":
         "You must provide --package-id (or --package-name) when using --block-id.",
     "errors.cloudTaskList.conflictingOptionValues":
@@ -229,6 +238,8 @@ export const enMessages = {
     "options.page": "Specify the log page number",
     "options.size": "Specify the number of items per page",
     "options.status": "Filter by task status",
+    "options.timeout":
+        "Set how long to wait before timing out (default 6h, range 10s to 24h)",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
     "versionInfo.version": "Version",
@@ -256,6 +267,8 @@ export const enMessages = {
     "cloudTask.text.taskId": "Task ID",
     "cloudTask.text.createdAt": "Created",
     "cloudTask.text.updatedAt": "Updated",
+    "cloudTask.text.waitingForCompletion":
+        "Waiting for completion after {elapsed}.",
     "cloudTask.text.workload": "Workload",
     "cloudTask.status.failed": "failed",
     "cloudTask.status.running": "running",
@@ -313,6 +326,8 @@ export const zhMessages = {
     "commands.cloudTask.result.summary": "显示云任务结果",
     "commands.cloudTask.run.description": "校验输入值并为包内 block 创建云任务。",
     "commands.cloudTask.run.summary": "创建云任务",
+    "commands.cloudTask.wait.description": "通过轮询任务结果等待云任务结束。",
+    "commands.cloudTask.wait.summary": "等待云任务完成",
     "commands.cloudTask.summary": "管理云任务",
     "commands.completion.description": "输出受支持 shell 的补全脚本。",
     "commands.completion.summary": "生成 shell 补全脚本",
@@ -374,6 +389,12 @@ export const zhMessages = {
         "云任务请求失败：{message}",
     "errors.cloudTask.requestFailed":
         "云任务请求返回了 HTTP {status}。",
+    "errors.cloudTaskWait.failed":
+        "云任务 {taskId} 以失败状态结束。",
+    "errors.cloudTaskWait.invalidTimeout":
+        "{option} 的值无效：{value}。请使用 10s 到 24h 之间的值，可选后缀为 s、m 或 h。",
+    "errors.cloudTaskWait.timedOut":
+        "等待云任务 {taskId} 超时，已达到 {timeout}。",
     "errors.cloudTaskList.blockIdRequiresPackageId":
         "使用 --block-id 时必须同时提供 --package-id（或 --package-name）。",
     "errors.cloudTaskList.conflictingOptionValues":
@@ -481,6 +502,7 @@ export const zhMessages = {
     "options.page": "指定日志页码",
     "options.size": "指定每页数量",
     "options.status": "按任务状态过滤",
+    "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
     "versionInfo.version": "版本",
@@ -508,6 +530,7 @@ export const zhMessages = {
     "cloudTask.text.taskId": "任务 ID",
     "cloudTask.text.createdAt": "创建时间",
     "cloudTask.text.updatedAt": "更新时间",
+    "cloudTask.text.waitingForCompletion": "已等待 {elapsed}，任务仍在进行中。",
     "cloudTask.text.workload": "工作负载",
     "cloudTask.status.failed": "失败",
     "cloudTask.status.running": "运行中",

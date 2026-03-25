@@ -187,6 +187,21 @@ Show the current result for one task.
   `json`.
 - Options: `--json` is an alias for `--format=json`.
 
+### `oo cloud-task wait <taskId>`
+
+Wait for one task to reach a terminal state by polling its result every
+`3 seconds`.
+
+- Arguments: `<taskId>` is the task ID.
+- Options: `--timeout <timeout>` sets the wait timeout. The default is `6h`.
+  The minimum is `10s` and the maximum is `24h`. Supported formats include
+  `1m`, `4h`, `120s`, and `360` (seconds are used when no suffix is provided).
+- Notes: the command exits when the task succeeds, fails, or the timeout is
+  reached.
+- Notes: while the task is still running, the CLI prints a status snapshot
+  immediately, then every `1 minute` during the first hour, every `3 minutes`
+  from `1h` to `3h`, and every `5 minutes` after `3h`.
+
 ## Shell Completion
 
 ### `oo completion <shell>`

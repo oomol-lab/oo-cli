@@ -19,6 +19,38 @@ export function formatCloudTaskResultAsText(
     response: CloudTaskResultResponse,
     context: CloudTaskTextContext,
 ): string {
+    return formatCloudTaskResultLines(taskId, response, context).join("\n");
+}
+
+export function formatCloudTaskWaitUpdateAsText(
+    taskId: string,
+    response: Extract<
+        CloudTaskResultResponse,
+        {
+            status: "queued" | "running" | "scheduled" | "scheduling";
+        }
+    >,
+    elapsedMs: number,
+    context: CloudTaskTextContext,
+): string {
+    return [
+        context.translator.t("cloudTask.text.waitingForCompletion", {
+            elapsed: formatCloudTaskDuration(elapsedMs),
+        }),
+        ...formatCloudTaskResultLines(taskId, response, context, {
+            hideZeroProgress: true,
+        }),
+    ].join("\n");
+}
+
+function formatCloudTaskResultLines(
+    taskId: string,
+    response: CloudTaskResultResponse,
+    context: CloudTaskTextContext,
+    options: {
+        hideZeroProgress?: boolean;
+    } = {},
+): string[] {
     const colors = createCloudTaskColors(context);
     const lines = [readCloudTaskHeading(response.status, context, colors)];
 
@@ -35,13 +67,19 @@ export function formatCloudTaskResultAsText(
         case "scheduling":
         case "scheduled":
         case "running":
-            lines.push(
-                formatCloudTaskDetailLine(
-                    context.translator.t("cloudTask.text.progress"),
-                    formatCloudTaskProgress(response.progress, response.status, colors),
-                    colors,
-                ),
-            );
+            if (!(options.hideZeroProgress === true && response.progress === 0)) {
+                lines.push(
+                    formatCloudTaskDetailLine(
+                        context.translator.t("cloudTask.text.progress"),
+                        formatCloudTaskProgress(
+                            response.progress,
+                            response.status,
+                            colors,
+                        ),
+                        colors,
+                    ),
+                );
+            }
             break;
         case "success":
             if (response.resultURL) {
@@ -77,7 +115,7 @@ export function formatCloudTaskResultAsText(
             break;
     }
 
-    return lines.join("\n");
+    return lines;
 }
 
 export function formatCloudTaskListAsText(
@@ -297,6 +335,28 @@ function formatCloudTaskProgress(
 
 function formatCloudTaskTimestamp(timestamp: number): string {
     return new Date(timestamp).toISOString();
+}
+
+export function formatCloudTaskDuration(durationMs: number): string {
+    const totalSeconds = Math.max(0, Math.round(durationMs / 1_000));
+    const hours = Math.floor(totalSeconds / 3_600);
+    const minutes = Math.floor((totalSeconds % 3_600) / 60);
+    const seconds = totalSeconds % 60;
+    const parts: string[] = [];
+
+    if (hours > 0) {
+        parts.push(`${hours}h`);
+    }
+
+    if (minutes > 0) {
+        parts.push(`${minutes}m`);
+    }
+
+    if (seconds > 0 || parts.length === 0) {
+        parts.push(`${seconds}s`);
+    }
+
+    return parts.join(" ");
 }
 
 function colorizeCloudTaskByStatus(

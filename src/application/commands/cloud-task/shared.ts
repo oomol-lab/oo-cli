@@ -163,6 +163,82 @@ export function parsePositiveIntegerOption(
     return parsedValue;
 }
 
+export function parseDurationOption(
+    value: string | undefined,
+    errorKey: string,
+    options: {
+        defaultUnit?: "s" | "m" | "h";
+        maxMs?: number;
+        minMs?: number;
+        optionName: string;
+    },
+): number | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+
+    const trimmedValue = value.trim();
+
+    if (trimmedValue === "") {
+        throw new CliUserError(errorKey, 2, {
+            option: options.optionName,
+            value,
+        });
+    }
+
+    let unitIndex = 0;
+
+    while (
+        unitIndex < trimmedValue.length
+        && isAsciiDigit(trimmedValue.charCodeAt(unitIndex))
+    ) {
+        unitIndex += 1;
+    }
+
+    if (unitIndex === 0) {
+        throw new CliUserError(errorKey, 2, {
+            option: options.optionName,
+            value,
+        });
+    }
+
+    const amountValue = Number(trimmedValue.slice(0, unitIndex));
+    const unitValue = trimmedValue
+        .slice(unitIndex)
+        .toLowerCase() as "" | "s" | "m" | "h";
+
+    if (!Number.isSafeInteger(amountValue) || amountValue <= 0) {
+        throw new CliUserError(errorKey, 2, {
+            option: options.optionName,
+            value,
+        });
+    }
+
+    const durationUnit = readDurationUnit(unitValue, options.defaultUnit);
+
+    if (durationUnit === undefined) {
+        throw new CliUserError(errorKey, 2, {
+            option: options.optionName,
+            value,
+        });
+    }
+
+    const durationMs = amountValue * readDurationUnitMs(durationUnit);
+
+    if (
+        !Number.isSafeInteger(durationMs)
+        || durationMs < (options.minMs ?? 1_000)
+        || (options.maxMs !== undefined && durationMs > options.maxMs)
+    ) {
+        throw new CliUserError(errorKey, 2, {
+            option: options.optionName,
+            value,
+        });
+    }
+
+    return durationMs;
+}
+
 export function createCloudTaskTasksUrl(endpoint: string): URL {
     return new URL(`https://cloud-task.${endpoint}/v3/users/me/tasks`);
 }
@@ -304,4 +380,34 @@ function parseCloudTaskResponse<T>(
     catch {
         throw new CliUserError("errors.cloudTask.invalidResponse", 1);
     }
+}
+
+function readDurationUnit(
+    value: string,
+    defaultUnit: "s" | "m" | "h" = "s",
+): "s" | "m" | "h" | undefined {
+    if (value === "") {
+        return defaultUnit;
+    }
+
+    if (value === "s" || value === "m" || value === "h") {
+        return value;
+    }
+
+    return undefined;
+}
+
+function readDurationUnitMs(unit: "s" | "m" | "h"): number {
+    switch (unit) {
+        case "s":
+            return 1_000;
+        case "m":
+            return 60_000;
+        case "h":
+            return 3_600_000;
+    }
+}
+
+function isAsciiDigit(characterCode: number): boolean {
+    return characterCode >= 48 && characterCode <= 57;
 }
