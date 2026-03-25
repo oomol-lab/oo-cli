@@ -23,7 +23,7 @@ export interface StorePaths {
     settingsFilePath: string;
 }
 
-function resolveHomeDirectory(
+export function resolveHomeDirectory(
     env: Record<string, string | undefined>,
     explicitHomeDirectory?: string,
 ): string {

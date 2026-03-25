@@ -7,6 +7,10 @@ import { describe, expect, test } from "bun:test";
 import { createCliSandbox, createTextBuffer } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
+import {
+    resolveBundledSkillVersionFilePath,
+    resolveCodexHomeDirectory,
+} from "../commands/skills/shared.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
@@ -114,6 +118,102 @@ describe("runCli", () => {
             expect(firstLine).toContain(`"command":"--help"`);
             expect(content).toContain(`"msg":"CLI invocation started."`);
             expect(content).toContain(`"msg":"CLI invocation completed."`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("silently installs the managed Codex skill on the first run", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["--help"], {
+                version: "9.9.9",
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).not.toContain("Installed Codex skill");
+            expect(result.stderr).toBe("");
+            await expect(stat(join(skillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
+                isFile: expect.any(Function),
+            });
+            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: false",
+            );
+            expect(await readFile(versionFilePath, "utf8")).toBe("9.9.9\n");
+            expect(content).toContain(`"msg":"CLI first-run detection completed."`);
+            expect(content).toContain(`"isFirstRun":true`);
+            expect(content).toContain(`"shouldInstallMissingBundledSkills":true`);
+            expect(content).toContain(
+                `"msg":"Bundled Codex skill installed during first-run bootstrap."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not auto-install the managed Codex skill for skills subcommands", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "uninstall"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                `Codex skill oo is not installed at ${skillDirectoryPath}.\n`,
+            );
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("writes explicit skills install and uninstall logs", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const installResult = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+            const installContent = await readLatestLogContent(sandbox);
+            const uninstallResult = await sandbox.run(["skills", "uninstall"]);
+            const uninstallContent = await readLatestLogContent(sandbox);
+
+            expect(installResult.exitCode).toBe(0);
+            expect(installContent).toContain(
+                `"msg":"Bundled Codex skill installed explicitly."`,
+            );
+            expect(installContent).toContain(`"skillName":"oo"`);
+            expect(installContent).toContain(`"path":"${skillDirectoryPath}"`);
+            expect(installContent).toContain(`"version":"9.9.9"`);
+
+            expect(uninstallResult.exitCode).toBe(0);
+            expect(uninstallContent).toContain(
+                `"msg":"Bundled Codex skill removed explicitly."`,
+            );
+            expect(uninstallContent).toContain(`"skillName":"oo"`);
+            expect(uninstallContent).toContain(`"path":"${skillDirectoryPath}"`);
         }
         finally {
             await sandbox.cleanup();

@@ -9,6 +9,7 @@ import type {
 } from "../contracts/cli.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 import type { LogCategory } from "../logging/log-categories.ts";
+import { readdir, stat } from "node:fs/promises";
 import process from "node:process";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { SqliteCacheStore } from "../../adapters/cache/sqlite-cache.ts";
@@ -25,6 +26,7 @@ import {
 } from "../../i18n/locale.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import { createCliCatalog } from "../commands/catalog.ts";
+import { maybeSynchronizeInstalledBundledSkills } from "../commands/skills/shared.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import {
     formatCliVersionText,
@@ -73,6 +75,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         env: invocation.env,
         platform: process.platform,
     });
+    const firstRunDetection = await detectFirstRun(storePaths);
     const bootstrapTranslator = createTranslator(
         resolvePreferredLocale({
             cliFlag: parsedCliLanguage,
@@ -141,6 +144,10 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         const packageName = invocation.packageName ?? packageManifest.name;
         const buildInfo = resolveCliBuildInfo(packageManifest.version);
         const version = invocation.version ?? buildInfo.version;
+        const primaryCommandName = resolvePrimaryCommandName(invocation.argv);
+        const shouldInstallMissingBundledSkills
+            = firstRunDetection.isFirstRun
+                && primaryCommandName !== "skills";
 
         logger.debug(
             {
@@ -149,6 +156,17 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 version,
             },
             "CLI invocation started.",
+        );
+        logger.debug(
+            {
+                hasAuthFile: firstRunDetection.hasAuthFile,
+                hasLogFiles: firstRunDetection.hasLogFiles,
+                hasSettingsFile: firstRunDetection.hasSettingsFile,
+                isFirstRun: firstRunDetection.isFirstRun,
+                primaryCommandName: primaryCommandName ?? "",
+                shouldInstallMissingBundledSkills,
+            },
+            "CLI first-run detection completed.",
         );
 
         const context: CliExecutionContext = {
@@ -176,6 +194,13 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 translator,
             ),
         };
+        await maybeSynchronizeInstalledBundledSkills(
+            context,
+            {
+                installMissing: shouldInstallMissingBundledSkills,
+            },
+        );
+
         const adapter = new CommanderCliAdapter();
 
         exitCode = await adapter.run({
@@ -256,6 +281,80 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
 
 function hasCliDebugFlag(argv: readonly string[]): boolean {
     return argv.includes("--debug");
+}
+
+function resolvePrimaryCommandName(argv: readonly string[]): string | undefined {
+    for (let index = 0; index < argv.length; index += 1) {
+        const token = argv[index];
+
+        if (token === "--lang") {
+            index += 1;
+            continue;
+        }
+
+        if (token?.startsWith("-")) {
+            continue;
+        }
+
+        return token;
+    }
+
+    return undefined;
+}
+
+async function detectFirstRun(storePaths: {
+    authFilePath: string;
+    logDirectoryPath: string;
+    settingsFilePath: string;
+}): Promise<{
+    hasAuthFile: boolean;
+    hasLogFiles: boolean;
+    hasSettingsFile: boolean;
+    isFirstRun: boolean;
+}> {
+    const [hasSettingsFile, hasAuthFile, hasLogFiles] = await Promise.all([
+        pathExists(storePaths.settingsFilePath),
+        pathExists(storePaths.authFilePath),
+        directoryHasEntries(storePaths.logDirectoryPath),
+    ]);
+
+    return {
+        hasAuthFile,
+        hasLogFiles,
+        hasSettingsFile,
+        isFirstRun: !hasSettingsFile && !hasAuthFile && !hasLogFiles,
+    };
+}
+
+async function pathExists(path: string): Promise<boolean> {
+    try {
+        await stat(path);
+        return true;
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return false;
+        }
+
+        throw error;
+    }
+}
+
+async function directoryHasEntries(path: string): Promise<boolean> {
+    try {
+        return (await readdir(path)).length > 0;
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return false;
+        }
+
+        throw error;
+    }
+}
+
+function isNodeNotFoundError(error: unknown): error is NodeJS.ErrnoException {
+    return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 function resolveCliErrorLogCategory(error: CliUserError): LogCategory {

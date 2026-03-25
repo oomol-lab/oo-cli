@@ -14,12 +14,38 @@ inspection, cloud task execution, and shell completion generation.
 ## Installation
 
 ```bash
-npm install -g @oomol-lab/oo-cli
-# or
-pnpm add -g @oomol-lab/oo-cli
-# or
 bun install -g @oomol-lab/oo-cli
-oo --help
+```
+
+## Quick Start
+
+1. Log in:
+
+```bash
+oo login
+```
+
+2. Open Codex and start working with:
+
+```text
+$oo generate a QR code for the string OOMOL
+```
+
+## Codex Skills
+
+On the first `oo` launch, or after running `oo skills install`, Codex will get
+the bundled `oo` skill under `${CODEX_HOME:-~/.codex}/skills/oo`.
+
+Then you can use it in Codex, for example:
+
+```text
+$oo generate a QR code for the string OOMOL
+```
+
+You can also install it explicitly with:
+
+```bash
+oo skills install
 ```
 
 ## Documentation
