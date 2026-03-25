@@ -363,14 +363,14 @@ describe("runCli", () => {
         }
     });
 
-    test("writes update-check lifecycle logs when a newer release is available", async () => {
+    test("writes update-check lifecycle logs when check-update finds a newer release", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             sandbox.env.npm_config_user_agent = "pnpm/10.0.0 node/v22.0.0";
 
             const result = await sandbox.run(
-                ["config", "path"],
+                ["check-update"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         "dist-tags": {
@@ -378,7 +378,7 @@ describe("runCli", () => {
                         },
                     })),
                     packageName,
-                    stderr: {
+                    stdout: {
                         isTTY: true,
                     },
                     version: "1.0.0",
@@ -397,6 +397,147 @@ describe("runCli", () => {
             expect(content).toContain(`"msg":"CLI update latest-release cache stored."`);
             expect(content).toContain(`"msg":"CLI update notice emitted."`);
             expect(content).toContain(`"latestVersion":"1.2.0"`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not automatically check for updates after unrelated commands", async () => {
+        const sandbox = await createCliSandbox();
+        let fetchCount = 0;
+
+        try {
+            const result = await sandbox.run(
+                ["config", "path"],
+                {
+                    fetcher: async () => {
+                        fetchCount += 1;
+                        throw new Error("fetch should not be called");
+                    },
+                },
+            );
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(fetchCount).toBe(0);
+            expect(content).not.toContain(`"msg":"CLI update check started."`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("retries once before printing a retry-later message", async () => {
+        const sandbox = await createCliSandbox();
+        let fetchCount = 0;
+
+        try {
+            const fetcher = async () => {
+                fetchCount += 1;
+                throw new Error("temporary network failure");
+            };
+            const firstResult = await sandbox.run(
+                ["check-update"],
+                {
+                    fetcher,
+                    version: "1.0.0",
+                },
+            );
+            const secondResult = await sandbox.run(
+                ["check-update"],
+                {
+                    fetcher,
+                    version: "1.0.0",
+                },
+            );
+
+            expect(firstResult.exitCode).toBe(0);
+            expect(firstResult.stdout).toContain(
+                "Unable to check for updates right now. Please try again later.",
+            );
+            expect(firstResult.stderr).toBe("");
+            expect(secondResult.exitCode).toBe(0);
+            expect(secondResult.stdout).toContain(
+                "Unable to check for updates right now. Please try again later.",
+            );
+            expect(secondResult.stderr).toBe("");
+            expect(fetchCount).toBe(4);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not cache failed update checks between check-update invocations", async () => {
+        const sandbox = await createCliSandbox();
+        let fetchCount = 0;
+
+        try {
+            const firstResult = await sandbox.run(
+                ["check-update"],
+                {
+                    fetcher: async () => {
+                        fetchCount += 1;
+
+                        if (fetchCount <= 2) {
+                            throw new Error("temporary network failure");
+                        }
+
+                        return new Response(JSON.stringify({
+                            "dist-tags": {
+                                latest: "1.2.0",
+                            },
+                        }));
+                    },
+                    version: "1.0.0",
+                },
+            );
+            const secondResult = await sandbox.run(
+                ["check-update"],
+                {
+                    fetcher: async () => {
+                        fetchCount += 1;
+
+                        return new Response(JSON.stringify({
+                            "dist-tags": {
+                                latest: "1.2.0",
+                            },
+                        }));
+                    },
+                    version: "1.0.0",
+                },
+            );
+
+            expect(firstResult.exitCode).toBe(0);
+            expect(firstResult.stdout).toContain(
+                "Unable to check for updates right now. Please try again later.",
+            );
+            expect(secondResult.exitCode).toBe(0);
+            expect(secondResult.stdout).toContain("Update available 1.0.0");
+            expect(fetchCount).toBe(3);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints a friendly message when check-update receives an unsupported version", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["check-update"],
+                {
+                    version: "development",
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Current version development does not support update checks.",
+            );
+            expect(result.stderr).toBe("");
         }
         finally {
             await sandbox.cleanup();
@@ -3231,11 +3372,6 @@ describe("runCli", () => {
                     "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                     "# lang = \"en\"",
                     "",
-                    "# updateNotifier controls whether the CLI checks for newer releases and shows upgrade notices.",
-                    "# Supported values: true, false.",
-                    "# Default: true.",
-                    "# updateNotifier = false",
-                    "",
                 ].join("\n"),
             );
         }
@@ -3249,14 +3385,8 @@ describe("runCli", () => {
 
         try {
             const invalidLang = await sandbox.run(["--lang", "fr", "--help"]);
-            const invalidKey = await sandbox.run(["config", "get", "theme"]);
+            const invalidKey = await sandbox.run(["config", "get", "update-notifier"]);
             const invalidConfigValue = await sandbox.run(["config", "set", "lang", "fr"]);
-            const invalidUpdateNotifierValue = await sandbox.run([
-                "config",
-                "set",
-                "update-notifier",
-                "maybe",
-            ]);
             const unknownCommand = await sandbox.run(["cnfig"]);
 
             expect(invalidLang.exitCode).toBe(2);
@@ -3268,11 +3398,6 @@ describe("runCli", () => {
 
             expect(invalidConfigValue.exitCode).toBe(2);
             expect(invalidConfigValue.stderr).toContain("Invalid lang value");
-
-            expect(invalidUpdateNotifierValue.exitCode).toBe(2);
-            expect(invalidUpdateNotifierValue.stderr).toContain(
-                "Invalid update-notifier value",
-            );
 
             expect(unknownCommand.exitCode).toBe(2);
             expect(unknownCommand.stderr).toContain("Unknown command");

@@ -31,11 +31,6 @@ describe("FileSettingsStore", () => {
                 "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                 "# lang = \"en\"",
                 "",
-                "# updateNotifier controls whether the CLI checks for newer releases and shows upgrade notices.",
-                "# Supported values: true, false.",
-                "# Default: true.",
-                "# updateNotifier = false",
-                "",
             ].join("\n"),
         );
     });
@@ -53,7 +48,6 @@ describe("FileSettingsStore", () => {
 
         await store.write({
             lang: "zh",
-            updateNotifier: false,
         });
 
         expect(store.getFilePath()).toEndWith("settings.toml");
@@ -64,18 +58,12 @@ describe("FileSettingsStore", () => {
                 "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                 "# lang = \"en\"",
                 "",
-                "# updateNotifier controls whether the CLI checks for newer releases and shows upgrade notices.",
-                "# Supported values: true, false.",
-                "# Default: true.",
-                "# updateNotifier = false",
                 "lang = \"zh\"",
-                "updateNotifier = false",
                 "",
             ].join("\n"),
         );
         expect(await store.read()).toEqual({
             lang: "zh",
-            updateNotifier: false,
         });
     });
 
@@ -99,16 +87,11 @@ describe("FileSettingsStore", () => {
                 "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                 "# lang = \"en\"",
                 "",
-                "# updateNotifier controls whether the CLI checks for newer releases and shows upgrade notices.",
-                "# Supported values: true, false.",
-                "# Default: true.",
-                "# updateNotifier = false",
-                "",
             ].join("\n"),
         );
     });
 
-    test("reads TOML settings", async () => {
+    test("rejects legacy TOML settings that still include updateNotifier", async () => {
         const root = await createTemporaryDirectory("store-toml");
         const store = new FileSettingsStore({
             appName: APP_NAME,
@@ -126,10 +109,9 @@ describe("FileSettingsStore", () => {
             "utf8",
         );
 
-        expect(await store.read()).toEqual({
-            lang: "zh",
-            updateNotifier: false,
-        });
+        await expect(store.read()).rejects.toMatchObject({
+            key: "errors.store.invalidSchema",
+        } satisfies Partial<CliUserError>);
     });
 
     test("rejects invalid TOML files", async () => {

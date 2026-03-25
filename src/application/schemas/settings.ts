@@ -8,11 +8,9 @@ import {
 
 export const localeSchema = z.enum(supportedLocaleValues);
 export const shellSchema = z.enum(supportedShellValues);
-export const updateNotifierSchema = z.boolean();
 
 export const settingsFileSchema = z.object({
     lang: localeSchema.optional(),
-    updateNotifier: updateNotifierSchema.optional(),
 }).strict();
 
 export type AppSettings = z.output<typeof settingsFileSchema>;
@@ -24,11 +22,6 @@ const defaultSettingsCommentBlock = [
     "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
     "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
     "# lang = \"en\"",
-    "",
-    "# updateNotifier controls whether the CLI checks for newer releases and shows upgrade notices.",
-    "# Supported values: true, false.",
-    "# Default: true.",
-    "# updateNotifier = false",
 ].join("\n");
 
 export function renderSettingsFile(settings: AppSettings): string {
@@ -40,16 +33,11 @@ export function renderSettingsFile(settings: AppSettings): string {
                     lang: parsedSettings.lang,
                 }
             : {}),
-        ...(parsedSettings.updateNotifier !== undefined
-            ? {
-                    updateNotifier: parsedSettings.updateNotifier,
-                }
-            : {}),
     };
     const serializedSettings = stringifyToml(persistedSettings).trimEnd();
 
     if (serializedSettings !== "") {
-        lines.push(serializedSettings);
+        lines.push("", serializedSettings);
     }
 
     return `${lines.join("\n")}\n`;

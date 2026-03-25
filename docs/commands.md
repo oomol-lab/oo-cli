@@ -20,7 +20,7 @@ Project overview: [README.md](../README.md)
   Linux: `${XDG_STATE_HOME:-~/.local/state}/oo/logs`
   Windows: `%LOCALAPPDATA%\\oo\\Logs`
 - The debug logs include request lifecycles for remote APIs, browser-login
-  callback events, update-check decisions, persisted settings/auth store
+  callback events, explicit update checks, persisted settings/auth store
   changes, and sqlite cache activity.
 - Error-oriented log entries also include a `category` field so user-facing
   failures, system failures, and recoverable cache issues can be filtered
@@ -87,6 +87,22 @@ Persist one configuration value.
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported value: `lang`.
+
+## Updates
+
+### `oo check-update`
+
+Check whether a newer CLI release is available.
+
+- Notes: when a newer release is found, the CLI prints the recommended upgrade
+  command for the current package manager.
+- Notes: when the current release is already the latest one, the CLI prints a
+  confirmation message.
+- Notes: transient request failures are retried once before the CLI gives up.
+- Notes: when the registry is temporarily unavailable, the CLI prints a
+  retry-later message instead of exiting with an error.
+- Notes: failed checks are not cached, so running the command again retries
+  immediately.
 
 ## Codex Skills
 

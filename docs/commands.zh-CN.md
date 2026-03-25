@@ -17,8 +17,8 @@
   macOS：`~/Library/Logs/oo`
   Linux：`${XDG_STATE_HOME:-~/.local/state}/oo/logs`
   Windows：`%LOCALAPPDATA%\\oo\\Logs`
-- Debug 日志会覆盖远端 API 请求生命周期、浏览器登录回调事件、更新检查的关键
-  决策，以及 settings/auth 持久化状态变化和 sqlite cache 活动。
+- Debug 日志会覆盖远端 API 请求生命周期、浏览器登录回调事件、显式更新检查，
+  以及 settings/auth 持久化状态变化和 sqlite cache 活动。
 - 偏错误类的日志还会带上 `category` 字段，便于快速筛选用户错误、系统错误和可
   恢复的 cache 问题。
   当前会用到的值包括 `user_error`、`system_error`、`recoverable_cache`。
@@ -81,6 +81,18 @@
 删除一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前仅支持 `lang`。
+
+## 更新
+
+### `oo check-update`
+
+检查是否有新的 CLI 版本可用。
+
+- 说明：如果发现了新版本，CLI 会输出适用于当前包管理器的升级命令。
+- 说明：如果当前版本已经是最新版本，CLI 会输出确认信息。
+- 说明：如果遇到瞬时请求失败，CLI 会先自动重试一次。
+- 说明：如果注册表暂时不可用，CLI 会输出稍后重试的提示，而不是直接报错退出。
+- 说明：失败的检查结果不会被缓存，因此再次执行命令会立即重新尝试。
 
 ## Codex Skill
 

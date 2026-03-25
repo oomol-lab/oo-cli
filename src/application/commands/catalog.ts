@@ -2,6 +2,7 @@ import type { CliCatalog } from "../contracts/cli.ts";
 
 import { APP_NAME } from "../config/app-config.ts";
 import { authCommand } from "./auth/index.ts";
+import { checkUpdateCommand } from "./check-update.ts";
 import { cloudTaskCommand } from "./cloud-task/index.ts";
 import { completionCommand } from "./completion.ts";
 import { configCommand } from "./config/index.ts";
@@ -35,6 +36,7 @@ export function createCliCatalog(): CliCatalog {
         globalOptions,
         commands: [
             authCommand,
+            checkUpdateCommand,
             cloudTaskCommand,
             loginCommand,
             logoutCommand,

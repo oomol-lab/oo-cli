@@ -35,7 +35,6 @@ import {
 import { CliUserError } from "../contracts/cli.ts";
 import { logCategory } from "../logging/log-categories.ts";
 import { withCategory, withErrorKey } from "../logging/log-fields.ts";
-import { maybeNotifyAboutCliUpdate } from "../update/update-notifier.ts";
 
 export interface CliInvocation {
     argv: readonly string[];
@@ -208,13 +207,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             catalog,
             context,
         });
-
-        if (exitCode === 0) {
-            await maybeNotifyAboutCliUpdate({
-                argv: invocation.argv,
-                context,
-            });
-        }
     }
     catch (error) {
         if (error instanceof CliUserError) {

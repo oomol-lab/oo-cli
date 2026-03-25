@@ -1,4 +1,4 @@
-import type { CliExecutionContext, Fetcher } from "../contracts/cli.ts";
+import type { CliExecutionContext, Fetcher, Writer } from "../contracts/cli.ts";
 
 import type { TerminalColors } from "../terminal-colors.ts";
 import { APP_NAME } from "../config/app-config.ts";
@@ -6,29 +6,21 @@ import { createWriterColors } from "../terminal-colors.ts";
 
 const defaultRegistryUrl = "https://registry.npmjs.org/";
 const latestReleaseCacheTtlMs = 1000 * 60 * 60 * 24;
-const updateNoticeCacheTtlMs = 1000 * 60 * 60 * 24;
-const updateFailureCacheTtlMs = 1000 * 60 * 60;
-const updateRequestTimeoutMs = 800;
+const updateRequestTimeoutMs = 2000;
+const updateRequestMaxAttempts = 2;
 
 interface LatestReleaseCacheValue {
     latestVersion: string;
 }
 
-interface UpdateNotifierOptions {
-    argv: readonly string[];
-    context: CliExecutionContext;
+interface LatestReleaseRequestFailure {
+    retryable: boolean;
+    status: "failed";
 }
 
-interface UpdateCheckDecision {
-    allowed: boolean;
-    reason:
-        | "ci"
-        | "disabled-in-settings"
-        | "enabled"
-        | "help-or-version"
-        | "invalid-current-version"
-        | "not-tty"
-        | "opted-out";
+interface LatestReleaseRequestSuccess {
+    latestVersion: string;
+    status: "success";
 }
 
 interface ParsedReleaseVersion {
@@ -36,108 +28,102 @@ interface ParsedReleaseVersion {
     prerelease: readonly (number | string)[];
 }
 
-export async function maybeNotifyAboutCliUpdate(
-    options: UpdateNotifierOptions,
-): Promise<void> {
-    try {
-        const decision = await resolveUpdateCheckDecision(options);
+export type CliUpdateCheckResult
+    = | {
+        status: "failed";
+        reason:
+            | "invalid-current-version"
+            | "latest-version-unavailable"
+            | "unexpected-error";
+    }
+    | {
+        status: "up-to-date";
+        latestVersion: string;
+    }
+    | {
+        status: "update-available";
+        latestVersion: string;
+    };
 
-        if (!decision.allowed) {
-            options.context.logger.debug(
+export async function checkForCliUpdate(
+    context: CliExecutionContext,
+): Promise<CliUpdateCheckResult> {
+    try {
+        if (parseReleaseVersion(context.version) === null) {
+            context.logger.debug(
                 {
-                    reason: decision.reason,
+                    currentVersion: context.version,
                 },
-                "CLI update check skipped.",
+                "CLI update check skipped because the current version is invalid.",
             );
-            return;
+            return {
+                reason: "invalid-current-version",
+                status: "failed",
+            };
         }
 
-        options.context.logger.debug(
+        context.logger.debug(
             {
-                currentVersion: options.context.version,
-                packageName: options.context.packageName,
+                currentVersion: context.version,
+                packageName: context.packageName,
             },
             "CLI update check started.",
         );
-        const latestVersion = await resolveLatestReleaseVersion(options.context);
+        const latestVersion = await resolveLatestReleaseVersion(context);
 
         if (latestVersion === null) {
-            options.context.logger.debug(
+            context.logger.debug(
                 {
-                    currentVersion: options.context.version,
+                    currentVersion: context.version,
                 },
                 "CLI update check did not resolve a latest version.",
             );
-            return;
+            return {
+                reason: "latest-version-unavailable",
+                status: "failed",
+            };
         }
 
-        if (compareReleaseVersions(latestVersion, options.context.version) <= 0) {
-            options.context.logger.debug(
+        if (compareReleaseVersions(latestVersion, context.version) <= 0) {
+            context.logger.debug(
                 {
-                    currentVersion: options.context.version,
+                    currentVersion: context.version,
                     latestVersion,
                 },
                 "CLI update check found no newer version.",
             );
-            return;
+            return {
+                latestVersion,
+                status: "up-to-date",
+            };
         }
 
-        const updateNoticeCache = options.context.cacheStore.getCache<true>({
-            id: "cli-update-notice",
-            defaultTtlMs: updateNoticeCacheTtlMs,
-            maxEntries: 8,
-        });
-        const updateNoticeKey = [
-            options.context.version,
+        return {
             latestVersion,
-        ].join(":");
-
-        if (updateNoticeCache.has(updateNoticeKey)) {
-            options.context.logger.debug(
-                {
-                    currentVersion: options.context.version,
-                    latestVersion,
-                },
-                "CLI update notice was already shown for this version pair.",
-            );
-            return;
-        }
-
-        updateNoticeCache.set(updateNoticeKey, true);
-        options.context.stderr.write(
-            renderUpdateNotice({
-                context: options.context,
-                latestVersion,
-                updateCommand: resolvePackageManagerUpgradeCommand(
-                    options.context.env,
-                    options.context.packageName,
-                ),
-            }),
-        );
-        options.context.logger.info(
-            {
-                currentVersion: options.context.version,
-                latestVersion,
-            },
-            "CLI update notice emitted.",
-        );
+            status: "update-available",
+        };
     }
     catch (error) {
-        options.context.logger.debug(
+        context.logger.debug(
             {
                 err: error,
             },
             "Failed to check for CLI updates.",
         );
+        return {
+            reason: "unexpected-error",
+            status: "failed",
+        };
     }
 }
 
-function renderUpdateNotice(options: {
+export function renderCliUpdateNotice(options: {
     context: CliExecutionContext;
     latestVersion: string;
     updateCommand: string;
+    writer?: Writer;
 }): string {
-    const colors = createWriterColors(options.context.stderr);
+    const colors = createWriterColors(options.writer ?? options.context.stderr);
     const lines = [
         options.context.translator.t("update.available.message", {
             currentVersion: colors.dim(options.context.version),
@@ -241,62 +227,6 @@ export function resolvePackageManagerUpgradeCommand(
     }
 }
 
-async function resolveUpdateCheckDecision(
-    options: UpdateNotifierOptions,
-): Promise<UpdateCheckDecision> {
-    if (!options.context.stderr.isTTY) {
-        return {
-            allowed: false,
-            reason: "not-tty",
-        };
-    }
-
-    if (hasHelpOrVersionArgument(options.argv)) {
-        return {
-            allowed: false,
-            reason: "help-or-version",
-        };
-    }
-
-    if (
-        hasOptOutEnvironmentVariable(options.context.env)
-        || options.context.env.NODE_ENV === "test"
-    ) {
-        return {
-            allowed: false,
-            reason: "opted-out",
-        };
-    }
-
-    if (isCiEnvironment(options.context.env)) {
-        return {
-            allowed: false,
-            reason: "ci",
-        };
-    }
-
-    if (parseReleaseVersion(options.context.version) === null) {
-        return {
-            allowed: false,
-            reason: "invalid-current-version",
-        };
-    }
-
-    const settings = await options.context.settingsStore.read();
-
-    if (settings.updateNotifier === false) {
-        return {
-            allowed: false,
-            reason: "disabled-in-settings",
-        };
-    }
-
-    return {
-        allowed: true,
-        reason: "enabled",
-    };
-}
-
 async function resolveLatestReleaseVersion(
     context: CliExecutionContext,
 ): Promise<string | null> {
@@ -317,20 +247,6 @@ async function resolveLatestReleaseVersion(
         return cachedLatestRelease.latestVersion;
     }
 
-    const updateFailureCache = context.cacheStore.getCache<true>({
-        id: "cli-update-failure-backoff",
-        defaultTtlMs: updateFailureCacheTtlMs,
-        maxEntries: 1,
-    });
-
-    if (updateFailureCache.has("cooldown")) {
-        context.logger.debug(
-            {},
-            "CLI update check is in failure-backoff cooldown.",
-        );
-        return null;
-    }
-
     const latestVersion = await fetchLatestReleaseVersion({
         currentVersion: context.version,
         env: context.env,
@@ -340,11 +256,6 @@ async function resolveLatestReleaseVersion(
     });
 
     if (latestVersion === null) {
-        updateFailureCache.set("cooldown", true);
-        context.logger.warn(
-            {},
-            "CLI update check entered failure-backoff cooldown after a fetch failure.",
-        );
         return null;
     }
 
@@ -366,6 +277,47 @@ async function fetchLatestReleaseVersion(options: {
     logger: CliExecutionContext["logger"];
     packageName: string;
 }): Promise<string | null> {
+    for (let attempt = 1; attempt <= updateRequestMaxAttempts; attempt += 1) {
+        const result = await fetchLatestReleaseVersionAttempt({
+            attempt,
+            currentVersion: options.currentVersion,
+            env: options.env,
+            fetcher: options.fetcher,
+            logger: options.logger,
+            maxAttempts: updateRequestMaxAttempts,
+            packageName: options.packageName,
+        });
+
+        if (result.status === "success") {
+            return result.latestVersion;
+        }
+
+        if (!result.retryable || attempt >= updateRequestMaxAttempts) {
+            return null;
+        }
+
+        options.logger.debug(
+            {
+                attempt,
+                maxAttempts: updateRequestMaxAttempts,
+                packageName: options.packageName,
+            },
+            "CLI update latest-release request retry scheduled.",
+        );
+    }
+
+    return null;
+}
+
+async function fetchLatestReleaseVersionAttempt(options: {
+    attempt: number;
+    currentVersion: string;
+    env: Record<string, string | undefined>;
+    fetcher: Fetcher;
+    logger: CliExecutionContext["logger"];
+    maxAttempts: number;
+    packageName: string;
+}): Promise<LatestReleaseRequestFailure | LatestReleaseRequestSuccess> {
     const requestUrl = resolveRegistryPackageMetadataUrl(
         options.env,
         options.packageName,
@@ -374,8 +326,11 @@ async function fetchLatestReleaseVersion(options: {
 
     options.logger.debug(
         {
+            attempt: options.attempt,
+            maxAttempts: options.maxAttempts,
             packageName: options.packageName,
             requestUrl,
+            timeoutMs: updateRequestTimeoutMs,
         },
         "CLI update latest-release request started.",
     );
@@ -395,26 +350,37 @@ async function fetchLatestReleaseVersion(options: {
     if (!response) {
         options.logger.warn(
             {
+                attempt: options.attempt,
                 durationMs: Date.now() - requestStartedAt,
+                maxAttempts: options.maxAttempts,
                 packageName: options.packageName,
                 requestUrl,
+                timeoutMs: updateRequestTimeoutMs,
             },
             "CLI update latest-release request timed out or failed.",
         );
-        return null;
+        return {
+            retryable: true,
+            status: "failed",
+        };
     }
 
     if (!response.ok) {
         options.logger.warn(
             {
+                attempt: options.attempt,
                 durationMs: Date.now() - requestStartedAt,
+                maxAttempts: options.maxAttempts,
                 packageName: options.packageName,
                 requestUrl,
                 status: response.status,
             },
             "CLI update latest-release request returned a non-success status.",
         );
-        return null;
+        return {
+            retryable: false,
+            status: "failed",
+        };
     }
 
     let payload: unknown;
@@ -423,29 +389,43 @@ async function fetchLatestReleaseVersion(options: {
         payload = await response.json();
     }
     catch {
-        return null;
+        return {
+            retryable: false,
+            status: "failed",
+        };
     }
 
     if (!payload || typeof payload !== "object") {
-        return null;
+        return {
+            retryable: false,
+            status: "failed",
+        };
     }
 
     const distTags = "dist-tags" in payload ? payload["dist-tags"] : undefined;
 
     if (!distTags || typeof distTags !== "object") {
-        return null;
+        return {
+            retryable: false,
+            status: "failed",
+        };
     }
 
     const latestVersion = "latest" in distTags ? distTags.latest : undefined;
 
     if (typeof latestVersion !== "string" || latestVersion === "") {
-        return null;
+        return {
+            retryable: false,
+            status: "failed",
+        };
     }
 
     options.logger.debug(
         {
+            attempt: options.attempt,
             durationMs: Date.now() - requestStartedAt,
             latestVersion,
+            maxAttempts: options.maxAttempts,
             packageName: options.packageName,
             requestUrl,
             status: response.status,
@@ -453,7 +433,10 @@ async function fetchLatestReleaseVersion(options: {
         "CLI update latest-release request completed.",
     );
 
-    return latestVersion;
+    return {
+        latestVersion,
+        status: "success",
+    };
 }
 
 async function fetchWithTimeout(
@@ -499,49 +482,6 @@ function resolveRegistryPackageMetadataUrl(
 
 function ensureTrailingSlash(value: string): string {
     return value.endsWith("/") ? value : `${value}/`;
-}
-
-function hasHelpOrVersionArgument(argv: readonly string[]): boolean {
-    for (const argument of argv) {
-        if (
-            argument === "help"
-            || argument === "--help"
-            || argument === "-h"
-            || argument === "--version"
-            || argument === "-V"
-        ) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function hasOptOutEnvironmentVariable(
-    env: Record<string, string | undefined>,
-): boolean {
-    return env.OO_NO_UPDATE_NOTIFIER !== undefined
-        || env.NO_UPDATE_NOTIFIER !== undefined;
-}
-
-function isCiEnvironment(
-    env: Record<string, string | undefined>,
-): boolean {
-    return isTruthyEnvironmentValue(env.CI)
-        || isTruthyEnvironmentValue(env.CONTINUOUS_INTEGRATION)
-        || isTruthyEnvironmentValue(env.BUILD_NUMBER)
-        || isTruthyEnvironmentValue(env.RUN_ID)
-        || isTruthyEnvironmentValue(env.GITHUB_ACTIONS);
-}
-
-function isTruthyEnvironmentValue(value: string | undefined): boolean {
-    if (value === undefined) {
-        return false;
-    }
-
-    const normalizedValue = value.trim().toLowerCase();
-
-    return normalizedValue !== "" && normalizedValue !== "0" && normalizedValue !== "false";
 }
 
 function resolvePreferredPackageManagerName(

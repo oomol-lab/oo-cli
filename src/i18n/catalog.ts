@@ -30,6 +30,9 @@ export const enMessages = {
     "commands.auth.summary": "Manage CLI authentication",
     "commands.auth.switch.description": "Switch to the next saved auth account.",
     "commands.auth.switch.summary": "Switch to the next auth account",
+    "commands.checkUpdate.description":
+        "Check whether a newer CLI release is available.",
+    "commands.checkUpdate.summary": "Check for CLI updates",
     "commands.cloudTask.description": "Manage cloud task execution workflows.",
     "commands.cloudTask.list.description": "List cloud tasks with optional filters.",
     "commands.cloudTask.list.summary": "List cloud tasks",
@@ -172,11 +175,10 @@ export const enMessages = {
         "The handle {handle} uses unsupported contentMediaType {contentMediaType}.",
     "errors.completion.invalidShell":
         "Unsupported shell: {value}. Use bash, zsh, or fish.",
+    "errors.checkUpdate.failed": "Failed to check for CLI updates.",
     "errors.config.invalidKey": "Invalid config key: {value}.",
     "errors.config.invalidLangValue":
         "Invalid lang value: {value}. Use en or zh.",
-    "errors.config.invalidUpdateNotifierValue":
-        "Invalid update-notifier value: {value}. Use on or off.",
     "errors.lang.invalidFlag":
         "Invalid value for --lang: {value}. Use en or zh.",
     "errors.search.activeAccountMissing":
@@ -223,6 +225,11 @@ export const enMessages = {
     "errors.log.invalidIndex":
         "Invalid log index: {value}. Use an integer greater than or equal to 1.",
     "log.print.missing": "No debug log was found for index {index}.",
+    "checkUpdate.unavailable":
+        "Unable to check for updates right now. Please try again later.",
+    "checkUpdate.upToDate": "Already up to date at {version}.",
+    "checkUpdate.unsupportedVersion":
+        "Current version {version} does not support update checks.",
     "update.available.message":
         "Update available {currentVersion} → {latestVersion}",
     "update.available.command":
@@ -335,6 +342,8 @@ export const zhMessages = {
     "commands.auth.summary": "管理 CLI 认证",
     "commands.auth.switch.description": "切换到下一个已保存的认证账号。",
     "commands.auth.switch.summary": "切换到下一个认证账号",
+    "commands.checkUpdate.description": "检查是否有新的 CLI 版本可用。",
+    "commands.checkUpdate.summary": "检查 CLI 更新",
     "commands.cloudTask.description": "管理云任务执行流程。",
     "commands.cloudTask.list.description": "按可选条件列出云任务。",
     "commands.cloudTask.list.summary": "列出云任务",
@@ -455,11 +464,10 @@ export const zhMessages = {
         "Handle {handle} 使用了暂不支持的 contentMediaType {contentMediaType}。",
     "errors.completion.invalidShell":
         "不支持的 shell：{value}。请使用 bash、zsh 或 fish。",
+    "errors.checkUpdate.failed": "检查 CLI 更新失败。",
     "errors.config.invalidKey": "无效的配置键：{value}。",
     "errors.config.invalidLangValue":
         "无效的 lang 值：{value}。请使用 en 或 zh。",
-    "errors.config.invalidUpdateNotifierValue":
-        "无效的 update-notifier 值：{value}。请使用 on 或 off。",
     "errors.lang.invalidFlag":
         "--lang 的值无效：{value}。请使用 en 或 zh。",
     "errors.search.activeAccountMissing":
@@ -502,6 +510,10 @@ export const zhMessages = {
     "errors.log.invalidIndex":
         "无效的日志序号：{value}。请使用大于等于 1 的整数。",
     "log.print.missing": "未找到序号为 {index} 的 debug 日志。",
+    "checkUpdate.unavailable": "暂时无法检查更新，请稍后重试。",
+    "checkUpdate.upToDate": "当前已是最新版本 {version}。",
+    "checkUpdate.unsupportedVersion":
+        "当前版本 {version} 暂不支持执行更新检查。",
     "update.available.message":
         "发现新版本 {currentVersion} → {latestVersion}",
     "update.available.command":

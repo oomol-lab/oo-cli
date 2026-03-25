@@ -90,10 +90,5 @@ function setConfigValue(
     switch (input.key) {
         case "lang":
             return getConfigDefinition("lang").setValue(settings, input.value);
-        case "update-notifier":
-            return getConfigDefinition("update-notifier").setValue(
-                settings,
-                input.value,
-            );
     }
 }
