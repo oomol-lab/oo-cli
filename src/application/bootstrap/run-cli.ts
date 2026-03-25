@@ -25,6 +25,10 @@ import {
 import { createTranslator } from "../../i18n/translator.ts";
 import { createCliCatalog } from "../commands/catalog.ts";
 import { APP_NAME } from "../config/app-config.ts";
+import {
+    formatCliVersionText,
+    resolveCliBuildInfo,
+} from "../config/build-info.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { maybeNotifyAboutCliUpdate } from "../update/update-notifier.ts";
 
@@ -119,7 +123,8 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         });
         const completionRenderer = new StaticCompletionRenderer(translator);
         const packageName = invocation.packageName ?? packageManifest.name;
-        const version = invocation.version ?? packageManifest.version;
+        const buildInfo = resolveCliBuildInfo(packageManifest.version);
+        const version = invocation.version ?? buildInfo.version;
         const context: CliExecutionContext = {
             authStore,
             cacheStore,
@@ -136,6 +141,13 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             completionRenderer,
             catalog,
             version,
+            versionText: formatCliVersionText(
+                {
+                    ...buildInfo,
+                    version,
+                },
+                translator,
+            ),
         };
         const adapter = new CommanderCliAdapter();
 

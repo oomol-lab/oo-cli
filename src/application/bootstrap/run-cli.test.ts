@@ -27,7 +27,36 @@ describe("runCli", () => {
             const result = await sandbox.run(["--version"]);
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(`${packageManifest.version}\n`);
+            expect(result.stdout).toBe(
+                [
+                    `Version: ${packageManifest.version}`,
+                    "Build Time: unknown",
+                    "Commit: unknown",
+                    "",
+                ].join("\n"),
+            );
+            expect(result.stderr).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints localized version metadata in Chinese", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["--lang", "zh", "--version"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                [
+                    `版本: ${packageManifest.version}`,
+                    "构建时间: 未知",
+                    "提交: 未知",
+                    "",
+                ].join("\n"),
+            );
             expect(result.stderr).toBe("");
         }
         finally {

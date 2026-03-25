@@ -36,6 +36,12 @@ interface RuntimeLike {
     };
 }
 
+interface CompileBuildMetadata {
+    buildTimestamp: number;
+    gitCommit: string;
+    version: string;
+}
+
 const wrapperFiles = [
     "bin/oo.cjs",
     "bin/postinstall.cjs",
@@ -169,6 +175,7 @@ export async function buildNpmReleasePackages(options: {
     const selectedTargets = selectPlatformTargets(options.targetIds);
     const stagingDir = join(outDir, ".packages");
     const tarballPaths: string[] = [];
+    const compileBuildMetadata = resolveCompileBuildMetadata(rootDir, releaseVersion);
 
     rmSync(outDir, { force: true, recursive: true });
     mkdirSync(stagingDir, { recursive: true });
@@ -185,7 +192,7 @@ export async function buildNpmReleasePackages(options: {
             ),
         );
         copyReadme(rootDir, packageDir);
-        compilePlatformBinary(rootDir, packageDir, target);
+        compilePlatformBinary(rootDir, packageDir, target, compileBuildMetadata);
         tarballPaths.push(packPackage(packageDir, outDir));
     }
 
@@ -331,6 +338,7 @@ function compilePlatformBinary(
     rootDir: string,
     packageDir: string,
     target: PlatformTarget,
+    buildMetadata: CompileBuildMetadata,
 ): void {
     const outputPath = join(packageDir, "bin", target.executableFileName);
     const buildResult = Bun.spawnSync(
@@ -339,6 +347,7 @@ function compilePlatformBinary(
             "build",
             "--compile",
             `--target=${target.bunTarget}`,
+            ...buildCompileDefineArgs(buildMetadata),
             "./index.ts",
             "--outfile",
             outputPath,
@@ -363,6 +372,19 @@ function compilePlatformBinary(
     if (target.os !== "win32") {
         chmodSync(outputPath, 0o755);
     }
+}
+
+export function buildCompileDefineArgs(
+    buildMetadata: CompileBuildMetadata,
+): readonly string[] {
+    return [
+        "--define",
+        `BUILD_VERSION=${JSON.stringify(buildMetadata.version)}`,
+        "--define",
+        `BUILD_TIMESTAMP=${buildMetadata.buildTimestamp}`,
+        "--define",
+        `GIT_COMMIT=${JSON.stringify(buildMetadata.gitCommit)}`,
+    ];
 }
 
 function packPackage(packageDir: string, outDir: string): string {
@@ -390,6 +412,37 @@ function packPackage(packageDir: string, outDir: string): string {
 
 function decodeOutput(output: Uint8Array): string {
     return new TextDecoder().decode(output);
+}
+
+function resolveCompileBuildMetadata(
+    rootDir: string,
+    version: string,
+): CompileBuildMetadata {
+    return {
+        buildTimestamp: Date.now(),
+        gitCommit: readGitCommitHash(rootDir),
+        version,
+    };
+}
+
+function readGitCommitHash(rootDir: string): string {
+    const gitResult = Bun.spawnSync(
+        ["git", "rev-parse", "HEAD"],
+        {
+            cwd: rootDir,
+            stderr: "pipe",
+            stdin: "ignore",
+            stdout: "pipe",
+        },
+    );
+
+    if (gitResult.exitCode !== 0) {
+        return "unknown";
+    }
+
+    const gitCommitHash = decodeOutput(gitResult.stdout).trim();
+
+    return gitCommitHash === "" ? "unknown" : gitCommitHash;
 }
 
 function formatTargetLabel(target: PlatformTarget): string {

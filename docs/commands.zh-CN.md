@@ -8,7 +8,7 @@
 
 - `--lang <lang>`：为当前命令临时指定显示语言。支持的值：`en`、`zh`。
 - `-h, --help`：显示当前命令的帮助信息。
-- `-V, --version`：显示当前 CLI 版本。
+- `-V, --version`：显示当前 CLI 版本、构建时间和 commit hash。
 
 ## 认证
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    buildCompileDefineArgs,
     buildPlatformPackageManifest,
     buildWrapperPackageManifest,
     getPlatformTargets,
@@ -210,6 +211,23 @@ describe("npm-packages", () => {
                 target.id === "darwin-arm64" || target.id === "linux-x64-musl",
             ),
         );
+    });
+
+    test("builds define arguments for compile-time metadata", () => {
+        expect(
+            buildCompileDefineArgs({
+                buildTimestamp: 1_742_867_323_456,
+                gitCommit: "1234567890abcdef",
+                version: "1.2.3",
+            }),
+        ).toEqual([
+            "--define",
+            "BUILD_VERSION=\"1.2.3\"",
+            "--define",
+            "BUILD_TIMESTAMP=1742867323456",
+            "--define",
+            "GIT_COMMIT=\"1234567890abcdef\"",
+        ]);
     });
 
     test("rejects unsupported build targets", () => {

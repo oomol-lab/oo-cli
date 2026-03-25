@@ -67,7 +67,7 @@ export class CommanderCliAdapter {
             .name(catalog.name)
             .description(context.translator.t(catalog.descriptionKey))
             .version(
-                context.version,
+                context.versionText ?? context.version,
                 "-V, --version",
                 context.translator.t("options.version"),
             )

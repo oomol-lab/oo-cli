@@ -9,7 +9,7 @@ Project overview: [README.md](../README.md)
 - `--lang <lang>`: Override the display language for the current invocation.
   Supported values: `en`, `zh`.
 - `-h, --help`: Show help for the current command.
-- `-V, --version`: Show the current CLI version.
+- `-V, --version`: Show the current CLI version, build time, and commit hash.
 
 ## Authentication
 

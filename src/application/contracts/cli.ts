@@ -99,6 +99,7 @@ export interface CliExecutionContext {
     completionRenderer: CompletionRenderer;
     catalog: CliCatalog;
     version: string;
+    versionText?: string;
 }
 
 export type CliMessageParams = Record<string, string | number>;
