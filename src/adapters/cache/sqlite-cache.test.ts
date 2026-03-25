@@ -1,5 +1,6 @@
-import { stat } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 
+import { dirname } from "node:path";
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 
@@ -232,5 +233,134 @@ describe("SqliteCacheStore", () => {
 
         await expect(stat(walFilePath)).rejects.toBeDefined();
         await expect(stat(shmFilePath)).rejects.toBeDefined();
+    });
+
+    test("falls back to a no-op cache when sqlite namespace initialization is locked", async () => {
+        const root = await createTemporaryDirectory("sqlite-cache-locked-init");
+        const logCapture = createLogCapture();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+
+        await mkdir(dirname(storePaths.cacheFilePath), { recursive: true });
+
+        const lockDatabase = new Database(storePaths.cacheFilePath, {
+            create: true,
+            strict: true,
+        });
+
+        lockDatabase.run("PRAGMA journal_mode = WAL;");
+        lockDatabase.run("BEGIN IMMEDIATE;");
+
+        const cacheStore = new SqliteCacheStore(
+            storePaths.cacheFilePath,
+            logCapture.logger,
+        );
+        const cache = cacheStore.getCache<string>({
+            id: "search",
+        });
+
+        try {
+            cache.set("locked", "value");
+
+            expect(cache.get("locked")).toBeNull();
+            expect(cache.has("locked")).toBeFalse();
+            expect(cache.delete("locked")).toBeFalse();
+
+            cache.clear();
+
+            const logs = logCapture.read();
+
+            expect(logs).toContain(`"level":"warn"`);
+            expect(logs).toContain(`"category":"recoverable_cache"`);
+            expect(logs).toContain(
+                `"msg":"Sqlite cache namespace is temporarily unavailable because the database is locked."`,
+            );
+        }
+        finally {
+            lockDatabase.run("ROLLBACK;");
+            lockDatabase.close();
+            cacheStore.close();
+            logCapture.close();
+        }
+    });
+
+    test("treats sqlite lock errors during cache operations as recoverable", async () => {
+        const root = await createTemporaryDirectory("sqlite-cache-locked-ops");
+        const logCapture = createLogCapture();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+        const cacheStore = new SqliteCacheStore(
+            storePaths.cacheFilePath,
+            logCapture.logger,
+        );
+        const cache = cacheStore.getCache<string>({
+            id: "search",
+            maxEntries: 2,
+        });
+
+        await mkdir(dirname(storePaths.cacheFilePath), { recursive: true });
+
+        const lockDatabase = new Database(storePaths.cacheFilePath, {
+            strict: true,
+        });
+        let holdsWriteLock = false;
+
+        try {
+            cache.set("cached", "value");
+
+            lockDatabase.run("PRAGMA journal_mode = WAL;");
+            lockDatabase.run("BEGIN IMMEDIATE;");
+            holdsWriteLock = true;
+
+            expect(cache.get("cached")).toBe("value");
+            expect(cache.delete("cached")).toBeFalse();
+
+            cache.set("blocked", "value");
+            cache.clear();
+
+            lockDatabase.run("ROLLBACK;");
+            holdsWriteLock = false;
+
+            expect(cache.get("cached")).toBe("value");
+            expect(cache.get("blocked")).toBeNull();
+
+            const logs = logCapture.read();
+
+            expect(logs).toContain(`"level":"warn"`);
+            expect(logs).toContain(`"category":"recoverable_cache"`);
+            expect(logs).toContain(
+                `"msg":"Sqlite cache touch update was skipped because the database is locked."`,
+            );
+            expect(logs).toContain(
+                `"msg":"Sqlite cache store was skipped because the database is locked."`,
+            );
+            expect(logs).toContain(
+                `"msg":"Sqlite cache delete was skipped because the database is locked."`,
+            );
+            expect(logs).toContain(
+                `"msg":"Sqlite cache clear was skipped because the database is locked."`,
+            );
+        }
+        finally {
+            if (holdsWriteLock) {
+                lockDatabase.run("ROLLBACK;");
+            }
+
+            lockDatabase.close();
+            cacheStore.close();
+            logCapture.close();
+        }
     });
 });

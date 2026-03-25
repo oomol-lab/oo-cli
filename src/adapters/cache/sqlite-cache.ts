@@ -30,11 +30,23 @@ type CacheLookupParams = Record<string, string | number | null> & {
 interface SqliteCacheOptionsInternal {
     database: Database;
     defaultTtlMs?: number;
+    filePath: string;
     id: string;
     logger?: Logger;
     maxEntries?: number;
     now: () => number;
 }
+
+interface RecoverableSqliteOperationResult<Value> {
+    succeeded: boolean;
+    value: Value;
+}
+
+const recoverableSqliteLockCodes = new Set([
+    "SQLITE_BUSY",
+    "SQLITE_LOCKED",
+]);
+const sqliteBusyTimeoutMs = 250;
 
 export class SqliteCacheStore implements CacheStore {
     private database: Database | undefined;
@@ -44,13 +56,31 @@ export class SqliteCacheStore implements CacheStore {
     constructor(filePath: string, logger?: Logger) {
         this.filePath = filePath;
         this.logger = logger;
-        this.database = openDatabase(filePath);
-        this.logger?.debug(
-            {
-                ...withStorePath(this.filePath),
-            },
-            "Sqlite cache store opened.",
-        );
+
+        try {
+            this.database = openDatabase(filePath);
+            this.logger?.debug(
+                {
+                    ...withStorePath(this.filePath),
+                },
+                "Sqlite cache store opened.",
+            );
+        }
+        catch (error) {
+            if (!isRecoverableSqliteLockError(error)) {
+                throw error;
+            }
+
+            this.database = undefined;
+            this.logger?.warn(
+                {
+                    ...withCategory(logCategory.recoverableCache),
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Sqlite cache store open was deferred because the database is locked.",
+            );
+        }
     }
 
     getFilePath(): string {
@@ -68,14 +98,34 @@ export class SqliteCacheStore implements CacheStore {
             "Sqlite cache namespace opened.",
         );
 
-        return new SqliteCache<Value>({
-            database: this.getDatabase(),
-            defaultTtlMs: options.defaultTtlMs,
-            id: options.id,
-            logger: this.logger,
-            maxEntries: options.maxEntries,
-            now: options.now ?? (() => Date.now()),
-        });
+        try {
+            return new SqliteCache<Value>({
+                database: this.getDatabase(),
+                defaultTtlMs: options.defaultTtlMs,
+                filePath: this.filePath,
+                id: options.id,
+                logger: this.logger,
+                maxEntries: options.maxEntries,
+                now: options.now ?? (() => Date.now()),
+            });
+        }
+        catch (error) {
+            if (!isRecoverableSqliteLockError(error)) {
+                throw error;
+            }
+
+            this.logger?.warn(
+                {
+                    ...withCacheId(options.id),
+                    ...withCategory(logCategory.recoverableCache),
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Sqlite cache namespace is temporarily unavailable because the database is locked.",
+            );
+
+            return new UnavailableSqliteCache<Value>();
+        }
     }
 
     close(): void {
@@ -88,8 +138,24 @@ export class SqliteCacheStore implements CacheStore {
         this.database = undefined;
 
         try {
-            database.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
-            database.run("PRAGMA wal_checkpoint(TRUNCATE);");
+            try {
+                database.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
+                database.run("PRAGMA wal_checkpoint(TRUNCATE);");
+            }
+            catch (error) {
+                if (!isRecoverableSqliteLockError(error)) {
+                    throw error;
+                }
+
+                this.logger?.debug(
+                    {
+                        ...withCategory(logCategory.recoverableCache),
+                        err: error,
+                        ...withStorePath(this.filePath),
+                    },
+                    "Sqlite cache store close skipped WAL checkpoint because the database is locked.",
+                );
+            }
         }
         finally {
             database.close();
@@ -209,7 +275,18 @@ export class SqliteCache<Value> implements Cache<Value> {
 
     get(key: string): Value | null {
         const now = this.options.now();
-        const row = this.selectFreshStatement.get({ key, now });
+        const rowResult = this.attemptRecoverableSqliteOperation({
+            fallback: null,
+            key,
+            message: "Sqlite cache lookup was skipped because the database is locked.",
+            operation: "get",
+        }, () => this.selectFreshStatement.get({ key, now }));
+
+        if (!rowResult.succeeded) {
+            return null;
+        }
+
+        const row = rowResult.value;
 
         if (row === null) {
             this.options.logger?.debug(
@@ -228,7 +305,13 @@ export class SqliteCache<Value> implements Cache<Value> {
             value = deserializeCacheValue<Value>(row.value);
         }
         catch (error) {
-            const deleted = this.deleteStatement.run({ key }).changes > 0;
+            const deletedResult = this.attemptRecoverableSqliteOperation({
+                fallback: false,
+                key,
+                message: "Sqlite cache invalid entry eviction was skipped because the database is locked.",
+                operation: "delete-invalid",
+            }, () => this.deleteStatement.run({ key }).changes > 0);
+            const deleted = deletedResult.value;
 
             this.options.logger?.warn(
                 {
@@ -244,7 +327,14 @@ export class SqliteCache<Value> implements Cache<Value> {
             return null;
         }
 
-        this.touchStatement.run({ key, now });
+        this.attemptRecoverableSqliteOperation({
+            fallback: undefined,
+            key,
+            message: "Sqlite cache touch update was skipped because the database is locked.",
+            operation: "touch",
+        }, () => {
+            this.touchStatement.run({ key, now });
+        });
         this.options.logger?.debug(
             {
                 ...withCacheId(this.options.id),
@@ -261,13 +351,30 @@ export class SqliteCache<Value> implements Cache<Value> {
         const ttlMs = resolveTtlMs(options.ttlMs, this.options.defaultTtlMs);
         const expiresAtMs = ttlMs === undefined ? null : now + ttlMs;
 
-        this.upsertStatement.run({
+        const storeResult = this.attemptRecoverableSqliteOperation({
+            fallback: undefined,
             key,
-            value: serializeCacheValue(value),
-            expiresAtMs,
-            now,
+            message: "Sqlite cache store was skipped because the database is locked.",
+            operation: "set",
+        }, () => {
+            this.upsertStatement.run({
+                key,
+                value: serializeCacheValue(value),
+                expiresAtMs,
+                now,
+            });
+            this.deleteExpiredStatement.run({ now });
+
+            if (this.options.maxEntries !== undefined) {
+                this.evictLeastRecentlyUsedStatement.run({
+                    maxEntries: this.options.maxEntries,
+                });
+            }
         });
-        this.deleteExpiredStatement.run({ now });
+
+        if (!storeResult.succeeded) {
+            return;
+        }
 
         this.options.logger?.debug(
             {
@@ -278,12 +385,6 @@ export class SqliteCache<Value> implements Cache<Value> {
             },
             "Sqlite cache value stored.",
         );
-
-        if (this.options.maxEntries !== undefined) {
-            this.evictLeastRecentlyUsedStatement.run({
-                maxEntries: this.options.maxEntries,
-            });
-        }
     }
 
     has(key: string): boolean {
@@ -291,7 +392,18 @@ export class SqliteCache<Value> implements Cache<Value> {
     }
 
     delete(key: string): boolean {
-        const deleted = this.deleteStatement.run({ key }).changes > 0;
+        const deletedResult = this.attemptRecoverableSqliteOperation({
+            fallback: false,
+            key,
+            message: "Sqlite cache delete was skipped because the database is locked.",
+            operation: "delete",
+        }, () => this.deleteStatement.run({ key }).changes > 0);
+
+        if (!deletedResult.succeeded) {
+            return false;
+        }
+
+        const deleted = deletedResult.value;
 
         this.options.logger?.debug(
             {
@@ -306,7 +418,18 @@ export class SqliteCache<Value> implements Cache<Value> {
     }
 
     clear(): void {
-        this.clearStatement.run();
+        const clearResult = this.attemptRecoverableSqliteOperation({
+            fallback: undefined,
+            message: "Sqlite cache clear was skipped because the database is locked.",
+            operation: "clear",
+        }, () => {
+            this.clearStatement.run();
+        });
+
+        if (!clearResult.succeeded) {
+            return;
+        }
+
         this.options.logger?.info(
             {
                 ...withCacheId(this.options.id),
@@ -314,6 +437,62 @@ export class SqliteCache<Value> implements Cache<Value> {
             "Sqlite cache namespace cleared.",
         );
     }
+
+    private attemptRecoverableSqliteOperation<Result>(options: {
+        fallback: Result;
+        key?: string;
+        message: string;
+        operation: string;
+    }, run: () => Result): RecoverableSqliteOperationResult<Result> {
+        try {
+            return {
+                succeeded: true,
+                value: run(),
+            };
+        }
+        catch (error) {
+            if (!isRecoverableSqliteLockError(error)) {
+                throw error;
+            }
+
+            this.options.logger?.warn(
+                {
+                    ...withCacheId(this.options.id),
+                    ...withCategory(logCategory.recoverableCache),
+                    err: error,
+                    operation: options.operation,
+                    ...withStorePath(this.options.filePath),
+                    ...(options.key === undefined
+                        ? {}
+                        : withKeyFingerprint(createCacheKeyFingerprint(options.key))),
+                },
+                options.message,
+            );
+
+            return {
+                succeeded: false,
+                value: options.fallback,
+            };
+        }
+    }
+}
+
+class UnavailableSqliteCache<Value> implements Cache<Value> {
+    get(_key: string): Value | null {
+        return null;
+    }
+
+    set(_key: string, _value: Value, _options: CacheSetOptions = {}): void {}
+
+    has(_key: string): boolean {
+        return false;
+    }
+
+    delete(_key: string): boolean {
+        return false;
+    }
+
+    clear(): void {}
 }
 
 export function resolveSqliteCacheTableName(id: string): string {
@@ -329,6 +508,7 @@ function openDatabase(filePath: string): Database {
         strict: true,
     });
 
+    database.run(`PRAGMA busy_timeout = ${sqliteBusyTimeoutMs};`);
     database.run("PRAGMA journal_mode = WAL;");
 
     return database;
@@ -420,4 +600,15 @@ function deserializeCacheValue<Value>(value: string): Value {
 
 function createCacheKeyFingerprint(key: string): string {
     return createHash("sha256").update(key).digest("hex").slice(0, 12);
+}
+
+function isRecoverableSqliteLockError(
+    error: unknown,
+): error is Error & {
+    code: string;
+} {
+    return error instanceof Error
+        && "code" in error
+        && typeof error.code === "string"
+        && recoverableSqliteLockCodes.has(error.code);
 }

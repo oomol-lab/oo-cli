@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 
 import { join } from "node:path";
+import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox, createTextBuffer } from "../../../__tests__/helpers.ts";
@@ -516,6 +517,81 @@ describe("runCli", () => {
             expect(secondContent).toContain(`"cacheId":"search.intent-response"`);
         }
         finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("continues search when the sqlite cache database is locked", async () => {
+        const sandbox = await createCliSandbox();
+        const cacheFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).cacheFilePath;
+        let lockDatabase: Database | undefined;
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+            const dataDirectoryPath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "data",
+            );
+
+            await mkdir(dataDirectoryPath, { recursive: true });
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+
+            lockDatabase = new Database(cacheFilePath, {
+                create: true,
+                strict: true,
+            });
+            lockDatabase.run("PRAGMA journal_mode = WAL;");
+            lockDatabase.run("BEGIN IMMEDIATE;");
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                ["search", "cache lock"],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            packages: [],
+                        }));
+                    },
+                },
+            );
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requestCount).toBe(1);
+            expect(content).toContain(`"category":"recoverable_cache"`);
+            expect(content).toContain(
+                `"msg":"Sqlite cache namespace is temporarily unavailable because the database is locked."`,
+            );
+        }
+        finally {
+            if (lockDatabase) {
+                lockDatabase.run("ROLLBACK;");
+                lockDatabase.close();
+            }
             await sandbox.cleanup();
         }
     });
