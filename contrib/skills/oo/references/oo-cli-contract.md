@@ -9,7 +9,7 @@ or known stop conditions.
 Canonical entrypoint:
 
 ```bash
-oo --lang en ...
+oo ...
 ```
 
 ## Authentication
@@ -20,7 +20,7 @@ oo --lang en ...
 - If a remote command fails and auth might be the cause, use:
 
 ```bash
-oo --lang en auth status
+oo auth status
 ```
 
 - Treat auth as usable only when the output confirms a valid active account.
@@ -29,7 +29,7 @@ oo --lang en auth status
 - If the user needs to repair auth, ask them to complete:
 
 ```bash
-oo --lang en auth login
+oo auth login
 ```
 
 ## `search`
@@ -37,7 +37,7 @@ oo --lang en auth login
 Canonical form:
 
 ```bash
-oo --lang en search "<text>" --json
+oo search "<text>" --json
 ```
 
 Facts:
@@ -80,7 +80,7 @@ Stop condition:
 Canonical form:
 
 ```bash
-oo --lang en package info "<packageSpecifier>" --json
+oo package info "<packageSpecifier>" --json
 ```
 
 Supported package specifier examples:
@@ -153,7 +153,7 @@ whenever the user request implies a specific input.
 Canonical form:
 
 ```bash
-oo --lang en cloud-task run "<packageName>@<version>" \
+oo cloud-task run "<packageName>@<version>" \
   --block-id "<blockName>" \
   --data '<json object>' \
   --json
@@ -195,7 +195,7 @@ Practical implication:
 Canonical form:
 
 ```bash
-oo --lang en cloud-task result "<taskId>" --json
+oo cloud-task result "<taskId>" --json
 ```
 
 Possible JSON shapes:
@@ -233,7 +233,7 @@ failure, and a late success.
 Canonical form:
 
 ```bash
-oo --lang en cloud-task wait "<taskId>" --timeout "<window>"
+oo cloud-task wait "<taskId>" --timeout "<window>"
 ```
 
 Facts:

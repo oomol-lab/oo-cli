@@ -20,12 +20,12 @@ stop conditions.
 
 Before doing anything substantial:
 
-- Prefer `oo --lang en ...`.
+- Prefer `oo ...`.
 - Do not probe for `oo` with `which`, `command -v`, or similar prechecks. Run
   the intended `oo` command directly.
-- Do not run `oo --lang en auth status` as a routine precheck.
+- Do not run `oo auth status` as a routine precheck.
 - If a remote `oo` command fails and auth may be the cause, run
-  `oo --lang en auth status` to inspect the current account state.
+  `oo auth status` to inspect the current account state.
 - Treat auth as usable only when the status output shows a valid active
   account.
 - If auth status says logged out, missing, invalid, or request failed, stop and
@@ -41,7 +41,7 @@ Before doing anything substantial:
 - Never invent package IDs, versions, block IDs, handle names, defaults, or
   task results.
 - If a remote command fails with an auth-related error or unclear account
-  state, inspect with `oo --lang en auth status` before retrying.
+  state, inspect with `oo auth status` before retrying.
 - `cloud-task run` must use `PACKAGE_NAME@SEMVER`.
 - `cloud-task run` must include a real `--block-id`.
 - If `search` returns zero packages, stop and tell the user that `oo` does not
@@ -80,7 +80,7 @@ Combine the keywords into one concise English search query.
 Run:
 
 ```bash
-oo --lang en search "<english query>" --json
+oo search "<english query>" --json
 ```
 
 Then:
@@ -101,11 +101,11 @@ If the result is empty, stop.
 For each serious candidate, inspect it with one of these forms:
 
 ```bash
-oo --lang en package info "<packageName>@<version>" --json
+oo package info "<packageName>@<version>" --json
 ```
 
 ```bash
-oo --lang en package info "<packageName>" --json
+oo package info "<packageName>" --json
 ```
 
 Then choose the best block using only returned metadata.
@@ -180,7 +180,7 @@ normal JSON values.
 When the payload is ready, run the task directly:
 
 ```bash
-oo --lang en cloud-task run "<packageName>@<version>" \
+oo cloud-task run "<packageName>@<version>" \
   --block-id "<blockId>" \
   --data '<json object>' \
   --json
@@ -215,7 +215,7 @@ Use bounded waiting windows:
 Use:
 
 ```bash
-oo --lang en cloud-task wait "<taskId>" --timeout "<window>"
+oo cloud-task wait "<taskId>" --timeout "<window>"
 ```
 
 Rules:
@@ -228,7 +228,7 @@ Rules:
 - After any non-zero `wait` exit, immediately check:
 
 ```bash
-oo --lang en cloud-task result "<taskId>" --json
+oo cloud-task result "<taskId>" --json
 ```
 
 Use the result snapshot to distinguish:
