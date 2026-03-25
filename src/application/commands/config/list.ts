@@ -21,6 +21,13 @@ export const configListCommand: CliCommandDefinition<ConfigListInput> = {
                 return value !== undefined ? [`${key}=${value}`] : [];
             });
 
+        context.logger.debug(
+            {
+                configuredKeys: lines.map(line => line.split("=")[0] ?? ""),
+            },
+            "Config values listed.",
+        );
+
         if (lines.length === 0) {
             return;
         }

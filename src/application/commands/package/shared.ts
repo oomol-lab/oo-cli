@@ -4,6 +4,11 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import {
+    withAccountIdentity,
+    withPackageIdentity,
+    withRequestTarget,
+} from "../../logging/log-fields.ts";
 
 const PACKAGE_INFO_CACHE_ID = "package.info";
 const PACKAGE_INFO_CACHE_MAX_ENTRIES = 300;
@@ -165,7 +170,7 @@ export async function loadPackageInfo(
     packageSpecifier: ParsedPackageSpecifier,
     account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">,
     requestLanguage: RequestLanguage,
-    context: Pick<CliExecutionContext, "cacheStore" | "fetcher">,
+    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger">,
 ): Promise<PackageInfoResponse> {
     const packageInfoCache = context.cacheStore.getCache<string>({
         id: PACKAGE_INFO_CACHE_ID,
@@ -183,6 +188,18 @@ export async function loadPackageInfo(
         const cachedResponse = packageInfoCache.get(requestedCacheKey);
 
         if (cachedResponse !== null) {
+            context.logger.debug(
+                {
+                    ...withAccountIdentity(account.id, account.endpoint),
+                    ...withPackageIdentity(
+                        packageSpecifier.packageName,
+                        packageSpecifier.packageVersion,
+                    ),
+                    requestLanguage,
+                },
+                "Package info cache hit.",
+            );
+
             try {
                 return parseCachedPackageInfoResponse(cachedResponse);
             }
@@ -195,8 +212,42 @@ export async function loadPackageInfo(
                 }
 
                 packageInfoCache.delete(requestedCacheKey);
+                context.logger.warn(
+                    {
+                        ...withAccountIdentity(account.id, account.endpoint),
+                        ...withPackageIdentity(
+                            packageSpecifier.packageName,
+                            packageSpecifier.packageVersion,
+                        ),
+                        requestLanguage,
+                    },
+                    "Package info cache entry was invalidated after a parse failure.",
+                );
             }
         }
+        else {
+            context.logger.debug(
+                {
+                    ...withAccountIdentity(account.id, account.endpoint),
+                    ...withPackageIdentity(
+                        packageSpecifier.packageName,
+                        packageSpecifier.packageVersion,
+                    ),
+                    requestLanguage,
+                },
+                "Package info cache miss.",
+            );
+        }
+    }
+    else {
+        context.logger.debug(
+            {
+                ...withAccountIdentity(account.id, account.endpoint),
+                ...withPackageIdentity(packageSpecifier.packageName),
+                requestLanguage,
+            },
+            "Package info cache bypassed for a latest-version lookup.",
+        );
     }
 
     const rawResponse = await requestPackageInfo(
@@ -218,6 +269,17 @@ export async function loadPackageInfo(
 
     if (!packageInfoCache.has(resolvedCacheKey)) {
         packageInfoCache.set(resolvedCacheKey, JSON.stringify(response));
+        context.logger.debug(
+            {
+                ...withAccountIdentity(account.id, account.endpoint),
+                ...withPackageIdentity(
+                    response.packageName,
+                    response.packageVersion,
+                ),
+                requestLanguage,
+            },
+            "Package info response cached.",
+        );
     }
 
     return response;
@@ -406,20 +468,54 @@ function createPackageInfoRequestUrl(
 async function requestPackageInfo(
     requestUrl: URL,
     apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger">,
 ): Promise<string> {
+    const requestStartedAt = Date.now();
+    const pathSegments = requestUrl.pathname.split("/");
+    const packageName = decodeURIComponent(pathSegments.at(-2) ?? "");
+    const packageVersion = decodeURIComponent(pathSegments.at(-1) ?? "");
+
+    context.logger.debug(
+        {
+            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+            ...withPackageIdentity(packageName, packageVersion),
+            requestLanguage: requestUrl.searchParams.get("lang") ?? "",
+        },
+        "Package info request started.",
+    );
+
     try {
         const response = await context.fetcher(requestUrl, {
             headers: {
                 Authorization: apiKey,
             },
         });
+        const durationMs = Date.now() - requestStartedAt;
 
         if (!response.ok) {
+            context.logger.warn(
+                {
+                    durationMs,
+                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                    ...withPackageIdentity(packageName, packageVersion),
+                    status: response.status,
+                },
+                "Package info request returned a non-success status.",
+            );
             throw new CliUserError("errors.packageInfo.requestFailed", 1, {
                 status: response.status,
             });
         }
+
+        context.logger.debug(
+            {
+                durationMs,
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                ...withPackageIdentity(packageName, packageVersion),
+                status: response.status,
+            },
+            "Package info request completed.",
+        );
 
         return await response.text();
     }
@@ -428,6 +524,15 @@ async function requestPackageInfo(
             throw error;
         }
 
+        context.logger.warn(
+            {
+                durationMs: Date.now() - requestStartedAt,
+                err: error,
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                ...withPackageIdentity(packageName, packageVersion),
+            },
+            "Package info request failed unexpectedly.",
+        );
         throw new CliUserError("errors.packageInfo.requestError", 1, {
             message: error instanceof Error ? error.message : String(error),
         });

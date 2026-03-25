@@ -1,10 +1,15 @@
 import type { ServerResponse } from "node:http";
+import type { Logger } from "pino";
 import type { Translator } from "../contracts/translator.ts";
 import type { AuthAccount } from "../schemas/auth.ts";
 import { Buffer } from "node:buffer";
 import { createServer } from "node:http";
 
 import { CliUserError } from "../contracts/cli.ts";
+import {
+    withAccountIdentity,
+    withPath,
+} from "../logging/log-fields.ts";
 
 const loginCallbackPath = "/v1/login/callback";
 const loginTimeoutMs = 5 * 60 * 1000;
@@ -15,7 +20,10 @@ export interface AuthLoginSession {
 }
 
 export async function startAuthLoginSession(
-    translator: Translator,
+    options: {
+        logger: Logger;
+        translator: Translator;
+    },
 ): Promise<AuthLoginSession> {
     return await new Promise((resolve, reject) => {
         const server = createServer();
@@ -32,6 +40,12 @@ export async function startAuthLoginSession(
             }
 
             settled = true;
+            options.logger.warn(
+                {
+                    timeoutMs: loginTimeoutMs,
+                },
+                "Auth login callback timed out.",
+            );
             rejectAccount(new CliUserError("errors.auth.loginTimeout", 1));
             void closeServer(server).catch(() => undefined);
         }, loginTimeoutMs);
@@ -47,12 +61,19 @@ export async function startAuthLoginSession(
                 setSettled(value) {
                     settled = value;
                 },
-                translator,
+                logger: options.logger,
+                translator: options.translator,
             });
         });
 
         server.once("error", (error) => {
             clearTimeout(timer);
+            options.logger.error(
+                {
+                    err: error,
+                },
+                "Auth login callback server failed.",
+            );
             reject(error);
         });
 
@@ -64,6 +85,13 @@ export async function startAuthLoginSession(
                 reject(new Error("Failed to resolve the auth callback address."));
                 return;
             }
+
+            options.logger.debug(
+                {
+                    port: address.port,
+                },
+                "Auth login callback server is listening.",
+            );
 
             resolve({
                 redirectUrl: `http://127.0.0.1:${address.port}${loginCallbackPath}`,
@@ -88,13 +116,36 @@ interface HandleRequestOptions {
     server: ReturnType<typeof createServer>;
     settled: boolean;
     setSettled: (value: boolean) => void;
+    logger: Logger;
     translator: Translator;
 }
 
 async function handleRequest(options: HandleRequestOptions): Promise<void> {
     const url = new URL(options.requestUrl, "http://127.0.0.1");
+    const hasApiKey = (url.searchParams.get("apiKey") ?? "") !== "";
+    const hasEndpoint = (url.searchParams.get("endpoint") ?? "") !== "";
+    const hasId = (url.searchParams.get("id") ?? "") !== "";
+    const hasName = (url.searchParams.get("name") ?? "") !== "";
+
+    options.logger.debug(
+        {
+            hasApiKey,
+            hasEndpoint,
+            hasId,
+            hasName,
+            ...withPath(url.pathname),
+            settled: options.settled,
+        },
+        "Auth login callback received.",
+    );
 
     if (url.pathname !== loginCallbackPath) {
+        options.logger.warn(
+            {
+                ...withPath(url.pathname),
+            },
+            "Auth login callback used an unexpected path.",
+        );
         writeHttpResponse(
             options.response,
             404,
@@ -104,6 +155,12 @@ async function handleRequest(options: HandleRequestOptions): Promise<void> {
     }
 
     if (options.settled) {
+        options.logger.warn(
+            {
+                ...withPath(url.pathname),
+            },
+            "Auth login callback was received after the session had already settled.",
+        );
         writeHttpResponse(
             options.response,
             409,
@@ -125,6 +182,15 @@ async function handleRequest(options: HandleRequestOptions): Promise<void> {
         || callbackFields.id === ""
         || callbackFields.name === ""
     ) {
+        options.logger.warn(
+            {
+                hasApiKey,
+                hasEndpoint,
+                hasId,
+                hasName,
+            },
+            "Auth login callback was missing required fields.",
+        );
         writeHttpResponse(
             options.response,
             400,
@@ -139,6 +205,16 @@ async function handleRequest(options: HandleRequestOptions): Promise<void> {
         apiKey = decodeApiKey(callbackFields.apiKey);
     }
     catch {
+        options.logger.warn(
+            {
+                ...withAccountIdentity(
+                    callbackFields.id,
+                    callbackFields.endpoint,
+                ),
+                name: callbackFields.name,
+            },
+            "Auth login callback contained an invalid api key payload.",
+        );
         writeHttpResponse(
             options.response,
             400,
@@ -152,6 +228,16 @@ async function handleRequest(options: HandleRequestOptions): Promise<void> {
         options.response,
         200,
         options.translator.t("auth.login.callbackSuccess"),
+    );
+    options.logger.info(
+        {
+            ...withAccountIdentity(
+                callbackFields.id,
+                callbackFields.endpoint,
+            ),
+            name: callbackFields.name,
+        },
+        "Auth login callback completed successfully.",
     );
     options.resolveAccount({
         apiKey,

@@ -3,7 +3,10 @@ import { stat } from "node:fs/promises";
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 
-import { createTemporaryDirectory } from "../../../__tests__/helpers.ts";
+import {
+    createLogCapture,
+    createTemporaryDirectory,
+} from "../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../application/config/app-config.ts";
 import { resolveStorePaths } from "../store/store-path.ts";
 import {
@@ -47,6 +50,66 @@ describe("SqliteCacheStore", () => {
         }
         finally {
             cacheStore.close();
+        }
+    });
+
+    test("warns and evicts invalid cached values during deserialization", async () => {
+        const root = await createTemporaryDirectory("sqlite-cache-invalid-json");
+        const logCapture = createLogCapture();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+        const cacheStore = new SqliteCacheStore(
+            storePaths.cacheFilePath,
+            logCapture.logger,
+        );
+        const cache = cacheStore.getCache<string>({
+            id: "search",
+        });
+        const tableName = resolveSqliteCacheTableName("search");
+        const database = new Database(cacheStore.getFilePath(), {
+            strict: true,
+        });
+
+        try {
+            cache.set("broken", "value");
+            database.query(
+                `UPDATE ${tableName} SET cache_value = $value WHERE cache_key = $key`,
+            ).run({
+                key: "broken",
+                value: "not-json",
+            });
+
+            expect(cache.get("broken")).toBeNull();
+            expect(cache.get("broken")).toBeNull();
+            expect(
+                database.query(
+                    `SELECT COUNT(*) AS count FROM ${tableName} WHERE cache_key = $key`,
+                ).get({
+                    key: "broken",
+                }) as {
+                    count: number;
+                },
+            ).toEqual({ count: 0 });
+
+            const logs = logCapture.read();
+
+            expect(logs).toContain(`"level":"warn"`);
+            expect(logs).toContain(`"category":"recoverable_cache"`);
+            expect(logs).toContain(
+                `"msg":"Sqlite cache entry was invalid and has been evicted."`,
+            );
+            expect(logs).toContain(`"cacheId":"search"`);
+        }
+        finally {
+            database.close();
+            cacheStore.close();
+            logCapture.close();
         }
     });
 

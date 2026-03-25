@@ -17,6 +17,11 @@
   macOS：`~/Library/Logs/oo`
   Linux：`${XDG_STATE_HOME:-~/.local/state}/oo/logs`
   Windows：`%LOCALAPPDATA%\\oo\\Logs`
+- Debug 日志会覆盖远端 API 请求生命周期、浏览器登录回调事件、更新检查的关键
+  决策，以及 settings/auth 持久化状态变化和 sqlite cache 活动。
+- 偏错误类的日志还会带上 `category` 字段，便于快速筛选用户错误、系统错误和可
+  恢复的 cache 问题。
+  当前会用到的值包括 `user_error`、`system_error`、`recoverable_cache`。
 - CLI 仅保留最近 `20` 个日志文件。超过后会优先删除最旧的日志文件。
 
 ## 认证

@@ -22,6 +22,14 @@ export const authSwitchCommand: CliCommandDefinition = {
         }
 
         await context.authStore.write(setCurrentAuthId(authFile, account.id));
+        context.logger.info(
+            {
+                endpoint: account.endpoint,
+                nextAccountId: account.id,
+                previousCurrentAuthId: authFile.id,
+            },
+            "Active auth account switched.",
+        );
         writeAuthBlock(context, {
             tone: "success",
             summary: context.translator.t("auth.switch.success", {

@@ -19,6 +19,18 @@ interface UpdateNotifierOptions {
     context: CliExecutionContext;
 }
 
+interface UpdateCheckDecision {
+    allowed: boolean;
+    reason:
+        | "ci"
+        | "disabled-in-settings"
+        | "enabled"
+        | "help-or-version"
+        | "invalid-current-version"
+        | "not-tty"
+        | "opted-out";
+}
+
 interface ParsedReleaseVersion {
     core: readonly [number, number, number];
     prerelease: readonly (number | string)[];
@@ -28,17 +40,45 @@ export async function maybeNotifyAboutCliUpdate(
     options: UpdateNotifierOptions,
 ): Promise<void> {
     try {
-        if (!(await shouldNotifyAboutCliUpdate(options))) {
+        const decision = await resolveUpdateCheckDecision(options);
+
+        if (!decision.allowed) {
+            options.context.logger.debug(
+                {
+                    reason: decision.reason,
+                },
+                "CLI update check skipped.",
+            );
             return;
         }
 
+        options.context.logger.debug(
+            {
+                currentVersion: options.context.version,
+                packageName: options.context.packageName,
+            },
+            "CLI update check started.",
+        );
         const latestVersion = await resolveLatestReleaseVersion(options.context);
 
         if (latestVersion === null) {
+            options.context.logger.debug(
+                {
+                    currentVersion: options.context.version,
+                },
+                "CLI update check did not resolve a latest version.",
+            );
             return;
         }
 
         if (compareReleaseVersions(latestVersion, options.context.version) <= 0) {
+            options.context.logger.debug(
+                {
+                    currentVersion: options.context.version,
+                    latestVersion,
+                },
+                "CLI update check found no newer version.",
+            );
             return;
         }
 
@@ -53,6 +93,13 @@ export async function maybeNotifyAboutCliUpdate(
         ].join(":");
 
         if (updateNoticeCache.has(updateNoticeKey)) {
+            options.context.logger.debug(
+                {
+                    currentVersion: options.context.version,
+                    latestVersion,
+                },
+                "CLI update notice was already shown for this version pair.",
+            );
             return;
         }
 
@@ -66,6 +113,13 @@ export async function maybeNotifyAboutCliUpdate(
                     options.context.packageName,
                 ),
             }),
+        );
+        options.context.logger.info(
+            {
+                currentVersion: options.context.version,
+                latestVersion,
+            },
+            "CLI update notice emitted.",
         );
     }
     catch (error) {
@@ -187,29 +241,60 @@ export function resolvePackageManagerUpgradeCommand(
     }
 }
 
-async function shouldNotifyAboutCliUpdate(
+async function resolveUpdateCheckDecision(
     options: UpdateNotifierOptions,
-): Promise<boolean> {
+): Promise<UpdateCheckDecision> {
     if (!options.context.stderr.isTTY) {
-        return false;
+        return {
+            allowed: false,
+            reason: "not-tty",
+        };
     }
 
     if (hasHelpOrVersionArgument(options.argv)) {
-        return false;
+        return {
+            allowed: false,
+            reason: "help-or-version",
+        };
     }
 
     if (
         hasOptOutEnvironmentVariable(options.context.env)
-        || isCiEnvironment(options.context.env)
         || options.context.env.NODE_ENV === "test"
-        || parseReleaseVersion(options.context.version) === null
     ) {
-        return false;
+        return {
+            allowed: false,
+            reason: "opted-out",
+        };
+    }
+
+    if (isCiEnvironment(options.context.env)) {
+        return {
+            allowed: false,
+            reason: "ci",
+        };
+    }
+
+    if (parseReleaseVersion(options.context.version) === null) {
+        return {
+            allowed: false,
+            reason: "invalid-current-version",
+        };
     }
 
     const settings = await options.context.settingsStore.read();
 
-    return settings.updateNotifier !== false;
+    if (settings.updateNotifier === false) {
+        return {
+            allowed: false,
+            reason: "disabled-in-settings",
+        };
+    }
+
+    return {
+        allowed: true,
+        reason: "enabled",
+    };
 }
 
 async function resolveLatestReleaseVersion(
@@ -223,6 +308,12 @@ async function resolveLatestReleaseVersion(
     const cachedLatestRelease = latestReleaseCache.get("latest");
 
     if (cachedLatestRelease !== null) {
+        context.logger.debug(
+            {
+                latestVersion: cachedLatestRelease.latestVersion,
+            },
+            "CLI update latest-release cache hit.",
+        );
         return cachedLatestRelease.latestVersion;
     }
 
@@ -233,6 +324,10 @@ async function resolveLatestReleaseVersion(
     });
 
     if (updateFailureCache.has("cooldown")) {
+        context.logger.debug(
+            {},
+            "CLI update check is in failure-backoff cooldown.",
+        );
         return null;
     }
 
@@ -240,15 +335,26 @@ async function resolveLatestReleaseVersion(
         currentVersion: context.version,
         env: context.env,
         fetcher: context.fetcher,
+        logger: context.logger,
         packageName: context.packageName,
     });
 
     if (latestVersion === null) {
         updateFailureCache.set("cooldown", true);
+        context.logger.warn(
+            {},
+            "CLI update check entered failure-backoff cooldown after a fetch failure.",
+        );
         return null;
     }
 
     latestReleaseCache.set("latest", { latestVersion });
+    context.logger.debug(
+        {
+            latestVersion,
+        },
+        "CLI update latest-release cache stored.",
+    );
 
     return latestVersion;
 }
@@ -257,11 +363,26 @@ async function fetchLatestReleaseVersion(options: {
     currentVersion: string;
     env: Record<string, string | undefined>;
     fetcher: Fetcher;
+    logger: CliExecutionContext["logger"];
     packageName: string;
 }): Promise<string | null> {
+    const requestUrl = resolveRegistryPackageMetadataUrl(
+        options.env,
+        options.packageName,
+    );
+    const requestStartedAt = Date.now();
+
+    options.logger.debug(
+        {
+            packageName: options.packageName,
+            requestUrl,
+        },
+        "CLI update latest-release request started.",
+    );
+
     const response = await fetchWithTimeout(
         options.fetcher,
-        resolveRegistryPackageMetadataUrl(options.env, options.packageName),
+        requestUrl,
         {
             headers: {
                 "accept": "application/json",
@@ -271,7 +392,28 @@ async function fetchLatestReleaseVersion(options: {
         updateRequestTimeoutMs,
     );
 
-    if (!response || !response.ok) {
+    if (!response) {
+        options.logger.warn(
+            {
+                durationMs: Date.now() - requestStartedAt,
+                packageName: options.packageName,
+                requestUrl,
+            },
+            "CLI update latest-release request timed out or failed.",
+        );
+        return null;
+    }
+
+    if (!response.ok) {
+        options.logger.warn(
+            {
+                durationMs: Date.now() - requestStartedAt,
+                packageName: options.packageName,
+                requestUrl,
+                status: response.status,
+            },
+            "CLI update latest-release request returned a non-success status.",
+        );
         return null;
     }
 
@@ -299,6 +441,17 @@ async function fetchLatestReleaseVersion(options: {
     if (typeof latestVersion !== "string" || latestVersion === "") {
         return null;
     }
+
+    options.logger.debug(
+        {
+            durationMs: Date.now() - requestStartedAt,
+            latestVersion,
+            packageName: options.packageName,
+            requestUrl,
+            status: response.status,
+        },
+        "CLI update latest-release request completed.",
+    );
 
     return latestVersion;
 }

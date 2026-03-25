@@ -1,3 +1,4 @@
+import type { Logger } from "pino";
 import type { AuthStore } from "../../application/contracts/auth-store.ts";
 import type { AuthFile } from "../../application/schemas/auth.ts";
 import type { FileStoreLocationOptions } from "./store-path.ts";
@@ -7,6 +8,11 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 import { parse as parseToml } from "smol-toml";
 import { CliUserError } from "../../application/contracts/cli.ts";
+import { logCategory } from "../../application/logging/log-categories.ts";
+import {
+    withCategory,
+    withStorePath,
+} from "../../application/logging/log-fields.ts";
 import {
     authTomlFileSchema,
     defaultAuthFile,
@@ -14,11 +20,16 @@ import {
 } from "../../application/schemas/auth.ts";
 import { resolveStoreDirectory } from "./store-path.ts";
 
-interface FileAuthStoreLocationOptions extends FileStoreLocationOptions {
+interface FileAuthStoreSharedOptions {
+    logger?: Logger;
+}
+
+interface FileAuthStoreLocationOptions
+    extends FileStoreLocationOptions, FileAuthStoreSharedOptions {
     fileName?: string;
 }
 
-interface FileAuthStorePathOptions {
+interface FileAuthStorePathOptions extends FileAuthStoreSharedOptions {
     filePath: string;
 }
 
@@ -28,9 +39,11 @@ export type FileAuthStoreOptions
 
 export class FileAuthStore implements AuthStore {
     private readonly filePath: string;
+    private readonly logger?: Logger;
 
     constructor(options: FileAuthStoreOptions) {
         this.filePath = resolveAuthFilePath(options);
+        this.logger = options.logger;
     }
 
     getFilePath(): string {
@@ -39,7 +52,18 @@ export class FileAuthStore implements AuthStore {
 
     async read(): Promise<AuthFile> {
         try {
-            return await this.readPersistedAuth();
+            const auth = await this.readPersistedAuth();
+
+            this.logger?.debug(
+                {
+                    accountCount: auth.auth.length,
+                    currentAuthId: auth.id,
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store read completed.",
+            );
+
+            return auth;
         }
         catch (error) {
             if (error instanceof CliUserError) {
@@ -47,10 +71,35 @@ export class FileAuthStore implements AuthStore {
             }
 
             if (isFileMissingError(error)) {
+                this.logger?.info(
+                    {
+                        ...withStorePath(this.filePath),
+                    },
+                    "Auth store file was missing. Initializing a default file.",
+                );
                 await this.initializeMissingFile();
-                return await this.readPersistedAuth();
+                const auth = await this.readPersistedAuth();
+
+                this.logger?.debug(
+                    {
+                        accountCount: auth.auth.length,
+                        currentAuthId: auth.id,
+                        ...withStorePath(this.filePath),
+                    },
+                    "Auth store read completed after initialization.",
+                );
+
+                return auth;
             }
 
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store read failed unexpectedly.",
+            );
             throw new CliUserError("errors.authStore.readFailed", 1, {
                 path: this.filePath,
             });
@@ -71,11 +120,30 @@ export class FileAuthStore implements AuthStore {
             );
             await rename(temporaryFilePath, this.filePath);
 
-            return authTomlFileSchema.parse(parseToml(renderedAuth));
+            const parsedAuth = authTomlFileSchema.parse(parseToml(renderedAuth));
+
+            this.logger?.info(
+                {
+                    accountCount: parsedAuth.auth.length,
+                    currentAuthId: parsedAuth.id,
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store write completed.",
+            );
+
+            return parsedAuth;
         }
-        catch {
+        catch (error) {
             await rm(temporaryFilePath, { force: true }).catch(() => undefined);
 
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store write failed unexpectedly.",
+            );
             throw new CliUserError("errors.authStore.writeFailed", 1, {
                 path: this.filePath,
             });
@@ -87,6 +155,17 @@ export class FileAuthStore implements AuthStore {
     ): Promise<AuthFile> {
         const currentAuth = await this.read();
         const nextAuth = updater(currentAuth);
+
+        this.logger?.debug(
+            {
+                nextAccountCount: nextAuth.auth.length,
+                nextCurrentAuthId: nextAuth.id,
+                ...withStorePath(this.filePath),
+                previousAccountCount: currentAuth.auth.length,
+                previousCurrentAuthId: currentAuth.id,
+            },
+            "Auth store update computed the next state.",
+        );
 
         return this.write(nextAuth);
     }
@@ -104,12 +183,33 @@ export class FileAuthStore implements AuthStore {
                     flag: "wx",
                 },
             );
+
+            this.logger?.info(
+                {
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store default file created.",
+            );
         }
         catch (error) {
             if (isFileAlreadyExistsError(error)) {
+                this.logger?.debug(
+                    {
+                        ...withStorePath(this.filePath),
+                    },
+                    "Auth store default file creation was skipped because the file already exists.",
+                );
                 return;
             }
 
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store default file creation failed unexpectedly.",
+            );
             throw new CliUserError("errors.authStore.writeFailed", 1, {
                 path: this.filePath,
             });
@@ -124,7 +224,16 @@ export class FileAuthStore implements AuthStore {
         try {
             parsedContent = parseToml(content);
         }
-        catch {
+        catch (error) {
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    contentBytes: content.length,
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store file contained invalid TOML.",
+            );
             throw new CliUserError("errors.authStore.invalidToml", 1, {
                 path: this.filePath,
             });
@@ -133,6 +242,17 @@ export class FileAuthStore implements AuthStore {
         const parsedAuth = authTomlFileSchema.safeParse(parsedContent);
 
         if (!parsedAuth.success) {
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    issueCount: parsedAuth.error.issues.length,
+                    issuePaths: parsedAuth.error.issues.map(issue =>
+                        issue.path.length === 0 ? "(root)" : issue.path.join("."),
+                    ),
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store file contained an unsupported schema.",
+            );
             throw new CliUserError("errors.authStore.invalidSchema", 1, {
                 path: this.filePath,
             });

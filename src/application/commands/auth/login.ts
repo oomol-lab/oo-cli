@@ -22,8 +22,19 @@ export const authLoginCommand: CliCommandDefinition = {
     descriptionKey: "commands.auth.login.description",
     inputSchema: emptyAuthCommandInputSchema,
     handler: async (_, context) => {
-        const session = await startAuthLoginSession(context.translator);
+        const session = await startAuthLoginSession({
+            logger: context.logger,
+            translator: context.translator,
+        });
         const loginUrl = createAuthLoginUrl(context, session.redirectUrl);
+
+        context.logger.debug(
+            {
+                authEndpoint: readAuthEndpoint(context.env),
+                redirectUrl: session.redirectUrl,
+            },
+            "Auth login URL prepared.",
+        );
         writeAuthLine(
             context,
             context.translator.t("auth.login.openManually", {
@@ -39,6 +50,14 @@ export const authLoginCommand: CliCommandDefinition = {
 
         await context.authStore.update(authFile =>
             upsertAuthAccount(authFile, account),
+        );
+        context.logger.info(
+            {
+                accountId: account.id,
+                endpoint: account.endpoint,
+                name: account.name,
+            },
+            "Auth account persisted after browser login.",
         );
 
         writeAuthBlock(context, {

@@ -4,7 +4,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { describe, expect, test } from "bun:test";
-import { createTemporaryDirectory } from "../../../__tests__/helpers.ts";
+import {
+    createLogCapture,
+    createTemporaryDirectory,
+} from "../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../application/config/app-config.ts";
 import { FileSettingsStore } from "./file-settings-store.ts";
 
@@ -131,12 +134,14 @@ describe("FileSettingsStore", () => {
 
     test("rejects invalid TOML files", async () => {
         const root = await createTemporaryDirectory("store-invalid-toml");
+        const logCapture = createLogCapture();
         const store = new FileSettingsStore({
             appName: APP_NAME,
             env: {
                 HOME: root,
                 XDG_CONFIG_HOME: root,
             },
+            logger: logCapture.logger,
             platform: "linux",
         });
 
@@ -145,6 +150,16 @@ describe("FileSettingsStore", () => {
         await expect(store.read()).rejects.toMatchObject({
             key: "errors.store.invalidToml",
         } satisfies Partial<CliUserError>);
+
+        const logs = logCapture.read();
+
+        expect(logs).toContain(`"level":"error"`);
+        expect(logs).toContain(`"category":"system_error"`);
+        expect(logs).toContain(
+            `"msg":"Settings store file contained invalid TOML."`,
+        );
+
+        logCapture.close();
     });
 
     test("rejects legacy settings with a version field", async () => {

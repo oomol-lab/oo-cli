@@ -4,7 +4,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { describe, expect, test } from "bun:test";
-import { createTemporaryDirectory } from "../../../__tests__/helpers.ts";
+import {
+    createLogCapture,
+    createTemporaryDirectory,
+} from "../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../application/config/app-config.ts";
 import { FileAuthStore } from "./file-auth-store.ts";
 
@@ -176,12 +179,14 @@ describe("FileAuthStore", () => {
 
     test("rejects unsupported auth schema", async () => {
         const root = await createTemporaryDirectory("auth-store-invalid-schema");
+        const logCapture = createLogCapture();
         const store = new FileAuthStore({
             appName: APP_NAME,
             env: {
                 HOME: root,
                 XDG_CONFIG_HOME: root,
             },
+            logger: logCapture.logger,
             platform: "linux",
         });
 
@@ -203,5 +208,17 @@ describe("FileAuthStore", () => {
         await expect(store.read()).rejects.toMatchObject({
             key: "errors.authStore.invalidSchema",
         } satisfies Partial<CliUserError>);
+
+        const logs = logCapture.read();
+
+        expect(logs).toContain(`"level":"error"`);
+        expect(logs).toContain(`"category":"system_error"`);
+        expect(logs).toContain(
+            `"msg":"Auth store file contained an unsupported schema."`,
+        );
+        expect(logs).toContain(`"issuePaths":["auth.0"]`);
+        expect(logs).not.toContain("secret-1");
+
+        logCapture.close();
     });
 });

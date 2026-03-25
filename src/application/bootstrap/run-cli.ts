@@ -8,6 +8,7 @@ import type {
     Writer,
 } from "../contracts/cli.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
+import type { LogCategory } from "../logging/log-categories.ts";
 import process from "node:process";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { SqliteCacheStore } from "../../adapters/cache/sqlite-cache.ts";
@@ -30,6 +31,8 @@ import {
     resolveCliBuildInfo,
 } from "../config/build-info.ts";
 import { CliUserError } from "../contracts/cli.ts";
+import { logCategory } from "../logging/log-categories.ts";
+import { withCategory, withErrorKey } from "../logging/log-fields.ts";
 import { maybeNotifyAboutCliUpdate } from "../update/update-notifier.ts";
 
 export interface CliInvocation {
@@ -109,17 +112,19 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
 
         cacheStore
             = invocation.cacheStore
-                ?? new SqliteCacheStore(storePaths.cacheFilePath);
+                ?? new SqliteCacheStore(storePaths.cacheFilePath, logger);
 
         const settingsStore
             = invocation.settingsStore
                 ?? new FileSettingsStore({
                     filePath: storePaths.settingsFilePath,
+                    logger,
                 });
         const authStore
             = invocation.authStore
                 ?? new FileAuthStore({
                     filePath: storePaths.authFilePath,
+                    logger,
                 });
         const settings = await settingsStore.read();
 
@@ -190,8 +195,10 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         if (error instanceof CliUserError) {
             logger.debug(
                 {
+                    ...withCategory(resolveCliErrorLogCategory(error)),
                     err: error,
                     exitCode: error.exitCode,
+                    ...withErrorKey(error.key),
                 },
                 "CLI invocation failed with a user error.",
             );
@@ -199,6 +206,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         else {
             logger.error(
                 {
+                    ...withCategory(logCategory.systemError),
                     err: error,
                 },
                 "CLI invocation failed unexpectedly.",
@@ -215,6 +223,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             catch (error) {
                 logger.error(
                     {
+                        ...withCategory(logCategory.systemError),
                         err: error,
                     },
                     "Failed to close the cache store cleanly.",
@@ -247,6 +256,22 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
 
 function hasCliDebugFlag(argv: readonly string[]): boolean {
     return argv.includes("--debug");
+}
+
+function resolveCliErrorLogCategory(error: CliUserError): LogCategory {
+    return isSystemCliUserError(error)
+        ? logCategory.systemError
+        : logCategory.userError;
+}
+
+function isSystemCliUserError(error: CliUserError): boolean {
+    return error.key.startsWith("errors.store.")
+        || error.key.startsWith("errors.authStore.")
+        || error.key === "errors.cloudTaskRun.dataReadFailed"
+        || error.key === "errors.unexpected"
+        || error.key.endsWith(".invalidResponse")
+        || error.key.endsWith(".requestError")
+        || error.key.endsWith(".requestFailed");
 }
 
 function writeBootstrapError(

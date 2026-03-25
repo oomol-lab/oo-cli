@@ -1,9 +1,12 @@
+import type { Logger } from "pino";
 import type { CliInvocation } from "../src/application/bootstrap/run-cli.ts";
 import type { Fetcher, InteractiveInput, Writer } from "../src/application/contracts/cli.ts";
 import { mkdtemp, rm } from "node:fs/promises";
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
+import pino from "pino";
 import {
 
     executeCli,
@@ -40,6 +43,12 @@ export interface CliSandbox {
     cleanup: () => Promise<void>;
 }
 
+export interface LogCapture {
+    readonly logger: Logger;
+    close: () => void;
+    read: () => string;
+}
+
 export function createTextBuffer(options: TextBufferOptions = {}): TextBuffer {
     const chunks: string[] = [];
     const writer: Writer = {
@@ -68,6 +77,35 @@ export function createTextBuffer(options: TextBufferOptions = {}): TextBuffer {
 
 export async function createTemporaryDirectory(prefix: string): Promise<string> {
     return mkdtemp(join(tmpdir(), `${prefix}-`));
+}
+
+export function createLogCapture(): LogCapture {
+    const chunks: string[] = [];
+    const stream = new PassThrough();
+
+    stream.on("data", (chunk) => {
+        chunks.push(chunk.toString());
+    });
+
+    return {
+        logger: pino(
+            {
+                formatters: {
+                    level(label) {
+                        return { level: label };
+                    },
+                },
+                level: "debug",
+            },
+            stream,
+        ),
+        close() {
+            stream.end();
+        },
+        read() {
+            return chunks.join("");
+        },
+    };
 }
 
 export async function createCliSandbox(): Promise<CliSandbox> {

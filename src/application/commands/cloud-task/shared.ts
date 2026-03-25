@@ -3,6 +3,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { withRequestTarget } from "../../logging/log-fields.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
 
 export const cloudTaskFormatValues = ["json"] as const;
@@ -179,12 +180,26 @@ export function createCloudTaskTaskUrl(
 export async function requestCloudTask(
     requestUrl: URL,
     apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger">,
     options: {
         body?: string;
         method?: string;
     } = {},
 ): Promise<string> {
+    const requestStartedAt = Date.now();
+    const method = options.method ?? "GET";
+
+    context.logger.debug(
+        {
+            bodyBytes: options.body?.length ?? 0,
+            hasBody: options.body !== undefined,
+            method,
+            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+            query: requestUrl.searchParams.toString(),
+        },
+        "Cloud task request started.",
+    );
+
     try {
         const headers: Record<string, string> = {
             Authorization: apiKey,
@@ -197,14 +212,34 @@ export async function requestCloudTask(
         const response = await context.fetcher(requestUrl, {
             body: options.body,
             headers,
-            method: options.method,
+            method,
         });
+        const durationMs = Date.now() - requestStartedAt;
 
         if (!response.ok) {
+            context.logger.warn(
+                {
+                    durationMs,
+                    method,
+                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                    status: response.status,
+                },
+                "Cloud task request returned a non-success status.",
+            );
             throw new CliUserError("errors.cloudTask.requestFailed", 1, {
                 status: response.status,
             });
         }
+
+        context.logger.debug(
+            {
+                durationMs,
+                method,
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                status: response.status,
+            },
+            "Cloud task request completed.",
+        );
 
         return await response.text();
     }
@@ -213,6 +248,15 @@ export async function requestCloudTask(
             throw error;
         }
 
+        context.logger.warn(
+            {
+                durationMs: Date.now() - requestStartedAt,
+                err: error,
+                method,
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+            },
+            "Cloud task request failed unexpectedly.",
+        );
         throw new CliUserError("errors.cloudTask.requestError", 1, {
             message: error instanceof Error ? error.message : String(error),
         });

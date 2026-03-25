@@ -1,3 +1,4 @@
+import type { Logger } from "pino";
 import type {
     Cache,
     CacheOptions,
@@ -9,6 +10,13 @@ import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { constants, Database } from "bun:sqlite";
+import { logCategory } from "../../application/logging/log-categories.ts";
+import {
+    withCacheId,
+    withCategory,
+    withKeyFingerprint,
+    withStorePath,
+} from "../../application/logging/log-fields.ts";
 
 interface CacheRow {
     value: string;
@@ -23,6 +31,7 @@ interface SqliteCacheOptionsInternal {
     database: Database;
     defaultTtlMs?: number;
     id: string;
+    logger?: Logger;
     maxEntries?: number;
     now: () => number;
 }
@@ -30,10 +39,18 @@ interface SqliteCacheOptionsInternal {
 export class SqliteCacheStore implements CacheStore {
     private database: Database | undefined;
     private readonly filePath: string;
+    private readonly logger?: Logger;
 
-    constructor(filePath: string) {
+    constructor(filePath: string, logger?: Logger) {
         this.filePath = filePath;
+        this.logger = logger;
         this.database = openDatabase(filePath);
+        this.logger?.debug(
+            {
+                ...withStorePath(this.filePath),
+            },
+            "Sqlite cache store opened.",
+        );
     }
 
     getFilePath(): string {
@@ -41,10 +58,21 @@ export class SqliteCacheStore implements CacheStore {
     }
 
     getCache<Value>(options: CacheOptions): Cache<Value> {
+        this.logger?.debug(
+            {
+                ...withCacheId(options.id),
+                defaultTtlMs: options.defaultTtlMs,
+                maxEntries: options.maxEntries,
+                ...withStorePath(this.filePath),
+            },
+            "Sqlite cache namespace opened.",
+        );
+
         return new SqliteCache<Value>({
             database: this.getDatabase(),
             defaultTtlMs: options.defaultTtlMs,
             id: options.id,
+            logger: this.logger,
             maxEntries: options.maxEntries,
             now: options.now ?? (() => Date.now()),
         });
@@ -65,6 +93,12 @@ export class SqliteCacheStore implements CacheStore {
         }
         finally {
             database.close();
+            this.logger?.debug(
+                {
+                    ...withStorePath(this.filePath),
+                },
+                "Sqlite cache store closed.",
+            );
         }
     }
 
@@ -74,6 +108,13 @@ export class SqliteCacheStore implements CacheStore {
         }
 
         this.database = openDatabase(this.filePath);
+
+        this.logger?.debug(
+            {
+                ...withStorePath(this.filePath),
+            },
+            "Sqlite cache store reopened.",
+        );
 
         return this.database;
     }
@@ -171,12 +212,46 @@ export class SqliteCache<Value> implements Cache<Value> {
         const row = this.selectFreshStatement.get({ key, now });
 
         if (row === null) {
+            this.options.logger?.debug(
+                {
+                    ...withCacheId(this.options.id),
+                    ...withKeyFingerprint(createCacheKeyFingerprint(key)),
+                },
+                "Sqlite cache lookup missed.",
+            );
             return null;
         }
 
-        const value = deserializeCacheValue<Value>(row.value);
+        let value: Value;
+
+        try {
+            value = deserializeCacheValue<Value>(row.value);
+        }
+        catch (error) {
+            const deleted = this.deleteStatement.run({ key }).changes > 0;
+
+            this.options.logger?.warn(
+                {
+                    ...withCacheId(this.options.id),
+                    ...withCategory(logCategory.recoverableCache),
+                    deleted,
+                    err: error,
+                    ...withKeyFingerprint(createCacheKeyFingerprint(key)),
+                },
+                "Sqlite cache entry was invalid and has been evicted.",
+            );
+
+            return null;
+        }
 
         this.touchStatement.run({ key, now });
+        this.options.logger?.debug(
+            {
+                ...withCacheId(this.options.id),
+                ...withKeyFingerprint(createCacheKeyFingerprint(key)),
+            },
+            "Sqlite cache lookup hit.",
+        );
 
         return value;
     }
@@ -194,6 +269,16 @@ export class SqliteCache<Value> implements Cache<Value> {
         });
         this.deleteExpiredStatement.run({ now });
 
+        this.options.logger?.debug(
+            {
+                ...withCacheId(this.options.id),
+                expiresAtMs,
+                ...withKeyFingerprint(createCacheKeyFingerprint(key)),
+                ttlMs,
+            },
+            "Sqlite cache value stored.",
+        );
+
         if (this.options.maxEntries !== undefined) {
             this.evictLeastRecentlyUsedStatement.run({
                 maxEntries: this.options.maxEntries,
@@ -206,11 +291,28 @@ export class SqliteCache<Value> implements Cache<Value> {
     }
 
     delete(key: string): boolean {
-        return this.deleteStatement.run({ key }).changes > 0;
+        const deleted = this.deleteStatement.run({ key }).changes > 0;
+
+        this.options.logger?.debug(
+            {
+                ...withCacheId(this.options.id),
+                deleted,
+                ...withKeyFingerprint(createCacheKeyFingerprint(key)),
+            },
+            "Sqlite cache delete completed.",
+        );
+
+        return deleted;
     }
 
     clear(): void {
         this.clearStatement.run();
+        this.options.logger?.info(
+            {
+                ...withCacheId(this.options.id),
+            },
+            "Sqlite cache namespace cleared.",
+        );
     }
 }
 
@@ -314,4 +416,8 @@ function serializeCacheValue<Value>(value: Value): string {
 
 function deserializeCacheValue<Value>(value: string): Value {
     return JSON.parse(value) as Value;
+}
+
+function createCacheKeyFingerprint(key: string): string {
+    return createHash("sha256").update(key).digest("hex").slice(0, 12);
 }

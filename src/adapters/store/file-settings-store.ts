@@ -1,3 +1,4 @@
+import type { Logger } from "pino";
 import type { SettingsStore } from "../../application/contracts/settings-store.ts";
 import type { AppSettings } from "../../application/schemas/settings.ts";
 import type { FileStoreLocationOptions } from "./store-path.ts";
@@ -7,6 +8,11 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 import { parse as parseToml } from "smol-toml";
 import { CliUserError } from "../../application/contracts/cli.ts";
+import { logCategory } from "../../application/logging/log-categories.ts";
+import {
+    withCategory,
+    withStorePath,
+} from "../../application/logging/log-fields.ts";
 import {
     defaultSettings,
     renderSettingsFile,
@@ -14,11 +20,16 @@ import {
 } from "../../application/schemas/settings.ts";
 import { resolveStoreDirectory } from "./store-path.ts";
 
-interface FileSettingsStoreLocationOptions extends FileStoreLocationOptions {
+interface FileSettingsStoreSharedOptions {
+    logger?: Logger;
+}
+
+interface FileSettingsStoreLocationOptions
+    extends FileStoreLocationOptions, FileSettingsStoreSharedOptions {
     fileName?: string;
 }
 
-interface FileSettingsStorePathOptions {
+interface FileSettingsStorePathOptions extends FileSettingsStoreSharedOptions {
     filePath: string;
 }
 
@@ -28,9 +39,11 @@ export type FileSettingsStoreOptions
 
 export class FileSettingsStore implements SettingsStore {
     private readonly filePath: string;
+    private readonly logger?: Logger;
 
     constructor(options: FileSettingsStoreOptions) {
         this.filePath = resolveSettingsFilePath(options);
+        this.logger = options.logger;
     }
 
     getFilePath(): string {
@@ -39,7 +52,17 @@ export class FileSettingsStore implements SettingsStore {
 
     async read(): Promise<AppSettings> {
         try {
-            return await this.readPersistedSettings();
+            const settings = await this.readPersistedSettings();
+
+            this.logger?.debug(
+                {
+                    configuredKeys: readConfiguredSettingsKeys(settings),
+                    ...withStorePath(this.filePath),
+                },
+                "Settings store read completed.",
+            );
+
+            return settings;
         }
         catch (error) {
             if (error instanceof CliUserError) {
@@ -47,10 +70,34 @@ export class FileSettingsStore implements SettingsStore {
             }
 
             if (isFileMissingError(error)) {
+                this.logger?.info(
+                    {
+                        ...withStorePath(this.filePath),
+                    },
+                    "Settings store file was missing. Initializing a default file.",
+                );
                 await this.initializeMissingFile();
-                return await this.readPersistedSettings();
+                const settings = await this.readPersistedSettings();
+
+                this.logger?.debug(
+                    {
+                        configuredKeys: readConfiguredSettingsKeys(settings),
+                        ...withStorePath(this.filePath),
+                    },
+                    "Settings store read completed after initialization.",
+                );
+
+                return settings;
             }
 
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Settings store read failed unexpectedly.",
+            );
             throw new CliUserError("errors.store.readFailed", 1, {
                 path: this.filePath,
             });
@@ -71,11 +118,27 @@ export class FileSettingsStore implements SettingsStore {
             );
             await rename(temporaryFilePath, this.filePath);
 
+            this.logger?.info(
+                {
+                    configuredKeys: readConfiguredSettingsKeys(parsedSettings),
+                    ...withStorePath(this.filePath),
+                },
+                "Settings store write completed.",
+            );
+
             return parsedSettings;
         }
-        catch {
+        catch (error) {
             await rm(temporaryFilePath, { force: true }).catch(() => undefined);
 
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Settings store write failed unexpectedly.",
+            );
             throw new CliUserError("errors.store.writeFailed", 1, {
                 path: this.filePath,
             });
@@ -87,6 +150,15 @@ export class FileSettingsStore implements SettingsStore {
     ): Promise<AppSettings> {
         const currentSettings = await this.read();
         const nextSettings = updater(currentSettings);
+
+        this.logger?.debug(
+            {
+                nextConfiguredKeys: readConfiguredSettingsKeys(nextSettings),
+                ...withStorePath(this.filePath),
+                previousConfiguredKeys: readConfiguredSettingsKeys(currentSettings),
+            },
+            "Settings store update computed the next state.",
+        );
 
         return this.write(nextSettings);
     }
@@ -104,12 +176,33 @@ export class FileSettingsStore implements SettingsStore {
                     flag: "wx",
                 },
             );
+
+            this.logger?.info(
+                {
+                    ...withStorePath(this.filePath),
+                },
+                "Settings store default file created.",
+            );
         }
         catch (error) {
             if (isFileAlreadyExistsError(error)) {
+                this.logger?.debug(
+                    {
+                        ...withStorePath(this.filePath),
+                    },
+                    "Settings store default file creation was skipped because the file already exists.",
+                );
                 return;
             }
 
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Settings store default file creation failed unexpectedly.",
+            );
             throw new CliUserError("errors.store.writeFailed", 1, {
                 path: this.filePath,
             });
@@ -124,7 +217,16 @@ export class FileSettingsStore implements SettingsStore {
         try {
             parsedContent = parseToml(content);
         }
-        catch {
+        catch (error) {
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    contentBytes: content.length,
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Settings store file contained invalid TOML.",
+            );
             throw new CliUserError("errors.store.invalidToml", 1, {
                 path: this.filePath,
             });
@@ -133,6 +235,17 @@ export class FileSettingsStore implements SettingsStore {
         const parsedSettings = settingsFileSchema.safeParse(parsedContent);
 
         if (!parsedSettings.success) {
+            this.logger?.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    issueCount: parsedSettings.error.issues.length,
+                    issuePaths: parsedSettings.error.issues.map(issue =>
+                        issue.path.length === 0 ? "(root)" : issue.path.join("."),
+                    ),
+                    ...withStorePath(this.filePath),
+                },
+                "Settings store file contained an unsupported schema.",
+            );
             throw new CliUserError("errors.store.invalidSchema", 1, {
                 path: this.filePath,
             });
@@ -151,6 +264,12 @@ function resolveSettingsFilePath(options: FileSettingsStoreOptions): string {
         resolveStoreDirectory(options),
         options.fileName ?? "settings.toml",
     );
+}
+
+function readConfiguredSettingsKeys(settings: AppSettings): string[] {
+    return Object.entries(settings)
+        .flatMap(([key, value]) => (value !== undefined ? [key] : []))
+        .sort();
 }
 
 function isFileMissingError(error: unknown): error is NodeJS.ErrnoException {

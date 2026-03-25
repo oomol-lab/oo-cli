@@ -5,6 +5,11 @@ import type { TerminalColors } from "../terminal-colors.ts";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../i18n/locale.ts";
 import { CliUserError } from "../contracts/cli.ts";
+import {
+    withAccountIdentity,
+    withPath,
+    withRequestTarget,
+} from "../logging/log-fields.ts";
 import { createWriterColors } from "../terminal-colors.ts";
 import { readCurrentAuth } from "./auth/shared.ts";
 import { jsonOutputOptions } from "./json-output.ts";
@@ -166,20 +171,49 @@ function truncateSearchText(text: string): string {
 async function requestSearch(
     requestUrl: URL,
     apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger">,
 ): Promise<string> {
+    const requestStartedAt = Date.now();
+
+    context.logger.debug(
+        {
+            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+            queryLength: requestUrl.searchParams.get("q")?.length ?? 0,
+            requestLanguage: requestUrl.searchParams.get("lang") ?? "",
+        },
+        "Search request started.",
+    );
+
     try {
         const response = await context.fetcher(requestUrl, {
             headers: {
                 Authorization: apiKey,
             },
         });
+        const durationMs = Date.now() - requestStartedAt;
 
         if (!response.ok) {
+            context.logger.warn(
+                {
+                    durationMs,
+                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                    status: response.status,
+                },
+                "Search request returned a non-success status.",
+            );
             throw new CliUserError("errors.search.requestFailed", 1, {
                 status: response.status,
             });
         }
+
+        context.logger.debug(
+            {
+                durationMs,
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                status: response.status,
+            },
+            "Search request completed.",
+        );
 
         return await response.text();
     }
@@ -188,6 +222,14 @@ async function requestSearch(
             throw error;
         }
 
+        context.logger.warn(
+            {
+                durationMs: Date.now() - requestStartedAt,
+                err: error,
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+            },
+            "Search request failed unexpectedly.",
+        );
         throw new CliUserError("errors.search.requestError", 1, {
             message: error instanceof Error ? error.message : String(error),
         });
@@ -197,7 +239,7 @@ async function requestSearch(
 async function loadSearchResponse(
     requestUrl: URL,
     account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">,
-    context: Pick<CliExecutionContext, "cacheStore" | "fetcher">,
+    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger">,
 ): Promise<ParsedSearchResponse> {
     const searchCache = context.cacheStore.getCache<string>({
         id: SEARCH_CACHE_ID,
@@ -212,6 +254,15 @@ async function loadSearchResponse(
     const cachedResponse = searchCache.get(cacheKey);
 
     if (cachedResponse !== null) {
+        context.logger.debug(
+            {
+                ...withAccountIdentity(account.id, account.endpoint),
+                ...withPath(requestUrl.pathname),
+                queryLength: requestUrl.searchParams.get("q")?.length ?? 0,
+            },
+            "Search response cache hit.",
+        );
+
         try {
             return parseSearchResponse(cachedResponse);
         }
@@ -224,13 +275,38 @@ async function loadSearchResponse(
             }
 
             searchCache.delete(cacheKey);
+            context.logger.warn(
+                {
+                    ...withAccountIdentity(account.id, account.endpoint),
+                    ...withPath(requestUrl.pathname),
+                },
+                "Search response cache entry was invalidated after a parse failure.",
+            );
         }
+    }
+    else {
+        context.logger.debug(
+            {
+                ...withAccountIdentity(account.id, account.endpoint),
+                ...withPath(requestUrl.pathname),
+                queryLength: requestUrl.searchParams.get("q")?.length ?? 0,
+            },
+            "Search response cache miss.",
+        );
     }
 
     const rawResponse = await requestSearch(requestUrl, account.apiKey, context);
     const response = parseSearchResponse(rawResponse);
 
     searchCache.set(cacheKey, rawResponse);
+    context.logger.debug(
+        {
+            ...withAccountIdentity(account.id, account.endpoint),
+            packageCount: response.text.packages.length,
+            ...withPath(requestUrl.pathname),
+        },
+        "Search response cached.",
+    );
 
     return response;
 }

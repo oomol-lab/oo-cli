@@ -8,6 +8,7 @@ import { createCliSandbox, createTextBuffer } from "../../../__tests__/helpers.t
 import packageManifest from "../../../package.json" with { type: "json" };
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { APP_NAME } from "../config/app-config.ts";
+import { CliUserError } from "../contracts/cli.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
 import { executeCli } from "./run-cli.ts";
 
@@ -15,6 +16,7 @@ const loginUrlColor = "#c09ff5";
 const searchBlockTitleColor = "#CAA8FA";
 const searchDisplayNameColor = "#59F78D";
 const defaultAuthEndpoint = "oomol.com";
+const packageName = packageManifest.name;
 
 describe("runCli", () => {
     test("keeps the cli command name aligned with package metadata", () => {
@@ -112,6 +114,306 @@ describe("runCli", () => {
             expect(firstLine).toContain(`"command":"--help"`);
             expect(content).toContain(`"msg":"CLI invocation started."`);
             expect(content).toContain(`"msg":"CLI invocation completed."`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("writes search request lifecycle logs", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(
+                ["search", "image processing"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        packages: [],
+                    })),
+                },
+            );
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(content).toContain(`"msg":"Search response cache miss."`);
+            expect(content).toContain(`"msg":"Search request started."`);
+            expect(content).toContain(`"msg":"Search request completed."`);
+            expect(content).toContain(`"msg":"Search response cached."`);
+            expect(content).toContain(`"path":"/v1/packages/-/intent-search"`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("writes auth login callback logs without persisting api keys", async () => {
+        const sandbox = await createCliSandbox();
+        const encodedApiKey = Buffer.from("secret-1", "utf8").toString("base64");
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1");
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(content).toContain(
+                `"msg":"Auth login callback server is listening."`,
+            );
+            expect(content).toContain(`"msg":"Auth login callback received."`);
+            expect(content).toContain(
+                `"msg":"Auth login callback completed successfully."`,
+            );
+            expect(content).toContain(
+                `"msg":"Auth account persisted after browser login."`,
+            );
+            expect(content).toContain(`"hasApiKey":true`);
+            expect(content).not.toContain("secret-1");
+            expect(content).not.toContain(encodedApiKey);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("writes package info and cloud-task request logs during task creation", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(
+                ["cloud-task", "run", "foo/bar@1.2.3", "--block-id", "main"],
+                {
+                    fetcher: async (input) => {
+                        const request = toRequest(input);
+
+                        if (request.url.startsWith("https://registry.")) {
+                            return new Response(JSON.stringify({
+                                blocks: [
+                                    {
+                                        blockName: "main",
+                                        inputHandleDefs: [],
+                                        outputHandleDefs: [],
+                                        title: "Main",
+                                    },
+                                ],
+                                packageName: "foo/bar",
+                                packageVersion: "1.2.3",
+                                title: "Foo Bar",
+                            }));
+                        }
+
+                        return new Response(JSON.stringify({
+                            taskID: "task-1",
+                        }));
+                    },
+                },
+            );
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(content).toContain(`"msg":"Package info request started."`);
+            expect(content).toContain(`"msg":"Package info request completed."`);
+            expect(content).toContain(`"msg":"Cloud task request started."`);
+            expect(content).toContain(`"msg":"Cloud task request completed."`);
+            expect(content).toContain(`"packageName":"foo/bar"`);
+            expect(content).toContain(`"packageVersion":"1.2.3"`);
+            expect(content).toContain(`"path":"/v3/users/me/tasks"`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("writes update-check lifecycle logs when a newer release is available", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            sandbox.env.npm_config_user_agent = "pnpm/10.0.0 node/v22.0.0";
+
+            const result = await sandbox.run(
+                ["config", "path"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        "dist-tags": {
+                            latest: "1.2.0",
+                        },
+                    })),
+                    packageName,
+                    stderr: {
+                        isTTY: true,
+                    },
+                    version: "1.0.0",
+                },
+            );
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(content).toContain(`"msg":"CLI update check started."`);
+            expect(content).toContain(
+                `"msg":"CLI update latest-release request started."`,
+            );
+            expect(content).toContain(
+                `"msg":"CLI update latest-release request completed."`,
+            );
+            expect(content).toContain(`"msg":"CLI update latest-release cache stored."`);
+            expect(content).toContain(`"msg":"CLI update notice emitted."`);
+            expect(content).toContain(`"latestVersion":"1.2.0"`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("writes settings-store and config mutation logs", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["config", "set", "lang", "zh"]);
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(content).toContain(
+                `"msg":"Settings store file was missing. Initializing a default file."`,
+            );
+            expect(content).toContain(`"msg":"Settings store default file created."`);
+            expect(content).toContain(`"msg":"Settings store write completed."`);
+            expect(content).toContain(`"msg":"Config value persisted."`);
+            expect(content).toContain(`"key":"lang"`);
+            expect(content).toContain(`"value":"zh"`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("writes auth-store and auth status logs", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(
+                ["auth", "status"],
+                {
+                    fetcher: async () => new Response(null, { status: 200 }),
+                },
+            );
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(content).toContain(`"msg":"Auth store read completed."`);
+            expect(content).toContain(`"msg":"Current auth account resolved."`);
+            expect(content).toContain(`"msg":"Auth status request started."`);
+            expect(content).toContain(`"msg":"Auth status request completed."`);
+            expect(content).not.toContain("secret-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("writes sqlite cache adapter logs across repeated search invocations", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+
+            let requestCount = 0;
+            const fetcher = async () => {
+                requestCount += 1;
+
+                return new Response(JSON.stringify({
+                    packages: [],
+                }));
+            };
+
+            const firstResult = await sandbox.run(["search", "cache me"], { fetcher });
+            const firstContent = await readLatestLogContent(sandbox);
+            const secondResult = await sandbox.run(["search", "cache me"], { fetcher });
+            const secondContent = await readLatestLogContent(sandbox);
+
+            expect(firstResult.exitCode).toBe(0);
+            expect(secondResult.exitCode).toBe(0);
+            expect(requestCount).toBe(1);
+            expect(firstContent).toContain(`"msg":"Sqlite cache namespace opened."`);
+            expect(firstContent).toContain(`"msg":"Sqlite cache lookup missed."`);
+            expect(firstContent).toContain(`"msg":"Sqlite cache value stored."`);
+            expect(secondContent).toContain(`"msg":"Sqlite cache lookup hit."`);
+            expect(secondContent).toContain(`"cacheId":"search.intent-response"`);
         }
         finally {
             await sandbox.cleanup();
@@ -2680,9 +2982,52 @@ describe("runCli", () => {
             await Bun.write(filePath, "{");
 
             const result = await sandbox.run(["config", "get", "lang"]);
+            const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(1);
             expect(result.stderr).toContain("settings file");
+            expect(content).toContain(`"category":"system_error"`);
+            expect(content).toContain(`"key":"errors.store.invalidToml"`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("tags bootstrap user errors with the user_error category", async () => {
+        const sandbox = await createCliSandbox();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+
+        try {
+            const exitCode = await executeCli({
+                argv: ["config", "get", "lang"],
+                cwd: sandbox.cwd,
+                env: sandbox.env,
+                settingsStore: {
+                    getFilePath: () => "",
+                    read: async () => {
+                        throw new CliUserError("errors.config.invalidKey", 2, {
+                            value: "theme",
+                        });
+                    },
+                    update: async () => {
+                        throw new Error("update should not be called");
+                    },
+                    write: async () => {
+                        throw new Error("write should not be called");
+                    },
+                },
+                stderr: stderr.writer,
+                stdout: stdout.writer,
+                systemLocale: "en-US",
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(exitCode).toBe(2);
+            expect(stderr.read()).toContain("Invalid config key");
+            expect(content).toContain(`"category":"user_error"`);
+            expect(content).toContain(`"key":"errors.config.invalidKey"`);
         }
         finally {
             await sandbox.cleanup();
@@ -2754,6 +3099,42 @@ async function runPrintedAuthLogin(
         stdout: stdout.read(),
         stderr: stderr.read(),
     };
+}
+
+async function readLatestLogContent(
+    sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
+): Promise<string> {
+    const logDirectoryPath = resolveStorePaths({
+        appName: APP_NAME,
+        env: sandbox.env,
+        platform: process.platform,
+    }).logDirectoryPath;
+    const logFileNames = await readdir(logDirectoryPath);
+    const logFilesWithMetadata = await Promise.all(
+        logFileNames.map(async fileName => ({
+            fileName,
+            metadata: await stat(join(logDirectoryPath, fileName)),
+        })),
+    );
+    const latestLogFileName = logFilesWithMetadata
+        .sort((left, right) => {
+            const modifiedAtDelta
+                = left.metadata.mtimeMs - right.metadata.mtimeMs;
+
+            if (modifiedAtDelta !== 0) {
+                return modifiedAtDelta;
+            }
+
+            return left.fileName.localeCompare(right.fileName);
+        })
+        .at(-1)
+        ?.fileName;
+
+    if (!latestLogFileName) {
+        throw new Error("Expected at least one log file.");
+    }
+
+    return await readFile(join(logDirectoryPath, latestLogFileName), "utf8");
 }
 
 async function waitForLoginUrl(

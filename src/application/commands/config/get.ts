@@ -29,6 +29,14 @@ export const configGetCommand: CliCommandDefinition<ConfigGetInput> = {
         const settings = await context.settingsStore.read();
         const value = getConfigValue(settings, input.key);
 
+        context.logger.debug(
+            {
+                found: value !== undefined,
+                key: input.key,
+            },
+            "Config value read.",
+        );
+
         if (value) {
             context.stdout.write(`${value}\n`);
         }

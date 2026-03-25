@@ -19,6 +19,13 @@ Project overview: [README.md](../README.md)
   macOS: `~/Library/Logs/oo`
   Linux: `${XDG_STATE_HOME:-~/.local/state}/oo/logs`
   Windows: `%LOCALAPPDATA%\\oo\\Logs`
+- The debug logs include request lifecycles for remote APIs, browser-login
+  callback events, update-check decisions, persisted settings/auth store
+  changes, and sqlite cache activity.
+- Error-oriented log entries also include a `category` field so user-facing
+  failures, system failures, and recoverable cache issues can be filtered
+  quickly.
+  Values include `user_error`, `system_error`, and `recoverable_cache`.
 - The CLI keeps only the most recent `20` log files. Older log files are
   removed first.
 

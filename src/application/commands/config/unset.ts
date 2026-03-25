@@ -30,6 +30,12 @@ export const configUnsetCommand: CliCommandDefinition<ConfigUnsetInput> = {
         await context.settingsStore.update(settings =>
             configDefinitions[input.key].unsetValue(settings),
         );
+        context.logger.info(
+            {
+                key: input.key,
+            },
+            "Config value removed.",
+        );
         writeLine(
             context,
             context.translator.t("config.unset.success", {

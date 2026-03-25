@@ -66,6 +66,13 @@ export const configSetCommand: CliCommandDefinition<ConfigSetInput> = {
         await context.settingsStore.update(
             settings => setConfigValue(settings, input),
         );
+        context.logger.info(
+            {
+                key: input.key,
+                value: input.value,
+            },
+            "Config value persisted.",
+        );
         writeLine(
             context,
             context.translator.t("config.set.success", {

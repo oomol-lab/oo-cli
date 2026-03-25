@@ -22,10 +22,22 @@ export async function readCurrentAuth(
     currentAccount: ReturnType<typeof getCurrentAuthAccount>;
 }> {
     const authFile = await context.authStore.read();
+    const currentAccount = getCurrentAuthAccount(authFile);
+
+    context.logger.debug(
+        {
+            accountCount: authFile.auth.length,
+            currentAuthId: authFile.id,
+            hasCurrentAccount: currentAccount !== undefined,
+        },
+        currentAccount === undefined
+            ? "Current auth account is not available."
+            : "Current auth account resolved.",
+    );
 
     return {
         authFile,
-        currentAccount: getCurrentAuthAccount(authFile),
+        currentAccount,
     };
 }
 

@@ -9,8 +9,24 @@ export const authLogoutCommand: CliCommandDefinition = {
     descriptionKey: "commands.auth.logout.description",
     inputSchema: emptyAuthCommandInputSchema,
     handler: async (_, context) => {
-        await context.authStore.update(authFile =>
-            removeCurrentAuthAccount(authFile),
+        let previousCurrentAuthId = "";
+        let remainingSavedAccounts = 0;
+
+        await context.authStore.update((authFile) => {
+            previousCurrentAuthId = authFile.id;
+            const nextAuthFile = removeCurrentAuthAccount(authFile);
+
+            remainingSavedAccounts = nextAuthFile.auth.length;
+
+            return nextAuthFile;
+        },
+        );
+        context.logger.info(
+            {
+                previousCurrentAuthId,
+                remainingSavedAccounts,
+            },
+            "Current auth account was removed.",
         );
 
         writeAuthLine(
