@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    buildCompileCommandArgs,
     buildCompileDefineArgs,
     buildPlatformPackageManifest,
     buildWrapperPackageManifest,
@@ -227,6 +228,39 @@ describe("npm-packages", () => {
             "BUILD_TIMESTAMP=1742867323456",
             "--define",
             "GIT_COMMIT=\"1234567890abcdef\"",
+        ]);
+    });
+
+    test("builds compile command arguments with the production executable flags", () => {
+        expect(
+            buildCompileCommandArgs(
+                getRequiredTarget("darwin-arm64"),
+                {
+                    buildTimestamp: 1_742_867_323_456,
+                    gitCommit: "1234567890abcdef",
+                    version: "1.2.3",
+                },
+                "dist/bin/oo",
+            ),
+        ).toEqual([
+            "bun",
+            "build",
+            "--compile",
+            "--bytecode",
+            "--minify",
+            "--no-compile-autoload-dotenv",
+            "--no-compile-autoload-bunfig",
+            "--asset-naming=[name].[ext]",
+            "--target=bun-darwin-arm64",
+            "--define",
+            "BUILD_VERSION=\"1.2.3\"",
+            "--define",
+            "BUILD_TIMESTAMP=1742867323456",
+            "--define",
+            "GIT_COMMIT=\"1234567890abcdef\"",
+            "./index.ts",
+            "--outfile",
+            "dist/bin/oo",
         ]);
     });
 

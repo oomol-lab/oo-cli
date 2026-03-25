@@ -342,16 +342,7 @@ function compilePlatformBinary(
 ): void {
     const outputPath = join(packageDir, "bin", target.executableFileName);
     const buildResult = Bun.spawnSync(
-        [
-            "bun",
-            "build",
-            "--compile",
-            `--target=${target.bunTarget}`,
-            ...buildCompileDefineArgs(buildMetadata),
-            "./index.ts",
-            "--outfile",
-            outputPath,
-        ],
+        buildCompileCommandArgs(target, buildMetadata, outputPath),
         {
             cwd: rootDir,
             stderr: "pipe",
@@ -372,6 +363,28 @@ function compilePlatformBinary(
     if (target.os !== "win32") {
         chmodSync(outputPath, 0o755);
     }
+}
+
+export function buildCompileCommandArgs(
+    target: PlatformTarget,
+    buildMetadata: CompileBuildMetadata,
+    outputPath: string,
+): string[] {
+    return [
+        "bun",
+        "build",
+        "--compile",
+        "--bytecode",
+        "--minify",
+        "--no-compile-autoload-dotenv",
+        "--no-compile-autoload-bunfig",
+        "--asset-naming=[name].[ext]",
+        `--target=${target.bunTarget}`,
+        ...buildCompileDefineArgs(buildMetadata),
+        "./index.ts",
+        "--outfile",
+        outputPath,
+    ];
 }
 
 export function buildCompileDefineArgs(
