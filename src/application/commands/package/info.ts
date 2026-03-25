@@ -6,6 +6,7 @@ import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
+import { jsonOutputOptions } from "../json-output.ts";
 import {
     isPackageInfoInputHandleOptional,
     loadPackageInfo,
@@ -36,14 +37,7 @@ export const packageInfoCommand: CliCommandDefinition<PackageInfoInput> = {
             required: true,
         },
     ],
-    options: [
-        {
-            name: "format",
-            longFlag: "--format",
-            valueName: "format",
-            descriptionKey: "options.format",
-        },
-    ],
+    options: [...jsonOutputOptions],
     inputSchema: z.object({
         format: z.enum(packageInfoFormatValues).optional(),
         packageSpecifier: z.string(),

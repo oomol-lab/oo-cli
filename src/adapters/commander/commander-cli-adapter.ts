@@ -7,10 +7,9 @@ import {
     Argument,
     Command,
     CommanderError,
-
+    Option,
 } from "commander";
 import {
-
     CliUserError,
 } from "../../application/contracts/cli.ts";
 import { LocalizedHelp } from "./localized-help.ts";
@@ -84,10 +83,7 @@ export class CommanderCliAdapter {
             .exitOverride();
 
         for (const option of catalog.globalOptions) {
-            program.option(
-                formatOptionFlags(option),
-                context.translator.t(option.descriptionKey),
-            );
+            program.addOption(createOption(option, context.translator));
         }
 
         for (const command of catalog.commands) {
@@ -118,10 +114,7 @@ export class CommanderCliAdapter {
         }
 
         for (const option of definition.options ?? []) {
-            command.option(
-                formatOptionFlags(option),
-                context.translator.t(option.descriptionKey),
-            );
+            command.addOption(createOption(option, context.translator));
         }
 
         for (const argument of definition.arguments ?? []) {
@@ -212,6 +205,28 @@ function formatOptionFlags(option: {
     flags.push(longFlag);
 
     return flags.join(", ");
+}
+
+function createOption(
+    option: {
+        descriptionKey: string;
+        implies?: Record<string, unknown>;
+        longFlag: string;
+        shortFlag?: string;
+        valueName?: string;
+    },
+    translator: Translator,
+): Option {
+    const commanderOption = new Option(
+        formatOptionFlags(option),
+        translator.t(option.descriptionKey),
+    );
+
+    if (option.implies !== undefined) {
+        commanderOption.implies(option.implies);
+    }
+
+    return commanderOption;
 }
 
 function formatArgumentSyntax(argument: {

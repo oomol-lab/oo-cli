@@ -39,6 +39,7 @@ export interface CliOptionDefinition {
     valueName?: string;
     descriptionKey: string;
     global?: boolean;
+    implies?: Record<string, unknown>;
 }
 
 export interface CliArgumentDefinition {

@@ -936,7 +936,7 @@ describe("runCli", () => {
             const searchText = "x".repeat(210);
             const expectedQuery = "x".repeat(200);
             const result = await sandbox.run(
-                ["search", searchText, "--format=json"],
+                ["search", searchText, "--json"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -1225,7 +1225,7 @@ describe("runCli", () => {
             );
 
             const result = await sandbox.run(
-                ["package", "info", "qrcode@1.0.4", "--format=json"],
+                ["package", "info", "qrcode@1.0.4", "--json"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packageName: "qrcode",
@@ -1528,7 +1528,7 @@ describe("runCli", () => {
                     "Exist",
                     "-d",
                     "{\"count\":3}",
-                    "--format=json",
+                    "--json",
                 ],
                 {
                     fetcher: async (input, init) => {
@@ -1764,13 +1764,13 @@ describe("runCli", () => {
             };
 
             const resultResponse = await sandbox.run(
-                ["cloud-task", "result", "task-1", "--format=json"],
+                ["cloud-task", "result", "task-1", "--json"],
                 {
                     fetcher,
                 },
             );
             const logResponse = await sandbox.run(
-                ["cloud-task", "log", "task-1", "--format=json", "--page=2"],
+                ["cloud-task", "log", "task-1", "--json", "--page=2"],
                 {
                     fetcher,
                 },
@@ -1779,7 +1779,7 @@ describe("runCli", () => {
                 [
                     "cloud-task",
                     "list",
-                    "--format=json",
+                    "--json",
                     "--size=1",
                     "--nextToken=eyJsYXN0SWQiOiIxMjMifQ==",
                     "--status=running",
@@ -2347,6 +2347,22 @@ describe("runCli", () => {
             expect(result.exitCode).toBe(2);
             expect(result.stdout).toBe("");
             expect(result.stderr).toContain("Invalid format: yaml. Use json.");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports package info command help with the --json alias", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["package", "info", "--help"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("--json");
+            expect(result.stdout).toContain("Alias for --format=json");
         }
         finally {
             await sandbox.cleanup();

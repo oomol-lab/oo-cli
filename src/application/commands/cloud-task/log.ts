@@ -1,6 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import { jsonOutputOptions } from "../json-output.ts";
 import {
     createCloudTaskTaskUrl,
     parseCloudTaskFormat,
@@ -29,12 +30,7 @@ export const cloudTaskLogCommand: CliCommandDefinition<CloudTaskLogInput> = {
         },
     ],
     options: [
-        {
-            name: "format",
-            longFlag: "--format",
-            valueName: "format",
-            descriptionKey: "options.format",
-        },
+        ...jsonOutputOptions,
         {
             name: "page",
             longFlag: "--page",

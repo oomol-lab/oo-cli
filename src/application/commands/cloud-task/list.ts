@@ -2,6 +2,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { jsonOutputOptions } from "../json-output.ts";
 import {
     createCloudTaskTasksUrl,
     parseCloudTaskFormat,
@@ -29,12 +30,7 @@ export const cloudTaskListCommand: CliCommandDefinition<CloudTaskListInput> = {
     summaryKey: "commands.cloudTask.list.summary",
     descriptionKey: "commands.cloudTask.list.description",
     options: [
-        {
-            name: "format",
-            longFlag: "--format",
-            valueName: "format",
-            descriptionKey: "options.format",
-        },
+        ...jsonOutputOptions,
         {
             name: "size",
             longFlag: "--size",

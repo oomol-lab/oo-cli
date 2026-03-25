@@ -1,6 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import { jsonOutputOptions } from "../json-output.ts";
 import {
     createCloudTaskTaskUrl,
     parseCloudTaskFormat,
@@ -27,14 +28,7 @@ export const cloudTaskResultCommand: CliCommandDefinition<CloudTaskResultInput> 
             required: true,
         },
     ],
-    options: [
-        {
-            name: "format",
-            longFlag: "--format",
-            valueName: "format",
-            descriptionKey: "options.format",
-        },
-    ],
+    options: [...jsonOutputOptions],
     inputSchema: z.object({
         format: z.string().optional(),
         taskId: z.string(),

@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
+import { jsonOutputOptions } from "../json-output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
 import {
     createCloudTaskTasksUrl,
@@ -55,12 +56,7 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
             longFlag: "--dry-run",
             descriptionKey: "options.dryRun",
         },
-        {
-            name: "format",
-            longFlag: "--format",
-            valueName: "format",
-            descriptionKey: "options.format",
-        },
+        ...jsonOutputOptions,
     ],
     inputSchema: z.object({
         blockId: z.string().optional(),

@@ -76,6 +76,7 @@
 
 - 参数：`<text>` 为搜索文本。
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
 - 选项：`--only-package-id` 仅返回 package id。
 - 说明：搜索文本超过 200 个字符时，会在发送请求前被截断。
 
@@ -86,6 +87,7 @@
 - 参数：`<packageSpecifier>` 为 package 标识，版本可选。示例：
   `foo/bar`、`foo/bar@latest`、`foo/bar@1.2.3`。
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
 - 说明：如果未指定版本，CLI 会解析为最新版本。
 
 ## Cloud Task
@@ -101,6 +103,7 @@
   `@path/to/file.json`。
 - 选项：`--dry-run` 仅校验请求，不真正创建任务。
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
 - 说明：省略 `--data` 时，命令会使用 `{}`。
 
 ### `oo cloud-task list`
@@ -108,6 +111,7 @@
 列出 cloud task，并支持按条件过滤。
 
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
 - 选项：`--size <size>` 指定分页大小，支持 `1` 到 `100` 的整数。
 - 选项：`--nextToken <nextToken>` 使用分页令牌请求下一页。
 - 选项：`--status <status>` 按任务状态过滤。支持的值：
@@ -126,6 +130,7 @@
 - 参数：`<taskId>` 为任务 ID。
 - 选项：`--page <page>` 指定日志页码，支持大于等于 `1` 的整数。
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
 
 ### `oo cloud-task result <taskId>`
 
@@ -133,6 +138,7 @@
 
 - 参数：`<taskId>` 为任务 ID。
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
 
 ## Shell 补全
 

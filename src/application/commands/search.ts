@@ -6,6 +6,7 @@ import { z } from "zod";
 import { resolveRequestLanguage } from "../../i18n/locale.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { readCurrentAuth } from "./auth/shared.ts";
+import { jsonOutputOptions } from "./json-output.ts";
 
 const MAX_SEARCH_TEXT_LENGTH = 200;
 const SEARCH_CACHE_ID = "search.intent-response";
@@ -65,12 +66,7 @@ export const searchCommand: CliCommandDefinition<SearchInput> = {
         },
     ],
     options: [
-        {
-            name: "format",
-            longFlag: "--format",
-            valueName: "format",
-            descriptionKey: "options.format",
-        },
+        ...jsonOutputOptions,
         {
             name: "onlyPackageId",
             longFlag: "--only-package-id",

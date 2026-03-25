@@ -79,6 +79,7 @@ Search packages with free-form intent text.
 - Arguments: `<text>` is the search query.
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.
+- Options: `--json` is an alias for `--format=json`.
 - Options: `--only-package-id` returns only package IDs.
 - Notes: queries longer than 200 characters are truncated before the request is
   sent.
@@ -91,6 +92,7 @@ Show package metadata for one package.
   Examples: `foo/bar`, `foo/bar@latest`, `foo/bar@1.2.3`.
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.
+- Options: `--json` is an alias for `--format=json`.
 - Notes: if no version is provided, the CLI resolves the latest version.
 
 ## Cloud Tasks
@@ -108,6 +110,7 @@ Validate input values and create a cloud task for a package block.
 - Options: `--dry-run` validates the request without creating a task.
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.
+- Options: `--json` is an alias for `--format=json`.
 - Notes: when `--data` is omitted, the command uses `{}`.
 
 ### `oo cloud-task list`
@@ -116,6 +119,7 @@ List cloud tasks with optional filters.
 
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.
+- Options: `--json` is an alias for `--format=json`.
 - Options: `--size <size>` sets page size. Supported values are integers from
   `1` to `100`.
 - Options: `--nextToken <nextToken>` requests the next page with a pagination
@@ -138,6 +142,7 @@ Show paginated logs for one task.
   greater than or equal to `1`.
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.
+- Options: `--json` is an alias for `--format=json`.
 
 ### `oo cloud-task result <taskId>`
 
@@ -146,6 +151,7 @@ Show the current result for one task.
 - Arguments: `<taskId>` is the task ID.
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.
+- Options: `--json` is an alias for `--format=json`.
 
 ## Shell Completion
 
