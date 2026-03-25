@@ -13,6 +13,7 @@
 ## Development Standards
 
 - After each code modification, you must execute: `bun run lint:fix` `bun run ts-check`
+- For any change that affects commands or CLI behavior, you must check whether documentation under `docs/` needs to be updated and update it when necessary
 - Comments must be in English
 - When generating UUIDs, you must use v7 and must use bun's `randomUUIDv7` function
 - Avoid using regular expressions when possible
