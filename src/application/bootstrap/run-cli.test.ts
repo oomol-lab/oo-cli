@@ -147,7 +147,7 @@ describe("runCli", () => {
                 isFile: expect.any(Function),
             });
             expect(await readFile(ownershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: false",
+                "allow_implicit_invocation: true",
             );
             expect(await readFile(versionFilePath, "utf8")).toBe("9.9.9\n");
             expect(content).toContain(`"msg":"CLI first-run detection completed."`);
