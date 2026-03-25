@@ -86,6 +86,7 @@ export interface CompletionRenderer {
 export interface CliExecutionContext {
     authStore: AuthStore;
     cacheStore: CacheStore;
+    currentLogFilePath: string;
     fetcher: Fetcher;
     cwd: string;
     env: Record<string, string | undefined>;

@@ -5,12 +5,19 @@ import { authCommand } from "./auth/index.ts";
 import { cloudTaskCommand } from "./cloud-task/index.ts";
 import { completionCommand } from "./completion.ts";
 import { configCommand } from "./config/index.ts";
+import { logCommand } from "./log/index.ts";
 import { loginCommand } from "./login.ts";
 import { logoutCommand } from "./logout.ts";
 import { packageCommand } from "./package/index.ts";
 import { searchCommand } from "./search.ts";
 
 const globalOptions = [
+    {
+        name: "debug",
+        longFlag: "--debug",
+        descriptionKey: "options.debug",
+        global: true,
+    },
     {
         name: "lang",
         longFlag: "--lang",
@@ -32,6 +39,7 @@ export function createCliCatalog(): CliCatalog {
             logoutCommand,
             completionCommand,
             configCommand,
+            logCommand,
             packageCommand,
             searchCommand,
         ],

@@ -79,8 +79,10 @@ export async function createCliSandbox(): Promise<CliSandbox> {
         LANG: undefined,
         LC_ALL: undefined,
         LC_MESSAGES: undefined,
+        LOCALAPPDATA: join(configRoot, "local-appdata"),
         USERPROFILE: configRoot,
         XDG_CONFIG_HOME: join(configRoot, "xdg"),
+        XDG_STATE_HOME: join(configRoot, "xdg-state"),
     };
 
     return {

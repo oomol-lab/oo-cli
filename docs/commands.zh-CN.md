@@ -6,9 +6,18 @@
 
 ## 全局选项
 
+- `--debug`：在 CLI 退出时将当前日志文件路径输出到 `stderr`。
 - `--lang <lang>`：为当前命令临时指定显示语言。支持的值：`en`、`zh`。
 - `-h, --help`：显示当前命令的帮助信息。
 - `-V, --version`：显示当前 CLI 版本、构建时间和 commit hash。
+
+## Debug 日志
+
+- CLI 会把结构化 debug 日志写入按平台区分的持久化日志目录：
+  macOS：`~/Library/Logs/oo`
+  Linux：`${XDG_STATE_HOME:-~/.local/state}/oo/logs`
+  Windows：`%LOCALAPPDATA%\\oo\\Logs`
+- CLI 仅保留最近 `20` 个日志文件。超过后会优先删除最旧的日志文件。
 
 ## 认证
 
@@ -67,6 +76,21 @@
 删除一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前仅支持 `lang`。
+
+## 日志
+
+### `oo log path`
+
+输出当前持久化 debug 日志目录路径。
+
+### `oo log print`
+
+输出某一份更早的持久化 debug 日志文件内容。
+
+- 参数：`[index]` 可选，必须为大于等于 `1` 的整数。`1` 表示上一份日志，
+  `20` 表示往前第 20 份日志。
+- 说明：当前这次 `oo log print` 调用也会生成自己的日志文件，因此命令会始终
+  跳过本次运行对应的日志，读取更早的日志。
 
 ## Package 检索
 

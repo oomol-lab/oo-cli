@@ -59,6 +59,13 @@ export const enMessages = {
     "commands.config.unset.description": "Remove a persisted configuration value.",
     "commands.config.unset.summary": "Remove a configuration value",
     "commands.help.summary": "Show help for a command",
+    "commands.log.description": "Inspect persisted CLI debug logs.",
+    "commands.log.summary": "Manage persisted debug logs",
+    "commands.log.path.description": "Print the current persisted log directory path.",
+    "commands.log.path.summary": "Show log directory path",
+    "commands.log.print.description":
+        "Print one previous persisted debug log file by index.",
+    "commands.log.print.summary": "Print a previous debug log",
     "commands.login.description":
         "Log in with an OOMOL account in the browser. Alias for auth login.",
     "commands.login.summary": "Log in with a browser flow (alias for auth login)",
@@ -189,6 +196,9 @@ export const enMessages = {
     "errors.store.writeFailed":
         "Failed to write the settings file at {path}.",
     "errors.unexpected": "Unexpected error: {message}",
+    "errors.log.invalidIndex":
+        "Invalid log index: {value}. Use an integer greater than or equal to 1.",
+    "log.print.missing": "No debug log was found for index {index}.",
     "update.available.message":
         "Update available {currentVersion} → {latestVersion}",
     "update.available.command":
@@ -208,6 +218,7 @@ export const enMessages = {
     "options.blockName": "Alias for --block-id",
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
+    "options.debug": "Print the current log file path when the CLI exits",
     "options.help": "Show help for command",
     "options.format": "Specify output format (use json for structured output)",
     "options.json": "Alias for --format=json",
@@ -224,6 +235,7 @@ export const enMessages = {
     "versionInfo.buildTime": "Build Time",
     "versionInfo.commit": "Commit",
     "versionInfo.unknown": "unknown",
+    "arguments.index": "Log index",
     "arguments.key": "Configuration key",
     "arguments.packageSpecifier": "Package specifier",
     "arguments.shell": "Target shell",
@@ -317,6 +329,12 @@ export const zhMessages = {
     "commands.config.unset.description": "移除一个持久化配置值。",
     "commands.config.unset.summary": "移除配置值",
     "commands.help.summary": "显示命令帮助",
+    "commands.log.description": "查看持久化的 CLI debug 日志。",
+    "commands.log.summary": "管理持久化 debug 日志",
+    "commands.log.path.description": "打印当前持久化日志目录路径。",
+    "commands.log.path.summary": "显示日志目录路径",
+    "commands.log.print.description": "按序号打印某一份更早的持久化 debug 日志文件内容。",
+    "commands.log.print.summary": "输出某一份更早的 debug 日志",
     "commands.login.description": "在浏览器中登录 OOMOL 账号。是 auth login 的别名。",
     "commands.login.summary": "通过浏览器登录（auth login 的别名）",
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
@@ -430,6 +448,9 @@ export const zhMessages = {
     "errors.store.readFailed": "读取配置文件 {path} 失败。",
     "errors.store.writeFailed": "写入配置文件 {path} 失败。",
     "errors.unexpected": "发生了未预期错误：{message}",
+    "errors.log.invalidIndex":
+        "无效的日志序号：{value}。请使用大于等于 1 的整数。",
+    "log.print.missing": "未找到序号为 {index} 的 debug 日志。",
     "update.available.message":
         "发现新版本 {currentVersion} → {latestVersion}",
     "update.available.command":
@@ -449,6 +470,7 @@ export const zhMessages = {
     "options.blockName": "--block-id 的别名",
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
+    "options.debug": "在 CLI 退出时打印当前日志文件路径",
     "options.help": "显示命令帮助",
     "options.format": "指定输出格式（使用 json 返回结构化内容）",
     "options.json": "--format=json 的别名",
@@ -465,6 +487,7 @@ export const zhMessages = {
     "versionInfo.buildTime": "构建时间",
     "versionInfo.commit": "提交",
     "versionInfo.unknown": "未知",
+    "arguments.index": "日志序号",
     "arguments.key": "配置键",
     "arguments.packageSpecifier": "包标识",
     "arguments.shell": "目标 shell",

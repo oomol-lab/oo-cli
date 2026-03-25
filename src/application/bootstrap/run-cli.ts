@@ -9,11 +9,11 @@ import type {
 } from "../contracts/cli.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 import process from "node:process";
-import pino from "pino";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { SqliteCacheStore } from "../../adapters/cache/sqlite-cache.ts";
 import { CommanderCliAdapter } from "../../adapters/commander/commander-cli-adapter.ts";
 import { StaticCompletionRenderer } from "../../adapters/completion/static-completion-renderer.ts";
+import { createCliLogger } from "../../adapters/logging/create-cli-logger.ts";
 import { FileAuthStore } from "../../adapters/store/file-auth-store.ts";
 import { FileSettingsStore } from "../../adapters/store/file-settings-store.ts";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
@@ -62,8 +62,14 @@ export async function runCli(argv: string[]): Promise<number> {
 }
 
 export async function executeCli(invocation: CliInvocation): Promise<number> {
+    const debugPathEnabled = hasCliDebugFlag(invocation.argv);
     const rawCliLanguage = detectCliLanguageFlag(invocation.argv);
     const parsedCliLanguage = parseExplicitLocale(rawCliLanguage);
+    const storePaths = resolveStorePaths({
+        appName: APP_NAME,
+        env: invocation.env,
+        platform: process.platform,
+    });
     const bootstrapTranslator = createTranslator(
         resolvePreferredLocale({
             cliFlag: parsedCliLanguage,
@@ -71,27 +77,36 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             systemLocale: invocation.systemLocale,
         }),
     );
-
-    if (rawCliLanguage !== undefined && parsedCliLanguage === undefined) {
-        invocation.stderr.write(
-            `${bootstrapTranslator.t("errors.lang.invalidFlag", {
-                value: rawCliLanguage,
-            })}\n`,
-        );
-
-        return 2;
-    }
-
-    const storePaths = resolveStorePaths({
-        appName: APP_NAME,
-        env: invocation.env,
-        platform: process.platform,
-    });
     let translator = bootstrapTranslator;
     let exitCode = 0;
     let cacheStore: CacheStore | undefined;
+    const loggerHandle = createCliLogger({
+        appName: APP_NAME,
+        env: invocation.env,
+        logDirectoryPath: storePaths.logDirectoryPath,
+    });
+    const { logger, logFilePath } = loggerHandle;
+
+    logger.info(
+        {
+            argv: [...invocation.argv],
+            command: invocation.argv.join(" "),
+        },
+        "CLI command received.",
+    );
 
     try {
+        if (rawCliLanguage !== undefined && parsedCliLanguage === undefined) {
+            invocation.stderr.write(
+                `${bootstrapTranslator.t("errors.lang.invalidFlag", {
+                    value: rawCliLanguage,
+                })}\n`,
+            );
+
+            exitCode = 2;
+            return exitCode;
+        }
+
         cacheStore
             = invocation.cacheStore
                 ?? new SqliteCacheStore(storePaths.cacheFilePath);
@@ -117,17 +132,24 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             }),
         );
         const catalog = createCliCatalog();
-        const logger = pino({
-            name: APP_NAME,
-            level: invocation.env.OO_LOG_LEVEL ?? "silent",
-        });
         const completionRenderer = new StaticCompletionRenderer(translator);
         const packageName = invocation.packageName ?? packageManifest.name;
         const buildInfo = resolveCliBuildInfo(packageManifest.version);
         const version = invocation.version ?? buildInfo.version;
+
+        logger.debug(
+            {
+                commandCount: invocation.argv.length,
+                cwd: invocation.cwd,
+                version,
+            },
+            "CLI invocation started.",
+        );
+
         const context: CliExecutionContext = {
             authStore,
             cacheStore,
+            currentLogFilePath: logFilePath,
             fetcher: invocation.fetcher ?? fetch,
             cwd: invocation.cwd,
             env: invocation.env,
@@ -165,6 +187,24 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         }
     }
     catch (error) {
+        if (error instanceof CliUserError) {
+            logger.debug(
+                {
+                    err: error,
+                    exitCode: error.exitCode,
+                },
+                "CLI invocation failed with a user error.",
+            );
+        }
+        else {
+            logger.error(
+                {
+                    err: error,
+                },
+                "CLI invocation failed unexpectedly.",
+            );
+        }
+
         exitCode = writeBootstrapError(error, translator, invocation.stderr);
     }
     finally {
@@ -173,6 +213,12 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 cacheStore.close();
             }
             catch (error) {
+                logger.error(
+                    {
+                        err: error,
+                    },
+                    "Failed to close the cache store cleanly.",
+                );
                 invocation.stderr.write(
                     `${translator.t("errors.unexpected", {
                         message: error instanceof Error ? error.message : String(error),
@@ -182,9 +228,25 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 exitCode = 1;
             }
         }
+
+        logger.debug(
+            {
+                exitCode,
+            },
+            "CLI invocation completed.",
+        );
+        loggerHandle.close();
+
+        if (debugPathEnabled) {
+            invocation.stderr.write(`${logFilePath}\n`);
+        }
     }
 
     return exitCode;
+}
+
+function hasCliDebugFlag(argv: readonly string[]): boolean {
+    return argv.includes("--debug");
 }
 
 function writeBootstrapError(

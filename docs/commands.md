@@ -6,10 +6,21 @@ Project overview: [README.md](../README.md)
 
 ## Global Options
 
+- `--debug`: Print the current log file path to `stderr` when the CLI exits.
 - `--lang <lang>`: Override the display language for the current invocation.
   Supported values: `en`, `zh`.
 - `-h, --help`: Show help for the current command.
 - `-V, --version`: Show the current CLI version, build time, and commit hash.
+
+## Debug Logging
+
+- The CLI writes structured debug logs to a platform-specific persisted log
+  directory:
+  macOS: `~/Library/Logs/oo`
+  Linux: `${XDG_STATE_HOME:-~/.local/state}/oo/logs`
+  Windows: `%LOCALAPPDATA%\\oo\\Logs`
+- The CLI keeps only the most recent `20` log files. Older log files are
+  removed first.
 
 ## Authentication
 
@@ -69,6 +80,22 @@ Persist one configuration value.
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported value: `lang`.
+
+## Logs
+
+### `oo log path`
+
+Print the current persisted debug log directory path.
+
+### `oo log print`
+
+Print one previous persisted debug log file.
+
+- Arguments: `[index]` is optional and must be an integer greater than or equal
+  to `1`. `1` means the previous log file, `20` means the twentieth previous
+  log file.
+- Notes: the current `oo log print` invocation creates its own log file, so the
+  command always skips the current run and reads earlier logs.
 
 ## Package Discovery
 

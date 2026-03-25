@@ -190,6 +190,7 @@ function createSearchContext(options: {
     return {
         authStore: createAuthStore(activeAuthFile),
         cacheStore: options.cacheStore,
+        currentLogFilePath: "",
         fetcher: options.fetcher,
         cwd: process.cwd(),
         env: {},

@@ -1,11 +1,12 @@
 import { Buffer } from "node:buffer";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox, createTextBuffer } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
+import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
 import { executeCli } from "./run-cli.ts";
@@ -86,6 +87,129 @@ describe("runCli", () => {
         }
     });
 
+    test("writes debug logs to the log directory during cli startup", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const logDirectoryPath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).logDirectoryPath;
+            const result = await sandbox.run(["--help"]);
+            const logFileNames = await readdir(logDirectoryPath).catch(() => []);
+
+            expect(result.exitCode).toBe(0);
+            expect(logFileNames.length).toBeGreaterThan(0);
+
+            const content = await readFile(
+                join(logDirectoryPath, logFileNames[0]!),
+                "utf8",
+            );
+            const firstLine = content.split("\n")[0] ?? "";
+
+            expect(firstLine).toContain(`"msg":"CLI command received."`);
+            expect(firstLine).toContain(`"command":"--help"`);
+            expect(content).toContain(`"msg":"CLI invocation started."`);
+            expect(content).toContain(`"msg":"CLI invocation completed."`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints the current log file path to stderr when --debug is set", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const logDirectoryPath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).logDirectoryPath;
+            const result = await sandbox.run(["--debug", "--help"]);
+            const logFileNames = await readdir(logDirectoryPath);
+            const logFilePath = join(logDirectoryPath, logFileNames.at(-1)!);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe(`${logFilePath}\n`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints the resolved log directory path", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const logDirectoryPath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).logDirectoryPath;
+            const result = await sandbox.run(["log", "path"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(`${logDirectoryPath}\n`);
+            expect(result.stderr).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints the previous log file by default", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const logDirectoryPath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).logDirectoryPath;
+
+            await mkdir(logDirectoryPath, { recursive: true });
+            await Bun.write(join(logDirectoryPath, "debug-0001.log"), "first-log");
+            await Bun.write(join(logDirectoryPath, "debug-0002.log"), "second-log");
+
+            const result = await sandbox.run(["log", "print"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe("second-log\n");
+            expect(result.stderr).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints a selected previous log file by index", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const logDirectoryPath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).logDirectoryPath;
+
+            await mkdir(logDirectoryPath, { recursive: true });
+            await Bun.write(join(logDirectoryPath, "debug-0001.log"), "first-log");
+            await Bun.write(join(logDirectoryPath, "debug-0002.log"), "second-log");
+            await Bun.write(join(logDirectoryPath, "debug-0003.log"), "third-log");
+
+            const result = await sandbox.run(["log", "print", "2"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe("second-log\n");
+            expect(result.stderr).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("renders help in English and Chinese", async () => {
         const sandbox = await createCliSandbox();
 
@@ -96,7 +220,9 @@ describe("runCli", () => {
             expect(englishHelp.exitCode).toBe(0);
             expect(englishHelp.stdout).not.toContain("Usage:");
             expect(englishHelp.stdout).toContain("auth");
+            expect(englishHelp.stdout).toContain("log");
             expect(englishHelp.stdout).toContain(`${APP_NAME} is OOMOL's CLI toolkit.`);
+            expect(englishHelp.stdout).toContain("--debug");
             expect(englishHelp.stdout).toContain("--lang <lang>");
             expect(englishHelp.stdout).toContain(
                 "Log in with a browser flow (alias for auth login)",
@@ -108,7 +234,9 @@ describe("runCli", () => {
             expect(chineseHelp.exitCode).toBe(0);
             expect(chineseHelp.stdout).not.toContain("用法：");
             expect(chineseHelp.stdout).toContain("auth");
+            expect(chineseHelp.stdout).toContain("log");
             expect(chineseHelp.stdout).toContain(`${APP_NAME} 是 OOMOL 的 CLI 工具集`);
+            expect(chineseHelp.stdout).toContain("--debug");
             expect(chineseHelp.stdout).toContain("选项：");
             expect(chineseHelp.stdout).toContain(
                 "通过浏览器登录（auth login 的别名）",
