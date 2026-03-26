@@ -423,7 +423,6 @@ describe("runCli", () => {
             expect(content).toContain(
                 `"msg":"CLI update latest-release request completed."`,
             );
-            expect(content).toContain(`"msg":"CLI update latest-release cache stored."`);
             expect(content).toContain(`"msg":"CLI update notice emitted."`);
             expect(content).toContain(`"latestVersion":"1.2.0"`);
         }
@@ -545,6 +544,48 @@ describe("runCli", () => {
             expect(secondResult.exitCode).toBe(0);
             expect(secondResult.stdout).toContain("Update available 1.0.0");
             expect(fetchCount).toBe(3);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fetches the latest registry version on every check-update invocation", async () => {
+        const sandbox = await createCliSandbox();
+        let fetchCount = 0;
+
+        try {
+            const fetcher = async () => {
+                fetchCount += 1;
+
+                return new Response(JSON.stringify({
+                    "dist-tags": {
+                        latest: fetchCount === 1 ? "1.2.0" : "1.3.0",
+                    },
+                }));
+            };
+            const firstResult = await sandbox.run(
+                ["check-update"],
+                {
+                    fetcher,
+                    version: "1.0.0",
+                },
+            );
+            const secondResult = await sandbox.run(
+                ["check-update"],
+                {
+                    fetcher,
+                    version: "1.0.0",
+                },
+            );
+
+            expect(firstResult.exitCode).toBe(0);
+            expect(firstResult.stdout).toContain("Update available 1.0.0");
+            expect(firstResult.stdout).toContain("1.2.0");
+            expect(secondResult.exitCode).toBe(0);
+            expect(secondResult.stdout).toContain("Update available 1.0.0");
+            expect(secondResult.stdout).toContain("1.3.0");
+            expect(fetchCount).toBe(2);
         }
         finally {
             await sandbox.cleanup();
