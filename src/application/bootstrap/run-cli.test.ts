@@ -2312,7 +2312,7 @@ describe("runCli", () => {
         }
     });
 
-    test("normalizes input ext metadata and keeps output handle schema raw in package info json output", async () => {
+    test("normalizes input ext metadata, applies input schema patches, and keeps output handle schema raw in package info json output", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -2376,6 +2376,14 @@ describe("runCli", () => {
                                         value: null,
                                         json_schema: {
                                             type: "string",
+                                        },
+                                    },
+                                    {
+                                        handle: "fileInput",
+                                        description: "Input file",
+                                        json_schema: {
+                                            "type": "string",
+                                            "ui:widget": "file",
                                         },
                                     },
                                     {
@@ -2460,6 +2468,16 @@ describe("runCli", () => {
                                     type: "string",
                                 },
                                 value: null,
+                            },
+                            fileInput: {
+                                description: "Input file",
+                                ext: {
+                                    widget: "file",
+                                },
+                                schema: {
+                                    format: "uri",
+                                    type: "string",
+                                },
                             },
                             excludes: {
                                 description: "Excluded usernames",
