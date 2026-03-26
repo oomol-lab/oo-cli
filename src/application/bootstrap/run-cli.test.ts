@@ -2312,7 +2312,7 @@ describe("runCli", () => {
         }
     });
 
-    test("includes input handle values and normalized ext metadata in package info json output", async () => {
+    test("normalizes input ext metadata and keeps output handle schema raw in package info json output", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -2360,8 +2360,10 @@ describe("runCli", () => {
                                                 {
                                                     "type": "string",
                                                     "ui:widget": "text",
+                                                    "ui:placeholder": "Base64 text input",
                                                 },
                                             ],
+                                            "ui:help": "ignored",
                                             "ui:options": {
                                                 labels: ["Base64 with Text"],
                                             },
@@ -2413,6 +2415,7 @@ describe("runCli", () => {
                                         json_schema: {
                                             "type": "boolean",
                                             "ui:widget": "switch",
+                                            "ui:tone": "success",
                                         },
                                     },
                                 ],
@@ -2439,9 +2442,6 @@ describe("runCli", () => {
                                             widget: "text",
                                         },
                                     ],
-                                    options: {
-                                        labels: ["Base64 with Text"],
-                                    },
                                 },
                                 nullable: false,
                                 schema: {
@@ -2491,11 +2491,10 @@ describe("runCli", () => {
                         outputHandle: {
                             output: {
                                 description: "Boolean result",
-                                ext: {
-                                    widget: "switch",
-                                },
                                 schema: {
-                                    type: "boolean",
+                                    "ui:tone": "success",
+                                    "ui:widget": "switch",
+                                    "type": "boolean",
                                 },
                             },
                         },

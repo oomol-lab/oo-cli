@@ -18,7 +18,7 @@ const packageInfoAccount = {
 const packageInfoRequestLanguage = "en" as const;
 
 describe("loadPackageInfo", () => {
-    test("normalizes ui schema keys into ext and reuses cached normalized responses", async () => {
+    test("normalizes input ui widget keys while keeping output schema raw and reuses cached normalized responses", async () => {
         const cacheValues = new Map<string, string>();
         let fetchCount = 0;
         const cache = createCache<string>({
@@ -128,8 +128,10 @@ function createRawPackageInfoResponse() {
                                 {
                                     "type": "string",
                                     "ui:widget": "text",
+                                    "ui:placeholder": "Base64 text input",
                                 },
                             ],
+                            "ui:help": "ignored",
                             "ui:options": {
                                 labels: ["Base64 with Text"],
                             },
@@ -143,6 +145,7 @@ function createRawPackageInfoResponse() {
                         json_schema: {
                             "type": "boolean",
                             "ui:widget": "switch",
+                            "ui:tone": "success",
                         },
                     },
                 ],
@@ -166,9 +169,6 @@ function createNormalizedPackageInfoResponse() {
                                     widget: "text",
                                 },
                             ],
-                            options: {
-                                labels: ["Base64 with Text"],
-                            },
                         },
                         nullable: false,
                         schema: {
@@ -184,11 +184,10 @@ function createNormalizedPackageInfoResponse() {
                 outputHandle: {
                     output: {
                         description: "Boolean result",
-                        ext: {
-                            widget: "switch",
-                        },
                         schema: {
-                            type: "boolean",
+                            "ui:tone": "success",
+                            "ui:widget": "switch",
+                            "type": "boolean",
                         },
                     },
                 },
