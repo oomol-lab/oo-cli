@@ -1,7 +1,7 @@
 interface:
   display_name: oo
   short_description: Safely run OOMOL packages and cloud tasks from user requests
-  default_prompt: "Use $oo to translate my request into English search terms, choose the best package and block, reuse existing remote URLs when they already satisfy a URI input, upload local files first when a selected input needs a URI, never pass local paths or raw bytes into `cloud-task run --data`, stop when auth or input requirements are not proven, ask only for missing inputs, run the task, handle long waits safely, and if you download a remote result artifact back to local treat `.` as the only implicit destination root, save to a relative workspace path such as `./result.zip`, and never improvise a source-adjacent, absolute, home, temp, or other external path unless the user explicitly asks for it."
+  default_prompt: "Use $oo to translate my request into English search terms, choose the best package and block, upload local files only when a selected input needs a URI, never pass local paths or raw bytes into `cloud-task run --data`, stop immediately on HTTP 402 or `OOMOL_INSUFFICIENT_CREDIT` and send the user to https://console.oomol.com/billing/recharge, stop when auth or input requirements are not proven, handle long waits safely, and save downloaded artifacts only under `.` unless I explicitly ask for another path."
 
 policy:
   allow_implicit_invocation: true

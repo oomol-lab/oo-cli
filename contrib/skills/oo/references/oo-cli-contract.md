@@ -33,6 +33,15 @@ oo auth status
 oo auth login
 ```
 
+## Billing stop conditions
+
+- If any `oo` command output shows HTTP `402` or includes the string
+  `OOMOL_INSUFFICIENT_CREDIT`, stop immediately.
+- Treat that signal as a billing problem, not as a normal auth failure.
+- Tell the user their current account has insufficient credit or is overdue.
+- Direct them to recharge before retrying at
+  https://console.oomol.com/billing/recharge.
+
 ## `search`
 
 Canonical form:
@@ -271,6 +280,10 @@ In-progress statuses include `queued`, `scheduling`, `scheduled`, and
 Use this command after a non-zero `cloud-task wait` exit to distinguish timeout,
 failure, and a late success.
 
+If the result snapshot contains HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
+treat the failure as insufficient credit or overdue billing and stop instead of
+retrying.
+
 Result URL implication:
 
 - `resultURL` is a remote artifact location returned by the service.
@@ -304,6 +317,8 @@ Skill policy:
 - Prefer bounded wait windows over a single long wait.
 - Do not treat timeout as task failure.
 - Never re-create a task just because a wait window ended.
+- If the wait output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop and
+  send the user to https://console.oomol.com/billing/recharge.
 
 ## Command selection summary
 
@@ -319,4 +334,5 @@ Use this order:
 7. Run `cloud-task run --json`.
 8. Share `taskID` immediately.
 9. Use bounded `cloud-task wait` windows when appropriate.
-10. After a non-zero wait exit, run `cloud-task result --json`.
+10. After a non-zero wait exit, run `cloud-task result --json` and stop on
+    billing signals such as HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`.
