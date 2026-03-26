@@ -1,4 +1,4 @@
-import type { CliOptionDefinition } from "../contracts/cli.ts";
+import type { CliOptionDefinition, Writer } from "../contracts/cli.ts";
 
 export const jsonFormatOption = {
     name: "format",
@@ -20,3 +20,16 @@ export const jsonOutputOptions = [
     jsonFormatOption,
     jsonAliasOption,
 ] as const satisfies readonly CliOptionDefinition[];
+
+export function writeJsonOutput(
+    writer: Writer,
+    value: unknown,
+): void {
+    const serialized = JSON.stringify(value);
+
+    if (serialized === undefined) {
+        throw new Error("JSON output value must be serializable.");
+    }
+
+    writer.write(`${serialized}\n`);
+}

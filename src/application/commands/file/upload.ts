@@ -4,7 +4,7 @@ import { stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { jsonOutputOptions } from "../json-output.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import {
     initFileUpload,
     maxFileUploadSizeBytes,
@@ -72,7 +72,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
         const view = serializeFileUploadRecord(record, uploadedAtMs);
 
         if (format === "json") {
-            context.stdout.write(JSON.stringify(view));
+            writeJsonOutput(context.stdout, view);
             return;
         }
 

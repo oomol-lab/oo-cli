@@ -7,7 +7,7 @@ import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
-import { jsonOutputOptions } from "../json-output.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import {
     isPackageInfoInputHandleOptional,
     loadPackageInfo,
@@ -55,7 +55,7 @@ export const packageInfoCommand: CliCommandDefinition<PackageInfoInput> = {
         );
 
         if (input.format === "json") {
-            context.stdout.write(JSON.stringify(response));
+            writeJsonOutput(context.stdout, response);
             return;
         }
 
