@@ -271,6 +271,13 @@ In-progress statuses include `queued`, `scheduling`, `scheduled`, and
 Use this command after a non-zero `cloud-task wait` exit to distinguish timeout,
 failure, and a late success.
 
+Result URL implication:
+
+- `resultURL` is a remote artifact location returned by the service.
+- The CLI does not choose a local download destination for that URL.
+- If an agent decides to download the artifact after success, the local path is
+  agent policy rather than part of the CLI contract.
+
 ## `cloud-task wait`
 
 Canonical form:

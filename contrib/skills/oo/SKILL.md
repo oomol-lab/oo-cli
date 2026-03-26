@@ -55,6 +55,13 @@ Before doing anything substantial:
   `cloud-task run --data`.
 - When a handle expects a URI-compatible file value, upload the local file
   first and submit the returned `downloadUrl`.
+- If you choose to download a remote result artifact back to local, save it
+  under `.` inside the current workspace by default.
+- Treat the current workspace root as the only implicit download root.
+- Do not derive the destination from the source file's parent directory.
+- Do not use an absolute path, a path containing `..`, `~/Downloads`, a home
+  directory path, a temp directory, or any other external location unless the
+  user explicitly asks for that exact target.
 
 ## Workflow
 
@@ -272,13 +279,37 @@ Use the result snapshot to distinguish:
 If the user wants to continue, run another bounded wait window instead of
 re-creating the task.
 
-### 8. Report outcomes clearly
+### 8. Materialize remote result artifacts safely
+
+If the final task result exposes a remote artifact URL and pulling it back to
+local would clearly help the user, download it only after the task has
+succeeded.
+
+Rules:
+
+- Default the destination to a relative path rooted at `.` such as
+  `./result.zip`, `./output.pdf`, or `./artifacts/<source-basename>.zip`.
+- Treat `.` as the only implicit destination root. If the user did not name a
+  path, choose one under `.` and stay there.
+- Derive the filename from trusted task output or the source basename, but keep
+  the directory anchored under `.` instead of reusing the source file's parent
+  directory.
+- Never improvise an absolute path, a path containing `..`, `~/Downloads`, a
+  home directory path, a temp directory, or any other external destination.
+- Do not write outside the current workspace unless the user explicitly names a
+  different target path.
+- If the destination filename would collide with an existing workspace file,
+  choose a non-destructive variant or ask the user.
+- When reporting success, include the workspace-local path you used.
+
+### 9. Report outcomes clearly
 
 On success:
 
 - state the final task status first
 - summarize the useful result
 - include package, version, block ID, and task ID
+- if you downloaded a remote artifact, include the workspace-local saved path
 
 On still-running tasks:
 
