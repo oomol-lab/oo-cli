@@ -61,7 +61,6 @@ export async function runCli(argv: string[]): Promise<number> {
         cwd: process.cwd(),
         env: process.env,
         fetcher: fetch,
-        stdin: process.stdin,
         stdout: process.stdout,
         stderr: process.stderr,
         systemLocale: getSystemLocale(),
@@ -183,7 +182,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             cwd: invocation.cwd,
             env: invocation.env,
             fileUploadStore,
-            stdin: invocation.stdin ?? process.stdin,
+            stdin: invocation.stdin ?? createDetachedStdin(),
             logger,
             packageName,
             settingsStore,
@@ -412,6 +411,17 @@ function writeBootstrapError(
     );
 
     return 1;
+}
+
+function createDetachedStdin(): InteractiveInput {
+    return {
+        isTTY: false,
+        setRawMode() {},
+        resume() {},
+        pause() {},
+        on() {},
+        off() {},
+    };
 }
 
 function getSystemLocale(): string | undefined {

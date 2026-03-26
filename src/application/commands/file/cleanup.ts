@@ -2,7 +2,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { jsonOutputOptions } from "../json-output.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { parseFileFormat } from "./shared.ts";
 
 interface FileCleanupInput {
@@ -23,9 +23,9 @@ export const fileCleanupCommand: CliCommandDefinition<FileCleanupInput> = {
         const deletedCount = context.fileUploadStore.deleteExpired(Date.now());
 
         if (format === "json") {
-            context.stdout.write(JSON.stringify({
+            writeJsonOutput(context.stdout, {
                 deletedCount,
-            }));
+            });
             return;
         }
 

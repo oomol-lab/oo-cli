@@ -1,7 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
-import { jsonOutputOptions } from "../json-output.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import {
     createCloudTaskTaskUrl,
     parseCloudTaskFormat,
@@ -69,7 +69,7 @@ export const cloudTaskLogCommand: CliCommandDefinition<CloudTaskLogInput> = {
         );
 
         if (format === "json") {
-            context.stdout.write(JSON.stringify(response));
+            writeJsonOutput(context.stdout, response);
             return;
         }
 

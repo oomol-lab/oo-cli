@@ -12,7 +12,7 @@ import {
 } from "../logging/log-fields.ts";
 import { createWriterColors } from "../terminal-colors.ts";
 import { readCurrentAuth } from "./auth/shared.ts";
-import { jsonOutputOptions } from "./json-output.ts";
+import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
 
 const MAX_SEARCH_TEXT_LENGTH = 200;
 const SEARCH_CACHE_ID = "search.intent-response";
@@ -108,7 +108,7 @@ export const searchCommand: CliCommandDefinition<SearchInput> = {
             const packageIds = readSearchPackageIds(response.text);
 
             if (input.format === "json") {
-                context.stdout.write(JSON.stringify(packageIds));
+                writeJsonOutput(context.stdout, packageIds);
                 return;
             }
 
@@ -121,7 +121,7 @@ export const searchCommand: CliCommandDefinition<SearchInput> = {
         }
 
         if (input.format === "json") {
-            context.stdout.write(JSON.stringify(response.json.packages));
+            writeJsonOutput(context.stdout, response.json.packages);
             return;
         }
 

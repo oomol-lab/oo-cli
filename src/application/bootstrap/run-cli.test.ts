@@ -2059,7 +2059,7 @@ describe("runCli", () => {
             );
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(JSON.stringify([
+            expect(result.stdout).toBe(`${JSON.stringify([
                 {
                     blocks: [
                         {
@@ -2070,7 +2070,7 @@ describe("runCli", () => {
                     name: "@oomol/image-tools",
                     version: "1.2.3",
                 },
-            ]));
+            ])}\n`);
             expect(result.stderr).toBe("");
             expect(requests).toHaveLength(1);
             expect(
@@ -2127,10 +2127,10 @@ describe("runCli", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(JSON.stringify([
+            expect(result.stdout).toBe(`${JSON.stringify([
                 "@oomol/image-tools@1.2.3",
                 "@oomol/vision-kit@2.0.0",
-            ]));
+            ])}\n`);
         }
         finally {
             await sandbox.cleanup();

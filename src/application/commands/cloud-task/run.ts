@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { jsonOutputOptions } from "../json-output.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
 import {
     createCloudTaskTasksUrl,
@@ -97,10 +97,10 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
 
         if (input.dryRun === true) {
             if (format === "json") {
-                context.stdout.write(JSON.stringify({
+                writeJsonOutput(context.stdout, {
                     dryRun: true,
                     ok: true,
-                }));
+                });
                 return;
             }
 
@@ -129,7 +129,7 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
         );
 
         if (format === "json") {
-            context.stdout.write(JSON.stringify(response));
+            writeJsonOutput(context.stdout, response);
             return;
         }
 
