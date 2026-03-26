@@ -9,8 +9,9 @@ import {
     withPackageIdentity,
     withRequestTarget,
 } from "../../logging/log-fields.ts";
+import { patchHandleSchema } from "../shared/handle-schema.ts";
 
-const PACKAGE_INFO_CACHE_ID = "package.info.v4";
+const PACKAGE_INFO_CACHE_ID = "package.info.v5";
 const PACKAGE_INFO_CACHE_MAX_ENTRIES = 300;
 const PACKAGE_INFO_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LATEST_PACKAGE_VERSION = "latest";
@@ -592,7 +593,10 @@ function transformInputHandleDefinitions(
             const normalizedSchema = splitPackageInfoHandleSchema(handleDef.json_schema);
             const transformedHandle: z.output<typeof transformedInputHandleSchema> = {
                 description: handleDef.description,
-                schema: normalizedSchema.schema,
+                schema: patchHandleSchema(
+                    normalizedSchema.schema,
+                    normalizedSchema.ext,
+                ),
             };
 
             if (normalizedSchema.ext !== undefined) {

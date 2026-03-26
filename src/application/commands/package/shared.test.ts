@@ -18,7 +18,7 @@ const packageInfoAccount = {
 const packageInfoRequestLanguage = "en" as const;
 
 describe("loadPackageInfo", () => {
-    test("normalizes input ui widget keys while keeping output schema raw and reuses cached normalized responses", async () => {
+    test("normalizes input ui widget keys, applies input schema patches, and keeps output schema raw", async () => {
         const cacheValues = new Map<string, string>();
         let fetchCount = 0;
         const cache = createCache<string>({
@@ -137,6 +137,14 @@ function createRawPackageInfoResponse() {
                             },
                         },
                     },
+                    {
+                        handle: "fileInput",
+                        description: "Input file",
+                        json_schema: {
+                            "type": "string",
+                            "ui:widget": "file",
+                        },
+                    },
                 ],
                 outputHandleDefs: [
                     {
@@ -179,6 +187,16 @@ function createNormalizedPackageInfoResponse() {
                             ],
                         },
                         value: "sample.png",
+                    },
+                    fileInput: {
+                        description: "Input file",
+                        ext: {
+                            widget: "file",
+                        },
+                        schema: {
+                            format: "uri",
+                            type: "string",
+                        },
                     },
                 },
                 outputHandle: {
