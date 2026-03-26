@@ -63,7 +63,7 @@ describe("validateCloudTaskInputValues", () => {
         });
     });
 
-    test("validates file widgets as uri strings", () => {
+    test("patches file widget schemas to uri before accepting valid strings", () => {
         const block = createBlock("input", {
             description: "Input file",
             ext: {
@@ -84,7 +84,7 @@ describe("validateCloudTaskInputValues", () => {
             )).not.toThrow();
     });
 
-    test("rejects non-uri values for file widgets", () => {
+    test("patches file widget schemas to uri before rejecting invalid strings", () => {
         const block = createBlock("input", {
             description: "Input file",
             ext: {
