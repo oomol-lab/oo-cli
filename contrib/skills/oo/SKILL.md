@@ -37,6 +37,7 @@ Before doing anything substantial:
     - `search`
     - `package info`
     - `cloud-task run`
+    - `file upload`
 - Never add `--json` to `cloud-task wait`.
 - Never invent package IDs, versions, block IDs, handle names, defaults, or
   task results.
@@ -50,6 +51,10 @@ Before doing anything substantial:
   infer.
 - Stop when the selected block depends on an input shape that `oo-cli` cannot
   safely submit.
+- Never pass raw file bytes, multipart payloads, or a local filesystem path to
+  `cloud-task run --data`.
+- When a handle expects a URI-compatible file value, upload the local file
+  first and submit the returned `downloadUrl`.
 
 ## Workflow
 
@@ -150,6 +155,25 @@ Rules:
 - Do not guess secrets, credentials, local file paths, filenames, or opaque IDs.
 - Do not force raw user prose into a handle whose schema does not fit.
 
+For file-like inputs, distinguish between URI-safe values and unsupported
+special-media values:
+
+- If the schema or patched widget semantics clearly expect a URI string, ask
+  the user for a local file path when needed, then upload it first:
+
+```bash
+oo file upload "<filePath>" --json
+```
+
+- Read `downloadUrl` from the JSON response and place that URL into the
+  matching handle value for `cloud-task run --data`.
+- Treat file widgets as URI-oriented inputs, because current CLI validation
+  patches them to string values with `format: "uri"`.
+- If the schema already declares a URI-shaped string, you may use an existing
+  user-provided remote URL instead of uploading a local file.
+- Do not upload a file unless the selected handle can safely accept a URI
+  string.
+
 If a required value is missing or ambiguous, ask a focused follow-up question.
 
 A good follow-up question:
@@ -171,9 +195,17 @@ Stop instead of forcing execution when any of the following is true:
 Pay special attention to `schema.contentMediaType`.
 
 If `contentMediaType` exists and is not `oomol/secret`, stop. The current
-`oo-cli` local validation rejects most non-secret content media types, so do
-not pretend file, image, or other special payloads can be passed safely as
-normal JSON values.
+`oo-cli` local validation rejects non-secret content media types, so do not
+pretend file, image, or other special payloads can be passed safely as normal
+JSON values.
+
+Do not confuse the URI-safe path with the unsupported path:
+
+- A handle that can be validated as a URI string may be satisfied by
+  `oo file upload ... --json` plus the returned `downloadUrl`.
+- A handle that still exposes a non-secret `contentMediaType` is not safely
+  supported through `cloud-task run --data`, even if the user wants to provide
+  a local file.
 
 ### 6. Run the task once required inputs are ready
 
