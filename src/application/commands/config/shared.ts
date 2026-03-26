@@ -7,7 +7,16 @@ import type { AppSettings } from "../../schemas/settings.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { localeSchema } from "../../schemas/settings.ts";
+import {
+    booleanConfigValueChoices,
+    booleanConfigValueSchema,
+    getConfiguredOoSkillAllowImplicitInvocation,
+    localeSchema,
+    parseBooleanConfigValue,
+    setOoSkillAllowImplicitInvocation,
+    stringifyBooleanConfigValue,
+    unsetOoSkillAllowImplicitInvocation,
+} from "../../schemas/settings.ts";
 
 export interface ConfigDefinition<TValue extends string> {
     createInvalidValueError: (rawValue: unknown) => CliUserError;
@@ -23,6 +32,9 @@ function defineConfigDefinition<TValue extends string>(
 ): ConfigDefinition<TValue> {
     return definition;
 }
+
+export const ooSkillAllowImplicitInvocationConfigKey
+    = "skills.oo.allow_implicit_invocation" as const;
 
 export const configDefinitions = {
     lang: defineConfigDefinition({
@@ -49,6 +61,36 @@ export const configDefinitions = {
         },
         valueChoices: localeSchema.options,
         valueSchema: localeSchema,
+    }),
+    [ooSkillAllowImplicitInvocationConfigKey]: defineConfigDefinition({
+        createInvalidValueError(rawValue: unknown): CliUserError {
+            return new CliUserError(
+                "errors.config.invalidSkillsOoAllowImplicitInvocationValue",
+                2,
+                {
+                    value: String(rawValue ?? ""),
+                },
+            );
+        },
+        getValue(settings: AppSettings): "false" | "true" | undefined {
+            const configuredValue
+                = getConfiguredOoSkillAllowImplicitInvocation(settings);
+
+            return configuredValue === undefined
+                ? undefined
+                : stringifyBooleanConfigValue(configuredValue);
+        },
+        setValue(settings: AppSettings, value: "false" | "true"): AppSettings {
+            return setOoSkillAllowImplicitInvocation(
+                settings,
+                parseBooleanConfigValue(value),
+            );
+        },
+        unsetValue(settings: AppSettings): AppSettings {
+            return unsetOoSkillAllowImplicitInvocation(settings);
+        },
+        valueChoices: booleanConfigValueChoices,
+        valueSchema: booleanConfigValueSchema,
     }),
 } as const;
 

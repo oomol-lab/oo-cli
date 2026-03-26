@@ -22,6 +22,19 @@ const searchBlockTitleColor = "#CAA8FA";
 const searchDisplayNameColor = "#59F78D";
 const defaultAuthEndpoint = "oomol.com";
 const packageName = packageManifest.name;
+const defaultSettingsFileContent = [
+    "# lang controls the CLI display language for help text, messages, and errors.",
+    "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
+    "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
+    "# lang = \"en\"",
+    "",
+    "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+    "# Supported values: true, false.",
+    "# Default: true.",
+    "# [skills.oo]",
+    "# allow_implicit_invocation = false",
+    "",
+].join("\n");
 
 describe("runCli", () => {
     test("keeps the cli command name aligned with package metadata", () => {
@@ -209,6 +222,50 @@ describe("runCli", () => {
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("synchronizes the managed Codex skill policy from persisted settings", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const settingsFilePath = join(
+            sandbox.env.XDG_CONFIG_HOME!,
+            APP_NAME,
+            "settings.toml",
+        );
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(versionFilePath, "9.9.9\n");
+            await Bun.write(
+                ownershipFilePath,
+                await Bun.file(
+                    join(process.cwd(), "contrib", "skills", "oo", "agents", "openai.yaml"),
+                ).text(),
+            );
+            await Bun.write(
+                settingsFilePath,
+                [
+                    "[skills.oo]",
+                    "allow_implicit_invocation = false",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["--help"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: false",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -1478,6 +1535,142 @@ describe("runCli", () => {
             expect(listAfterUnsetResult.exitCode).toBe(0);
             expect(listAfterUnsetResult.stdout).toBe("");
             expect(getAfterUnsetResult.stdout).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports the oo skill implicit invocation config key", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const setResult = await sandbox.run([
+                "config",
+                "set",
+                "skills.oo.allow_implicit_invocation",
+                "false",
+            ]);
+            const listResult = await sandbox.run(["config", "list"]);
+            const getResult = await sandbox.run([
+                "config",
+                "get",
+                "skills.oo.allow_implicit_invocation",
+            ]);
+            const unsetResult = await sandbox.run([
+                "config",
+                "unset",
+                "skills.oo.allow_implicit_invocation",
+            ]);
+            const getAfterUnsetResult = await sandbox.run([
+                "config",
+                "get",
+                "skills.oo.allow_implicit_invocation",
+            ]);
+
+            expect(setResult.exitCode).toBe(0);
+            expect(setResult.stdout).toBe(
+                "Set skills.oo.allow_implicit_invocation to false.\n",
+            );
+            expect(listResult.stdout).toBe(
+                "skills.oo.allow_implicit_invocation=false\n",
+            );
+            expect(getResult.stdout).toBe("false\n");
+            expect(unsetResult.exitCode).toBe(0);
+            expect(getAfterUnsetResult.stdout).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("config set immediately synchronizes the installed managed skill policy", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(versionFilePath, "9.9.9\n");
+            await Bun.write(
+                ownershipFilePath,
+                await Bun.file(
+                    join(process.cwd(), "contrib", "skills", "oo", "agents", "openai.yaml"),
+                ).text(),
+            );
+
+            const result = await sandbox.run([
+                "config",
+                "set",
+                "skills.oo.allow_implicit_invocation",
+                "false",
+            ], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: false",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("config unset immediately restores the installed managed skill policy default", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+        const settingsFilePath = join(
+            sandbox.env.XDG_CONFIG_HOME!,
+            APP_NAME,
+            "settings.toml",
+        );
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(versionFilePath, "9.9.9\n");
+            await Bun.write(
+                ownershipFilePath,
+                [
+                    "interface:",
+                    "  display_name: oo",
+                    "  short_description: Check OOMOL first for ready-made capabilities",
+                    "  default_prompt: \"Use $oo when I ask for a ready-made capability.\"",
+                    "",
+                    "policy:",
+                    "  allow_implicit_invocation: false",
+                    "",
+                    "# OOMOL",
+                    "",
+                ].join("\n"),
+            );
+            await Bun.write(
+                settingsFilePath,
+                [
+                    "[skills.oo]",
+                    "allow_implicit_invocation = false",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run([
+                "config",
+                "unset",
+                "skills.oo.allow_implicit_invocation",
+            ], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: true",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -3900,15 +4093,7 @@ describe("runCli", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe("");
-            expect(await readFile(filePath, "utf8")).toBe(
-                [
-                    "# lang controls the CLI display language for help text, messages, and errors.",
-                    "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
-                    "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
-                    "# lang = \"en\"",
-                    "",
-                ].join("\n"),
-            );
+            expect(await readFile(filePath, "utf8")).toBe(defaultSettingsFileContent);
         }
         finally {
             await sandbox.cleanup();
@@ -3922,6 +4107,12 @@ describe("runCli", () => {
             const invalidLang = await sandbox.run(["--lang", "fr", "--help"]);
             const invalidKey = await sandbox.run(["config", "get", "update-notifier"]);
             const invalidConfigValue = await sandbox.run(["config", "set", "lang", "fr"]);
+            const invalidSkillPolicyValue = await sandbox.run([
+                "config",
+                "set",
+                "skills.oo.allow_implicit_invocation",
+                "maybe",
+            ]);
             const unknownCommand = await sandbox.run(["cnfig"]);
 
             expect(invalidLang.exitCode).toBe(2);
@@ -3933,6 +4124,11 @@ describe("runCli", () => {
 
             expect(invalidConfigValue.exitCode).toBe(2);
             expect(invalidConfigValue.stderr).toContain("Invalid lang value");
+
+            expect(invalidSkillPolicyValue.exitCode).toBe(2);
+            expect(invalidSkillPolicyValue.stderr).toContain(
+                "Invalid skills.oo.allow_implicit_invocation value",
+            );
 
             expect(unknownCommand.exitCode).toBe(2);
             expect(unknownCommand.stderr).toContain("Unknown command");

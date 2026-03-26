@@ -68,7 +68,8 @@ List persisted configuration values that are currently set.
 
 Read one persisted configuration value.
 
-- Arguments: `<key>` is the configuration key. Supported value: `lang`.
+- Arguments: `<key>` is the configuration key. Supported values:
+  `lang`, `skills.oo.allow_implicit_invocation`.
 
 ### `oo config path`
 
@@ -78,15 +79,19 @@ Print the path to the persisted configuration file.
 
 Persist one configuration value.
 
-- Arguments: `<key>` is the configuration key. Supported value: `lang`.
+- Arguments: `<key>` is the configuration key. Supported values:
+  `lang`, `skills.oo.allow_implicit_invocation`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
+- Value rules: for `skills.oo.allow_implicit_invocation`, supported values are
+  `true` and `false`.
 
 ### `oo config unset <key>`
 
 Remove one persisted configuration value.
 
-- Arguments: `<key>` is the configuration key. Supported value: `lang`.
+- Arguments: `<key>` is the configuration key. Supported values:
+  `lang`, `skills.oo.allow_implicit_invocation`.
 
 ## Updates
 
@@ -106,6 +111,18 @@ Check whether a newer CLI release is available.
 
 ## Codex Skills
 
+### `oo skills allow-implicit-invocation <value>`
+
+Persist the `oo` skill `allow_implicit_invocation` policy.
+
+- Arguments: `<value>` must be `true` or `false`.
+- Notes: when the managed `oo` skill is already installed, the command
+  synchronizes `${CODEX_HOME:-~/.codex}/skills/oo/agents/openai.yaml`
+  immediately.
+- Notes: when the managed `oo` skill is not installed, the command still
+  persists the setting and applies it on the next install or startup
+  synchronization.
+
 ### `oo skills install`
 
 Install one bundled skill into the local Codex skills directory.
@@ -114,6 +131,9 @@ Install one bundled skill into the local Codex skills directory.
 - Target directory: `${CODEX_HOME:-~/.codex}/skills/oo`.
 - Metadata: the installation writes the current `oo` version into a hidden
   version file inside the skill directory.
+- Metadata: `agents/openai.yaml` uses the persisted
+  `skills.oo.allow_implicit_invocation` value when configured, otherwise the
+  bundled default is used.
 - Notes: the command exits with an error when the Codex home directory does
   not exist, which indicates Codex is not installed on the current machine.
 - Notes: an existing `oo/agents/openai.yaml` is considered managed by
