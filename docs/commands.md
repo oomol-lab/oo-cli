@@ -149,6 +149,44 @@ Print one previous persisted debug log file.
 - Notes: the current `oo log print` invocation creates its own log file, so the
   command always skips the current run and reads earlier logs.
 
+## Files
+
+### `oo file upload <filePath>`
+
+Upload one file to the temporary file cache.
+
+- Arguments: `<filePath>` is the local file path to upload.
+- Options: `--format <format>` returns structured output. Supported value:
+  `json`.
+- Options: `--json` is an alias for `--format=json`.
+- Notes: the uploaded file expires after one day and is deleted on the server.
+- Notes: files larger than `512 MiB` are rejected.
+- Notes: successful uploads persist a local sqlite record with the upload time,
+  file name, file size, signed download URL, expiry time, and a UUID v7 id.
+
+### `oo file list`
+
+List previously uploaded files from the local sqlite store.
+
+- Options: `--status <status>` filters records by expiry state. Supported
+  values: `active`, `expired`.
+- Options: `--limit <limit>` limits the number of returned records. The value
+  must be an integer greater than or equal to `1`.
+- Options: `--format <format>` returns structured output. Supported value:
+  `json`.
+- Options: `--json` is an alias for `--format=json`.
+- Notes: the command does not delete expired records implicitly.
+
+### `oo file cleanup`
+
+Delete expired upload records from the local sqlite store.
+
+- Options: `--format <format>` returns structured output. Supported value:
+  `json`.
+- Options: `--json` is an alias for `--format=json`.
+- Notes: only local records with `expiresAt <= now` are deleted.
+- Notes: the JSON response shape is `{ "deletedCount": number }`.
+
 ## Package Discovery
 
 ### `oo search <text>`

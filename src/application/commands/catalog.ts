@@ -6,6 +6,7 @@ import { checkUpdateCommand } from "./check-update.ts";
 import { cloudTaskCommand } from "./cloud-task/index.ts";
 import { completionCommand } from "./completion.ts";
 import { configCommand } from "./config/index.ts";
+import { fileCommand } from "./file/index.ts";
 import { logCommand } from "./log/index.ts";
 import { loginCommand } from "./login.ts";
 import { logoutCommand } from "./logout.ts";
@@ -38,6 +39,7 @@ export function createCliCatalog(): CliCatalog {
             authCommand,
             checkUpdateCommand,
             cloudTaskCommand,
+            fileCommand,
             loginCommand,
             logoutCommand,
             completionCommand,

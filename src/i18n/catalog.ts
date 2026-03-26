@@ -64,6 +64,17 @@ export const enMessages = {
     "commands.config.set.summary": "Persist a configuration value",
     "commands.config.unset.description": "Remove a persisted configuration value.",
     "commands.config.unset.summary": "Remove a configuration value",
+    "commands.file.cleanup.description":
+        "Delete expired upload records from the local sqlite store.",
+    "commands.file.cleanup.summary": "Clean expired upload records",
+    "commands.file.description": "Manage temporary file uploads.",
+    "commands.file.list.description":
+        "List locally recorded temporary file uploads.",
+    "commands.file.list.summary": "List uploaded files",
+    "commands.file.summary": "Manage temporary file uploads",
+    "commands.file.upload.description":
+        "Upload a file and store the signed download URL locally.",
+    "commands.file.upload.summary": "Upload a file",
     "commands.help.summary": "Show help for a command",
     "commands.log.description": "Inspect persisted CLI debug logs.",
     "commands.log.summary": "Manage persisted debug logs",
@@ -179,6 +190,28 @@ export const enMessages = {
     "errors.config.invalidKey": "Invalid config key: {value}.",
     "errors.config.invalidLangValue":
         "Invalid lang value: {value}. Use en or zh.",
+    "errors.file.invalidFormat":
+        "Invalid format: {value}. Use json.",
+    "errors.fileList.invalidLimit":
+        "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
+    "errors.fileList.invalidStatus":
+        "Invalid status: {value}. Use active or expired.",
+    "errors.fileUpload.activeAccountMissing":
+        "The active auth account is missing from the auth store.",
+    "errors.fileUpload.authRequired":
+        "You must log in before using the file upload command.",
+    "errors.fileUpload.invalidResponse":
+        "The file upload service returned an unsupported response body.",
+    "errors.fileUpload.pathNotFile":
+        "The path {path} is not a regular file.",
+    "errors.fileUpload.readFailed":
+        "Failed to read file metadata from {path}: {message}",
+    "errors.fileUpload.requestError":
+        "The file upload request failed: {message}",
+    "errors.fileUpload.requestFailed":
+        "The file upload request returned HTTP {status}.",
+    "errors.fileUpload.tooLarge":
+        "The file at {path} is {size} bytes, which exceeds the 512 MiB limit of {max} bytes.",
     "errors.lang.invalidFlag":
         "Invalid value for --lang: {value}. Use en or zh.",
     "errors.search.activeAccountMissing":
@@ -250,7 +283,9 @@ export const enMessages = {
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
     "options.debug": "Print the current log file path when the CLI exits",
+    "options.fileStatus": "Filter by upload status",
     "options.help": "Show help for command",
+    "options.limit": "Specify the maximum number of items to return",
     "options.format": "Specify output format (use json for structured output)",
     "options.json": "Alias for --format=json",
     "options.onlyPackageId": "Return only package ids",
@@ -258,6 +293,7 @@ export const enMessages = {
     "options.packageId": "Filter by package id",
     "options.packageName": "Alias for --package-id",
     "options.page": "Specify the log page number",
+    "options.showUrl": "Include download URLs in text output",
     "options.size": "Specify the number of items per page",
     "options.status": "Filter by task status",
     "options.timeout":
@@ -270,6 +306,7 @@ export const enMessages = {
     "versionInfo.buildTime": "Build Time",
     "versionInfo.commit": "Commit",
     "versionInfo.unknown": "unknown",
+    "arguments.filePath": "File path",
     "arguments.index": "Log index",
     "arguments.key": "Configuration key",
     "arguments.packageSpecifier": "Package specifier",
@@ -301,6 +338,20 @@ export const enMessages = {
     "cloudTask.status.scheduling": "scheduling",
     "cloudTask.status.success": "success",
     "cloudTask.status.queued": "queued",
+    "file.cleanup.success":
+        "Deleted {deletedCount} expired upload records.",
+    "file.list.noResults": "No uploaded files were found.",
+    "file.list.noResultsForStatus":
+        "No {status} uploaded files were found.",
+    "file.status.active": "active",
+    "file.status.expired": "expired",
+    "file.text.downloadUrl": "Download URL",
+    "file.text.expiresAt": "Expires at",
+    "file.text.fileSize": "File size",
+    "file.text.id": "ID",
+    "file.text.status": "Status",
+    "file.text.uploadedAt": "Uploaded at",
+    "file.upload.success": "Uploaded {fileName}.",
     "search.text.blocks": "Blocks:",
     "search.text.noResults": "No matching packages were found.",
     "search.text.unnamedBlock": "unnamed-block",
@@ -370,6 +421,14 @@ export const zhMessages = {
     "commands.config.set.summary": "持久化配置值",
     "commands.config.unset.description": "移除一个持久化配置值。",
     "commands.config.unset.summary": "移除配置值",
+    "commands.file.cleanup.description": "删除本地 sqlite 中已过期的上传记录。",
+    "commands.file.cleanup.summary": "清理已过期上传记录",
+    "commands.file.description": "管理临时文件上传。",
+    "commands.file.list.description": "查看本地记录的临时文件上传记录。",
+    "commands.file.list.summary": "查看上传文件列表",
+    "commands.file.summary": "管理临时文件上传",
+    "commands.file.upload.description": "上传文件，并在本地保存带签名的下载地址。",
+    "commands.file.upload.summary": "上传文件",
     "commands.help.summary": "显示命令帮助",
     "commands.log.description": "查看持久化的 CLI debug 日志。",
     "commands.log.summary": "管理持久化 debug 日志",
@@ -468,6 +527,28 @@ export const zhMessages = {
     "errors.config.invalidKey": "无效的配置键：{value}。",
     "errors.config.invalidLangValue":
         "无效的 lang 值：{value}。请使用 en 或 zh。",
+    "errors.file.invalidFormat":
+        "无效的 format：{value}。请使用 json。",
+    "errors.fileList.invalidLimit":
+        "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
+    "errors.fileList.invalidStatus":
+        "无效的 status：{value}。请使用 active 或 expired。",
+    "errors.fileUpload.activeAccountMissing":
+        "当前激活账号不存在于认证数据中。",
+    "errors.fileUpload.authRequired":
+        "使用 file upload 命令前请先登录。",
+    "errors.fileUpload.invalidResponse":
+        "文件上传服务返回了不受支持的响应内容。",
+    "errors.fileUpload.pathNotFile":
+        "路径 {path} 不是普通文件。",
+    "errors.fileUpload.readFailed":
+        "读取文件 {path} 的元数据失败：{message}",
+    "errors.fileUpload.requestError":
+        "文件上传请求失败：{message}",
+    "errors.fileUpload.requestFailed":
+        "文件上传请求返回了 HTTP {status}。",
+    "errors.fileUpload.tooLarge":
+        "文件 {path} 的大小为 {size} 字节，超出了 512 MiB 上限 {max} 字节。",
     "errors.lang.invalidFlag":
         "--lang 的值无效：{value}。请使用 en 或 zh。",
     "errors.search.activeAccountMissing":
@@ -534,7 +615,9 @@ export const zhMessages = {
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
+    "options.fileStatus": "按上传状态过滤",
     "options.help": "显示命令帮助",
+    "options.limit": "指定最多返回多少条记录",
     "options.format": "指定输出格式（使用 json 返回结构化内容）",
     "options.json": "--format=json 的别名",
     "options.onlyPackageId": "仅返回 package id",
@@ -542,6 +625,7 @@ export const zhMessages = {
     "options.packageId": "按 package id 过滤",
     "options.packageName": "--package-id 的别名",
     "options.page": "指定日志页码",
+    "options.showUrl": "在文本输出中包含下载 URL",
     "options.size": "指定每页数量",
     "options.status": "按任务状态过滤",
     "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
@@ -553,6 +637,7 @@ export const zhMessages = {
     "versionInfo.buildTime": "构建时间",
     "versionInfo.commit": "提交",
     "versionInfo.unknown": "未知",
+    "arguments.filePath": "文件路径",
     "arguments.index": "日志序号",
     "arguments.key": "配置键",
     "arguments.packageSpecifier": "包标识",
@@ -583,6 +668,18 @@ export const zhMessages = {
     "cloudTask.status.scheduling": "调度中",
     "cloudTask.status.success": "成功",
     "cloudTask.status.queued": "排队中",
+    "file.cleanup.success": "已删除 {deletedCount} 条过期上传记录。",
+    "file.list.noResults": "未找到任何上传记录。",
+    "file.list.noResultsForStatus": "未找到状态为 {status} 的上传记录。",
+    "file.status.active": "有效",
+    "file.status.expired": "已过期",
+    "file.text.downloadUrl": "下载 URL",
+    "file.text.expiresAt": "过期时间",
+    "file.text.fileSize": "文件大小",
+    "file.text.id": "ID",
+    "file.text.status": "状态",
+    "file.text.uploadedAt": "上传时间",
+    "file.upload.success": "已上传 {fileName}。",
     "search.text.blocks": "功能块：",
     "search.text.noResults": "未找到匹配的包。",
     "search.text.unnamedBlock": "未命名功能块",

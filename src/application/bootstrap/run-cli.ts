@@ -1,12 +1,13 @@
 import type { AuthStore } from "../contracts/auth-store.ts";
 import type { CacheStore } from "../contracts/cache.ts";
-
 import type {
     CliExecutionContext,
     Fetcher,
     InteractiveInput,
     Writer,
 } from "../contracts/cli.ts";
+
+import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 import type { LogCategory } from "../logging/log-categories.ts";
 import { readdir, stat } from "node:fs/promises";
@@ -18,6 +19,7 @@ import { StaticCompletionRenderer } from "../../adapters/completion/static-compl
 import { createCliLogger } from "../../adapters/logging/create-cli-logger.ts";
 import { FileAuthStore } from "../../adapters/store/file-auth-store.ts";
 import { FileSettingsStore } from "../../adapters/store/file-settings-store.ts";
+import { SqliteFileUploadStore } from "../../adapters/store/sqlite-file-upload-store.ts";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import {
     detectCliLanguageFlag,
@@ -43,6 +45,7 @@ export interface CliInvocation {
     cwd: string;
     env: Record<string, string | undefined>;
     fetcher?: Fetcher;
+    fileUploadStore?: FileUploadRecordStore;
     packageName?: string;
     stdin?: InteractiveInput;
     stdout: Writer;
@@ -85,6 +88,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     let translator = bootstrapTranslator;
     let exitCode = 0;
     let cacheStore: CacheStore | undefined;
+    let fileUploadStore: FileUploadRecordStore | undefined;
     const loggerHandle = createCliLogger({
         appName: APP_NAME,
         env: invocation.env,
@@ -115,6 +119,9 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         cacheStore
             = invocation.cacheStore
                 ?? new SqliteCacheStore(storePaths.cacheFilePath, logger);
+        fileUploadStore
+            = invocation.fileUploadStore
+                ?? new SqliteFileUploadStore(storePaths.uploadsFilePath, logger);
 
         const settingsStore
             = invocation.settingsStore
@@ -175,6 +182,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             fetcher: invocation.fetcher ?? fetch,
             cwd: invocation.cwd,
             env: invocation.env,
+            fileUploadStore,
             stdin: invocation.stdin ?? process.stdin,
             logger,
             packageName,
@@ -244,6 +252,28 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                         err: error,
                     },
                     "Failed to close the cache store cleanly.",
+                );
+                invocation.stderr.write(
+                    `${translator.t("errors.unexpected", {
+                        message: error instanceof Error ? error.message : String(error),
+                    })}\n`,
+                );
+
+                exitCode = 1;
+            }
+        }
+
+        if (fileUploadStore) {
+            try {
+                fileUploadStore.close();
+            }
+            catch (error) {
+                logger.error(
+                    {
+                        ...withCategory(logCategory.systemError),
+                        err: error,
+                    },
+                    "Failed to close the file upload store cleanly.",
                 );
                 invocation.stderr.write(
                     `${translator.t("errors.unexpected", {

@@ -2,7 +2,11 @@ import type { Cache, CacheOptions, CacheStore } from "../contracts/cache.ts";
 
 import type { CliExecutionContext } from "../contracts/cli.ts";
 import { describe, expect, test } from "bun:test";
-import { createLogCapture, createTextBuffer } from "../../../__tests__/helpers.ts";
+import {
+    createLogCapture,
+    createNoopFileUploadStore,
+    createTextBuffer,
+} from "../../../__tests__/helpers.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import { defaultAuthFile } from "../schemas/auth.ts";
 import { defaultSettings } from "../schemas/settings.ts";
@@ -263,6 +267,7 @@ function createUpdateNotifierHarness(options: {
         cwd: "",
         env: {},
         fetcher: options.fetcher,
+        fileUploadStore: createNoopFileUploadStore(),
         logger: logCapture.logger,
         packageName,
         settingsStore: {

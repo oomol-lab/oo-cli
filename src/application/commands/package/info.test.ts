@@ -19,7 +19,10 @@ import type { AppSettings } from "../../schemas/settings.ts";
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
-import { createTextBuffer } from "../../../../__tests__/helpers.ts";
+import {
+    createNoopFileUploadStore,
+    createTextBuffer,
+} from "../../../../__tests__/helpers.ts";
 import { packageInfoCommand } from "./info.ts";
 
 const packageInfoHandler = packageInfoCommand.handler!;
@@ -163,6 +166,7 @@ function createPackageInfoContext(options: {
         fetcher: options.fetcher,
         cwd: process.cwd(),
         env: {},
+        fileUploadStore: createNoopFileUploadStore(),
         stdin,
         logger: pino({
             enabled: false,

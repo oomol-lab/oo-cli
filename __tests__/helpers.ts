@@ -1,6 +1,7 @@
 import type { Logger } from "pino";
 import type { CliInvocation } from "../src/application/bootstrap/run-cli.ts";
 import type { Fetcher, InteractiveInput, Writer } from "../src/application/contracts/cli.ts";
+import type { FileUploadRecordStore } from "../src/application/contracts/file-upload-store.ts";
 import { mkdtemp, rm } from "node:fs/promises";
 
 import { tmpdir } from "node:os";
@@ -47,6 +48,16 @@ export interface LogCapture {
     readonly logger: Logger;
     close: () => void;
     read: () => string;
+}
+
+export function createNoopFileUploadStore(): FileUploadRecordStore {
+    return {
+        close() {},
+        deleteExpired: () => 0,
+        getFilePath: () => "",
+        list: () => [],
+        save() {},
+    };
 }
 
 export function createTextBuffer(options: TextBufferOptions = {}): TextBuffer {

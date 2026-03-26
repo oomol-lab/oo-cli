@@ -4,6 +4,7 @@ import { join } from "node:path";
 const defaultSettingsFileName = "settings.toml";
 const defaultAuthFileName = "auth.toml";
 const defaultCacheFileName = "cache.sqlite";
+const defaultUploadsFileName = "uploads.sqlite";
 const defaultLogDirectoryName = "logs";
 const defaultWindowsLogDirectoryName = "Logs";
 
@@ -21,6 +22,7 @@ export interface StorePaths {
     logDirectoryPath: string;
     rootDirectory: string;
     settingsFilePath: string;
+    uploadsFilePath: string;
 }
 
 export function resolveHomeDirectory(
@@ -96,5 +98,6 @@ export function resolveStorePaths(
         logDirectoryPath: resolveLogDirectory(options),
         rootDirectory,
         settingsFilePath: join(rootDirectory, defaultSettingsFileName),
+        uploadsFilePath: join(dataDirectory, defaultUploadsFileName),
     };
 }

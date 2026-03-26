@@ -14,7 +14,10 @@ import type { AppSettings } from "../../schemas/settings.ts";
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
-import { createTextBuffer } from "../../../../__tests__/helpers.ts";
+import {
+    createNoopFileUploadStore,
+    createTextBuffer,
+} from "../../../../__tests__/helpers.ts";
 import { enMessages } from "../../../i18n/catalog.ts";
 import {
     createCloudTaskWaitHandler,
@@ -281,6 +284,7 @@ function createWaitContext(options: {
             fetcher: options.fetcher,
             cwd: process.cwd(),
             env: {},
+            fileUploadStore: createNoopFileUploadStore(),
             stdin,
             logger: pino({
                 enabled: false,

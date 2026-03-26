@@ -22,6 +22,7 @@ describe("resolveStorePaths", () => {
             logDirectoryPath: `/tmp/xdg-state/${APP_NAME}/logs`,
             rootDirectory: `/tmp/xdg/${APP_NAME}`,
             settingsFilePath: `/tmp/xdg/${APP_NAME}/settings.toml`,
+            uploadsFilePath: `/tmp/xdg/${APP_NAME}/data/uploads.sqlite`,
         });
     });
 

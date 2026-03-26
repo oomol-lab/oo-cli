@@ -18,7 +18,10 @@ import type { AppSettings } from "../schemas/settings.ts";
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
-import { createTextBuffer } from "../../../__tests__/helpers.ts";
+import {
+    createNoopFileUploadStore,
+    createTextBuffer,
+} from "../../../__tests__/helpers.ts";
 import { searchCommand } from "./search.ts";
 
 const searchHandler = searchCommand.handler!;
@@ -194,6 +197,7 @@ function createSearchContext(options: {
         fetcher: options.fetcher,
         cwd: process.cwd(),
         env: {},
+        fileUploadStore: createNoopFileUploadStore(),
         stdin,
         logger: pino({
             enabled: false,

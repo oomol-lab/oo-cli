@@ -662,6 +662,342 @@ describe("runCli", () => {
         }
     });
 
+    test("supports file upload and persists the uploaded record", async () => {
+        const sandbox = await createCliSandbox();
+        const uploadsFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).uploadsFilePath;
+        const localFilePath = join(sandbox.env.HOME!, "sample.txt");
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+            await Bun.write(localFilePath, "hello world");
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["file", "upload", localFilePath],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.endsWith("/init")) {
+                            return new Response(JSON.stringify({
+                                data: {
+                                    part_size: 4,
+                                    presigned_urls: {
+                                        1: "https://storage.example.com/upload/1",
+                                        2: "https://storage.example.com/upload/2",
+                                        3: "https://storage.example.com/upload/3",
+                                    },
+                                    total_parts: 3,
+                                    upload_id: "upload-1",
+                                },
+                            }));
+                        }
+
+                        if (request.url.endsWith("/url")) {
+                            return new Response(JSON.stringify({
+                                data: {
+                                    expires_at: "3026-03-27T00:00:00.000Z",
+                                    file_name: "sample.txt",
+                                    file_size: 11,
+                                    mime_type: "text/plain",
+                                    url: "https://download.example.com/file-1?signature=abc",
+                                },
+                            }));
+                        }
+
+                        return new Response(null, {
+                            status: 200,
+                        });
+                    },
+                },
+            );
+            const database = new Database(uploadsFilePath, {
+                strict: true,
+            });
+
+            try {
+                expect(result.exitCode).toBe(0);
+                expect(result.stderr).toBe("");
+                expect(result.stdout).toContain("Uploaded sample.txt.");
+                expect(result.stdout).toContain(
+                    "https://download.example.com/file-1?signature=abc",
+                );
+                expect(requests.map(request => request.url)).toEqual([
+                    "https://llm.oomol.com/api/tasks/files/remote-cache/init",
+                    "https://storage.example.com/upload/1",
+                    "https://storage.example.com/upload/2",
+                    "https://storage.example.com/upload/3",
+                    "https://llm.oomol.com/api/tasks/files/remote-cache/upload-1/url",
+                ]);
+                expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
+                expect(requests[0]?.method).toBe("POST");
+                await expect(requests[0]?.json()).resolves.toEqual({
+                    file_extension: ".txt",
+                    file_name: "sample",
+                    size: 11,
+                });
+                expect(
+                    database.query(
+                        [
+                            "SELECT",
+                            "file_name AS fileName,",
+                            "file_size AS fileSize,",
+                            "download_url AS downloadUrl,",
+                            "expires_at_ms AS expiresAtMs",
+                            "FROM uploaded_files",
+                        ].join(" "),
+                    ).all(),
+                ).toEqual([
+                    {
+                        downloadUrl: "https://download.example.com/file-1?signature=abc",
+                        expiresAtMs: Date.parse("3026-03-27T00:00:00.000Z"),
+                        fileName: "sample.txt",
+                        fileSize: 11,
+                    },
+                ]);
+            }
+            finally {
+                database.close();
+            }
+        }
+        finally {
+            await Bun.file(localFilePath).delete();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports file upload json output for both --json and --format=json", async () => {
+        const sandbox = await createCliSandbox();
+        const firstFilePath = join(sandbox.env.HOME!, "sample-json.txt");
+        const secondFilePath = join(sandbox.env.HOME!, "sample-format.txt");
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+            await Bun.write(firstFilePath, "json upload");
+            await Bun.write(secondFilePath, "format upload");
+
+            let uploadIndex = 0;
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+
+                if (request.url.endsWith("/init")) {
+                    uploadIndex += 1;
+
+                    return new Response(JSON.stringify({
+                        data: {
+                            part_size: 32,
+                            presigned_urls: {
+                                1: `https://storage.example.com/upload/${uploadIndex}`,
+                            },
+                            total_parts: 1,
+                            upload_id: `upload-${uploadIndex}`,
+                        },
+                    }));
+                }
+
+                if (request.url.endsWith("/url")) {
+                    return new Response(JSON.stringify({
+                        data: {
+                            expires_at: "3026-03-27T00:00:00.000Z",
+                            file_name: "sample.txt",
+                            file_size: 11,
+                            mime_type: "text/plain",
+                            url: `https://download.example.com/file-${uploadIndex}?signature=abc`,
+                        },
+                    }));
+                }
+
+                return new Response(null, {
+                    status: 200,
+                });
+            };
+
+            const jsonAliasResult = await sandbox.run(
+                ["file", "upload", firstFilePath, "--json"],
+                {
+                    fetcher,
+                },
+            );
+            const jsonFormatResult = await sandbox.run(
+                ["file", "upload", secondFilePath, "--format=json"],
+                {
+                    fetcher,
+                },
+            );
+
+            expect(jsonAliasResult.exitCode).toBe(0);
+            expect(jsonAliasResult.stderr).toBe("");
+            expect(JSON.parse(jsonAliasResult.stdout)).toMatchObject({
+                downloadUrl: "https://download.example.com/file-1?signature=abc",
+                expiresAt: "3026-03-27T00:00:00.000Z",
+                fileName: "sample-json.txt",
+                fileSize: 11,
+                status: "active",
+            });
+            expect(jsonFormatResult.exitCode).toBe(0);
+            expect(jsonFormatResult.stderr).toBe("");
+            expect(JSON.parse(jsonFormatResult.stdout)).toMatchObject({
+                downloadUrl: "https://download.example.com/file-2?signature=abc",
+                expiresAt: "3026-03-27T00:00:00.000Z",
+                fileName: "sample-format.txt",
+                fileSize: 13,
+                status: "active",
+            });
+        }
+        finally {
+            await Bun.file(firstFilePath).delete();
+            await Bun.file(secondFilePath).delete();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports file list filters and cleanup json output", async () => {
+        const sandbox = await createCliSandbox();
+        const uploadsFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).uploadsFilePath;
+
+        try {
+            await mkdir(
+                join(
+                    sandbox.env.XDG_CONFIG_HOME!,
+                    APP_NAME,
+                    "data",
+                ),
+                {
+                    recursive: true,
+                },
+            );
+
+            const database = new Database(uploadsFilePath, {
+                create: true,
+                strict: true,
+            });
+
+            try {
+                database.run(
+                    [
+                        "CREATE TABLE uploaded_files (",
+                        "id TEXT PRIMARY KEY NOT NULL,",
+                        "file_name TEXT NOT NULL,",
+                        "file_size INTEGER NOT NULL,",
+                        "download_url TEXT NOT NULL,",
+                        "uploaded_at_ms INTEGER NOT NULL,",
+                        "expires_at_ms INTEGER NOT NULL",
+                        ") STRICT",
+                    ].join(" "),
+                );
+                database.run(
+                    [
+                        "INSERT INTO uploaded_files (",
+                        "id, file_name, file_size, download_url, uploaded_at_ms, expires_at_ms",
+                        ") VALUES",
+                        "('0195f5fe-ec27-7000-8000-000000000008', 'expired.txt', 10, 'https://download.example.com/expired', 1000, 2000),",
+                        "('0195f5fe-ec28-7000-8000-000000000009', 'active.txt', 11, 'https://download.example.com/active', 3000, 32503680000000)",
+                    ].join(" "),
+                );
+            }
+            finally {
+                database.close();
+            }
+
+            const listTextResult = await sandbox.run(
+                ["file", "list", "--status=active", "--limit=1"],
+            );
+            const listJsonResult = await sandbox.run(
+                ["file", "list", "--status=expired", "--json"],
+            );
+            const cleanupResult = await sandbox.run(
+                ["file", "cleanup", "--json"],
+            );
+            const listAfterCleanup = await sandbox.run(
+                ["file", "list", "--json"],
+            );
+
+            expect(listTextResult.exitCode).toBe(0);
+            expect(listTextResult.stderr).toBe("");
+            expect(listTextResult.stdout).toContain("active.txt");
+            expect(listTextResult.stdout).toContain("https://download.example.com/active");
+
+            expect(listJsonResult.exitCode).toBe(0);
+            expect(JSON.parse(listJsonResult.stdout)).toEqual([
+                {
+                    downloadUrl: "https://download.example.com/expired",
+                    expiresAt: new Date(2000).toISOString(),
+                    fileName: "expired.txt",
+                    fileSize: 10,
+                    id: "0195f5fe-ec27-7000-8000-000000000008",
+                    status: "expired",
+                    uploadedAt: new Date(1000).toISOString(),
+                },
+            ]);
+
+            expect(cleanupResult.exitCode).toBe(0);
+            expect(JSON.parse(cleanupResult.stdout)).toEqual({
+                deletedCount: 1,
+            });
+            expect(listAfterCleanup.exitCode).toBe(0);
+            expect(JSON.parse(listAfterCleanup.stdout)).toEqual([
+                {
+                    downloadUrl: "https://download.example.com/active",
+                    expiresAt: new Date(32503680000000).toISOString(),
+                    fileName: "active.txt",
+                    fileSize: 11,
+                    id: "0195f5fe-ec28-7000-8000-000000000009",
+                    status: "active",
+                    uploadedAt: new Date(3000).toISOString(),
+                },
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("continues search when the sqlite cache database is locked", async () => {
         const sandbox = await createCliSandbox();
         const cacheFilePath = resolveStorePaths({
@@ -3271,6 +3607,22 @@ describe("runCli", () => {
 
         try {
             const result = await sandbox.run(["package", "info", "--help"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("--json");
+            expect(result.stdout).toContain("Alias for --format=json");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports file upload command help with the --json alias", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["file", "upload", "--help"]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");

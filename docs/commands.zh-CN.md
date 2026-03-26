@@ -135,6 +135,39 @@
 - 说明：当前这次 `oo log print` 调用也会生成自己的日志文件，因此命令会始终
   跳过本次运行对应的日志，读取更早的日志。
 
+## 文件
+
+### `oo file upload <filePath>`
+
+上传一个文件到临时文件缓存。
+
+- 参数：`<filePath>` 为要上传的本地文件路径。
+- 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
+- 说明：上传后的文件有效期为一天，到期后会由服务端删除。
+- 说明：文件大小超过 `512 MiB` 时会被拒绝。
+- 说明：上传成功后，CLI 会在本地 sqlite 中记录上传时间、文件名、文件大小、
+  带签名的下载 URL、过期时间，以及一个 UUID v7 格式的主键。
+
+### `oo file list`
+
+查看本地 sqlite 中记录的历史上传文件。
+
+- 选项：`--status <status>` 按有效状态过滤。支持的值：`active`、`expired`。
+- 选项：`--limit <limit>` 限制返回数量，必须为大于等于 `1` 的整数。
+- 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
+- 说明：命令不会隐式删除已过期记录。
+
+### `oo file cleanup`
+
+删除本地 sqlite 中已过期的上传记录。
+
+- 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
+- 说明：只会删除满足 `expiresAt <= now` 的本地记录。
+- 说明：JSON 输出结构为 `{ "deletedCount": number }`。
+
 ## Package 检索
 
 ### `oo search <text>`
