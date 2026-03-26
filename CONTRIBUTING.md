@@ -18,7 +18,8 @@ bun run dev --help
 ```
 
 This is the fastest way to verify argument parsing and command output while
-iterating on local changes.
+iterating on local changes. Source-based development runs do not auto-install
+or auto-synchronize the bundled Codex skill into `${CODEX_HOME:-~/.codex}`.
 
 Useful commands:
 
