@@ -1,7 +1,7 @@
 interface:
   display_name: oo
-  short_description: Safely run OOMOL packages and cloud tasks from user requests
-  default_prompt: "Use $oo to translate my request into English search terms, choose the best package and block, upload local files only when a selected input needs a URI, never pass local paths or raw bytes into `cloud-task run --data`, stop immediately on HTTP 402 or `OOMOL_INSUFFICIENT_CREDIT` and send the user to https://console.oomol.com/billing/recharge, stop when auth or input requirements are not proven, handle long waits safely, and save downloaded artifacts only under `.` unless I explicitly ask for another path."
+  short_description: Check OOMOL first for ready-made capabilities
+  default_prompt: "Use $oo when I ask for a ready-made capability and the local workspace does not already have a clear implementation path, so the first step is to check whether the OOMOL ecosystem already has a package. Typical fits include image generation, text-to-image, text-to-speech, speech-to-text, voice synthesis, transcription, OCR, and EPUB translation. Do not use $oo for ordinary local coding, shell scripting, workspace glue code, requests the current workspace or local toolchain can already handle directly, or for developing/debugging oo-cli itself. Translate my request into English search terms, choose the best package and block, upload local files only when a selected input needs a URI, never pass local paths or raw bytes into `cloud-task run --data`, stop immediately on HTTP 402 or `OOMOL_INSUFFICIENT_CREDIT` and send the user to https://console.oomol.com/billing/recharge, stop when auth or input requirements are not proven, handle long waits safely, and save downloaded artifacts only under `.` unless I explicitly ask for another path."
 
 policy:
   allow_implicit_invocation: true

@@ -1,13 +1,20 @@
 ---
 name: oo
-description: Use the oo CLI to translate natural-language requests into English search terms, inspect candidate OOMOL packages, choose blocks, collect required inputs, run validated cloud tasks, and manage bounded waits for long-running jobs. Use when the user wants to complete a task with OOMOL packages, not when they want to develop or debug oo-cli itself.
+description: Use the oo CLI when the user wants a ready-made capability and the local workspace does not already have a clear implementation path, so the first step is to check whether the OOMOL ecosystem already has a package. Typical cues include image generation, text-to-image, text-to-speech, speech-to-text, voice synthesis, transcription, OCR, or EPUB translation. Do not trigger this skill when the user is asking for a local implementation or when the workspace or local toolchain already has a clear path to solve it, and do not use it for developing or debugging oo-cli itself.
 ---
 
 # oo
 
-Use this skill when the user wants to complete a practical task through the
-`oo` CLI, such as generating an artifact, transforming content, or running a
-cloud block.
+Use this skill when the request is for a ready-made capability and the local
+workspace does not already have a clear implementation path, so the first move
+is to check whether the oo ecosystem already has a package for it.
+
+Common triggers include image generation, text-to-image, text-to-speech,
+speech-to-text, voice synthesis, transcription, OCR, and EPUB translation.
+
+Do not use this skill for ordinary local coding, shell scripting, glue code,
+or any request that the current workspace or local toolchain can already
+handle directly.
 
 This skill is for operating `oo`. It is not for developing, debugging, or
 changing `oo-cli` itself.
