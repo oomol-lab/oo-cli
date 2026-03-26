@@ -14,8 +14,9 @@ oo ...
 
 ## Authentication
 
-- `search`, `package info`, `cloud-task run`, `cloud-task result`, and
-  `cloud-task wait` all require a current authenticated account.
+- `search`, `package info`, `file upload`, `cloud-task run`,
+  `cloud-task result`, and `cloud-task wait` all require a current
+  authenticated account.
 - Do not run `auth status` as a routine precheck.
 - If a remote command fails and auth might be the cause, use:
 
@@ -148,6 +149,44 @@ user request.
 Sample values, placeholders, empty strings, and defaults should be overridden
 whenever the user request implies a specific input.
 
+File-oriented practical implication:
+
+- Some file-like handles are safely represented as URI strings instead of raw
+  binary payloads.
+- Current CLI validation patches `file` widgets to string values with
+  `format: "uri"`.
+- When the selected handle is URI-compatible and the user only has a local
+  file, upload it first with `file upload --json` and use the returned
+  `downloadUrl` as the submitted handle value.
+
+## `file upload`
+
+Canonical form:
+
+```bash
+oo file upload "<filePath>" --json
+```
+
+Facts:
+
+- `<filePath>` is a local file path.
+- `--json` is an alias for `--format=json`.
+- Successful JSON output includes `downloadUrl`, `expiresAt`, `fileName`,
+  `fileSize`, `id`, `status`, and `uploadedAt`.
+- The uploaded file expires after one day.
+- Files larger than `512 MiB` are rejected.
+- Successful uploads persist a local sqlite record.
+
+Practical implication:
+
+- Use this command when a selected `cloud-task run` input can safely accept a
+  URI string but the user currently has a local file.
+- If the user already provides a remote URL that satisfies the same URI input,
+  reuse it instead of re-uploading the file.
+- Submit the returned `downloadUrl` in `--data`.
+- Do not treat this command as a way to pass raw bytes or bypass unsupported
+  `contentMediaType` validation.
+
 ## `cloud-task run`
 
 Canonical form:
@@ -182,13 +221,17 @@ Hard validation limits:
 - Missing required values are rejected.
 - Type mismatches are rejected.
 - `--data` must decode to a plain JSON object.
+- File widget validation is patched to require URI strings instead of local
+  paths or binary payloads.
 - If an input handle schema contains `contentMediaType` and the value is not
   `oomol/secret`, current local validation rejects it.
 
 Practical implication:
 
-- Stop instead of pretending that file, image, or other special-media handles
-  can be submitted safely through normal JSON payloads.
+- If a handle is URI-compatible, a previously uploaded file's `downloadUrl` may
+  be submitted as the JSON value.
+- Stop instead of pretending that raw file bytes, local paths, or unsupported
+  special-media handles can be submitted safely through normal JSON payloads.
 
 ## `cloud-task result`
 
@@ -264,7 +307,9 @@ Use this order:
 3. Run `package info --json` for the serious candidates.
 4. Choose one primary package and optionally one fallback.
 5. Ask focused follow-up questions only for missing required inputs.
-6. Run `cloud-task run --json`.
-7. Share `taskID` immediately.
-8. Use bounded `cloud-task wait` windows when appropriate.
-9. After a non-zero wait exit, run `cloud-task result --json`.
+6. Upload local files with `file upload --json` when a selected handle needs a
+   URI value.
+7. Run `cloud-task run --json`.
+8. Share `taskID` immediately.
+9. Use bounded `cloud-task wait` windows when appropriate.
+10. After a non-zero wait exit, run `cloud-task result --json`.
