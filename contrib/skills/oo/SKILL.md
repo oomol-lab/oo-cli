@@ -1,23 +1,29 @@
 ---
 name: oo
-description: Use the oo CLI when the user wants a ready-made capability and the local workspace does not already have a clear implementation path, so the first step is to check whether the OOMOL ecosystem already has a package. Typical cues include image generation, text-to-image, text-to-speech, speech-to-text, voice synthesis, transcription, OCR, or EPUB translation. Do not trigger this skill when the user is asking for a local implementation or when the workspace or local toolchain already has a clear path to solve it, and do not use it for developing or debugging oo-cli itself.
+description: Use the oo CLI to complete practical tasks through OOMOL packages: translate natural-language requests into English search terms, inspect candidate packages, choose blocks, collect required inputs, run validated cloud tasks, and manage bounded waits. Typical cues include OCR, document or image-set translation, manga or comic translation, EPUB or PDF translation, transcription, speech tasks, image generation, and other ready-made capabilities over local files or archives. Do not use this skill when the user explicitly asks for a local implementation.
 ---
 
 # oo
 
-Use this skill when the request is for a ready-made capability and the local
-workspace does not already have a clear implementation path, so the first move
-is to check whether the oo ecosystem already has a package for it.
+Use this skill when the user wants to complete a practical task through the
+`oo` CLI, such as generating an artifact, transforming content, translating a
+document or image set, extracting text, or running a cloud block over a local
+file or archive.
 
 Common triggers include image generation, text-to-image, text-to-speech,
-speech-to-text, voice synthesis, transcription, OCR, and EPUB translation.
+speech-to-text, voice synthesis, transcription, OCR, document translation,
+EPUB translation, PDF translation, manga or comic translation, image-set
+translation, scanned-page translation, subtitle generation, and archive-based
+media processing.
+
+If the request is to use a ready-made capability over a local file or archive,
+stay on the `oo` path first. Do not switch to ad hoc local Python, OCR, or
+shell processing before you have at least tried `oo search ... --json` and
+inspected plausible packages with `oo package info ... --json`.
 
 Do not use this skill for ordinary local coding, shell scripting, glue code,
-or any request that the current workspace or local toolchain can already
-handle directly.
-
-This skill is for operating `oo`. It is not for developing, debugging, or
-changing `oo-cli` itself.
+or for requests that explicitly ask for a local implementation instead of
+using `oo`.
 
 Read [references/oo-cli-contract.md](references/oo-cli-contract.md) when you
 need exact command syntax, JSON shapes, auth behavior, timeout rules, or known
@@ -51,6 +57,10 @@ Before doing anything substantial:
     - `cloud-task run`
     - `file upload`
 - Never add `--json` to `cloud-task wait`.
+- If the request clearly fits this skill, the mere availability of local tools
+  such as `python`, `unzip`, `ffmpeg`, `sips`, or OCR binaries is not a reason
+  to leave the skill. Local tools may inspect inputs, but the first
+  substantive capability lookup must still happen through `oo`.
 - Never invent package IDs, versions, block IDs, handle names, defaults, or
   task results.
 - If a remote command fails with an auth-related error or unclear account
@@ -100,6 +110,10 @@ Examples:
 - `md5 hash`
 - `image OCR`
 - `summarize pdf`
+- `translate manga zip`
+- `translate comic pages`
+- `translate image archive`
+- `translate scanned japanese pages`
 
 Combine the keywords into one concise English search query.
 
