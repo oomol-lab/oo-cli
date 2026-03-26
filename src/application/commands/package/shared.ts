@@ -10,7 +10,7 @@ import {
     withRequestTarget,
 } from "../../logging/log-fields.ts";
 
-const PACKAGE_INFO_CACHE_ID = "package.info";
+const PACKAGE_INFO_CACHE_ID = "package.info.v4";
 const PACKAGE_INFO_CACHE_MAX_ENTRIES = 300;
 const PACKAGE_INFO_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LATEST_PACKAGE_VERSION = "latest";
@@ -624,14 +624,11 @@ function transformOutputHandleDefinitions(
                 return [];
             }
 
-            const normalizedSchema = splitPackageInfoHandleSchema(handleDef.json_schema);
-
             return [[
                 handleDef.handle,
                 {
                     description: handleDef.description,
-                    ext: normalizedSchema.ext,
-                    schema: normalizedSchema.schema,
+                    schema: handleDef.json_schema,
                 },
             ]];
         }),
@@ -690,13 +687,13 @@ function splitPackageInfoSchemaNode(
     const extEntries: [string, unknown][] = [];
 
     for (const [key, nestedValue] of Object.entries(value)) {
-        if (key.startsWith("ui:")) {
-            const uiKey = key.slice("ui:".length);
+        if (key === "ui:widget") {
+            extEntries.push(["widget", nestedValue]);
+            continue;
+        }
 
-            if (uiKey !== "") {
-                extEntries.push([uiKey, normalizePackageInfoExtensionValue(nestedValue)]);
-                continue;
-            }
+        if (key.startsWith("ui:")) {
+            continue;
         }
 
         const normalizedValue = splitPackageInfoSchemaNode(nestedValue);
@@ -716,33 +713,6 @@ function splitPackageInfoSchemaNode(
         ext: Object.fromEntries(extEntries),
         schema: Object.fromEntries(schemaEntries),
     };
-}
-
-function normalizePackageInfoExtensionValue(value: unknown): unknown {
-    if (Array.isArray(value)) {
-        return value.map(item => normalizePackageInfoExtensionValue(item));
-    }
-
-    if (value === null || typeof value !== "object") {
-        return value;
-    }
-
-    const normalizedEntries: [string, unknown][] = [];
-
-    for (const [key, nestedValue] of Object.entries(value)) {
-        if (key.startsWith("ui:")) {
-            const uiKey = key.slice("ui:".length);
-
-            if (uiKey !== "") {
-                normalizedEntries.push([uiKey, normalizePackageInfoExtensionValue(nestedValue)]);
-                continue;
-            }
-        }
-
-        normalizedEntries.push([key, normalizePackageInfoExtensionValue(nestedValue)]);
-    }
-
-    return Object.fromEntries(normalizedEntries);
 }
 
 function hasPackageInfoSchemaDefault(schema: unknown): boolean {
