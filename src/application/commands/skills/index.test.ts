@@ -198,6 +198,35 @@ describe("skills commands", () => {
         }
     });
 
+    test("does not silently synchronize installed bundled skills during local development runs", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+        const managedSkillPath = join(skillDirectoryPath, "SKILL.md");
+        const managedOwnershipPath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const expectedOwnershipContent = await Bun.file(
+            getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+        ).text();
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(versionFilePath, "0.0.1\n");
+            await Bun.write(managedSkillPath, "stale\n");
+            await Bun.write(managedOwnershipPath, expectedOwnershipContent);
+
+            const result = await sandbox.run(["--help"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(await readFile(versionFilePath, "utf8")).toBe("0.0.1\n");
+            expect(await readFile(managedSkillPath, "utf8")).toBe("stale\n");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("does not install bundled skills automatically after the first run", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);

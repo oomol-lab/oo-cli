@@ -150,8 +150,11 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         const buildInfo = resolveCliBuildInfo(packageManifest.version);
         const version = invocation.version ?? buildInfo.version;
         const primaryCommandName = resolvePrimaryCommandName(invocation.argv);
+        const shouldSynchronizeBundledSkills
+            = !isDevelopmentCliVersion(version);
         const shouldInstallMissingBundledSkills
-            = firstRunDetection.isFirstRun
+            = shouldSynchronizeBundledSkills
+                && firstRunDetection.isFirstRun
                 && primaryCommandName !== "skills";
 
         logger.debug(
@@ -169,6 +172,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 hasSettingsFile: firstRunDetection.hasSettingsFile,
                 isFirstRun: firstRunDetection.isFirstRun,
                 primaryCommandName: primaryCommandName ?? "",
+                shouldSynchronizeBundledSkills,
                 shouldInstallMissingBundledSkills,
             },
             "CLI first-run detection completed.",
@@ -200,12 +204,14 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 translator,
             ),
         };
-        await maybeSynchronizeInstalledBundledSkills(
-            context,
-            {
-                installMissing: shouldInstallMissingBundledSkills,
-            },
-        );
+        if (shouldSynchronizeBundledSkills) {
+            await maybeSynchronizeInstalledBundledSkills(
+                context,
+                {
+                    installMissing: shouldInstallMissingBundledSkills,
+                },
+            );
+        }
 
         const adapter = new CommanderCliAdapter();
 
@@ -321,6 +327,11 @@ function resolvePrimaryCommandName(argv: readonly string[]): string | undefined 
     }
 
     return undefined;
+}
+
+function isDevelopmentCliVersion(version: string): boolean {
+    return packageManifest.version.endsWith("-development")
+        && version === packageManifest.version;
 }
 
 async function detectFirstRun(storePaths: {

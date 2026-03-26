@@ -162,6 +162,35 @@ describe("runCli", () => {
         }
     });
 
+    test("does not auto-install the managed Codex skill during local development runs", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["--help"]);
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).not.toContain("Installed Codex skill");
+            expect(result.stderr).toBe("");
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            expect(content).toContain(`"isFirstRun":true`);
+            expect(content).toContain(`"shouldSynchronizeBundledSkills":false`);
+            expect(content).toContain(`"shouldInstallMissingBundledSkills":false`);
+            expect(content).not.toContain(
+                `"msg":"Bundled Codex skill installed during first-run bootstrap."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("does not auto-install the managed Codex skill for skills subcommands", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
