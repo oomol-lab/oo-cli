@@ -5,13 +5,8 @@ import { APP_NAME } from "../config/app-config.ts";
 import { createWriterColors } from "../terminal-colors.ts";
 
 const defaultRegistryUrl = "https://registry.npmjs.org/";
-const latestReleaseCacheTtlMs = 1000 * 60 * 60 * 24;
 const updateRequestTimeoutMs = 2000;
 const updateRequestMaxAttempts = 2;
-
-interface LatestReleaseCacheValue {
-    latestVersion: string;
-}
 
 interface LatestReleaseRequestFailure {
     retryable: boolean;
@@ -230,44 +225,13 @@ export function resolvePackageManagerUpgradeCommand(
 async function resolveLatestReleaseVersion(
     context: CliExecutionContext,
 ): Promise<string | null> {
-    const latestReleaseCache = context.cacheStore.getCache<LatestReleaseCacheValue>({
-        id: "cli-update-latest-release",
-        defaultTtlMs: latestReleaseCacheTtlMs,
-        maxEntries: 1,
-    });
-    const cachedLatestRelease = latestReleaseCache.get("latest");
-
-    if (cachedLatestRelease !== null) {
-        context.logger.debug(
-            {
-                latestVersion: cachedLatestRelease.latestVersion,
-            },
-            "CLI update latest-release cache hit.",
-        );
-        return cachedLatestRelease.latestVersion;
-    }
-
-    const latestVersion = await fetchLatestReleaseVersion({
+    return await fetchLatestReleaseVersion({
         currentVersion: context.version,
         env: context.env,
         fetcher: context.fetcher,
         logger: context.logger,
         packageName: context.packageName,
     });
-
-    if (latestVersion === null) {
-        return null;
-    }
-
-    latestReleaseCache.set("latest", { latestVersion });
-    context.logger.debug(
-        {
-            latestVersion,
-        },
-        "CLI update latest-release cache stored.",
-    );
-
-    return latestVersion;
 }
 
 async function fetchLatestReleaseVersion(options: {

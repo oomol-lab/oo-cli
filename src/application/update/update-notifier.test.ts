@@ -233,6 +233,39 @@ describe("update notifier", () => {
             notifier.close();
         }
     });
+
+    test("fetches the latest registry version for every update check", async () => {
+        let fetchCount = 0;
+        const notifier = createUpdateNotifierHarness({
+            fetcher: async () => {
+                fetchCount += 1;
+
+                return new Response(JSON.stringify({
+                    "dist-tags": {
+                        latest: fetchCount === 1 ? "1.1.0" : "1.2.0",
+                    },
+                }));
+            },
+        });
+
+        try {
+            const firstResult = await checkForCliUpdate(notifier.context);
+            const secondResult = await checkForCliUpdate(notifier.context);
+
+            expect(firstResult).toEqual({
+                latestVersion: "1.1.0",
+                status: "update-available",
+            });
+            expect(secondResult).toEqual({
+                latestVersion: "1.2.0",
+                status: "update-available",
+            });
+            expect(fetchCount).toBe(2);
+        }
+        finally {
+            notifier.close();
+        }
+    });
 });
 
 function createUpdateNotifierHarness(options: {
