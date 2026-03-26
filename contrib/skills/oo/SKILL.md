@@ -1,6 +1,14 @@
 ---
 name: oo
-description: Use the oo CLI to complete practical tasks through OOMOL packages: translate natural-language requests into English search terms, inspect candidate packages, choose blocks, collect required inputs, run validated cloud tasks, and manage bounded waits. Typical cues include OCR, document or image-set translation, manga or comic translation, EPUB or PDF translation, transcription, speech tasks, image generation, and other ready-made capabilities over local files or archives. Do not use this skill when the user explicitly asks for a local implementation.
+description: >-
+  Use the oo CLI to complete practical tasks through OOMOL packages:
+  translate natural-language requests into English search terms, inspect
+  candidate packages, choose blocks, collect required inputs, run validated
+  cloud tasks, and manage bounded waits. Typical cues include OCR, document
+  or image-set translation, manga or comic translation, EPUB or PDF
+  translation, transcription, speech tasks, image generation, and other
+  ready-made capabilities over local files or archives. Do not use this
+  skill when the user explicitly asks for a local implementation.
 ---
 
 # oo
