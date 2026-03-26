@@ -211,6 +211,8 @@ Show package metadata for one package.
   `json`.
 - Options: `--json` is an alias for `--format=json`.
 - Notes: if no version is provided, the CLI resolves the latest version.
+- Notes: in `--json` output, registry schema keys that start with `ui:` are
+  exposed under each handle's `ext` field.
 
 ## Cloud Tasks
 

@@ -2312,7 +2312,7 @@ describe("runCli", () => {
         }
     });
 
-    test("includes input handle values in package info json output", async () => {
+    test("includes input handle values and normalized ext metadata in package info json output", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -2356,7 +2356,15 @@ describe("runCli", () => {
                                         nullable: false,
                                         value: "sample.png",
                                         json_schema: {
-                                            type: "string",
+                                            "anyOf": [
+                                                {
+                                                    "type": "string",
+                                                    "ui:widget": "text",
+                                                },
+                                            ],
+                                            "ui:options": {
+                                                labels: ["Base64 with Text"],
+                                            },
                                         },
                                     },
                                     {
@@ -2403,7 +2411,8 @@ describe("runCli", () => {
                                         handle: "output",
                                         description: "Boolean result",
                                         json_schema: {
-                                            type: "boolean",
+                                            "type": "boolean",
+                                            "ui:widget": "switch",
                                         },
                                     },
                                 ],
@@ -2424,9 +2433,23 @@ describe("runCli", () => {
                         inputHandle: {
                             input: {
                                 description: "Image input",
+                                ext: {
+                                    anyOf: [
+                                        {
+                                            widget: "text",
+                                        },
+                                    ],
+                                    options: {
+                                        labels: ["Base64 with Text"],
+                                    },
+                                },
                                 nullable: false,
                                 schema: {
-                                    type: "string",
+                                    anyOf: [
+                                        {
+                                            type: "string",
+                                        },
+                                    ],
                                 },
                                 value: "sample.png",
                             },
@@ -2468,6 +2491,9 @@ describe("runCli", () => {
                         outputHandle: {
                             output: {
                                 description: "Boolean result",
+                                ext: {
+                                    widget: "switch",
+                                },
                                 schema: {
                                     type: "boolean",
                                 },

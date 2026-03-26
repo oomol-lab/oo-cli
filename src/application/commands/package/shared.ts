@@ -60,6 +60,7 @@ const packageInfoResponseSchema = z.object({
 
 const transformedInputHandleSchema = z.object({
     description: z.string(),
+    ext: z.record(z.string(), z.unknown()).optional(),
     nullable: z.boolean().optional(),
     schema: z.unknown(),
     value: packageInfoHandleValueSchema.optional(),
@@ -67,6 +68,7 @@ const transformedInputHandleSchema = z.object({
 
 const transformedOutputHandleSchema = z.object({
     description: z.string(),
+    ext: z.record(z.string(), z.unknown()).optional(),
     schema: z.unknown(),
 }).strict();
 
@@ -587,10 +589,15 @@ function transformInputHandleDefinitions(
                 return [];
             }
 
+            const normalizedSchema = splitPackageInfoHandleSchema(handleDef.json_schema);
             const transformedHandle: z.output<typeof transformedInputHandleSchema> = {
                 description: handleDef.description,
-                schema: stripUiSchemaKeys(handleDef.json_schema),
+                schema: normalizedSchema.schema,
             };
+
+            if (normalizedSchema.ext !== undefined) {
+                transformedHandle.ext = normalizedSchema.ext;
+            }
 
             if (handleDef.nullable !== undefined) {
                 transformedHandle.nullable = handleDef.nullable;
@@ -617,31 +624,125 @@ function transformOutputHandleDefinitions(
                 return [];
             }
 
+            const normalizedSchema = splitPackageInfoHandleSchema(handleDef.json_schema);
+
             return [[
                 handleDef.handle,
                 {
                     description: handleDef.description,
-                    schema: stripUiSchemaKeys(handleDef.json_schema),
+                    ext: normalizedSchema.ext,
+                    schema: normalizedSchema.schema,
                 },
             ]];
         }),
     );
 }
 
-function stripUiSchemaKeys(value: unknown): unknown {
+function splitPackageInfoHandleSchema(
+    value: unknown,
+): { schema: unknown; ext?: Record<string, unknown> } {
+    const normalizedValue = splitPackageInfoSchemaNode(value);
+
+    if (!isPackageInfoSchemaObject(normalizedValue.ext)) {
+        return {
+            schema: normalizedValue.schema,
+        };
+    }
+
+    return {
+        ext: normalizedValue.ext,
+        schema: normalizedValue.schema,
+    };
+}
+
+function splitPackageInfoSchemaNode(
+    value: unknown,
+): { schema: unknown; ext?: unknown } {
     if (Array.isArray(value)) {
-        return value.map(item => stripUiSchemaKeys(item));
+        const schemaItems: unknown[] = [];
+        const extItems: unknown[] = [];
+        let hasExt = false;
+
+        for (const item of value) {
+            const normalizedItem = splitPackageInfoSchemaNode(item);
+
+            schemaItems.push(normalizedItem.schema);
+
+            if (normalizedItem.ext === undefined) {
+                extItems.push(null);
+                continue;
+            }
+
+            hasExt = true;
+            extItems.push(normalizedItem.ext);
+        }
+
+        return hasExt
+            ? { schema: schemaItems, ext: extItems }
+            : { schema: schemaItems };
+    }
+
+    if (value === null || typeof value !== "object") {
+        return { schema: value };
+    }
+
+    const schemaEntries: [string, unknown][] = [];
+    const extEntries: [string, unknown][] = [];
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+        if (key.startsWith("ui:")) {
+            const uiKey = key.slice("ui:".length);
+
+            if (uiKey !== "") {
+                extEntries.push([uiKey, normalizePackageInfoExtensionValue(nestedValue)]);
+                continue;
+            }
+        }
+
+        const normalizedValue = splitPackageInfoSchemaNode(nestedValue);
+
+        schemaEntries.push([key, normalizedValue.schema]);
+
+        if (normalizedValue.ext !== undefined) {
+            extEntries.push([key, normalizedValue.ext]);
+        }
+    }
+
+    if (extEntries.length === 0) {
+        return { schema: Object.fromEntries(schemaEntries) };
+    }
+
+    return {
+        ext: Object.fromEntries(extEntries),
+        schema: Object.fromEntries(schemaEntries),
+    };
+}
+
+function normalizePackageInfoExtensionValue(value: unknown): unknown {
+    if (Array.isArray(value)) {
+        return value.map(item => normalizePackageInfoExtensionValue(item));
     }
 
     if (value === null || typeof value !== "object") {
         return value;
     }
 
-    return Object.fromEntries(
-        Object.entries(value)
-            .filter(([key]) => !key.startsWith("ui:"))
-            .map(([key, nestedValue]) => [key, stripUiSchemaKeys(nestedValue)]),
-    );
+    const normalizedEntries: [string, unknown][] = [];
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+        if (key.startsWith("ui:")) {
+            const uiKey = key.slice("ui:".length);
+
+            if (uiKey !== "") {
+                normalizedEntries.push([uiKey, normalizePackageInfoExtensionValue(nestedValue)]);
+                continue;
+            }
+        }
+
+        normalizedEntries.push([key, normalizePackageInfoExtensionValue(nestedValue)]);
+    }
+
+    return Object.fromEntries(normalizedEntries);
 }
 
 function hasPackageInfoSchemaDefault(schema: unknown): boolean {

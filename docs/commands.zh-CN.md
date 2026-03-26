@@ -189,6 +189,8 @@
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
 - 选项：`--json` 是 `--format=json` 的别名。
 - 说明：如果未指定版本，CLI 会解析为最新版本。
+- 说明：在 `--json` 输出中，registry schema 里以 `ui:` 开头的键会被暴露到
+  对应 handle 的 `ext` 字段下。
 
 ## Cloud Task
 
