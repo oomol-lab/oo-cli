@@ -16,6 +16,11 @@ Read [references/oo-cli-contract.md](references/oo-cli-contract.md) when you
 need exact command syntax, JSON shapes, auth behavior, timeout rules, or known
 stop conditions.
 
+If any `oo` command output shows HTTP `402` or includes the string
+`OOMOL_INSUFFICIENT_CREDIT`, stop immediately. Tell the user their current
+account has insufficient credit or is overdue, and point them to
+https://console.oomol.com/billing/recharge before continuing.
+
 ## Environment checks
 
 Before doing anything substantial:
@@ -43,6 +48,10 @@ Before doing anything substantial:
   task results.
 - If a remote command fails with an auth-related error or unclear account
   state, inspect with `oo auth status` before retrying.
+- If any command output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop
+  immediately. Treat it as a billing problem, not an auth problem, and tell the
+  user to recharge at https://console.oomol.com/billing/recharge before any
+  retry.
 - `cloud-task run` must use `PACKAGE_NAME@SEMVER`.
 - `cloud-task run` must include a real `--block-id`.
 - If `search` returns zero packages, stop and tell the user that `oo` does not
@@ -276,6 +285,10 @@ Use the result snapshot to distinguish:
 - failed
 - succeeded after the wait command exited
 
+If the wait output or result snapshot shows HTTP `402` or
+`OOMOL_INSUFFICIENT_CREDIT`, stop immediately and direct the user to
+https://console.oomol.com/billing/recharge before any retry.
+
 If the user wants to continue, run another bounded wait window instead of
 re-creating the task.
 
@@ -322,6 +335,10 @@ On failure:
 
 - report whether the failure came from no package match, missing input,
   unsupported input shape, task failure, or environment or auth limitations
+
+If the failure output includes HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
+classify it as insufficient credit or overdue billing and direct the user to
+https://console.oomol.com/billing/recharge before retrying anything.
 
 ## Response style
 
