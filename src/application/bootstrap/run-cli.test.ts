@@ -1073,6 +1073,76 @@ describe("runCli", () => {
         }
     });
 
+    test("continues search when the sqlite cache database file cannot be opened", async () => {
+        const sandbox = await createCliSandbox();
+        const cacheFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).cacheFilePath;
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+            const dataDirectoryPath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "data",
+            );
+
+            await mkdir(dataDirectoryPath, { recursive: true });
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+            await mkdir(cacheFilePath, { recursive: true });
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                ["search", "cache unavailable", "--json"],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            packages: [],
+                        }));
+                    },
+                },
+            );
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe("[]\n");
+            expect(result.stderr).toBe("");
+            expect(requestCount).toBe(1);
+            expect(content).toContain(`"category":"recoverable_cache"`);
+            expect(content).toContain(`"sqliteErrorCode":"SQLITE_CANTOPEN"`);
+            expect(content).toContain(`"storePathKind":"directory"`);
+            expect(content).toContain(`"storePathExists":true`);
+            expect(content).toContain(`"parentDirectoryExists":true`);
+            expect(content).toContain(`"parentDirectoryWritable":true`);
+            expect(content).toContain(
+                `"msg":"Sqlite cache namespace is temporarily unavailable because the database file cannot be opened."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("prints the current log file path to stderr when --debug is set", async () => {
         const sandbox = await createCliSandbox();
 

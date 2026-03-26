@@ -7,9 +7,9 @@ import type {
 } from "../../application/contracts/cache.ts";
 
 import { createHash } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { accessSync, constants as fsConstants, mkdirSync, statSync } from "node:fs";
 import { dirname } from "node:path";
-import { constants, Database } from "bun:sqlite";
+import { Database, constants as sqliteConstants } from "bun:sqlite";
 import { logCategory } from "../../application/logging/log-categories.ts";
 import {
     withCacheId,
@@ -42,9 +42,27 @@ interface RecoverableSqliteOperationResult<Value> {
     value: Value;
 }
 
+interface StorePathDiagnostics {
+    parentDirectoryExists: boolean;
+    parentDirectoryPath: string;
+    parentDirectoryReadable: boolean;
+    parentDirectoryWritable: boolean;
+    storePathExists: boolean;
+    storePathKind: "directory" | "file" | "missing" | "other";
+}
+
 const recoverableSqliteLockCodes = new Set([
     "SQLITE_BUSY",
     "SQLITE_LOCKED",
+]);
+const recoverableSqliteCacheErrorCodes = new Set([
+    ...recoverableSqliteLockCodes,
+    "SQLITE_CANTOPEN",
+    "SQLITE_CORRUPT",
+    "SQLITE_FULL",
+    "SQLITE_IOERR",
+    "SQLITE_NOTADB",
+    "SQLITE_READONLY",
 ]);
 const sqliteBusyTimeoutMs = 250;
 
@@ -67,7 +85,7 @@ export class SqliteCacheStore implements CacheStore {
             );
         }
         catch (error) {
-            if (!isRecoverableSqliteLockError(error)) {
+            if (!isRecoverableSqliteCacheError(error)) {
                 throw error;
             }
 
@@ -76,9 +94,11 @@ export class SqliteCacheStore implements CacheStore {
                 {
                     ...withCategory(logCategory.recoverableCache),
                     err: error,
+                    ...readStorePathDiagnostics(this.filePath),
+                    sqliteErrorCode: error.code,
                     ...withStorePath(this.filePath),
                 },
-                "Sqlite cache store open was deferred because the database is locked.",
+                `Sqlite cache store open was deferred because ${describeRecoverableSqliteCacheError(error)}.`,
             );
         }
     }
@@ -110,7 +130,7 @@ export class SqliteCacheStore implements CacheStore {
             });
         }
         catch (error) {
-            if (!isRecoverableSqliteLockError(error)) {
+            if (!isRecoverableSqliteCacheError(error)) {
                 throw error;
             }
 
@@ -119,9 +139,11 @@ export class SqliteCacheStore implements CacheStore {
                     ...withCacheId(options.id),
                     ...withCategory(logCategory.recoverableCache),
                     err: error,
+                    ...readStorePathDiagnostics(this.filePath),
+                    sqliteErrorCode: error.code,
                     ...withStorePath(this.filePath),
                 },
-                "Sqlite cache namespace is temporarily unavailable because the database is locked.",
+                `Sqlite cache namespace is temporarily unavailable because ${describeRecoverableSqliteCacheError(error)}.`,
             );
 
             return new UnavailableSqliteCache<Value>();
@@ -139,11 +161,11 @@ export class SqliteCacheStore implements CacheStore {
 
         try {
             try {
-                database.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
+                database.fileControl(sqliteConstants.SQLITE_FCNTL_PERSIST_WAL, 0);
                 database.run("PRAGMA wal_checkpoint(TRUNCATE);");
             }
             catch (error) {
-                if (!isRecoverableSqliteLockError(error)) {
+                if (!isRecoverableSqliteCacheError(error)) {
                     throw error;
                 }
 
@@ -151,9 +173,10 @@ export class SqliteCacheStore implements CacheStore {
                     {
                         ...withCategory(logCategory.recoverableCache),
                         err: error,
+                        sqliteErrorCode: error.code,
                         ...withStorePath(this.filePath),
                     },
-                    "Sqlite cache store close skipped WAL checkpoint because the database is locked.",
+                    `Sqlite cache store close skipped WAL checkpoint because ${describeRecoverableSqliteCacheError(error)}.`,
                 );
             }
         }
@@ -278,7 +301,7 @@ export class SqliteCache<Value> implements Cache<Value> {
         const rowResult = this.attemptRecoverableSqliteOperation({
             fallback: null,
             key,
-            message: "Sqlite cache lookup was skipped because the database is locked.",
+            messagePrefix: "Sqlite cache lookup was skipped",
             operation: "get",
         }, () => this.selectFreshStatement.get({ key, now }));
 
@@ -308,7 +331,7 @@ export class SqliteCache<Value> implements Cache<Value> {
             const deletedResult = this.attemptRecoverableSqliteOperation({
                 fallback: false,
                 key,
-                message: "Sqlite cache invalid entry eviction was skipped because the database is locked.",
+                messagePrefix: "Sqlite cache invalid entry eviction was skipped",
                 operation: "delete-invalid",
             }, () => this.deleteStatement.run({ key }).changes > 0);
             const deleted = deletedResult.value;
@@ -330,7 +353,7 @@ export class SqliteCache<Value> implements Cache<Value> {
         this.attemptRecoverableSqliteOperation({
             fallback: undefined,
             key,
-            message: "Sqlite cache touch update was skipped because the database is locked.",
+            messagePrefix: "Sqlite cache touch update was skipped",
             operation: "touch",
         }, () => {
             this.touchStatement.run({ key, now });
@@ -354,7 +377,7 @@ export class SqliteCache<Value> implements Cache<Value> {
         const storeResult = this.attemptRecoverableSqliteOperation({
             fallback: undefined,
             key,
-            message: "Sqlite cache store was skipped because the database is locked.",
+            messagePrefix: "Sqlite cache store was skipped",
             operation: "set",
         }, () => {
             this.upsertStatement.run({
@@ -395,7 +418,7 @@ export class SqliteCache<Value> implements Cache<Value> {
         const deletedResult = this.attemptRecoverableSqliteOperation({
             fallback: false,
             key,
-            message: "Sqlite cache delete was skipped because the database is locked.",
+            messagePrefix: "Sqlite cache delete was skipped",
             operation: "delete",
         }, () => this.deleteStatement.run({ key }).changes > 0);
 
@@ -420,7 +443,7 @@ export class SqliteCache<Value> implements Cache<Value> {
     clear(): void {
         const clearResult = this.attemptRecoverableSqliteOperation({
             fallback: undefined,
-            message: "Sqlite cache clear was skipped because the database is locked.",
+            messagePrefix: "Sqlite cache clear was skipped",
             operation: "clear",
         }, () => {
             this.clearStatement.run();
@@ -441,7 +464,7 @@ export class SqliteCache<Value> implements Cache<Value> {
     private attemptRecoverableSqliteOperation<Result>(options: {
         fallback: Result;
         key?: string;
-        message: string;
+        messagePrefix: string;
         operation: string;
     }, run: () => Result): RecoverableSqliteOperationResult<Result> {
         try {
@@ -451,7 +474,7 @@ export class SqliteCache<Value> implements Cache<Value> {
             };
         }
         catch (error) {
-            if (!isRecoverableSqliteLockError(error)) {
+            if (!isRecoverableSqliteCacheError(error)) {
                 throw error;
             }
 
@@ -461,12 +484,16 @@ export class SqliteCache<Value> implements Cache<Value> {
                     ...withCategory(logCategory.recoverableCache),
                     err: error,
                     operation: options.operation,
+                    ...(recoverableSqliteLockCodes.has(error.code)
+                        ? {}
+                        : readStorePathDiagnostics(this.options.filePath)),
+                    sqliteErrorCode: error.code,
                     ...withStorePath(this.options.filePath),
                     ...(options.key === undefined
                         ? {}
                         : withKeyFingerprint(createCacheKeyFingerprint(options.key))),
                 },
-                options.message,
+                `${options.messagePrefix} because ${describeRecoverableSqliteCacheError(error)}.`,
             );
 
             return {
@@ -602,7 +629,7 @@ function createCacheKeyFingerprint(key: string): string {
     return createHash("sha256").update(key).digest("hex").slice(0, 12);
 }
 
-function isRecoverableSqliteLockError(
+function isRecoverableSqliteCacheError(
     error: unknown,
 ): error is Error & {
     code: string;
@@ -610,5 +637,86 @@ function isRecoverableSqliteLockError(
     return error instanceof Error
         && "code" in error
         && typeof error.code === "string"
-        && recoverableSqliteLockCodes.has(error.code);
+        && recoverableSqliteCacheErrorCodes.has(error.code);
+}
+
+function describeRecoverableSqliteCacheError(
+    error: Error & {
+        code: string;
+    },
+): string {
+    if (recoverableSqliteLockCodes.has(error.code)) {
+        return "the database is locked";
+    }
+
+    switch (error.code) {
+        case "SQLITE_CANTOPEN":
+            return "the database file cannot be opened";
+        case "SQLITE_CORRUPT":
+            return "the database file is corrupted";
+        case "SQLITE_FULL":
+            return "the database file is full";
+        case "SQLITE_IOERR":
+            return "the database file is unavailable";
+        case "SQLITE_NOTADB":
+            return "the database file is invalid";
+        case "SQLITE_READONLY":
+            return "the database is read-only";
+        default:
+            return "the database is unavailable";
+    }
+}
+
+function readStorePathDiagnostics(filePath: string): StorePathDiagnostics {
+    const parentDirectoryPath = dirname(filePath);
+
+    return {
+        parentDirectoryExists: pathExists(parentDirectoryPath),
+        parentDirectoryPath,
+        parentDirectoryReadable: pathHasAccess(parentDirectoryPath, fsConstants.R_OK),
+        parentDirectoryWritable: pathHasAccess(parentDirectoryPath, fsConstants.W_OK),
+        storePathExists: pathExists(filePath),
+        storePathKind: readStorePathKind(filePath),
+    };
+}
+
+function pathExists(path: string): boolean {
+    try {
+        statSync(path);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+
+function pathHasAccess(path: string, mode: number): boolean {
+    try {
+        accessSync(path, mode);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+
+function readStorePathKind(
+    path: string,
+): StorePathDiagnostics["storePathKind"] {
+    try {
+        const entry = statSync(path);
+
+        if (entry.isFile()) {
+            return "file";
+        }
+
+        if (entry.isDirectory()) {
+            return "directory";
+        }
+
+        return "other";
+    }
+    catch {
+        return "missing";
+    }
 }

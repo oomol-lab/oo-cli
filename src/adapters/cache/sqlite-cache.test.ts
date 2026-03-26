@@ -290,6 +290,59 @@ describe("SqliteCacheStore", () => {
         }
     });
 
+    test("falls back to a no-op cache when the sqlite database file cannot be opened", async () => {
+        const root = await createTemporaryDirectory("sqlite-cache-cantopen");
+        const logCapture = createLogCapture();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+
+        await mkdir(storePaths.cacheFilePath, { recursive: true });
+
+        const cacheStore = new SqliteCacheStore(
+            storePaths.cacheFilePath,
+            logCapture.logger,
+        );
+        const cache = cacheStore.getCache<string>({
+            id: "search",
+        });
+
+        try {
+            cache.set("blocked", "value");
+
+            expect(cache.get("blocked")).toBeNull();
+            expect(cache.has("blocked")).toBeFalse();
+            expect(cache.delete("blocked")).toBeFalse();
+
+            cache.clear();
+
+            const logs = logCapture.read();
+
+            expect(logs).toContain(`"level":"warn"`);
+            expect(logs).toContain(`"category":"recoverable_cache"`);
+            expect(logs).toContain(`"sqliteErrorCode":"SQLITE_CANTOPEN"`);
+            expect(logs).toContain(`"storePathKind":"directory"`);
+            expect(logs).toContain(`"storePathExists":true`);
+            expect(logs).toContain(`"parentDirectoryExists":true`);
+            expect(logs).toContain(`"parentDirectoryWritable":true`);
+            expect(logs).toContain(
+                `"msg":"Sqlite cache store open was deferred because the database file cannot be opened."`,
+            );
+            expect(logs).toContain(
+                `"msg":"Sqlite cache namespace is temporarily unavailable because the database file cannot be opened."`,
+            );
+        }
+        finally {
+            cacheStore.close();
+            logCapture.close();
+        }
+    });
+
     test("treats sqlite lock errors during cache operations as recoverable", async () => {
         const root = await createTemporaryDirectory("sqlite-cache-locked-ops");
         const logCapture = createLogCapture();
