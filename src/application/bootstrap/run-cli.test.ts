@@ -1125,7 +1125,7 @@ describe("runCli", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe("[]");
+            expect(result.stdout).toBe("[]\n");
             expect(result.stderr).toBe("");
             expect(requestCount).toBe(1);
             expect(content).toContain(`"category":"recoverable_cache"`);
