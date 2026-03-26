@@ -1,5 +1,6 @@
 import type { ErrorObject, ValidateFunction } from "ajv";
 
+import type { Translator } from "../../contracts/translator.ts";
 import type { PackageInfoResponse } from "../package/shared.ts";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
@@ -10,6 +11,8 @@ import { isPackageInfoInputHandleOptional } from "../package/shared.ts";
 import { patchHandleSchema } from "../shared/handle-schema.ts";
 
 const ajv = createAjv();
+const oomolStoragePathPrefix = "/oomol-driver/oomol-storage/";
+type ValidationTranslator = Pick<Translator, "locale" | "t">;
 
 type WidgetType
     = "allOf"
@@ -58,6 +61,14 @@ interface ValidationError {
     readonly message?: string;
 }
 
+interface WidgetValidationRule {
+    preValidate?: (translator: ValidationTranslator) => string | undefined;
+    validateValue?: (
+        value: unknown,
+        translator: ValidationTranslator,
+    ) => string | undefined;
+}
+
 interface JsonSchemaObject {
     [key: string]: unknown;
     anyOf?: unknown;
@@ -70,10 +81,37 @@ interface JsonSchemaObject {
     uniqueItems?: unknown;
 }
 
+const storagePathWidgetRule: WidgetValidationRule = {
+    validateValue(value, translator) {
+        if (typeof value !== "string" || isOomolStoragePath(value)) {
+            return undefined;
+        }
+
+        return translator.t(
+            "errors.cloudTaskRun.validation.invalidStoragePath",
+            {
+                prefix: oomolStoragePathPrefix,
+            },
+        );
+    },
+};
+
+const widgetValidationRules: Partial<Record<WidgetType, WidgetValidationRule>> = {
+    credential: {
+        preValidate(translator) {
+            return translator.t(
+                "errors.cloudTaskRun.validation.credentialUnsupported",
+            );
+        },
+    },
+    dir: storagePathWidgetRule,
+    save: storagePathWidgetRule,
+};
+
 export function validateCloudTaskInputValues(
     inputValues: Record<string, unknown>,
     block: PackageInfoResponse["blocks"][number],
-    locale: string,
+    translator: ValidationTranslator,
 ): void {
     const definedHandles = new Set(Object.keys(block.inputHandle));
 
@@ -90,7 +128,7 @@ export function validateCloudTaskInputValues(
         const error = validateHandleValue(
             inputValues[handleName],
             handleDef,
-            locale,
+            translator,
         );
 
         if (!error) {
@@ -142,8 +180,18 @@ function createAjv(): Ajv {
 function validateHandleValue(
     value: unknown,
     def: PackageInfoResponse["blocks"][number]["inputHandle"][string],
-    locale?: string,
+    translator: ValidationTranslator,
 ): ValidationError | undefined {
+    const widgetRule = resolveInputWidgetRule(def.schema, def.ext);
+    const preValidationMessage = widgetRule?.preValidate?.(translator);
+
+    if (preValidationMessage !== undefined) {
+        return {
+            code: "validation",
+            message: preValidationMessage,
+        };
+    }
+
     if (value === undefined && isPackageInfoInputHandleOptional(def)) {
         return undefined;
     }
@@ -174,13 +222,29 @@ function validateHandleValue(
     if (expectedType ? expectedType !== actualType : value === undefined) {
         return {
             code: "type",
-            message: locale?.startsWith("zh")
-                ? `期望类型为 ${expectedType ?? "任意类型"}，实际为 ${actualType ?? "未定义"}`
-                : `Expected type ${expectedType ?? "any"}, but got ${actualType ?? "undefined"}`,
+            message: translator.t(
+                "errors.cloudTaskRun.validation.expectedType",
+                {
+                    actualType: actualType ?? "undefined",
+                    expectedType: expectedType ?? "any",
+                },
+            ),
         };
     }
 
-    const validationErrors = validate(validator, value, locale);
+    const widgetValidationMessage = widgetRule?.validateValue?.(
+        value,
+        translator,
+    );
+
+    if (widgetValidationMessage !== undefined) {
+        return {
+            code: "validation",
+            message: widgetValidationMessage,
+        };
+    }
+
+    const validationErrors = validate(validator, value, translator.locale);
 
     if (validationErrors && validationErrors.length > 0) {
         return {
@@ -190,6 +254,35 @@ function validateHandleValue(
     }
 
     return undefined;
+}
+
+function readInputWidgetType(
+    schema: unknown,
+    ext?: Record<string, unknown>,
+): WidgetType | undefined {
+    const widgetName = readWidgetName(ext);
+
+    switch (widgetName) {
+        case "credential":
+        case "dir":
+        case "save":
+            return widgetName;
+    }
+
+    const schemaType = typeOfSchema(schema);
+
+    return schemaType === "credential" ? "credential" : undefined;
+}
+
+function resolveInputWidgetRule(
+    schema: unknown,
+    ext?: Record<string, unknown>,
+): WidgetValidationRule | undefined {
+    const widgetType = readInputWidgetType(schema, ext);
+
+    return widgetType === undefined
+        ? undefined
+        : widgetValidationRules[widgetType];
 }
 
 function normalizeHandleSchema(
@@ -312,6 +405,14 @@ function typeOfSchema(schema: unknown): WidgetType {
     }
 }
 
+function readWidgetName(ext: unknown): string | undefined {
+    if (!isPlainObject(ext) || typeof ext.widget !== "string") {
+        return undefined;
+    }
+
+    return ext.widget;
+}
+
 function asPrimitiveType(type: WidgetType): PrimitiveType | undefined {
     switch (type) {
         case "string":
@@ -373,6 +474,14 @@ function isHexColorString(value: string): boolean {
     }
 
     return true;
+}
+
+function isOomolStoragePath(value: string): boolean {
+    if (!value.startsWith(oomolStoragePathPrefix)) {
+        return false;
+    }
+
+    return !value.includes("\\");
 }
 
 function isPlainObject(value: unknown): value is JsonSchemaObject {

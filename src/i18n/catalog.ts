@@ -178,6 +178,12 @@ export const enMessages = {
         "Invalid package specifier: {value}. Use PACKAGE_NAME@SEMVER.",
     "errors.cloudTaskRun.invalidPayload":
         "The value for handle {handle} is invalid: {message}",
+    "errors.cloudTaskRun.validation.credentialUnsupported":
+        "Credential inputs are not supported in the CLI.",
+    "errors.cloudTaskRun.validation.expectedType":
+        "Expected type {expectedType}, but got {actualType}.",
+    "errors.cloudTaskRun.validation.invalidStoragePath":
+        "Expected a Unix-style path starting with {prefix}.",
     "errors.cloudTaskRun.invalidPayloadShape":
         "The --data payload must be a JSON object.",
     "errors.cloudTaskRun.unknownInputHandle":
@@ -515,6 +521,12 @@ export const zhMessages = {
         "无效的包标识：{value}。请使用 PACKAGE_NAME@SEMVER。",
     "errors.cloudTaskRun.invalidPayload":
         "Handle {handle} 的值无效：{message}",
+    "errors.cloudTaskRun.validation.credentialUnsupported":
+        "CLI 暂不支持 credential 类型输入。",
+    "errors.cloudTaskRun.validation.expectedType":
+        "期望类型为 {expectedType}，实际为 {actualType}。",
+    "errors.cloudTaskRun.validation.invalidStoragePath":
+        "期望值为以 {prefix} 开头的 Unix 风格路径。",
     "errors.cloudTaskRun.invalidPayloadShape":
         "--data 的 payload 必须是 JSON object。",
     "errors.cloudTaskRun.unknownInputHandle":

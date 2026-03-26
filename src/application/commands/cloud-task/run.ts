@@ -93,7 +93,7 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
             });
         }
 
-        validateCloudTaskInputValues(inputValues, block, context.translator.locale);
+        validateCloudTaskInputValues(inputValues, block, context.translator);
 
         if (input.dryRun === true) {
             if (format === "json") {
