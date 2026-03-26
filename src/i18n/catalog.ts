@@ -102,6 +102,10 @@ export const enMessages = {
     "commands.skills.description":
         "Install or remove bundled Codex-only skills from the local Codex directory.",
     "commands.skills.summary": "Manage bundled Codex skills",
+    "commands.skills.allowImplicitInvocation.description":
+        "Persist the oo skill allow_implicit_invocation policy and synchronize the installed managed skill when present.",
+    "commands.skills.allowImplicitInvocation.summary":
+        "Set oo skill implicit invocation",
     "commands.skills.install.description":
         "Install one bundled Codex skill into the local Codex skills directory.",
     "commands.skills.install.summary": "Install a bundled Codex skill",
@@ -196,6 +200,8 @@ export const enMessages = {
     "errors.config.invalidKey": "Invalid config key: {value}.",
     "errors.config.invalidLangValue":
         "Invalid lang value: {value}. Use en or zh.",
+    "errors.config.invalidSkillsOoAllowImplicitInvocationValue":
+        "Invalid skills.oo.allow_implicit_invocation value: {value}. Use true or false.",
     "errors.file.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.fileList.invalidLimit":
@@ -306,6 +312,8 @@ export const enMessages = {
         "Set how long to wait before timing out (default 6h, range 10s to 24h)",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
+    "skills.allowImplicitInvocation.success":
+        "Set Codex skill {name} allow_implicit_invocation to {value}.",
     "skills.install.success": "Installed Codex skill {name} to {path}.",
     "skills.uninstall.success": "Removed Codex skill {name} from {path}.",
     "versionInfo.version": "Version",
@@ -454,6 +462,10 @@ export const zhMessages = {
     "commands.search.summary": "按意图搜索包",
     "commands.skills.description": "在本地 Codex 目录中安装或移除内置的仅限 Codex 使用的 skill。",
     "commands.skills.summary": "管理内置 Codex skill",
+    "commands.skills.allowImplicitInvocation.description":
+        "持久化 oo skill 的 allow_implicit_invocation 策略，并在本地存在受管安装时同步对应文件。",
+    "commands.skills.allowImplicitInvocation.summary":
+        "设置 oo skill 的隐式调用策略",
     "commands.skills.install.description": "将一个内置 Codex skill 安装到本地 Codex skills 目录。",
     "commands.skills.install.summary": "安装一个内置 Codex skill",
     "commands.skills.uninstall.description": "从本地 Codex skills 目录移除一个内置 Codex skill。",
@@ -539,6 +551,8 @@ export const zhMessages = {
     "errors.config.invalidKey": "无效的配置键：{value}。",
     "errors.config.invalidLangValue":
         "无效的 lang 值：{value}。请使用 en 或 zh。",
+    "errors.config.invalidSkillsOoAllowImplicitInvocationValue":
+        "无效的 skills.oo.allow_implicit_invocation 值：{value}。请使用 true 或 false。",
     "errors.file.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.fileList.invalidLimit":
@@ -643,6 +657,8 @@ export const zhMessages = {
     "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
+    "skills.allowImplicitInvocation.success":
+        "已将 Codex skill {name} 的 allow_implicit_invocation 设置为 {value}。",
     "skills.install.success": "已将 Codex skill {name} 安装到 {path}。",
     "skills.uninstall.success": "已从 {path} 移除 Codex skill {name}。",
     "versionInfo.version": "版本",

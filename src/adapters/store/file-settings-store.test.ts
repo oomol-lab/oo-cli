@@ -11,6 +11,20 @@ import {
 import { APP_NAME } from "../../application/config/app-config.ts";
 import { FileSettingsStore } from "./file-settings-store.ts";
 
+const defaultSettingsFileContent = [
+    "# lang controls the CLI display language for help text, messages, and errors.",
+    "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
+    "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
+    "# lang = \"en\"",
+    "",
+    "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+    "# Supported values: true, false.",
+    "# Default: true.",
+    "# [skills.oo]",
+    "# allow_implicit_invocation = false",
+    "",
+].join("\n");
+
 describe("FileSettingsStore", () => {
     test("returns default settings when the file does not exist", async () => {
         const root = await createTemporaryDirectory("store-missing");
@@ -25,13 +39,7 @@ describe("FileSettingsStore", () => {
 
         expect(await store.read()).toEqual({});
         expect(await readFile(store.getFilePath(), "utf8")).toBe(
-            [
-                "# lang controls the CLI display language for help text, messages, and errors.",
-                "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
-                "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
-                "# lang = \"en\"",
-                "",
-            ].join("\n"),
+            defaultSettingsFileContent,
         );
     });
 
@@ -58,12 +66,64 @@ describe("FileSettingsStore", () => {
                 "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                 "# lang = \"en\"",
                 "",
+                "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+                "# Supported values: true, false.",
+                "# Default: true.",
+                "# [skills.oo]",
+                "# allow_implicit_invocation = false",
+                "",
                 "lang = \"zh\"",
                 "",
             ].join("\n"),
         );
         expect(await store.read()).toEqual({
             lang: "zh",
+        });
+    });
+
+    test("writes and reads persisted oo skill settings", async () => {
+        const root = await createTemporaryDirectory("store-skill-write");
+        const store = new FileSettingsStore({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+
+        await store.write({
+            skills: {
+                oo: {
+                    allow_implicit_invocation: false,
+                },
+            },
+        });
+
+        expect(await readFile(store.getFilePath(), "utf8")).toBe(
+            [
+                "# lang controls the CLI display language for help text, messages, and errors.",
+                "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
+                "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
+                "# lang = \"en\"",
+                "",
+                "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+                "# Supported values: true, false.",
+                "# Default: true.",
+                "# [skills.oo]",
+                "# allow_implicit_invocation = false",
+                "",
+                "[skills.oo]",
+                "allow_implicit_invocation = false",
+                "",
+            ].join("\n"),
+        );
+        expect(await store.read()).toEqual({
+            skills: {
+                oo: {
+                    allow_implicit_invocation: false,
+                },
+            },
         });
     });
 
@@ -81,13 +141,7 @@ describe("FileSettingsStore", () => {
         await store.write({});
 
         expect(await readFile(store.getFilePath(), "utf8")).toBe(
-            [
-                "# lang controls the CLI display language for help text, messages, and errors.",
-                "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
-                "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
-                "# lang = \"en\"",
-                "",
-            ].join("\n"),
+            defaultSettingsFileContent,
         );
     });
 

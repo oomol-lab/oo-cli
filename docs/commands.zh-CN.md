@@ -62,7 +62,8 @@
 
 读取一个持久化配置值。
 
-- 参数：`<key>` 为配置键。目前仅支持 `lang`。
+- 参数：`<key>` 为配置键。目前支持
+  `lang`、`skills.oo.allow_implicit_invocation`。
 
 ### `oo config path`
 
@@ -72,15 +73,19 @@
 
 写入一个持久化配置值。
 
-- 参数：`<key>` 为配置键。目前仅支持 `lang`。
+- 参数：`<key>` 为配置键。目前支持
+  `lang`、`skills.oo.allow_implicit_invocation`。
 - 参数：`<value>` 为对应配置值。
 - 取值规则：当 `<key>` 为 `lang` 时，支持的值为 `en` 和 `zh`。
+- 取值规则：当 `<key>` 为 `skills.oo.allow_implicit_invocation` 时，支持的
+  值为 `true` 和 `false`。
 
 ### `oo config unset <key>`
 
 删除一个持久化配置值。
 
-- 参数：`<key>` 为配置键。目前仅支持 `lang`。
+- 参数：`<key>` 为配置键。目前支持
+  `lang`、`skills.oo.allow_implicit_invocation`。
 
 ## 更新
 
@@ -97,6 +102,16 @@
 
 ## Codex Skill
 
+### `oo skills allow-implicit-invocation <value>`
+
+持久化 `oo` skill 的 `allow_implicit_invocation` 策略。
+
+- 参数：`<value>` 必须为 `true` 或 `false`。
+- 说明：当受管的 `oo` skill 已经安装时，命令会立即同步
+  `${CODEX_HOME:-~/.codex}/skills/oo/agents/openai.yaml`。
+- 说明：当受管的 `oo` skill 尚未安装时，命令仍会写入设置，并在下次安装或启
+  动同步时生效。
+
 ### `oo skills install`
 
 将一个内置 skill 安装到本地 Codex skills 目录。
@@ -104,6 +119,8 @@
 - 内置 skill：`oo`。
 - 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
 - 元数据：安装时会在 skill 目录内写入一个隐藏的 `oo` 版本记录文件。
+- 元数据：当存在持久化的 `skills.oo.allow_implicit_invocation` 配置时，
+  `agents/openai.yaml` 会使用该值；否则使用内置默认值。
 - 说明：当 Codex 根目录不存在时，命令会直接报错退出，这表示当前机器上没有
   安装 Codex。
 - 说明：只有当 `oo/agents/openai.yaml` 中包含 `OOMOL` 字符串时，`oo`

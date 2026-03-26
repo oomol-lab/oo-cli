@@ -2,11 +2,13 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import type { ConfigUnsetInput } from "./shared.ts";
 import { z } from "zod";
+import { maybeSynchronizeInstalledBundledSkills } from "../skills/shared.ts";
 import {
     configDefinitions,
     configKeyChoices,
     configKeySchema,
     createInvalidConfigKeyError,
+    ooSkillAllowImplicitInvocationConfigKey,
     writeLine,
 } from "./shared.ts";
 
@@ -27,9 +29,16 @@ export const configUnsetCommand: CliCommandDefinition<ConfigUnsetInput> = {
     }),
     mapInputError: (_, rawInput) => createInvalidConfigKeyError(rawInput),
     handler: async (input, context) => {
-        await context.settingsStore.update(settings =>
+        const nextSettings = await context.settingsStore.update(settings =>
             configDefinitions[input.key].unsetValue(settings),
         );
+
+        if (input.key === ooSkillAllowImplicitInvocationConfigKey) {
+            await maybeSynchronizeInstalledBundledSkills(context, {
+                settings: nextSettings,
+            });
+        }
+
         context.logger.info(
             {
                 key: input.key,

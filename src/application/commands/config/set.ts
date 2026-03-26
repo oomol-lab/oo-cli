@@ -3,12 +3,14 @@ import type { AppSettings } from "../../schemas/settings.ts";
 
 import type { ConfigSetInput } from "./shared.ts";
 import { z } from "zod";
+import { maybeSynchronizeInstalledBundledSkills } from "../skills/shared.ts";
 import {
     configKeyChoices,
     configKeySchema,
     createInvalidConfigKeyError,
     getConfigDefinition,
     getConfigDefinitionByRawKey,
+    ooSkillAllowImplicitInvocationConfigKey,
     writeLine,
 } from "./shared.ts";
 
@@ -63,9 +65,16 @@ export const configSetCommand: CliCommandDefinition<ConfigSetInput> = {
         return definition.createInvalidValueError(rawInput.value);
     },
     handler: async (input, context) => {
-        await context.settingsStore.update(
+        const nextSettings = await context.settingsStore.update(
             settings => setConfigValue(settings, input),
         );
+
+        if (input.key === ooSkillAllowImplicitInvocationConfigKey) {
+            await maybeSynchronizeInstalledBundledSkills(context, {
+                settings: nextSettings,
+            });
+        }
+
         context.logger.info(
             {
                 key: input.key,
@@ -90,5 +99,9 @@ function setConfigValue(
     switch (input.key) {
         case "lang":
             return getConfigDefinition("lang").setValue(settings, input.value);
+        case ooSkillAllowImplicitInvocationConfigKey:
+            return getConfigDefinition(
+                ooSkillAllowImplicitInvocationConfigKey,
+            ).setValue(settings, input.value);
     }
 }

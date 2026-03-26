@@ -51,6 +51,42 @@ describe("skills commands", () => {
         }
     });
 
+    test("installs the bundled Codex skill with the persisted implicit invocation policy", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await Bun.write(
+                storePaths.settingsFilePath,
+                [
+                    "[skills.oo]",
+                    "allow_implicit_invocation = false",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: false",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("fails when the Codex home directory is missing", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -62,6 +98,37 @@ describe("skills commands", () => {
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
                 `Codex is not installed. Expected the Codex home directory at ${codexHomeDirectory}.\n`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("persists the oo skill implicit invocation policy without requiring Codex", async () => {
+        const sandbox = await createCliSandbox();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "allow-implicit-invocation",
+                "false",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                "Set Codex skill oo allow_implicit_invocation to false.\n",
+            );
+            expect(await readFile(storePaths.settingsFilePath, "utf8")).toContain(
+                "[skills.oo]",
+            );
+            expect(await readFile(storePaths.settingsFilePath, "utf8")).toContain(
+                "allow_implicit_invocation = false",
             );
         }
         finally {
@@ -156,6 +223,37 @@ describe("skills commands", () => {
             await expect(stat(skillDirectoryPath)).resolves.toMatchObject({
                 isDirectory: expect.any(Function),
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("updates the installed managed skill when the implicit invocation policy changes", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(
+                ownershipFilePath,
+                await Bun.file(
+                    getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+                ).text(),
+            );
+
+            const result = await sandbox.run([
+                "skills",
+                "allow-implicit-invocation",
+                "false",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: false",
+            );
         }
         finally {
             await sandbox.cleanup();

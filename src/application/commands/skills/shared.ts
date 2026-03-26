@@ -1,10 +1,15 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
+import type { AppSettings } from "../../schemas/settings.ts";
 
 import type { BundledSkillName } from "./embedded-assets.ts";
 import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { resolveHomeDirectory } from "../../../adapters/store/store-path.ts";
 import { CliUserError } from "../../contracts/cli.ts";
+import {
+    defaultSettings,
+    getOoSkillAllowImplicitInvocation,
+} from "../../schemas/settings.ts";
 import {
     availableBundledSkillNames,
     getBundledSkillFiles,
@@ -15,6 +20,7 @@ const codexSkillsDirectoryName = "skills";
 const bundledSkillVersionFileName = ".oo-version";
 const bundledSkillOwnershipMarker = "OOMOL";
 const bundledSkillOwnershipFileRelativePath = "agents/openai.yaml";
+const bundledSkillAllowImplicitInvocationKey = "allow_implicit_invocation";
 
 export function resolveCodexHomeDirectory(
     env: Record<string, string | undefined>,
@@ -46,6 +52,7 @@ export async function installBundledSkill(
     context: CliExecutionContext,
 ): Promise<void> {
     const codexHomeDirectory = await requireCodexHomeDirectory(context);
+    const settings = await context.settingsStore.read();
     const installedSkillDirectoryPath = resolveBundledSkillDirectoryPath(
         codexHomeDirectory,
         skillName,
@@ -70,6 +77,7 @@ export async function installBundledSkill(
 
     const skillDirectoryPath = await writeBundledSkillInstallation({
         codexHomeDirectory,
+        settings,
         skillName,
         version: context.version,
     });
@@ -95,9 +103,11 @@ export async function maybeSynchronizeInstalledBundledSkills(
     context: Pick<CliExecutionContext, "env" | "logger" | "version">,
     options: {
         installMissing?: boolean;
+        settings?: AppSettings;
     } = {},
 ): Promise<void> {
     const codexHomeDirectory = resolveCodexHomeDirectory(context.env);
+    const settings = options.settings ?? defaultSettings;
 
     if (!(await directoryExists(codexHomeDirectory))) {
         context.logger.debug(
@@ -131,6 +141,7 @@ export async function maybeSynchronizeInstalledBundledSkills(
 
                 await writeBundledSkillInstallation({
                     codexHomeDirectory,
+                    settings,
                     skillName,
                     version: context.version,
                 });
@@ -157,12 +168,44 @@ export async function maybeSynchronizeInstalledBundledSkills(
             }
 
             if (
-                await isBundledSkillInstallationCurrent(
+                !(await isBundledSkillInstallationCurrent(
                     skillName,
                     skillDirectoryPath,
                     context.version,
-                )
+                ))
             ) {
+                const previousVersion
+                    = await readInstalledBundledSkillVersion(skillDirectoryPath);
+
+                await writeBundledSkillInstallation({
+                    codexHomeDirectory,
+                    settings,
+                    skillName,
+                    version: context.version,
+                });
+                context.logger.info(
+                    {
+                        path: skillDirectoryPath,
+                        previousVersion: previousVersion ?? "unknown",
+                        skillName,
+                        version: context.version,
+                    },
+                    "Bundled Codex skill synchronized.",
+                );
+                continue;
+            }
+
+            const desiredAllowImplicitInvocation
+                = resolveBundledSkillAllowImplicitInvocation(
+                    skillName,
+                    settings,
+                );
+            const installedAllowImplicitInvocation
+                = await readInstalledBundledSkillAllowImplicitInvocation(
+                    skillDirectoryPath,
+                );
+
+            if (installedAllowImplicitInvocation === desiredAllowImplicitInvocation) {
                 context.logger.debug(
                     {
                         path: skillDirectoryPath,
@@ -174,22 +217,40 @@ export async function maybeSynchronizeInstalledBundledSkills(
                 continue;
             }
 
-            const previousVersion
-                = await readInstalledBundledSkillVersion(skillDirectoryPath);
+            if (installedAllowImplicitInvocation === undefined) {
+                const previousVersion
+                    = await readInstalledBundledSkillVersion(skillDirectoryPath);
 
-            await writeBundledSkillInstallation({
-                codexHomeDirectory,
-                skillName,
-                version: context.version,
-            });
+                await writeBundledSkillInstallation({
+                    codexHomeDirectory,
+                    settings,
+                    skillName,
+                    version: context.version,
+                });
+                context.logger.info(
+                    {
+                        path: skillDirectoryPath,
+                        previousVersion: previousVersion ?? "unknown",
+                        skillName,
+                        version: context.version,
+                    },
+                    "Bundled Codex skill synchronized.",
+                );
+                continue;
+            }
+
+            await writeInstalledBundledSkillAllowImplicitInvocation(
+                skillDirectoryPath,
+                desiredAllowImplicitInvocation,
+            );
             context.logger.info(
                 {
+                    allowImplicitInvocation: desiredAllowImplicitInvocation,
                     path: skillDirectoryPath,
-                    previousVersion: previousVersion ?? "unknown",
                     skillName,
                     version: context.version,
                 },
-                "Bundled Codex skill synchronized.",
+                "Bundled Codex skill policy synchronized.",
             );
         }
         catch (error) {
@@ -256,6 +317,7 @@ export async function uninstallBundledSkill(
 
 async function writeBundledSkillInstallation(options: {
     codexHomeDirectory: string;
+    settings: AppSettings;
     skillName: BundledSkillName;
     version: string;
 }): Promise<string> {
@@ -270,7 +332,15 @@ async function writeBundledSkillInstallation(options: {
         const destinationPath = join(skillDirectoryPath, file.relativePath);
 
         await mkdir(dirname(destinationPath), { recursive: true });
-        await Bun.write(destinationPath, Bun.file(file.sourcePath));
+        await Bun.write(
+            destinationPath,
+            await renderBundledSkillFileContent(
+                options.skillName,
+                file.relativePath,
+                await Bun.file(file.sourcePath).text(),
+                options.settings,
+            ),
+        );
     }
 
     await Bun.write(
@@ -279,6 +349,126 @@ async function writeBundledSkillInstallation(options: {
     );
 
     return skillDirectoryPath;
+}
+
+function renderBundledSkillFileContent(
+    skillName: BundledSkillName,
+    relativePath: string,
+    content: string,
+    settings: AppSettings,
+): string {
+    if (relativePath !== bundledSkillOwnershipFileRelativePath) {
+        return content;
+    }
+
+    return writeAllowImplicitInvocationValue(
+        content,
+        resolveBundledSkillAllowImplicitInvocation(skillName, settings),
+    );
+}
+
+function resolveBundledSkillAllowImplicitInvocation(
+    skillName: BundledSkillName,
+    settings: AppSettings,
+): boolean {
+    switch (skillName) {
+        case "oo":
+            return getOoSkillAllowImplicitInvocation(settings);
+    }
+}
+
+async function readInstalledBundledSkillAllowImplicitInvocation(
+    skillDirectoryPath: string,
+): Promise<boolean | undefined> {
+    try {
+        const content = await readFile(
+            join(skillDirectoryPath, bundledSkillOwnershipFileRelativePath),
+            "utf8",
+        );
+
+        return readAllowImplicitInvocationValue(content);
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return undefined;
+        }
+
+        throw error;
+    }
+}
+
+async function writeInstalledBundledSkillAllowImplicitInvocation(
+    skillDirectoryPath: string,
+    value: boolean,
+): Promise<void> {
+    const ownershipFilePath = join(
+        skillDirectoryPath,
+        bundledSkillOwnershipFileRelativePath,
+    );
+    const content = await readFile(ownershipFilePath, "utf8");
+
+    await Bun.write(
+        ownershipFilePath,
+        writeAllowImplicitInvocationValue(content, value),
+    );
+}
+
+function readAllowImplicitInvocationValue(
+    content: string,
+): boolean | undefined {
+    for (const line of content.split("\n")) {
+        const trimmedLine = line.trim();
+
+        if (!trimmedLine.startsWith(`${bundledSkillAllowImplicitInvocationKey}:`)) {
+            continue;
+        }
+
+        const rawValue = trimmedLine
+            .slice(bundledSkillAllowImplicitInvocationKey.length + 1)
+            .trim();
+
+        if (rawValue === "true") {
+            return true;
+        }
+
+        if (rawValue === "false") {
+            return false;
+        }
+
+        return undefined;
+    }
+
+    return undefined;
+}
+
+function writeAllowImplicitInvocationValue(
+    content: string,
+    value: boolean,
+): string {
+    const lines = content.split("\n");
+
+    for (const [index, line] of lines.entries()) {
+        const trimmedLine = line.trim();
+
+        if (!trimmedLine.startsWith(`${bundledSkillAllowImplicitInvocationKey}:`)) {
+            continue;
+        }
+
+        const indentation = line.slice(0, line.length - line.trimStart().length);
+
+        lines[index] = [
+            indentation,
+            bundledSkillAllowImplicitInvocationKey,
+            ": ",
+            value ? "true" : "false",
+        ].join("");
+
+        return lines.join("\n");
+    }
+
+    throw new Error(
+        `Missing ${bundledSkillAllowImplicitInvocationKey} in bundled skill policy file.`,
+    );
 }
 
 async function isBundledSkillInstallationCurrent(
