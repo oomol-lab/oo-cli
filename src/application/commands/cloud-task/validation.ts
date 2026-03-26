@@ -133,6 +133,10 @@ function createAjv(): Ajv {
     });
 
     addFormats(instance);
+    instance.addFormat("hex-color", {
+        type: "string",
+        validate: value => isHexColorString(value),
+    });
 
     return instance;
 }
@@ -150,7 +154,7 @@ function validateHandleValue(
         return undefined;
     }
 
-    const normalizedSchema = normalizeHandleSchema(def.schema);
+    const normalizedSchema = normalizeHandleSchema(def.schema, def.ext);
 
     if ("error" in normalizedSchema) {
         return normalizedSchema.error;
@@ -192,15 +196,20 @@ function validateHandleValue(
 
 function normalizeHandleSchema(
     schema: unknown,
+    ext?: Record<string, unknown>,
 ): { schema: unknown } | { error: ValidationError } {
     if (!isPlainObject(schema)) {
-        return { schema };
+        return {
+            schema: patchHandleSchema(schema, ext),
+        };
     }
 
     const contentMediaType = schema.contentMediaType;
 
     if (typeof contentMediaType !== "string") {
-        return { schema };
+        return {
+            schema: patchHandleSchema(schema, ext),
+        };
     }
 
     if (contentMediaType !== "oomol/secret") {
@@ -216,7 +225,9 @@ function normalizeHandleSchema(
 
     delete normalizedSchema.contentMediaType;
 
-    return { schema: normalizedSchema };
+    return {
+        schema: patchHandleSchema(normalizedSchema, ext),
+    };
 }
 
 function compile(
@@ -341,6 +352,97 @@ function inferPrimitiveType(value: unknown): PrimitiveType {
     }
 
     return typeof value;
+}
+
+function patchHandleSchema(
+    schema: unknown,
+    ext: unknown,
+): unknown {
+    const schemaWithPatchedChildren = patchHandleSchemaChildren(schema, ext);
+    const widget = readWidgetName(ext);
+
+    switch (widget) {
+        case "color":
+            return constrainSchema(schemaWithPatchedChildren, {
+                format: "hex-color",
+                type: "string",
+            });
+        case "file":
+            return constrainSchema(schemaWithPatchedChildren, {
+                format: "uri",
+                type: "string",
+            });
+        default:
+            return schemaWithPatchedChildren;
+    }
+}
+
+function patchHandleSchemaChildren(
+    schema: unknown,
+    ext: unknown,
+): unknown {
+    if (Array.isArray(schema)) {
+        return schema.map((item, index) =>
+            patchHandleSchema(item, Array.isArray(ext) ? ext[index] : undefined),
+        );
+    }
+
+    if (!isPlainObject(schema)) {
+        return schema;
+    }
+
+    const extObject = isPlainObject(ext) ? ext : undefined;
+
+    return Object.fromEntries(
+        Object.entries(schema).map(([key, value]) => [
+            key,
+            patchHandleSchema(value, extObject?.[key]),
+        ]),
+    );
+}
+
+function constrainSchema(
+    schema: unknown,
+    constraint: JsonSchemaObject,
+): JsonSchemaObject {
+    if (schema === undefined) {
+        return constraint;
+    }
+
+    return {
+        allOf: [schema, constraint],
+    };
+}
+
+function readWidgetName(ext: unknown): string | undefined {
+    if (!isPlainObject(ext) || typeof ext.widget !== "string") {
+        return undefined;
+    }
+
+    return ext.widget;
+}
+
+function isHexColorString(value: string): boolean {
+    if (!value.startsWith("#")) {
+        return false;
+    }
+
+    if (value.length !== 7 && value.length !== 9) {
+        return false;
+    }
+
+    for (let index = 1; index < value.length; index += 1) {
+        const charCode = value.charCodeAt(index);
+        const isDigit = charCode >= 48 && charCode <= 57;
+        const isUpperHex = charCode >= 65 && charCode <= 70;
+        const isLowerHex = charCode >= 97 && charCode <= 102;
+
+        if (!isDigit && !isUpperHex && !isLowerHex) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function isPlainObject(value: unknown): value is JsonSchemaObject {

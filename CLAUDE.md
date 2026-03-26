@@ -14,6 +14,7 @@
 
 - After each code modification, you must execute: `bun run lint:fix` `bun run ts-check`
 - For any change that affects commands or CLI behavior, you must check whether documentation under `docs/` needs to be updated and update it when necessary
+- Documentation under `docs/commands*.md` should describe the user-facing CLI contract only: command purpose, arguments, options, stable output shapes, and externally observable behavior. Do not document internal implementation details such as validator order, AJV usage, schema patching, or other internal lint mechanics unless the user explicitly asks for that level of detail.
 - Comments must be in English
 - When generating UUIDs, you must use v7 and must use bun's `randomUUIDv7` function
 - Avoid using regular expressions when possible
