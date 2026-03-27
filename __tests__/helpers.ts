@@ -3,17 +3,24 @@ import type { CliInvocation } from "../src/application/bootstrap/run-cli.ts";
 import type { Fetcher, InteractiveInput, Writer } from "../src/application/contracts/cli.ts";
 import type { FileDownloadSessionStore } from "../src/application/contracts/file-download-session-store.ts";
 import type { FileUploadRecordStore } from "../src/application/contracts/file-upload-store.ts";
-import { mkdtemp, rm } from "node:fs/promises";
+import { Buffer } from "node:buffer";
+import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { Database } from "bun:sqlite";
+import { expect } from "bun:test";
 import pino from "pino";
 import {
-
-    executeCli,
+    downloadResumeSessionsTableName,
+} from "../src/adapters/store/sqlite-file-download-session-store.ts";
+import { resolveStorePaths } from "../src/adapters/store/store-path.ts";
+import {
+    executeCli as executeCliInvocation,
 } from "../src/application/bootstrap/run-cli.ts";
 import { APP_NAME } from "../src/application/config/app-config.ts";
+import { createTerminalColors } from "../src/application/terminal-colors.ts";
 
 export interface TextBuffer {
     readonly writer: Writer;
@@ -49,11 +56,54 @@ export interface CliSandbox {
     cleanup: () => Promise<void>;
 }
 
+export interface CliRunResult {
+    readonly exitCode: number;
+    readonly stdout: string;
+    readonly stderr: string;
+}
+
 export interface LogCapture {
     readonly logger: Logger;
     close: () => void;
     read: () => string;
 }
+
+export interface AuthAccountFixture {
+    readonly id: string;
+    readonly name: string;
+    readonly apiKey: string;
+    readonly endpoint: string;
+}
+
+export interface PrintedAuthLoginOptions {
+    accountEndpoint?: string;
+    argv?: readonly string[];
+    stdoutHasColors?: boolean;
+}
+
+export const defaultAuthEndpoint = "oomol.com";
+
+export const defaultSettingsFileContent = [
+    "# lang controls the CLI display language for help text, messages, and errors.",
+    "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
+    "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
+    "# lang = \"en\"",
+    "",
+    "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
+    "# Default: ~/Downloads.",
+    "# Supported values: any non-empty path string.",
+    "# Relative values resolve from the current working directory when the command runs.",
+    "# A leading `~` expands to the current user's home directory.",
+    "# [file.download]",
+    "# out_dir = \"~/Downloads\"",
+    "",
+    "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+    "# Supported values: true, false.",
+    "# Default: true.",
+    "# [skills.oo]",
+    "# allow_implicit_invocation = false",
+    "",
+].join("\n");
 
 export function createNoopFileUploadStore(): FileUploadRecordStore {
     return {
@@ -171,7 +221,7 @@ export async function createCliSandbox(
                 systemLocale: "en-US",
                 version: options.version,
             };
-            const exitCode = await executeCli(invocation);
+            const exitCode = await executeCliInvocation(invocation);
 
             return {
                 exitCode,
@@ -187,4 +237,208 @@ export async function createCliSandbox(
             }
         },
     };
+}
+
+export async function writeAuthFile(
+    sandbox: CliSandbox,
+    options: {
+        activeId?: string;
+        accounts?: readonly AuthAccountFixture[];
+    } = {},
+): Promise<string> {
+    const accounts = options.accounts ?? [
+        {
+            id: "user-1",
+            name: "Alice",
+            apiKey: "secret-1",
+            endpoint: defaultAuthEndpoint,
+        },
+    ];
+    const activeId = options.activeId ?? accounts[0]?.id ?? "";
+    const filePath = join(
+        sandbox.env.XDG_CONFIG_HOME!,
+        APP_NAME,
+        "auth.toml",
+    );
+    const content = [
+        `id = "${activeId}"`,
+        "",
+        ...accounts.flatMap(account => [
+            "[[auth]]",
+            `id = "${account.id}"`,
+            `name = "${account.name}"`,
+            `api_key = "${account.apiKey}"`,
+            `endpoint = "${account.endpoint}"`,
+            "",
+        ]),
+    ].join("\n");
+
+    await Bun.write(filePath, content);
+
+    return filePath;
+}
+
+export async function runPrintedAuthLogin(
+    sandbox: CliSandbox,
+    apiKeyValue: string,
+    options: PrintedAuthLoginOptions = {},
+): Promise<CliRunResult> {
+    const stdout = createTextBuffer({
+        hasColors: options.stdoutHasColors,
+    });
+    const stderr = createTextBuffer();
+    const execution = executeCliInvocation({
+        argv: options.argv ?? ["auth", "login"],
+        cwd: sandbox.cwd,
+        env: sandbox.env,
+        stdout: stdout.writer,
+        stderr: stderr.writer,
+        systemLocale: "en-US",
+    });
+    const loginUrl = await waitForLoginUrl(stdout);
+
+    await completeLoginCallback(
+        loginUrl,
+        apiKeyValue,
+        options.accountEndpoint ?? defaultAuthEndpoint,
+    );
+
+    return {
+        exitCode: await execution,
+        stdout: stdout.read(),
+        stderr: stderr.read(),
+    };
+}
+
+export async function readLatestLogContent(sandbox: CliSandbox): Promise<string> {
+    const logDirectoryPath = resolveStorePaths({
+        appName: APP_NAME,
+        env: sandbox.env,
+        platform: process.platform,
+    }).logDirectoryPath;
+    const logFileNames = await readdir(logDirectoryPath);
+    const logFilesWithMetadata = await Promise.all(
+        logFileNames.map(async fileName => ({
+            fileName,
+            metadata: await stat(join(logDirectoryPath, fileName)),
+        })),
+    );
+    const latestLogFileName = logFilesWithMetadata
+        .sort((left, right) => {
+            const modifiedAtDelta = left.metadata.mtimeMs - right.metadata.mtimeMs;
+
+            if (modifiedAtDelta !== 0) {
+                return modifiedAtDelta;
+            }
+
+            return left.fileName.localeCompare(right.fileName);
+        })
+        .at(-1)
+        ?.fileName;
+
+    if (!latestLogFileName) {
+        throw new Error("Expected at least one log file.");
+    }
+
+    return await readFile(join(logDirectoryPath, latestLogFileName), "utf8");
+}
+
+export function countDownloadResumeSessions(downloadSessionsFilePath: string): number {
+    const database = new Database(downloadSessionsFilePath, {
+        strict: true,
+    });
+
+    try {
+        const row = database.query(
+            `SELECT COUNT(*) AS count FROM ${downloadResumeSessionsTableName}`,
+        ).get() as {
+            count: number;
+        };
+
+        return row.count;
+    }
+    finally {
+        database.close();
+    }
+}
+
+export function readFileDownloadSuccessOutput(path: string): string {
+    return `Saved to: ${path}\n`;
+}
+
+export function readAuthLoginUrlPrefix(endpoint: string): string {
+    return `https://api.${endpoint}/v1/auth/redirect?`;
+}
+
+export function toRequest(input: string | URL | Request, init?: RequestInit): Request {
+    if (input instanceof Request) {
+        return new Request(input, init);
+    }
+
+    return new Request(String(input), init);
+}
+
+async function waitForLoginUrl(
+    stdout: ReturnType<typeof createTextBuffer>,
+): Promise<string> {
+    const deadline = Date.now() + 1000;
+
+    while (Date.now() < deadline) {
+        const loginUrl = findLoginUrl(stdout.read());
+
+        if (loginUrl !== undefined) {
+            return loginUrl;
+        }
+
+        await Bun.sleep(10);
+    }
+
+    throw new Error("Timed out waiting for the printed login URL.");
+}
+
+export function findLoginUrl(output: string): string | undefined {
+    const plainOutput = createTerminalColors(true).strip(output);
+
+    for (const line of plainOutput.split("\n")) {
+        const urlStart = line.indexOf("https://");
+
+        if (urlStart < 0) {
+            continue;
+        }
+
+        const candidate = line.slice(urlStart).trim();
+
+        if (candidate.includes("/v1/auth/redirect?")) {
+            return candidate;
+        }
+    }
+
+    return undefined;
+}
+
+async function completeLoginCallback(
+    loginUrlValue: string,
+    apiKeyValue: string,
+    endpoint: string,
+): Promise<void> {
+    const loginUrl = new URL(loginUrlValue);
+
+    expect(loginUrl.searchParams.get("cli_login")).toBe("true");
+
+    const redirectUrl = loginUrl.searchParams.get("redirect");
+
+    expect(redirectUrl).toBeTruthy();
+
+    const callbackUrl = new URL(redirectUrl!);
+    const requestUrl = new URL(callbackUrl.toString());
+    const encodedApiKey = Buffer.from(apiKeyValue, "utf8").toString("base64");
+
+    requestUrl.searchParams.set("apiKey", encodedApiKey);
+    requestUrl.searchParams.set("name", "Alice");
+    requestUrl.searchParams.set("endpoint", endpoint);
+    requestUrl.searchParams.set("id", "user-1");
+
+    const response = await fetch(requestUrl);
+
+    expect(response.status).toBe(200);
 }
