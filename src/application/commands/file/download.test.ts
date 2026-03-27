@@ -1,88 +1,332 @@
+import type { AuthStore } from "../../contracts/auth-store.ts";
+import type { Cache, CacheStore } from "../../contracts/cache.ts";
+import type {
+    CliCatalog,
+    CliExecutionContext,
+    Fetcher,
+    InteractiveInput,
+} from "../../contracts/cli.ts";
+import type { SettingsStore } from "../../contracts/settings-store.ts";
+import type { AuthFile } from "../../schemas/auth.ts";
+import type { AppSettings } from "../../schemas/settings.ts";
+
+import { lstat, rm } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
+import pino from "pino";
 
-import { CliUserError } from "../../contracts/cli.ts";
 import {
-    formatByteCount,
-    parseFileDownloadExtensionOption,
-    parseFileDownloadNameOption,
-} from "./download.ts";
+    createNoopFileUploadStore,
+    createTemporaryDirectory,
+    createTextBuffer,
+    readFileDownloadSuccessOutput,
+} from "../../../../__tests__/helpers.ts";
+import { createTranslator } from "../../../i18n/translator.ts";
+import { fileDownloadCommand } from "./download.ts";
+import {
+    createDownloadSessionRecordFixture,
+    createDownloadSessionStoreSpy,
+    expectCliUserError,
+} from "./download/__tests__/helpers.ts";
 
-describe("formatByteCount", () => {
-    test("keeps byte-sized values in bytes", () => {
-        expect(formatByteCount(0)).toBe("0 B");
-        expect(formatByteCount(11)).toBe("11 B");
-        expect(formatByteCount(1023)).toBe("1023 B");
-    });
+const downloadHandler = fileDownloadCommand.handler!;
+const staleDownloadSessionTtlMs = 14 * 24 * 60 * 60 * 1000;
+const emptyAuthFile: AuthFile = {
+    auth: [],
+    id: "",
+};
+const emptyCatalog: CliCatalog = {
+    name: "oo",
+    descriptionKey: "catalog.description",
+    globalOptions: [],
+    commands: [],
+};
+const stdin: InteractiveInput = {
+    on() {},
+    off() {},
+};
 
-    test("uses larger units for kilobytes megabytes and gigabytes", () => {
-        expect(formatByteCount(1024)).toBe("1 KB");
-        expect(formatByteCount(1536)).toBe("1.5 KB");
-        expect(formatByteCount(1024 * 1024)).toBe("1 MB");
-        expect(formatByteCount(5.5 * 1024 * 1024)).toBe("5.5 MB");
-        expect(formatByteCount(3 * 1024 * 1024 * 1024)).toBe("3 GB");
-    });
-});
+describe("fileDownloadCommand", () => {
+    test("downloads a fresh file and cleans up the stored session", async () => {
+        const root = await createTemporaryDirectory("download-command-fresh");
+        const outputDirectoryPath = join(root, "downloads");
+        const sessionStore = createDownloadSessionStoreSpy();
+        const contextHandle = createDownloadContext({
+            cwd: root,
+            fetcher: async () => new Response("hello", {
+                headers: {
+                    "Content-Disposition": "attachment; filename=\"report.txt\"",
+                    "Content-Length": "5",
+                    "Content-Type": "text/plain",
+                },
+                status: 200,
+            }),
+            fileDownloadSessionStore: sessionStore.store,
+            settings: {},
+        });
+        const cutoffBefore = Date.now() - staleDownloadSessionTtlMs;
 
-describe("parseFileDownloadNameOption", () => {
-    test("trims a valid value", () => {
-        expect(parseFileDownloadNameOption("  backup  ")).toBe("backup");
-    });
+        try {
+            await downloadHandler({
+                outDir: outputDirectoryPath,
+                url: "https://example.com/files/report.txt",
+            }, contextHandle.context);
 
-    test("rejects empty and path-like values", () => {
-        expect(expectCliUserError(() => parseFileDownloadNameOption(""))).toMatchObject({
-            key: "errors.fileDownload.invalidName",
-        });
-        expect(expectCliUserError(() => parseFileDownloadNameOption("../report"))).toMatchObject({
-            key: "errors.fileDownload.invalidName",
-        });
-        expect(expectCliUserError(() => parseFileDownloadNameOption("."))).toMatchObject({
-            key: "errors.fileDownload.invalidName",
-        });
-        expect(expectCliUserError(() => parseFileDownloadNameOption(".."))).toMatchObject({
-            key: "errors.fileDownload.invalidName",
-        });
-    });
-});
+            const downloadedFilePath = join(outputDirectoryPath, "report.txt");
 
-describe("parseFileDownloadExtensionOption", () => {
-    test("normalizes a single leading dot", () => {
-        expect(parseFileDownloadExtensionOption(".tar.gz")).toBe("tar.gz");
-    });
-
-    test("trims a valid value", () => {
-        expect(parseFileDownloadExtensionOption("  txt  ")).toBe("txt");
-    });
-
-    test("rejects empty and path-like values", () => {
-        expect(expectCliUserError(() => parseFileDownloadExtensionOption(""))).toMatchObject({
-            key: "errors.fileDownload.invalidExt",
-        });
-        expect(expectCliUserError(() => parseFileDownloadExtensionOption("../txt"))).toMatchObject({
-            key: "errors.fileDownload.invalidExt",
-        });
-        expect(expectCliUserError(() => parseFileDownloadExtensionOption("."))).toMatchObject({
-            key: "errors.fileDownload.invalidExt",
-        });
-        expect(expectCliUserError(() => parseFileDownloadExtensionOption(".."))).toMatchObject({
-            key: "errors.fileDownload.invalidExt",
-        });
-        expect(expectCliUserError(() => parseFileDownloadExtensionOption("..txt"))).toMatchObject({
-            key: "errors.fileDownload.invalidExt",
-        });
-    });
-});
-
-function expectCliUserError(callback: () => unknown): CliUserError {
-    try {
-        callback();
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            return error;
+            expect(sessionStore.deletedSessionCutoffs).toHaveLength(1);
+            expect(sessionStore.deletedSessionCutoffs[0]).toBeGreaterThanOrEqual(cutoffBefore);
+            expect(sessionStore.deletedSessionCutoffs[0]).toBeLessThanOrEqual(Date.now());
+            expect(sessionStore.savedSessions).toHaveLength(1);
+            expect(sessionStore.deletedSessionIds).toEqual([
+                sessionStore.savedSessions[0]!.id,
+            ]);
+            expect(contextHandle.stdout.read()).toBe(
+                readFileDownloadSuccessOutput(downloadedFilePath),
+            );
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("hello");
         }
+        finally {
+            await rm(root, { force: true, recursive: true });
+        }
+    });
 
-        throw error;
-    }
+    test("uses the configured output directory when outDir is omitted", async () => {
+        const root = await createTemporaryDirectory("download-command-settings");
+        const outputDirectoryPath = join(root, "configured");
+        const sessionStore = createDownloadSessionStoreSpy();
+        const contextHandle = createDownloadContext({
+            cwd: root,
+            fetcher: async () => new Response("config", {
+                headers: {
+                    "Content-Disposition": "attachment; filename=\"configured.txt\"",
+                    "Content-Length": "6",
+                    "Content-Type": "text/plain",
+                },
+                status: 200,
+            }),
+            fileDownloadSessionStore: sessionStore.store,
+            settings: {
+                file: {
+                    download: {
+                        out_dir: outputDirectoryPath,
+                    },
+                },
+            },
+        });
 
-    throw new Error("Expected a CliUserError to be thrown.");
+        try {
+            await downloadHandler({
+                url: "https://example.com/files/configured.txt",
+            }, contextHandle.context);
+
+            const downloadedFilePath = join(outputDirectoryPath, "configured.txt");
+
+            expect(contextHandle.stdout.read()).toBe(
+                readFileDownloadSuccessOutput(downloadedFilePath),
+            );
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("config");
+            expect(sessionStore.savedSessions).toHaveLength(1);
+        }
+        finally {
+            await rm(root, { force: true, recursive: true });
+        }
+    });
+
+    test("finalizes a complete temporary file without issuing a new request", async () => {
+        const root = await createTemporaryDirectory("download-command-finalize");
+        const outputDirectoryPath = join(root, "downloads");
+        const tempFilePath = join(outputDirectoryPath, "report.oodownload");
+        const session = createDownloadSessionRecordFixture({
+            id: "session-complete",
+            outDirPath: outputDirectoryPath,
+            requestUrl: "https://example.com/files/report.txt",
+            tempFileName: "report.oodownload",
+            totalBytes: 4,
+        });
+        const sessionStore = createDownloadSessionStoreSpy(session);
+        let fetchCount = 0;
+        const contextHandle = createDownloadContext({
+            cwd: root,
+            fetcher: async () => {
+                fetchCount += 1;
+                return new Response("unexpected", {
+                    status: 200,
+                });
+            },
+            fileDownloadSessionStore: sessionStore.store,
+            settings: {},
+        });
+
+        try {
+            await Bun.write(tempFilePath, "done");
+
+            await downloadHandler({
+                outDir: outputDirectoryPath,
+                url: session.requestUrl,
+            }, contextHandle.context);
+
+            const downloadedFilePath = join(outputDirectoryPath, "report.txt");
+
+            expect(fetchCount).toBe(0);
+            expect(sessionStore.savedSessions).toHaveLength(0);
+            expect(sessionStore.deletedSessionIds).toEqual([
+                "session-complete",
+            ]);
+            expect(contextHandle.stdout.read()).toBe(
+                readFileDownloadSuccessOutput(downloadedFilePath),
+            );
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("done");
+            await expect(lstat(tempFilePath)).rejects.toThrow();
+        }
+        finally {
+            await rm(root, { force: true, recursive: true });
+        }
+    });
+
+    test("preserves the partial download when the written size does not match the expected total", async () => {
+        const root = await createTemporaryDirectory("download-command-size-check");
+        const outputDirectoryPath = join(root, "downloads");
+        const sessionStore = createDownloadSessionStoreSpy();
+        const contextHandle = createDownloadContext({
+            cwd: root,
+            fetcher: async () => new Response("abc", {
+                headers: {
+                    "Content-Disposition": "attachment; filename=\"report.txt\"",
+                    "Content-Length": "4",
+                    "Content-Type": "text/plain",
+                },
+                status: 200,
+            }),
+            fileDownloadSessionStore: sessionStore.store,
+            settings: {},
+        });
+
+        try {
+            const error = await expectCliUserError(Promise.resolve(downloadHandler({
+                outDir: outputDirectoryPath,
+                url: "https://example.com/files/report.txt",
+            }, contextHandle.context)));
+            const savedSession = sessionStore.savedSessions[0]!;
+            const tempFilePath = join(outputDirectoryPath, savedSession.tempFileName);
+
+            expect(error.key).toBe("errors.fileDownload.downloadFailed");
+            expect(error.params).toEqual({
+                message: "Expected 4 bytes but found 3.",
+                path: tempFilePath,
+            });
+            expect(sessionStore.savedSessions).toHaveLength(1);
+            expect(sessionStore.deletedSessionIds).toEqual([]);
+            expect(contextHandle.stdout.read()).toBe("");
+            await expect(Bun.file(tempFilePath).text()).resolves.toBe("abc");
+            await expect(lstat(join(outputDirectoryPath, "report.txt"))).rejects.toThrow();
+        }
+        finally {
+            await rm(root, { force: true, recursive: true });
+        }
+    });
+});
+
+function createDownloadContext(options: {
+    cwd: string;
+    fetcher: Fetcher;
+    fileDownloadSessionStore: CliExecutionContext["fileDownloadSessionStore"];
+    settings: AppSettings;
+}): {
+    context: CliExecutionContext;
+    stderr: ReturnType<typeof createTextBuffer>;
+    stdout: ReturnType<typeof createTextBuffer>;
+} {
+    const stdout = createTextBuffer();
+    const stderr = createTextBuffer();
+
+    return {
+        context: {
+            authStore: createAuthStore(),
+            cacheStore: createCacheStore(),
+            completionRenderer: {
+                render: () => "",
+            },
+            catalog: emptyCatalog,
+            currentLogFilePath: "",
+            cwd: options.cwd,
+            env: {
+                HOME: options.cwd,
+            },
+            fetcher: options.fetcher,
+            fileDownloadSessionStore: options.fileDownloadSessionStore,
+            fileUploadStore: createNoopFileUploadStore(),
+            logger: pino({
+                enabled: false,
+            }),
+            packageName: "@oomol-lab/oo-cli",
+            settingsStore: createSettingsStore(options.settings),
+            stderr: stderr.writer,
+            stdin,
+            stdout: stdout.writer,
+            translator: createTranslator("en"),
+            version: "0.1.0",
+        },
+        stderr,
+        stdout,
+    };
+}
+
+function createAuthStore(): AuthStore {
+    let currentAuthFile = emptyAuthFile;
+
+    return {
+        getFilePath: () => "",
+        read: async () => currentAuthFile,
+        write: async (auth) => {
+            currentAuthFile = auth;
+            return currentAuthFile;
+        },
+        update: async (updater) => {
+            currentAuthFile = updater(currentAuthFile);
+            return currentAuthFile;
+        },
+    };
+}
+
+function createCacheStore(): CacheStore {
+    return {
+        close() {},
+        getCache: <Value>() => createCache<Value>(),
+        getFilePath: () => "",
+    };
+}
+
+function createCache<Value>(): Cache<Value> {
+    return {
+        clear() {},
+        delete() {
+            return false;
+        },
+        get() {
+            return null;
+        },
+        has() {
+            return false;
+        },
+        set() {},
+    };
+}
+
+function createSettingsStore(settings: AppSettings): SettingsStore {
+    let currentSettings = settings;
+
+    return {
+        getFilePath: () => "",
+        read: async () => currentSettings,
+        write: async (nextSettings) => {
+            currentSettings = nextSettings;
+            return currentSettings;
+        },
+        update: async (updater) => {
+            currentSettings = updater(currentSettings);
+            return currentSettings;
+        },
+    };
 }
