@@ -10,6 +10,15 @@ export const localeSchema = z.enum(supportedLocaleValues);
 export const shellSchema = z.enum(supportedShellValues);
 export const booleanConfigValueChoices = ["true", "false"] as const;
 export const booleanConfigValueSchema = z.enum(booleanConfigValueChoices);
+export const fileDownloadOutDirConfigValueSchema = z.string().trim().min(1);
+
+const fileDownloadSettingsSchema = z.object({
+    out_dir: fileDownloadOutDirConfigValueSchema.optional(),
+}).strict();
+
+const fileSettingsSchema = z.object({
+    download: fileDownloadSettingsSchema.optional(),
+}).strict();
 
 const ooSkillSettingsSchema = z.object({
     allow_implicit_invocation: z.boolean().optional(),
@@ -22,12 +31,14 @@ const skillsSettingsSchema = z.object({
 export const defaultOoSkillAllowImplicitInvocation = true;
 
 export const settingsFileSchema = z.object({
+    file: fileSettingsSchema.optional(),
     lang: localeSchema.optional(),
     skills: skillsSettingsSchema.optional(),
 }).strict();
 
 export type AppSettings = z.output<typeof settingsFileSchema>;
 export type BooleanConfigValue = z.output<typeof booleanConfigValueSchema>;
+export const defaultFileDownloadOutDir = "~/Downloads";
 
 export const defaultSettings: AppSettings = {};
 
@@ -37,6 +48,15 @@ const defaultSettingsCommentBlocks = [
         "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
         "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
         "# lang = \"en\"",
+    ],
+    [
+        "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
+        `# Default: ${defaultFileDownloadOutDir}.`,
+        "# Supported values: any non-empty path string.",
+        "# Relative values resolve from the current working directory when the command runs.",
+        "# A leading `~` expands to the current user's home directory.",
+        "# [file.download]",
+        `# out_dir = "${defaultFileDownloadOutDir}"`,
     ],
     [
         "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
@@ -57,6 +77,15 @@ export function renderSettingsFile(settings: AppSettings): string {
         ...(parsedSettings.lang !== undefined
             ? {
                     lang: parsedSettings.lang,
+                }
+            : {}),
+        ...(parsedSettings.file?.download?.out_dir !== undefined
+            ? {
+                    file: {
+                        download: {
+                            out_dir: parsedSettings.file.download.out_dir,
+                        },
+                    },
                 }
             : {}),
         ...(parsedSettings.skills?.oo?.allow_implicit_invocation !== undefined
@@ -85,6 +114,58 @@ export function parseBooleanConfigValue(value: BooleanConfigValue): boolean {
 
 export function stringifyBooleanConfigValue(value: boolean): BooleanConfigValue {
     return value ? "true" : "false";
+}
+
+export function getConfiguredFileDownloadOutDir(
+    settings: AppSettings,
+): string | undefined {
+    return settings.file?.download?.out_dir;
+}
+
+export function setFileDownloadOutDir(
+    settings: AppSettings,
+    value: string,
+): AppSettings {
+    return {
+        ...settings,
+        file: {
+            ...settings.file,
+            download: {
+                ...settings.file?.download,
+                out_dir: value,
+            },
+        },
+    };
+}
+
+export function unsetFileDownloadOutDir(
+    settings: AppSettings,
+): AppSettings {
+    if (settings.file?.download?.out_dir === undefined) {
+        return settings;
+    }
+
+    const nextSettings = { ...settings };
+    const nextFileSettings = { ...nextSettings.file };
+    const nextFileDownloadSettings = { ...nextFileSettings.download };
+
+    delete nextFileDownloadSettings.out_dir;
+
+    if (Object.keys(nextFileDownloadSettings).length === 0) {
+        delete nextFileSettings.download;
+    }
+    else {
+        nextFileSettings.download = nextFileDownloadSettings;
+    }
+
+    if (Object.keys(nextFileSettings).length === 0) {
+        delete nextSettings.file;
+    }
+    else {
+        nextSettings.file = nextFileSettings;
+    }
+
+    return nextSettings;
 }
 
 export function getConfiguredOoSkillAllowImplicitInvocation(

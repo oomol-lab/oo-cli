@@ -1,12 +1,16 @@
 import { Buffer } from "node:buffer";
 import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox, createTextBuffer } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
+import {
+    downloadResumeSessionsTableName,
+    SqliteFileDownloadSessionStore,
+} from "../../adapters/store/sqlite-file-download-session-store.ts";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import {
     resolveBundledSkillVersionFilePath,
@@ -27,6 +31,14 @@ const defaultSettingsFileContent = [
     "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
     "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
     "# lang = \"en\"",
+    "",
+    "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
+    "# Default: ~/Downloads.",
+    "# Supported values: any non-empty path string.",
+    "# Relative values resolve from the current working directory when the command runs.",
+    "# A leading `~` expands to the current user's home directory.",
+    "# [file.download]",
+    "# out_dir = \"~/Downloads\"",
     "",
     "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
     "# Supported values: true, false.",
@@ -917,6 +929,862 @@ describe("runCli", () => {
         }
     });
 
+    test("supports file download, creates missing directories, and prints the labeled saved path", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads", "reports");
+        const relativeOutputDirectory = relative(sandbox.cwd, outputDirectoryPath);
+
+        try {
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/download?id=1#fragment",
+                    relativeOutputDirectory,
+                ],
+                {
+                    fetcher: async () => {
+                        const response = new Response("hello world", {
+                            headers: {
+                                "Content-Disposition": "attachment; filename=\"report\"",
+                                "Content-Length": "11",
+                                "Content-Type": "application/pdf",
+                            },
+                            status: 200,
+                        });
+
+                        Object.defineProperty(response, "url", {
+                            value: "https://cdn.example.com/files/archive.tar.gz?signature=abc",
+                        });
+
+                        return response;
+                    },
+                    stderr: {
+                        isTTY: true,
+                    },
+                },
+            );
+            const downloadedFilePath = join(outputDirectoryPath, "report.tar.gz");
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            expect(result.stderr).toContain("Downloaded");
+            expect(result.stderr).toContain("100%");
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("hello world");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("renders file download progress with human-readable byte units", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads", "reports");
+        const relativeOutputDirectory = relative(sandbox.cwd, outputDirectoryPath);
+        const content = new Uint8Array(2 * 1024).fill(97);
+
+        try {
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/archive.bin",
+                    relativeOutputDirectory,
+                ],
+                {
+                    fetcher: async () => new Response(content, {
+                        headers: {
+                            "Content-Disposition": "attachment; filename=\"archive.bin\"",
+                            "Content-Length": `${content.byteLength}`,
+                            "Content-Type": "application/octet-stream",
+                        },
+                        status: 200,
+                    }),
+                    stderr: {
+                        isTTY: true,
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toContain("2 KB / 2 KB (100%)");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps the cursor on the line below file download progress output", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads", "reports");
+        const relativeOutputDirectory = relative(sandbox.cwd, outputDirectoryPath);
+
+        try {
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/chunked.bin",
+                    relativeOutputDirectory,
+                ],
+                {
+                    fetcher: async () => new Response(new ReadableStream<Uint8Array>({
+                        start(controller) {
+                            controller.enqueue(new TextEncoder().encode("ab"));
+                            controller.enqueue(new TextEncoder().encode("cd"));
+                            controller.close();
+                        },
+                    }), {
+                        headers: {
+                            "Content-Disposition": "attachment; filename=\"chunked.bin\"",
+                            "Content-Length": "4",
+                            "Content-Type": "application/octet-stream",
+                        },
+                        status: 200,
+                    }),
+                    stderr: {
+                        isTTY: true,
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe(
+                "Downloading 0 B / 4 B (0%)\n"
+                + "\u001B[1A\r\u001B[2KDownloaded 4 B / 4 B (100%)\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uses the default downloads directory when file download output directory is omitted", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "Downloads");
+
+        try {
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/download?id=default-target",
+                ],
+                {
+                    fetcher: async () => new Response("default target", {
+                        headers: {
+                            "Content-Disposition": "attachment; filename=\"report.txt\"",
+                            "Content-Length": "14",
+                            "Content-Type": "text/plain",
+                        },
+                        status: 200,
+                    }),
+                },
+            );
+            const downloadedFilePath = join(outputDirectoryPath, "report.txt");
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe(
+                "default target",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uses the configured file download output directory and expands a leading tilde", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "Downloads", "reports");
+
+        try {
+            const setConfigResult = await sandbox.run([
+                "config",
+                "set",
+                "file.download.out_dir",
+                "~/Downloads/reports",
+            ]);
+            const downloadResult = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/download?id=2",
+                ],
+                {
+                    fetcher: async () => new Response("configured target", {
+                        headers: {
+                            "Content-Disposition": "attachment; filename=\"report.txt\"",
+                            "Content-Length": "17",
+                            "Content-Type": "text/plain",
+                        },
+                        status: 200,
+                    }),
+                },
+            );
+            const downloadedFilePath = join(outputDirectoryPath, "report.txt");
+
+            expect(setConfigResult.exitCode).toBe(0);
+            expect(downloadResult.exitCode).toBe(0);
+            expect(downloadResult.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe(
+                "configured target",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uses the current cli working directory when file.download.out_dir is dot", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = sandbox.cwd;
+
+        try {
+            const setConfigResult = await sandbox.run([
+                "config",
+                "set",
+                "file.download.out_dir",
+                ".",
+            ]);
+            const downloadResult = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/download?id=3",
+                ],
+                {
+                    fetcher: async () => new Response("cwd target", {
+                        headers: {
+                            "Content-Disposition": "attachment; filename=\"config-dot-target.txt\"",
+                            "Content-Length": "10",
+                            "Content-Type": "text/plain",
+                        },
+                        status: 200,
+                    }),
+                },
+            );
+            const downloadedFilePath = join(outputDirectoryPath, "config-dot-target.txt");
+
+            expect(setConfigResult.exitCode).toBe(0);
+            expect(downloadResult.exitCode).toBe(0);
+            expect(downloadResult.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("cwd target");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("auto-renames conflicting targets and removes temporary files after file download", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
+
+        try {
+            await mkdir(outputDirectoryPath, { recursive: true });
+            await Bun.write(join(outputDirectoryPath, "download.pdf"), "existing");
+            await Bun.write(join(outputDirectoryPath, "download_1.oodownload"), "stale");
+
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/download",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher: async () => new Response("fresh pdf", {
+                        headers: {
+                            "Content-Type": "application/pdf",
+                        },
+                        status: 200,
+                    }),
+                },
+            );
+            const outputEntries = await readdir(outputDirectoryPath);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                readFileDownloadSuccessOutput(join(outputDirectoryPath, "download_1.pdf")),
+            );
+            expect(outputEntries).toHaveLength(3);
+            expect(outputEntries).toEqual(expect.arrayContaining([
+                "download.pdf",
+                "download_1.oodownload",
+                "download_1.pdf",
+            ]));
+            await expect(Bun.file(join(outputDirectoryPath, "download_1.pdf")).text()).resolves.toBe(
+                "fresh pdf",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails file download when the output path already exists as a file", async () => {
+        const sandbox = await createCliSandbox();
+        const outputPath = join(sandbox.env.HOME!, "not-a-directory");
+
+        try {
+            await Bun.write(outputPath, "occupied");
+
+            let fetchCount = 0;
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/download",
+                    outputPath,
+                ],
+                {
+                    fetcher: async () => {
+                        fetchCount += 1;
+                        return new Response("unreachable");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("not a directory");
+            expect(fetchCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails file download before fetching when the url is invalid", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            let fetchCount = 0;
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "ftp://example.com/file.txt",
+                ],
+                {
+                    fetcher: async () => {
+                        fetchCount += 1;
+                        return new Response("unreachable");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("Invalid URL");
+            expect(fetchCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails file download before fetching when --name or --ext is invalid", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            let fetchCount = 0;
+            const invalidNameResult = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/file.txt",
+                    "--name",
+                    "..",
+                ],
+                {
+                    fetcher: async () => {
+                        fetchCount += 1;
+                        return new Response("unreachable");
+                    },
+                },
+            );
+            const invalidExtResult = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/file.txt",
+                    "--ext",
+                    "..txt",
+                ],
+                {
+                    fetcher: async () => {
+                        fetchCount += 1;
+                        return new Response("unreachable");
+                    },
+                },
+            );
+
+            expect(invalidNameResult.exitCode).toBe(2);
+            expect(invalidNameResult.stdout).toBe("");
+            expect(invalidNameResult.stderr).toContain("Invalid value for --name");
+
+            expect(invalidExtResult.exitCode).toBe(2);
+            expect(invalidExtResult.stdout).toBe("");
+            expect(invalidExtResult.stderr).toContain("Invalid value for --ext");
+            expect(fetchCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails file download when the download request returns a non-success status", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
+
+        try {
+            await mkdir(outputDirectoryPath, { recursive: true });
+
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/missing.txt",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher: async () => new Response("missing", {
+                        status: 404,
+                    }),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("HTTP 404");
+            expect(await readdir(outputDirectoryPath)).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails file download when the output directory cannot be created", async () => {
+        const sandbox = await createCliSandbox();
+        const occupiedPath = join(sandbox.env.HOME!, "occupied");
+        const nestedOutputDirectory = join(occupiedPath, "nested");
+
+        try {
+            await Bun.write(occupiedPath, "occupied");
+
+            let fetchCount = 0;
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/file.txt",
+                    nestedOutputDirectory,
+                ],
+                {
+                    fetcher: async () => {
+                        fetchCount += 1;
+                        return new Response("unreachable");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("Failed to prepare the output directory");
+            expect(fetchCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uses the default download file name when the final response url has no file segment", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
+
+        try {
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/files/",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher: async () => {
+                        const response = new Response("payload", {
+                            status: 200,
+                        });
+
+                        Object.defineProperty(response, "url", {
+                            value: "https://example.com/files/",
+                        });
+
+                        return response;
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                readFileDownloadSuccessOutput(join(outputDirectoryPath, "download")),
+            );
+            await expect(Bun.file(join(outputDirectoryPath, "download")).text()).resolves.toBe(
+                "payload",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("preserves the temporary file and resume session when file download fails mid-download", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
+        const downloadSessionsFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).downloadSessionsFilePath;
+
+        try {
+            await mkdir(outputDirectoryPath, { recursive: true });
+
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/broken.txt",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher: async () => {
+                        let emittedChunk = false;
+                        const body = new ReadableStream<Uint8Array>({
+                            pull(controller) {
+                                if (!emittedChunk) {
+                                    emittedChunk = true;
+                                    controller.enqueue(new TextEncoder().encode("partial"));
+                                    return;
+                                }
+
+                                controller.error(new Error("Connection dropped."));
+                            },
+                        });
+                        const response = new Response(body, {
+                            headers: {
+                                "Content-Disposition": "attachment; filename=\"broken.txt\"",
+                            },
+                            status: 200,
+                        });
+
+                        Object.defineProperty(response, "url", {
+                            value: "https://example.com/broken.txt",
+                        });
+
+                        return response;
+                    },
+                    stderr: {
+                        isTTY: true,
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("Downloading");
+            expect(result.stderr).not.toContain("Downloaded");
+            expect(result.stderr).toContain("Connection dropped.");
+            const outputEntries = await readdir(outputDirectoryPath);
+
+            expect(outputEntries).toHaveLength(1);
+            expect(outputEntries).toEqual([
+                "broken.oodownload",
+            ]);
+            expect(countDownloadResumeSessions(downloadSessionsFilePath)).toBe(1);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("cleans up download resume sessions older than 14 days when file download starts", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
+        const downloadSessionsFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).downloadSessionsFilePath;
+        const sessionStore = new SqliteFileDownloadSessionStore(
+            downloadSessionsFilePath,
+        );
+
+        try {
+            await mkdir(outputDirectoryPath, { recursive: true });
+            sessionStore.saveDownloadSession({
+                entityTag: "\"stale-1\"",
+                finalUrl: "https://cdn.example.com/stale.txt",
+                id: "0195f5fe-ec30-7000-8000-000000000011",
+                lastModified: "Wed, 01 Jan 2025 00:00:00 GMT",
+                outDirPath: outputDirectoryPath,
+                requestUrl: "https://example.com/stale.txt",
+                requestedExtension: "",
+                requestedName: "",
+                resolvedBaseName: "stale",
+                resolvedExtension: "txt",
+                tempFileName: "stale.oodownload",
+                totalBytes: 64,
+                updatedAtMs: Date.now() - (15 * 24 * 60 * 60 * 1000),
+            });
+
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/fresh.txt",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher: async () => new Response("fresh", {
+                        headers: {
+                            "Content-Disposition": "attachment; filename=\"fresh.txt\"",
+                            "Content-Length": "5",
+                        },
+                        status: 200,
+                    }),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(countDownloadResumeSessions(downloadSessionsFilePath)).toBe(0);
+        }
+        finally {
+            sessionStore.close();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("resumes file download with HTTP Range after a mid-download failure", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
+        const downloadSessionsFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).downloadSessionsFilePath;
+        let requestCount = 0;
+
+        try {
+            await mkdir(outputDirectoryPath, { recursive: true });
+
+            const fetcher = async (_input: string | URL | Request, init?: RequestInit) => {
+                requestCount += 1;
+                const headers = new Headers(init?.headers);
+
+                if (requestCount === 1) {
+                    expect(headers.get("Range")).toBeNull();
+
+                    let emittedChunk = false;
+                    const body = new ReadableStream<Uint8Array>({
+                        pull(controller) {
+                            if (!emittedChunk) {
+                                emittedChunk = true;
+                                controller.enqueue(new TextEncoder().encode("partial"));
+                                return;
+                            }
+
+                            controller.error(new Error("Connection dropped."));
+                        },
+                    });
+                    const response = new Response(body, {
+                        headers: {
+                            "Content-Disposition": "attachment; filename=\"broken.txt\"",
+                            "Content-Length": "15",
+                            "ETag": "\"resume-1\"",
+                            "Last-Modified": "Wed, 01 Jan 2025 00:00:00 GMT",
+                        },
+                        status: 200,
+                    });
+
+                    Object.defineProperty(response, "url", {
+                        value: "https://example.com/broken.txt",
+                    });
+
+                    return response;
+                }
+
+                expect(headers.get("Range")).toBe("bytes=7-");
+                expect(headers.get("If-Range")).toBe("\"resume-1\"");
+
+                const response = new Response("-payload", {
+                    headers: {
+                        "Content-Length": "8",
+                        "Content-Range": "bytes 7-14/15",
+                        "ETag": "\"resume-1\"",
+                        "Last-Modified": "Wed, 01 Jan 2025 00:00:00 GMT",
+                    },
+                    status: 206,
+                });
+
+                Object.defineProperty(response, "url", {
+                    value: "https://example.com/broken.txt",
+                });
+
+                return response;
+            };
+
+            const firstResult = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/broken.txt",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher,
+                },
+            );
+            const secondResult = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/broken.txt",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher,
+                },
+            );
+            const downloadedFilePath = join(outputDirectoryPath, "broken.txt");
+
+            expect(firstResult.exitCode).toBe(1);
+            expect(firstResult.stderr).toContain("Connection dropped.");
+            expect(secondResult.exitCode).toBe(0);
+            expect(secondResult.stderr).toBe("");
+            expect(secondResult.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            expect(requestCount).toBe(2);
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("partial-payload");
+            expect(await readdir(outputDirectoryPath)).toEqual([
+                "broken.txt",
+            ]);
+            expect(countDownloadResumeSessions(downloadSessionsFilePath)).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("restarts file download from the beginning when the server ignores Range", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
+        const downloadSessionsFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).downloadSessionsFilePath;
+        let requestCount = 0;
+
+        try {
+            await mkdir(outputDirectoryPath, { recursive: true });
+
+            const fetcher = async (_input: string | URL | Request, init?: RequestInit) => {
+                requestCount += 1;
+                const headers = new Headers(init?.headers);
+
+                if (requestCount === 1) {
+                    expect(headers.get("Range")).toBeNull();
+
+                    let emittedChunk = false;
+                    const body = new ReadableStream<Uint8Array>({
+                        pull(controller) {
+                            if (!emittedChunk) {
+                                emittedChunk = true;
+                                controller.enqueue(new TextEncoder().encode("stale"));
+                                return;
+                            }
+
+                            controller.error(new Error("Connection dropped."));
+                        },
+                    });
+                    const response = new Response(body, {
+                        headers: {
+                            "Content-Disposition": "attachment; filename=\"restart.txt\"",
+                            "Content-Length": "13",
+                            "ETag": "\"restart-1\"",
+                        },
+                        status: 200,
+                    });
+
+                    Object.defineProperty(response, "url", {
+                        value: "https://example.com/restart.txt",
+                    });
+
+                    return response;
+                }
+
+                expect(headers.get("Range")).toBe("bytes=5-");
+                expect(headers.get("If-Range")).toBe("\"restart-1\"");
+
+                const response = new Response("stale-payload", {
+                    headers: {
+                        "Content-Disposition": "attachment; filename=\"restart.txt\"",
+                        "Content-Length": "13",
+                        "ETag": "\"restart-2\"",
+                    },
+                    status: 200,
+                });
+
+                Object.defineProperty(response, "url", {
+                    value: "https://example.com/restart.txt",
+                });
+
+                return response;
+            };
+
+            const firstResult = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/restart.txt",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher,
+                },
+            );
+            const secondResult = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://example.com/restart.txt",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher,
+                },
+            );
+            const downloadedFilePath = join(outputDirectoryPath, "restart.txt");
+
+            expect(firstResult.exitCode).toBe(1);
+            expect(secondResult.exitCode).toBe(0);
+            expect(secondResult.stderr).toBe("");
+            expect(secondResult.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            expect(requestCount).toBe(2);
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("stale-payload");
+            expect(await readdir(outputDirectoryPath)).toEqual([
+                "restart.txt",
+            ]);
+            expect(countDownloadResumeSessions(downloadSessionsFilePath)).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports file upload json output for both --json and --format=json", async () => {
         const sandbox = await createCliSandbox();
         const firstFilePath = join(sandbox.env.HOME!, "sample-json.txt");
@@ -1576,6 +2444,49 @@ describe("runCli", () => {
                 "skills.oo.allow_implicit_invocation=false\n",
             );
             expect(getResult.stdout).toBe("false\n");
+            expect(unsetResult.exitCode).toBe(0);
+            expect(getAfterUnsetResult.stdout).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports the file download output directory config key", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const setResult = await sandbox.run([
+                "config",
+                "set",
+                "file.download.out_dir",
+                "~/Downloads/reports",
+            ]);
+            const listResult = await sandbox.run(["config", "list"]);
+            const getResult = await sandbox.run([
+                "config",
+                "get",
+                "file.download.out_dir",
+            ]);
+            const unsetResult = await sandbox.run([
+                "config",
+                "unset",
+                "file.download.out_dir",
+            ]);
+            const getAfterUnsetResult = await sandbox.run([
+                "config",
+                "get",
+                "file.download.out_dir",
+            ]);
+
+            expect(setResult.exitCode).toBe(0);
+            expect(setResult.stdout).toBe(
+                "Set file.download.out_dir to ~/Downloads/reports.\n",
+            );
+            expect(listResult.stdout).toBe(
+                "file.download.out_dir=~/Downloads/reports\n",
+            );
+            expect(getResult.stdout).toBe("~/Downloads/reports\n");
             expect(unsetResult.exitCode).toBe(0);
             expect(getAfterUnsetResult.stdout).toBe("");
         }
@@ -4304,6 +5215,29 @@ async function readLatestLogContent(
     }
 
     return await readFile(join(logDirectoryPath, latestLogFileName), "utf8");
+}
+
+function countDownloadResumeSessions(downloadSessionsFilePath: string): number {
+    const database = new Database(downloadSessionsFilePath, {
+        strict: true,
+    });
+
+    try {
+        const row = database.query(
+            `SELECT COUNT(*) AS count FROM ${downloadResumeSessionsTableName}`,
+        ).get() as {
+            count: number;
+        };
+
+        return row.count;
+    }
+    finally {
+        database.close();
+    }
+}
+
+function readFileDownloadSuccessOutput(path: string): string {
+    return `Saved to: ${path}\n`;
 }
 
 async function waitForLoginUrl(

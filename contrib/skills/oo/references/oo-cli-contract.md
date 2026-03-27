@@ -196,6 +196,33 @@ Practical implication:
 - Do not treat this command as a way to pass raw bytes or bypass unsupported
   `contentMediaType` validation.
 
+## `file download`
+
+Canonical form:
+
+```bash
+oo file download "<url>" [outDir]
+```
+
+Facts:
+
+- `<url>` must use the `http` or `https` scheme.
+- `[outDir]` is optional. When omitted, the CLI uses the configured
+  `file.download.out_dir` value if present, otherwise `~/Downloads`.
+- `[outDir]` and `file.download.out_dir` may start with `~`, which expands to the
+  current user's home directory.
+- Missing directories are created automatically.
+- If the destination path already exists as a file, the command fails.
+- If the destination filename collides with an existing file, the CLI renames
+  the saved file non-destructively.
+- Successful saves print the absolute saved path on stdout.
+
+Failure cases:
+
+- invalid URL
+- non-directory `outDir`
+- non-success HTTP response
+
 ## `cloud-task run`
 
 Canonical form:
@@ -287,9 +314,7 @@ retrying.
 Result URL implication:
 
 - `resultURL` is a remote artifact location returned by the service.
-- The CLI does not choose a local download destination for that URL.
-- If an agent decides to download the artifact after success, the local path is
-  agent policy rather than part of the CLI contract.
+- If an agent needs a local copy, use `oo file download` to materialize it.
 
 ## `cloud-task wait`
 

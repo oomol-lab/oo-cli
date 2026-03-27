@@ -67,11 +67,14 @@ export const enMessages = {
     "commands.file.cleanup.description":
         "Delete expired upload records from the local sqlite store.",
     "commands.file.cleanup.summary": "Clean expired upload records",
-    "commands.file.description": "Manage temporary file uploads.",
+    "commands.file.description": "Manage temporary file transfers.",
     "commands.file.list.description":
         "List locally recorded temporary file uploads.",
     "commands.file.list.summary": "List uploaded files",
-    "commands.file.summary": "Manage temporary file uploads",
+    "commands.file.download.description":
+        "Download one file from a URL and save it locally.",
+    "commands.file.download.summary": "Download a file from a URL",
+    "commands.file.summary": "Manage temporary file transfers",
     "commands.file.upload.description":
         "Upload a file and store the signed download URL locally.",
     "commands.file.upload.summary": "Upload a file",
@@ -200,10 +203,28 @@ export const enMessages = {
     "errors.config.invalidKey": "Invalid config key: {value}.",
     "errors.config.invalidLangValue":
         "Invalid lang value: {value}. Use en or zh.",
+    "errors.config.invalidFileDownloadOutDirValue":
+        "Invalid file.download.out_dir value: {value}. Use a non-empty path.",
     "errors.config.invalidSkillsOoAllowImplicitInvocationValue":
         "Invalid skills.oo.allow_implicit_invocation value: {value}. Use true or false.",
     "errors.file.invalidFormat":
         "Invalid format: {value}. Use json.",
+    "errors.fileDownload.downloadFailed":
+        "Failed to download the file at {path}: {message}",
+    "errors.fileDownload.invalidExt":
+        "Invalid value for --ext: {value}. Use a non-empty extension without path separators.",
+    "errors.fileDownload.invalidName":
+        "Invalid value for --name: {value}. Use a non-empty file name without path separators.",
+    "errors.fileDownload.invalidUrl":
+        "Invalid URL: {value}. Use an http or https URL.",
+    "errors.fileDownload.outDirCreateFailed":
+        "Failed to prepare the output directory {path}: {message}",
+    "errors.fileDownload.outDirNotDirectory":
+        "The output path {path} exists but is not a directory.",
+    "errors.fileDownload.requestError":
+        "The download request failed: {message}",
+    "errors.fileDownload.requestFailed":
+        "The download request returned HTTP {status}.",
     "errors.fileList.invalidLimit":
         "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
     "errors.fileList.invalidStatus":
@@ -295,6 +316,8 @@ export const enMessages = {
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
     "options.debug": "Print the current log file path when the CLI exits",
+    "options.fileDownloadExt": "Specify the saved file extension",
+    "options.fileDownloadName": "Specify the saved file name without the extension",
     "options.fileStatus": "Filter by upload status",
     "options.help": "Show help for command",
     "options.limit": "Specify the maximum number of items to return",
@@ -323,11 +346,13 @@ export const enMessages = {
     "arguments.filePath": "File path",
     "arguments.index": "Log index",
     "arguments.key": "Configuration key",
+    "arguments.outDir": "Output directory",
     "arguments.packageSpecifier": "Package specifier",
     "arguments.shell": "Target shell",
     "arguments.skill": "Bundled skill name",
     "arguments.taskId": "Task id",
     "arguments.text": "Search text",
+    "arguments.url": "URL",
     "arguments.value": "Configuration value",
     "cloudTask.text.dryRunPassed": "Validation passed.",
     "cloudTask.text.error": "Error",
@@ -354,6 +379,7 @@ export const enMessages = {
     "cloudTask.status.queued": "queued",
     "file.cleanup.success":
         "Deleted {deletedCount} expired upload records.",
+    "file.download.savedTo": "Saved to: {path}",
     "file.list.noResults": "No uploaded files were found.",
     "file.list.noResultsForStatus":
         "No {status} uploaded files were found.",
@@ -437,10 +463,12 @@ export const zhMessages = {
     "commands.config.unset.summary": "移除配置值",
     "commands.file.cleanup.description": "删除本地 sqlite 中已过期的上传记录。",
     "commands.file.cleanup.summary": "清理已过期上传记录",
-    "commands.file.description": "管理临时文件上传。",
+    "commands.file.description": "管理临时文件传输。",
     "commands.file.list.description": "查看本地记录的临时文件上传记录。",
     "commands.file.list.summary": "查看上传文件列表",
-    "commands.file.summary": "管理临时文件上传",
+    "commands.file.download.description": "从 URL 下载单个文件并保存到本地。",
+    "commands.file.download.summary": "下载远程文件到本地",
+    "commands.file.summary": "管理临时文件传输",
     "commands.file.upload.description": "上传文件，并在本地保存带签名的下载地址。",
     "commands.file.upload.summary": "上传文件",
     "commands.help.summary": "显示命令帮助",
@@ -551,10 +579,28 @@ export const zhMessages = {
     "errors.config.invalidKey": "无效的配置键：{value}。",
     "errors.config.invalidLangValue":
         "无效的 lang 值：{value}。请使用 en 或 zh。",
+    "errors.config.invalidFileDownloadOutDirValue":
+        "无效的 file.download.out_dir 值：{value}。请使用非空路径。",
     "errors.config.invalidSkillsOoAllowImplicitInvocationValue":
         "无效的 skills.oo.allow_implicit_invocation 值：{value}。请使用 true 或 false。",
     "errors.file.invalidFormat":
         "无效的 format：{value}。请使用 json。",
+    "errors.fileDownload.downloadFailed":
+        "下载文件到 {path} 失败：{message}",
+    "errors.fileDownload.invalidExt":
+        "--ext 的值无效：{value}。请使用非空且不包含路径分隔符的扩展名。",
+    "errors.fileDownload.invalidName":
+        "--name 的值无效：{value}。请使用非空且不包含路径分隔符的文件名。",
+    "errors.fileDownload.invalidUrl":
+        "无效的 URL：{value}。请使用 http 或 https URL。",
+    "errors.fileDownload.outDirCreateFailed":
+        "准备输出目录 {path} 失败：{message}",
+    "errors.fileDownload.outDirNotDirectory":
+        "输出路径 {path} 已存在且不是目录。",
+    "errors.fileDownload.requestError":
+        "下载请求失败：{message}",
+    "errors.fileDownload.requestFailed":
+        "下载请求返回了 HTTP {status}。",
     "errors.fileList.invalidLimit":
         "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
     "errors.fileList.invalidStatus":
@@ -641,6 +687,8 @@ export const zhMessages = {
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
+    "options.fileDownloadExt": "指定保存文件的扩展名",
+    "options.fileDownloadName": "指定不带扩展名的保存文件名",
     "options.fileStatus": "按上传状态过滤",
     "options.help": "显示命令帮助",
     "options.limit": "指定最多返回多少条记录",
@@ -668,11 +716,13 @@ export const zhMessages = {
     "arguments.filePath": "文件路径",
     "arguments.index": "日志序号",
     "arguments.key": "配置键",
+    "arguments.outDir": "输出目录",
     "arguments.packageSpecifier": "包标识",
     "arguments.shell": "目标 shell",
     "arguments.skill": "内置 skill 名称",
     "arguments.taskId": "任务 ID",
     "arguments.text": "搜索文本",
+    "arguments.url": "URL",
     "arguments.value": "配置值",
     "cloudTask.text.dryRunPassed": "校验通过。",
     "cloudTask.text.error": "错误",
@@ -697,6 +747,7 @@ export const zhMessages = {
     "cloudTask.status.success": "成功",
     "cloudTask.status.queued": "排队中",
     "file.cleanup.success": "已删除 {deletedCount} 条过期上传记录。",
+    "file.download.savedTo": "已保存到：{path}",
     "file.list.noResults": "未找到任何上传记录。",
     "file.list.noResultsForStatus": "未找到状态为 {status} 的上传记录。",
     "file.status.active": "有效",

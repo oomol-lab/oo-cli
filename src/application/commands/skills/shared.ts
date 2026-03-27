@@ -4,8 +4,8 @@ import type { AppSettings } from "../../schemas/settings.ts";
 import type { BundledSkillName } from "./embedded-assets.ts";
 import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { resolveHomeDirectory } from "../../../adapters/store/store-path.ts";
 import { CliUserError } from "../../contracts/cli.ts";
+import { resolveHomeDirectory } from "../../path/home-directory.ts";
 import {
     defaultSettings,
     getOoSkillAllowImplicitInvocation,

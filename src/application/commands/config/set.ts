@@ -8,6 +8,7 @@ import {
     configKeyChoices,
     configKeySchema,
     createInvalidConfigKeyError,
+    fileDownloadOutDirConfigKey,
     getConfigDefinition,
     getConfigDefinitionByRawKey,
     ooSkillAllowImplicitInvocationConfigKey,
@@ -99,6 +100,11 @@ function setConfigValue(
     switch (input.key) {
         case "lang":
             return getConfigDefinition("lang").setValue(settings, input.value);
+        case fileDownloadOutDirConfigKey:
+            return getConfigDefinition(fileDownloadOutDirConfigKey).setValue(
+                settings,
+                input.value,
+            );
         case ooSkillAllowImplicitInvocationConfigKey:
             return getConfigDefinition(
                 ooSkillAllowImplicitInvocationConfigKey,

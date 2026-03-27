@@ -10,11 +10,15 @@ import { CliUserError } from "../../contracts/cli.ts";
 import {
     booleanConfigValueChoices,
     booleanConfigValueSchema,
+    fileDownloadOutDirConfigValueSchema,
+    getConfiguredFileDownloadOutDir,
     getConfiguredOoSkillAllowImplicitInvocation,
     localeSchema,
     parseBooleanConfigValue,
+    setFileDownloadOutDir,
     setOoSkillAllowImplicitInvocation,
     stringifyBooleanConfigValue,
+    unsetFileDownloadOutDir,
     unsetOoSkillAllowImplicitInvocation,
 } from "../../schemas/settings.ts";
 
@@ -35,6 +39,7 @@ function defineConfigDefinition<TValue extends string>(
 
 export const ooSkillAllowImplicitInvocationConfigKey
     = "skills.oo.allow_implicit_invocation" as const;
+export const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
 
 export const configDefinitions = {
     lang: defineConfigDefinition({
@@ -61,6 +66,28 @@ export const configDefinitions = {
         },
         valueChoices: localeSchema.options,
         valueSchema: localeSchema,
+    }),
+    [fileDownloadOutDirConfigKey]: defineConfigDefinition({
+        createInvalidValueError(rawValue: unknown): CliUserError {
+            return new CliUserError(
+                "errors.config.invalidFileDownloadOutDirValue",
+                2,
+                {
+                    value: String(rawValue ?? ""),
+                },
+            );
+        },
+        getValue(settings: AppSettings): string | undefined {
+            return getConfiguredFileDownloadOutDir(settings);
+        },
+        setValue(settings: AppSettings, value: string): AppSettings {
+            return setFileDownloadOutDir(settings, value);
+        },
+        unsetValue(settings: AppSettings): AppSettings {
+            return unsetFileDownloadOutDir(settings);
+        },
+        valueChoices: [],
+        valueSchema: fileDownloadOutDirConfigValueSchema,
     }),
     [ooSkillAllowImplicitInvocationConfigKey]: defineConfigDefinition({
         createInvalidValueError(rawValue: unknown): CliUserError {
@@ -156,7 +183,7 @@ export function createConfigSetInput<TKey extends ConfigKey>(
     key: TKey,
     value: ConfigDefinitionValue<TKey>,
 ): Extract<ConfigSetInput, { key: TKey }> {
-    return { key, value } as Extract<ConfigSetInput, { key: TKey }>;
+    return { key, value } as unknown as Extract<ConfigSetInput, { key: TKey }>;
 }
 
 export function getConfigValue(

@@ -63,7 +63,7 @@
 读取一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`skills.oo.allow_implicit_invocation`。
+  `lang`、`file.download.out_dir`、`skills.oo.allow_implicit_invocation`。
 
 ### `oo config path`
 
@@ -74,9 +74,12 @@
 写入一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`skills.oo.allow_implicit_invocation`。
+  `lang`、`file.download.out_dir`、`skills.oo.allow_implicit_invocation`。
 - 参数：`<value>` 为对应配置值。
 - 取值规则：当 `<key>` 为 `lang` 时，支持的值为 `en` 和 `zh`。
+- 取值规则：当 `<key>` 为 `file.download.out_dir` 时，支持任意非空路径字符串。
+  相对路径会在执行 `oo file download` 时相对于当前工作目录解析；如果以 `~`
+  开头，则会展开为当前用户的 home 目录。
 - 取值规则：当 `<key>` 为 `skills.oo.allow_implicit_invocation` 时，支持的
   值为 `true` 和 `false`。
 
@@ -85,7 +88,7 @@
 删除一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`skills.oo.allow_implicit_invocation`。
+  `lang`、`file.download.out_dir`、`skills.oo.allow_implicit_invocation`。
 
 ## 更新
 
@@ -154,6 +157,34 @@
   跳过本次运行对应的日志，读取更早的日志。
 
 ## 文件
+
+### `oo file download <url> [outDir]`
+
+从 `http` 或 `https` URL 下载单个文件并保存到本地。
+
+- 参数：`<url>` 必填，且必须使用 `http` 或 `https` 协议。
+- 参数：`[outDir]` 可选。未提供时，CLI 会优先使用已配置的
+  `file.download.out_dir`，否则回落到 `~/Downloads`。不存在的目录会自动创建；
+  如果该路径已存在但不是目录，则命令失败。
+- 说明：`[outDir]` 和 `file.download.out_dir` 都可以 `~` 开头；此时会展开为
+  当前用户的 home 目录。
+- 选项：`--name <name>` 只覆盖保存文件的主体名。该值必须非空，不能是 `.`
+  或 `..`，且不能包含路径分隔符。
+- 选项：`--ext <ext>` 只覆盖保存文件的扩展名。该值可以带或不带前导 `.`,
+  但必须非空，不能是 `.` 或 `..`，且不能包含路径分隔符。
+- 说明：未显式提供 `--name` 或 `--ext` 时，CLI 会根据最终响应的元数据和
+  URL 推断保存文件名。
+- 说明：当自动推断命中已知复合扩展名（例如 `.tar.gz`、`.pkg.tar.zst`）
+  时，CLI 会将其视为一个完整扩展名。
+- 说明：下载过程会先在目标目录写入临时文件，只有传输完成后才会落成最终文件。
+- 说明：如果下载在中途停止，重新执行同一条命令且输出目录不变时，CLI 会优先尝试
+  使用 HTTP Range 续传；如果服务端无法安全续传，则会从 `0` 字节重新下载。
+- 说明：`oo file download` 启动时会丢弃超过 14 天未更新的续传 session，因此过旧的
+  `.oodownload` 临时文件将不会再被自动续传。
+- 说明：如果最终目标路径已存在，CLI 不会覆盖它，而是会在完整扩展名前追加
+  `_1`、`_2` 等序号。
+- 说明：成功时，`stdout` 会输出一行本地化的人类可读文本，其中包含最终落盘文件的
+  绝对路径；如果 `stderr` 是 TTY，则会在其中输出人类可读的下载进度。
 
 ### `oo file upload <filePath>`
 
