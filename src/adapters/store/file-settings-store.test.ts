@@ -17,6 +17,14 @@ const defaultSettingsFileContent = [
     "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
     "# lang = \"en\"",
     "",
+    "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
+    "# Default: ~/Downloads.",
+    "# Supported values: any non-empty path string.",
+    "# Relative values resolve from the current working directory when the command runs.",
+    "# A leading `~` expands to the current user's home directory.",
+    "# [file.download]",
+    "# out_dir = \"~/Downloads\"",
+    "",
     "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
     "# Supported values: true, false.",
     "# Default: true.",
@@ -66,6 +74,14 @@ describe("FileSettingsStore", () => {
                 "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                 "# lang = \"en\"",
                 "",
+                "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
+                "# Default: ~/Downloads.",
+                "# Supported values: any non-empty path string.",
+                "# Relative values resolve from the current working directory when the command runs.",
+                "# A leading `~` expands to the current user's home directory.",
+                "# [file.download]",
+                "# out_dir = \"~/Downloads\"",
+                "",
                 "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
                 "# Supported values: true, false.",
                 "# Default: true.",
@@ -107,6 +123,14 @@ describe("FileSettingsStore", () => {
                 "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
                 "# lang = \"en\"",
                 "",
+                "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
+                "# Default: ~/Downloads.",
+                "# Supported values: any non-empty path string.",
+                "# Relative values resolve from the current working directory when the command runs.",
+                "# A leading `~` expands to the current user's home directory.",
+                "# [file.download]",
+                "# out_dir = \"~/Downloads\"",
+                "",
                 "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
                 "# Supported values: true, false.",
                 "# Default: true.",
@@ -122,6 +146,60 @@ describe("FileSettingsStore", () => {
             skills: {
                 oo: {
                     allow_implicit_invocation: false,
+                },
+            },
+        });
+    });
+
+    test("writes and reads the persisted file download output directory", async () => {
+        const root = await createTemporaryDirectory("store-file-download-write");
+        const store = new FileSettingsStore({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+
+        await store.write({
+            file: {
+                download: {
+                    out_dir: "~/Downloads",
+                },
+            },
+        });
+
+        expect(await readFile(store.getFilePath(), "utf8")).toBe(
+            [
+                "# lang controls the CLI display language for help text, messages, and errors.",
+                "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
+                "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
+                "# lang = \"en\"",
+                "",
+                "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
+                "# Default: ~/Downloads.",
+                "# Supported values: any non-empty path string.",
+                "# Relative values resolve from the current working directory when the command runs.",
+                "# A leading `~` expands to the current user's home directory.",
+                "# [file.download]",
+                "# out_dir = \"~/Downloads\"",
+                "",
+                "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+                "# Supported values: true, false.",
+                "# Default: true.",
+                "# [skills.oo]",
+                "# allow_implicit_invocation = false",
+                "",
+                "[file.download]",
+                "out_dir = \"~/Downloads\"",
+                "",
+            ].join("\n"),
+        );
+        expect(await store.read()).toEqual({
+            file: {
+                download: {
+                    out_dir: "~/Downloads",
                 },
             },
         });

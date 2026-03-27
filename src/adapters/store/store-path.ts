@@ -1,9 +1,10 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { resolveHomeDirectory } from "../../application/path/home-directory.ts";
 
 const defaultSettingsFileName = "settings.toml";
 const defaultAuthFileName = "auth.toml";
 const defaultCacheFileName = "cache.sqlite";
+const defaultDownloadSessionsFileName = "download-sessions.sqlite";
 const defaultUploadsFileName = "uploads.sqlite";
 const defaultLogDirectoryName = "logs";
 const defaultWindowsLogDirectoryName = "Logs";
@@ -19,20 +20,11 @@ export interface StorePaths {
     authFilePath: string;
     cacheFilePath: string;
     dataDirectory: string;
+    downloadSessionsFilePath: string;
     logDirectoryPath: string;
     rootDirectory: string;
     settingsFilePath: string;
     uploadsFilePath: string;
-}
-
-export function resolveHomeDirectory(
-    env: Record<string, string | undefined>,
-    explicitHomeDirectory?: string,
-): string {
-    return explicitHomeDirectory
-        ?? env.HOME
-        ?? env.USERPROFILE
-        ?? homedir();
 }
 
 export function resolveStoreDirectory(
@@ -95,6 +87,7 @@ export function resolveStorePaths(
         authFilePath: join(rootDirectory, defaultAuthFileName),
         cacheFilePath: join(dataDirectory, defaultCacheFileName),
         dataDirectory,
+        downloadSessionsFilePath: join(dataDirectory, defaultDownloadSessionsFileName),
         logDirectoryPath: resolveLogDirectory(options),
         rootDirectory,
         settingsFilePath: join(rootDirectory, defaultSettingsFileName),

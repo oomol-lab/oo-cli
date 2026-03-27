@@ -1,6 +1,7 @@
 import type { Logger } from "pino";
 import type { CliInvocation } from "../src/application/bootstrap/run-cli.ts";
 import type { Fetcher, InteractiveInput, Writer } from "../src/application/contracts/cli.ts";
+import type { FileDownloadSessionStore } from "../src/application/contracts/file-download-session-store.ts";
 import type { FileUploadRecordStore } from "../src/application/contracts/file-upload-store.ts";
 import { mkdtemp, rm } from "node:fs/promises";
 
@@ -33,6 +34,10 @@ export interface CliRunOptions {
     version?: string;
 }
 
+export interface CreateCliSandboxOptions {
+    cwd?: string;
+}
+
 export interface CliSandbox {
     readonly cwd: string;
     readonly env: Record<string, string | undefined>;
@@ -57,6 +62,17 @@ export function createNoopFileUploadStore(): FileUploadRecordStore {
         getFilePath: () => "",
         list: () => [],
         save() {},
+    };
+}
+
+export function createNoopFileDownloadSessionStore(): FileDownloadSessionStore {
+    return {
+        close() {},
+        deleteDownloadSession: () => false,
+        deleteDownloadSessionsUpdatedBefore: () => 0,
+        findDownloadSession: () => undefined,
+        getFilePath: () => "",
+        saveDownloadSession() {},
     };
 }
 
@@ -119,9 +135,12 @@ export function createLogCapture(): LogCapture {
     };
 }
 
-export async function createCliSandbox(): Promise<CliSandbox> {
-    const cwd = process.cwd();
+export async function createCliSandbox(
+    options: CreateCliSandboxOptions = {},
+): Promise<CliSandbox> {
     const configRoot = await createTemporaryDirectory(APP_NAME);
+    const cwd = options.cwd ?? await createTemporaryDirectory(`${APP_NAME}-cwd`);
+    const shouldCleanupCwd = options.cwd === undefined;
     const env: Record<string, string | undefined> = {
         APPDATA: join(configRoot, "appdata"),
         HOME: configRoot,
@@ -162,6 +181,10 @@ export async function createCliSandbox(): Promise<CliSandbox> {
         },
         async cleanup() {
             await rm(configRoot, { force: true, recursive: true });
+
+            if (shouldCleanupCwd) {
+                await rm(cwd, { force: true, recursive: true });
+            }
         },
     };
 }

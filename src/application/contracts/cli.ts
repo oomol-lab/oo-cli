@@ -3,6 +3,7 @@ import type { ZodError, ZodType } from "zod";
 
 import type { AuthStore } from "./auth-store.ts";
 import type { CacheStore } from "./cache.ts";
+import type { FileDownloadSessionStore } from "./file-download-session-store.ts";
 import type { FileUploadRecordStore } from "./file-upload-store.ts";
 import type { SettingsStore } from "./settings-store.ts";
 import type { Translator } from "./translator.ts";
@@ -88,6 +89,7 @@ export interface CompletionRenderer {
 export interface CliExecutionContext {
     authStore: AuthStore;
     cacheStore: CacheStore;
+    fileDownloadSessionStore: FileDownloadSessionStore;
     fileUploadStore: FileUploadRecordStore;
     currentLogFilePath: string;
     fetcher: Fetcher;

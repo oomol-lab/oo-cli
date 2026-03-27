@@ -19,6 +19,7 @@ describe("resolveStorePaths", () => {
             authFilePath: `/tmp/xdg/${APP_NAME}/auth.toml`,
             cacheFilePath: `/tmp/xdg/${APP_NAME}/data/cache.sqlite`,
             dataDirectory: `/tmp/xdg/${APP_NAME}/data`,
+            downloadSessionsFilePath: `/tmp/xdg/${APP_NAME}/data/download-sessions.sqlite`,
             logDirectoryPath: `/tmp/xdg-state/${APP_NAME}/logs`,
             rootDirectory: `/tmp/xdg/${APP_NAME}`,
             settingsFilePath: `/tmp/xdg/${APP_NAME}/settings.toml`,

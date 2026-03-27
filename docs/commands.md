@@ -69,7 +69,7 @@ List persisted configuration values that are currently set.
 Read one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `skills.oo.allow_implicit_invocation`.
+  `lang`, `file.download.out_dir`, `skills.oo.allow_implicit_invocation`.
 
 ### `oo config path`
 
@@ -80,9 +80,12 @@ Print the path to the persisted configuration file.
 Persist one configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `skills.oo.allow_implicit_invocation`.
+  `lang`, `file.download.out_dir`, `skills.oo.allow_implicit_invocation`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
+- Value rules: for `file.download.out_dir`, use any non-empty path string. Relative
+  paths resolve from the current working directory when `oo file download` runs. A
+  leading `~` expands to the current user's home directory.
 - Value rules: for `skills.oo.allow_implicit_invocation`, supported values are
   `true` and `false`.
 
@@ -91,7 +94,7 @@ Persist one configuration value.
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `skills.oo.allow_implicit_invocation`.
+  `lang`, `file.download.out_dir`, `skills.oo.allow_implicit_invocation`.
 
 ## Updates
 
@@ -170,6 +173,39 @@ Print one previous persisted debug log file.
   command always skips the current run and reads earlier logs.
 
 ## Files
+
+### `oo file download <url> [outDir]`
+
+Download one file from `http` or `https` and save it locally.
+
+- Arguments: `<url>` is required and must use the `http` or `https` scheme.
+- Arguments: `[outDir]` is optional. When omitted, the CLI uses the configured
+  `file.download.out_dir` value if present, otherwise `~/Downloads`. Missing
+  directories are created automatically. If the path already exists and is not
+  a directory, the command fails.
+- Notes: `[outDir]` and `file.download.out_dir` may start with `~`, which expands
+  to the current user's home directory.
+- Options: `--name <name>` overrides only the saved base name. The value must
+  be non-empty, must not be `.` or `..`, and must not contain path separators.
+- Options: `--ext <ext>` overrides only the saved extension. The value may be
+  written with or without a leading `.`, but it must be non-empty, must not be
+  `.` or `..`, and must not contain path separators.
+- Notes: when `--name` or `--ext` is not provided, the CLI infers the saved
+  file name from the final response metadata and URL.
+- Notes: known composite extensions such as `.tar.gz` and `.pkg.tar.zst` are
+  preserved as one full extension when they can be inferred automatically.
+- Notes: downloads are written through a temporary file in the target directory,
+  then promoted to the final path only after the transfer completes.
+- Notes: if a download stops partway through, rerunning the same command against
+  the same output directory will attempt to resume with HTTP Range. If the
+  server does not resume safely, the CLI restarts the transfer from byte `0`.
+- Notes: resume sessions older than 14 days are discarded when `oo file download`
+  starts, so very old `.oodownload` files are no longer resumed automatically.
+- Notes: if the final target path already exists, the CLI never overwrites it
+  and instead appends `_1`, `_2`, and so on before the full extension.
+- Notes: successful `stdout` output is one localized human-readable line that
+  includes the absolute saved path, followed by a newline. When `stderr` is a
+  TTY, human-readable progress is rendered there.
 
 ### `oo file upload <filePath>`
 

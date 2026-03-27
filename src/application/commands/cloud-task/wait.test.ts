@@ -15,6 +15,7 @@ import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
 import {
+    createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
     createTextBuffer,
 } from "../../../../__tests__/helpers.ts";
@@ -284,6 +285,7 @@ function createWaitContext(options: {
             fetcher: options.fetcher,
             cwd: process.cwd(),
             env: {},
+            fileDownloadSessionStore: createNoopFileDownloadSessionStore(),
             fileUploadStore: createNoopFileUploadStore(),
             stdin,
             logger: pino({

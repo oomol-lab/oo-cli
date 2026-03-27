@@ -7,6 +7,7 @@ import type {
     Writer,
 } from "../contracts/cli.ts";
 
+import type { FileDownloadSessionStore } from "../contracts/file-download-session-store.ts";
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 import type { LogCategory } from "../logging/log-categories.ts";
@@ -19,6 +20,7 @@ import { StaticCompletionRenderer } from "../../adapters/completion/static-compl
 import { createCliLogger } from "../../adapters/logging/create-cli-logger.ts";
 import { FileAuthStore } from "../../adapters/store/file-auth-store.ts";
 import { FileSettingsStore } from "../../adapters/store/file-settings-store.ts";
+import { SqliteFileDownloadSessionStore } from "../../adapters/store/sqlite-file-download-session-store.ts";
 import { SqliteFileUploadStore } from "../../adapters/store/sqlite-file-upload-store.ts";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import {
@@ -45,6 +47,7 @@ export interface CliInvocation {
     cwd: string;
     env: Record<string, string | undefined>;
     fetcher?: Fetcher;
+    fileDownloadSessionStore?: FileDownloadSessionStore;
     fileUploadStore?: FileUploadRecordStore;
     packageName?: string;
     stdin?: InteractiveInput;
@@ -87,6 +90,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     let translator = bootstrapTranslator;
     let exitCode = 0;
     let cacheStore: CacheStore | undefined;
+    let fileDownloadSessionStore: FileDownloadSessionStore | undefined;
     let fileUploadStore: FileUploadRecordStore | undefined;
     const loggerHandle = createCliLogger({
         appName: APP_NAME,
@@ -118,9 +122,22 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         cacheStore
             = invocation.cacheStore
                 ?? new SqliteCacheStore(storePaths.cacheFilePath, logger);
-        fileUploadStore
-            = invocation.fileUploadStore
-                ?? new SqliteFileUploadStore(storePaths.uploadsFilePath, logger);
+        fileUploadStore = invocation.fileUploadStore;
+        fileDownloadSessionStore = invocation.fileDownloadSessionStore;
+
+        if (fileUploadStore === undefined) {
+            fileUploadStore = new SqliteFileUploadStore(
+                storePaths.uploadsFilePath,
+                logger,
+            );
+        }
+
+        if (fileDownloadSessionStore === undefined) {
+            fileDownloadSessionStore = new SqliteFileDownloadSessionStore(
+                storePaths.downloadSessionsFilePath,
+                logger,
+            );
+        }
 
         const settingsStore
             = invocation.settingsStore
@@ -185,6 +202,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             fetcher: invocation.fetcher ?? fetch,
             cwd: invocation.cwd,
             env: invocation.env,
+            fileDownloadSessionStore,
             fileUploadStore,
             stdin: invocation.stdin ?? createDetachedStdin(),
             logger,
@@ -280,6 +298,28 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                         err: error,
                     },
                     "Failed to close the file upload store cleanly.",
+                );
+                invocation.stderr.write(
+                    `${translator.t("errors.unexpected", {
+                        message: error instanceof Error ? error.message : String(error),
+                    })}\n`,
+                );
+
+                exitCode = 1;
+            }
+        }
+
+        if (fileDownloadSessionStore) {
+            try {
+                fileDownloadSessionStore.close();
+            }
+            catch (error) {
+                logger.error(
+                    {
+                        ...withCategory(logCategory.systemError),
+                        err: error,
+                    },
+                    "Failed to close the file download session store cleanly.",
                 );
                 invocation.stderr.write(
                     `${translator.t("errors.unexpected", {

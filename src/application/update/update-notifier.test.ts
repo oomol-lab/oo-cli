@@ -4,6 +4,7 @@ import type { CliExecutionContext } from "../contracts/cli.ts";
 import { describe, expect, test } from "bun:test";
 import {
     createLogCapture,
+    createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
     createTextBuffer,
 } from "../../../__tests__/helpers.ts";
@@ -300,6 +301,7 @@ function createUpdateNotifierHarness(options: {
         cwd: "",
         env: {},
         fetcher: options.fetcher,
+        fileDownloadSessionStore: createNoopFileDownloadSessionStore(),
         fileUploadStore: createNoopFileUploadStore(),
         logger: logCapture.logger,
         packageName,
