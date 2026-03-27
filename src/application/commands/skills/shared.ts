@@ -8,7 +8,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { resolveHomeDirectory } from "../../path/home-directory.ts";
 import {
     defaultSettings,
-    getOoSkillAllowImplicitInvocation,
+    getOoSkillImplicitInvocation,
 } from "../../schemas/settings.ts";
 import {
     availableBundledSkillNames,
@@ -20,7 +20,7 @@ const codexSkillsDirectoryName = "skills";
 const bundledSkillVersionFileName = ".oo-version";
 const bundledSkillOwnershipMarker = "OOMOL";
 const bundledSkillOwnershipFileRelativePath = "agents/openai.yaml";
-const bundledSkillAllowImplicitInvocationKey = "allow_implicit_invocation";
+const bundledSkillImplicitInvocationKey = "allow_implicit_invocation";
 
 export function resolveCodexHomeDirectory(
     env: Record<string, string | undefined>,
@@ -195,17 +195,17 @@ export async function maybeSynchronizeInstalledBundledSkills(
                 continue;
             }
 
-            const desiredAllowImplicitInvocation
-                = resolveBundledSkillAllowImplicitInvocation(
+            const desiredImplicitInvocation
+                = resolveBundledSkillImplicitInvocation(
                     skillName,
                     settings,
                 );
-            const installedAllowImplicitInvocation
-                = await readInstalledBundledSkillAllowImplicitInvocation(
+            const installedImplicitInvocation
+                = await readInstalledBundledSkillImplicitInvocation(
                     skillDirectoryPath,
                 );
 
-            if (installedAllowImplicitInvocation === desiredAllowImplicitInvocation) {
+            if (installedImplicitInvocation === desiredImplicitInvocation) {
                 context.logger.debug(
                     {
                         path: skillDirectoryPath,
@@ -217,7 +217,7 @@ export async function maybeSynchronizeInstalledBundledSkills(
                 continue;
             }
 
-            if (installedAllowImplicitInvocation === undefined) {
+            if (installedImplicitInvocation === undefined) {
                 const previousVersion
                     = await readInstalledBundledSkillVersion(skillDirectoryPath);
 
@@ -239,13 +239,13 @@ export async function maybeSynchronizeInstalledBundledSkills(
                 continue;
             }
 
-            await writeInstalledBundledSkillAllowImplicitInvocation(
+            await writeInstalledBundledSkillImplicitInvocation(
                 skillDirectoryPath,
-                desiredAllowImplicitInvocation,
+                desiredImplicitInvocation,
             );
             context.logger.info(
                 {
-                    allowImplicitInvocation: desiredAllowImplicitInvocation,
+                    implicitInvocation: desiredImplicitInvocation,
                     path: skillDirectoryPath,
                     skillName,
                     version: context.version,
@@ -361,23 +361,23 @@ function renderBundledSkillFileContent(
         return content;
     }
 
-    return writeAllowImplicitInvocationValue(
+    return writeImplicitInvocationValue(
         content,
-        resolveBundledSkillAllowImplicitInvocation(skillName, settings),
+        resolveBundledSkillImplicitInvocation(skillName, settings),
     );
 }
 
-function resolveBundledSkillAllowImplicitInvocation(
+function resolveBundledSkillImplicitInvocation(
     skillName: BundledSkillName,
     settings: AppSettings,
 ): boolean {
     switch (skillName) {
         case "oo":
-            return getOoSkillAllowImplicitInvocation(settings);
+            return getOoSkillImplicitInvocation(settings);
     }
 }
 
-async function readInstalledBundledSkillAllowImplicitInvocation(
+async function readInstalledBundledSkillImplicitInvocation(
     skillDirectoryPath: string,
 ): Promise<boolean | undefined> {
     try {
@@ -386,7 +386,7 @@ async function readInstalledBundledSkillAllowImplicitInvocation(
             "utf8",
         );
 
-        return readAllowImplicitInvocationValue(content);
+        return readImplicitInvocationValue(content);
     }
     catch (error) {
         if (isNodeNotFoundError(error)) {
@@ -397,7 +397,7 @@ async function readInstalledBundledSkillAllowImplicitInvocation(
     }
 }
 
-async function writeInstalledBundledSkillAllowImplicitInvocation(
+async function writeInstalledBundledSkillImplicitInvocation(
     skillDirectoryPath: string,
     value: boolean,
 ): Promise<void> {
@@ -409,22 +409,22 @@ async function writeInstalledBundledSkillAllowImplicitInvocation(
 
     await Bun.write(
         ownershipFilePath,
-        writeAllowImplicitInvocationValue(content, value),
+        writeImplicitInvocationValue(content, value),
     );
 }
 
-function readAllowImplicitInvocationValue(
+function readImplicitInvocationValue(
     content: string,
 ): boolean | undefined {
     for (const line of content.split("\n")) {
         const trimmedLine = line.trim();
 
-        if (!trimmedLine.startsWith(`${bundledSkillAllowImplicitInvocationKey}:`)) {
+        if (!trimmedLine.startsWith(`${bundledSkillImplicitInvocationKey}:`)) {
             continue;
         }
 
         const rawValue = trimmedLine
-            .slice(bundledSkillAllowImplicitInvocationKey.length + 1)
+            .slice(bundledSkillImplicitInvocationKey.length + 1)
             .trim();
 
         if (rawValue === "true") {
@@ -441,7 +441,7 @@ function readAllowImplicitInvocationValue(
     return undefined;
 }
 
-function writeAllowImplicitInvocationValue(
+function writeImplicitInvocationValue(
     content: string,
     value: boolean,
 ): string {
@@ -450,7 +450,7 @@ function writeAllowImplicitInvocationValue(
     for (const [index, line] of lines.entries()) {
         const trimmedLine = line.trim();
 
-        if (!trimmedLine.startsWith(`${bundledSkillAllowImplicitInvocationKey}:`)) {
+        if (!trimmedLine.startsWith(`${bundledSkillImplicitInvocationKey}:`)) {
             continue;
         }
 
@@ -458,7 +458,7 @@ function writeAllowImplicitInvocationValue(
 
         lines[index] = [
             indentation,
-            bundledSkillAllowImplicitInvocationKey,
+            bundledSkillImplicitInvocationKey,
             ": ",
             value ? "true" : "false",
         ].join("");
@@ -467,7 +467,7 @@ function writeAllowImplicitInvocationValue(
     }
 
     throw new Error(
-        `Missing ${bundledSkillAllowImplicitInvocationKey} in bundled skill policy file.`,
+        `Missing ${bundledSkillImplicitInvocationKey} in bundled skill policy file.`,
     );
 }
 

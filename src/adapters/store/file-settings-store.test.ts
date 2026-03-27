@@ -25,11 +25,11 @@ const defaultSettingsFileContent = [
     "# [file.download]",
     "# out_dir = \"~/Downloads\"",
     "",
-    "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+    "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
     "# Supported values: true, false.",
     "# Default: true.",
     "# [skills.oo]",
-    "# allow_implicit_invocation = false",
+    "# implicit_invocation = false",
     "",
 ].join("\n");
 
@@ -82,11 +82,11 @@ describe("FileSettingsStore", () => {
                 "# [file.download]",
                 "# out_dir = \"~/Downloads\"",
                 "",
-                "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+                "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
                 "# Supported values: true, false.",
                 "# Default: true.",
                 "# [skills.oo]",
-                "# allow_implicit_invocation = false",
+                "# implicit_invocation = false",
                 "",
                 "lang = \"zh\"",
                 "",
@@ -111,7 +111,7 @@ describe("FileSettingsStore", () => {
         await store.write({
             skills: {
                 oo: {
-                    allow_implicit_invocation: false,
+                    implicit_invocation: false,
                 },
             },
         });
@@ -131,21 +131,21 @@ describe("FileSettingsStore", () => {
                 "# [file.download]",
                 "# out_dir = \"~/Downloads\"",
                 "",
-                "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+                "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
                 "# Supported values: true, false.",
                 "# Default: true.",
                 "# [skills.oo]",
-                "# allow_implicit_invocation = false",
+                "# implicit_invocation = false",
                 "",
                 "[skills.oo]",
-                "allow_implicit_invocation = false",
+                "implicit_invocation = false",
                 "",
             ].join("\n"),
         );
         expect(await store.read()).toEqual({
             skills: {
                 oo: {
-                    allow_implicit_invocation: false,
+                    implicit_invocation: false,
                 },
             },
         });
@@ -185,11 +185,11 @@ describe("FileSettingsStore", () => {
                 "# [file.download]",
                 "# out_dir = \"~/Downloads\"",
                 "",
-                "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+                "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
                 "# Supported values: true, false.",
                 "# Default: true.",
                 "# [skills.oo]",
-                "# allow_implicit_invocation = false",
+                "# implicit_invocation = false",
                 "",
                 "[file.download]",
                 "out_dir = \"~/Downloads\"",

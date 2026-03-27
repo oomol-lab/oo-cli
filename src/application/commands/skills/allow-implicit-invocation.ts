@@ -5,7 +5,7 @@ import {
     booleanConfigValueChoices,
     booleanConfigValueSchema,
     parseBooleanConfigValue,
-    setOoSkillAllowImplicitInvocation,
+    setOoSkillImplicitInvocation,
 } from "../../schemas/settings.ts";
 import { maybeSynchronizeInstalledBundledSkills } from "./shared.ts";
 
@@ -36,7 +36,7 @@ export const skillsAllowImplicitInvocationCommand: CliCommandDefinition<
     inputSchema: skillsAllowImplicitInvocationInputSchema,
     handler: async (input, context) => {
         const nextSettings = await context.settingsStore.update(settings =>
-            setOoSkillAllowImplicitInvocation(
+            setOoSkillImplicitInvocation(
                 settings,
                 parseBooleanConfigValue(input.value),
             ),

@@ -12,14 +12,14 @@ import {
     booleanConfigValueSchema,
     fileDownloadOutDirConfigValueSchema,
     getConfiguredFileDownloadOutDir,
-    getConfiguredOoSkillAllowImplicitInvocation,
+    getConfiguredOoSkillImplicitInvocation,
     localeSchema,
     parseBooleanConfigValue,
     setFileDownloadOutDir,
-    setOoSkillAllowImplicitInvocation,
+    setOoSkillImplicitInvocation,
     stringifyBooleanConfigValue,
     unsetFileDownloadOutDir,
-    unsetOoSkillAllowImplicitInvocation,
+    unsetOoSkillImplicitInvocation,
 } from "../../schemas/settings.ts";
 
 export interface ConfigDefinition<TValue extends string> {
@@ -37,8 +37,8 @@ function defineConfigDefinition<TValue extends string>(
     return definition;
 }
 
-export const ooSkillAllowImplicitInvocationConfigKey
-    = "skills.oo.allow_implicit_invocation" as const;
+export const ooSkillImplicitInvocationConfigKey
+    = "skills.oo.implicit_invocation" as const;
 export const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
 
 export const configDefinitions = {
@@ -89,10 +89,10 @@ export const configDefinitions = {
         valueChoices: [],
         valueSchema: fileDownloadOutDirConfigValueSchema,
     }),
-    [ooSkillAllowImplicitInvocationConfigKey]: defineConfigDefinition({
+    [ooSkillImplicitInvocationConfigKey]: defineConfigDefinition({
         createInvalidValueError(rawValue: unknown): CliUserError {
             return new CliUserError(
-                "errors.config.invalidSkillsOoAllowImplicitInvocationValue",
+                "errors.config.invalidSkillsOoImplicitInvocationValue",
                 2,
                 {
                     value: String(rawValue ?? ""),
@@ -101,20 +101,20 @@ export const configDefinitions = {
         },
         getValue(settings: AppSettings): "false" | "true" | undefined {
             const configuredValue
-                = getConfiguredOoSkillAllowImplicitInvocation(settings);
+                = getConfiguredOoSkillImplicitInvocation(settings);
 
             return configuredValue === undefined
                 ? undefined
                 : stringifyBooleanConfigValue(configuredValue);
         },
         setValue(settings: AppSettings, value: "false" | "true"): AppSettings {
-            return setOoSkillAllowImplicitInvocation(
+            return setOoSkillImplicitInvocation(
                 settings,
                 parseBooleanConfigValue(value),
             );
         },
         unsetValue(settings: AppSettings): AppSettings {
-            return unsetOoSkillAllowImplicitInvocation(settings);
+            return unsetOoSkillImplicitInvocation(settings);
         },
         valueChoices: booleanConfigValueChoices,
         valueSchema: booleanConfigValueSchema,

@@ -11,7 +11,7 @@ import {
     fileDownloadOutDirConfigKey,
     getConfigDefinition,
     getConfigDefinitionByRawKey,
-    ooSkillAllowImplicitInvocationConfigKey,
+    ooSkillImplicitInvocationConfigKey,
     writeLine,
 } from "./shared.ts";
 
@@ -70,7 +70,7 @@ export const configSetCommand: CliCommandDefinition<ConfigSetInput> = {
             settings => setConfigValue(settings, input),
         );
 
-        if (input.key === ooSkillAllowImplicitInvocationConfigKey) {
+        if (input.key === ooSkillImplicitInvocationConfigKey) {
             await maybeSynchronizeInstalledBundledSkills(context, {
                 settings: nextSettings,
             });
@@ -105,9 +105,9 @@ function setConfigValue(
                 settings,
                 input.value,
             );
-        case ooSkillAllowImplicitInvocationConfigKey:
+        case ooSkillImplicitInvocationConfigKey:
             return getConfigDefinition(
-                ooSkillAllowImplicitInvocationConfigKey,
+                ooSkillImplicitInvocationConfigKey,
             ).setValue(settings, input.value);
     }
 }

@@ -63,7 +63,7 @@
 读取一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`skills.oo.allow_implicit_invocation`。
+  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`。
 
 ### `oo config path`
 
@@ -74,13 +74,13 @@
 写入一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`skills.oo.allow_implicit_invocation`。
+  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`。
 - 参数：`<value>` 为对应配置值。
 - 取值规则：当 `<key>` 为 `lang` 时，支持的值为 `en` 和 `zh`。
 - 取值规则：当 `<key>` 为 `file.download.out_dir` 时，支持任意非空路径字符串。
   相对路径会在执行 `oo file download` 时相对于当前工作目录解析；如果以 `~`
   开头，则会展开为当前用户的 home 目录。
-- 取值规则：当 `<key>` 为 `skills.oo.allow_implicit_invocation` 时，支持的
+- 取值规则：当 `<key>` 为 `skills.oo.implicit_invocation` 时，支持的
   值为 `true` 和 `false`。
 
 ### `oo config unset <key>`
@@ -88,7 +88,7 @@
 删除一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`skills.oo.allow_implicit_invocation`。
+  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`。
 
 ## 更新
 
@@ -107,7 +107,7 @@
 
 ### `oo skills allow-implicit-invocation <value>`
 
-持久化 `oo` skill 的 `allow_implicit_invocation` 策略。
+持久化 `oo` skill 的隐式调用策略。
 
 - 参数：`<value>` 必须为 `true` 或 `false`。
 - 说明：当受管的 `oo` skill 已经安装时，命令会立即同步
@@ -122,7 +122,7 @@
 - 内置 skill：`oo`。
 - 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
 - 元数据：安装时会在 skill 目录内写入一个隐藏的 `oo` 版本记录文件。
-- 元数据：当存在持久化的 `skills.oo.allow_implicit_invocation` 配置时，
+- 元数据：当存在持久化的 `skills.oo.implicit_invocation` 配置时，
   `agents/openai.yaml` 会使用该值；否则使用内置默认值。
 - 说明：当 Codex 根目录不存在时，命令会直接报错退出，这表示当前机器上没有
   安装 Codex。

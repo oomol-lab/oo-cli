@@ -126,7 +126,7 @@ describe("skills CLI", () => {
                 settingsFilePath,
                 [
                     "[skills.oo]",
-                    "allow_implicit_invocation = false",
+                    "implicit_invocation = false",
                     "",
                 ].join("\n"),
             );

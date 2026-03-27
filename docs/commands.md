@@ -69,7 +69,7 @@ List persisted configuration values that are currently set.
 Read one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `skills.oo.allow_implicit_invocation`.
+  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`.
 
 ### `oo config path`
 
@@ -80,13 +80,13 @@ Print the path to the persisted configuration file.
 Persist one configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `skills.oo.allow_implicit_invocation`.
+  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
 - Value rules: for `file.download.out_dir`, use any non-empty path string. Relative
   paths resolve from the current working directory when `oo file download` runs. A
   leading `~` expands to the current user's home directory.
-- Value rules: for `skills.oo.allow_implicit_invocation`, supported values are
+- Value rules: for `skills.oo.implicit_invocation`, supported values are
   `true` and `false`.
 
 ### `oo config unset <key>`
@@ -94,7 +94,7 @@ Persist one configuration value.
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `skills.oo.allow_implicit_invocation`.
+  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`.
 
 ## Updates
 
@@ -116,7 +116,7 @@ Check whether a newer CLI release is available.
 
 ### `oo skills allow-implicit-invocation <value>`
 
-Persist the `oo` skill `allow_implicit_invocation` policy.
+Persist the `oo` skill implicit invocation policy.
 
 - Arguments: `<value>` must be `true` or `false`.
 - Notes: when the managed `oo` skill is already installed, the command
@@ -135,7 +135,7 @@ Install one bundled skill into the local Codex skills directory.
 - Metadata: the installation writes the current `oo` version into a hidden
   version file inside the skill directory.
 - Metadata: `agents/openai.yaml` uses the persisted
-  `skills.oo.allow_implicit_invocation` value when configured, otherwise the
+  `skills.oo.implicit_invocation` value when configured, otherwise the
   bundled default is used.
 - Notes: the command exits with an error when the Codex home directory does
   not exist, which indicates Codex is not installed on the current machine.

@@ -68,7 +68,7 @@ describe("skills commands", () => {
                 storePaths.settingsFilePath,
                 [
                     "[skills.oo]",
-                    "allow_implicit_invocation = false",
+                    "implicit_invocation = false",
                     "",
                 ].join("\n"),
             );
@@ -122,13 +122,13 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                "Set Codex skill oo allow_implicit_invocation to false.\n",
+                "Set Codex skill oo implicit invocation to false.\n",
             );
             expect(await readFile(storePaths.settingsFilePath, "utf8")).toContain(
                 "[skills.oo]",
             );
             expect(await readFile(storePaths.settingsFilePath, "utf8")).toContain(
-                "allow_implicit_invocation = false",
+                "implicit_invocation = false",
             );
         }
         finally {
