@@ -201,7 +201,7 @@ Practical implication:
 Canonical form:
 
 ```bash
-oo file download "<url>" [outDir]
+oo file download "<url>" [outDir] [--name "<name>"] [--ext "<ext>"]
 ```
 
 Facts:
@@ -212,10 +212,23 @@ Facts:
 - `[outDir]` and `file.download.out_dir` may start with `~`, which expands to the
   current user's home directory.
 - Missing directories are created automatically.
+- `--name <name>` overrides only the saved base name. The value must be
+  non-empty, must not be `.` or `..`, and must not contain path separators.
+- `--ext <ext>` overrides only the saved extension. The value may be written
+  with or without a leading `.`, but it must be non-empty, must not be `.`
+  or `..`, and must not contain path separators.
+- When `--name` or `--ext` is omitted, the CLI infers the saved file name from
+  the final response metadata and URL.
+- This command does not support `--json` or `--format=json`.
 - If the destination path already exists as a file, the command fails.
 - If the destination filename collides with an existing file, the CLI renames
   the saved file non-destructively.
-- Successful saves print the absolute saved path on stdout.
+- Successful saves print one localized human-readable line on stdout that
+  includes the absolute saved path.
+- When automating a user-facing artifact download, pass `--name` if the inferred
+  file name would otherwise be opaque, such as a UUID, hash, task ID, or a
+  generic `download` label. Keep the inferred extension unless the caller has a
+  proven better extension.
 
 Failure cases:
 
@@ -361,3 +374,6 @@ Use this order:
 9. Use bounded `cloud-task wait` windows when appropriate.
 10. After a non-zero wait exit, run `cloud-task result --json` and stop on
     billing signals such as HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`.
+11. If a successful task yields a remote artifact URL and a local copy would
+    help the user, materialize it with `oo file download` and add `--name` when
+    the inferred saved file name would be opaque.

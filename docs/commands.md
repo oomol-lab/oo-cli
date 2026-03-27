@@ -192,6 +192,8 @@ Download one file from `http` or `https` and save it locally.
   `.` or `..`, and must not contain path separators.
 - Notes: when `--name` or `--ext` is not provided, the CLI infers the saved
   file name from the final response metadata and URL.
+- Notes: if the inferred saved file name would be opaque, use `--name` to pick
+  a clearer base name while keeping the inferred extension.
 - Notes: known composite extensions such as `.tar.gz` and `.pkg.tar.zst` are
   preserved as one full extension when they can be inferred automatically.
 - Notes: downloads are written through a temporary file in the target directory,
@@ -203,6 +205,7 @@ Download one file from `http` or `https` and save it locally.
   starts, so very old `.oodownload` files are no longer resumed automatically.
 - Notes: if the final target path already exists, the CLI never overwrites it
   and instead appends `_1`, `_2`, and so on before the full extension.
+- Notes: `oo file download` does not support `--format=json` or `--json`.
 - Notes: successful `stdout` output is one localized human-readable line that
   includes the absolute saved path, followed by a newline. When `stderr` is a
   TTY, human-readable progress is rendered there.
