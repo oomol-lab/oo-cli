@@ -223,27 +223,55 @@ describe("FileSettingsStore", () => {
         );
     });
 
-    test("rejects legacy TOML settings that still include updateNotifier", async () => {
+    test("ignores unknown settings keys and logs a warning", async () => {
         const root = await createTemporaryDirectory("store-toml");
+        const logCapture = createLogCapture();
         const store = new FileSettingsStore({
             appName: APP_NAME,
             env: {
                 HOME: root,
                 XDG_CONFIG_HOME: root,
             },
+            logger: logCapture.logger,
             platform: "linux",
         });
 
         await mkdir(dirname(store.getFilePath()), { recursive: true });
         await writeFile(
             store.getFilePath(),
-            "lang = \"zh\"\nupdateNotifier = false\n",
+            [
+                "lang = \"zh\"",
+                "updateNotifier = false",
+                "",
+                "[skills.oo]",
+                "implicit_invocation = false",
+                "extra = true",
+                "",
+            ].join("\n"),
             "utf8",
         );
 
-        await expect(store.read()).rejects.toMatchObject({
-            key: "errors.store.invalidSchema",
-        } satisfies Partial<CliUserError>);
+        await expect(store.read()).resolves.toEqual({
+            lang: "zh",
+            skills: {
+                oo: {
+                    implicit_invocation: false,
+                },
+            },
+        });
+
+        const logs = logCapture.read();
+
+        expect(logs).toContain(`"level":"warn"`);
+        expect(logs).toContain(
+            `"msg":"Settings store file contained unknown keys that were ignored."`,
+        );
+        expect(logs).toContain(`"unknownKeyCount":2`);
+        expect(logs).toContain(
+            `"unknownKeyPaths":["skills.oo.extra","updateNotifier"]`,
+        );
+
+        logCapture.close();
     });
 
     test("rejects invalid TOML files", async () => {
@@ -276,7 +304,7 @@ describe("FileSettingsStore", () => {
         logCapture.close();
     });
 
-    test("rejects legacy settings with a version field", async () => {
+    test("rejects invalid known settings even when unknown keys are present", async () => {
         const root = await createTemporaryDirectory("store-invalid-schema");
         const store = new FileSettingsStore({
             appName: APP_NAME,
@@ -290,7 +318,7 @@ describe("FileSettingsStore", () => {
         await mkdir(dirname(store.getFilePath()), { recursive: true });
         await writeFile(
             store.getFilePath(),
-            "version = 1\nlang = \"zh\"\n",
+            "version = 1\nlang = 1\n",
             "utf8",
         );
 

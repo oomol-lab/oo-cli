@@ -54,6 +54,9 @@
 
 ## 配置
 
+- 说明：如果持久化 settings 文件里存在未知 key，CLI 会忽略这些 key，并在
+  debug 日志中写入 warning；已知 key 仍会按正常规则生效。
+
 ### `oo config list`
 
 列出当前已经设置的持久化配置。

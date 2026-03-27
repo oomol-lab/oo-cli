@@ -60,6 +60,10 @@ Alias for `oo auth logout`.
 
 ## Configuration
 
+- Notes: when the persisted settings file contains unknown keys, the CLI
+  ignores those keys and writes a warning entry to the debug log. Known keys
+  continue to load normally.
+
 ### `oo config list`
 
 List persisted configuration values that are currently set.

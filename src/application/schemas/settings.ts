@@ -12,23 +12,43 @@ export const booleanConfigValueChoices = ["true", "false"] as const;
 export const booleanConfigValueSchema = z.enum(booleanConfigValueChoices);
 export const fileDownloadOutDirConfigValueSchema = z.string().trim().min(1);
 
-const fileDownloadSettingsSchema = z.object({
+const fileDownloadSettingsShape = {
     out_dir: fileDownloadOutDirConfigValueSchema.optional(),
-}).strict();
+};
+
+const fileDownloadSettingsReadSchema = z.object(fileDownloadSettingsShape);
+const fileDownloadSettingsSchema = z.object(fileDownloadSettingsShape).strict();
+
+const fileSettingsReadSchema = z.object({
+    download: fileDownloadSettingsReadSchema.optional(),
+});
 
 const fileSettingsSchema = z.object({
     download: fileDownloadSettingsSchema.optional(),
 }).strict();
 
-const ooSkillSettingsSchema = z.object({
+const ooSkillSettingsShape = {
     implicit_invocation: z.boolean().optional(),
-}).strict();
+};
+
+const ooSkillSettingsReadSchema = z.object(ooSkillSettingsShape);
+const ooSkillSettingsSchema = z.object(ooSkillSettingsShape).strict();
+
+const skillsSettingsReadSchema = z.object({
+    oo: ooSkillSettingsReadSchema.optional(),
+});
 
 const skillsSettingsSchema = z.object({
     oo: ooSkillSettingsSchema.optional(),
 }).strict();
 
 export const defaultOoSkillImplicitInvocation = true;
+
+export const settingsFileReadSchema = z.object({
+    file: fileSettingsReadSchema.optional(),
+    lang: localeSchema.optional(),
+    skills: skillsSettingsReadSchema.optional(),
+});
 
 export const settingsFileSchema = z.object({
     file: fileSettingsSchema.optional(),
@@ -114,6 +134,13 @@ export function parseBooleanConfigValue(value: BooleanConfigValue): boolean {
 
 export function stringifyBooleanConfigValue(value: boolean): BooleanConfigValue {
     return value ? "true" : "false";
+}
+
+export function collectUnknownSettingsFileKeyPaths(
+    rawInput: unknown,
+    parsedInput: unknown,
+): string[] {
+    return collectStrippedObjectPaths(rawInput, parsedInput).sort();
 }
 
 export function getConfiguredFileDownloadOutDir(
@@ -225,4 +252,41 @@ export function unsetOoSkillImplicitInvocation(
     }
 
     return nextSettings;
+}
+
+function collectStrippedObjectPaths(
+    rawValue: unknown,
+    parsedValue: unknown,
+    path: readonly string[] = [],
+): string[] {
+    if (!isPlainObjectRecord(rawValue) || !isPlainObjectRecord(parsedValue)) {
+        return [];
+    }
+
+    const strippedPaths: string[] = [];
+
+    for (const [key, childRawValue] of Object.entries(rawValue)) {
+        const childPath = [...path, key];
+
+        if (!Object.hasOwn(parsedValue, key)) {
+            strippedPaths.push(childPath.join("."));
+            continue;
+        }
+
+        strippedPaths.push(
+            ...collectStrippedObjectPaths(
+                childRawValue,
+                parsedValue[key],
+                childPath,
+            ),
+        );
+    }
+
+    return strippedPaths;
+}
+
+function isPlainObjectRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null
+        && typeof value === "object"
+        && !Array.isArray(value);
 }

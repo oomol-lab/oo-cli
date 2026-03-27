@@ -399,4 +399,36 @@ describe("config CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("ignores unknown persisted settings keys and logs a warning", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const filePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "settings.toml",
+            );
+
+            await Bun.write(
+                filePath,
+                "lang = \"zh\"\nupdateNotifier = false\n",
+            );
+
+            const result = await sandbox.run(["config", "get", "lang"]);
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe("zh\n");
+            expect(result.stderr).toBe("");
+            expect(content).toContain(`"level":"warn"`);
+            expect(content).toContain(
+                `"msg":"Settings store file contained unknown keys that were ignored."`,
+            );
+            expect(content).toContain(`"unknownKeyPaths":["updateNotifier"]`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
