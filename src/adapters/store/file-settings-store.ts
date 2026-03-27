@@ -14,8 +14,10 @@ import {
     withStorePath,
 } from "../../application/logging/log-fields.ts";
 import {
+    collectUnknownSettingsFileKeyPaths,
     defaultSettings,
     renderSettingsFile,
+    settingsFileReadSchema,
     settingsFileSchema,
 } from "../../application/schemas/settings.ts";
 import { resolveStoreDirectory } from "./store-path.ts";
@@ -232,7 +234,7 @@ export class FileSettingsStore implements SettingsStore {
             });
         }
 
-        const parsedSettings = settingsFileSchema.safeParse(parsedContent);
+        const parsedSettings = settingsFileReadSchema.safeParse(parsedContent);
 
         if (!parsedSettings.success) {
             this.logger?.error(
@@ -249,6 +251,22 @@ export class FileSettingsStore implements SettingsStore {
             throw new CliUserError("errors.store.invalidSchema", 1, {
                 path: this.filePath,
             });
+        }
+
+        const unknownKeyPaths = collectUnknownSettingsFileKeyPaths(
+            parsedContent,
+            parsedSettings.data,
+        );
+
+        if (unknownKeyPaths.length > 0) {
+            this.logger?.warn(
+                {
+                    unknownKeyCount: unknownKeyPaths.length,
+                    unknownKeyPaths,
+                    ...withStorePath(this.filePath),
+                },
+                "Settings store file contained unknown keys that were ignored.",
+            );
         }
 
         return parsedSettings.data;
