@@ -65,6 +65,8 @@ Before doing anything substantial:
     - `cloud-task run`
     - `file upload`
 - Never add `--json` to `cloud-task wait`.
+- Never add `--json` to `oo file download`. It does not support structured
+  output, so read the saved path from the human-readable success line.
 - If the request clearly fits this skill, the mere availability of local tools
   such as `python`, `unzip`, `ffmpeg`, `sips`, or OCR binaries is not a reason
   to leave the skill. Local tools may inspect inputs, but the first
@@ -92,6 +94,10 @@ Before doing anything substantial:
 - If a final task result exposes a remote artifact URL and you want a local
   copy, prefer `oo file download <url> [outDir]` over `curl` or ad hoc download
   code.
+- When downloading a user-facing artifact with `oo file download`, pass
+  `--name "<descriptive base name>"` unless the response metadata already proves
+  a clear human-readable filename. Preserve the inferred extension unless the
+  user explicitly needs a different one.
 - Omit `[outDir]` unless the user asked for a specific destination. When it is
   omitted, `oo file download` uses `file.download.out_dir` or `~/Downloads`, creates
   missing directories, avoids overwrite by renaming, and prints the absolute
@@ -332,8 +338,14 @@ has succeeded.
 Rules:
 
 - Use `[outDir]` only when the user asked for a specific destination.
+- Never add `--json` to `oo file download`. Successful output is a localized
+  human-readable line on stdout, not a JSON object.
 - When `[outDir]` is omitted, `oo file download` uses the configured
   `file.download.out_dir` value if present, otherwise `~/Downloads`.
+- If the inferred saved filename would be opaque to the user, such as a UUID,
+  hash, task ID, or generic `download`, choose a concise descriptive base name
+  and pass it with `--name`. Omit `--name` only when the server metadata already
+  yields a clear name the user can recognize.
 - Let `oo file download` create missing directories, avoid overwrite by renaming,
   and print the absolute saved path.
 - Do not reimplement the download with `curl`, ad hoc scripts, or manual file
