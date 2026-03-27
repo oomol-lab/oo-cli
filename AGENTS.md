@@ -21,6 +21,7 @@
 
 ## Testing
 
+- Any modification must include sufficient tests
 - Tests can only be run using `bun run test`
 - Test titles must be in English
 - The testing framework is bun's built-in framework
