@@ -21,14 +21,14 @@ const fileSettingsSchema = z.object({
 }).strict();
 
 const ooSkillSettingsSchema = z.object({
-    allow_implicit_invocation: z.boolean().optional(),
+    implicit_invocation: z.boolean().optional(),
 }).strict();
 
 const skillsSettingsSchema = z.object({
     oo: ooSkillSettingsSchema.optional(),
 }).strict();
 
-export const defaultOoSkillAllowImplicitInvocation = true;
+export const defaultOoSkillImplicitInvocation = true;
 
 export const settingsFileSchema = z.object({
     file: fileSettingsSchema.optional(),
@@ -59,11 +59,11 @@ const defaultSettingsCommentBlocks = [
         `# out_dir = "${defaultFileDownloadOutDir}"`,
     ],
     [
-        "# skills.oo.allow_implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+        "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
         "# Supported values: true, false.",
-        `# Default: ${stringifyBooleanConfigValue(defaultOoSkillAllowImplicitInvocation)}.`,
+        `# Default: ${stringifyBooleanConfigValue(defaultOoSkillImplicitInvocation)}.`,
         "# [skills.oo]",
-        "# allow_implicit_invocation = false",
+        "# implicit_invocation = false",
     ],
 ] as const;
 
@@ -88,12 +88,12 @@ export function renderSettingsFile(settings: AppSettings): string {
                     },
                 }
             : {}),
-        ...(parsedSettings.skills?.oo?.allow_implicit_invocation !== undefined
+        ...(parsedSettings.skills?.oo?.implicit_invocation !== undefined
             ? {
                     skills: {
                         oo: {
-                            allow_implicit_invocation:
-                                parsedSettings.skills.oo.allow_implicit_invocation,
+                            implicit_invocation:
+                                parsedSettings.skills.oo.implicit_invocation,
                         },
                     },
                 }
@@ -168,20 +168,20 @@ export function unsetFileDownloadOutDir(
     return nextSettings;
 }
 
-export function getConfiguredOoSkillAllowImplicitInvocation(
+export function getConfiguredOoSkillImplicitInvocation(
     settings: AppSettings,
 ): boolean | undefined {
-    return settings.skills?.oo?.allow_implicit_invocation;
+    return settings.skills?.oo?.implicit_invocation;
 }
 
-export function getOoSkillAllowImplicitInvocation(
+export function getOoSkillImplicitInvocation(
     settings: AppSettings,
 ): boolean {
-    return getConfiguredOoSkillAllowImplicitInvocation(settings)
-        ?? defaultOoSkillAllowImplicitInvocation;
+    return getConfiguredOoSkillImplicitInvocation(settings)
+        ?? defaultOoSkillImplicitInvocation;
 }
 
-export function setOoSkillAllowImplicitInvocation(
+export function setOoSkillImplicitInvocation(
     settings: AppSettings,
     value: boolean,
 ): AppSettings {
@@ -191,16 +191,16 @@ export function setOoSkillAllowImplicitInvocation(
             ...settings.skills,
             oo: {
                 ...settings.skills?.oo,
-                allow_implicit_invocation: value,
+                implicit_invocation: value,
             },
         },
     };
 }
 
-export function unsetOoSkillAllowImplicitInvocation(
+export function unsetOoSkillImplicitInvocation(
     settings: AppSettings,
 ): AppSettings {
-    if (settings.skills?.oo?.allow_implicit_invocation === undefined) {
+    if (settings.skills?.oo?.implicit_invocation === undefined) {
         return settings;
     }
 
@@ -208,7 +208,7 @@ export function unsetOoSkillAllowImplicitInvocation(
     const nextSkills = { ...nextSettings.skills };
     const nextOoSkillSettings = { ...nextSkills.oo };
 
-    delete nextOoSkillSettings.allow_implicit_invocation;
+    delete nextOoSkillSettings.implicit_invocation;
 
     if (Object.keys(nextOoSkillSettings).length === 0) {
         delete nextSkills.oo;

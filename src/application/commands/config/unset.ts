@@ -8,7 +8,7 @@ import {
     configKeyChoices,
     configKeySchema,
     createInvalidConfigKeyError,
-    ooSkillAllowImplicitInvocationConfigKey,
+    ooSkillImplicitInvocationConfigKey,
     writeLine,
 } from "./shared.ts";
 
@@ -33,7 +33,7 @@ export const configUnsetCommand: CliCommandDefinition<ConfigUnsetInput> = {
             configDefinitions[input.key].unsetValue(settings),
         );
 
-        if (input.key === ooSkillAllowImplicitInvocationConfigKey) {
+        if (input.key === ooSkillImplicitInvocationConfigKey) {
             await maybeSynchronizeInstalledBundledSkills(context, {
                 settings: nextSettings,
             });

@@ -95,32 +95,32 @@ describe("config CLI", () => {
             const setResult = await sandbox.run([
                 "config",
                 "set",
-                "skills.oo.allow_implicit_invocation",
+                "skills.oo.implicit_invocation",
                 "false",
             ]);
             const listResult = await sandbox.run(["config", "list"]);
             const getResult = await sandbox.run([
                 "config",
                 "get",
-                "skills.oo.allow_implicit_invocation",
+                "skills.oo.implicit_invocation",
             ]);
             const unsetResult = await sandbox.run([
                 "config",
                 "unset",
-                "skills.oo.allow_implicit_invocation",
+                "skills.oo.implicit_invocation",
             ]);
             const getAfterUnsetResult = await sandbox.run([
                 "config",
                 "get",
-                "skills.oo.allow_implicit_invocation",
+                "skills.oo.implicit_invocation",
             ]);
 
             expect(setResult.exitCode).toBe(0);
             expect(setResult.stdout).toBe(
-                "Set skills.oo.allow_implicit_invocation to false.\n",
+                "Set skills.oo.implicit_invocation to false.\n",
             );
             expect(listResult.stdout).toBe(
-                "skills.oo.allow_implicit_invocation=false\n",
+                "skills.oo.implicit_invocation=false\n",
             );
             expect(getResult.stdout).toBe("false\n");
             expect(unsetResult.exitCode).toBe(0);
@@ -194,7 +194,7 @@ describe("config CLI", () => {
             const result = await sandbox.run([
                 "config",
                 "set",
-                "skills.oo.allow_implicit_invocation",
+                "skills.oo.implicit_invocation",
                 "false",
             ], {
                 version: "9.9.9",
@@ -244,7 +244,7 @@ describe("config CLI", () => {
                 settingsFilePath,
                 [
                     "[skills.oo]",
-                    "allow_implicit_invocation = false",
+                    "implicit_invocation = false",
                     "",
                 ].join("\n"),
             );
@@ -252,7 +252,7 @@ describe("config CLI", () => {
             const result = await sandbox.run([
                 "config",
                 "unset",
-                "skills.oo.allow_implicit_invocation",
+                "skills.oo.implicit_invocation",
             ], {
                 version: "9.9.9",
             });
@@ -328,7 +328,7 @@ describe("config CLI", () => {
             const invalidSkillPolicyValue = await sandbox.run([
                 "config",
                 "set",
-                "skills.oo.allow_implicit_invocation",
+                "skills.oo.implicit_invocation",
                 "maybe",
             ]);
 
@@ -341,7 +341,7 @@ describe("config CLI", () => {
 
             expect(invalidSkillPolicyValue.exitCode).toBe(2);
             expect(invalidSkillPolicyValue.stderr).toContain(
-                "Invalid skills.oo.allow_implicit_invocation value",
+                "Invalid skills.oo.implicit_invocation value",
             );
         }
         finally {
