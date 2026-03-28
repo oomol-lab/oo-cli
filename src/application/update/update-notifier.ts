@@ -8,15 +8,23 @@ const defaultRegistryUrl = "https://registry.npmjs.org/";
 const updateRequestTimeoutMs = 2000;
 const updateRequestMaxAttempts = 2;
 
-interface LatestReleaseRequestFailure {
-    retryable: boolean;
-    status: "failed";
-}
-
 interface LatestReleaseRequestSuccess {
     latestVersion: string;
     status: "success";
 }
+
+interface LatestReleaseRequestRetryableFailure {
+    status: "retryable-failure";
+}
+
+interface LatestReleaseRequestTerminalFailure {
+    status: "terminal-failure";
+}
+
+type LatestReleaseRequestAttemptResult
+    = LatestReleaseRequestSuccess
+        | LatestReleaseRequestRetryableFailure
+        | LatestReleaseRequestTerminalFailure;
 
 interface ParsedReleaseVersion {
     core: readonly [number, number, number];
@@ -252,22 +260,26 @@ async function fetchLatestReleaseVersion(options: {
             packageName: options.packageName,
         });
 
-        if (result.status === "success") {
-            return result.latestVersion;
-        }
+        switch (result.status) {
+            case "success":
+                return result.latestVersion;
+            case "terminal-failure":
+                return null;
+            case "retryable-failure":
+                if (attempt >= updateRequestMaxAttempts) {
+                    return null;
+                }
 
-        if (!result.retryable || attempt >= updateRequestMaxAttempts) {
-            return null;
+                options.logger.debug(
+                    {
+                        attempt,
+                        maxAttempts: updateRequestMaxAttempts,
+                        packageName: options.packageName,
+                    },
+                    "CLI update latest-release request retry scheduled.",
+                );
+                break;
         }
-
-        options.logger.debug(
-            {
-                attempt,
-                maxAttempts: updateRequestMaxAttempts,
-                packageName: options.packageName,
-            },
-            "CLI update latest-release request retry scheduled.",
-        );
     }
 
     return null;
@@ -281,7 +293,7 @@ async function fetchLatestReleaseVersionAttempt(options: {
     logger: CliExecutionContext["logger"];
     maxAttempts: number;
     packageName: string;
-}): Promise<LatestReleaseRequestFailure | LatestReleaseRequestSuccess> {
+}): Promise<LatestReleaseRequestAttemptResult> {
     const requestUrl = resolveRegistryPackageMetadataUrl(
         options.env,
         options.packageName,
@@ -324,8 +336,7 @@ async function fetchLatestReleaseVersionAttempt(options: {
             "CLI update latest-release request timed out or failed.",
         );
         return {
-            retryable: true,
-            status: "failed",
+            status: "retryable-failure",
         };
     }
 
@@ -342,8 +353,7 @@ async function fetchLatestReleaseVersionAttempt(options: {
             "CLI update latest-release request returned a non-success status.",
         );
         return {
-            retryable: false,
-            status: "failed",
+            status: "terminal-failure",
         };
     }
 
@@ -354,15 +364,13 @@ async function fetchLatestReleaseVersionAttempt(options: {
     }
     catch {
         return {
-            retryable: false,
-            status: "failed",
+            status: "terminal-failure",
         };
     }
 
     if (!payload || typeof payload !== "object") {
         return {
-            retryable: false,
-            status: "failed",
+            status: "terminal-failure",
         };
     }
 
@@ -370,8 +378,7 @@ async function fetchLatestReleaseVersionAttempt(options: {
 
     if (!distTags || typeof distTags !== "object") {
         return {
-            retryable: false,
-            status: "failed",
+            status: "terminal-failure",
         };
     }
 
@@ -379,8 +386,7 @@ async function fetchLatestReleaseVersionAttempt(options: {
 
     if (typeof latestVersion !== "string" || latestVersion === "") {
         return {
-            retryable: false,
-            status: "failed",
+            status: "terminal-failure",
         };
     }
 

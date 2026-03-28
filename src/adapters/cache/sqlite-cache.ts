@@ -51,6 +51,19 @@ interface StorePathDiagnostics {
     storePathKind: "directory" | "file" | "missing" | "other";
 }
 
+type RecoverableSqliteStorePathDiagnosticsPolicy
+    = | "always"
+        | "except-lock"
+        | "never";
+
+interface RecoverableSqliteErrorContext {
+    description: string;
+    error: Error & {
+        code: string;
+    };
+    includeStorePathDiagnostics: boolean;
+}
+
 const recoverableSqliteLockCodes = new Set([
     "SQLITE_BUSY",
     "SQLITE_LOCKED",
@@ -85,7 +98,12 @@ export class SqliteCacheStore implements CacheStore {
             );
         }
         catch (error) {
-            if (!isRecoverableSqliteCacheError(error)) {
+            const recoverableError = resolveRecoverableSqliteErrorContext(
+                error,
+                "always",
+            );
+
+            if (recoverableError === undefined) {
                 throw error;
             }
 
@@ -95,10 +113,10 @@ export class SqliteCacheStore implements CacheStore {
                     ...withCategory(logCategory.recoverableCache),
                     err: error,
                     ...readStorePathDiagnostics(this.filePath),
-                    sqliteErrorCode: error.code,
+                    sqliteErrorCode: recoverableError.error.code,
                     ...withStorePath(this.filePath),
                 },
-                `Sqlite cache store open was deferred because ${describeRecoverableSqliteCacheError(error)}.`,
+                `Sqlite cache store open was deferred because ${recoverableError.description}.`,
             );
         }
     }
@@ -130,7 +148,12 @@ export class SqliteCacheStore implements CacheStore {
             });
         }
         catch (error) {
-            if (!isRecoverableSqliteCacheError(error)) {
+            const recoverableError = resolveRecoverableSqliteErrorContext(
+                error,
+                "always",
+            );
+
+            if (recoverableError === undefined) {
                 throw error;
             }
 
@@ -140,10 +163,10 @@ export class SqliteCacheStore implements CacheStore {
                     ...withCategory(logCategory.recoverableCache),
                     err: error,
                     ...readStorePathDiagnostics(this.filePath),
-                    sqliteErrorCode: error.code,
+                    sqliteErrorCode: recoverableError.error.code,
                     ...withStorePath(this.filePath),
                 },
-                `Sqlite cache namespace is temporarily unavailable because ${describeRecoverableSqliteCacheError(error)}.`,
+                `Sqlite cache namespace is temporarily unavailable because ${recoverableError.description}.`,
             );
 
             return new UnavailableSqliteCache<Value>();
@@ -165,7 +188,12 @@ export class SqliteCacheStore implements CacheStore {
                 database.run("PRAGMA wal_checkpoint(TRUNCATE);");
             }
             catch (error) {
-                if (!isRecoverableSqliteCacheError(error)) {
+                const recoverableError = resolveRecoverableSqliteErrorContext(
+                    error,
+                    "never",
+                );
+
+                if (recoverableError === undefined) {
                     throw error;
                 }
 
@@ -173,10 +201,10 @@ export class SqliteCacheStore implements CacheStore {
                     {
                         ...withCategory(logCategory.recoverableCache),
                         err: error,
-                        sqliteErrorCode: error.code,
+                        sqliteErrorCode: recoverableError.error.code,
                         ...withStorePath(this.filePath),
                     },
-                    `Sqlite cache store close skipped WAL checkpoint because ${describeRecoverableSqliteCacheError(error)}.`,
+                    `Sqlite cache store close skipped WAL checkpoint because ${recoverableError.description}.`,
                 );
             }
         }
@@ -474,7 +502,12 @@ export class SqliteCache<Value> implements Cache<Value> {
             };
         }
         catch (error) {
-            if (!isRecoverableSqliteCacheError(error)) {
+            const recoverableError = resolveRecoverableSqliteErrorContext(
+                error,
+                "except-lock",
+            );
+
+            if (recoverableError === undefined) {
                 throw error;
             }
 
@@ -484,16 +517,16 @@ export class SqliteCache<Value> implements Cache<Value> {
                     ...withCategory(logCategory.recoverableCache),
                     err: error,
                     operation: options.operation,
-                    ...(recoverableSqliteLockCodes.has(error.code)
-                        ? {}
-                        : readStorePathDiagnostics(this.options.filePath)),
-                    sqliteErrorCode: error.code,
+                    ...(recoverableError.includeStorePathDiagnostics
+                        ? readStorePathDiagnostics(this.options.filePath)
+                        : {}),
+                    sqliteErrorCode: recoverableError.error.code,
                     ...withStorePath(this.options.filePath),
                     ...(options.key === undefined
                         ? {}
                         : withKeyFingerprint(createCacheKeyFingerprint(options.key))),
                 },
-                `${options.messagePrefix} because ${describeRecoverableSqliteCacheError(error)}.`,
+                `${options.messagePrefix} because ${recoverableError.description}.`,
             );
 
             return {
@@ -640,6 +673,24 @@ function isRecoverableSqliteCacheError(
         && isRecoverableSqliteCacheErrorCode(error.code);
 }
 
+function resolveRecoverableSqliteErrorContext(
+    error: unknown,
+    storePathDiagnosticsPolicy: RecoverableSqliteStorePathDiagnosticsPolicy,
+): RecoverableSqliteErrorContext | undefined {
+    if (!isRecoverableSqliteCacheError(error)) {
+        return undefined;
+    }
+
+    return {
+        description: describeRecoverableSqliteCacheError(error),
+        error,
+        includeStorePathDiagnostics: resolveRecoverableSqliteStorePathDiagnosticsPolicy(
+            error,
+            storePathDiagnosticsPolicy,
+        ),
+    };
+}
+
 function describeRecoverableSqliteCacheError(
     error: Error & {
         code: string;
@@ -665,6 +716,24 @@ function describeRecoverableSqliteCacheError(
         default:
             return "the database is unavailable";
     }
+}
+
+function resolveRecoverableSqliteStorePathDiagnosticsPolicy(
+    error: Error & {
+        code: string;
+    },
+    policy: RecoverableSqliteStorePathDiagnosticsPolicy,
+): boolean {
+    switch (policy) {
+        case "always":
+            return true;
+        case "except-lock":
+            return !isRecoverableSqliteLockCode(error.code);
+        case "never":
+            return false;
+    }
+
+    return false;
 }
 
 export function isRecoverableSqliteCacheErrorCode(code: string): boolean {

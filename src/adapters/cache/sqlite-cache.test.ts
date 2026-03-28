@@ -214,6 +214,7 @@ describe("SqliteCacheStore", () => {
 
     test("truncates wal sidecar files on close", async () => {
         const root = await createTemporaryDirectory("sqlite-cache-close");
+        const logCapture = createLogCapture();
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: {
@@ -222,26 +223,39 @@ describe("SqliteCacheStore", () => {
             },
             platform: "linux",
         });
-        const cacheStore = new SqliteCacheStore(storePaths.cacheFilePath);
+        const cacheStore = new SqliteCacheStore(
+            storePaths.cacheFilePath,
+            logCapture.logger,
+        );
         const cache = cacheStore.getCache<string>({
             id: "search",
         });
         const walFilePath = `${cacheStore.getFilePath()}-wal`;
         const shmFilePath = `${cacheStore.getFilePath()}-shm`;
 
-        cache.set("query:image", "cached");
+        try {
+            cache.set("query:image", "cached");
 
-        await expect(stat(walFilePath)).resolves.toMatchObject({
-            isFile: expect.any(Function),
-        });
-        await expect(stat(shmFilePath)).resolves.toMatchObject({
-            isFile: expect.any(Function),
-        });
+            await expect(stat(walFilePath)).resolves.toMatchObject({
+                isFile: expect.any(Function),
+            });
+            await expect(stat(shmFilePath)).resolves.toMatchObject({
+                isFile: expect.any(Function),
+            });
 
-        cacheStore.close();
+            cacheStore.close();
 
-        await expect(stat(walFilePath)).rejects.toBeDefined();
-        await expect(stat(shmFilePath)).rejects.toBeDefined();
+            await expect(stat(walFilePath)).rejects.toBeDefined();
+            await expect(stat(shmFilePath)).rejects.toBeDefined();
+
+            const logs = logCapture.read();
+
+            expect(logs).toContain(`"msg":"Sqlite cache store closed."`);
+            expect(logs).not.toContain(`"storePathExists"`);
+        }
+        finally {
+            logCapture.close();
+        }
     });
 
     test("falls back to a no-op cache when sqlite namespace initialization is locked", async () => {
@@ -402,6 +416,7 @@ describe("SqliteCacheStore", () => {
 
             expect(logs).toContain(`"level":"warn"`);
             expect(logs).toContain(`"category":"recoverable_cache"`);
+            expect(logs).not.toContain(`"storePathExists"`);
             expect(logs).toContain(
                 `"msg":"Sqlite cache touch update was skipped because the database is locked."`,
             );

@@ -111,6 +111,36 @@ describe("bundled skill publication", () => {
         }
     });
 
+    test("returns false when symlink creation throws", async () => {
+        const result = await createBundledSkillDirectorySymlink(
+            "/tmp/canonical/skills/oo",
+            "/tmp/agent/skills/oo",
+            {
+                lstat: async () => {
+                    const error = new Error("missing") as NodeJS.ErrnoException;
+
+                    error.code = "ENOENT";
+
+                    throw error;
+                },
+                mkdir: async () => undefined,
+                readlink: async () => {
+                    throw new Error("readlink should not run when the link is missing");
+                },
+                realpath: async path => path,
+                removePath: async () => {
+                    throw new Error("removePath should not run when the link is missing");
+                },
+                resolveParentSymlinks: async path => path,
+                symlink: async () => {
+                    throw new Error("boom");
+                },
+            },
+        );
+
+        expect(result).toBeFalse();
+    });
+
     test("replaces an existing directory at the installed path before creating a symlink", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
         const canonicalSkillDirectoryPath = join(
