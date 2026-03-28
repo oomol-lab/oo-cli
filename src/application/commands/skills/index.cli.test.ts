@@ -10,7 +10,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
-    resolveBundledSkillVersionFilePath,
+    resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
 } from "./shared.ts";
 
@@ -51,7 +51,7 @@ describe("skills CLI", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
-        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -69,7 +69,9 @@ describe("skills CLI", () => {
             expect(await readFile(ownershipFilePath, "utf8")).toContain(
                 "allow_implicit_invocation: true",
             );
-            expect(await readFile(versionFilePath, "utf8")).toBe("9.9.9\n");
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                formatBundledSkillMetadataContent("9.9.9"),
+            );
             expect(content).toContain(`"msg":"CLI first-run detection completed."`);
             expect(content).toContain(`"isFirstRun":true`);
             expect(content).toContain(`"shouldInstallMissingBundledSkills":true`);
@@ -135,7 +137,7 @@ describe("skills CLI", () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
         const settingsFilePath = join(
             sandbox.env.XDG_CONFIG_HOME!,
@@ -145,7 +147,10 @@ describe("skills CLI", () => {
 
         try {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-            await Bun.write(versionFilePath, "9.9.9\n");
+            await Bun.write(
+                metadataFilePath,
+                formatBundledSkillMetadataContent("9.9.9"),
+            );
             await Bun.write(
                 ownershipFilePath,
                 await Bun.file(
@@ -212,3 +217,7 @@ describe("skills CLI", () => {
         }
     });
 });
+
+function formatBundledSkillMetadataContent(version: string): string {
+    return `${JSON.stringify({ version }, null, 2)}\n`;
+}

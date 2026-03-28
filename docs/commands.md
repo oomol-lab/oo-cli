@@ -169,8 +169,8 @@ Install one bundled skill into the local Codex skills directory.
   as `oo skills install oo`.
 - Supported skill names: currently `oo`.
 - Target directory: `${CODEX_HOME:-~/.codex}/skills/oo`.
-- Metadata: the installation writes the current `oo` version into a hidden
-  version file inside the skill directory.
+- Metadata: the installation writes a hidden `.oo-metadata.json` file inside
+  the skill directory with a `version` field for the current `oo` version.
 - Metadata: `agents/openai.yaml` uses the persisted
   `skills.oo.implicit_invocation` value when configured, otherwise the
   bundled default is used.
@@ -183,8 +183,8 @@ Install one bundled skill into the local Codex skills directory.
   data yet, `oo` silently installs the managed skill automatically if the
   Codex home directory already exists.
 - Notes: when a bundled skill is already installed, every `oo` startup checks
-  whether its recorded version matches the current CLI version and silently
-  refreshes the installed files when needed.
+  whether the recorded metadata `version` matches the current CLI version and
+  silently refreshes the installed files when needed.
 
 ### `oo skills uninstall`
 

@@ -11,7 +11,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
-    resolveBundledSkillVersionFilePath,
+    resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
 } from "../skills/shared.ts";
 
@@ -174,11 +174,14 @@ describe("config CLI", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
-        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
 
         try {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-            await Bun.write(versionFilePath, "9.9.9\n");
+            await Bun.write(
+                metadataFilePath,
+                formatBundledSkillMetadataContent("9.9.9"),
+            );
             await Bun.write(
                 ownershipFilePath,
                 await Bun.file(
@@ -210,7 +213,7 @@ describe("config CLI", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
-        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const settingsFilePath = join(
             sandbox.env.XDG_CONFIG_HOME!,
             APP_NAME,
@@ -219,7 +222,10 @@ describe("config CLI", () => {
 
         try {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-            await Bun.write(versionFilePath, "9.9.9\n");
+            await Bun.write(
+                metadataFilePath,
+                formatBundledSkillMetadataContent("9.9.9"),
+            );
             await Bun.write(
                 ownershipFilePath,
                 [
@@ -428,3 +434,7 @@ describe("config CLI", () => {
         }
     });
 });
+
+function formatBundledSkillMetadataContent(version: string): string {
+    return `${JSON.stringify({ version }, null, 2)}\n`;
+}
