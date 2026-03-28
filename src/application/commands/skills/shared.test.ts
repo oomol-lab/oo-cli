@@ -1,5 +1,5 @@
 import { mkdir, readFile, realpath, rm, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
@@ -7,6 +7,7 @@ import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
 import {
     createBundledSkillDirectorySymlink,
     publishBundledSkillInstallation,
+    removeBundledSkillSymbolicPath,
 } from "./shared.ts";
 
 describe("bundled skill publication", () => {
@@ -195,6 +196,8 @@ describe("bundled skill publication", () => {
         }> = [];
         const targetPath = "/tmp/canonical/skills/oo";
         const linkPath = "/tmp/agent/skills/oo";
+        const resolvedTargetPath = resolve(targetPath);
+        const resolvedLinkPath = resolve(linkPath);
 
         const result = await createBundledSkillDirectorySymlink(
             targetPath,
@@ -223,11 +226,11 @@ describe("bundled skill publication", () => {
         );
 
         expect(result).toBeTrue();
-        expect(removedPaths).toEqual([linkPath]);
+        expect(removedPaths).toEqual([resolvedLinkPath]);
         expect(createdSymlinks).toEqual([
             {
-                linkPath,
-                targetPath: "../../canonical/skills/oo",
+                linkPath: resolvedLinkPath,
+                targetPath: relative(dirname(resolvedLinkPath), resolvedTargetPath),
                 type: "dir",
             },
         ]);
@@ -242,6 +245,8 @@ describe("bundled skill publication", () => {
         }> = [];
         const targetPath = "/windows/canonical/oo";
         const linkPath = "/windows/agent/oo";
+        const resolvedTargetPath = resolve(targetPath);
+        const resolvedLinkPath = resolve(linkPath);
 
         const result = await createBundledSkillDirectorySymlink(
             targetPath,
@@ -275,13 +280,34 @@ describe("bundled skill publication", () => {
         );
 
         expect(result).toBeTrue();
-        expect(removedPaths).toEqual([linkPath]);
+        expect(removedPaths).toEqual([resolvedLinkPath]);
         expect(createdSymlinks).toEqual([
             {
-                linkPath,
-                targetPath,
+                linkPath: resolvedLinkPath,
+                targetPath: resolvedTargetPath,
                 type: "junction",
             },
         ]);
+    });
+
+    test("falls back to rmdir when removing a junction hits EFAULT on win32", async () => {
+        const removedWithRmdir: string[] = [];
+        const junctionPath = "C:\\Users\\Tester\\.codex\\skills\\oo";
+
+        await removeBundledSkillSymbolicPath(junctionPath, {
+            platform: "win32",
+            rm: async () => {
+                const error = new Error("bad address") as NodeJS.ErrnoException;
+
+                error.code = "EFAULT";
+
+                throw error;
+            },
+            rmdir: async (path) => {
+                removedWithRmdir.push(path);
+            },
+        });
+
+        expect(removedWithRmdir).toEqual([junctionPath]);
     });
 });

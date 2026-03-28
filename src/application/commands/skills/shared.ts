@@ -72,6 +72,17 @@ export interface CreateBundledSkillDirectorySymlinkDependencies {
     platform?: NodeJS.Platform;
 }
 
+export interface RemoveBundledSkillSymbolicPathDependencies {
+    platform?: NodeJS.Platform;
+    rm?: (
+        path: string,
+        options: {
+            force: true;
+        },
+    ) => Promise<void>;
+    rmdir?: (path: string) => Promise<void>;
+}
+
 export function resolveCodexHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
@@ -874,7 +885,7 @@ async function removePath(path: string): Promise<void> {
         const pathStats = await lstat(path);
 
         if (pathStats.isSymbolicLink()) {
-            await removeSymbolicPath(path);
+            await removeBundledSkillSymbolicPath(path);
             return;
         }
 
@@ -889,13 +900,20 @@ async function removePath(path: string): Promise<void> {
     }
 }
 
-async function removeSymbolicPath(path: string): Promise<void> {
+export async function removeBundledSkillSymbolicPath(
+    path: string,
+    dependencies: RemoveBundledSkillSymbolicPathDependencies = {},
+): Promise<void> {
+    const rmFn = dependencies.rm ?? rm;
+    const rmdirFn = dependencies.rmdir ?? rmdir;
+    const runtimePlatform = dependencies.platform ?? process.platform;
+
     try {
-        await rm(path, { force: true });
+        await rmFn(path, { force: true });
     }
     catch (error) {
-        if (process.platform === "win32" && isWindowsBadAddressError(error)) {
-            await rmdir(path);
+        if (runtimePlatform === "win32" && isWindowsBadAddressError(error)) {
+            await rmdirFn(path);
             return;
         }
 
