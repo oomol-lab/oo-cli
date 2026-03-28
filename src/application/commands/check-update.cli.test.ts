@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox, readLatestLogContent } from "../../../__tests__/helpers.ts";
+import {
+    createCliSandbox,
+    createCliSnapshot,
+    readLatestLogContent,
+} from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
 
 const packageName = packageManifest.name;
@@ -29,7 +33,7 @@ describe("checkUpdateCommand CLI", () => {
             );
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(content).toContain(`"msg":"CLI update check started."`);
             expect(content).toContain(
                 `"msg":"CLI update latest-release request started."`,
@@ -61,7 +65,7 @@ describe("checkUpdateCommand CLI", () => {
             );
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(fetchCount).toBe(0);
             expect(content).not.toContain(`"msg":"CLI update check started."`);
         }
@@ -94,16 +98,10 @@ describe("checkUpdateCommand CLI", () => {
                 },
             );
 
-            expect(firstResult.exitCode).toBe(0);
-            expect(firstResult.stdout).toContain(
-                "Unable to check for updates right now. Please try again later.",
-            );
-            expect(firstResult.stderr).toBe("");
-            expect(secondResult.exitCode).toBe(0);
-            expect(secondResult.stdout).toContain(
-                "Unable to check for updates right now. Please try again later.",
-            );
-            expect(secondResult.stderr).toBe("");
+            expect({
+                firstResult: createCliSnapshot(firstResult),
+                secondResult: createCliSnapshot(secondResult),
+            }).toMatchSnapshot();
             expect(fetchCount).toBe(4);
         }
         finally {
@@ -152,11 +150,11 @@ describe("checkUpdateCommand CLI", () => {
             );
 
             expect(firstResult.exitCode).toBe(0);
-            expect(firstResult.stdout).toContain(
-                "Unable to check for updates right now. Please try again later.",
-            );
             expect(secondResult.exitCode).toBe(0);
-            expect(secondResult.stdout).toContain("Update available 1.0.0");
+            expect({
+                firstResult: createCliSnapshot(firstResult),
+                secondResult: createCliSnapshot(secondResult),
+            }).toMatchSnapshot();
             expect(fetchCount).toBe(3);
         }
         finally {
@@ -193,12 +191,10 @@ describe("checkUpdateCommand CLI", () => {
                 },
             );
 
-            expect(firstResult.exitCode).toBe(0);
-            expect(firstResult.stdout).toContain("Update available 1.0.0");
-            expect(firstResult.stdout).toContain("1.2.0");
-            expect(secondResult.exitCode).toBe(0);
-            expect(secondResult.stdout).toContain("Update available 1.0.0");
-            expect(secondResult.stdout).toContain("1.3.0");
+            expect({
+                firstResult: createCliSnapshot(firstResult),
+                secondResult: createCliSnapshot(secondResult),
+            }).toMatchSnapshot();
             expect(fetchCount).toBe(2);
         }
         finally {
@@ -217,11 +213,7 @@ describe("checkUpdateCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain(
-                "Current version development does not support update checks.",
-            );
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();

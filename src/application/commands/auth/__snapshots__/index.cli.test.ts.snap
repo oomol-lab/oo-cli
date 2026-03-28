@@ -1,0 +1,221 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`auth CLI writes auth login callback logs without persisting api keys 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Open this URL in your browser to continue: <LOGIN_URL>
+Waiting for the browser login to complete...
+✓ Logged in to oomol.com account Alice
+  - Active account: true
+"
+,
+}
+`;
+
+exports[`auth CLI writes auth-store and auth status logs 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"✓ Logged in to oomol.com account Alice
+  - Active account: true
+  - API key status: Valid
+"
+,
+}
+`;
+
+exports[`auth CLI renders alias descriptions in login and logout help 1`] = `
+{
+  "loginHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Log in with an OOMOL account in the browser. Alias for auth login.
+
+Options:
+  -h, --help     Show help for command
+
+Global Options:
+  -V, --version  Show the current version
+  --debug        Print the current log file path when the CLI exits
+  --lang <lang>  Specify the display language
+"
+,
+  },
+  "logoutHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Remove the current account from persisted auth data. Alias for auth logout.
+
+Options:
+  -h, --help     Show help for command
+
+Global Options:
+  -V, --version  Show the current version
+  --debug        Print the current log file path when the CLI exits
+  --lang <lang>  Specify the display language
+"
+,
+  },
+}
+`;
+
+exports[`auth CLI supports auth login and updates the existing account without duplication 1`] = `
+{
+  "firstLogin": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Open this URL in your browser to continue: <LOGIN_URL>
+Waiting for the browser login to complete...
+✓ Logged in to oomol.com account Alice
+  - Active account: true
+"
+,
+  },
+  "secondLogin": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Open this URL in your browser to continue: <LOGIN_URL>
+Waiting for the browser login to complete...
+✓ Logged in to oomol.com account Alice
+  - Active account: true
+"
+,
+  },
+}
+`;
+
+exports[`auth CLI supports auth login with a custom OOMOL_ENDPOINT 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Open this URL in your browser to continue: <LOGIN_URL>
+Waiting for the browser login to complete...
+✓ Logged in to staging.oomol.test account Alice
+  - Active account: true
+"
+,
+}
+`;
+
+exports[`auth CLI supports login as an alias for auth login 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Open this URL in your browser to continue: <LOGIN_URL>
+Waiting for the browser login to complete...
+✓ Logged in to oomol.com account Alice
+  - Active account: true
+"
+,
+}
+`;
+
+exports[`auth CLI renders the auth login url and success block with color styling when stdout supports colors 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Open this URL in your browser to continue: <LOGIN_URL>
+Waiting for the browser login to complete...
+✓ Logged in to oomol.com account Alice
+  - Active account: true
+"
+,
+}
+`;
+
+exports[`auth CLI supports auth logout without falling back to another account 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Logged out the current account.
+"
+,
+}
+`;
+
+exports[`auth CLI supports logout as an alias for auth logout 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Logged out the current account.
+"
+,
+}
+`;
+
+exports[`auth CLI supports auth status for valid and invalid api keys 1`] = `
+{
+  "invalidStatus": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"X Logged in to oomol.com account Alice
+  - Active account: true
+  - API key status: Invalid
+"
+,
+  },
+  "validStatus": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"✓ Logged in to oomol.com account Alice
+  - Active account: true
+  - API key status: Valid
+"
+,
+  },
+}
+`;
+
+exports[`auth CLI supports auth switch by activating the next saved account 1`] = `
+{
+  "firstSwitch": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"✓ Switched active account for oomol.com to Bob
+"
+,
+  },
+  "secondSwitch": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"✓ Switched active account for oomol.com to Charlie
+"
+,
+  },
+  "thirdSwitch": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"✓ Switched active account for oomol.com to Alice
+"
+,
+  },
+}
+`;
+
+exports[`auth CLI renders the auth switch success block with gh-style emphasis when stdout supports colors 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"✓ Switched active account for oomol.com to Bob
+"
+,
+}
+`;

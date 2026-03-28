@@ -1,0 +1,151 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`skills CLI rejects unsupported skill names for skills install 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"Unsupported skill: unknown. Use oo.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`skills CLI treats the removed allow-implicit-invocation subcommand as unknown 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"Unknown command: allow-implicit-invocation.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`skills CLI silently installs the managed Codex skill on the first run 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
+
+Options:
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
+
+Commands:
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  package                  Package utilities
+  search [options] <text>  Search packages by intent
+  help [command]           Show help for a command
+"
+,
+}
+`;
+
+exports[`skills CLI does not auto-install the managed Codex skill during local development runs 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
+
+Options:
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
+
+Commands:
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  package                  Package utilities
+  search [options] <text>  Search packages by intent
+  help [command]           Show help for a command
+"
+,
+}
+`;
+
+exports[`skills CLI does not auto-install the managed Codex skill for skills subcommands 1`] = `
+{
+  "exitCode": 1,
+  "stderr": 
+"Codex skill oo is not installed at <HOME>/.codex/skills/oo.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`skills CLI synchronizes the managed Codex skill policy from persisted settings 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
+
+Options:
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
+
+Commands:
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  package                  Package utilities
+  search [options] <text>  Search packages by intent
+  help [command]           Show help for a command
+"
+,
+}
+`;
+
+exports[`skills CLI writes explicit skills install and uninstall logs 1`] = `
+{
+  "installResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Installed Codex skill oo to <HOME>/.codex/skills/oo.
+"
+,
+  },
+  "uninstallResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Removed Codex skill oo from <HOME>/.codex/skills/oo.
+"
+,
+  },
+}
+`;

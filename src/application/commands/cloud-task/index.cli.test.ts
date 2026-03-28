@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    createCliSnapshot,
     readLatestLogContent,
     toRequest,
 } from "../../../../__tests__/helpers.ts";
@@ -67,7 +68,7 @@ describe("cloudTaskCommand CLI", () => {
             );
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(content).toContain(`"msg":"Package info request started."`);
             expect(content).toContain(`"msg":"Package info request completed."`);
             expect(content).toContain(`"msg":"Cloud task request started."`);
@@ -156,8 +157,7 @@ describe("cloudTaskCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(JSON.parse(result.stdout)).toEqual({
                 taskID: "550e8400-e29b-41d4-a716-446655440017",
             });
@@ -258,9 +258,7 @@ describe("cloudTaskCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe("Validation passed.\n");
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(requests).toHaveLength(1);
             expect(requests[0]?.url).toBe(
                 "https://registry.oomol.com/-/oomol/package-info/secret-tool/1.2.3?lang=en",
@@ -378,14 +376,17 @@ describe("cloudTaskCommand CLI", () => {
                 },
             );
 
-            expect(resultResponse.exitCode).toBe(0);
+            expect({
+                listResponse: createCliSnapshot(listResponse),
+                logResponse: createCliSnapshot(logResponse),
+                resultResponse: createCliSnapshot(resultResponse),
+            }).toMatchSnapshot();
             expect(JSON.parse(resultResponse.stdout)).toEqual({
                 resultData: { output: "ok" },
                 resultURL: "https://example.com/result.json",
                 status: "success",
                 traceID: "trace-1",
             });
-            expect(logResponse.exitCode).toBe(0);
             expect(JSON.parse(logResponse.stdout)).toEqual({
                 logs: [
                     {
@@ -394,7 +395,6 @@ describe("cloudTaskCommand CLI", () => {
                     },
                 ],
             });
-            expect(listResponse.exitCode).toBe(0);
             expect(JSON.parse(listResponse.stdout)).toEqual({
                 nextToken: "eyJsYXN0SWQiOiIxMjMifQ==",
                 tasks: [
@@ -483,32 +483,14 @@ describe("cloudTaskCommand CLI", () => {
                 },
             );
 
-            expect(waitResponse.exitCode).toBe(0);
-            expect(waitResponse.stderr).toBe("");
-            expect(createTerminalColors(true).strip(waitResponse.stdout)).toBe(
-                [
-                    "✓ success",
-                    "  Task ID: task-1",
-                    "  Result data:",
-                    "    {",
-                    "      \"output\": \"ok\"",
-                    "    }",
-                    "",
-                ].join("\n"),
-            );
-            expect(aliasResponse.exitCode).toBe(0);
-            expect(aliasResponse.stderr).toBe("");
-            expect(createTerminalColors(true).strip(aliasResponse.stdout)).toBe(
-                [
-                    "✓ success",
-                    "  Task ID: task-2",
-                    "  Result data:",
-                    "    {",
-                    "      \"output\": \"ok\"",
-                    "    }",
-                    "",
-                ].join("\n"),
-            );
+            expect({
+                aliasResponse: createCliSnapshot(aliasResponse, {
+                    stripAnsi: true,
+                }),
+                waitResponse: createCliSnapshot(waitResponse, {
+                    stripAnsi: true,
+                }),
+            }).toMatchSnapshot();
             expect(requests.map(request => request.url)).toEqual([
                 "https://cloud-task.oomol.com/v3/users/me/tasks/task-1/result",
                 "https://cloud-task.oomol.com/v3/users/me/tasks/task-2/result",
@@ -557,11 +539,7 @@ describe("cloudTaskCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(2);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toBe(
-                "Invalid value for --timeout: 9s. Use 10s to 24h, with optional s, m, or h suffixes.\n",
-            );
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(fetchCount).toBe(0);
         }
         finally {
@@ -645,9 +623,7 @@ describe("cloudTaskCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe("Validation passed.\n");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(requests).toHaveLength(1);
         }
         finally {
@@ -741,12 +717,10 @@ describe("cloudTaskCommand CLI", () => {
                 },
             );
 
-            expect(omittedDataResult.exitCode).toBe(0);
-            expect(omittedDataResult.stderr).toBe("");
-            expect(omittedDataResult.stdout).toBe("Validation passed.\n");
-            expect(emptyDataResult.exitCode).toBe(0);
-            expect(emptyDataResult.stderr).toBe("");
-            expect(emptyDataResult.stdout).toBe("Validation passed.\n");
+            expect({
+                emptyDataResult: createCliSnapshot(emptyDataResult),
+                omittedDataResult: createCliSnapshot(omittedDataResult),
+            }).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -794,20 +768,12 @@ describe("cloudTaskCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(createTerminalColors(true).strip(result.stdout)).toBe(
-                [
-                    "✓ success",
-                    "  Task ID: task-1",
-                    "  Result URL: https://example.com/result.json",
-                    "  Result data:",
-                    "    {",
-                    "      \"output\": \"ok\"",
-                    "    }",
-                    "",
-                ].join("\n"),
-            );
+            expect(createCliSnapshot(
+                result,
+                {
+                    stripAnsi: true,
+                },
+            )).toMatchSnapshot();
             expect(result.stdout).toContain(colors.green("✓"));
             expect(result.stdout).toContain(colors.green.bold("success"));
             expect(result.stdout).toContain(colors.bold("task-1"));
@@ -880,26 +846,12 @@ describe("cloudTaskCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(createTerminalColors(true).strip(result.stdout)).toBe(
-                [
-                    "▶ running",
-                    "  Task ID: task-1",
-                    "  Package/Block: foo / main",
-                    "  Workload: serverless",
-                    "  Progress: [=====-----] 50%",
-                    "  Created: 2024-01-01T00:00:00.000Z",
-                    "  Updated: 2024-01-01T00:00:00.000Z",
-                    "  Input values:",
-                    "    {",
-                    "      \"foo\": \"bar\"",
-                    "    }",
-                    "",
-                    "  Next token: next-token",
-                    "",
-                ].join("\n"),
-            );
+            expect(createCliSnapshot(
+                result,
+                {
+                    stripAnsi: true,
+                },
+            )).toMatchSnapshot();
             expect(result.stdout).toContain(colors.blue("▶"));
             expect(result.stdout).toContain(colors.blue.bold("running"));
             expect(result.stdout).toContain(colors.hex(searchDisplayNameColor)("foo"));
@@ -935,11 +887,7 @@ describe("cloudTaskCommand CLI", () => {
 
             const result = await sandbox.run(["cloud-task", "list", "--block-id=main"]);
 
-            expect(result.exitCode).toBe(2);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toBe(
-                "You must provide --package-id (or --package-name) when using --block-id.\n",
-            );
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();

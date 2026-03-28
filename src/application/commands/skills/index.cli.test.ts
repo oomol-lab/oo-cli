@@ -3,7 +3,11 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox, readLatestLogContent } from "../../../../__tests__/helpers.ts";
+import {
+    createCliSandbox,
+    createCliSnapshot,
+    readLatestLogContent,
+} from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     resolveBundledSkillVersionFilePath,
@@ -17,11 +21,7 @@ describe("skills CLI", () => {
         try {
             const result = await sandbox.run(["skills", "install", "unknown"]);
 
-            expect(result.exitCode).toBe(2);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toBe(
-                "Unsupported skill: unknown. Use oo.\n",
-            );
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -38,7 +38,7 @@ describe("skills CLI", () => {
                 "false",
             ]);
 
-            expect(result.exitCode).toBe(2);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stderr).toContain("Unknown command");
         }
         finally {
@@ -61,9 +61,8 @@ describe("skills CLI", () => {
             });
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stdout).not.toContain("Installed Codex skill");
-            expect(result.stderr).toBe("");
             await expect(stat(join(skillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
                 isFile: expect.any(Function),
             });
@@ -94,9 +93,8 @@ describe("skills CLI", () => {
             const result = await sandbox.run(["--help"]);
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stdout).not.toContain("Installed Codex skill");
-            expect(result.stderr).toBe("");
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
@@ -123,10 +121,7 @@ describe("skills CLI", () => {
             const result = await sandbox.run(["skills", "uninstall"]);
 
             expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toBe(
-                `Codex skill oo is not installed at ${skillDirectoryPath}.\n`,
-            );
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
@@ -170,7 +165,7 @@ describe("skills CLI", () => {
                 version: "9.9.9",
             });
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(await readFile(ownershipFilePath, "utf8")).toContain(
                 "allow_implicit_invocation: false",
             );
@@ -195,7 +190,10 @@ describe("skills CLI", () => {
             const uninstallResult = await sandbox.run(["skills", "uninstall"]);
             const uninstallContent = await readLatestLogContent(sandbox);
 
-            expect(installResult.exitCode).toBe(0);
+            expect({
+                installResult: createCliSnapshot(installResult, { sandbox }),
+                uninstallResult: createCliSnapshot(uninstallResult, { sandbox }),
+            }).toMatchSnapshot();
             expect(installContent).toContain(
                 `"msg":"Bundled Codex skill installed explicitly."`,
             );
@@ -203,7 +201,6 @@ describe("skills CLI", () => {
             expect(installContent).toContain(`"path":"${skillDirectoryPath}"`);
             expect(installContent).toContain(`"version":"9.9.9"`);
 
-            expect(uninstallResult.exitCode).toBe(0);
             expect(uninstallContent).toContain(
                 `"msg":"Bundled Codex skill removed explicitly."`,
             );

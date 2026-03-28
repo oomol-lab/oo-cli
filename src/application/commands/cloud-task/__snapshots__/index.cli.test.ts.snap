@@ -1,0 +1,188 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`cloudTaskCommand CLI writes package info and cloud-task request logs during task creation 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Task ID: task-1
+"
+,
+}
+`;
+
+exports[`cloudTaskCommand CLI supports cloud-task run with json output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"{"taskID":"550e8400-e29b-41d4-a716-446655440017"}
+"
+,
+}
+`;
+
+exports[`cloudTaskCommand CLI supports cloud-task run dry-run with @file payloads 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Validation passed.
+"
+,
+}
+`;
+
+exports[`cloudTaskCommand CLI supports cloud-task result, log, and list json output 1`] = `
+{
+  "listResponse": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"nextToken":"eyJsYXN0SWQiOiIxMjMifQ==","tasks":[{"createdAt":1704067200000,"endTime":null,"failedMessage":null,"ownerID":"user-1","packageID":"foo","blockName":"main","progress":50,"resultURL":null,"schedulerPayload":{"type":"serverless"},"startTime":null,"status":"running","subscriptionID":null,"taskID":"550e8400-e29b-41d4-a716-446655440019","taskType":"user","updatedAt":1704067200000,"workload":"serverless","workloadID":"550e8400-e29b-41d4-a716-446655440020"}]}
+"
+,
+  },
+  "logResponse": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"logs":[{"level":"info","message":"running"}]}
+"
+,
+  },
+  "resultResponse": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"resultData":{"output":"ok"},"resultURL":"https://example.com/result.json","status":"success","traceID":"trace-1"}
+"
+,
+  },
+}
+`;
+
+exports[`cloudTaskCommand CLI supports cloud-task wait and its alias with timeout parsing 1`] = `
+{
+  "aliasResponse": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"✓ success
+  Task ID: task-2
+  Result data:
+    {
+      "output": "ok"
+    }
+"
+,
+  },
+  "waitResponse": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"✓ success
+  Task ID: task-1
+  Result data:
+    {
+      "output": "ok"
+    }
+"
+,
+  },
+}
+`;
+
+exports[`cloudTaskCommand CLI validates cloud-task wait timeout values 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"Invalid value for --timeout: 9s. Use 10s to 24h, with optional s, m, or h suffixes.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`cloudTaskCommand CLI treats omitted input handles with default values as optional in cloud-task run 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Validation passed.
+"
+,
+}
+`;
+
+exports[`cloudTaskCommand CLI accepts omitted and empty --data values by treating them as empty objects 1`] = `
+{
+  "emptyDataResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Validation passed.
+"
+,
+  },
+  "omittedDataResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Validation passed.
+"
+,
+  },
+}
+`;
+
+exports[`cloudTaskCommand CLI renders cloud-task result text output with colors and grouped details 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"✓ success
+  Task ID: task-1
+  Result URL: https://example.com/result.json
+  Result data:
+    {
+      "output": "ok"
+    }
+"
+,
+}
+`;
+
+exports[`cloudTaskCommand CLI renders cloud-task list text output with colors and summary blocks 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"▶ running
+  Task ID: task-1
+  Package/Block: foo / main
+  Workload: serverless
+  Progress: [=====-----] 50%
+  Created: 2024-01-01T00:00:00.000Z
+  Updated: 2024-01-01T00:00:00.000Z
+  Input values:
+    {
+      "foo": "bar"
+    }
+
+  Next token: next-token
+"
+,
+}
+`;
+
+exports[`cloudTaskCommand CLI requires a package filter when cloud-task list receives a block filter 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"You must provide --package-id (or --package-name) when using --block-id.
+"
+,
+  "stdout": "",
+}
+`;

@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    createCliSnapshot,
     toRequest,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
@@ -72,12 +73,7 @@ describe("file upload CLI", () => {
             });
 
             try {
-                expect(result.exitCode).toBe(0);
-                expect(result.stderr).toBe("");
-                expect(result.stdout).toContain("Uploaded sample.txt.");
-                expect(result.stdout).toContain(
-                    "https://download.example.com/file-1?signature=abc",
-                );
+                expect(createFileUploadSnapshot(result)).toMatchSnapshot();
                 expect(requests.map(request => request.url)).toEqual([
                     "https://llm.oomol.com/api/tasks/files/remote-cache/init",
                     "https://storage.example.com/upload/1",
@@ -181,8 +177,10 @@ describe("file upload CLI", () => {
                 },
             );
 
-            expect(jsonAliasResult.exitCode).toBe(0);
-            expect(jsonAliasResult.stderr).toBe("");
+            expect({
+                jsonAliasResult: createFileUploadJsonSnapshot(jsonAliasResult),
+                jsonFormatResult: createFileUploadJsonSnapshot(jsonFormatResult),
+            }).toMatchSnapshot();
             expect(JSON.parse(jsonAliasResult.stdout)).toMatchObject({
                 downloadUrl: "https://download.example.com/file-1?signature=abc",
                 expiresAt: "3026-03-27T00:00:00.000Z",
@@ -190,8 +188,6 @@ describe("file upload CLI", () => {
                 fileSize: 11,
                 status: "active",
             });
-            expect(jsonFormatResult.exitCode).toBe(0);
-            expect(jsonFormatResult.stderr).toBe("");
             expect(JSON.parse(jsonFormatResult.stdout)).toMatchObject({
                 downloadUrl: "https://download.example.com/file-2?signature=abc",
                 expiresAt: "3026-03-27T00:00:00.000Z",
@@ -213,13 +209,84 @@ describe("file upload CLI", () => {
         try {
             const result = await sandbox.run(["file", "upload", "--help"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toContain("--json");
-            expect(result.stdout).toContain("Alias for --format=json");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
         }
     });
 });
+
+function createFileUploadSnapshot(
+    result: {
+        readonly exitCode: number;
+        readonly stdout: string;
+        readonly stderr: string;
+    },
+) {
+    return createCliSnapshot(result, {
+        replacements: [
+            createOutputLineReplacement(result.stdout, "  - ID: ", "<UPLOAD_ID>"),
+            createOutputLineReplacement(result.stdout, "  - Uploaded at: ", "<UPLOADED_AT>"),
+        ].filter((replacement): replacement is {
+            readonly placeholder: string;
+            readonly value: string;
+        } => replacement !== undefined),
+    });
+}
+
+function createFileUploadJsonSnapshot(
+    result: {
+        readonly exitCode: number;
+        readonly stdout: string;
+        readonly stderr: string;
+    },
+) {
+    const output = JSON.parse(result.stdout) as {
+        id?: string;
+        uploadedAt?: string;
+    };
+
+    return createCliSnapshot(result, {
+        replacements: [
+            createOptionalReplacement("<UPLOAD_ID>", output.id),
+            createOptionalReplacement("<UPLOADED_AT>", output.uploadedAt),
+        ].filter((replacement): replacement is {
+            readonly placeholder: string;
+            readonly value: string;
+        } => replacement !== undefined),
+    });
+}
+
+function createOutputLineReplacement(
+    output: string,
+    prefix: string,
+    placeholder: string,
+) {
+    const line = output
+        .split("\n")
+        .find(candidate => candidate.startsWith(prefix));
+
+    if (line === undefined) {
+        return undefined;
+    }
+
+    return {
+        placeholder,
+        value: line.slice(prefix.length),
+    };
+}
+
+function createOptionalReplacement(
+    placeholder: string,
+    value: string | undefined,
+) {
+    if (value === undefined) {
+        return undefined;
+    }
+
+    return {
+        placeholder,
+        value,
+    };
+}

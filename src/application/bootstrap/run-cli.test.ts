@@ -3,7 +3,12 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox, createTextBuffer, readLatestLogContent } from "../../../__tests__/helpers.ts";
+import {
+    createCliSandbox,
+    createCliSnapshot,
+    createTextBuffer,
+    readLatestLogContent,
+} from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { APP_NAME } from "../config/app-config.ts";
@@ -22,16 +27,7 @@ describe("runCli bootstrap", () => {
         try {
             const result = await sandbox.run(["--version"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(
-                [
-                    `Version: ${packageManifest.version}`,
-                    "Build Time: unknown",
-                    "Commit: unknown",
-                    "",
-                ].join("\n"),
-            );
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -44,16 +40,7 @@ describe("runCli bootstrap", () => {
         try {
             const result = await sandbox.run(["--lang", "zh", "--version"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(
-                [
-                    `版本: ${packageManifest.version}`,
-                    "构建时间: 未知",
-                    "提交: 未知",
-                    "",
-                ].join("\n"),
-            );
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -72,7 +59,7 @@ describe("runCli bootstrap", () => {
             );
             const result = await sandbox.run(["--help"]);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             await expect(stat(cacheFilePath)).resolves.toMatchObject({
                 isFile: expect.any(Function),
             });
@@ -94,7 +81,7 @@ describe("runCli bootstrap", () => {
             const result = await sandbox.run(["--help"]);
             const logFileNames = await readdir(logDirectoryPath).catch(() => []);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(logFileNames.length).toBeGreaterThan(0);
 
             const content = await readFile(
@@ -126,8 +113,14 @@ describe("runCli bootstrap", () => {
             const logFileNames = await readdir(logDirectoryPath);
             const logFilePath = join(logDirectoryPath, logFileNames.at(-1)!);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe(`${logFilePath}\n`);
+            expect(createCliSnapshot(result, {
+                replacements: [
+                    {
+                        placeholder: "<LOG_FILE_PATH>",
+                        value: logFilePath,
+                    },
+                ],
+            })).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -141,33 +134,10 @@ describe("runCli bootstrap", () => {
             const englishHelp = await sandbox.run(["--help"]);
             const chineseHelp = await sandbox.run(["--lang", "zh", "--help"]);
 
-            expect(englishHelp.exitCode).toBe(0);
-            expect(englishHelp.stdout).not.toContain("Usage:");
-            expect(englishHelp.stdout).toContain("auth");
-            expect(englishHelp.stdout).toContain("log");
-            expect(englishHelp.stdout).toContain(`${APP_NAME} is OOMOL's CLI toolkit.`);
-            expect(englishHelp.stdout).toContain("--debug");
-            expect(englishHelp.stdout).toContain("--lang <lang>");
-            expect(englishHelp.stdout).toContain(
-                "Log in with a browser flow (alias for auth login)",
-            );
-            expect(englishHelp.stdout).toContain(
-                "Log out the current account (alias for auth logout)",
-            );
-
-            expect(chineseHelp.exitCode).toBe(0);
-            expect(chineseHelp.stdout).not.toContain("用法：");
-            expect(chineseHelp.stdout).toContain("auth");
-            expect(chineseHelp.stdout).toContain("log");
-            expect(chineseHelp.stdout).toContain(`${APP_NAME} 是 OOMOL 的 CLI 工具集`);
-            expect(chineseHelp.stdout).toContain("--debug");
-            expect(chineseHelp.stdout).toContain("选项：");
-            expect(chineseHelp.stdout).toContain(
-                "通过浏览器登录（auth login 的别名）",
-            );
-            expect(chineseHelp.stdout).toContain(
-                "登出当前账号（auth logout 的别名）",
-            );
+            expect({
+                chinese: createCliSnapshot(chineseHelp),
+                english: createCliSnapshot(englishHelp),
+            }).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -188,7 +158,9 @@ describe("runCli bootstrap", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result, {
+                stripAnsi: true,
+            })).toMatchSnapshot();
             expect(result.stdout).toContain(
                 `${colors.magenta(APP_NAME)} is ${colors.cyan("OOMOL")}'s CLI toolkit.`,
             );
@@ -205,10 +177,12 @@ describe("runCli bootstrap", () => {
             const invalidLang = await sandbox.run(["--lang", "fr", "--help"]);
             const unknownCommand = await sandbox.run(["cnfig"]);
 
-            expect(invalidLang.exitCode).toBe(2);
+            expect({
+                invalidLang: createCliSnapshot(invalidLang),
+                unknownCommand: createCliSnapshot(unknownCommand),
+            }).toMatchSnapshot();
             expect(invalidLang.stderr).toContain("Invalid value for --lang");
 
-            expect(unknownCommand.exitCode).toBe(2);
             expect(unknownCommand.stderr).toContain("Unknown command");
         }
         finally {
@@ -246,7 +220,11 @@ describe("runCli bootstrap", () => {
             });
             const content = await readLatestLogContent(sandbox);
 
-            expect(exitCode).toBe(2);
+            expect(createCliSnapshot({
+                exitCode,
+                stderr: stderr.read(),
+                stdout: stdout.read(),
+            })).toMatchSnapshot();
             expect(stderr.read()).toContain("Invalid config key");
             expect(content).toContain(`"category":"user_error"`);
             expect(content).toContain(`"key":"errors.config.invalidKey"`);

@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
-    readFileDownloadSuccessOutput,
+    createCliSnapshot,
 } from "../../../../__tests__/helpers.ts";
 
 describe("file download CLI", () => {
@@ -46,10 +46,13 @@ describe("file download CLI", () => {
             );
             const downloadedFilePath = join(outputDirectoryPath, "report.tar.gz");
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
-            expect(result.stderr).toContain("Downloaded");
-            expect(result.stderr).toContain("100%");
+            expect(createCliSnapshot(
+                result,
+                {
+                    sandbox,
+                    stripAnsi: true,
+                },
+            )).toMatchSnapshot();
             await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("hello world");
         }
         finally {
@@ -86,8 +89,10 @@ describe("file download CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toContain("2 KB / 2 KB (100%)");
+            expect(createCliSnapshot(result, {
+                sandbox,
+                stripAnsi: true,
+            })).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -128,11 +133,7 @@ describe("file download CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe(
-                "Downloading 0 B / 4 B (0%)\n"
-                + "\u001B[1A\r\u001B[2KDownloaded 4 B / 4 B (100%)\n",
-            );
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -163,8 +164,7 @@ describe("file download CLI", () => {
             );
             const downloadedFilePath = join(outputDirectoryPath, "report.txt");
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             await expect(Bun.file(downloadedFilePath).text()).resolves.toBe(
                 "default target",
             );
@@ -204,9 +204,10 @@ describe("file download CLI", () => {
             );
             const downloadedFilePath = join(outputDirectoryPath, "report.txt");
 
-            expect(setConfigResult.exitCode).toBe(0);
-            expect(downloadResult.exitCode).toBe(0);
-            expect(downloadResult.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            expect({
+                download: createCliSnapshot(downloadResult, { sandbox }),
+                setConfig: createCliSnapshot(setConfigResult, { sandbox }),
+            }).toMatchSnapshot();
             await expect(Bun.file(downloadedFilePath).text()).resolves.toBe(
                 "configured target",
             );
@@ -246,9 +247,10 @@ describe("file download CLI", () => {
             );
             const downloadedFilePath = join(outputDirectoryPath, "config-dot-target.txt");
 
-            expect(setConfigResult.exitCode).toBe(0);
-            expect(downloadResult.exitCode).toBe(0);
-            expect(downloadResult.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            expect({
+                download: createCliSnapshot(downloadResult, { sandbox }),
+                setConfig: createCliSnapshot(setConfigResult, { sandbox }),
+            }).toMatchSnapshot();
             await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("cwd target");
         }
         finally {
@@ -283,11 +285,7 @@ describe("file download CLI", () => {
             );
             const outputEntries = await readdir(outputDirectoryPath);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                readFileDownloadSuccessOutput(join(outputDirectoryPath, "download_1.pdf")),
-            );
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(outputEntries).toHaveLength(3);
             expect(outputEntries).toEqual(expect.arrayContaining([
                 "download.pdf",
@@ -326,8 +324,7 @@ describe("file download CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(result.stderr).toContain("not a directory");
             expect(fetchCount).toBe(0);
         }
@@ -355,8 +352,7 @@ describe("file download CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(2);
-            expect(result.stdout).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stderr).toContain("Invalid URL");
             expect(fetchCount).toBe(0);
         }
@@ -401,12 +397,12 @@ describe("file download CLI", () => {
                 },
             );
 
-            expect(invalidNameResult.exitCode).toBe(2);
-            expect(invalidNameResult.stdout).toBe("");
+            expect({
+                invalidExt: createCliSnapshot(invalidExtResult),
+                invalidName: createCliSnapshot(invalidNameResult),
+            }).toMatchSnapshot();
             expect(invalidNameResult.stderr).toContain("Invalid value for --name");
 
-            expect(invalidExtResult.exitCode).toBe(2);
-            expect(invalidExtResult.stdout).toBe("");
             expect(invalidExtResult.stderr).toContain("Invalid value for --ext");
             expect(fetchCount).toBe(0);
         }
@@ -436,8 +432,7 @@ describe("file download CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stderr).toContain("HTTP 404");
             expect(await readdir(outputDirectoryPath)).toEqual([]);
         }
@@ -470,8 +465,7 @@ describe("file download CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(result.stderr).toContain("Failed to prepare the output directory");
             expect(fetchCount).toBe(0);
         }
@@ -507,11 +501,7 @@ describe("file download CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                readFileDownloadSuccessOutput(join(outputDirectoryPath, "download")),
-            );
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             await expect(Bun.file(join(outputDirectoryPath, "download")).text()).resolves.toBe(
                 "payload",
             );

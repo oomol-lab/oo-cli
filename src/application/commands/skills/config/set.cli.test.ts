@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox } from "../../../../../__tests__/helpers.ts";
+import { createCliSandbox, createCliSnapshot } from "../../../../../__tests__/helpers.ts";
 
 describe("skills config set CLI", () => {
     test("supports skills config set for the oo skill implicit invocation policy", async () => {
@@ -16,10 +16,7 @@ describe("skills config set CLI", () => {
                 "false",
             ]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(
-                "Set Codex skill oo allow-implicit-invocation to false.\n",
-            );
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -55,16 +52,11 @@ describe("skills config set CLI", () => {
                 "disabled",
             ]);
 
-            expect(invalidSkill.exitCode).toBe(2);
-            expect(invalidSkill.stderr).toContain("Unsupported skill");
-
-            expect(invalidKey.exitCode).toBe(2);
-            expect(invalidKey.stderr).toContain("Invalid config key for skill oo");
-
-            expect(invalidValue.exitCode).toBe(2);
-            expect(invalidValue.stderr).toContain(
-                "Invalid allow-implicit-invocation value for skill oo",
-            );
+            expect({
+                invalidKey: createCliSnapshot(invalidKey),
+                invalidSkill: createCliSnapshot(invalidSkill),
+                invalidValue: createCliSnapshot(invalidValue),
+            }).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();

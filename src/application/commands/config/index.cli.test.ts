@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    createCliSnapshot,
     defaultSettingsFileContent,
     readLatestLogContent,
 } from "../../../../__tests__/helpers.ts";
@@ -22,7 +23,7 @@ describe("config CLI", () => {
             const result = await sandbox.run(["config", "set", "lang", "zh"]);
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(content).toContain(
                 `"msg":"Settings store file was missing. Initializing a default file."`,
             );
@@ -45,7 +46,11 @@ describe("config CLI", () => {
             const persistedHelp = await sandbox.run(["--help"]);
             const overriddenHelp = await sandbox.run(["--lang", "en", "--help"]);
 
-            expect(setResult.exitCode).toBe(0);
+            expect({
+                overriddenHelp: createCliSnapshot(overriddenHelp),
+                persistedHelp: createCliSnapshot(persistedHelp),
+                setResult: createCliSnapshot(setResult),
+            }).toMatchSnapshot();
             expect(setResult.stdout).toContain("Set lang to zh.");
             expect(persistedHelp.stdout).not.toContain("用法：");
             expect(overriddenHelp.stdout).not.toContain("Usage:");
@@ -68,20 +73,16 @@ describe("config CLI", () => {
             const listAfterUnsetResult = await sandbox.run(["config", "list"]);
             const getAfterUnsetResult = await sandbox.run(["config", "get", "lang"]);
 
-            expect(configPathResult.exitCode).toBe(0);
-            expect(configPathResult.stdout).toBe(
-                `${join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml")}\n`,
-            );
-            expect(listBeforeSetResult.exitCode).toBe(0);
-            expect(listBeforeSetResult.stdout).toBe("");
-            expect(setResult.exitCode).toBe(0);
-            expect(listAfterSetResult.exitCode).toBe(0);
-            expect(listAfterSetResult.stdout).toBe("lang=zh\n");
-            expect(getResult.stdout).toBe("zh\n");
-            expect(unsetResult.exitCode).toBe(0);
-            expect(listAfterUnsetResult.exitCode).toBe(0);
-            expect(listAfterUnsetResult.stdout).toBe("");
-            expect(getAfterUnsetResult.stdout).toBe("");
+            expect({
+                configPath: createCliSnapshot(configPathResult, { sandbox }),
+                get: createCliSnapshot(getResult, { sandbox }),
+                getAfterUnset: createCliSnapshot(getAfterUnsetResult, { sandbox }),
+                listAfterSet: createCliSnapshot(listAfterSetResult, { sandbox }),
+                listAfterUnset: createCliSnapshot(listAfterUnsetResult, { sandbox }),
+                listBeforeSet: createCliSnapshot(listBeforeSetResult, { sandbox }),
+                set: createCliSnapshot(setResult, { sandbox }),
+                unset: createCliSnapshot(unsetResult, { sandbox }),
+            }).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -115,16 +116,13 @@ describe("config CLI", () => {
                 "skills.oo.implicit_invocation",
             ]);
 
-            expect(setResult.exitCode).toBe(0);
-            expect(setResult.stdout).toBe(
-                "Set skills.oo.implicit_invocation to false.\n",
-            );
-            expect(listResult.stdout).toBe(
-                "skills.oo.implicit_invocation=false\n",
-            );
-            expect(getResult.stdout).toBe("false\n");
-            expect(unsetResult.exitCode).toBe(0);
-            expect(getAfterUnsetResult.stdout).toBe("");
+            expect({
+                get: createCliSnapshot(getResult),
+                getAfterUnset: createCliSnapshot(getAfterUnsetResult),
+                list: createCliSnapshot(listResult),
+                set: createCliSnapshot(setResult),
+                unset: createCliSnapshot(unsetResult),
+            }).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -158,16 +156,13 @@ describe("config CLI", () => {
                 "file.download.out_dir",
             ]);
 
-            expect(setResult.exitCode).toBe(0);
-            expect(setResult.stdout).toBe(
-                "Set file.download.out_dir to ~/Downloads/reports.\n",
-            );
-            expect(listResult.stdout).toBe(
-                "file.download.out_dir=~/Downloads/reports\n",
-            );
-            expect(getResult.stdout).toBe("~/Downloads/reports\n");
-            expect(unsetResult.exitCode).toBe(0);
-            expect(getAfterUnsetResult.stdout).toBe("");
+            expect({
+                get: createCliSnapshot(getResult),
+                getAfterUnset: createCliSnapshot(getAfterUnsetResult),
+                list: createCliSnapshot(listResult),
+                set: createCliSnapshot(setResult),
+                unset: createCliSnapshot(unsetResult),
+            }).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -200,7 +195,7 @@ describe("config CLI", () => {
                 version: "9.9.9",
             });
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(await readFile(ownershipFilePath, "utf8")).toContain(
                 "allow_implicit_invocation: false",
             );
@@ -257,7 +252,7 @@ describe("config CLI", () => {
                 version: "9.9.9",
             });
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(await readFile(ownershipFilePath, "utf8")).toContain(
                 "allow_implicit_invocation: true",
             );
@@ -276,7 +271,12 @@ describe("config CLI", () => {
             const chineseConfigHelp = await sandbox.run(["--lang", "zh", "config", "--help"]);
             const chineseListHelp = await sandbox.run(["--lang", "zh", "config", "list", "--help"]);
 
-            expect(englishConfigHelp.exitCode).toBe(0);
+            expect({
+                chineseConfigHelp: createCliSnapshot(chineseConfigHelp),
+                chineseListHelp: createCliSnapshot(chineseListHelp),
+                englishConfigHelp: createCliSnapshot(englishConfigHelp),
+                englishListHelp: createCliSnapshot(englishListHelp),
+            }).toMatchSnapshot();
             expect(englishConfigHelp.stdout).toContain("List configured values");
             expect(englishConfigHelp.stdout).toContain("Show config file path");
 
@@ -309,9 +309,7 @@ describe("config CLI", () => {
 
             const result = await sandbox.run(["config", "list"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(await readFile(filePath, "utf8")).toBe(defaultSettingsFileContent);
         }
         finally {
@@ -332,14 +330,16 @@ describe("config CLI", () => {
                 "maybe",
             ]);
 
-            expect(invalidKey.exitCode).toBe(2);
+            expect({
+                invalidConfigValue: createCliSnapshot(invalidConfigValue),
+                invalidKey: createCliSnapshot(invalidKey),
+                invalidSkillPolicyValue: createCliSnapshot(invalidSkillPolicyValue),
+            }).toMatchSnapshot();
             expect(invalidKey.stderr).toContain("Invalid config key");
             expect(invalidKey.stderr).not.toContain("Supported keys");
 
-            expect(invalidConfigValue.exitCode).toBe(2);
             expect(invalidConfigValue.stderr).toContain("Invalid lang value");
 
-            expect(invalidSkillPolicyValue.exitCode).toBe(2);
             expect(invalidSkillPolicyValue.stderr).toContain(
                 "Invalid skills.oo.implicit_invocation value",
             );
@@ -364,7 +364,7 @@ describe("config CLI", () => {
             const result = await sandbox.run(["config", "get", "lang"]);
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(1);
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(result.stderr).toContain("settings file");
             expect(content).toContain(`"category":"system_error"`);
             expect(content).toContain(`"key":"errors.store.invalidToml"`);
@@ -391,9 +391,7 @@ describe("config CLI", () => {
 
             const result = await sandbox.run(["config", "get", "lang"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe("zh\n");
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -418,9 +416,7 @@ describe("config CLI", () => {
             const result = await sandbox.run(["config", "get", "lang"]);
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe("zh\n");
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(content).toContain(`"level":"warn"`);
             expect(content).toContain(
                 `"msg":"Settings store file contained unknown keys that were ignored."`,

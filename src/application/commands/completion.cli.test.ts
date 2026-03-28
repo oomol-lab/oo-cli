@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox } from "../../../__tests__/helpers.ts";
+import { createCliSandbox, createCliSnapshot } from "../../../__tests__/helpers.ts";
 
 describe("completionCommand CLI", () => {
     test("renders supported shells in completion help", async () => {
@@ -9,11 +9,7 @@ describe("completionCommand CLI", () => {
         try {
             const result = await sandbox.run(["completion", "--help"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("Target shell");
-            expect(result.stdout).toContain("\"bash\"");
-            expect(result.stdout).toContain("\"zsh\"");
-            expect(result.stdout).toContain("\"fish\"");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -26,9 +22,7 @@ describe("completionCommand CLI", () => {
         try {
             const result = await sandbox.run(["--lang", "zh", "completion", "--help"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("目标 shell");
-            expect(result.stdout).toContain("(可选值: \"bash\", \"zsh\", \"fish\")");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();

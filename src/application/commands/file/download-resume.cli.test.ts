@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import {
     countDownloadResumeSessions,
     createCliSandbox,
-    readFileDownloadSuccessOutput,
+    createCliSnapshot,
 } from "../../../../__tests__/helpers.ts";
 import {
     SqliteFileDownloadSessionStore,
@@ -68,10 +68,13 @@ describe("file download resume CLI", () => {
             );
 
             expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toContain("Downloading");
-            expect(result.stderr).not.toContain("Downloaded");
-            expect(result.stderr).toContain("Connection dropped.");
+            expect(createCliSnapshot(
+                result,
+                {
+                    sandbox,
+                    stripAnsi: true,
+                },
+            )).toMatchSnapshot();
             const outputEntries = await readdir(outputDirectoryPath);
 
             expect(outputEntries).toHaveLength(1);
@@ -133,7 +136,7 @@ describe("file download resume CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(countDownloadResumeSessions(downloadSessionsFilePath)).toBe(0);
         }
         finally {
@@ -236,10 +239,11 @@ describe("file download resume CLI", () => {
             const downloadedFilePath = join(outputDirectoryPath, "broken.txt");
 
             expect(firstResult.exitCode).toBe(1);
-            expect(firstResult.stderr).toContain("Connection dropped.");
             expect(secondResult.exitCode).toBe(0);
-            expect(secondResult.stderr).toBe("");
-            expect(secondResult.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            expect({
+                firstResult: createCliSnapshot(firstResult, { sandbox }),
+                secondResult: createCliSnapshot(secondResult, { sandbox }),
+            }).toMatchSnapshot();
             expect(requestCount).toBe(2);
             await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("partial-payload");
             expect(await readdir(outputDirectoryPath)).toEqual([
@@ -345,8 +349,10 @@ describe("file download resume CLI", () => {
 
             expect(firstResult.exitCode).toBe(1);
             expect(secondResult.exitCode).toBe(0);
-            expect(secondResult.stderr).toBe("");
-            expect(secondResult.stdout).toBe(readFileDownloadSuccessOutput(downloadedFilePath));
+            expect({
+                firstResult: createCliSnapshot(firstResult, { sandbox }),
+                secondResult: createCliSnapshot(secondResult, { sandbox }),
+            }).toMatchSnapshot();
             expect(requestCount).toBe(2);
             await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("stale-payload");
             expect(await readdir(outputDirectoryPath)).toEqual([

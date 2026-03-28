@@ -1,0 +1,404 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`config CLI writes settings-store and config mutation logs 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Set lang to zh.
+"
+,
+}
+`;
+
+exports[`config CLI persists the configured locale and allows explicit override 1`] = `
+{
+  "overriddenHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
+
+Options:
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
+
+Commands:
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  package                  Package utilities
+  search [options] <text>  Search packages by intent
+  help [command]           Show help for a command
+"
+,
+  },
+  "persistedHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"oo 是 OOMOL 的 CLI 工具集，一切均可在 CLI 中完成
+
+选项：
+  -V, --version            显示当前版本
+  --debug                  在 CLI 退出时打印当前日志文件路径
+  --lang <lang>            指定显示语言
+  -h, --help               显示命令帮助
+
+命令：
+  auth                     管理 CLI 认证
+  check-update             检查 CLI 更新
+  cloud-task               管理云任务
+  file                     管理临时文件传输
+  login                    通过浏览器登录（auth login 的别名）
+  logout                   登出当前账号（auth logout 的别名）
+  completion <shell>       生成 shell 补全脚本
+  config                   管理持久化配置
+  skills                   管理 Codex skill
+  log                      管理持久化 debug 日志
+  package                  包相关工具
+  search [options] <text>  按意图搜索包
+  help [command]           显示命令帮助
+"
+,
+  },
+  "setResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Set lang to zh.
+"
+,
+  },
+}
+`;
+
+exports[`config CLI supports config path list get set and unset 1`] = `
+{
+  "configPath": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"<XDG_CONFIG_HOME>/oo/settings.toml
+"
+,
+  },
+  "get": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"zh
+"
+,
+  },
+  "getAfterUnset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "",
+  },
+  "listAfterSet": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"lang=zh
+"
+,
+  },
+  "listAfterUnset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "",
+  },
+  "listBeforeSet": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "",
+  },
+  "set": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Set lang to zh.
+"
+,
+  },
+  "unset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"已移除 lang。
+"
+,
+  },
+}
+`;
+
+exports[`config CLI supports the oo skill implicit invocation config key 1`] = `
+{
+  "get": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"false
+"
+,
+  },
+  "getAfterUnset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "",
+  },
+  "list": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"skills.oo.implicit_invocation=false
+"
+,
+  },
+  "set": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Set skills.oo.implicit_invocation to false.
+"
+,
+  },
+  "unset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Removed skills.oo.implicit_invocation.
+"
+,
+  },
+}
+`;
+
+exports[`config CLI supports the file download output directory config key 1`] = `
+{
+  "get": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"~/Downloads/reports
+"
+,
+  },
+  "getAfterUnset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "",
+  },
+  "list": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"file.download.out_dir=~/Downloads/reports
+"
+,
+  },
+  "set": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Set file.download.out_dir to ~/Downloads/reports.
+"
+,
+  },
+  "unset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Removed file.download.out_dir.
+"
+,
+  },
+}
+`;
+
+exports[`config CLI config set immediately synchronizes the installed managed skill policy 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Set skills.oo.implicit_invocation to false.
+"
+,
+}
+`;
+
+exports[`config CLI config unset immediately restores the installed managed skill policy default 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Removed skills.oo.implicit_invocation.
+"
+,
+}
+`;
+
+exports[`config CLI renders config list help with configured wording 1`] = `
+{
+  "chineseConfigHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"读取并更新持久化的用户配置。
+
+选项：
+  -h, --help         显示命令帮助
+
+全局选项：
+  -V, --version      显示当前版本
+  --debug            在 CLI 退出时打印当前日志文件路径
+  --lang <lang>      指定显示语言
+
+命令：
+  list               查看已配置的配置值
+  get <key>          读取配置值
+  path               显示配置文件路径
+  set <key> <value>  持久化配置值
+  unset <key>        移除配置值
+  help [command]     显示命令帮助
+"
+,
+  },
+  "chineseListHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"查看当前已配置的全部持久化配置值。
+
+选项：
+  -h, --help     显示命令帮助
+
+全局选项：
+  -V, --version  显示当前版本
+  --debug        在 CLI 退出时打印当前日志文件路径
+  --lang <lang>  指定显示语言
+"
+,
+  },
+  "englishConfigHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Read and update persisted user settings.
+
+Options:
+  -h, --help         Show help for command
+
+Global Options:
+  -V, --version      Show the current version
+  --debug            Print the current log file path when the CLI exits
+  --lang <lang>      Specify the display language
+
+Commands:
+  list               List configured values
+  get <key>          Read a configuration value
+  path               Show config file path
+  set <key> <value>  Persist a configuration value
+  unset <key>        Remove a configuration value
+  help [command]     Show help for a command
+"
+,
+  },
+  "englishListHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Print all persisted configuration values that are currently configured.
+
+Options:
+  -h, --help     Show help for command
+
+Global Options:
+  -V, --version  Show the current version
+  --debug        Print the current log file path when the CLI exits
+  --lang <lang>  Specify the display language
+"
+,
+  },
+}
+`;
+
+exports[`config CLI creates a default settings file on first read 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": "",
+}
+`;
+
+exports[`config CLI returns usage errors for invalid config inputs 1`] = `
+{
+  "invalidConfigValue": {
+    "exitCode": 2,
+    "stderr": 
+"Invalid lang value: fr. Use en or zh.
+"
+,
+    "stdout": "",
+  },
+  "invalidKey": {
+    "exitCode": 2,
+    "stderr": 
+"Invalid config key: update-notifier.
+"
+,
+    "stdout": "",
+  },
+  "invalidSkillPolicyValue": {
+    "exitCode": 2,
+    "stderr": 
+"Invalid skills.oo.implicit_invocation value: maybe. Use true or false.
+"
+,
+    "stdout": "",
+  },
+}
+`;
+
+exports[`config CLI returns runtime errors when the persisted store is corrupted 1`] = `
+{
+  "exitCode": 1,
+  "stderr": 
+"The settings file at <XDG_CONFIG_HOME>/oo/settings.toml is not valid TOML.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`config CLI reads TOML settings files 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"zh
+"
+,
+}
+`;
+
+exports[`config CLI ignores unknown persisted settings keys and logs a warning 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"zh
+"
+,
+}
+`;

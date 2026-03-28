@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox } from "../../../../../__tests__/helpers.ts";
+import { createCliSandbox, createCliSnapshot } from "../../../../../__tests__/helpers.ts";
 
 describe("skills config get CLI", () => {
     test("reads the effective oo skill config value for a key", async () => {
@@ -15,8 +15,7 @@ describe("skills config get CLI", () => {
                 "allow-implicit-invocation",
             ]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe("true\n");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -34,8 +33,7 @@ describe("skills config get CLI", () => {
                 "oo",
             ]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe("allow-implicit-invocation=true\n");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -60,11 +58,10 @@ describe("skills config get CLI", () => {
                 "missing",
             ]);
 
-            expect(invalidSkill.exitCode).toBe(2);
-            expect(invalidSkill.stderr).toContain("Unsupported skill");
-
-            expect(invalidKey.exitCode).toBe(2);
-            expect(invalidKey.stderr).toContain("Invalid config key for skill oo");
+            expect({
+                invalidKey: createCliSnapshot(invalidKey),
+                invalidSkill: createCliSnapshot(invalidSkill),
+            }).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
