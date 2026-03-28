@@ -214,6 +214,7 @@ describe("bundled skill publication", () => {
                 removePath: async (path) => {
                     removedPaths.push(path);
                 },
+                platform: "linux",
                 resolveParentSymlinks: async path => path,
                 symlink: async (createdTargetPath, createdLinkPath, type) => {
                     createdSymlinks.push({
