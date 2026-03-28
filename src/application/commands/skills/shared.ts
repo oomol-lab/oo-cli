@@ -10,6 +10,7 @@ import {
     readlink,
     realpath,
     rm,
+    rmdir,
     stat,
     symlink,
 } from "node:fs/promises";
@@ -501,7 +502,8 @@ function writeImplicitInvocationValue(
     content: string,
     value: boolean,
 ): string {
-    const lines = content.split("\n");
+    const lineSeparator = content.includes("\r\n") ? "\r\n" : "\n";
+    const lines = content.split(lineSeparator);
 
     for (const [index, line] of lines.entries()) {
         const trimmedLine = line.trim();
@@ -519,7 +521,7 @@ function writeImplicitInvocationValue(
             value ? "true" : "false",
         ].join("");
 
-        return lines.join("\n");
+        return lines.join(lineSeparator);
     }
 
     throw new Error(
@@ -827,7 +829,7 @@ async function removePath(path: string): Promise<void> {
         const pathStats = await lstat(path);
 
         if (pathStats.isSymbolicLink()) {
-            await rm(path, { force: true });
+            await removeSymbolicPath(path);
             return;
         }
 
@@ -840,6 +842,24 @@ async function removePath(path: string): Promise<void> {
 
         throw error;
     }
+}
+
+async function removeSymbolicPath(path: string): Promise<void> {
+    try {
+        await rm(path, { force: true });
+    }
+    catch (error) {
+        if (process.platform === "win32" && isWindowsBadAddressError(error)) {
+            await rmdir(path);
+            return;
+        }
+
+        throw error;
+    }
+}
+
+function isWindowsBadAddressError(error: unknown): error is NodeJS.ErrnoException {
+    return error instanceof Error && "code" in error && error.code === "EFAULT";
 }
 
 async function resolveParentSymlinks(path: string): Promise<string> {

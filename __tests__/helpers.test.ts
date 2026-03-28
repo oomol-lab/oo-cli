@@ -23,7 +23,7 @@ describe("test helpers", () => {
             {
                 exitCode: 0,
                 stdout: [
-                    "C:/Users/Tester/.config/oo-cli/settings.toml",
+                    "C:\\Users\\Tester\\.config\\oo-cli\\settings.toml",
                     outputFilePath,
                 ].join("\r\n"),
                 stderr: `${colors.green("ok")} ${outputFilePath}\r`,

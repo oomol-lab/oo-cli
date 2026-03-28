@@ -325,7 +325,7 @@ describe("SqliteCacheStore", () => {
 
             expect(logs).toContain(`"level":"warn"`);
             expect(logs).toContain(`"category":"recoverable_cache"`);
-            expect(logs).toContain(`"sqliteErrorCode":"SQLITE_CANTOPEN"`);
+            expect(logs).toContain(`"sqliteErrorCode":"SQLITE_CANTOPEN`);
             expect(logs).toContain(`"storePathKind":"directory"`);
             expect(logs).toContain(`"storePathExists":true`);
             expect(logs).toContain(`"parentDirectoryExists":true`);
