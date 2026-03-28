@@ -118,15 +118,32 @@ Check whether a newer CLI release is available.
 
 ## Codex Skills
 
-### `oo skills allow-implicit-invocation <value>`
+### `oo skills config get <skill> [key]`
 
-Persist the `oo` skill implicit invocation policy.
+Read skill configuration values.
 
-- Arguments: `<value>` must be `true` or `false`.
-- Notes: when the managed `oo` skill is already installed, the command
-  synchronizes `${CODEX_HOME:-~/.codex}/skills/oo/agents/openai.yaml`
-  immediately.
-- Notes: when the managed `oo` skill is not installed, the command still
+- Arguments: `<skill>` is the skill name.
+- Arguments: `[key]` is optional and selects one configuration key of the
+  chosen skill.
+- Output: when `[key]` is provided, the command prints the effective value for
+  that key followed by a newline.
+- Output: when `[key]` is omitted, the command prints one `key=value` line for
+  every known key of the selected skill.
+- Notes: valid skill names and key sets depend on the CLI version.
+- Notes: effective values include bundled defaults when no explicit persisted
+  value exists yet.
+
+### `oo skills config set <skill> <key> <value>`
+
+Persist one skill configuration value.
+
+- Arguments: `<skill>` is the skill name.
+- Arguments: `<key>` is the configuration key for the selected skill.
+- Arguments: `<value>` is the value for the selected skill configuration key.
+- Value rules: accepted values depend on `<skill>` and `<key>`.
+- Notes: when the target managed skill is already installed, the command
+  synchronizes the managed files immediately.
+- Notes: when the target managed skill is not installed, the command still
   persists the setting and applies it on the next install or startup
   synchronization.
 

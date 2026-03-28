@@ -11,6 +11,24 @@ import {
 } from "./shared.ts";
 
 describe("skills CLI", () => {
+    test("treats the removed allow-implicit-invocation subcommand as unknown", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "allow-implicit-invocation",
+                "false",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("Unknown command");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("silently installs the managed Codex skill on the first run", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
