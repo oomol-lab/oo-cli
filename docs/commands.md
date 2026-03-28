@@ -271,7 +271,7 @@ Delete expired upload records from the local sqlite store.
 
 ## Package Discovery
 
-### `oo package search <text>`
+### `oo packages search <text>`
 
 Search packages with free-form intent text.
 
@@ -283,7 +283,7 @@ Search packages with free-form intent text.
 - Notes: queries longer than 200 characters are truncated before the request is
   sent.
 
-### `oo package info <packageSpecifier>`
+### `oo packages info <packageSpecifier>`
 
 Show package metadata for one package.
 

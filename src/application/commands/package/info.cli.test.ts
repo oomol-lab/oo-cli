@@ -37,7 +37,7 @@ describe("packageInfoCommand CLI", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["package", "info", "qrcode"],
+                ["packages", "info", "qrcode"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -185,7 +185,7 @@ describe("packageInfoCommand CLI", () => {
             );
 
             const result = await sandbox.run(
-                ["package", "info", "qrcode@1.0.4", "--json"],
+                ["packages", "info", "qrcode@1.0.4", "--json"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packageName: "qrcode",
@@ -404,7 +404,7 @@ describe("packageInfoCommand CLI", () => {
             const snapshots = [];
             const cases = [
                 {
-                    argv: ["package", "info", "pdf@1.0.0", "--format=json"],
+                    argv: ["packages", "info", "pdf@1.0.0", "--format=json"],
                     expectedUrl:
                         "https://registry.oomol.com/-/oomol/package-info/pdf/1.0.0?lang=en",
                     response: {
@@ -416,7 +416,7 @@ describe("packageInfoCommand CLI", () => {
                     },
                 },
                 {
-                    argv: ["package", "info", "pdf", "--format=json"],
+                    argv: ["packages", "info", "pdf", "--format=json"],
                     expectedUrl:
                         "https://registry.oomol.com/-/oomol/package-info/pdf/latest?lang=en",
                     response: {
@@ -428,7 +428,7 @@ describe("packageInfoCommand CLI", () => {
                     },
                 },
                 {
-                    argv: ["package", "info", "@foo/epub", "--format=json"],
+                    argv: ["packages", "info", "@foo/epub", "--format=json"],
                     expectedUrl:
                         "https://registry.oomol.com/-/oomol/package-info/%40foo%2Fepub/latest?lang=en",
                     response: {
@@ -440,7 +440,7 @@ describe("packageInfoCommand CLI", () => {
                     },
                 },
                 {
-                    argv: ["package", "info", "@bar/epub@1.0.0", "--format=json"],
+                    argv: ["packages", "info", "@bar/epub@1.0.0", "--format=json"],
                     expectedUrl:
                         "https://registry.oomol.com/-/oomol/package-info/%40bar%2Fepub/1.0.0?lang=en",
                     response: {
@@ -452,7 +452,7 @@ describe("packageInfoCommand CLI", () => {
                     },
                 },
                 {
-                    argv: ["package", "info", "@baz@md@latest", "--format=json"],
+                    argv: ["packages", "info", "@baz@md@latest", "--format=json"],
                     expectedUrl:
                         "https://registry.oomol.com/-/oomol/package-info/%40baz%40md/latest?lang=en",
                     response: {
@@ -535,11 +535,11 @@ describe("packageInfoCommand CLI", () => {
             };
 
             const firstResult = await sandbox.run(
-                ["package", "info", "qrcode@1.0.4"],
+                ["packages", "info", "qrcode@1.0.4"],
                 { fetcher },
             );
             const secondResult = await sandbox.run(
-                ["package", "info", "qrcode@1.0.4"],
+                ["packages", "info", "qrcode@1.0.4"],
                 { fetcher },
             );
 
@@ -594,15 +594,15 @@ describe("packageInfoCommand CLI", () => {
             };
 
             const latestResult = await sandbox.run(
-                ["package", "info", "qrcode"],
+                ["packages", "info", "qrcode"],
                 { fetcher },
             );
             const latestAgainResult = await sandbox.run(
-                ["package", "info", "qrcode"],
+                ["packages", "info", "qrcode"],
                 { fetcher },
             );
             const explicitVersionResult = await sandbox.run(
-                ["package", "info", "qrcode@1.0.4"],
+                ["packages", "info", "qrcode@1.0.4"],
                 { fetcher },
             );
 
@@ -622,7 +622,7 @@ describe("packageInfoCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const result = await sandbox.run(["package", "info", "--help"]);
+            const result = await sandbox.run(["packages", "info", "--help"]);
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
         }

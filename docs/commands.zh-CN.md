@@ -240,7 +240,7 @@
 
 ## Package 检索
 
-### `oo package search <text>`
+### `oo packages search <text>`
 
 使用自由文本按意图搜索 package。
 
@@ -250,7 +250,7 @@
 - 选项：`--only-package-id` 仅返回 package id。
 - 说明：搜索文本超过 200 个字符时，会在发送请求前被截断。
 
-### `oo package info <packageSpecifier>`
+### `oo packages info <packageSpecifier>`
 
 查看单个 package 的元数据。
 

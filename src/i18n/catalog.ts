@@ -264,7 +264,7 @@ export const enMessages = {
     "errors.search.activeAccountMissing":
         "The active auth account is missing from the auth store.",
     "errors.search.authRequired":
-        "You must log in before using the search command.",
+        "You must log in before using the packages search command.",
     "errors.search.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.search.invalidResponse":
@@ -276,7 +276,7 @@ export const enMessages = {
     "errors.packageInfo.activeAccountMissing":
         "The active auth account is missing from the auth store.",
     "errors.packageInfo.authRequired":
-        "You must log in before using the package info command.",
+        "You must log in before using the packages info command.",
     "errors.packageInfo.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.packageInfo.invalidPackageSpecifier":
@@ -655,7 +655,7 @@ export const zhMessages = {
     "errors.search.activeAccountMissing":
         "当前激活账号不存在于认证数据中。",
     "errors.search.authRequired":
-        "使用 search 命令前请先登录。",
+        "使用 packages search 命令前请先登录。",
     "errors.search.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.search.invalidResponse":
@@ -667,7 +667,7 @@ export const zhMessages = {
     "errors.packageInfo.activeAccountMissing":
         "当前激活账号不存在于认证数据中。",
     "errors.packageInfo.authRequired":
-        "使用 package info 命令前请先登录。",
+        "使用 packages info 命令前请先登录。",
     "errors.packageInfo.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.packageInfo.invalidPackageSpecifier":

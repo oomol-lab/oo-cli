@@ -50,7 +50,7 @@ Commands:
   config              Manage persisted configuration
   skills              Manage Codex skills
   log                 Manage persisted debug logs
-  package             Package utilities
+  packages            Package utilities
   help [command]      Show help for a command
 "
 ,
@@ -81,7 +81,7 @@ Commands:
   config              Manage persisted configuration
   skills              Manage Codex skills
   log                 Manage persisted debug logs
-  package             Package utilities
+  packages            Package utilities
   help [command]      Show help for a command
 "
 ,
@@ -115,7 +115,7 @@ Commands:
   config              Manage persisted configuration
   skills              Manage Codex skills
   log                 Manage persisted debug logs
-  package             Package utilities
+  packages            Package utilities
   help [command]      Show help for a command
 "
 ,
@@ -147,7 +147,7 @@ exports[`runCli bootstrap renders help in English and Chinese 1`] = `
   config              管理持久化配置
   skills              管理 Codex skill
   log                 管理持久化 debug 日志
-  package             包相关工具
+  packages            包相关工具
   help [command]      显示命令帮助
 "
 ,
@@ -175,7 +175,7 @@ Commands:
   config              Manage persisted configuration
   skills              Manage Codex skills
   log                 Manage persisted debug logs
-  package             Package utilities
+  packages            Package utilities
   help [command]      Show help for a command
 "
 ,
@@ -207,7 +207,7 @@ Commands:
   config              Manage persisted configuration
   skills              Manage Codex skills
   log                 Manage persisted debug logs
-  package             Package utilities
+  packages            Package utilities
   help [command]      Show help for a command
 "
 ,

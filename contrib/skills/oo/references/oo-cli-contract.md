@@ -14,7 +14,7 @@ oo ...
 
 ## Authentication
 
-- `package search`, `package info`, `file upload`, `cloud-task run`,
+- `packages search`, `packages info`, `file upload`, `cloud-task run`,
   `cloud-task result`, and `cloud-task wait` all require a current
   authenticated account.
 - Do not run `auth status` as a routine precheck.
@@ -42,12 +42,12 @@ oo auth login
 - Direct them to recharge before retrying at
   https://console.oomol.com/billing/recharge.
 
-## `package search`
+## `packages search`
 
 Canonical form:
 
 ```bash
-oo package search "<text>" --json
+oo packages search "<text>" --json
 ```
 
 Facts:
@@ -85,12 +85,12 @@ Stop condition:
 - If the array is empty, stop and tell the user that `oo` does not currently
   have a matching capability.
 
-## `package info`
+## `packages info`
 
 Canonical form:
 
 ```bash
-oo package info "<packageSpecifier>" --json
+oo packages info "<packageSpecifier>" --json
 ```
 
 Supported package specifier examples:
@@ -103,7 +103,7 @@ Supported package specifier examples:
 Facts:
 
 - If no version is provided, the CLI resolves the latest version.
-- `@latest` is valid for `package info`, but not for `cloud-task run`.
+- `@latest` is valid for `packages info`, but not for `cloud-task run`.
 - For execution later, always use the resolved `packageVersion`.
 - Use `blocks[].blockName` for `--block-id`.
 - Do not confuse block `title` with `blockName`.
@@ -363,8 +363,8 @@ Skill policy:
 Use this order:
 
 1. Convert the user request into `2` to `6` English keywords.
-2. Run `package search --json`.
-3. Run `package info --json` for the serious candidates.
+2. Run `packages search --json`.
+3. Run `packages info --json` for the serious candidates.
 4. Choose one primary package and optionally one fallback.
 5. Ask focused follow-up questions only for missing required inputs.
 6. Upload local files with `file upload --json` when a selected handle needs a
