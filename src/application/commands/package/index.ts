@@ -4,7 +4,7 @@ import { packageInfoCommand } from "./info.ts";
 import { packageSearchCommand } from "./search.ts";
 
 export const packageCommand: CliCommandDefinition = {
-    name: "package",
+    name: "packages",
     summaryKey: "commands.package.summary",
     descriptionKey: "commands.package.description",
     children: [

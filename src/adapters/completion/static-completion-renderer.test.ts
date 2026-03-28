@@ -15,6 +15,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("config");
         expect(output).toContain("login");
         expect(output).toContain("logout");
+        expect(output).toContain("packages");
         expect(output).toContain("--lang");
         expect(output).toContain("en zh");
     });
@@ -26,6 +27,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain(`#compdef ${APP_NAME}`);
         expect(output).toContain("auth switch");
         expect(output).toContain("config set");
+        expect(output).toContain("packages search");
         expect(output).toContain(`compdef _${APP_NAME} ${APP_NAME}`);
     });
 
@@ -40,6 +42,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("config");
         expect(output).toContain("login");
         expect(output).toContain("logout");
+        expect(output).toContain("__fish_seen_subcommand_from packages");
         expect(output).toContain("en zh");
     });
 });

@@ -41,7 +41,7 @@ describe("packageSearchCommand CLI", () => {
             );
 
             const result = await sandbox.run(
-                ["package", "search", "image processing"],
+                ["packages", "search", "image processing"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packages: [],
@@ -95,9 +95,9 @@ describe("packageSearchCommand CLI", () => {
                 }));
             };
 
-            const firstResult = await sandbox.run(["package", "search", "cache me"], { fetcher });
+            const firstResult = await sandbox.run(["packages", "search", "cache me"], { fetcher });
             const firstContent = await readLatestLogContent(sandbox);
-            const secondResult = await sandbox.run(["package", "search", "cache me"], { fetcher });
+            const secondResult = await sandbox.run(["packages", "search", "cache me"], { fetcher });
             const secondContent = await readLatestLogContent(sandbox);
 
             expect({
@@ -142,7 +142,7 @@ describe("packageSearchCommand CLI", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["package", "search", "image processing"],
+                ["packages", "search", "image processing"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -207,7 +207,7 @@ describe("packageSearchCommand CLI", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["--lang", "zh", "package", "search", "image processing"],
+                ["--lang", "zh", "packages", "search", "image processing"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -270,11 +270,11 @@ describe("packageSearchCommand CLI", () => {
                 }));
             };
             const firstResult = await sandbox.run(
-                ["package", "search", "image processing"],
+                ["packages", "search", "image processing"],
                 { fetcher },
             );
             const secondResult = await sandbox.run(
-                ["package", "search", "image processing"],
+                ["packages", "search", "image processing"],
                 { fetcher },
             );
 
@@ -317,7 +317,7 @@ describe("packageSearchCommand CLI", () => {
             );
 
             const result = await sandbox.run(
-                ["package", "search", "image processing"],
+                ["packages", "search", "image processing"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packages: [
@@ -383,7 +383,7 @@ describe("packageSearchCommand CLI", () => {
             );
 
             const result = await sandbox.run(
-                ["package", "search", "image processing", "--only-package-id"],
+                ["packages", "search", "image processing", "--only-package-id"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packages: [
@@ -453,7 +453,7 @@ describe("packageSearchCommand CLI", () => {
             const searchText = "x".repeat(210);
             const expectedQuery = "x".repeat(200);
             const result = await sandbox.run(
-                ["package", "search", searchText, "--json"],
+                ["packages", "search", searchText, "--json"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -499,7 +499,7 @@ describe("packageSearchCommand CLI", () => {
             );
 
             const result = await sandbox.run(
-                ["package", "search", "image processing", "--format=json", "--only-package-id"],
+                ["packages", "search", "image processing", "--format=json", "--only-package-id"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packages: [
@@ -528,7 +528,7 @@ describe("packageSearchCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const result = await sandbox.run(["package", "search", "image", "--format=yaml"]);
+            const result = await sandbox.run(["packages", "search", "image", "--format=yaml"]);
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stderr).toContain("Invalid format: yaml. Use json.");
@@ -542,8 +542,8 @@ describe("packageSearchCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const expectedHelp = await sandbox.run(["package", "search", "--help"]);
-            const result = await sandbox.run(["package", "search"]);
+            const expectedHelp = await sandbox.run(["packages", "search", "--help"]);
+            const result = await sandbox.run(["packages", "search"]);
             const expectedHelpSnapshot = createCliSnapshot(expectedHelp);
             const resultSnapshot = createCliSnapshot(result);
 
