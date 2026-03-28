@@ -69,11 +69,9 @@ export interface CreateBundledSkillDirectorySymlinkDependencies {
         linkPath: string,
         type: "dir" | "junction",
     ) => Promise<void>;
-    platform?: NodeJS.Platform;
 }
 
 export interface RemoveBundledSkillSymbolicPathDependencies {
-    platform?: NodeJS.Platform;
     rm?: (
         path: string,
         options: {
@@ -789,7 +787,6 @@ export async function createBundledSkillDirectorySymlink(
     const resolveParentSymlinksFn
         = dependencies.resolveParentSymlinks ?? resolveParentSymlinks;
     const symlinkFn = dependencies.symlink ?? symlink;
-    const runtimePlatform = dependencies.platform ?? process.platform;
 
     try {
         const resolvedTargetPath = resolve(targetPath);
@@ -847,7 +844,7 @@ export async function createBundledSkillDirectorySymlink(
 
         await mkdirFn(linkDirectoryPath, { recursive: true });
 
-        const symlinkTargetPath = runtimePlatform === "win32"
+        const symlinkTargetPath = process.platform === "win32"
             ? resolvedTargetPath
             : relative(
                     await resolveParentSymlinksFn(linkDirectoryPath),
@@ -857,7 +854,7 @@ export async function createBundledSkillDirectorySymlink(
         await symlinkFn(
             symlinkTargetPath,
             resolvedLinkPath,
-            runtimePlatform === "win32" ? "junction" : "dir",
+            process.platform === "win32" ? "junction" : "dir",
         );
 
         return true;
@@ -906,13 +903,12 @@ export async function removeBundledSkillSymbolicPath(
 ): Promise<void> {
     const rmFn = dependencies.rm ?? rm;
     const rmdirFn = dependencies.rmdir ?? rmdir;
-    const runtimePlatform = dependencies.platform ?? process.platform;
 
     try {
         await rmFn(path, { force: true });
     }
     catch (error) {
-        if (runtimePlatform === "win32" && isWindowsBadAddressError(error)) {
+        if (process.platform === "win32" && isWindowsBadAddressError(error)) {
             await rmdirFn(path);
             return;
         }

@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { Database } from "bun:sqlite";
-import { expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import pino from "pino";
 import {
     downloadResumeSessionsTableName,
@@ -84,6 +84,12 @@ export interface LogCapture {
     read: () => string;
 }
 
+export interface PlatformScope<T> {
+    readonly darwin: T;
+    readonly linux: T;
+    readonly win32: T;
+}
+
 export interface AuthAccountFixture {
     readonly id: string;
     readonly name: string;
@@ -98,6 +104,23 @@ export interface PrintedAuthLoginOptions {
 }
 
 export const defaultAuthEndpoint = "oomol.com";
+
+export function createPlatformScope<T>(
+    conditional: {
+        if: (condition: boolean) => T;
+    },
+    currentPlatform: NodeJS.Platform = process.platform,
+): PlatformScope<T> {
+    return {
+        darwin: conditional.if(currentPlatform === "darwin"),
+        linux: conditional.if(currentPlatform === "linux"),
+        win32: conditional.if(currentPlatform === "win32"),
+    };
+}
+
+export const platformTest = createPlatformScope(test);
+
+export const platformDescribe = createPlatformScope(describe);
 
 export const defaultSettingsFileContent = [
     "# lang controls the CLI display language for help text, messages, and errors.",

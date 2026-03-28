@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
 import { createTerminalColors } from "../src/application/terminal-colors.ts";
-import { createCliSnapshot } from "./helpers.ts";
+import {
+    createCliSnapshot,
+    createPlatformScope,
+    platformDescribe,
+    platformTest,
+} from "./helpers.ts";
 
 describe("test helpers", () => {
     test("normalizes cli snapshots for paths, ansi output, and replacement precedence", () => {
@@ -46,5 +51,29 @@ describe("test helpers", () => {
             ].join("\n"),
             stderr: "ok <OUTPUT_FILE>\n",
         });
+    });
+
+    test("creates platform-scoped conditional modifiers", () => {
+        const scope = createPlatformScope(
+            {
+                if(condition: boolean) {
+                    return { condition };
+                },
+            },
+            "darwin",
+        );
+
+        expect(scope).toEqual({
+            darwin: { condition: true },
+            linux: { condition: false },
+            win32: { condition: false },
+        });
+    });
+
+    test("exports platform shorthands for test and describe", () => {
+        expect(Object.keys(platformTest).sort()).toEqual(["darwin", "linux", "win32"]);
+        expect(Object.keys(platformDescribe).sort()).toEqual(["darwin", "linux", "win32"]);
+        expect(typeof platformTest.darwin).toBe("function");
+        expect(typeof platformDescribe.win32).toBe("function");
     });
 });
