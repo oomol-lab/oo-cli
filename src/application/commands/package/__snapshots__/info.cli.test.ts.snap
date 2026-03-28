@@ -1,0 +1,166 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`packageInfoCommand CLI supports package info command with text output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"QR Code (qrcode@1.0.4)
+The QR Code Toolkit.
+
+- Exist QR Code (Exist)
+  Checks whether an image contains a QR code.
+  Input:
+    - input  string (image)  [optional]  Image input
+    - tags   Array<string>   [required]  Tag list
+    - mode   string          [optional]  Scan mode
+    - count  integer         [optional]  Retry count
+  Output:
+    - output    boolean  Boolean result
+    - metadata  unknown  Unstructured metadata
+
+- Decode QR Code (Decode)
+  Reads the QR code payload from an image.
+  Input:
+    - image  string (image)  [required]  Image to decode
+  Output:
+    - text  string  Decoded text payload
+"
+,
+}
+`;
+
+exports[`packageInfoCommand CLI normalizes input ext metadata, applies input schema patches, and keeps output handle schema raw in package info json output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"{"blocks":[{"blockName":"Exist","description":"Checks whether an image contains a QR code.","inputHandle":{"input":{"description":"Image input","ext":{"anyOf":[{"widget":"text"}]},"nullable":false,"schema":{"anyOf":[{"type":"string"}]},"value":"sample.png"},"placeholder":{"description":"Optional placeholder","nullable":true,"schema":{"type":"string"},"value":null},"fileInput":{"description":"Input file","ext":{"widget":"file"},"schema":{"type":"string","format":"uri"}},"excludes":{"description":"Excluded usernames","schema":{"type":"array","items":{"type":"string"}},"value":["alice","bob"]},"count":{"description":"Winner count","schema":{"type":"integer"},"value":3},"tags":{"description":"Tag list","schema":{"type":"array","items":{"type":"string"}}}},"outputHandle":{"output":{"description":"Boolean result","schema":{"type":"boolean","ui:widget":"switch","ui:tone":"success"}}},"title":"Exist QR Code"}],"description":"The QR Code Toolkit.","displayName":"QR Code","packageName":"qrcode","packageVersion":"1.0.4"}
+"
+,
+}
+`;
+
+exports[`packageInfoCommand CLI supports package info package specifier variants and json output 1`] = `
+[
+  {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"blocks":[],"description":"Inspect PDF files","displayName":"PDF Toolkit","packageName":"pdf","packageVersion":"1.0.0"}
+"
+,
+  },
+  {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"blocks":[],"description":"Inspect PDF files","displayName":"PDF Toolkit","packageName":"pdf","packageVersion":"1.0.0"}
+"
+,
+  },
+  {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"blocks":[],"description":"Read EPUB packages","displayName":"Scoped EPUB","packageName":"@foo/epub","packageVersion":"2.0.0"}
+"
+,
+  },
+  {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"blocks":[],"description":"Read EPUB packages","displayName":"Bar EPUB","packageName":"@bar/epub","packageVersion":"1.0.0"}
+"
+,
+  },
+  {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"blocks":[],"description":"Read Markdown packages","displayName":"Baz Markdown","packageName":"@baz@md","packageVersion":"3.2.1"}
+"
+,
+  },
+]
+`;
+
+exports[`packageInfoCommand CLI reuses cached package info responses for explicit versions 1`] = `
+{
+  "firstResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"QR Code (qrcode@1.0.4)
+The QR Code Toolkit.
+"
+,
+  },
+  "secondResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"QR Code (qrcode@1.0.4)
+The QR Code Toolkit.
+"
+,
+  },
+}
+`;
+
+exports[`packageInfoCommand CLI does not read latest package info lookups from cache and backfills the resolved version 1`] = `
+{
+  "explicitVersionResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"QR Code (qrcode@1.0.4)
+The QR Code Toolkit.
+"
+,
+  },
+  "latestAgainResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"QR Code (qrcode@1.0.4)
+The QR Code Toolkit.
+"
+,
+  },
+  "latestResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"QR Code (qrcode@1.0.4)
+The QR Code Toolkit.
+"
+,
+  },
+}
+`;
+
+exports[`packageInfoCommand CLI supports package info command help with the --json alias 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Show transformed package metadata for an explicit package specifier.
+
+Arguments:
+  packageSpecifier   Package specifier
+
+Options:
+  --format <format>  Specify output format (use json for structured output)
+  --json             Alias for --format=json
+  -h, --help         Show help for command
+
+Global Options:
+  -V, --version      Show the current version
+  --debug            Print the current log file path when the CLI exits
+  --lang <lang>      Specify the display language
+"
+,
+}
+`;

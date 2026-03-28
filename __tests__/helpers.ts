@@ -62,6 +62,22 @@ export interface CliRunResult {
     readonly stderr: string;
 }
 
+export interface SnapshotReplacement {
+    readonly placeholder: string;
+    readonly value: string | undefined;
+}
+
+export interface CliSnapshotContext {
+    readonly cwd: string;
+    readonly env: Record<string, string | undefined>;
+}
+
+export interface CliSnapshotOptions {
+    readonly replacements?: readonly SnapshotReplacement[];
+    readonly sandbox?: CliSnapshotContext;
+    readonly stripAnsi?: boolean;
+}
+
 export interface LogCapture {
     readonly logger: Logger;
     close: () => void;
@@ -366,6 +382,26 @@ export function readFileDownloadSuccessOutput(path: string): string {
     return `Saved to: ${path}\n`;
 }
 
+export function createCliSnapshot(
+    result: CliRunResult,
+    options: CliSnapshotOptions = {},
+): CliRunResult {
+    const replacements = resolveSnapshotReplacements(options);
+
+    return {
+        exitCode: result.exitCode,
+        stdout: normalizeSnapshotText(result.stdout, replacements, options.stripAnsi),
+        stderr: normalizeSnapshotText(result.stderr, replacements, options.stripAnsi),
+    };
+}
+
+export function expectCliSnapshot(
+    result: CliRunResult,
+    options: CliSnapshotOptions = {},
+): void {
+    expect(createCliSnapshot(result, options)).toMatchSnapshot();
+}
+
 export function readAuthLoginUrlPrefix(endpoint: string): string {
     return `https://api.${endpoint}/v1/auth/redirect?`;
 }
@@ -416,6 +452,106 @@ export function findLoginUrl(output: string): string | undefined {
     return undefined;
 }
 
+function normalizeSnapshotText(
+    value: string,
+    replacements: readonly ResolvedSnapshotReplacement[],
+    stripAnsi = false,
+): string {
+    let normalized = value
+        .split("\r\n")
+        .join("\n")
+        .split("\r")
+        .join("\n");
+
+    if (stripAnsi) {
+        normalized = createTerminalColors(true).strip(normalized);
+    }
+
+    for (const replacement of replacements) {
+        normalized = replaceSnapshotValue(
+            normalized,
+            replacement.value,
+            replacement.placeholder,
+        );
+
+        const portableValue = replacement.value
+            .split("\\")
+            .join("/");
+
+        if (portableValue !== replacement.value) {
+            normalized = replaceSnapshotValue(
+                normalized,
+                portableValue,
+                replacement.placeholder,
+            );
+        }
+    }
+
+    return normalized;
+}
+
+function replaceSnapshotValue(
+    value: string,
+    searchValue: string,
+    replacementValue: string,
+): string {
+    return value.split(searchValue).join(replacementValue);
+}
+
+function resolveSnapshotReplacements(
+    options: CliSnapshotOptions,
+): readonly ResolvedSnapshotReplacement[] {
+    const replacements = [
+        ...createSandboxSnapshotReplacements(options.sandbox),
+        ...(options.replacements ?? []),
+    ];
+
+    return replacements
+        .filter((replacement): replacement is ResolvedSnapshotReplacement =>
+            replacement.value !== undefined && replacement.value.length > 0,
+        )
+        .sort((left, right) => right.value.length - left.value.length);
+}
+
+function createSandboxSnapshotReplacements(
+    sandbox?: CliSnapshotContext,
+): readonly SnapshotReplacement[] {
+    if (!sandbox) {
+        return [];
+    }
+
+    return [
+        {
+            placeholder: "<APPDATA>",
+            value: sandbox.env.APPDATA,
+        },
+        {
+            placeholder: "<CWD>",
+            value: sandbox.cwd,
+        },
+        {
+            placeholder: "<HOME>",
+            value: sandbox.env.HOME,
+        },
+        {
+            placeholder: "<LOCALAPPDATA>",
+            value: sandbox.env.LOCALAPPDATA,
+        },
+        {
+            placeholder: "<USERPROFILE>",
+            value: sandbox.env.USERPROFILE,
+        },
+        {
+            placeholder: "<XDG_CONFIG_HOME>",
+            value: sandbox.env.XDG_CONFIG_HOME,
+        },
+        {
+            placeholder: "<XDG_STATE_HOME>",
+            value: sandbox.env.XDG_STATE_HOME,
+        },
+    ];
+}
+
 async function completeLoginCallback(
     loginUrlValue: string,
     apiKeyValue: string,
@@ -441,4 +577,9 @@ async function completeLoginCallback(
     const response = await fetch(requestUrl);
 
     expect(response.status).toBe(200);
+}
+
+interface ResolvedSnapshotReplacement {
+    readonly placeholder: string;
+    readonly value: string;
 }

@@ -1,0 +1,63 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`file upload CLI supports file upload and persists the uploaded record 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Uploaded sample.txt.
+  - ID: <UPLOAD_ID>
+  - File size: 11 B
+  - Uploaded at: <UPLOADED_AT>
+  - Expires at: 3026-03-27T00:00:00.000Z
+  - Status: active
+  - Download URL: https://download.example.com/file-1?signature=abc
+"
+,
+}
+`;
+
+exports[`file upload CLI supports file upload json output for both --json and --format=json 1`] = `
+{
+  "jsonAliasResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"downloadUrl":"https://download.example.com/file-1?signature=abc","expiresAt":"3026-03-27T00:00:00.000Z","fileName":"sample-json.txt","fileSize":11,"id":"<UPLOAD_ID>","status":"active","uploadedAt":"<UPLOADED_AT>"}
+"
+,
+  },
+  "jsonFormatResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"downloadUrl":"https://download.example.com/file-2?signature=abc","expiresAt":"3026-03-27T00:00:00.000Z","fileName":"sample-format.txt","fileSize":13,"id":"<UPLOAD_ID>","status":"active","uploadedAt":"<UPLOADED_AT>"}
+"
+,
+  },
+}
+`;
+
+exports[`file upload CLI supports file upload command help with the --json alias 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Upload a file and store the signed download URL locally.
+
+Arguments:
+  filePath           File path
+
+Options:
+  --format <format>  Specify output format (use json for structured output)
+  --json             Alias for --format=json
+  -h, --help         Show help for command
+
+Global Options:
+  -V, --version      Show the current version
+  --debug            Print the current log file path when the CLI exits
+  --lang <lang>      Specify the display language
+"
+,
+}
+`;

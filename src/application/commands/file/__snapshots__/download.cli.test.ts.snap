@@ -1,0 +1,189 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`file download CLI supports file download, creates missing directories, and prints the labeled saved path 1`] = `
+{
+  "exitCode": 0,
+  "stderr": 
+"Downloading 0 B / 11 B (0%)
+
+Downloaded 11 B / 11 B (100%)
+"
+,
+  "stdout": 
+"Saved to: <HOME>/downloads/reports/report.tar.gz
+"
+,
+}
+`;
+
+exports[`file download CLI renders file download progress with human-readable byte units 1`] = `
+{
+  "exitCode": 0,
+  "stderr": 
+"Downloading 0 B / 2 KB (0%)
+
+Downloaded 2 KB / 2 KB (100%)
+"
+,
+  "stdout": 
+"Saved to: <HOME>/downloads/reports/archive.bin
+"
+,
+}
+`;
+
+exports[`file download CLI keeps the cursor on the line below file download progress output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": 
+"Downloading 0 B / 4 B (0%)
+\x1B[1A
+\x1B[2KDownloaded 4 B / 4 B (100%)
+"
+,
+  "stdout": 
+"Saved to: <HOME>/downloads/reports/chunked.bin
+"
+,
+}
+`;
+
+exports[`file download CLI uses the default downloads directory when file download output directory is omitted 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Saved to: <HOME>/Downloads/report.txt
+"
+,
+}
+`;
+
+exports[`file download CLI uses the configured file download output directory and expands a leading tilde 1`] = `
+{
+  "download": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Saved to: <HOME>/Downloads/reports/report.txt
+"
+,
+  },
+  "setConfig": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Set file.download.out_dir to ~/Downloads/reports.
+"
+,
+  },
+}
+`;
+
+exports[`file download CLI uses the current cli working directory when file.download.out_dir is dot 1`] = `
+{
+  "download": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Saved to: <CWD>/config-dot-target.txt
+"
+,
+  },
+  "setConfig": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Set file.download.out_dir to ..
+"
+,
+  },
+}
+`;
+
+exports[`file download CLI auto-renames conflicting targets and removes temporary files after file download 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Saved to: <HOME>/downloads/download_1.pdf
+"
+,
+}
+`;
+
+exports[`file download CLI fails file download when the output path already exists as a file 1`] = `
+{
+  "exitCode": 1,
+  "stderr": 
+"The output path <HOME>/not-a-directory exists but is not a directory.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`file download CLI fails file download before fetching when the url is invalid 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"Invalid URL: ftp://example.com/file.txt. Use an http or https URL.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`file download CLI fails file download before fetching when --name or --ext is invalid 1`] = `
+{
+  "invalidExt": {
+    "exitCode": 2,
+    "stderr": 
+"Invalid value for --ext: ..txt. Use a non-empty extension without path separators.
+"
+,
+    "stdout": "",
+  },
+  "invalidName": {
+    "exitCode": 2,
+    "stderr": 
+"Invalid value for --name: ... Use a non-empty file name without path separators.
+"
+,
+    "stdout": "",
+  },
+}
+`;
+
+exports[`file download CLI fails file download when the download request returns a non-success status 1`] = `
+{
+  "exitCode": 1,
+  "stderr": 
+"The download request returned HTTP 404.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`file download CLI fails file download when the output directory cannot be created 1`] = `
+{
+  "exitCode": 1,
+  "stderr": 
+"Failed to prepare the output directory <HOME>/occupied/nested: ENOTDIR: not a directory, stat '<HOME>/occupied/nested'
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`file download CLI uses the default download file name when the final response url has no file segment 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Saved to: <HOME>/downloads/download
+"
+,
+}
+`;

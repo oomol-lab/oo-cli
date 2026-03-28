@@ -4,6 +4,8 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    createCliSnapshot,
+    expectCliSnapshot,
     readLatestLogContent,
     toRequest,
 } from "../../../__tests__/helpers.ts";
@@ -48,7 +50,7 @@ describe("search CLI", () => {
             );
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(content).toContain(`"msg":"Search response cache miss."`);
             expect(content).toContain(`"msg":"Search request started."`);
             expect(content).toContain(`"msg":"Search request completed."`);
@@ -98,8 +100,10 @@ describe("search CLI", () => {
             const secondResult = await sandbox.run(["search", "cache me"], { fetcher });
             const secondContent = await readLatestLogContent(sandbox);
 
-            expect(firstResult.exitCode).toBe(0);
-            expect(secondResult.exitCode).toBe(0);
+            expect({
+                firstResult: createCliSnapshot(firstResult),
+                secondResult: createCliSnapshot(secondResult),
+            }).toMatchSnapshot();
             expect(requestCount).toBe(1);
             expect(firstContent).toContain(`"msg":"Sqlite cache namespace opened."`);
             expect(firstContent).toContain(`"msg":"Sqlite cache lookup missed."`);
@@ -165,18 +169,7 @@ describe("search CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "Image Tools (@oomol/image-tools@1.2.3)",
-                    "Powerful image processing toolkit",
-                    "Blocks:",
-                    "- Image Processor (image-processor)",
-                    "  Process and transform image formats",
-                    "",
-                ].join("\n"),
-            );
+            expectCliSnapshot(result);
             expect(requests).toHaveLength(1);
             expect(requests[0]?.url).toBe(
                 "https://search.oomol.com/v1/packages/-/intent-search?q=image+processing&lang=en",
@@ -226,7 +219,7 @@ describe("search CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(requests).toHaveLength(1);
             expect(
                 new URL(requests[0]!.url).searchParams.get("lang"),
@@ -287,7 +280,10 @@ describe("search CLI", () => {
 
             expect(firstResult.exitCode).toBe(0);
             expect(secondResult.exitCode).toBe(0);
-            expect(firstResult.stdout).toBe(secondResult.stdout);
+            expect({
+                firstResult: createCliSnapshot(firstResult),
+                secondResult: createCliSnapshot(secondResult),
+            }).toMatchSnapshot();
             expect(requestCount).toBe(1);
         }
         finally {
@@ -347,18 +343,9 @@ describe("search CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(createTerminalColors(true).strip(result.stdout)).toBe(
-                [
-                    "Image Tools (@oomol/image-tools@1.2.3)",
-                    "Powerful image processing toolkit",
-                    "Blocks:",
-                    "- Image Processor (image-processor)",
-                    "  Process and transform image formats",
-                    "",
-                ].join("\n"),
-            );
+            expect(createCliSnapshot(result, {
+                stripAnsi: true,
+            })).toMatchSnapshot();
             expect(result.stdout).toContain(
                 `${colors.hex(searchDisplayNameColor)("Image Tools")} (@oomol/image-tools@1.2.3)`,
             );
@@ -416,15 +403,7 @@ describe("search CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "@oomol/image-tools@1.2.3",
-                    "@oomol/vision-kit@2.0.0",
-                    "",
-                ].join("\n"),
-            );
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -484,20 +463,7 @@ describe("search CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(`${JSON.stringify([
-                {
-                    blocks: [
-                        {
-                            title: "Image Processor",
-                        },
-                    ],
-                    displayName: "Image Tools",
-                    name: "@oomol/image-tools",
-                    version: "1.2.3",
-                },
-            ])}\n`);
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(requests).toHaveLength(1);
             expect(
                 new URL(requests[0]!.url).searchParams.get("q"),
@@ -551,12 +517,7 @@ describe("search CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(`${JSON.stringify([
-                "@oomol/image-tools@1.2.3",
-                "@oomol/vision-kit@2.0.0",
-            ])}\n`);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -569,8 +530,7 @@ describe("search CLI", () => {
         try {
             const result = await sandbox.run(["search", "image", "--format=yaml"]);
 
-            expect(result.exitCode).toBe(2);
-            expect(result.stdout).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stderr).toContain("Invalid format: yaml. Use json.");
         }
         finally {
@@ -584,10 +544,14 @@ describe("search CLI", () => {
         try {
             const expectedHelp = await sandbox.run(["search", "--help"]);
             const result = await sandbox.run(["search"]);
+            const expectedHelpSnapshot = createCliSnapshot(expectedHelp);
+            const resultSnapshot = createCliSnapshot(result);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(expectedHelp.stdout);
+            expect({
+                expectedHelp: expectedHelpSnapshot,
+                result: resultSnapshot,
+            }).toMatchSnapshot();
+            expect(resultSnapshot).toEqual(expectedHelpSnapshot);
         }
         finally {
             await sandbox.cleanup();

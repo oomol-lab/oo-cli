@@ -2,7 +2,12 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox, toRequest } from "../../../../__tests__/helpers.ts";
+import {
+    createCliSandbox,
+    createCliSnapshot,
+    expectCliSnapshot,
+    toRequest,
+} from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 
 describe("packageInfoCommand CLI", () => {
@@ -143,33 +148,7 @@ describe("packageInfoCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "QR Code (qrcode@1.0.4)",
-                    "The QR Code Toolkit.",
-                    "",
-                    "- Exist QR Code (Exist)",
-                    "  Checks whether an image contains a QR code.",
-                    "  Input:",
-                    "    - input  string (image)  [optional]  Image input",
-                    "    - tags   Array<string>   [required]  Tag list",
-                    "    - mode   string          [optional]  Scan mode",
-                    "    - count  integer         [optional]  Retry count",
-                    "  Output:",
-                    "    - output    boolean  Boolean result",
-                    "    - metadata  unknown  Unstructured metadata",
-                    "",
-                    "- Decode QR Code (Decode)",
-                    "  Reads the QR code payload from an image.",
-                    "  Input:",
-                    "    - image  string (image)  [required]  Image to decode",
-                    "  Output:",
-                    "    - text  string  Decoded text payload",
-                    "",
-                ].join("\n"),
-            );
+            expectCliSnapshot(result);
             expect(requests).toHaveLength(1);
             expect(requests[0]?.url).toBe(
                 "https://registry.oomol.com/-/oomol/package-info/qrcode/latest?lang=en",
@@ -302,8 +281,7 @@ describe("packageInfoCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(JSON.parse(result.stdout)).toEqual({
                 blocks: [
                     {
@@ -423,6 +401,7 @@ describe("packageInfoCommand CLI", () => {
             );
 
             const requests: Request[] = [];
+            const snapshots = [];
             const cases = [
                 {
                     argv: ["package", "info", "pdf@1.0.0", "--format=json"],
@@ -498,8 +477,7 @@ describe("packageInfoCommand CLI", () => {
                     },
                 );
 
-                expect(result.exitCode).toBe(0);
-                expect(result.stderr).toBe("");
+                snapshots.push(createCliSnapshot(result));
                 expect(JSON.parse(result.stdout)).toEqual({
                     blocks: [],
                     description: testCase.response.description,
@@ -509,6 +487,7 @@ describe("packageInfoCommand CLI", () => {
                 });
             }
 
+            expect(snapshots).toMatchSnapshot();
             expect(requests.map(request => request.url)).toEqual(
                 cases.map(testCase => testCase.expectedUrl),
             );
@@ -566,7 +545,10 @@ describe("packageInfoCommand CLI", () => {
 
             expect(firstResult.exitCode).toBe(0);
             expect(secondResult.exitCode).toBe(0);
-            expect(firstResult.stdout).toBe(secondResult.stdout);
+            expect({
+                firstResult: createCliSnapshot(firstResult),
+                secondResult: createCliSnapshot(secondResult),
+            }).toMatchSnapshot();
             expect(requestCount).toBe(1);
         }
         finally {
@@ -624,9 +606,11 @@ describe("packageInfoCommand CLI", () => {
                 { fetcher },
             );
 
-            expect(latestResult.exitCode).toBe(0);
-            expect(latestAgainResult.exitCode).toBe(0);
-            expect(explicitVersionResult.exitCode).toBe(0);
+            expect({
+                explicitVersionResult: createCliSnapshot(explicitVersionResult),
+                latestAgainResult: createCliSnapshot(latestAgainResult),
+                latestResult: createCliSnapshot(latestResult),
+            }).toMatchSnapshot();
             expect(requestCount).toBe(2);
         }
         finally {
@@ -640,10 +624,7 @@ describe("packageInfoCommand CLI", () => {
         try {
             const result = await sandbox.run(["package", "info", "--help"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toContain("--json");
-            expect(result.stdout).toContain("Alias for --format=json");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();

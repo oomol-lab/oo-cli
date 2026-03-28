@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox } from "../../../../__tests__/helpers.ts";
+import { createCliSandbox, createCliSnapshot } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 
@@ -12,16 +12,9 @@ describe("log CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const logDirectoryPath = resolveStorePaths({
-                appName: APP_NAME,
-                env: sandbox.env,
-                platform: process.platform,
-            }).logDirectoryPath;
             const result = await sandbox.run(["log", "path"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(`${logDirectoryPath}\n`);
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -44,9 +37,7 @@ describe("log CLI", () => {
 
             const result = await sandbox.run(["log", "print"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe("second-log\n");
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -70,9 +61,7 @@ describe("log CLI", () => {
 
             const result = await sandbox.run(["log", "print", "2"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe("second-log\n");
-            expect(result.stderr).toBe("");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();

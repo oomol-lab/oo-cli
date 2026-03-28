@@ -1,0 +1,18 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`file list and cleanup CLI supports file list filters and cleanup json output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"active.txt
+  - ID: 0195f5fe-ec28-7000-8000-000000000009
+  - File size: 11 B
+  - Uploaded at: 1970-01-01T00:00:03.000Z
+  - Expires at: 3000-01-01T00:00:00.000Z
+  - Status: active
+  - Download URL: https://download.example.com/active
+"
+,
+}
+`;

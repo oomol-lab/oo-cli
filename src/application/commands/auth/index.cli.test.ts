@@ -6,6 +6,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    createCliSnapshot,
     defaultAuthEndpoint,
     findLoginUrl,
     readAuthLoginUrlPrefix,
@@ -27,7 +28,7 @@ describe("auth CLI", () => {
             const result = await runPrintedAuthLogin(sandbox, "secret-1");
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
+            expect(createAuthLoginSnapshot(result)).toMatchSnapshot();
             expect(content).toContain(
                 `"msg":"Auth login callback server is listening."`,
             );
@@ -79,7 +80,7 @@ describe("auth CLI", () => {
             );
             const content = await readLatestLogContent(sandbox);
 
-            expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(content).toContain(`"msg":"Auth store read completed."`);
             expect(content).toContain(`"msg":"Current auth account resolved."`);
             expect(content).toContain(`"msg":"Auth status request started."`);
@@ -97,26 +98,11 @@ describe("auth CLI", () => {
         try {
             const loginHelp = await sandbox.run(["login", "--help"]);
             const logoutHelp = await sandbox.run(["logout", "--help"]);
-            const loginDescriptionIndex = loginHelp.stdout.indexOf(
-                "Log in with an OOMOL account in the browser.",
-            );
-            const loginAliasIndex = loginHelp.stdout.indexOf(
-                "Alias for auth login.",
-            );
-            const logoutDescriptionIndex = logoutHelp.stdout.indexOf(
-                "Remove the current account from persisted auth data.",
-            );
-            const logoutAliasIndex = logoutHelp.stdout.indexOf(
-                "Alias for auth logout.",
-            );
 
-            expect(loginHelp.exitCode).toBe(0);
-            expect(loginDescriptionIndex).toBeGreaterThanOrEqual(0);
-            expect(loginAliasIndex).toBeGreaterThan(loginDescriptionIndex);
-
-            expect(logoutHelp.exitCode).toBe(0);
-            expect(logoutDescriptionIndex).toBeGreaterThanOrEqual(0);
-            expect(logoutAliasIndex).toBeGreaterThan(logoutDescriptionIndex);
+            expect({
+                loginHelp: createCliSnapshot(loginHelp),
+                logoutHelp: createCliSnapshot(logoutHelp),
+            }).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -135,17 +121,21 @@ describe("auth CLI", () => {
             const firstLogin = await runPrintedAuthLogin(sandbox, "secret-1");
             const secondLogin = await runPrintedAuthLogin(sandbox, "secret-2");
             const authFileContent = await readFile(authFilePath, "utf8");
+            const firstLoginUrl = findLoginUrl(firstLogin.stdout);
+            const secondLoginUrl = findLoginUrl(secondLogin.stdout);
 
             expect(firstLogin.exitCode).toBe(0);
-            expect(firstLogin.stdout).toContain(
-                "Open this URL in your browser to continue:",
-            );
-            expect(firstLogin.stdout).toContain(
+            expect(firstLoginUrl).toStartWith(
                 readAuthLoginUrlPrefix(defaultAuthEndpoint),
             );
-            expect(firstLogin.stdout).toContain("✓ Logged in to oomol.com account Alice");
-            expect(firstLogin.stdout).toContain("  - Active account: true");
             expect(secondLogin.exitCode).toBe(0);
+            expect(secondLoginUrl).toStartWith(
+                readAuthLoginUrlPrefix(defaultAuthEndpoint),
+            );
+            expect({
+                firstLogin: createAuthLoginSnapshot(firstLogin),
+                secondLogin: createAuthLoginSnapshot(secondLogin),
+            }).toMatchSnapshot();
             expect(authFileContent.split("[[auth]]").length - 1).toBe(1);
             expect(authFileContent).toContain("id = \"user-1\"");
             expect(authFileContent).toContain("api_key = \"secret-2\"");
@@ -164,14 +154,13 @@ describe("auth CLI", () => {
             const result = await runPrintedAuthLogin(sandbox, "secret-1", {
                 accountEndpoint: sandbox.env.OOMOL_ENDPOINT,
             });
+            const loginUrl = findLoginUrl(result.stdout);
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain(
+            expect(loginUrl).toStartWith(
                 readAuthLoginUrlPrefix("staging.oomol.test"),
             );
-            expect(result.stdout).toContain(
-                "✓ Logged in to staging.oomol.test account Alice",
-            );
+            expect(createAuthLoginSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -185,12 +174,13 @@ describe("auth CLI", () => {
             const result = await runPrintedAuthLogin(sandbox, "secret-1", {
                 argv: ["login"],
             });
+            const loginUrl = findLoginUrl(result.stdout);
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain(
-                "Open this URL in your browser to continue:",
+            expect(loginUrl).toStartWith(
+                readAuthLoginUrlPrefix(defaultAuthEndpoint),
             );
-            expect(result.stdout).toContain("✓ Logged in to oomol.com account Alice");
+            expect(createAuthLoginSnapshot(result)).toMatchSnapshot();
         }
         finally {
             await sandbox.cleanup();
@@ -209,6 +199,9 @@ describe("auth CLI", () => {
 
             expect(login.exitCode).toBe(0);
             expect(plainLoginUrl).toBeTruthy();
+            expect(createAuthLoginSnapshot(login, {
+                stripAnsi: true,
+            })).toMatchSnapshot();
             expect(login.stdout).toContain(
                 colors.hex(loginUrlColor)(plainLoginUrl!),
             );
@@ -256,7 +249,7 @@ describe("auth CLI", () => {
             const authFileContent = await readFile(authFilePath, "utf8");
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("Logged out");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(authFileContent).toContain("id = \"\"");
             expect(authFileContent).not.toContain("id = \"user-1\"");
             expect(authFileContent).toContain("id = \"user-2\"");
@@ -294,7 +287,7 @@ describe("auth CLI", () => {
             const authFileContent = await readFile(authFilePath, "utf8");
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("Logged out");
+            expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(authFileContent).toContain("id = \"\"");
             expect(authFileContent).not.toContain("id = \"user-1\"");
         }
@@ -349,17 +342,15 @@ describe("auth CLI", () => {
             );
 
             expect(validStatus.exitCode).toBe(0);
-            expect(validStatus.stdout).toContain("✓ Logged in to oomol.com account Alice");
-            expect(validStatus.stdout).toContain("  - Active account: true");
-            expect(validStatus.stdout).toContain("  - API key status: Valid");
-            expect(validStatus.stdout).not.toContain("saved_accounts=");
             expect(validRequests).toHaveLength(1);
             expect(validRequests[0]?.url).toBe("https://api.oomol.com/v1/users/profile");
             expect(validRequests[0]?.headers.get("Authorization")).toBe("secret-1");
 
             expect(invalidStatus.exitCode).toBe(0);
-            expect(invalidStatus.stdout).toContain("X Logged in to oomol.com account Alice");
-            expect(invalidStatus.stdout).toContain("  - API key status: Invalid");
+            expect({
+                invalidStatus: createCliSnapshot(invalidStatus),
+                validStatus: createCliSnapshot(validStatus),
+            }).toMatchSnapshot();
             expect(invalidRequests).toHaveLength(1);
             expect(invalidRequests[0]?.url).toBe("https://api.oomol.com/v1/users/profile");
             expect(invalidRequests[0]?.headers.get("Authorization")).toBe("secret-1");
@@ -409,25 +400,21 @@ describe("auth CLI", () => {
             const firstResult = await sandbox.run(["auth", "switch"]);
 
             expect(firstResult.exitCode).toBe(0);
-            expect(firstResult.stdout).toContain(
-                "✓ Switched active account for oomol.com to Bob",
-            );
             expect(await readFile(authFilePath, "utf8")).toContain("id = \"user-2\"");
 
             const secondResult = await sandbox.run(["auth", "switch"]);
 
             expect(secondResult.exitCode).toBe(0);
-            expect(secondResult.stdout).toContain(
-                "✓ Switched active account for oomol.com to Charlie",
-            );
             expect(await readFile(authFilePath, "utf8")).toContain("id = \"user-3\"");
 
             const thirdResult = await sandbox.run(["auth", "switch"]);
 
             expect(thirdResult.exitCode).toBe(0);
-            expect(thirdResult.stdout).toContain(
-                "✓ Switched active account for oomol.com to Alice",
-            );
+            expect({
+                firstSwitch: createCliSnapshot(firstResult),
+                secondSwitch: createCliSnapshot(secondResult),
+                thirdSwitch: createCliSnapshot(thirdResult),
+            }).toMatchSnapshot();
             expect(await readFile(authFilePath, "utf8")).toContain("id = \"user-1\"");
         }
         finally {
@@ -476,6 +463,9 @@ describe("auth CLI", () => {
             );
 
             expect(result.exitCode).toBe(0);
+            expect(createCliSnapshot(result, {
+                stripAnsi: true,
+            })).toMatchSnapshot();
             expect(result.stdout).toContain(colors.green("✓"));
             expect(result.stdout).toContain(
                 "Switched active account for oomol.com to",
@@ -487,3 +477,28 @@ describe("auth CLI", () => {
         }
     });
 });
+
+function createAuthLoginSnapshot(
+    result: {
+        readonly exitCode: number;
+        readonly stdout: string;
+        readonly stderr: string;
+    },
+    options: {
+        readonly stripAnsi?: boolean;
+    } = {},
+) {
+    const loginUrl = findLoginUrl(result.stdout);
+
+    return createCliSnapshot(result, {
+        replacements: loginUrl === undefined
+            ? []
+            : [
+                    {
+                        placeholder: "<LOGIN_URL>",
+                        value: loginUrl,
+                    },
+                ],
+        stripAnsi: options.stripAnsi,
+    });
+}

@@ -1,0 +1,68 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`file download resume CLI preserves the temporary file and resume session when file download fails mid-download 1`] = `
+{
+  "exitCode": 1,
+  "stderr": 
+"Downloading 0 B
+
+Downloading 7 B
+Failed to download the file at <HOME>/downloads/broken.oodownload: Connection dropped.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`file download resume CLI cleans up download resume sessions older than 14 days when file download starts 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Saved to: <HOME>/downloads/fresh.txt
+"
+,
+}
+`;
+
+exports[`file download resume CLI resumes file download with HTTP Range after a mid-download failure 1`] = `
+{
+  "firstResult": {
+    "exitCode": 1,
+    "stderr": 
+"Failed to download the file at <HOME>/downloads/broken.oodownload: Connection dropped.
+"
+,
+    "stdout": "",
+  },
+  "secondResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Saved to: <HOME>/downloads/broken.txt
+"
+,
+  },
+}
+`;
+
+exports[`file download resume CLI restarts file download from the beginning when the server ignores Range 1`] = `
+{
+  "firstResult": {
+    "exitCode": 1,
+    "stderr": 
+"Failed to download the file at <HOME>/downloads/restart.oodownload: Connection dropped.
+"
+,
+    "stdout": "",
+  },
+  "secondResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Saved to: <HOME>/downloads/restart.txt
+"
+,
+  },
+}
+`;

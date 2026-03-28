@@ -1,0 +1,254 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`runCli bootstrap prints the package version 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Version: 0.0.0-development
+Build Time: unknown
+Commit: unknown
+"
+,
+}
+`;
+
+exports[`runCli bootstrap prints localized version metadata in Chinese 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"版本: 0.0.0-development
+构建时间: 未知
+提交: 未知
+"
+,
+}
+`;
+
+exports[`runCli bootstrap creates the sqlite cache file during cli startup 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
+
+Options:
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
+
+Commands:
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  package                  Package utilities
+  search [options] <text>  Search packages by intent
+  help [command]           Show help for a command
+"
+,
+}
+`;
+
+exports[`runCli bootstrap writes debug logs to the log directory during cli startup 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
+
+Options:
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
+
+Commands:
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  package                  Package utilities
+  search [options] <text>  Search packages by intent
+  help [command]           Show help for a command
+"
+,
+}
+`;
+
+exports[`runCli bootstrap prints the current log file path to stderr when --debug is set 1`] = `
+{
+  "exitCode": 0,
+  "stderr": 
+"<LOG_FILE_PATH>
+"
+,
+  "stdout": 
+"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
+
+Options:
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
+
+Commands:
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  package                  Package utilities
+  search [options] <text>  Search packages by intent
+  help [command]           Show help for a command
+"
+,
+}
+`;
+
+exports[`runCli bootstrap renders help in English and Chinese 1`] = `
+{
+  "chinese": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"oo 是 OOMOL 的 CLI 工具集，一切均可在 CLI 中完成
+
+选项：
+  -V, --version            显示当前版本
+  --debug                  在 CLI 退出时打印当前日志文件路径
+  --lang <lang>            指定显示语言
+  -h, --help               显示命令帮助
+
+命令：
+  auth                     管理 CLI 认证
+  check-update             检查 CLI 更新
+  cloud-task               管理云任务
+  file                     管理临时文件传输
+  login                    通过浏览器登录（auth login 的别名）
+  logout                   登出当前账号（auth logout 的别名）
+  completion <shell>       生成 shell 补全脚本
+  config                   管理持久化配置
+  skills                   管理 Codex skill
+  log                      管理持久化 debug 日志
+  package                  包相关工具
+  search [options] <text>  按意图搜索包
+  help [command]           显示命令帮助
+"
+,
+  },
+  "english": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
+
+Options:
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
+
+Commands:
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  package                  Package utilities
+  search [options] <text>  Search packages by intent
+  help [command]           Show help for a command
+"
+,
+  },
+}
+`;
+
+exports[`runCli bootstrap renders branded colors in help when stdout supports colors 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
+
+Options:
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
+
+Commands:
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  package                  Package utilities
+  search [options] <text>  Search packages by intent
+  help [command]           Show help for a command
+"
+,
+}
+`;
+
+exports[`runCli bootstrap returns usage errors for invalid global inputs 1`] = `
+{
+  "invalidLang": {
+    "exitCode": 2,
+    "stderr": 
+"Invalid value for --lang: fr. Use en or zh.
+"
+,
+    "stdout": "",
+  },
+  "unknownCommand": {
+    "exitCode": 2,
+    "stderr": 
+"Unknown command: cnfig.
+Did you mean config?
+"
+,
+    "stdout": "",
+  },
+}
+`;
+
+exports[`runCli bootstrap tags bootstrap user errors with the user_error category 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"Invalid config key: theme.
+"
+,
+  "stdout": "",
+}
+`;

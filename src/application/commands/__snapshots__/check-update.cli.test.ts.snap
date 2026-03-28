@@ -1,0 +1,121 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`checkUpdateCommand CLI writes update-check lifecycle logs when check-update finds a newer release 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"
+╭──────────────────────────────────────────────────────╮
+│                                                      │
+│            Update available 1.0.0 → 1.2.0            │
+│  Run pnpm add -g @oomol-lab/oo-cli@latest to update  │
+│                                                      │
+╰──────────────────────────────────────────────────────╯
+"
+,
+}
+`;
+
+exports[`checkUpdateCommand CLI does not automatically check for updates after unrelated commands 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"<XDG_CONFIG_HOME>/oo/settings.toml
+"
+,
+}
+`;
+
+exports[`checkUpdateCommand CLI retries once before printing a retry-later message 1`] = `
+{
+  "firstResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Unable to check for updates right now. Please try again later.
+"
+,
+  },
+  "secondResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Unable to check for updates right now. Please try again later.
+"
+,
+  },
+}
+`;
+
+exports[`checkUpdateCommand CLI does not cache failed update checks between check-update invocations 1`] = `
+{
+  "firstResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Unable to check for updates right now. Please try again later.
+"
+,
+  },
+  "secondResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"
+╭─────────────────────────────────────────────────────────╮
+│                                                         │
+│             Update available 1.0.0 → 1.2.0              │
+│  Run npm install -g @oomol-lab/oo-cli@latest to update  │
+│                                                         │
+╰─────────────────────────────────────────────────────────╯
+"
+,
+  },
+}
+`;
+
+exports[`checkUpdateCommand CLI fetches the latest registry version on every check-update invocation 1`] = `
+{
+  "firstResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"
+╭─────────────────────────────────────────────────────────╮
+│                                                         │
+│             Update available 1.0.0 → 1.2.0              │
+│  Run npm install -g @oomol-lab/oo-cli@latest to update  │
+│                                                         │
+╰─────────────────────────────────────────────────────────╯
+"
+,
+  },
+  "secondResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"
+╭─────────────────────────────────────────────────────────╮
+│                                                         │
+│             Update available 1.0.0 → 1.3.0              │
+│  Run npm install -g @oomol-lab/oo-cli@latest to update  │
+│                                                         │
+╰─────────────────────────────────────────────────────────╯
+"
+,
+  },
+}
+`;
+
+exports[`checkUpdateCommand CLI prints a friendly message when check-update receives an unsupported version 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Current version development does not support update checks.
+"
+,
+}
+`;

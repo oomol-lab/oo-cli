@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox } from "../../../../__tests__/helpers.ts";
+import { createCliSandbox, createCliSnapshot } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 
@@ -75,9 +75,7 @@ describe("file list and cleanup CLI", () => {
             );
 
             expect(listTextResult.exitCode).toBe(0);
-            expect(listTextResult.stderr).toBe("");
-            expect(listTextResult.stdout).toContain("active.txt");
-            expect(listTextResult.stdout).toContain("https://download.example.com/active");
+            expect(createCliSnapshot(listTextResult)).toMatchSnapshot();
 
             expect(listJsonResult.exitCode).toBe(0);
             expect(JSON.parse(listJsonResult.stdout)).toEqual([

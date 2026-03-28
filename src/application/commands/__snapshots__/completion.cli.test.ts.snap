@@ -1,0 +1,45 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`completionCommand CLI renders supported shells in completion help 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Output a shell completion script for a supported shell.
+
+Arguments:
+  shell          Target shell (choices: "bash", "zsh", "fish")
+
+Options:
+  -h, --help     Show help for command
+
+Global Options:
+  -V, --version  Show the current version
+  --debug        Print the current log file path when the CLI exits
+  --lang <lang>  Specify the display language
+"
+,
+}
+`;
+
+exports[`completionCommand CLI renders localized choices metadata in Chinese completion help 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"输出受支持 shell 的补全脚本。
+
+参数：
+  shell          目标 shell (可选值: "bash", "zsh", "fish")
+
+选项：
+  -h, --help     显示命令帮助
+
+全局选项：
+  -V, --version  显示当前版本
+  --debug        在 CLI 退出时打印当前日志文件路径
+  --lang <lang>  指定显示语言
+"
+,
+}
+`;

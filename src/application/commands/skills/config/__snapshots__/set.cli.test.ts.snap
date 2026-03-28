@@ -1,0 +1,41 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`skills config set CLI supports skills config set for the oo skill implicit invocation policy 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Set Codex skill oo allow-implicit-invocation to false.
+"
+,
+}
+`;
+
+exports[`skills config set CLI validates skills config set input 1`] = `
+{
+  "invalidKey": {
+    "exitCode": 2,
+    "stderr": 
+"Invalid config key for skill oo: missing. Use allow-implicit-invocation.
+"
+,
+    "stdout": "",
+  },
+  "invalidSkill": {
+    "exitCode": 2,
+    "stderr": 
+"Unsupported skill: missing. Use oo.
+"
+,
+    "stdout": "",
+  },
+  "invalidValue": {
+    "exitCode": 2,
+    "stderr": 
+"Invalid allow-implicit-invocation value for skill oo: disabled. Use true or false.
+"
+,
+    "stdout": "",
+  },
+}
+`;

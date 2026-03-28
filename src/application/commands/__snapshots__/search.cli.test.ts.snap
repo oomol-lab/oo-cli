@@ -1,0 +1,191 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`search CLI writes search request lifecycle logs 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"No matching packages were found.
+"
+,
+}
+`;
+
+exports[`search CLI writes sqlite cache adapter logs across repeated search invocations 1`] = `
+{
+  "firstResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"No matching packages were found.
+"
+,
+  },
+  "secondResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"No matching packages were found.
+"
+,
+  },
+}
+`;
+
+exports[`search CLI supports search command with text output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Image Tools (@oomol/image-tools@1.2.3)
+Powerful image processing toolkit
+Blocks:
+- Image Processor (image-processor)
+  Process and transform image formats
+"
+,
+}
+`;
+
+exports[`search CLI adds the localized request language to search queries 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"未找到匹配的包。
+"
+,
+}
+`;
+
+exports[`search CLI reuses cached search responses across cli invocations 1`] = `
+{
+  "firstResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Image Tools (@oomol/image-tools@1.2.3)
+Powerful image processing toolkit
+"
+,
+  },
+  "secondResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Image Tools (@oomol/image-tools@1.2.3)
+Powerful image processing toolkit
+"
+,
+  },
+}
+`;
+
+exports[`search CLI renders search output with field-specific colors 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Image Tools (@oomol/image-tools@1.2.3)
+Powerful image processing toolkit
+Blocks:
+- Image Processor (image-processor)
+  Process and transform image formats
+"
+,
+}
+`;
+
+exports[`search CLI supports search command with only-package-id text output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"@oomol/image-tools@1.2.3
+@oomol/vision-kit@2.0.0
+"
+,
+}
+`;
+
+exports[`search CLI supports search command with json array output and trims long text 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"[{"blocks":[{"title":"Image Processor"}],"displayName":"Image Tools","name":"@oomol/image-tools","version":"1.2.3"}]
+"
+,
+}
+`;
+
+exports[`search CLI supports search command with only-package-id json output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"["@oomol/image-tools@1.2.3","@oomol/vision-kit@2.0.0"]
+"
+,
+}
+`;
+
+exports[`search CLI validates the search format option 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"Invalid format: yaml. Use json.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`search CLI renders search help when text argument is omitted 1`] = `
+{
+  "expectedHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Search packages with free-form text against the intent search API.
+
+Arguments:
+  text               Search text
+
+Options:
+  --format <format>  Specify output format (use json for structured output)
+  --json             Alias for --format=json
+  --only-package-id  Return only package ids
+  -h, --help         Show help for command
+
+Global Options:
+  -V, --version      Show the current version
+  --debug            Print the current log file path when the CLI exits
+  --lang <lang>      Specify the display language
+"
+,
+  },
+  "result": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Search packages with free-form text against the intent search API.
+
+Arguments:
+  text               Search text
+
+Options:
+  --format <format>  Specify output format (use json for structured output)
+  --json             Alias for --format=json
+  --only-package-id  Return only package ids
+  -h, --help         Show help for command
+
+Global Options:
+  -V, --version      Show the current version
+  --debug            Print the current log file path when the CLI exits
+  --lang <lang>      Specify the display language
+"
+,
+  },
+}
+`;
