@@ -117,6 +117,10 @@ export const enMessages = {
         "Persist one skill configuration value and synchronize the installed managed skill when present.",
     "commands.skills.config.set.summary":
         "Set a skill configuration value",
+    "commands.skills.search.description":
+        "Search published skills against the skills search API.",
+    "commands.skills.search.summary":
+        "Search published skills",
     "commands.skills.install.description":
         "Install one bundled Codex skill into the local Codex skills directory.",
     "commands.skills.install.summary": "Install a bundled Codex skill",
@@ -273,6 +277,18 @@ export const enMessages = {
         "The search request failed: {message}",
     "errors.search.requestFailed":
         "The search request returned HTTP {status}.",
+    "errors.skillsSearch.activeAccountMissing":
+        "The active auth account is missing from the auth store.",
+    "errors.skillsSearch.authRequired":
+        "You must log in before using the skills search command.",
+    "errors.skillsSearch.invalidFormat":
+        "Invalid format: {value}. Use json.",
+    "errors.skillsSearch.invalidResponse":
+        "The skills search service returned an unsupported response body.",
+    "errors.skillsSearch.requestError":
+        "The skills search request failed: {message}",
+    "errors.skillsSearch.requestFailed":
+        "The skills search request returned HTTP {status}.",
     "errors.packageInfo.activeAccountMissing":
         "The active auth account is missing from the auth store.",
     "errors.packageInfo.authRequired":
@@ -337,6 +353,8 @@ export const enMessages = {
     "options.limit": "Specify the maximum number of items to return",
     "options.format": "Specify output format (use json for structured output)",
     "options.json": "Alias for --format=json",
+    "options.keywords":
+        "Specify comma-separated keywords to refine the skill search",
     "options.onlyPackageId": "Return only package ids",
     "options.nextToken": "Specify the pagination token for the next page",
     "options.packageId": "Filter by package id",
@@ -411,6 +429,9 @@ export const enMessages = {
     "search.text.noResults": "No matching packages were found.",
     "search.text.unnamedBlock": "unnamed-block",
     "search.text.unnamedPackage": "unnamed-package",
+    "skills.search.text.noResults": "No matching skills were found.",
+    "skills.search.text.package": "Package",
+    "skills.search.text.unnamedSkill": "unnamed-skill",
     "packageInfo.text.blocks": "Blocks:",
     "packageInfo.text.inputHandle": "Input:",
     "packageInfo.text.outputHandle": "Output:",
@@ -517,6 +538,10 @@ export const zhMessages = {
         "持久化一个 skill 配置值，并在本地存在受管安装时同步对应文件。",
     "commands.skills.config.set.summary":
         "设置一个 skill 配置值",
+    "commands.skills.search.description":
+        "使用自由文本通过 skills search API 搜索已发布的 skill。",
+    "commands.skills.search.summary":
+        "搜索已发布的 skill",
     "commands.skills.install.description": "将一个内置 Codex skill 安装到本地 Codex skills 目录。",
     "commands.skills.install.summary": "安装一个内置 Codex skill",
     "commands.skills.uninstall.description": "从本地 Codex skills 目录移除一个内置 Codex skill。",
@@ -664,6 +689,18 @@ export const zhMessages = {
         "搜索请求失败：{message}",
     "errors.search.requestFailed":
         "搜索请求返回了 HTTP {status}。",
+    "errors.skillsSearch.activeAccountMissing":
+        "当前激活账号不存在于认证数据中。",
+    "errors.skillsSearch.authRequired":
+        "使用 skills search 命令前请先登录。",
+    "errors.skillsSearch.invalidFormat":
+        "无效的 format：{value}。请使用 json。",
+    "errors.skillsSearch.invalidResponse":
+        "skills 搜索服务返回了不受支持的响应内容。",
+    "errors.skillsSearch.requestError":
+        "skills 搜索请求失败：{message}",
+    "errors.skillsSearch.requestFailed":
+        "skills 搜索请求返回了 HTTP {status}。",
     "errors.packageInfo.activeAccountMissing":
         "当前激活账号不存在于认证数据中。",
     "errors.packageInfo.authRequired":
@@ -723,6 +760,8 @@ export const zhMessages = {
     "options.limit": "指定最多返回多少条记录",
     "options.format": "指定输出格式（使用 json 返回结构化内容）",
     "options.json": "--format=json 的别名",
+    "options.keywords":
+        "指定用于细化 skill 搜索的逗号分隔关键词",
     "options.onlyPackageId": "仅返回 package id",
     "options.nextToken": "指定下一页分页令牌",
     "options.packageId": "按 package id 过滤",
@@ -793,6 +832,9 @@ export const zhMessages = {
     "search.text.noResults": "未找到匹配的包。",
     "search.text.unnamedBlock": "未命名功能块",
     "search.text.unnamedPackage": "未命名包",
+    "skills.search.text.noResults": "未找到匹配的 skill。",
+    "skills.search.text.package": "包",
+    "skills.search.text.unnamedSkill": "未命名 skill",
     "packageInfo.text.blocks": "功能块：",
     "packageInfo.text.inputHandle": "输入：",
     "packageInfo.text.outputHandle": "输出：",
