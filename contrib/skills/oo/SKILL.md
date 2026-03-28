@@ -26,7 +26,7 @@ media processing.
 
 If the request is to use a ready-made capability over a local file or archive,
 stay on the `oo` path first. Do not switch to ad hoc local Python, OCR, or
-shell processing before you have at least tried `oo search ... --json` and
+shell processing before you have at least tried `oo package search ... --json` and
 inspected plausible packages with `oo package info ... --json`.
 
 Do not use this skill for ordinary local coding, shell scripting, glue code,
@@ -60,7 +60,7 @@ Before doing anything substantial:
 ## Non-negotiable rules
 
 - Always use `--json` with:
-    - `search`
+    - `package search`
     - `package info`
     - `cloud-task run`
     - `file upload`
@@ -81,7 +81,7 @@ Before doing anything substantial:
   retry.
 - `cloud-task run` must use `PACKAGE_NAME@SEMVER`.
 - `cloud-task run` must include a real `--block-id`.
-- If `search` returns zero packages, stop and tell the user that `oo` does not
+- If `package search` returns zero packages, stop and tell the user that `oo` does not
   currently have a matching capability.
 - Ask follow-up questions only when required inputs are missing or too risky to
   infer.
@@ -138,7 +138,7 @@ Combine the keywords into one concise English search query.
 Run:
 
 ```bash
-oo search "<english query>" --json
+oo package search "<english query>" --json
 ```
 
 Then:
@@ -178,7 +178,7 @@ Prefer a block that:
 Use `blocks[].blockName` as the block identifier for execution. Do not use the
 human-facing block title as `--block-id`.
 
-If search does not provide a version, inspect the package by name first and use
+If package search does not provide a version, inspect the package by name first and use
 the resolved `packageVersion` for any later `cloud-task run`.
 
 If a candidate does not expose a usable package name, do not select it.
@@ -383,5 +383,5 @@ https://console.oomol.com/billing/recharge before retrying anything.
 - Be decisive.
 - Prefer the most specific block over a generic block.
 - Prefer recoverable progress over fragile one-shot waiting.
-- Never claim a capability that was not proven by `search`, `package info`, or
+- Never claim a capability that was not proven by `package search`, `package info`, or
   command output.

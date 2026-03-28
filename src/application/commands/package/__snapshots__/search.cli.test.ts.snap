@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`search CLI writes search request lifecycle logs 1`] = `
+exports[`packageSearchCommand CLI writes search request lifecycle logs 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
@@ -11,7 +11,7 @@ exports[`search CLI writes search request lifecycle logs 1`] = `
 }
 `;
 
-exports[`search CLI writes sqlite cache adapter logs across repeated search invocations 1`] = `
+exports[`packageSearchCommand CLI writes sqlite cache adapter logs across repeated search invocations 1`] = `
 {
   "firstResult": {
     "exitCode": 0,
@@ -32,7 +32,7 @@ exports[`search CLI writes sqlite cache adapter logs across repeated search invo
 }
 `;
 
-exports[`search CLI supports search command with text output 1`] = `
+exports[`packageSearchCommand CLI supports package search command with text output 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
@@ -47,7 +47,7 @@ Blocks:
 }
 `;
 
-exports[`search CLI adds the localized request language to search queries 1`] = `
+exports[`packageSearchCommand CLI adds the localized request language to package search queries 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
@@ -58,7 +58,7 @@ exports[`search CLI adds the localized request language to search queries 1`] = 
 }
 `;
 
-exports[`search CLI reuses cached search responses across cli invocations 1`] = `
+exports[`packageSearchCommand CLI reuses cached search responses across cli invocations 1`] = `
 {
   "firstResult": {
     "exitCode": 0,
@@ -81,7 +81,7 @@ Powerful image processing toolkit
 }
 `;
 
-exports[`search CLI renders search output with field-specific colors 1`] = `
+exports[`packageSearchCommand CLI renders search output with field-specific colors 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
@@ -96,7 +96,7 @@ Blocks:
 }
 `;
 
-exports[`search CLI supports search command with only-package-id text output 1`] = `
+exports[`packageSearchCommand CLI supports package search command with only-package-id text output 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
@@ -108,7 +108,7 @@ exports[`search CLI supports search command with only-package-id text output 1`]
 }
 `;
 
-exports[`search CLI supports search command with json array output and trims long text 1`] = `
+exports[`packageSearchCommand CLI supports package search command with json array output and trims long text 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
@@ -119,7 +119,7 @@ exports[`search CLI supports search command with json array output and trims lon
 }
 `;
 
-exports[`search CLI supports search command with only-package-id json output 1`] = `
+exports[`packageSearchCommand CLI supports package search command with only-package-id json output 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
@@ -130,7 +130,7 @@ exports[`search CLI supports search command with only-package-id json output 1`]
 }
 `;
 
-exports[`search CLI validates the search format option 1`] = `
+exports[`packageSearchCommand CLI validates the search format option 1`] = `
 {
   "exitCode": 2,
   "stderr": 
@@ -141,7 +141,7 @@ exports[`search CLI validates the search format option 1`] = `
 }
 `;
 
-exports[`search CLI renders search help when text argument is omitted 1`] = `
+exports[`packageSearchCommand CLI renders package search help when text argument is omitted 1`] = `
 {
   "expectedHelp": {
     "exitCode": 0,
