@@ -118,6 +118,20 @@ Check whether a newer CLI release is available.
 
 ## Codex Skills
 
+### `oo skills search <text>`
+
+Search published skills with free-form text.
+
+- Alias: `oo skills find <text>`.
+- Arguments: `<text>` is the search text sent to the skills search service.
+- Options: `--keywords <keywords>` sends a comma-separated keyword list as
+  repeated `keywords` query parameters after trimming empty entries.
+- Options: `--format=json` and `--json` print a JSON array of matching skill
+  entries.
+- Output: text output prints one block per skill with its title or name,
+  optional description, and source package reference when available.
+- Notes: every invocation requests at most `5` results.
+
 ### `oo skills config get <skill> [key]`
 
 Read skill configuration values.

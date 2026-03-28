@@ -1,0 +1,87 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`skills search CLI supports skills search command with text output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Text Generation (text-generation)
+Generate text using AI models
+Package: @oomol/ai-tools@1.0.0
+"
+,
+}
+`;
+
+exports[`skills search CLI supports skills find alias with json output and keywords 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"[{"description":"Generate text using AI models","icon":"https://example.com/text-generation.png","name":"text-generation","packageName":"@oomol/ai-tools","packageVersion":"1.0.0","title":"Text Generation"}]
+"
+,
+}
+`;
+
+exports[`skills search CLI validates the skills search format option 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"Invalid format: yaml. Use json.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`skills search CLI renders skills search help when text argument is omitted 1`] = `
+{
+  "expectedHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Search published skills against the skills search API.
+
+Arguments:
+  text                   Search text
+
+Options:
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --keywords <keywords>  Specify comma-separated keywords to refine the skill
+                         search
+  -h, --help             Show help for command
+
+Global Options:
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
+"
+,
+  },
+  "result": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Search published skills against the skills search API.
+
+Arguments:
+  text                   Search text
+
+Options:
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --keywords <keywords>  Specify comma-separated keywords to refine the skill
+                         search
+  -h, --help             Show help for command
+
+Global Options:
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
+"
+,
+  },
+}
+`;
