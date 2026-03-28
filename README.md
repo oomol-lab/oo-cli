@@ -33,8 +33,9 @@ $oo generate a QR code for the string OOMOL
 
 ## Codex Skills
 
-On the first `oo` launch, or after running `oo skills install`, Codex will get
-the bundled `oo` skill under `${CODEX_HOME:-~/.codex}/skills/oo`.
+On the first `oo` launch, or after running `oo skills install` (equivalent to
+`oo skills install oo`), Codex will get the bundled `oo` skill under
+`${CODEX_HOME:-~/.codex}/skills/oo`.
 
 Then you can use it in Codex, for example:
 

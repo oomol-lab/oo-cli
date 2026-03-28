@@ -147,11 +147,13 @@ Persist one skill configuration value.
   persists the setting and applies it on the next install or startup
   synchronization.
 
-### `oo skills install`
+### `oo skills install [skill]`
 
 Install one bundled skill into the local Codex skills directory.
 
-- Managed skill: `oo`.
+- Arguments: `[skill]` is optional. When omitted, the command behaves the same
+  as `oo skills install oo`.
+- Supported skill names: currently `oo`.
 - Target directory: `${CODEX_HOME:-~/.codex}/skills/oo`.
 - Metadata: the installation writes the current `oo` version into a hidden
   version file inside the skill directory.

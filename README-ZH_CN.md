@@ -31,8 +31,9 @@ $oo 帮我生成 OOMOL 字符串的二维码
 
 ## Codex Skill
 
-首次打开 `oo`，或者执行 `oo skills install` 之后，Codex 中会生成内置的
-`oo` skill，位置在 `${CODEX_HOME:-~/.codex}/skills/oo`。
+首次打开 `oo`，或者执行 `oo skills install`（等价于
+`oo skills install oo`）之后，Codex 中会生成内置的 `oo` skill，位置在
+`${CODEX_HOME:-~/.codex}/skills/oo`。
 
 然后你就可以在 Codex 中这样使用：
 

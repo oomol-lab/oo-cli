@@ -132,11 +132,12 @@
 - 说明：当目标受管 skill 尚未安装时，命令仍会写入设置，并在下次安装或启
   动同步时生效。
 
-### `oo skills install`
+### `oo skills install [skill]`
 
 将一个内置 skill 安装到本地 Codex skills 目录。
 
-- 内置 skill：`oo`。
+- 参数：`[skill]` 可选。未提供时，该命令等价于 `oo skills install oo`。
+- 支持的 skill 名称：当前仅 `oo`。
 - 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
 - 元数据：安装时会在 skill 目录内写入一个隐藏的 `oo` 版本记录文件。
 - 元数据：当存在持久化的 `skills.oo.implicit_invocation` 配置时，
