@@ -271,7 +271,7 @@ Delete expired upload records from the local sqlite store.
 
 ## Package Discovery
 
-### `oo search <text>`
+### `oo package search <text>`
 
 Search packages with free-form intent text.
 

@@ -1,18 +1,18 @@
-import type { CliCommandDefinition, CliExecutionContext } from "../contracts/cli.ts";
+import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
-import type { AuthAccount } from "../schemas/auth.ts";
-import type { TerminalColors } from "../terminal-colors.ts";
+import type { AuthAccount } from "../../schemas/auth.ts";
+import type { TerminalColors } from "../../terminal-colors.ts";
 import { z } from "zod";
-import { resolveRequestLanguage } from "../../i18n/locale.ts";
-import { CliUserError } from "../contracts/cli.ts";
+import { resolveRequestLanguage } from "../../../i18n/locale.ts";
+import { CliUserError } from "../../contracts/cli.ts";
 import {
     withAccountIdentity,
     withPath,
     withRequestTarget,
-} from "../logging/log-fields.ts";
-import { createWriterColors } from "../terminal-colors.ts";
-import { readCurrentAuth } from "./auth/shared.ts";
-import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
+} from "../../logging/log-fields.ts";
+import { createWriterColors } from "../../terminal-colors.ts";
+import { readCurrentAuth } from "../auth/shared.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 
 const MAX_SEARCH_TEXT_LENGTH = 200;
 const SEARCH_CACHE_ID = "search.intent-response";
@@ -59,7 +59,7 @@ interface SearchInput {
     onlyPackageId?: boolean;
 }
 
-export const searchCommand: CliCommandDefinition<SearchInput> = {
+export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
     name: "search",
     summaryKey: "commands.search.summary",
     descriptionKey: "commands.search.description",

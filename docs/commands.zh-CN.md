@@ -240,7 +240,7 @@
 
 ## Package 检索
 
-### `oo search <text>`
+### `oo package search <text>`
 
 使用自由文本按意图搜索 package。
 

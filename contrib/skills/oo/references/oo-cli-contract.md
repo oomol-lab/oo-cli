@@ -14,7 +14,7 @@ oo ...
 
 ## Authentication
 
-- `search`, `package info`, `file upload`, `cloud-task run`,
+- `package search`, `package info`, `file upload`, `cloud-task run`,
   `cloud-task result`, and `cloud-task wait` all require a current
   authenticated account.
 - Do not run `auth status` as a routine precheck.
@@ -42,12 +42,12 @@ oo auth login
 - Direct them to recharge before retrying at
   https://console.oomol.com/billing/recharge.
 
-## `search`
+## `package search`
 
 Canonical form:
 
 ```bash
-oo search "<text>" --json
+oo package search "<text>" --json
 ```
 
 Facts:
@@ -363,7 +363,7 @@ Skill policy:
 Use this order:
 
 1. Convert the user request into `2` to `6` English keywords.
-2. Run `search --json`.
+2. Run `package search --json`.
 3. Run `package info --json` for the serious candidates.
 4. Choose one primary package and optionally one fallback.
 5. Ask focused follow-up questions only for missing required inputs.

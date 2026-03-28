@@ -8,14 +8,14 @@ import {
     expectCliSnapshot,
     readLatestLogContent,
     toRequest,
-} from "../../../__tests__/helpers.ts";
-import { APP_NAME } from "../config/app-config.ts";
-import { createTerminalColors } from "../terminal-colors.ts";
+} from "../../../../__tests__/helpers.ts";
+import { APP_NAME } from "../../config/app-config.ts";
+import { createTerminalColors } from "../../terminal-colors.ts";
 
 const searchBlockTitleColor = "#CAA8FA";
 const searchDisplayNameColor = "#59F78D";
 
-describe("search CLI", () => {
+describe("packageSearchCommand CLI", () => {
     test("writes search request lifecycle logs", async () => {
         const sandbox = await createCliSandbox();
 
@@ -41,7 +41,7 @@ describe("search CLI", () => {
             );
 
             const result = await sandbox.run(
-                ["search", "image processing"],
+                ["package", "search", "image processing"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packages: [],
@@ -95,9 +95,9 @@ describe("search CLI", () => {
                 }));
             };
 
-            const firstResult = await sandbox.run(["search", "cache me"], { fetcher });
+            const firstResult = await sandbox.run(["package", "search", "cache me"], { fetcher });
             const firstContent = await readLatestLogContent(sandbox);
-            const secondResult = await sandbox.run(["search", "cache me"], { fetcher });
+            const secondResult = await sandbox.run(["package", "search", "cache me"], { fetcher });
             const secondContent = await readLatestLogContent(sandbox);
 
             expect({
@@ -116,7 +116,7 @@ describe("search CLI", () => {
         }
     });
 
-    test("supports search command with text output", async () => {
+    test("supports package search command with text output", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -142,7 +142,7 @@ describe("search CLI", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["search", "image processing"],
+                ["package", "search", "image processing"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -181,7 +181,7 @@ describe("search CLI", () => {
         }
     });
 
-    test("adds the localized request language to search queries", async () => {
+    test("adds the localized request language to package search queries", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -207,7 +207,7 @@ describe("search CLI", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["--lang", "zh", "search", "image processing"],
+                ["--lang", "zh", "package", "search", "image processing"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -270,11 +270,11 @@ describe("search CLI", () => {
                 }));
             };
             const firstResult = await sandbox.run(
-                ["search", "image processing"],
+                ["package", "search", "image processing"],
                 { fetcher },
             );
             const secondResult = await sandbox.run(
-                ["search", "image processing"],
+                ["package", "search", "image processing"],
                 { fetcher },
             );
 
@@ -317,7 +317,7 @@ describe("search CLI", () => {
             );
 
             const result = await sandbox.run(
-                ["search", "image processing"],
+                ["package", "search", "image processing"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packages: [
@@ -358,7 +358,7 @@ describe("search CLI", () => {
         }
     });
 
-    test("supports search command with only-package-id text output", async () => {
+    test("supports package search command with only-package-id text output", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -383,7 +383,7 @@ describe("search CLI", () => {
             );
 
             const result = await sandbox.run(
-                ["search", "image processing", "--only-package-id"],
+                ["package", "search", "image processing", "--only-package-id"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packages: [
@@ -410,7 +410,7 @@ describe("search CLI", () => {
         }
     });
 
-    test("supports search command with json array output and trims long text", async () => {
+    test("supports package search command with json array output and trims long text", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -453,7 +453,7 @@ describe("search CLI", () => {
             const searchText = "x".repeat(210);
             const expectedQuery = "x".repeat(200);
             const result = await sandbox.run(
-                ["search", searchText, "--json"],
+                ["package", "search", searchText, "--json"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -474,7 +474,7 @@ describe("search CLI", () => {
         }
     });
 
-    test("supports search command with only-package-id json output", async () => {
+    test("supports package search command with only-package-id json output", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -499,7 +499,7 @@ describe("search CLI", () => {
             );
 
             const result = await sandbox.run(
-                ["search", "image processing", "--format=json", "--only-package-id"],
+                ["package", "search", "image processing", "--format=json", "--only-package-id"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
                         packages: [
@@ -528,7 +528,7 @@ describe("search CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const result = await sandbox.run(["search", "image", "--format=yaml"]);
+            const result = await sandbox.run(["package", "search", "image", "--format=yaml"]);
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stderr).toContain("Invalid format: yaml. Use json.");
@@ -538,12 +538,12 @@ describe("search CLI", () => {
         }
     });
 
-    test("renders search help when text argument is omitted", async () => {
+    test("renders package search help when text argument is omitted", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const expectedHelp = await sandbox.run(["search", "--help"]);
-            const result = await sandbox.run(["search"]);
+            const expectedHelp = await sandbox.run(["package", "search", "--help"]);
+            const result = await sandbox.run(["package", "search"]);
             const expectedHelpSnapshot = createCliSnapshot(expectedHelp);
             const resultSnapshot = createCliSnapshot(result);
 

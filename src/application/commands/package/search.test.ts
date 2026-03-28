@@ -1,19 +1,19 @@
-import type { AuthStore } from "../contracts/auth-store.ts";
+import type { AuthStore } from "../../contracts/auth-store.ts";
 import type {
     Cache,
     CacheOptions,
     CacheStore,
-} from "../contracts/cache.ts";
+} from "../../contracts/cache.ts";
 import type {
     CliCatalog,
     CliExecutionContext,
     Fetcher,
     InteractiveInput,
-} from "../contracts/cli.ts";
-import type { SettingsStore } from "../contracts/settings-store.ts";
-import type { Translator } from "../contracts/translator.ts";
-import type { AuthFile } from "../schemas/auth.ts";
-import type { AppSettings } from "../schemas/settings.ts";
+} from "../../contracts/cli.ts";
+import type { SettingsStore } from "../../contracts/settings-store.ts";
+import type { Translator } from "../../contracts/translator.ts";
+import type { AuthFile } from "../../schemas/auth.ts";
+import type { AppSettings } from "../../schemas/settings.ts";
 
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
@@ -22,10 +22,10 @@ import {
     createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
     createTextBuffer,
-} from "../../../__tests__/helpers.ts";
-import { searchCommand } from "./search.ts";
+} from "../../../../__tests__/helpers.ts";
+import { packageSearchCommand } from "./search.ts";
 
-const searchHandler = searchCommand.handler!;
+const searchHandler = packageSearchCommand.handler!;
 const activeAuthFile: AuthFile = {
     id: "user-1",
     auth: [
@@ -53,7 +53,7 @@ const stdin: InteractiveInput = {
     off() {},
 };
 
-describe("searchCommand", () => {
+describe("packageSearchCommand", () => {
     test("reuses cached responses with the configured sqlite cache policy", async () => {
         const cacheOptions: CacheOptions[] = [];
         const cacheValues = new Map<string, string>();

@@ -166,17 +166,6 @@ exports[`file download CLI fails file download when the download request returns
 }
 `;
 
-exports[`file download CLI fails file download when the output directory cannot be created 1`] = `
-{
-  "exitCode": 1,
-  "stderr": 
-"Failed to prepare the output directory <HOME>/occupied/nested: ENOTDIR: not a directory, stat '<HOME>/occupied/nested'
-"
-,
-  "stdout": "",
-}
-`;
-
 exports[`file download CLI uses the default download file name when the final response url has no file segment 1`] = `
 {
   "exitCode": 0,

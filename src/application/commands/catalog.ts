@@ -11,7 +11,6 @@ import { logCommand } from "./log/index.ts";
 import { loginCommand } from "./login.ts";
 import { logoutCommand } from "./logout.ts";
 import { packageCommand } from "./package/index.ts";
-import { searchCommand } from "./search.ts";
 import { skillsCommand } from "./skills/index.ts";
 
 const globalOptions = [
@@ -47,7 +46,6 @@ export function createCliCatalog(): CliCatalog {
             skillsCommand,
             logCommand,
             packageCommand,
-            searchCommand,
         ],
     };
 }
