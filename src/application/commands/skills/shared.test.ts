@@ -1,10 +1,13 @@
-import { mkdir, readFile, realpath, rm } from "node:fs/promises";
+import { mkdir, readFile, realpath, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
-import { publishBundledSkillInstallation } from "./shared.ts";
+import {
+    createBundledSkillDirectorySymlink,
+    publishBundledSkillInstallation,
+} from "./shared.ts";
 
 describe("bundled skill publication", () => {
     test("publishes the bundled skill through a symlink-compatible path", async () => {
@@ -102,5 +105,183 @@ describe("bundled skill publication", () => {
         finally {
             await rm(rootDirectory, { force: true, recursive: true });
         }
+    });
+
+    test("replaces an existing directory at the installed path before creating a symlink", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const canonicalSkillDirectoryPath = join(
+            rootDirectory,
+            "config",
+            "skills",
+            "oo",
+        );
+        const installedSkillDirectoryPath = join(
+            rootDirectory,
+            ".codex",
+            "skills",
+            "oo",
+        );
+
+        try {
+            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+                recursive: true,
+            });
+            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "skill\n");
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "agents", "openai.yaml"),
+                "OOMOL\n",
+            );
+            await mkdir(installedSkillDirectoryPath, { recursive: true });
+            await Bun.write(join(installedSkillDirectoryPath, "stale.txt"), "stale\n");
+
+            const result = await publishBundledSkillInstallation({
+                canonicalSkillDirectoryPath,
+                installedSkillDirectoryPath,
+            });
+
+            expect(result).toEqual({
+                mode: "symlink",
+                path: installedSkillDirectoryPath,
+            });
+            expect(await realpath(installedSkillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            await expect(stat(join(installedSkillDirectoryPath, "stale.txt"))).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("reuses an existing symlink when it already points to the target", async () => {
+        const createdSymlinks: Array<{
+            linkPath: string;
+            targetPath: string;
+            type: string | null | undefined;
+        }> = [];
+
+        const result = await createBundledSkillDirectorySymlink(
+            "/tmp/canonical/skills/oo",
+            "/tmp/agent/skills/oo",
+            {
+                lstat: async () => ({
+                    isSymbolicLink: () => true,
+                }),
+                mkdir: async () => undefined,
+                readlink: async () => "../../canonical/skills/oo",
+                realpath: async path => path,
+                removePath: async () => {
+                    throw new Error("expected the existing symlink to be reused");
+                },
+                resolveParentSymlinks: async path => path,
+                symlink: async (targetPath, linkPath, type) => {
+                    createdSymlinks.push({ linkPath, targetPath, type });
+                },
+            },
+        );
+
+        expect(result).toBeTrue();
+        expect(createdSymlinks).toHaveLength(0);
+    });
+
+    test("replaces an existing directory before creating a symlink", async () => {
+        const removedPaths: string[] = [];
+        const createdSymlinks: Array<{
+            linkPath: string;
+            targetPath: string;
+            type: string | null | undefined;
+        }> = [];
+        const targetPath = "/tmp/canonical/skills/oo";
+        const linkPath = "/tmp/agent/skills/oo";
+
+        const result = await createBundledSkillDirectorySymlink(
+            targetPath,
+            linkPath,
+            {
+                lstat: async () => ({
+                    isSymbolicLink: () => false,
+                }) as Awaited<ReturnType<typeof stat>>,
+                mkdir: async () => undefined,
+                readlink: async () => {
+                    throw new Error("readlink should not run for directories");
+                },
+                realpath: async path => path,
+                removePath: async (path) => {
+                    removedPaths.push(path);
+                },
+                resolveParentSymlinks: async path => path,
+                symlink: async (createdTargetPath, createdLinkPath, type) => {
+                    createdSymlinks.push({
+                        linkPath: createdLinkPath,
+                        targetPath: createdTargetPath,
+                        type,
+                    });
+                },
+            },
+        );
+
+        expect(result).toBeTrue();
+        expect(removedPaths).toEqual([linkPath]);
+        expect(createdSymlinks).toEqual([
+            {
+                linkPath,
+                targetPath: "../../canonical/skills/oo",
+                type: "dir",
+            },
+        ]);
+    });
+
+    test("cleans a broken symlink loop before creating a junction in win32 mode", async () => {
+        const removedPaths: string[] = [];
+        const createdSymlinks: Array<{
+            linkPath: string;
+            targetPath: string;
+            type: string | null | undefined;
+        }> = [];
+        const targetPath = "/windows/canonical/oo";
+        const linkPath = "/windows/agent/oo";
+
+        const result = await createBundledSkillDirectorySymlink(
+            targetPath,
+            linkPath,
+            {
+                lstat: async () => {
+                    const error = new Error("loop") as NodeJS.ErrnoException;
+
+                    error.code = "ELOOP";
+
+                    throw error;
+                },
+                mkdir: async () => undefined,
+                readlink: async () => {
+                    throw new Error("readlink should not run when lstat fails");
+                },
+                realpath: async path => path,
+                removePath: async (path) => {
+                    removedPaths.push(path);
+                },
+                resolveParentSymlinks: async path => path,
+                symlink: async (createdTargetPath, createdLinkPath, type) => {
+                    createdSymlinks.push({
+                        linkPath: createdLinkPath,
+                        targetPath: createdTargetPath,
+                        type,
+                    });
+                },
+                platform: "win32",
+            },
+        );
+
+        expect(result).toBeTrue();
+        expect(removedPaths).toEqual([linkPath]);
+        expect(createdSymlinks).toEqual([
+            {
+                linkPath,
+                targetPath,
+                type: "junction",
+            },
+        ]);
     });
 });
