@@ -151,7 +151,12 @@
 
 - 参数：`[skill]` 可选。未提供时，该命令等价于 `oo skills install oo`。
 - 支持的 skill 名称：当前仅 `oo`。
+- canonical 目录：内置文件会先释放到 `<config-dir>/skills/oo`，
+  其中 `<config-dir>` 是 `settings.toml` 所在目录。
 - 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
+- 安装方式：`oo` 会优先将目标目录发布为指向 canonical 目录的软连接。
+  如果当前平台或环境下创建软连接失败，则会回退为把 canonical 目录内容复制
+  到 Codex skills 目录。
 - 元数据：安装时会在 skill 目录内写入一个隐藏的 `.oo-metadata.json`
   文件，并在其中记录 `version` 字段。
 - 元数据：当存在持久化的 `skills.oo.implicit_invocation` 配置时，
@@ -172,6 +177,8 @@
 从本地 Codex skills 目录移除一个内置 skill。
 
 - 内置 skill：`oo`。
+- 会同时移除 canonical 目录：`<config-dir>/skills/oo`，其中
+  `<config-dir>` 是 `settings.toml` 所在目录。
 - 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
 
 ## 日志

@@ -2,8 +2,19 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
 
 import type { BundledSkillName } from "./embedded-assets.ts";
-import { mkdir, readFile, rm, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import {
+    cp,
+    lstat,
+    mkdir,
+    readFile,
+    readlink,
+    realpath,
+    rm,
+    stat,
+    symlink,
+} from "node:fs/promises";
+import { basename, dirname, join, relative, resolve } from "node:path";
+import process from "node:process";
 import { CliUserError } from "../../contracts/cli.ts";
 import { resolveHomeDirectory } from "../../path/home-directory.ts";
 import {
@@ -26,6 +37,18 @@ interface BundledSkillMetadata {
     version: string;
 }
 
+export interface BundledSkillPublicationResult {
+    mode: "copy" | "symlink";
+    path: string;
+}
+
+interface BundledSkillPublicationDependencies {
+    createDirectorySymlink?: (
+        targetPath: string,
+        linkPath: string,
+    ) => Promise<boolean>;
+}
+
 export function resolveCodexHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
@@ -45,6 +68,13 @@ export function resolveBundledSkillDirectoryPath(
     return join(codexHomeDirectory, codexSkillsDirectoryName, skillName);
 }
 
+export function resolveBundledSkillCanonicalDirectoryPath(
+    settingsFilePath: string,
+    skillName: BundledSkillName,
+): string {
+    return join(dirname(settingsFilePath), codexSkillsDirectoryName, skillName);
+}
+
 export function resolveBundledSkillMetadataFilePath(
     skillDirectoryPath: string,
 ): string {
@@ -57,8 +87,13 @@ export async function installBundledSkill(
 ): Promise<void> {
     const codexHomeDirectory = await requireCodexHomeDirectory(context);
     const settings = await context.settingsStore.read();
+    const settingsFilePath = context.settingsStore.getFilePath();
     const installedSkillDirectoryPath = resolveBundledSkillDirectoryPath(
         codexHomeDirectory,
+        skillName,
+    );
+    const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+        settingsFilePath,
         skillName,
     );
 
@@ -79,9 +114,27 @@ export async function installBundledSkill(
         });
     }
 
-    const skillDirectoryPath = await writeBundledSkillInstallation({
+    if (
+        await directoryExists(canonicalSkillDirectoryPath)
+        && !(await isManagedBundledSkillInstallation(canonicalSkillDirectoryPath))
+    ) {
+        context.logger.warn(
+            {
+                path: canonicalSkillDirectoryPath,
+                skillName,
+            },
+            "Bundled Codex skill install was blocked by an unmanaged canonical directory.",
+        );
+        throw new CliUserError("errors.skills.storageConflict", 1, {
+            name: skillName,
+            path: canonicalSkillDirectoryPath,
+        });
+    }
+
+    const installation = await writeBundledSkillInstallation({
         codexHomeDirectory,
         settings,
+        settingsFilePath,
         skillName,
         version: context.version,
     });
@@ -90,12 +143,14 @@ export async function installBundledSkill(
         context,
         context.translator.t("skills.install.success", {
             name: skillName,
-            path: skillDirectoryPath,
+            path: installation.path,
         }),
     );
     context.logger.info(
         {
-            path: skillDirectoryPath,
+            canonicalPath: canonicalSkillDirectoryPath,
+            installMode: installation.mode,
+            path: installation.path,
             skillName,
             version: context.version,
         },
@@ -104,7 +159,7 @@ export async function installBundledSkill(
 }
 
 export async function maybeSynchronizeInstalledBundledSkills(
-    context: Pick<CliExecutionContext, "env" | "logger" | "version">,
+    context: Pick<CliExecutionContext, "env" | "logger" | "settingsStore" | "version">,
     options: {
         installMissing?: boolean;
         settings?: AppSettings;
@@ -112,6 +167,7 @@ export async function maybeSynchronizeInstalledBundledSkills(
 ): Promise<void> {
     const codexHomeDirectory = resolveCodexHomeDirectory(context.env);
     const settings = options.settings ?? defaultSettings;
+    const settingsFilePath = context.settingsStore.getFilePath();
 
     if (!(await directoryExists(codexHomeDirectory))) {
         context.logger.debug(
@@ -126,6 +182,10 @@ export async function maybeSynchronizeInstalledBundledSkills(
     for (const skillName of availableBundledSkillNames) {
         const skillDirectoryPath = resolveBundledSkillDirectoryPath(
             codexHomeDirectory,
+            skillName,
+        );
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            settingsFilePath,
             skillName,
         );
 
@@ -143,15 +203,18 @@ export async function maybeSynchronizeInstalledBundledSkills(
                     continue;
                 }
 
-                await writeBundledSkillInstallation({
+                const installation = await writeBundledSkillInstallation({
                     codexHomeDirectory,
                     settings,
+                    settingsFilePath,
                     skillName,
                     version: context.version,
                 });
                 context.logger.info(
                     {
-                        path: skillDirectoryPath,
+                        canonicalPath: canonicalSkillDirectoryPath,
+                        installMode: installation.mode,
+                        path: installation.path,
                         skillName,
                         version: context.version,
                     },
@@ -180,16 +243,19 @@ export async function maybeSynchronizeInstalledBundledSkills(
             ) {
                 const previousVersion
                     = await readInstalledBundledSkillVersion(skillDirectoryPath);
-
-                await writeBundledSkillInstallation({
+                const installation = await writeBundledSkillInstallation({
                     codexHomeDirectory,
                     settings,
+                    settingsFilePath,
                     skillName,
                     version: context.version,
                 });
+
                 context.logger.info(
                     {
-                        path: skillDirectoryPath,
+                        canonicalPath: canonicalSkillDirectoryPath,
+                        installMode: installation.mode,
+                        path: installation.path,
                         previousVersion: previousVersion ?? "unknown",
                         skillName,
                         version: context.version,
@@ -199,11 +265,10 @@ export async function maybeSynchronizeInstalledBundledSkills(
                 continue;
             }
 
-            const desiredImplicitInvocation
-                = resolveBundledSkillImplicitInvocation(
-                    skillName,
-                    settings,
-                );
+            const desiredImplicitInvocation = resolveBundledSkillImplicitInvocation(
+                skillName,
+                settings,
+            );
             const installedImplicitInvocation
                 = await readInstalledBundledSkillImplicitInvocation(
                     skillDirectoryPath,
@@ -221,36 +286,19 @@ export async function maybeSynchronizeInstalledBundledSkills(
                 continue;
             }
 
-            if (installedImplicitInvocation === undefined) {
-                const previousVersion
-                    = await readInstalledBundledSkillVersion(skillDirectoryPath);
-
-                await writeBundledSkillInstallation({
-                    codexHomeDirectory,
-                    settings,
-                    skillName,
-                    version: context.version,
-                });
-                context.logger.info(
-                    {
-                        path: skillDirectoryPath,
-                        previousVersion: previousVersion ?? "unknown",
-                        skillName,
-                        version: context.version,
-                    },
-                    "Bundled Codex skill synchronized.",
-                );
-                continue;
-            }
-
-            await writeInstalledBundledSkillImplicitInvocation(
-                skillDirectoryPath,
-                desiredImplicitInvocation,
-            );
+            const installation = await writeBundledSkillInstallation({
+                codexHomeDirectory,
+                settings,
+                settingsFilePath,
+                skillName,
+                version: context.version,
+            });
             context.logger.info(
                 {
+                    canonicalPath: canonicalSkillDirectoryPath,
                     implicitInvocation: desiredImplicitInvocation,
-                    path: skillDirectoryPath,
+                    installMode: installation.mode,
+                    path: installation.path,
                     skillName,
                     version: context.version,
                 },
@@ -280,6 +328,10 @@ export async function uninstallBundledSkill(
         codexHomeDirectory,
         skillName,
     );
+    const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+        context.settingsStore.getFilePath(),
+        skillName,
+    );
 
     if (
         !(await directoryExists(skillDirectoryPath))
@@ -300,7 +352,8 @@ export async function uninstallBundledSkill(
 
     const previousVersion = await readInstalledBundledSkillVersion(skillDirectoryPath);
 
-    await rm(skillDirectoryPath, { force: true, recursive: true });
+    await removePath(skillDirectoryPath);
+    await removePath(canonicalSkillDirectoryPath);
 
     writeLine(
         context,
@@ -311,6 +364,7 @@ export async function uninstallBundledSkill(
     );
     context.logger.info(
         {
+            canonicalPath: canonicalSkillDirectoryPath,
             path: skillDirectoryPath,
             previousVersion: previousVersion ?? "unknown",
             skillName,
@@ -322,19 +376,27 @@ export async function uninstallBundledSkill(
 async function writeBundledSkillInstallation(options: {
     codexHomeDirectory: string;
     settings: AppSettings;
+    settingsFilePath: string;
     skillName: BundledSkillName;
     version: string;
-}): Promise<string> {
-    const skillDirectoryPath = resolveBundledSkillDirectoryPath(
+}): Promise<BundledSkillPublicationResult> {
+    const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+        options.settingsFilePath,
+        options.skillName,
+    );
+    const installedSkillDirectoryPath = resolveBundledSkillDirectoryPath(
         options.codexHomeDirectory,
         options.skillName,
     );
 
-    await rm(skillDirectoryPath, { force: true, recursive: true });
-    await mkdir(skillDirectoryPath, { recursive: true });
+    await removePath(canonicalSkillDirectoryPath);
+    await mkdir(canonicalSkillDirectoryPath, { recursive: true });
 
     for (const file of getBundledSkillFiles(options.skillName)) {
-        const destinationPath = join(skillDirectoryPath, file.relativePath);
+        const destinationPath = join(
+            canonicalSkillDirectoryPath,
+            file.relativePath,
+        );
 
         await mkdir(dirname(destinationPath), { recursive: true });
         await Bun.write(
@@ -349,13 +411,16 @@ async function writeBundledSkillInstallation(options: {
     }
 
     await writeInstalledBundledSkillMetadata(
-        skillDirectoryPath,
+        canonicalSkillDirectoryPath,
         {
             version: options.version,
         },
     );
 
-    return skillDirectoryPath;
+    return publishBundledSkillInstallation({
+        canonicalSkillDirectoryPath,
+        installedSkillDirectoryPath,
+    });
 }
 
 function renderBundledSkillFileContent(
@@ -402,22 +467,6 @@ async function readInstalledBundledSkillImplicitInvocation(
 
         throw error;
     }
-}
-
-async function writeInstalledBundledSkillImplicitInvocation(
-    skillDirectoryPath: string,
-    value: boolean,
-): Promise<void> {
-    const ownershipFilePath = join(
-        skillDirectoryPath,
-        bundledSkillOwnershipFileRelativePath,
-    );
-    const content = await readFile(ownershipFilePath, "utf8");
-
-    await Bun.write(
-        ownershipFilePath,
-        writeImplicitInvocationValue(content, value),
-    );
 }
 
 function readImplicitInvocationValue(
@@ -626,6 +675,38 @@ async function requireCodexHomeDirectory(
     return codexHomeDirectory;
 }
 
+export async function publishBundledSkillInstallation(
+    options: {
+        canonicalSkillDirectoryPath: string;
+        installedSkillDirectoryPath: string;
+    },
+    dependencies: BundledSkillPublicationDependencies = {},
+): Promise<BundledSkillPublicationResult> {
+    const createDirectoryLink
+        = dependencies.createDirectorySymlink ?? createDirectorySymlink;
+    const symlinkCreated = await createDirectoryLink(
+        options.canonicalSkillDirectoryPath,
+        options.installedSkillDirectoryPath,
+    );
+
+    if (symlinkCreated) {
+        return {
+            mode: "symlink",
+            path: options.installedSkillDirectoryPath,
+        };
+    }
+
+    await copyBundledSkillDirectory(
+        options.canonicalSkillDirectoryPath,
+        options.installedSkillDirectoryPath,
+    );
+
+    return {
+        mode: "copy",
+        path: options.installedSkillDirectoryPath,
+    };
+}
+
 async function directoryExists(path: string): Promise<boolean> {
     try {
         return (await stat(path)).isDirectory();
@@ -654,6 +735,133 @@ async function fileExists(path: string): Promise<boolean> {
 
 function isNodeNotFoundError(error: unknown): error is NodeJS.ErrnoException {
     return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+async function createDirectorySymlink(
+    targetPath: string,
+    linkPath: string,
+): Promise<boolean> {
+    try {
+        const resolvedTargetPath = resolve(targetPath);
+        const resolvedLinkPath = resolve(linkPath);
+        const [realTargetPath, realLinkPath] = await Promise.all([
+            realpath(resolvedTargetPath).catch(() => resolvedTargetPath),
+            realpath(resolvedLinkPath).catch(() => resolvedLinkPath),
+        ]);
+
+        if (realTargetPath === realLinkPath) {
+            return true;
+        }
+
+        const [realTargetPathWithParents, realLinkPathWithParents]
+            = await Promise.all([
+                resolveParentSymlinks(resolvedTargetPath),
+                resolveParentSymlinks(resolvedLinkPath),
+            ]);
+
+        if (realTargetPathWithParents === realLinkPathWithParents) {
+            return true;
+        }
+
+        try {
+            const existingStats = await lstat(resolvedLinkPath);
+
+            if (existingStats.isSymbolicLink()) {
+                const existingTarget = await readlink(resolvedLinkPath);
+
+                if (
+                    resolveSymlinkTarget(resolvedLinkPath, existingTarget)
+                    === resolvedTargetPath
+                ) {
+                    return true;
+                }
+            }
+
+            await removePath(resolvedLinkPath);
+        }
+        catch (error) {
+            if (!isNodeNotFoundError(error)) {
+                throw error;
+            }
+        }
+
+        const linkDirectoryPath = dirname(resolvedLinkPath);
+
+        await mkdir(linkDirectoryPath, { recursive: true });
+
+        const symlinkTargetPath = process.platform === "win32"
+            ? resolvedTargetPath
+            : relative(
+                    await resolveParentSymlinks(linkDirectoryPath),
+                    resolvedTargetPath,
+                );
+
+        await symlink(
+            symlinkTargetPath,
+            resolvedLinkPath,
+            process.platform === "win32" ? "junction" : "dir",
+        );
+
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+
+async function copyBundledSkillDirectory(
+    sourcePath: string,
+    destinationPath: string,
+): Promise<void> {
+    await removePath(destinationPath);
+    await mkdir(dirname(destinationPath), { recursive: true });
+    await cp(sourcePath, destinationPath, {
+        dereference: true,
+        force: true,
+        recursive: true,
+    });
+}
+
+async function removePath(path: string): Promise<void> {
+    try {
+        const pathStats = await lstat(path);
+
+        if (pathStats.isSymbolicLink()) {
+            await rm(path, { force: true });
+            return;
+        }
+
+        await rm(path, { force: true, recursive: true });
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return;
+        }
+
+        throw error;
+    }
+}
+
+async function resolveParentSymlinks(path: string): Promise<string> {
+    const resolvedPath = resolve(path);
+    const parentPath = dirname(resolvedPath);
+    const baseName = basename(resolvedPath);
+
+    try {
+        const realParentPath = await realpath(parentPath);
+
+        return join(realParentPath, baseName);
+    }
+    catch {
+        return resolvedPath;
+    }
+}
+
+function resolveSymlinkTarget(
+    linkPath: string,
+    linkTargetPath: string,
+): string {
+    return resolve(dirname(linkPath), linkTargetPath);
 }
 
 function writeLine(context: CliExecutionContext, message: string): void {

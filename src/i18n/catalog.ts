@@ -307,6 +307,8 @@ export const enMessages = {
         "Codex is not installed. Expected the Codex home directory at {path}.",
     "errors.skills.nameConflict":
         "Skill name {name} is already used by a non-OOMOL Codex skill at {path}.",
+    "errors.skills.storageConflict":
+        "Bundled skill storage for {name} is already occupied by non-OOMOL content at {path}.",
     "errors.skills.notInstalled":
         "Codex skill {name} is not installed at {path}.",
     "errors.store.invalidToml":
@@ -719,6 +721,8 @@ export const zhMessages = {
         "未检测到 Codex 安装。期望的 Codex 根目录为 {path}。",
     "errors.skills.nameConflict":
         "Skill 名称 {name} 已被 {path} 中的非 OOMOL Codex skill 占用。",
+    "errors.skills.storageConflict":
+        "{path} 中用于 {name} 的内置 skill 存储目录已被非 OOMOL 内容占用。",
     "errors.skills.notInstalled":
         "Codex skill {name} 未安装在 {path}。",
     "errors.store.invalidToml": "配置文件 {path} 不是有效的 TOML。",

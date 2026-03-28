@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -8,6 +8,7 @@ import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
 import {
+    resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
 } from "./shared.ts";
@@ -17,6 +18,15 @@ describe("skills commands", () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+        );
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const resultVersion = "9.9.9";
@@ -33,6 +43,9 @@ describe("skills commands", () => {
                 `Installed Codex skill oo to ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
 
             for (const file of getBundledSkillFiles("oo")) {
                 expect(
@@ -55,6 +68,15 @@ describe("skills commands", () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+        );
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const resultVersion = "9.9.9";
 
@@ -70,6 +92,9 @@ describe("skills commands", () => {
                 `Installed Codex skill oo to ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 formatBundledSkillMetadataContent(resultVersion),
             );
@@ -169,6 +194,15 @@ describe("skills commands", () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+        );
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -184,6 +218,9 @@ describe("skills commands", () => {
             );
             expect(result.stderr).toBe("");
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(canonicalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }

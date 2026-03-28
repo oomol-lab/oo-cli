@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -10,6 +10,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
+    resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
 } from "./shared.ts";
@@ -50,6 +51,10 @@ describe("skills CLI", () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
+            "oo",
+        );
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
 
@@ -63,6 +68,9 @@ describe("skills CLI", () => {
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stdout).not.toContain("Installed Codex skill");
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
             await expect(stat(join(skillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
                 isFile: expect.any(Function),
             });
