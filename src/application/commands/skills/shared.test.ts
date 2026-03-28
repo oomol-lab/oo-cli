@@ -3,7 +3,10 @@ import { dirname, join, relative, resolve } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
-import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
+import {
+    createTemporaryDirectory,
+    platformDescribe,
+} from "../../../../__tests__/helpers.ts";
 import {
     createBundledSkillDirectorySymlink,
     publishBundledSkillInstallation,
@@ -186,57 +189,12 @@ describe("bundled skill publication", () => {
         expect(result).toBeTrue();
         expect(createdSymlinks).toHaveLength(0);
     });
+});
 
-    test("replaces an existing directory before creating a symlink", async () => {
-        const removedPaths: string[] = [];
-        const createdSymlinks: Array<{
-            linkPath: string;
-            targetPath: string;
-            type: string | null | undefined;
-        }> = [];
-        const targetPath = "/tmp/canonical/skills/oo";
-        const linkPath = "/tmp/agent/skills/oo";
-        const resolvedTargetPath = resolve(targetPath);
-        const resolvedLinkPath = resolve(linkPath);
+registerPosixBundledSkillPublicationTests("darwin");
+registerPosixBundledSkillPublicationTests("linux");
 
-        const result = await createBundledSkillDirectorySymlink(
-            targetPath,
-            linkPath,
-            {
-                lstat: async () => ({
-                    isSymbolicLink: () => false,
-                }) as Awaited<ReturnType<typeof stat>>,
-                mkdir: async () => undefined,
-                readlink: async () => {
-                    throw new Error("readlink should not run for directories");
-                },
-                realpath: async path => path,
-                removePath: async (path) => {
-                    removedPaths.push(path);
-                },
-                platform: "linux",
-                resolveParentSymlinks: async path => path,
-                symlink: async (createdTargetPath, createdLinkPath, type) => {
-                    createdSymlinks.push({
-                        linkPath: createdLinkPath,
-                        targetPath: createdTargetPath,
-                        type,
-                    });
-                },
-            },
-        );
-
-        expect(result).toBeTrue();
-        expect(removedPaths).toEqual([resolvedLinkPath]);
-        expect(createdSymlinks).toEqual([
-            {
-                linkPath: resolvedLinkPath,
-                targetPath: relative(dirname(resolvedLinkPath), resolvedTargetPath),
-                type: "dir",
-            },
-        ]);
-    });
-
+platformDescribe.win32("bundled skill publication on win32", () => {
     test("cleans a broken symlink loop before creating a junction in win32 mode", async () => {
         const removedPaths: string[] = [];
         const createdSymlinks: Array<{
@@ -276,7 +234,6 @@ describe("bundled skill publication", () => {
                         type,
                     });
                 },
-                platform: "win32",
             },
         );
 
@@ -296,7 +253,6 @@ describe("bundled skill publication", () => {
         const junctionPath = "C:\\Users\\Tester\\.codex\\skills\\oo";
 
         await removeBundledSkillSymbolicPath(junctionPath, {
-            platform: "win32",
             rm: async () => {
                 const error = new Error("bad address") as NodeJS.ErrnoException;
 
@@ -312,3 +268,81 @@ describe("bundled skill publication", () => {
         expect(removedWithRmdir).toEqual([junctionPath]);
     });
 });
+
+function registerPosixBundledSkillPublicationTests(
+    platform: "darwin" | "linux",
+): void {
+    const scopedDescribe = platform === "darwin"
+        ? platformDescribe.darwin
+        : platformDescribe.linux;
+
+    scopedDescribe(`bundled skill publication on ${platform}`, () => {
+        test("replaces an existing directory before creating a symlink", async () => {
+            const removedPaths: string[] = [];
+            const createdSymlinks: Array<{
+                linkPath: string;
+                targetPath: string;
+                type: string | null | undefined;
+            }> = [];
+            const targetPath = "/tmp/canonical/skills/oo";
+            const linkPath = "/tmp/agent/skills/oo";
+            const resolvedTargetPath = resolve(targetPath);
+            const resolvedLinkPath = resolve(linkPath);
+
+            const result = await createBundledSkillDirectorySymlink(
+                targetPath,
+                linkPath,
+                {
+                    lstat: async () => ({
+                        isSymbolicLink: () => false,
+                    }) as Awaited<ReturnType<typeof stat>>,
+                    mkdir: async () => undefined,
+                    readlink: async () => {
+                        throw new Error("readlink should not run for directories");
+                    },
+                    realpath: async path => path,
+                    removePath: async (path) => {
+                        removedPaths.push(path);
+                    },
+                    resolveParentSymlinks: async path => path,
+                    symlink: async (createdTargetPath, createdLinkPath, type) => {
+                        createdSymlinks.push({
+                            linkPath: createdLinkPath,
+                            targetPath: createdTargetPath,
+                            type,
+                        });
+                    },
+                },
+            );
+
+            expect(result).toBeTrue();
+            expect(removedPaths).toEqual([resolvedLinkPath]);
+            expect(createdSymlinks).toEqual([
+                {
+                    linkPath: resolvedLinkPath,
+                    targetPath: relative(dirname(resolvedLinkPath), resolvedTargetPath),
+                    type: "dir",
+                },
+            ]);
+        });
+
+        test("rethrows EFAULT when removing a symbolic path on POSIX", async () => {
+            const symlinkPath = "/tmp/.codex/skills/oo";
+
+            await expect(removeBundledSkillSymbolicPath(symlinkPath, {
+                rm: async () => {
+                    const error = new Error("bad address") as NodeJS.ErrnoException;
+
+                    error.code = "EFAULT";
+
+                    throw error;
+                },
+                rmdir: async () => {
+                    throw new Error("rmdir should not run on POSIX");
+                },
+            })).rejects.toMatchObject({
+                code: "EFAULT",
+            });
+        });
+    });
+}
