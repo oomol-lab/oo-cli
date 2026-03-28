@@ -1,16 +1,20 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type { TerminalColors } from "../../terminal-colors.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
     withRequestTarget,
 } from "../../logging/log-fields.ts";
+import { createWriterColors } from "../../terminal-colors.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 
 const searchFormatValues = ["json"] as const;
 const skillSearchResultLimit = 5;
+const skillSearchTitleColor = "#59F78D";
+const skillSearchPackageColor = "#CAA8FA";
 
 const skillSearchItemSchema = z.object({
     description: z.string().optional().default(""),
@@ -253,16 +257,19 @@ function formatSkillsSearchResponseAsText(
     response: SkillSearchResponse,
     context: SkillSearchTextContext,
 ): string {
+    const colors = createSkillsSearchColors(context);
+
     return response.data
-        .map(item => formatSkillsSearchItem(item, context))
+        .map(item => formatSkillsSearchItem(item, context, colors))
         .join("\n\n");
 }
 
 function formatSkillsSearchItem(
     item: SkillSearchResponse["data"][number],
     context: SkillSearchTextContext,
+    colors: TerminalColors,
 ): string {
-    const lines = [readSkillsSearchItemLabel(item, context)];
+    const lines = [readSkillsSearchItemLabel(item, context, colors)];
 
     if (item.description !== "") {
         lines.push(item.description);
@@ -272,7 +279,7 @@ function formatSkillsSearchItem(
 
     if (packageLabel !== "") {
         lines.push(
-            `${context.translator.t("skills.search.text.package")}: ${packageLabel}`,
+            `${context.translator.t("skills.search.text.package")}: ${colors.hex(skillSearchPackageColor)(packageLabel)}`,
         );
     }
 
@@ -282,17 +289,20 @@ function formatSkillsSearchItem(
 function readSkillsSearchItemLabel(
     item: SkillSearchResponse["data"][number],
     context: SkillSearchTextContext,
+    colors: TerminalColors,
 ): string {
     if (item.title !== "") {
+        const title = colors.hex(skillSearchTitleColor)(item.title);
+
         if (item.name !== "" && item.title !== item.name) {
-            return `${item.title} (${item.name})`;
+            return `${title} (${item.name})`;
         }
 
-        return item.title;
+        return title;
     }
 
     if (item.name !== "") {
-        return item.name;
+        return colors.hex(skillSearchTitleColor)(item.name);
     }
 
     return context.translator.t("skills.search.text.unnamedSkill");
@@ -310,4 +320,10 @@ function readSkillsSearchPackageLabel(
     }
 
     return `${item.packageName}@${item.packageVersion}`;
+}
+
+function createSkillsSearchColors(
+    context: Pick<CliExecutionContext, "stdout">,
+): TerminalColors {
+    return createWriterColors(context.stdout);
 }

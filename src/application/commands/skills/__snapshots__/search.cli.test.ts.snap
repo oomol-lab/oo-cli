@@ -85,3 +85,16 @@ Global Options:
   },
 }
 `;
+
+exports[`skills search CLI renders skills search output with field-specific colors 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Text Generation (text-generation)
+Generate text using AI models
+Package: @oomol/ai-tools@1.0.0
+"
+,
+}
+`;
