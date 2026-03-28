@@ -465,8 +465,11 @@ describe("file download CLI", () => {
                 },
             );
 
-            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
             expect(result.stderr).toContain("Failed to prepare the output directory");
+            expect(result.stderr).toContain(nestedOutputDirectory);
+            expect(result.stderr).toContain("ENOTDIR");
             expect(fetchCount).toBe(0);
         }
         finally {

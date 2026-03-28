@@ -12,9 +12,18 @@ describe("log CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
+            const logDirectoryPath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).logDirectoryPath;
             const result = await sandbox.run(["log", "path"]);
 
-            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
+            expect(result).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: `${logDirectoryPath}\n`,
+            });
         }
         finally {
             await sandbox.cleanup();
