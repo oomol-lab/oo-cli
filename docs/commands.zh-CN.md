@@ -108,14 +108,28 @@
 
 ## Codex Skill
 
-### `oo skills allow-implicit-invocation <value>`
+### `oo skills config get <skill> [key]`
 
-持久化 `oo` skill 的隐式调用策略。
+读取 skill 配置值。
 
-- 参数：`<value>` 必须为 `true` 或 `false`。
-- 说明：当受管的 `oo` skill 已经安装时，命令会立即同步
-  `${CODEX_HOME:-~/.codex}/skills/oo/agents/openai.yaml`。
-- 说明：当受管的 `oo` skill 尚未安装时，命令仍会写入设置，并在下次安装或启
+- 参数：`<skill>` 为 skill 名称。
+- 参数：`[key]` 可选，用于指定所选 skill 的某个配置键。
+- 输出：提供 `[key]` 时，命令会输出该键的有效值，并以换行结尾。
+- 输出：省略 `[key]` 时，命令会为所选 skill 的每个已知配置键输出一行
+  `key=value`。
+- 说明：可用的 skill 名称和配置键集合会随 CLI 版本变化。
+- 说明：有效值会包含内置默认值，即使当前还没有显式持久化该配置。
+
+### `oo skills config set <skill> <key> <value>`
+
+持久化一个 skill 配置值。
+
+- 参数：`<skill>` 为 skill 名称。
+- 参数：`<key>` 为所选 skill 的配置键。
+- 参数：`<value>` 为所选 skill 配置键对应的值。
+- 取值规则：可接受的值取决于 `<skill>` 和 `<key>`。
+- 说明：当目标受管 skill 已经安装时，命令会立即同步对应受管文件。
+- 说明：当目标受管 skill 尚未安装时，命令仍会写入设置，并在下次安装或启
   动同步时生效。
 
 ### `oo skills install`

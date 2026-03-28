@@ -103,12 +103,20 @@ export const enMessages = {
         "Search packages with free-form text against the intent search API.",
     "commands.search.summary": "Search packages by intent",
     "commands.skills.description":
-        "Install or remove bundled Codex-only skills from the local Codex directory.",
-    "commands.skills.summary": "Manage bundled Codex skills",
-    "commands.skills.allowImplicitInvocation.description":
-        "Persist the oo skill implicit invocation policy and synchronize the installed managed skill when present.",
-    "commands.skills.allowImplicitInvocation.summary":
-        "Set oo skill implicit invocation",
+        "Manage Codex skills and their configuration.",
+    "commands.skills.summary": "Manage Codex skills",
+    "commands.skills.config.description":
+        "Manage skill configuration.",
+    "commands.skills.config.summary":
+        "Manage skill configuration",
+    "commands.skills.config.get.description":
+        "Read one skill configuration value or list all known values for a skill.",
+    "commands.skills.config.get.summary":
+        "Read skill configuration",
+    "commands.skills.config.set.description":
+        "Persist one skill configuration value and synchronize the installed managed skill when present.",
+    "commands.skills.config.set.summary":
+        "Set a skill configuration value",
     "commands.skills.install.description":
         "Install one bundled Codex skill into the local Codex skills directory.",
     "commands.skills.install.summary": "Install a bundled Codex skill",
@@ -207,6 +215,12 @@ export const enMessages = {
         "Invalid file.download.out_dir value: {value}. Use a non-empty path.",
     "errors.config.invalidSkillsOoImplicitInvocationValue":
         "Invalid skills.oo.implicit_invocation value: {value}. Use true or false.",
+    "errors.skills.invalidName":
+        "Unsupported skill: {value}. Use {choices}.",
+    "errors.skills.config.invalidKey":
+        "Invalid config key for skill {skill}: {value}. Use {choices}.",
+    "errors.skills.config.invalidAllowImplicitInvocationValue":
+        "Invalid allow-implicit-invocation value for skill {skill}: {value}. Use true or false.",
     "errors.file.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.fileDownload.downloadFailed":
@@ -335,8 +349,8 @@ export const enMessages = {
         "Set how long to wait before timing out (default 6h, range 10s to 24h)",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
-    "skills.allowImplicitInvocation.success":
-        "Set Codex skill {name} implicit invocation to {value}.",
+    "skills.config.set.success":
+        "Set Codex skill {name} {key} to {value}.",
     "skills.install.success": "Installed Codex skill {name} to {path}.",
     "skills.uninstall.success": "Removed Codex skill {name} from {path}.",
     "versionInfo.version": "Version",
@@ -349,7 +363,8 @@ export const enMessages = {
     "arguments.outDir": "Output directory",
     "arguments.packageSpecifier": "Package specifier",
     "arguments.shell": "Target shell",
-    "arguments.skill": "Bundled skill name",
+    "arguments.skill": "Skill name",
+    "arguments.skillConfigKey": "Skill configuration key",
     "arguments.taskId": "Task id",
     "arguments.text": "Search text",
     "arguments.url": "URL",
@@ -488,12 +503,20 @@ export const zhMessages = {
     "commands.package.summary": "包相关工具",
     "commands.search.description": "使用自由文本通过意图搜索 API 搜索包。",
     "commands.search.summary": "按意图搜索包",
-    "commands.skills.description": "在本地 Codex 目录中安装或移除内置的仅限 Codex 使用的 skill。",
-    "commands.skills.summary": "管理内置 Codex skill",
-    "commands.skills.allowImplicitInvocation.description":
-        "持久化 oo skill 的隐式调用策略，并在本地存在受管安装时同步对应文件。",
-    "commands.skills.allowImplicitInvocation.summary":
-        "设置 oo skill 的隐式调用策略",
+    "commands.skills.description": "管理 Codex skill 及其配置。",
+    "commands.skills.summary": "管理 Codex skill",
+    "commands.skills.config.description":
+        "管理 skill 配置。",
+    "commands.skills.config.summary":
+        "管理 skill 配置",
+    "commands.skills.config.get.description":
+        "读取一个 skill 配置值，或列出该 skill 的全部已知配置值。",
+    "commands.skills.config.get.summary":
+        "读取 skill 配置",
+    "commands.skills.config.set.description":
+        "持久化一个 skill 配置值，并在本地存在受管安装时同步对应文件。",
+    "commands.skills.config.set.summary":
+        "设置一个 skill 配置值",
     "commands.skills.install.description": "将一个内置 Codex skill 安装到本地 Codex skills 目录。",
     "commands.skills.install.summary": "安装一个内置 Codex skill",
     "commands.skills.uninstall.description": "从本地 Codex skills 目录移除一个内置 Codex skill。",
@@ -583,6 +606,12 @@ export const zhMessages = {
         "无效的 file.download.out_dir 值：{value}。请使用非空路径。",
     "errors.config.invalidSkillsOoImplicitInvocationValue":
         "无效的 skills.oo.implicit_invocation 值：{value}。请使用 true 或 false。",
+    "errors.skills.invalidName":
+        "不支持的 skill：{value}。请使用 {choices}。",
+    "errors.skills.config.invalidKey":
+        "skill {skill} 的配置键无效：{value}。请使用 {choices}。",
+    "errors.skills.config.invalidAllowImplicitInvocationValue":
+        "skill {skill} 的 allow-implicit-invocation 值无效：{value}。请使用 true 或 false。",
     "errors.file.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.fileDownload.downloadFailed":
@@ -705,8 +734,8 @@ export const zhMessages = {
     "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
-    "skills.allowImplicitInvocation.success":
-        "已将 Codex skill {name} 的隐式调用设置为 {value}。",
+    "skills.config.set.success":
+        "已将 Codex skill {name} 的 {key} 设置为 {value}。",
     "skills.install.success": "已将 Codex skill {name} 安装到 {path}。",
     "skills.uninstall.success": "已从 {path} 移除 Codex skill {name}。",
     "versionInfo.version": "版本",
@@ -719,7 +748,8 @@ export const zhMessages = {
     "arguments.outDir": "输出目录",
     "arguments.packageSpecifier": "包标识",
     "arguments.shell": "目标 shell",
-    "arguments.skill": "内置 skill 名称",
+    "arguments.skill": "skill 名称",
+    "arguments.skillConfigKey": "skill 配置键",
     "arguments.taskId": "任务 ID",
     "arguments.text": "搜索文本",
     "arguments.url": "URL",
