@@ -637,7 +637,7 @@ function isRecoverableSqliteCacheError(
     return error instanceof Error
         && "code" in error
         && typeof error.code === "string"
-        && recoverableSqliteCacheErrorCodes.has(error.code);
+        && isRecoverableSqliteCacheErrorCode(error.code);
 }
 
 function describeRecoverableSqliteCacheError(
@@ -645,11 +645,11 @@ function describeRecoverableSqliteCacheError(
         code: string;
     },
 ): string {
-    if (recoverableSqliteLockCodes.has(error.code)) {
+    if (isRecoverableSqliteLockCode(error.code)) {
         return "the database is locked";
     }
 
-    switch (error.code) {
+    switch (resolveRecoverableSqliteErrorCodeFamily(error.code)) {
         case "SQLITE_CANTOPEN":
             return "the database file cannot be opened";
         case "SQLITE_CORRUPT":
@@ -665,6 +665,37 @@ function describeRecoverableSqliteCacheError(
         default:
             return "the database is unavailable";
     }
+}
+
+export function isRecoverableSqliteCacheErrorCode(code: string): boolean {
+    return resolveRecoverableSqliteErrorCodeFamily(code) !== undefined;
+}
+
+function isRecoverableSqliteLockCode(code: string): boolean {
+    for (const recoverableCode of recoverableSqliteLockCodes) {
+        if (matchesSqliteErrorCodeFamily(code, recoverableCode)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function resolveRecoverableSqliteErrorCodeFamily(code: string): string | undefined {
+    for (const recoverableCode of recoverableSqliteCacheErrorCodes) {
+        if (matchesSqliteErrorCodeFamily(code, recoverableCode)) {
+            return recoverableCode;
+        }
+    }
+
+    return undefined;
+}
+
+function matchesSqliteErrorCodeFamily(
+    code: string,
+    recoverableCode: string,
+): boolean {
+    return code === recoverableCode || code.startsWith(`${recoverableCode}_`);
 }
 
 function readStorePathDiagnostics(filePath: string): StorePathDiagnostics {

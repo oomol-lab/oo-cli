@@ -11,11 +11,20 @@ import {
 import { APP_NAME } from "../../application/config/app-config.ts";
 import { resolveStorePaths } from "../store/store-path.ts";
 import {
+    isRecoverableSqliteCacheErrorCode,
     resolveSqliteCacheTableName,
     SqliteCacheStore,
 } from "./sqlite-cache.ts";
 
 describe("SqliteCacheStore", () => {
+    test("treats sqlite extended recoverable error codes as recoverable", () => {
+        expect(isRecoverableSqliteCacheErrorCode("SQLITE_BUSY_SNAPSHOT")).toBeTrue();
+        expect(isRecoverableSqliteCacheErrorCode("SQLITE_CANTOPEN_ISDIR")).toBeTrue();
+        expect(isRecoverableSqliteCacheErrorCode("SQLITE_IOERR_ACCESS")).toBeTrue();
+        expect(isRecoverableSqliteCacheErrorCode("SQLITE_READONLY_DIRECTORY")).toBeTrue();
+        expect(isRecoverableSqliteCacheErrorCode("SQLITE_MISUSE")).toBeFalse();
+    });
+
     test("creates the sqlite file in the data directory and shares tables by id", async () => {
         const root = await createTemporaryDirectory("sqlite-cache");
         const storePaths = resolveStorePaths({
