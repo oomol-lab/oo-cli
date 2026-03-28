@@ -152,7 +152,8 @@
 - 参数：`[skill]` 可选。未提供时，该命令等价于 `oo skills install oo`。
 - 支持的 skill 名称：当前仅 `oo`。
 - 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
-- 元数据：安装时会在 skill 目录内写入一个隐藏的 `oo` 版本记录文件。
+- 元数据：安装时会在 skill 目录内写入一个隐藏的 `.oo-metadata.json`
+  文件，并在其中记录 `version` 字段。
 - 元数据：当存在持久化的 `skills.oo.implicit_invocation` 配置时，
   `agents/openai.yaml` 会使用该值；否则使用内置默认值。
 - 说明：当 Codex 根目录不存在时，命令会直接报错退出，这表示当前机器上没有
@@ -163,7 +164,8 @@
   数据，那么只要 Codex 根目录已经存在，`oo` 就会静默自动安装这个受管
   skill。
 - 说明：如果内置 skill 已经安装，`oo` 每次启动都会检查其记录版本是否与当前
-  CLI 版本一致；不一致时会静默刷新已安装的文件。
+  CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。不一致时会
+  静默刷新已安装的文件。
 
 ### `oo skills uninstall`
 

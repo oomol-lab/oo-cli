@@ -17,10 +17,14 @@ import {
 
 const codexDirectoryName = ".codex";
 const codexSkillsDirectoryName = "skills";
-const bundledSkillVersionFileName = ".oo-version";
+const bundledSkillMetadataFileName = ".oo-metadata.json";
 const bundledSkillOwnershipMarker = "OOMOL";
 const bundledSkillOwnershipFileRelativePath = "agents/openai.yaml";
 const bundledSkillImplicitInvocationKey = "allow_implicit_invocation";
+
+interface BundledSkillMetadata {
+    version: string;
+}
 
 export function resolveCodexHomeDirectory(
     env: Record<string, string | undefined>,
@@ -41,10 +45,10 @@ export function resolveBundledSkillDirectoryPath(
     return join(codexHomeDirectory, codexSkillsDirectoryName, skillName);
 }
 
-export function resolveBundledSkillVersionFilePath(
+export function resolveBundledSkillMetadataFilePath(
     skillDirectoryPath: string,
 ): string {
-    return join(skillDirectoryPath, bundledSkillVersionFileName);
+    return join(skillDirectoryPath, bundledSkillMetadataFileName);
 }
 
 export async function installBundledSkill(
@@ -326,6 +330,7 @@ async function writeBundledSkillInstallation(options: {
         options.skillName,
     );
 
+    await rm(skillDirectoryPath, { force: true, recursive: true });
     await mkdir(skillDirectoryPath, { recursive: true });
 
     for (const file of getBundledSkillFiles(options.skillName)) {
@@ -343,9 +348,11 @@ async function writeBundledSkillInstallation(options: {
         );
     }
 
-    await Bun.write(
-        resolveBundledSkillVersionFilePath(skillDirectoryPath),
-        `${options.version}\n`,
+    await writeInstalledBundledSkillMetadata(
+        skillDirectoryPath,
+        {
+            version: options.version,
+        },
     );
 
     return skillDirectoryPath;
@@ -480,9 +487,11 @@ async function isBundledSkillInstallationCurrent(
         return false;
     }
 
-    const installedVersion = await readInstalledBundledSkillVersion(
-        skillDirectoryPath,
-    );
+    if (!(await fileExists(resolveBundledSkillMetadataFilePath(skillDirectoryPath)))) {
+        return false;
+    }
+
+    const installedVersion = await readInstalledBundledSkillVersion(skillDirectoryPath);
 
     if (installedVersion !== version) {
         return false;
@@ -523,15 +532,23 @@ async function isManagedBundledSkillInstallation(
 async function readInstalledBundledSkillVersion(
     skillDirectoryPath: string,
 ): Promise<string | undefined> {
-    try {
-        const version = (
-            await readFile(
-                resolveBundledSkillVersionFilePath(skillDirectoryPath),
-                "utf8",
-            )
-        ).trim();
+    const metadata = await readInstalledBundledSkillMetadata(
+        skillDirectoryPath,
+    );
 
-        return version === "" ? undefined : version;
+    return metadata?.version;
+}
+
+async function readInstalledBundledSkillMetadata(
+    skillDirectoryPath: string,
+): Promise<BundledSkillMetadata | undefined> {
+    try {
+        const content = await readFile(
+            resolveBundledSkillMetadataFilePath(skillDirectoryPath),
+            "utf8",
+        );
+
+        return parseBundledSkillMetadataContent(content);
     }
     catch (error) {
         if (isNodeNotFoundError(error)) {
@@ -540,6 +557,59 @@ async function readInstalledBundledSkillVersion(
 
         throw error;
     }
+}
+
+async function writeInstalledBundledSkillMetadata(
+    skillDirectoryPath: string,
+    metadata: BundledSkillMetadata,
+): Promise<void> {
+    await Bun.write(
+        resolveBundledSkillMetadataFilePath(skillDirectoryPath),
+        renderBundledSkillMetadataContent(metadata),
+    );
+}
+
+function parseBundledSkillMetadataContent(
+    content: string,
+): BundledSkillMetadata | undefined {
+    let parsedContent: unknown;
+
+    try {
+        parsedContent = JSON.parse(content);
+    }
+    catch {
+        return undefined;
+    }
+
+    if (
+        typeof parsedContent !== "object"
+        || parsedContent === null
+        || Array.isArray(parsedContent)
+    ) {
+        return undefined;
+    }
+
+    const rawVersion = (parsedContent as Record<string, unknown>).version;
+
+    if (typeof rawVersion !== "string") {
+        return undefined;
+    }
+
+    const version = rawVersion.trim();
+
+    if (version === "") {
+        return undefined;
+    }
+
+    return {
+        version,
+    };
+}
+
+function renderBundledSkillMetadataContent(
+    metadata: BundledSkillMetadata,
+): string {
+    return `${JSON.stringify(metadata, null, 2)}\n`;
 }
 
 async function requireCodexHomeDirectory(
