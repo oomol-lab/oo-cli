@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -29,7 +31,7 @@ describe("expandHomeDirectoryPath", () => {
             expandHomeDirectoryPath("~/Downloads/reports", {
                 HOME: "/env-home",
             }),
-        ).toBe("/env-home/Downloads/reports");
+        ).toBe(join("/env-home", "Downloads", "reports"));
     });
 
     test("leaves non-tilde values untouched", () => {

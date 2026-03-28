@@ -10,6 +10,7 @@ import {
     readlink,
     realpath,
     rm,
+    rmdir,
     stat,
     symlink,
 } from "node:fs/promises";
@@ -47,6 +48,39 @@ interface BundledSkillPublicationDependencies {
         targetPath: string,
         linkPath: string,
     ) => Promise<boolean>;
+}
+
+export interface CreateBundledSkillDirectorySymlinkDependencies {
+    lstat?: (path: string) => Promise<{
+        isSymbolicLink: () => boolean;
+    }>;
+    mkdir?: (
+        path: string,
+        options: {
+            recursive: true;
+        },
+    ) => Promise<void>;
+    readlink?: (path: string) => Promise<string>;
+    realpath?: (path: string) => Promise<string>;
+    removePath?: (path: string) => Promise<void>;
+    resolveParentSymlinks?: (path: string) => Promise<string>;
+    symlink?: (
+        targetPath: string,
+        linkPath: string,
+        type: "dir" | "junction",
+    ) => Promise<void>;
+    platform?: NodeJS.Platform;
+}
+
+export interface RemoveBundledSkillSymbolicPathDependencies {
+    platform?: NodeJS.Platform;
+    rm?: (
+        path: string,
+        options: {
+            force: true;
+        },
+    ) => Promise<void>;
+    rmdir?: (path: string) => Promise<void>;
 }
 
 export function resolveCodexHomeDirectory(
@@ -501,7 +535,8 @@ function writeImplicitInvocationValue(
     content: string,
     value: boolean,
 ): string {
-    const lines = content.split("\n");
+    const lineSeparator = content.includes("\r\n") ? "\r\n" : "\n";
+    const lines = content.split(lineSeparator);
 
     for (const [index, line] of lines.entries()) {
         const trimmedLine = line.trim();
@@ -519,7 +554,7 @@ function writeImplicitInvocationValue(
             value ? "true" : "false",
         ].join("");
 
-        return lines.join("\n");
+        return lines.join(lineSeparator);
     }
 
     throw new Error(
@@ -683,7 +718,7 @@ export async function publishBundledSkillInstallation(
     dependencies: BundledSkillPublicationDependencies = {},
 ): Promise<BundledSkillPublicationResult> {
     const createDirectoryLink
-        = dependencies.createDirectorySymlink ?? createDirectorySymlink;
+        = dependencies.createDirectorySymlink ?? createBundledSkillDirectorySymlink;
     const symlinkCreated = await createDirectoryLink(
         options.canonicalSkillDirectoryPath,
         options.installedSkillDirectoryPath,
@@ -737,16 +772,31 @@ function isNodeNotFoundError(error: unknown): error is NodeJS.ErrnoException {
     return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
-async function createDirectorySymlink(
+function isSymlinkLoopError(error: unknown): error is NodeJS.ErrnoException {
+    return error instanceof Error && "code" in error && error.code === "ELOOP";
+}
+
+export async function createBundledSkillDirectorySymlink(
     targetPath: string,
     linkPath: string,
+    dependencies: CreateBundledSkillDirectorySymlinkDependencies = {},
 ): Promise<boolean> {
+    const lstatFn = dependencies.lstat ?? lstat;
+    const mkdirFn = dependencies.mkdir ?? mkdir;
+    const readlinkFn = dependencies.readlink ?? readlink;
+    const realpathFn = dependencies.realpath ?? realpath;
+    const removePathFn = dependencies.removePath ?? removePath;
+    const resolveParentSymlinksFn
+        = dependencies.resolveParentSymlinks ?? resolveParentSymlinks;
+    const symlinkFn = dependencies.symlink ?? symlink;
+    const runtimePlatform = dependencies.platform ?? process.platform;
+
     try {
         const resolvedTargetPath = resolve(targetPath);
         const resolvedLinkPath = resolve(linkPath);
         const [realTargetPath, realLinkPath] = await Promise.all([
-            realpath(resolvedTargetPath).catch(() => resolvedTargetPath),
-            realpath(resolvedLinkPath).catch(() => resolvedLinkPath),
+            realpathFn(resolvedTargetPath).catch(() => resolvedTargetPath),
+            realpathFn(resolvedLinkPath).catch(() => resolvedLinkPath),
         ]);
 
         if (realTargetPath === realLinkPath) {
@@ -755,8 +805,8 @@ async function createDirectorySymlink(
 
         const [realTargetPathWithParents, realLinkPathWithParents]
             = await Promise.all([
-                resolveParentSymlinks(resolvedTargetPath),
-                resolveParentSymlinks(resolvedLinkPath),
+                resolveParentSymlinksFn(resolvedTargetPath),
+                resolveParentSymlinksFn(resolvedLinkPath),
             ]);
 
         if (realTargetPathWithParents === realLinkPathWithParents) {
@@ -764,10 +814,10 @@ async function createDirectorySymlink(
         }
 
         try {
-            const existingStats = await lstat(resolvedLinkPath);
+            const existingStats = await lstatFn(resolvedLinkPath);
 
             if (existingStats.isSymbolicLink()) {
-                const existingTarget = await readlink(resolvedLinkPath);
+                const existingTarget = await readlinkFn(resolvedLinkPath);
 
                 if (
                     resolveSymlinkTarget(resolvedLinkPath, existingTarget)
@@ -777,29 +827,37 @@ async function createDirectorySymlink(
                 }
             }
 
-            await removePath(resolvedLinkPath);
+            await removePathFn(resolvedLinkPath);
         }
         catch (error) {
-            if (!isNodeNotFoundError(error)) {
+            if (isSymlinkLoopError(error)) {
+                try {
+                    await removePathFn(resolvedLinkPath);
+                }
+                catch {
+                    // Let symlink creation determine whether copy fallback is needed.
+                }
+            }
+            else if (!isNodeNotFoundError(error)) {
                 throw error;
             }
         }
 
         const linkDirectoryPath = dirname(resolvedLinkPath);
 
-        await mkdir(linkDirectoryPath, { recursive: true });
+        await mkdirFn(linkDirectoryPath, { recursive: true });
 
-        const symlinkTargetPath = process.platform === "win32"
+        const symlinkTargetPath = runtimePlatform === "win32"
             ? resolvedTargetPath
             : relative(
-                    await resolveParentSymlinks(linkDirectoryPath),
+                    await resolveParentSymlinksFn(linkDirectoryPath),
                     resolvedTargetPath,
                 );
 
-        await symlink(
+        await symlinkFn(
             symlinkTargetPath,
             resolvedLinkPath,
-            process.platform === "win32" ? "junction" : "dir",
+            runtimePlatform === "win32" ? "junction" : "dir",
         );
 
         return true;
@@ -827,7 +885,7 @@ async function removePath(path: string): Promise<void> {
         const pathStats = await lstat(path);
 
         if (pathStats.isSymbolicLink()) {
-            await rm(path, { force: true });
+            await removeBundledSkillSymbolicPath(path);
             return;
         }
 
@@ -840,6 +898,31 @@ async function removePath(path: string): Promise<void> {
 
         throw error;
     }
+}
+
+export async function removeBundledSkillSymbolicPath(
+    path: string,
+    dependencies: RemoveBundledSkillSymbolicPathDependencies = {},
+): Promise<void> {
+    const rmFn = dependencies.rm ?? rm;
+    const rmdirFn = dependencies.rmdir ?? rmdir;
+    const runtimePlatform = dependencies.platform ?? process.platform;
+
+    try {
+        await rmFn(path, { force: true });
+    }
+    catch (error) {
+        if (runtimePlatform === "win32" && isWindowsBadAddressError(error)) {
+            await rmdirFn(path);
+            return;
+        }
+
+        throw error;
+    }
+}
+
+function isWindowsBadAddressError(error: unknown): error is NodeJS.ErrnoException {
+    return error instanceof Error && "code" in error && error.code === "EFAULT";
 }
 
 async function resolveParentSymlinks(path: string): Promise<string> {

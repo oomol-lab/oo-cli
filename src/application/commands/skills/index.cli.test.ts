@@ -192,6 +192,7 @@ describe("skills CLI", () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const serializedSkillDirectoryPath = JSON.stringify(skillDirectoryPath);
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -211,14 +212,14 @@ describe("skills CLI", () => {
                 `"msg":"Bundled Codex skill installed explicitly."`,
             );
             expect(installContent).toContain(`"skillName":"oo"`);
-            expect(installContent).toContain(`"path":"${skillDirectoryPath}"`);
+            expect(installContent).toContain(`"path":${serializedSkillDirectoryPath}`);
             expect(installContent).toContain(`"version":"9.9.9"`);
 
             expect(uninstallContent).toContain(
                 `"msg":"Bundled Codex skill removed explicitly."`,
             );
             expect(uninstallContent).toContain(`"skillName":"oo"`);
-            expect(uninstallContent).toContain(`"path":"${skillDirectoryPath}"`);
+            expect(uninstallContent).toContain(`"path":${serializedSkillDirectoryPath}`);
         }
         finally {
             await sandbox.cleanup();

@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 
 import { APP_NAME } from "../../application/config/app-config.ts";
@@ -16,14 +18,19 @@ describe("resolveStorePaths", () => {
         });
 
         expect(storePaths).toEqual({
-            authFilePath: `/tmp/xdg/${APP_NAME}/auth.toml`,
-            cacheFilePath: `/tmp/xdg/${APP_NAME}/data/cache.sqlite`,
-            dataDirectory: `/tmp/xdg/${APP_NAME}/data`,
-            downloadSessionsFilePath: `/tmp/xdg/${APP_NAME}/data/download-sessions.sqlite`,
-            logDirectoryPath: `/tmp/xdg-state/${APP_NAME}/logs`,
-            rootDirectory: `/tmp/xdg/${APP_NAME}`,
-            settingsFilePath: `/tmp/xdg/${APP_NAME}/settings.toml`,
-            uploadsFilePath: `/tmp/xdg/${APP_NAME}/data/uploads.sqlite`,
+            authFilePath: join("/tmp/xdg", APP_NAME, "auth.toml"),
+            cacheFilePath: join("/tmp/xdg", APP_NAME, "data", "cache.sqlite"),
+            dataDirectory: join("/tmp/xdg", APP_NAME, "data"),
+            downloadSessionsFilePath: join(
+                "/tmp/xdg",
+                APP_NAME,
+                "data",
+                "download-sessions.sqlite",
+            ),
+            logDirectoryPath: join("/tmp/xdg-state", APP_NAME, "logs"),
+            rootDirectory: join("/tmp/xdg", APP_NAME),
+            settingsFilePath: join("/tmp/xdg", APP_NAME, "settings.toml"),
+            uploadsFilePath: join("/tmp/xdg", APP_NAME, "data", "uploads.sqlite"),
         });
     });
 
@@ -37,7 +44,7 @@ describe("resolveStorePaths", () => {
         });
 
         expect(storePaths.logDirectoryPath).toBe(
-            `/tmp/home/.local/state/${APP_NAME}/logs`,
+            join("/tmp/home", ".local", "state", APP_NAME, "logs"),
         );
     });
 
@@ -51,7 +58,7 @@ describe("resolveStorePaths", () => {
         });
 
         expect(storePaths.logDirectoryPath).toBe(
-            `/tmp/home/Library/Logs/${APP_NAME}`,
+            join("/tmp/home", "Library", "Logs", APP_NAME),
         );
     });
 
@@ -68,7 +75,7 @@ describe("resolveStorePaths", () => {
         });
 
         expect(storePaths.logDirectoryPath).toBe(
-            "C:\\Users\\kevin\\AppData\\Local/oo/Logs",
+            join("C:\\Users\\kevin\\AppData\\Local", APP_NAME, "Logs"),
         );
     });
 });

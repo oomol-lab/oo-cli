@@ -487,7 +487,7 @@ function normalizeSnapshotText(
         }
     }
 
-    return normalized;
+    return normalized.split("\\").join("/");
 }
 
 function replaceSnapshotValue(
