@@ -168,7 +168,14 @@ Install one bundled skill into the local Codex skills directory.
 - Arguments: `[skill]` is optional. When omitted, the command behaves the same
   as `oo skills install oo`.
 - Supported skill names: currently `oo`.
+- Canonical directory: the bundled files are materialized to
+  `<config-dir>/skills/oo`, where `<config-dir>` is the directory that
+  contains `settings.toml`.
 - Target directory: `${CODEX_HOME:-~/.codex}/skills/oo`.
+- Installation mode: `oo` publishes the target directory as a symlink to the
+  canonical directory when the current platform and environment allow it. When
+  symlink creation fails, `oo` falls back to copying the canonical files into
+  the Codex skills directory.
 - Metadata: the installation writes a hidden `.oo-metadata.json` file inside
   the skill directory with a `version` field for the current `oo` version.
 - Metadata: `agents/openai.yaml` uses the persisted
@@ -191,6 +198,8 @@ Install one bundled skill into the local Codex skills directory.
 Remove one bundled skill from the local Codex skills directory.
 
 - Managed skill: `oo`.
+- Canonical directory removed: `<config-dir>/skills/oo`, where
+  `<config-dir>` is the directory that contains `settings.toml`.
 - Target directory: `${CODEX_HOME:-~/.codex}/skills/oo`.
 
 ## Logs

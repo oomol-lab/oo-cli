@@ -3,6 +3,7 @@ import type { ZodError } from "zod";
 
 import type { CliCatalog, CliCommandDefinition, CliExecutionContext } from "../../application/contracts/cli.ts";
 import type { Translator } from "../../application/contracts/translator.ts";
+import process from "node:process";
 import {
     Argument,
     Command,
@@ -54,8 +55,13 @@ export class CommanderCliAdapter {
         catalog: CliCatalog,
         context: CliExecutionContext,
     ): Command {
+        const defaultHelpWidth = 80;
         const program = new LocalizedCommand(context.translator, catalog.name);
         const outputConfiguration = {
+            getErrHelpWidth: () =>
+                context.stderr.isTTY ? process.stderr.columns : defaultHelpWidth,
+            getOutHelpWidth: () =>
+                context.stdout.isTTY ? process.stdout.columns : defaultHelpWidth,
             writeOut: (value: string) => context.stdout.write(value),
             writeErr: (value: string) => context.stderr.write(value),
             outputError: () => {},
