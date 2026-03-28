@@ -13,7 +13,7 @@ import {
 } from "./shared.ts";
 
 describe("skills commands", () => {
-    test("installs a bundled Codex skill into the Codex skills directory", async () => {
+    test("installs the default bundled Codex skill when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -42,6 +42,34 @@ describe("skills commands", () => {
             expect(await readFile(ownershipFilePath, "utf8")).toContain(
                 "allow_implicit_invocation: true",
             );
+            expect(await readFile(versionFilePath, "utf8")).toBe(
+                `${resultVersion}\n`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs a bundled Codex skill by explicit name", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const versionFilePath = resolveBundledSkillVersionFilePath(skillDirectoryPath);
+        const resultVersion = "9.9.9";
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "install", "oo"], {
+                version: resultVersion,
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Installed Codex skill oo to ${skillDirectoryPath}.\n`,
+            );
+            expect(result.stderr).toBe("");
             expect(await readFile(versionFilePath, "utf8")).toBe(
                 `${resultVersion}\n`,
             );

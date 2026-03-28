@@ -1,16 +1,40 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
+import type { BundledSkillName } from "./embedded-assets.ts";
 
 import { z } from "zod";
+import { CliUserError } from "../../contracts/cli.ts";
+import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { installBundledSkill } from "./shared.ts";
 
-const bundledSkillName = "oo" as const;
+interface SkillsInstallInput {
+    skill: BundledSkillName;
+}
 
-export const skillsInstallCommand: CliCommandDefinition = {
+const defaultBundledSkillName = "oo" as const;
+const bundledSkillNameSchema = z.enum(availableBundledSkillNames);
+
+const skillsInstallInputSchema = z.object({
+    skill: bundledSkillNameSchema.default(defaultBundledSkillName),
+});
+
+export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
     name: "install",
     summaryKey: "commands.skills.install.summary",
     descriptionKey: "commands.skills.install.description",
-    inputSchema: z.object({}),
-    handler: async (_, context) => {
-        await installBundledSkill(bundledSkillName, context);
+    arguments: [
+        {
+            name: "skill",
+            descriptionKey: "arguments.skill",
+            required: false,
+        },
+    ],
+    inputSchema: skillsInstallInputSchema,
+    mapInputError: (_, rawInput) =>
+        new CliUserError("errors.skills.invalidName", 2, {
+            choices: availableBundledSkillNames.join(", "),
+            value: String(rawInput.skill ?? ""),
+        }),
+    handler: async (input, context) => {
+        await installBundledSkill(input.skill, context);
     },
 };

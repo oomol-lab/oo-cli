@@ -11,6 +11,23 @@ import {
 } from "./shared.ts";
 
 describe("skills CLI", () => {
+    test("rejects unsupported skill names for skills install", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["skills", "install", "unknown"]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Unsupported skill: unknown. Use oo.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("treats the removed allow-implicit-invocation subcommand as unknown", async () => {
         const sandbox = await createCliSandbox();
 
