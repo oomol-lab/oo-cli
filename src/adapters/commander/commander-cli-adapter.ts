@@ -21,6 +21,16 @@ interface CommanderCliRunRequest {
     context: CliExecutionContext;
 }
 
+interface CommandOutputConfiguration {
+    getErrHasColors: () => boolean;
+    getErrHelpWidth: () => number;
+    getOutHasColors: () => boolean;
+    getOutHelpWidth: () => number;
+    outputError: () => void;
+    writeErr: (value: string) => void;
+    writeOut: (value: string) => void;
+}
+
 class LocalizedCommand extends Command {
     constructor(
         private readonly translator: Translator,
@@ -55,19 +65,7 @@ export class CommanderCliAdapter {
         catalog: CliCatalog,
         context: CliExecutionContext,
     ): Command {
-        const defaultHelpWidth = 80;
         const program = new LocalizedCommand(context.translator, catalog.name);
-        const outputConfiguration = {
-            getErrHelpWidth: () =>
-                context.stderr.isTTY ? process.stderr.columns : defaultHelpWidth,
-            getOutHelpWidth: () =>
-                context.stdout.isTTY ? process.stdout.columns : defaultHelpWidth,
-            writeOut: (value: string) => context.stdout.write(value),
-            writeErr: (value: string) => context.stderr.write(value),
-            outputError: () => {},
-            getOutHasColors: () => context.stdout.hasColors?.() ?? false,
-            getErrHasColors: () => context.stderr.hasColors?.() ?? false,
-        };
 
         program
             .name(catalog.name)
@@ -85,7 +83,7 @@ export class CommanderCliAdapter {
             .configureHelp({
                 showGlobalOptions: true,
             })
-            .configureOutput(outputConfiguration)
+            .configureOutput(createOutputConfiguration(context))
             .exitOverride();
 
         for (const option of catalog.globalOptions) {
@@ -105,37 +103,7 @@ export class CommanderCliAdapter {
         context: CliExecutionContext,
     ): void {
         const command = parent.command(definition.name);
-        const descriptionKey = definition.descriptionKey ?? definition.summaryKey;
-
-        command
-            .summary(context.translator.t(definition.summaryKey))
-            .description(context.translator.t(descriptionKey))
-            .helpOption("-h, --help", context.translator.t("options.help"));
-
-        for (const alias of definition.aliases ?? []) {
-            command.alias(alias);
-        }
-
-        if (definition.children?.length) {
-            command.helpCommand(
-                "help [command]",
-                context.translator.t("commands.help.summary"),
-            );
-        }
-
-        for (const option of definition.options ?? []) {
-            command.addOption(createOption(option, context.translator));
-        }
-
-        for (const argument of definition.arguments ?? []) {
-            command.addArgument(
-                createArgument(argument, context.translator),
-            );
-        }
-
-        if (definition.missingArgumentBehavior === "showHelp") {
-            configureMissingArgumentHelp(command);
-        }
+        configureCommand(command, definition, context.translator);
 
         for (const child of definition.children ?? []) {
             this.addCommand(command, child, context);
@@ -149,21 +117,7 @@ export class CommanderCliAdapter {
 
         const inputSchema = ensureCommandInputSchema(definition);
 
-        command.action(async (...actionArguments) => {
-            const commandInstance = actionArguments.at(-1) as Command;
-            const rawInput = collectRawInput(
-                definition,
-                actionArguments,
-                commandInstance.optsWithGlobals<OptionValues>(),
-            );
-            const parsedInput = parseInput(
-                definition,
-                inputSchema,
-                rawInput,
-            );
-
-            await handler(parsedInput, context);
-        });
+        bindCommandHandler(command, definition, inputSchema, context);
     }
 
     private handleError(
@@ -205,6 +159,91 @@ export class CommanderCliAdapter {
 
         return 1;
     }
+}
+
+function createOutputConfiguration(
+    context: CliExecutionContext,
+): CommandOutputConfiguration {
+    const defaultHelpWidth = 80;
+
+    return {
+        getErrHelpWidth: () =>
+            context.stderr.isTTY ? process.stderr.columns : defaultHelpWidth,
+        getOutHelpWidth: () =>
+            context.stdout.isTTY ? process.stdout.columns : defaultHelpWidth,
+        writeOut: (value: string) => context.stdout.write(value),
+        writeErr: (value: string) => context.stderr.write(value),
+        outputError: () => {},
+        getOutHasColors: () => context.stdout.hasColors?.() ?? false,
+        getErrHasColors: () => context.stderr.hasColors?.() ?? false,
+    };
+}
+
+function configureCommand(
+    command: Command,
+    definition: CliCommandDefinition,
+    translator: Translator,
+): void {
+    const descriptionKey = definition.descriptionKey ?? definition.summaryKey;
+
+    command
+        .summary(translator.t(definition.summaryKey))
+        .description(translator.t(descriptionKey))
+        .helpOption("-h, --help", translator.t("options.help"));
+
+    for (const alias of definition.aliases ?? []) {
+        command.alias(alias);
+    }
+
+    if (definition.children?.length) {
+        command.helpCommand(
+            "help [command]",
+            translator.t("commands.help.summary"),
+        );
+    }
+
+    for (const option of definition.options ?? []) {
+        command.addOption(createOption(option, translator));
+    }
+
+    for (const argument of definition.arguments ?? []) {
+        command.addArgument(
+            createArgument(argument, translator),
+        );
+    }
+
+    if (definition.missingArgumentBehavior === "showHelp") {
+        configureMissingArgumentHelp(command);
+    }
+}
+
+function bindCommandHandler<TInput>(
+    command: Command,
+    definition: CliCommandDefinition<TInput>,
+    inputSchema: ZodType<TInput>,
+    context: CliExecutionContext,
+): void {
+    const handler = definition.handler;
+
+    if (!handler) {
+        return;
+    }
+
+    command.action(async (...actionArguments) => {
+        const commandInstance = actionArguments.at(-1) as Command;
+        const rawInput = collectRawInput(
+            definition,
+            actionArguments,
+            commandInstance.optsWithGlobals<OptionValues>(),
+        );
+        const parsedInput = parseInput(
+            definition,
+            inputSchema,
+            rawInput,
+        );
+
+        await handler(parsedInput, context);
+    });
 }
 
 function formatOptionFlags(option: {
@@ -292,8 +331,8 @@ function configureMissingArgumentHelp(command: Command): void {
     };
 }
 
-function collectRawInput(
-    definition: CliCommandDefinition,
+function collectRawInput<TInput>(
+    definition: CliCommandDefinition<TInput>,
     actionArguments: unknown[],
     optionValues: OptionValues,
 ): Record<string, unknown> {

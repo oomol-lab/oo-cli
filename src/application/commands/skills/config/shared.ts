@@ -103,14 +103,14 @@ export function createInvalidSkillConfigKeyError(
 export function getSkillConfigKeyChoices(
     skillName: SkillConfigSkillName,
 ): readonly string[] {
-    return Object.keys(skillConfigDefinitions[skillName]);
+    return Object.keys(getSkillConfigDefinitions(skillName));
 }
 
 export function getSkillConfigDefinition(
     skillName: SkillConfigSkillName,
     key: string,
 ): SkillConfigDefinition {
-    return skillConfigDefinitions[skillName][key]!;
+    return getSkillConfigDefinitions(skillName)[key]!;
 }
 
 export function getSkillConfigValue(
@@ -138,9 +138,17 @@ export function getSkillConfigDefinitionByRawInput(
         return undefined;
     }
 
-    if (!(rawKey in skillConfigDefinitions[rawSkillName])) {
+    const definitions = getSkillConfigDefinitions(rawSkillName);
+
+    if (!(rawKey in definitions)) {
         return undefined;
     }
 
-    return skillConfigDefinitions[rawSkillName][rawKey];
+    return definitions[rawKey];
+}
+
+function getSkillConfigDefinitions(
+    skillName: SkillConfigSkillName,
+): Record<string, SkillConfigDefinition> {
+    return skillConfigDefinitions[skillName];
 }

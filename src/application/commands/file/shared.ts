@@ -7,8 +7,8 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { withRequestTarget } from "../../logging/log-fields.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
+import { performLoggedRequest, requestText } from "../shared/request.ts";
 
 export const fileFormatValues = ["json"] as const;
 export const maxFileUploadSizeBytes = 512 * 1024 * 1024;
@@ -271,81 +271,53 @@ async function requestFileUpload(
         method?: string;
     } = {},
 ): Promise<string> {
-    const requestStartedAt = Date.now();
     const method = options.method ?? "GET";
+    const headers: Record<string, string> = {
+        Authorization: apiKey,
+    };
 
-    context.logger.debug(
-        {
-            bodyBytes: options.body?.length ?? 0,
-            hasBody: options.body !== undefined,
-            method,
-            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            query: requestUrl.searchParams.toString(),
+    if (options.body !== undefined) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    return await requestText({
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.fileUpload.requestFailed",
+            1,
+            {
+                status,
+            },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.fileUpload.requestError",
+            1,
+            {
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ),
+        fields: {
+            error: {
+                method,
+            },
+            response: {
+                method,
+            },
+            start: {
+                bodyBytes: options.body?.length ?? 0,
+                hasBody: options.body !== undefined,
+                method,
+                query: requestUrl.searchParams.toString(),
+            },
         },
-        "File upload request started.",
-    );
-
-    try {
-        const headers: Record<string, string> = {
-            Authorization: apiKey,
-        };
-
-        if (options.body !== undefined) {
-            headers["Content-Type"] = "application/json";
-        }
-
-        const response = await context.fetcher(requestUrl, {
+        init: {
             body: options.body,
             headers,
             method,
-        });
-        const durationMs = Date.now() - requestStartedAt;
-
-        if (!response.ok) {
-            context.logger.warn(
-                {
-                    durationMs,
-                    method,
-                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                    status: response.status,
-                },
-                "File upload request returned a non-success status.",
-            );
-            throw new CliUserError("errors.fileUpload.requestFailed", 1, {
-                status: response.status,
-            });
-        }
-
-        context.logger.debug(
-            {
-                durationMs,
-                method,
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                status: response.status,
-            },
-            "File upload request completed.",
-        );
-
-        return await response.text();
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            throw error;
-        }
-
-        context.logger.warn(
-            {
-                durationMs: Date.now() - requestStartedAt,
-                err: error,
-                method,
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            },
-            "File upload request failed unexpectedly.",
-        );
-        throw new CliUserError("errors.fileUpload.requestError", 1, {
-            message: error instanceof Error ? error.message : String(error),
-        });
-    }
+        },
+        requestLabel: "File upload",
+        requestUrl,
+    });
 }
 
 async function uploadFilePart(
@@ -358,90 +330,61 @@ async function uploadFilePart(
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         const requestUrl = new URL(presignedUrl);
-        const requestStartedAt = Date.now();
-
-        context.logger.debug(
-            {
-                attempt,
-                bodyBytes: partData.size,
-                method: "PUT",
-                partNumber,
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            },
-            "File upload part request started.",
-        );
 
         try {
-            const response = await context.fetcher(requestUrl, {
-                body: partData,
-                headers: {
-                    "Content-Type": "application/octet-stream",
-                },
-                method: "PUT",
-            });
-            const durationMs = Date.now() - requestStartedAt;
-
-            if (!response.ok) {
-                context.logger.warn(
+            await performLoggedRequest({
+                context,
+                createRequestFailedError: status => new CliUserError(
+                    "errors.fileUpload.requestFailed",
+                    1,
                     {
-                        attempt,
-                        durationMs,
-                        method: "PUT",
-                        partNumber,
-                        ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                        status: response.status,
+                        status,
                     },
-                    "File upload part request returned a non-success status.",
-                );
-
-                if (attempt === maxAttempts) {
-                    throw new CliUserError("errors.fileUpload.requestFailed", 1, {
-                        status: response.status,
-                    });
-                }
-
+                ),
+                createUnexpectedError: error => new CliUserError(
+                    "errors.fileUpload.requestError",
+                    1,
+                    {
+                        message: error instanceof Error ? error.message : String(error),
+                    },
+                ),
+                fields: {
+                    common: {
+                        attempt,
+                        partNumber,
+                    },
+                    error: {
+                        method: "PUT",
+                    },
+                    response: {
+                        method: "PUT",
+                    },
+                    start: {
+                        bodyBytes: partData.size,
+                        method: "PUT",
+                    },
+                },
+                init: {
+                    body: partData,
+                    headers: {
+                        "Content-Type": "application/octet-stream",
+                    },
+                    method: "PUT",
+                },
+                requestLabel: "File upload part",
+                requestUrl,
+            });
+            return;
+        }
+        catch (error) {
+            if (error instanceof CliUserError && attempt < maxAttempts) {
                 await delayRetry(attempt);
                 continue;
             }
 
-            context.logger.debug(
-                {
-                    attempt,
-                    durationMs,
-                    method: "PUT",
-                    partNumber,
-                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                    status: response.status,
-                },
-                "File upload part request completed.",
-            );
-
-            return;
-        }
-        catch (error) {
             if (error instanceof CliUserError) {
                 throw error;
             }
-
-            context.logger.warn(
-                {
-                    attempt,
-                    durationMs: Date.now() - requestStartedAt,
-                    err: error,
-                    method: "PUT",
-                    partNumber,
-                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                },
-                "File upload part request failed unexpectedly.",
-            );
-
-            if (attempt === maxAttempts) {
-                throw new CliUserError("errors.fileUpload.requestError", 1, {
-                    message: error instanceof Error ? error.message : String(error),
-                });
-            }
-
-            await delayRetry(attempt);
         }
     }
 }

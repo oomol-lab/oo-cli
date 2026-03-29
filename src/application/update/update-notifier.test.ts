@@ -28,6 +28,32 @@ describe("update notifier", () => {
         expect(compareReleaseVersions("1.2.3", "1.2.4")).toBe(-1);
         expect(compareReleaseVersions("1.2.3", "1.2.3-beta.1")).toBe(1);
         expect(compareReleaseVersions("1.2.3-beta.2", "1.2.3-beta.10")).toBe(-1);
+        expect(compareReleaseVersions("1.2.3+build.1", "1.2.3+build.2")).toBe(0);
+    });
+
+    test("accepts build metadata in the current version check", async () => {
+        const notifier = createUpdateNotifierHarness({
+            fetcher: async () => new Response(JSON.stringify({
+                "dist-tags": {
+                    latest: "1.0.1",
+                },
+            })),
+        });
+
+        try {
+            notifier.context.version = "1.0.0+build.1";
+            notifier.context.versionText = "1.0.0+build.1";
+
+            const result = await checkForCliUpdate(notifier.context);
+
+            expect(result).toEqual({
+                latestVersion: "1.0.1",
+                status: "update-available",
+            });
+        }
+        finally {
+            notifier.close();
+        }
     });
 
     test("resolves package-manager-specific upgrade commands", () => {

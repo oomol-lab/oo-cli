@@ -1,3 +1,5 @@
+import { isPlainObject, readWidgetName } from "./schema-utils.ts";
+
 interface JsonSchemaObject {
     [key: string]: unknown;
     allOf?: unknown;
@@ -99,22 +101,4 @@ function canMergeConstraint(
     return Object.entries(constraint).every(([key, value]) =>
         !Object.hasOwn(schema, key) || Object.is(schema[key], value),
     );
-}
-
-function readWidgetName(ext: unknown): string | undefined {
-    if (!isPlainObject(ext) || typeof ext.widget !== "string") {
-        return undefined;
-    }
-
-    return ext.widget;
-}
-
-function isPlainObject(value: unknown): value is JsonSchemaObject {
-    if (value === null || typeof value !== "object") {
-        return false;
-    }
-
-    const prototype = Object.getPrototypeOf(value);
-
-    return prototype === Object.prototype || prototype === null;
 }

@@ -4,12 +4,10 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import {
-    withRequestTarget,
-} from "../../logging/log-fields.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requestText } from "../shared/request.ts";
 
 const searchFormatValues = ["json"] as const;
 const skillSearchResultLimit = 5;
@@ -169,71 +167,40 @@ async function requestSkillsSearch(
     apiKey: string,
     context: Pick<CliExecutionContext, "fetcher" | "logger">,
 ): Promise<string> {
-    const requestStartedAt = Date.now();
     const keywordCount = requestUrl.searchParams.getAll("keywords").length;
 
-    context.logger.debug(
-        {
-            keywordCount,
-            textLength: requestUrl.searchParams.get("text")?.length ?? 0,
-            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+    return await requestText({
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.skillsSearch.requestFailed",
+            1,
+            {
+                status,
+            },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.skillsSearch.requestError",
+            1,
+            {
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ),
+        fields: {
+            common: {
+                keywordCount,
+            },
+            start: {
+                textLength: requestUrl.searchParams.get("text")?.length ?? 0,
+            },
         },
-        "Skills search request started.",
-    );
-
-    try {
-        const response = await context.fetcher(requestUrl, {
+        init: {
             headers: {
                 Authorization: apiKey,
             },
-        });
-        const durationMs = Date.now() - requestStartedAt;
-
-        if (!response.ok) {
-            context.logger.warn(
-                {
-                    durationMs,
-                    keywordCount,
-                    status: response.status,
-                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                },
-                "Skills search request returned a non-success status.",
-            );
-            throw new CliUserError("errors.skillsSearch.requestFailed", 1, {
-                status: response.status,
-            });
-        }
-
-        context.logger.debug(
-            {
-                durationMs,
-                keywordCount,
-                status: response.status,
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            },
-            "Skills search request completed.",
-        );
-
-        return await response.text();
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            throw error;
-        }
-
-        context.logger.warn(
-            {
-                durationMs: Date.now() - requestStartedAt,
-                err: error,
-                keywordCount,
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            },
-            "Skills search request failed unexpectedly.",
-        );
-        throw new CliUserError("errors.skillsSearch.requestError", 1, {
-            message: error instanceof Error ? error.message : String(error),
-        });
-    }
+        },
+        requestLabel: "Skills search",
+        requestUrl,
+    });
 }
 
 function parseSkillsSearchResponse(rawResponse: string): {
