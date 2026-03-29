@@ -356,6 +356,60 @@ function registerPosixBundledSkillPublicationTests(
             ]);
         });
 
+        test("uses the symlink-resolved parent directory when computing a relative POSIX target", async () => {
+            const createdSymlinks: Array<{
+                linkPath: string;
+                targetPath: string;
+                type: string | null | undefined;
+            }> = [];
+            const targetPath = "/tmp/canonical/skills/oo";
+            const linkPath = "/tmp/link-parent/skills/oo";
+            const resolvedTargetPath = resolve(targetPath);
+            const resolvedLinkPath = resolve(linkPath);
+            const resolvedLinkDirectoryPath = dirname(resolvedLinkPath);
+            const realLinkDirectoryPath = "/private/tmp/link-parent/skills";
+
+            const result = await createBundledSkillDirectorySymlink(
+                targetPath,
+                linkPath,
+                {
+                    lstat: async () => {
+                        const error = new Error("missing") as NodeJS.ErrnoException;
+
+                        error.code = "ENOENT";
+
+                        throw error;
+                    },
+                    mkdir: async () => undefined,
+                    readlink: async () => {
+                        throw new Error("readlink should not run when the link is missing");
+                    },
+                    realpath: async path => path,
+                    removePath: async () => {
+                        throw new Error("removePath should not run when the link is missing");
+                    },
+                    resolveParentSymlinks: async path =>
+                        path === resolvedLinkDirectoryPath ? realLinkDirectoryPath : path,
+                    symlink: async (createdTargetPath, createdLinkPath, type) => {
+                        createdSymlinks.push({
+                            linkPath: createdLinkPath,
+                            targetPath: createdTargetPath,
+                            type,
+                        });
+                    },
+                },
+            );
+
+            expect(result).toBeTrue();
+            expect(createdSymlinks).toEqual([
+                {
+                    linkPath: resolvedLinkPath,
+                    targetPath: relative(realLinkDirectoryPath, resolvedTargetPath),
+                    type: "dir",
+                },
+            ]);
+        });
+
         test("rethrows EFAULT when removing a symbolic path on POSIX", async () => {
             const symlinkPath = "/tmp/.codex/skills/oo";
 
