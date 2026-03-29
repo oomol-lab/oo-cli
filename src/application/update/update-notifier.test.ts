@@ -166,6 +166,108 @@ describe("update notifier", () => {
         }
     });
 
+    test("returns latest-version-unavailable for a non-2xx registry response", async () => {
+        let fetchCount = 0;
+        const notifier = createUpdateNotifierHarness({
+            fetcher: async () => {
+                fetchCount += 1;
+
+                return new Response("{}", {
+                    status: 503,
+                });
+            },
+        });
+
+        try {
+            const result = await checkForCliUpdate(notifier.context);
+
+            expect(result).toEqual({
+                reason: "latest-version-unavailable",
+                status: "failed",
+            });
+            expect(fetchCount).toBe(1);
+        }
+        finally {
+            notifier.close();
+        }
+    });
+
+    test("returns latest-version-unavailable when registry JSON parsing fails", async () => {
+        let fetchCount = 0;
+        const notifier = createUpdateNotifierHarness({
+            fetcher: async () => {
+                fetchCount += 1;
+
+                return new Response("not-json");
+            },
+        });
+
+        try {
+            const result = await checkForCliUpdate(notifier.context);
+
+            expect(result).toEqual({
+                reason: "latest-version-unavailable",
+                status: "failed",
+            });
+            expect(fetchCount).toBe(1);
+        }
+        finally {
+            notifier.close();
+        }
+    });
+
+    test("returns latest-version-unavailable when dist-tags is missing", async () => {
+        let fetchCount = 0;
+        const notifier = createUpdateNotifierHarness({
+            fetcher: async () => {
+                fetchCount += 1;
+
+                return new Response(JSON.stringify({
+                    name: packageName,
+                }));
+            },
+        });
+
+        try {
+            const result = await checkForCliUpdate(notifier.context);
+
+            expect(result).toEqual({
+                reason: "latest-version-unavailable",
+                status: "failed",
+            });
+            expect(fetchCount).toBe(1);
+        }
+        finally {
+            notifier.close();
+        }
+    });
+
+    test("returns latest-version-unavailable when latest is missing", async () => {
+        let fetchCount = 0;
+        const notifier = createUpdateNotifierHarness({
+            fetcher: async () => {
+                fetchCount += 1;
+
+                return new Response(JSON.stringify({
+                    "dist-tags": {},
+                }));
+            },
+        });
+
+        try {
+            const result = await checkForCliUpdate(notifier.context);
+
+            expect(result).toEqual({
+                reason: "latest-version-unavailable",
+                status: "failed",
+            });
+            expect(fetchCount).toBe(1);
+        }
+        finally {
+            notifier.close();
+        }
+    });
+
     test("retries once within the same update check after a transient failure", async () => {
         let fetchCount = 0;
         const notifier = createUpdateNotifierHarness({

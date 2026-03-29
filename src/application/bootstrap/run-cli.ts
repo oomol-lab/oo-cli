@@ -1,12 +1,13 @@
+import type { Logger } from "pino";
 import type { AuthStore } from "../contracts/auth-store.ts";
 import type { CacheStore } from "../contracts/cache.ts";
+
 import type {
     CliExecutionContext,
     Fetcher,
     InteractiveInput,
     Writer,
 } from "../contracts/cli.ts";
-
 import type { FileDownloadSessionStore } from "../contracts/file-download-session-store.ts";
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
@@ -265,70 +266,42 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         exitCode = writeBootstrapError(error, translator, invocation.stderr);
     }
     finally {
-        if (cacheStore) {
-            try {
-                cacheStore.close();
-            }
-            catch (error) {
-                logger.error(
-                    {
-                        ...withCategory(logCategory.systemError),
-                        err: error,
-                    },
-                    "Failed to close the cache store cleanly.",
-                );
-                invocation.stderr.write(
-                    `${translator.t("errors.unexpected", {
-                        message: error instanceof Error ? error.message : String(error),
-                    })}\n`,
-                );
+        const cleanupCacheStore = cacheStore;
+        const cleanupFileUploadStore = fileUploadStore;
+        const cleanupFileDownloadSessionStore = fileDownloadSessionStore;
 
-                exitCode = 1;
-            }
+        if (cleanupCacheStore) {
+            exitCode = closeCleanupResource({
+                close: () => cleanupCacheStore.close(),
+                exitCode,
+                failureMessage: "Failed to close the cache store cleanly.",
+                logger,
+                stderr: invocation.stderr,
+                translator,
+            });
         }
 
-        if (fileUploadStore) {
-            try {
-                fileUploadStore.close();
-            }
-            catch (error) {
-                logger.error(
-                    {
-                        ...withCategory(logCategory.systemError),
-                        err: error,
-                    },
-                    "Failed to close the file upload store cleanly.",
-                );
-                invocation.stderr.write(
-                    `${translator.t("errors.unexpected", {
-                        message: error instanceof Error ? error.message : String(error),
-                    })}\n`,
-                );
-
-                exitCode = 1;
-            }
+        if (cleanupFileUploadStore) {
+            exitCode = closeCleanupResource({
+                close: () => cleanupFileUploadStore.close(),
+                exitCode,
+                failureMessage: "Failed to close the file upload store cleanly.",
+                logger,
+                stderr: invocation.stderr,
+                translator,
+            });
         }
 
-        if (fileDownloadSessionStore) {
-            try {
-                fileDownloadSessionStore.close();
-            }
-            catch (error) {
-                logger.error(
-                    {
-                        ...withCategory(logCategory.systemError),
-                        err: error,
-                    },
+        if (cleanupFileDownloadSessionStore) {
+            exitCode = closeCleanupResource({
+                close: () => cleanupFileDownloadSessionStore.close(),
+                exitCode,
+                failureMessage:
                     "Failed to close the file download session store cleanly.",
-                );
-                invocation.stderr.write(
-                    `${translator.t("errors.unexpected", {
-                        message: error instanceof Error ? error.message : String(error),
-                    })}\n`,
-                );
-
-                exitCode = 1;
-            }
+                logger,
+                stderr: invocation.stderr,
+                translator,
+            });
         }
 
         logger.debug(
@@ -463,6 +436,36 @@ function writeBootstrapError(
     );
 
     return 1;
+}
+
+function closeCleanupResource(options: {
+    close: () => void;
+    exitCode: number;
+    failureMessage: string;
+    logger: Logger;
+    stderr: Writer;
+    translator: ReturnType<typeof createTranslator>;
+}): number {
+    try {
+        options.close();
+        return options.exitCode;
+    }
+    catch (error) {
+        options.logger.error(
+            {
+                ...withCategory(logCategory.systemError),
+                err: error,
+            },
+            options.failureMessage,
+        );
+        options.stderr.write(
+            `${options.translator.t("errors.unexpected", {
+                message: error instanceof Error ? error.message : String(error),
+            })}\n`,
+        );
+
+        return 1;
+    }
 }
 
 function createDetachedStdin(): InteractiveInput {

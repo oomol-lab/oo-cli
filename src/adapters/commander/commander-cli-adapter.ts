@@ -1,5 +1,5 @@
 import type { OptionValues } from "commander";
-import type { ZodError } from "zod";
+import type { ZodError, ZodType } from "zod";
 
 import type { CliCatalog, CliCommandDefinition, CliExecutionContext } from "../../application/contracts/cli.ts";
 import type { Translator } from "../../application/contracts/translator.ts";
@@ -40,9 +40,9 @@ class LocalizedCommand extends Command {
 
 export class CommanderCliAdapter {
     async run(request: CommanderCliRunRequest): Promise<number> {
-        const program = this.buildProgram(request.catalog, request.context);
-
         try {
+            const program = this.buildProgram(request.catalog, request.context);
+
             await program.parseAsync(request.argv, { from: "user" });
             return 0;
         }
@@ -141,19 +141,29 @@ export class CommanderCliAdapter {
             this.addCommand(command, child, context);
         }
 
-        if (definition.handler && definition.inputSchema) {
-            command.action(async (...actionArguments) => {
-                const commandInstance = actionArguments.at(-1) as Command;
-                const rawInput = collectRawInput(
-                    definition,
-                    actionArguments,
-                    commandInstance.optsWithGlobals<OptionValues>(),
-                );
-                const parsedInput = parseInput(definition, rawInput);
+        const handler = definition.handler;
 
-                await definition.handler?.(parsedInput, context);
-            });
+        if (!handler) {
+            return;
         }
+
+        const inputSchema = ensureCommandInputSchema(definition);
+
+        command.action(async (...actionArguments) => {
+            const commandInstance = actionArguments.at(-1) as Command;
+            const rawInput = collectRawInput(
+                definition,
+                actionArguments,
+                commandInstance.optsWithGlobals<OptionValues>(),
+            );
+            const parsedInput = parseInput(
+                definition,
+                inputSchema,
+                rawInput,
+            );
+
+            await handler(parsedInput, context);
+        });
     }
 
     private handleError(
@@ -306,19 +316,28 @@ function collectRawInput(
 
 function parseInput<TInput>(
     definition: CliCommandDefinition<TInput>,
+    inputSchema: ZodType<TInput>,
     rawInput: Record<string, unknown>,
 ): TInput {
-    const result = definition.inputSchema?.safeParse(rawInput);
-
-    if (!result) {
-        return rawInput as TInput;
-    }
+    const result = inputSchema.safeParse(rawInput);
 
     if (result.success) {
         return result.data as TInput;
     }
 
     throw mapInputError(definition, result.error, rawInput);
+}
+
+function ensureCommandInputSchema<TInput>(
+    definition: CliCommandDefinition<TInput>,
+): ZodType<TInput> {
+    if (!definition.inputSchema) {
+        throw new Error(
+            `Command "${definition.name}" must define inputSchema when handler is provided.`,
+        );
+    }
+
+    return definition.inputSchema as ZodType<TInput>;
 }
 
 function mapInputError(

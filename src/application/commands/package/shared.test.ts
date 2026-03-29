@@ -61,6 +61,125 @@ describe("loadPackageInfo", () => {
         expect(fetchCount).toBe(1);
     });
 
+    test("preserves array ext placeholders and omits empty ext objects in input schemas", async () => {
+        const cacheValues = new Map<string, string>();
+        const cache = createCache<string>({
+            delete(key) {
+                return cacheValues.delete(key);
+            },
+            get(key) {
+                return cacheValues.get(key) ?? null;
+            },
+            set(key, value) {
+                cacheValues.set(key, value);
+            },
+        });
+        const context = createPackageInfoContext(
+            cache,
+            (async () => new Response(JSON.stringify({
+                packageName: "schema-lab",
+                packageVersion: "2.0.0",
+                title: "Schema Lab",
+                description: "Schema edge cases",
+                blocks: [
+                    {
+                        blockName: "Normalize",
+                        title: "Normalize",
+                        description: "Covers schema edge cases.",
+                        inputHandleDefs: [
+                            {
+                                handle: "choiceInput",
+                                description: "Choice input",
+                                json_schema: {
+                                    anyOf: [
+                                        {
+                                            "type": "string",
+                                            "ui:widget": "text",
+                                        },
+                                        {
+                                            type: "number",
+                                        },
+                                    ],
+                                },
+                            },
+                            {
+                                handle: "plainObjectInput",
+                                description: "Plain object input",
+                                json_schema: {
+                                    type: "object",
+                                    properties: {
+                                        name: {
+                                            "type": "string",
+                                            "ui:help": "ignored",
+                                        },
+                                    },
+                                },
+                            },
+                        ],
+                        outputHandleDefs: [],
+                    },
+                ],
+            }))) satisfies Fetcher,
+        );
+
+        const response = await loadPackageInfo(
+            parsePackageSpecifier("schema-lab@2.0.0"),
+            packageInfoAccount,
+            packageInfoRequestLanguage,
+            context,
+        );
+
+        expect(response).toEqual({
+            blocks: [
+                {
+                    blockName: "Normalize",
+                    description: "Covers schema edge cases.",
+                    inputHandle: {
+                        choiceInput: {
+                            description: "Choice input",
+                            ext: {
+                                anyOf: [
+                                    {
+                                        widget: "text",
+                                    },
+                                    null,
+                                ],
+                            },
+                            schema: {
+                                anyOf: [
+                                    {
+                                        type: "string",
+                                    },
+                                    {
+                                        type: "number",
+                                    },
+                                ],
+                            },
+                        },
+                        plainObjectInput: {
+                            description: "Plain object input",
+                            schema: {
+                                properties: {
+                                    name: {
+                                        type: "string",
+                                    },
+                                },
+                                type: "object",
+                            },
+                        },
+                    },
+                    outputHandle: {},
+                    title: "Normalize",
+                },
+            ],
+            description: "Schema edge cases",
+            displayName: "Schema Lab",
+            packageName: "schema-lab",
+            packageVersion: "2.0.0",
+        });
+        expect(response.blocks[0]?.inputHandle.plainObjectInput).not.toHaveProperty("ext");
+    });
+
     test("deserializes preloaded cached normalized responses without fetching", async () => {
         const cacheValues = new Map<string, string>();
         let fetchCount = 0;

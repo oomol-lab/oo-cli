@@ -1,8 +1,11 @@
+import type { CacheStore } from "../contracts/cache.ts";
+import type { FileDownloadSessionStore } from "../contracts/file-download-session-store.ts";
+
+import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
+
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-
 import { describe, expect, test } from "bun:test";
-
 import {
     createCliSandbox,
     createCliSnapshot,
@@ -233,4 +236,245 @@ describe("runCli bootstrap", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("reports cache store cleanup failures and keeps closing the remaining stores", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runCleanupFailureScenario(sandbox, ["cache"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.closeOrder).toEqual([
+                "cache",
+                "fileUpload",
+                "fileDownloadSession",
+            ]);
+            expect(result.stderr).toBe(
+                "Unexpected error: cache store close failed\n",
+            );
+            expect(result.logContent).toContain(
+                "Failed to close the cache store cleanly.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports file upload store cleanup failures and keeps closing the remaining stores", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runCleanupFailureScenario(sandbox, [
+                "fileUpload",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.closeOrder).toEqual([
+                "cache",
+                "fileUpload",
+                "fileDownloadSession",
+            ]);
+            expect(result.stderr).toBe(
+                "Unexpected error: file upload store close failed\n",
+            );
+            expect(result.logContent).toContain(
+                "Failed to close the file upload store cleanly.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports file download session store cleanup failures and keeps closing the remaining stores", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runCleanupFailureScenario(sandbox, [
+                "fileDownloadSession",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.closeOrder).toEqual([
+                "cache",
+                "fileUpload",
+                "fileDownloadSession",
+            ]);
+            expect(result.stderr).toBe(
+                "Unexpected error: file download session store close failed\n",
+            );
+            expect(result.logContent).toContain(
+                "Failed to close the file download session store cleanly.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("continues cleanup when multiple stores fail to close", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runCleanupFailureScenario(sandbox, [
+                "cache",
+                "fileUpload",
+                "fileDownloadSession",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.closeOrder).toEqual([
+                "cache",
+                "fileUpload",
+                "fileDownloadSession",
+            ]);
+            expect(result.stderr).toBe([
+                "Unexpected error: cache store close failed",
+                "Unexpected error: file upload store close failed",
+                "Unexpected error: file download session store close failed",
+                "",
+            ].join("\n"));
+            expect(result.logContent).toContain(
+                "Failed to close the cache store cleanly.",
+            );
+            expect(result.logContent).toContain(
+                "Failed to close the file upload store cleanly.",
+            );
+            expect(result.logContent).toContain(
+                "Failed to close the file download session store cleanly.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
+
+type CleanupResourceName
+    = | "cache"
+        | "fileUpload"
+        | "fileDownloadSession";
+
+async function runCleanupFailureScenario(
+    sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
+    failingResources: readonly CleanupResourceName[],
+): Promise<{
+    closeOrder: CleanupResourceName[];
+    exitCode: number;
+    logContent: string;
+    stderr: string;
+}> {
+    const stdout = createTextBuffer();
+    const stderr = createTextBuffer();
+    const closeOrder: CleanupResourceName[] = [];
+    const resourceSet = new Set(failingResources);
+    const exitCode = await executeCli({
+        argv: ["--help"],
+        cacheStore: createCleanupCacheStore(closeOrder, resourceSet),
+        cwd: sandbox.cwd,
+        env: sandbox.env,
+        fileDownloadSessionStore: createCleanupFileDownloadSessionStore(
+            closeOrder,
+            resourceSet,
+        ),
+        fileUploadStore: createCleanupFileUploadStore(closeOrder, resourceSet),
+        stdout: stdout.writer,
+        stderr: stderr.writer,
+        systemLocale: "en-US",
+        version: packageManifest.version,
+    });
+
+    return {
+        closeOrder,
+        exitCode,
+        logContent: await readLatestLogContent(sandbox),
+        stderr: stderr.read(),
+    };
+}
+
+function createCleanupCacheStore(
+    closeOrder: CleanupResourceName[],
+    resourceSet: Set<CleanupResourceName>,
+): CacheStore {
+    return {
+        close() {
+            closeOrder.push("cache");
+
+            if (resourceSet.has("cache")) {
+                throw new Error("cache store close failed");
+            }
+        },
+        getCache() {
+            return {
+                clear() {},
+                delete() {
+                    return false;
+                },
+                get() {
+                    return null;
+                },
+                has() {
+                    return false;
+                },
+                set() {},
+            };
+        },
+        getFilePath() {
+            return "";
+        },
+    };
+}
+
+function createCleanupFileUploadStore(
+    closeOrder: CleanupResourceName[],
+    resourceSet: Set<CleanupResourceName>,
+): FileUploadRecordStore {
+    return {
+        close() {
+            closeOrder.push("fileUpload");
+
+            if (resourceSet.has("fileUpload")) {
+                throw new Error("file upload store close failed");
+            }
+        },
+        deleteExpired() {
+            return 0;
+        },
+        getFilePath() {
+            return "";
+        },
+        list() {
+            return [];
+        },
+        save() {},
+    };
+}
+
+function createCleanupFileDownloadSessionStore(
+    closeOrder: CleanupResourceName[],
+    resourceSet: Set<CleanupResourceName>,
+): FileDownloadSessionStore {
+    return {
+        close() {
+            closeOrder.push("fileDownloadSession");
+
+            if (resourceSet.has("fileDownloadSession")) {
+                throw new Error("file download session store close failed");
+            }
+        },
+        deleteDownloadSession() {
+            return false;
+        },
+        deleteDownloadSessionsUpdatedBefore() {
+            return 0;
+        },
+        findDownloadSession() {
+            return undefined;
+        },
+        getFilePath() {
+            return "";
+        },
+        saveDownloadSession() {},
+    };
+}

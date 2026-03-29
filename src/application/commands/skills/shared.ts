@@ -50,6 +50,16 @@ interface BundledSkillPublicationDependencies {
     ) => Promise<boolean>;
 }
 
+type BundledSkillDirectorySymlinkAttempt
+    = | {
+        kind: "reuse";
+    }
+    | {
+        kind: "create";
+        resolvedLinkPath: string;
+        resolvedTargetPath: string;
+    };
+
 export interface CreateBundledSkillDirectorySymlinkDependencies {
     lstat?: (path: string) => Promise<{
         isSymbolicLink: () => boolean;
@@ -789,71 +799,36 @@ export async function createBundledSkillDirectorySymlink(
     const symlinkFn = dependencies.symlink ?? symlink;
 
     try {
-        const resolvedTargetPath = resolve(targetPath);
-        const resolvedLinkPath = resolve(linkPath);
-        const [realTargetPath, realLinkPath] = await Promise.all([
-            realpathFn(resolvedTargetPath).catch(() => resolvedTargetPath),
-            realpathFn(resolvedLinkPath).catch(() => resolvedLinkPath),
-        ]);
+        const attempt = await resolveBundledSkillDirectorySymlinkAttempt(
+            targetPath,
+            linkPath,
+            {
+                lstat: lstatFn,
+                readlink: readlinkFn,
+                realpath: realpathFn,
+                removePath: removePathFn,
+                resolveParentSymlinks: resolveParentSymlinksFn,
+            },
+        );
 
-        if (realTargetPath === realLinkPath) {
+        if (attempt.kind === "reuse") {
             return true;
         }
 
-        const [realTargetPathWithParents, realLinkPathWithParents]
-            = await Promise.all([
-                resolveParentSymlinksFn(resolvedTargetPath),
-                resolveParentSymlinksFn(resolvedLinkPath),
-            ]);
-
-        if (realTargetPathWithParents === realLinkPathWithParents) {
-            return true;
-        }
-
-        try {
-            const existingStats = await lstatFn(resolvedLinkPath);
-
-            if (existingStats.isSymbolicLink()) {
-                const existingTarget = await readlinkFn(resolvedLinkPath);
-
-                if (
-                    resolveSymlinkTarget(resolvedLinkPath, existingTarget)
-                    === resolvedTargetPath
-                ) {
-                    return true;
-                }
-            }
-
-            await removePathFn(resolvedLinkPath);
-        }
-        catch (error) {
-            if (isSymlinkLoopError(error)) {
-                try {
-                    await removePathFn(resolvedLinkPath);
-                }
-                catch {
-                    // Let symlink creation determine whether copy fallback is needed.
-                }
-            }
-            else if (!isNodeNotFoundError(error)) {
-                throw error;
-            }
-        }
-
-        const linkDirectoryPath = dirname(resolvedLinkPath);
+        const linkDirectoryPath = dirname(attempt.resolvedLinkPath);
 
         await mkdirFn(linkDirectoryPath, { recursive: true });
 
         const symlinkTargetPath = process.platform === "win32"
-            ? resolvedTargetPath
+            ? attempt.resolvedTargetPath
             : relative(
                     await resolveParentSymlinksFn(linkDirectoryPath),
-                    resolvedTargetPath,
+                    attempt.resolvedTargetPath,
                 );
 
         await symlinkFn(
             symlinkTargetPath,
-            resolvedLinkPath,
+            attempt.resolvedLinkPath,
             process.platform === "win32" ? "junction" : "dir",
         );
 
@@ -862,6 +837,84 @@ export async function createBundledSkillDirectorySymlink(
     catch {
         return false;
     }
+}
+
+async function resolveBundledSkillDirectorySymlinkAttempt(
+    targetPath: string,
+    linkPath: string,
+    dependencies: Pick<
+        CreateBundledSkillDirectorySymlinkDependencies,
+        "lstat" | "readlink" | "realpath" | "removePath" | "resolveParentSymlinks"
+    >,
+): Promise<BundledSkillDirectorySymlinkAttempt> {
+    const resolvedTargetPath = resolve(targetPath);
+    const resolvedLinkPath = resolve(linkPath);
+    const realpathFn = dependencies.realpath ?? realpath;
+    const [realTargetPath, realLinkPath] = await Promise.all([
+        realpathFn(resolvedTargetPath).catch(() => resolvedTargetPath),
+        realpathFn(resolvedLinkPath).catch(() => resolvedLinkPath),
+    ]);
+
+    if (realTargetPath === realLinkPath) {
+        return {
+            kind: "reuse",
+        };
+    }
+
+    const resolveParentSymlinksFn
+        = dependencies.resolveParentSymlinks ?? resolveParentSymlinks;
+    const [realTargetPathWithParents, realLinkPathWithParents] = await Promise.all([
+        resolveParentSymlinksFn(resolvedTargetPath),
+        resolveParentSymlinksFn(resolvedLinkPath),
+    ]);
+
+    if (realTargetPathWithParents === realLinkPathWithParents) {
+        return {
+            kind: "reuse",
+        };
+    }
+
+    const lstatFn = dependencies.lstat ?? lstat;
+    const readlinkFn = dependencies.readlink ?? readlink;
+    const removePathFn = dependencies.removePath ?? removePath;
+
+    try {
+        const existingStats = await lstatFn(resolvedLinkPath);
+
+        if (existingStats.isSymbolicLink()) {
+            const existingTarget = await readlinkFn(resolvedLinkPath);
+
+            if (
+                resolveSymlinkTarget(resolvedLinkPath, existingTarget)
+                === resolvedTargetPath
+            ) {
+                return {
+                    kind: "reuse",
+                };
+            }
+        }
+
+        await removePathFn(resolvedLinkPath);
+    }
+    catch (error) {
+        if (isSymlinkLoopError(error)) {
+            try {
+                await removePathFn(resolvedLinkPath);
+            }
+            catch {
+                // Let symlink creation determine whether copy fallback is needed.
+            }
+        }
+        else if (!isNodeNotFoundError(error)) {
+            throw error;
+        }
+    }
+
+    return {
+        kind: "create",
+        resolvedLinkPath,
+        resolvedTargetPath,
+    };
 }
 
 async function copyBundledSkillDirectory(
