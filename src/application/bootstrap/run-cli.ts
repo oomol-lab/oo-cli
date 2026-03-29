@@ -64,7 +64,6 @@ interface InitializedCliStores {
     cacheStore: CacheStore;
     fileDownloadSessionStore: FileDownloadSessionStore;
     fileUploadStore: FileUploadRecordStore;
-    settings: Awaited<ReturnType<SettingsStore["read"]>>;
     settingsStore: SettingsStore;
 }
 
@@ -166,11 +165,12 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         cacheStore = initializedStores.cacheStore;
         fileUploadStore = initializedStores.fileUploadStore;
         fileDownloadSessionStore = initializedStores.fileDownloadSessionStore;
+        const settings = await initializedStores.settingsStore.read();
 
         translator = createTranslator(
             resolvePreferredLocale({
                 cliFlag: parsedCliLanguage,
-                storedLocale: initializedStores.settings.lang,
+                storedLocale: settings.lang,
                 env: invocation.env,
                 systemLocale: invocation.systemLocale,
             }),
@@ -231,7 +231,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 context,
                 {
                     installMissing: shouldInstallMissingBundledSkills,
-                    settings: initializedStores.settings,
+                    settings,
                 },
             );
         }
@@ -348,7 +348,6 @@ async function initializeCliStores(
         cacheStore,
         fileDownloadSessionStore,
         fileUploadStore,
-        settings: await settingsStore.read(),
         settingsStore,
     };
 }

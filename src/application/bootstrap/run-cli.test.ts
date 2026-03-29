@@ -1,7 +1,7 @@
 import type { CacheStore } from "../contracts/cache.ts";
 import type { FileDownloadSessionStore } from "../contracts/file-download-session-store.ts";
-
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
+import type { SettingsStore } from "../contracts/settings-store.ts";
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -231,6 +231,49 @@ describe("runCli bootstrap", () => {
             expect(stderr.read()).toContain("Invalid config key");
             expect(content).toContain(`"category":"user_error"`);
             expect(content).toContain(`"key":"errors.config.invalidKey"`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("closes initialized stores when bootstrap setup fails", async () => {
+        const sandbox = await createCliSandbox();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const closeOrder: CleanupResourceName[] = [];
+
+        try {
+            const exitCode = await executeCli({
+                argv: ["config", "get", "lang"],
+                cacheStore: createCleanupCacheStore(closeOrder, new Set()),
+                cwd: sandbox.cwd,
+                env: sandbox.env,
+                fileDownloadSessionStore: createCleanupFileDownloadSessionStore(
+                    closeOrder,
+                    new Set(),
+                ),
+                fileUploadStore: createCleanupFileUploadStore(
+                    closeOrder,
+                    new Set(),
+                ),
+                settingsStore: createFailingSettingsStore(
+                    new Error("settings read failed"),
+                ),
+                stderr: stderr.writer,
+                stdout: stdout.writer,
+                systemLocale: "en-US",
+            });
+
+            expect(exitCode).toBe(1);
+            expect(closeOrder).toEqual([
+                "cache",
+                "fileUpload",
+                "fileDownloadSession",
+            ]);
+            expect(stderr.read()).toBe(
+                "Unexpected error: settings read failed\n",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -476,5 +519,22 @@ function createCleanupFileDownloadSessionStore(
             return "";
         },
         saveDownloadSession() {},
+    };
+}
+
+function createFailingSettingsStore(error: Error): SettingsStore {
+    return {
+        getFilePath() {
+            return "";
+        },
+        async read() {
+            throw error;
+        },
+        async update() {
+            throw new Error("update should not be called");
+        },
+        async write() {
+            throw new Error("write should not be called");
+        },
     };
 }
