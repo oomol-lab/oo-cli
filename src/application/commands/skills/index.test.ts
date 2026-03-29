@@ -190,6 +190,53 @@ describe("skills commands", () => {
         }
     });
 
+    test("refuses to install when the canonical bundled skill storage is occupied by unmanaged content", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+        );
+        const ownershipFilePath = join(
+            canonicalSkillDirectoryPath,
+            "agents",
+            "openai.yaml",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+                recursive: true,
+            });
+            await Bun.write(
+                ownershipFilePath,
+                [
+                    "interface:",
+                    "  display_name: oo",
+                    "  short_description: Custom skill",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["skills", "install"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                `Bundled skill storage for oo is already occupied by non-OOMOL content at ${canonicalSkillDirectoryPath}.\n`,
+            );
+            expect(await readFile(ownershipFilePath, "utf8")).not.toContain("OOMOL");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("uninstalls a bundled Codex skill from the Codex skills directory", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -263,6 +310,61 @@ describe("skills commands", () => {
         }
     });
 
+    test("uninstall removes canonical bundled skill storage even when it contains unmanaged content", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+        );
+        const canonicalOwnershipFilePath = join(
+            canonicalSkillDirectoryPath,
+            "agents",
+            "openai.yaml",
+        );
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+                recursive: true,
+            });
+            await Bun.write(ownershipFilePath, "# OOMOL\n");
+            await Bun.write(
+                canonicalOwnershipFilePath,
+                [
+                    "interface:",
+                    "  display_name: oo",
+                    "  short_description: Custom skill",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["skills", "uninstall"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Removed Codex skill oo from ${skillDirectoryPath}.\n`,
+            );
+            expect(result.stderr).toBe("");
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(canonicalSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("silently synchronizes installed bundled skills when the oo version changes", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -303,6 +405,69 @@ describe("skills commands", () => {
             await expect(stat(obsoleteFilePath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rewrites canonical bundled skill storage during synchronization even when it contains unmanaged content", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+        );
+        const canonicalOwnershipPath = join(
+            canonicalSkillDirectoryPath,
+            "agents",
+            "openai.yaml",
+        );
+        const managedOwnershipPath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const expectedOwnershipContent = await Bun.file(
+            getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+        ).text();
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+                recursive: true,
+            });
+            await Bun.write(
+                metadataFilePath,
+                formatBundledSkillMetadataContent("0.0.1"),
+            );
+            await Bun.write(managedOwnershipPath, expectedOwnershipContent);
+            await Bun.write(
+                canonicalOwnershipPath,
+                [
+                    "interface:",
+                    "  display_name: oo",
+                    "  short_description: Custom skill",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["--help"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                formatBundledSkillMetadataContent("9.9.9"),
+            );
+            expect(await readFile(canonicalOwnershipPath, "utf8")).toContain("OOMOL");
+            expect(await readFile(canonicalOwnershipPath, "utf8")).not.toContain(
+                "Custom skill",
+            );
         }
         finally {
             await sandbox.cleanup();
