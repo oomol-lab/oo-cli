@@ -9,6 +9,7 @@ import ajvZH from "ajv-i18n/localize/zh/index.js";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isPackageInfoInputHandleOptional } from "../package/shared.ts";
 import { patchHandleSchema } from "../shared/handle-schema.ts";
+import { isPlainObject, readWidgetName } from "../shared/schema-utils.ts";
 
 const ajv = createAjv();
 const oomolStoragePathPrefix = "/oomol-driver/oomol-storage/";
@@ -67,18 +68,6 @@ interface WidgetValidationRule {
         value: unknown,
         translator: ValidationTranslator,
     ) => string | undefined;
-}
-
-interface JsonSchemaObject {
-    [key: string]: unknown;
-    anyOf?: unknown;
-    oneOf?: unknown;
-    allOf?: unknown;
-    contentMediaType?: unknown;
-    enum?: unknown;
-    format?: unknown;
-    type?: unknown;
-    uniqueItems?: unknown;
 }
 
 const storagePathWidgetRule: WidgetValidationRule = {
@@ -405,14 +394,6 @@ function typeOfSchema(schema: unknown): WidgetType {
     }
 }
 
-function readWidgetName(ext: unknown): string | undefined {
-    if (!isPlainObject(ext) || typeof ext.widget !== "string") {
-        return undefined;
-    }
-
-    return ext.widget;
-}
-
 function asPrimitiveType(type: WidgetType): PrimitiveType | undefined {
     switch (type) {
         case "string":
@@ -482,14 +463,4 @@ function isOomolStoragePath(value: string): boolean {
     }
 
     return !value.includes("\\");
-}
-
-function isPlainObject(value: unknown): value is JsonSchemaObject {
-    if (value === null || typeof value !== "object") {
-        return false;
-    }
-
-    const prototype = Object.getPrototypeOf(value);
-
-    return prototype === Object.prototype || prototype === null;
 }

@@ -59,6 +59,37 @@ export interface CliInvocation {
     version?: string;
 }
 
+interface InitializedCliStores {
+    authStore: AuthStore;
+    cacheStore: CacheStore;
+    fileDownloadSessionStore: FileDownloadSessionStore;
+    fileUploadStore: FileUploadRecordStore;
+    settingsStore: SettingsStore;
+}
+
+interface CleanupResource {
+    close: () => void;
+    failureMessage: string;
+}
+
+interface CreateCliExecutionContextOptions {
+    authStore: AuthStore;
+    buildInfo: ReturnType<typeof resolveCliBuildInfo>;
+    cacheStore: CacheStore;
+    catalog: ReturnType<typeof createCliCatalog>;
+    completionRenderer: StaticCompletionRenderer;
+    fetcher: Fetcher;
+    fileDownloadSessionStore: FileDownloadSessionStore;
+    fileUploadStore: FileUploadRecordStore;
+    invocation: CliInvocation;
+    logger: Logger;
+    logFilePath: string;
+    packageName: string;
+    settingsStore: SettingsStore;
+    translator: ReturnType<typeof createTranslator>;
+    version: string;
+}
+
 export async function runCli(argv: string[]): Promise<number> {
     return executeCli({
         argv,
@@ -121,38 +152,20 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         }
 
         cacheStore
-            = invocation.cacheStore
-                ?? new SqliteCacheStore(storePaths.cacheFilePath, logger);
-        fileUploadStore = invocation.fileUploadStore;
-        fileDownloadSessionStore = invocation.fileDownloadSessionStore;
+            = undefined;
+        fileUploadStore = undefined;
+        fileDownloadSessionStore = undefined;
 
-        if (fileUploadStore === undefined) {
-            fileUploadStore = new SqliteFileUploadStore(
-                storePaths.uploadsFilePath,
-                logger,
-            );
-        }
+        const initializedStores = await initializeCliStores(
+            invocation,
+            logger,
+            storePaths,
+        );
 
-        if (fileDownloadSessionStore === undefined) {
-            fileDownloadSessionStore = new SqliteFileDownloadSessionStore(
-                storePaths.downloadSessionsFilePath,
-                logger,
-            );
-        }
-
-        const settingsStore
-            = invocation.settingsStore
-                ?? new FileSettingsStore({
-                    filePath: storePaths.settingsFilePath,
-                    logger,
-                });
-        const authStore
-            = invocation.authStore
-                ?? new FileAuthStore({
-                    filePath: storePaths.authFilePath,
-                    logger,
-                });
-        const settings = await settingsStore.read();
+        cacheStore = initializedStores.cacheStore;
+        fileUploadStore = initializedStores.fileUploadStore;
+        fileDownloadSessionStore = initializedStores.fileDownloadSessionStore;
+        const settings = await initializedStores.settingsStore.read();
 
         translator = createTranslator(
             resolvePreferredLocale({
@@ -196,33 +209,23 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             "CLI first-run detection completed.",
         );
 
-        const context: CliExecutionContext = {
-            authStore,
+        const context = createCliExecutionContext({
+            authStore: initializedStores.authStore,
+            buildInfo,
             cacheStore,
-            currentLogFilePath: logFilePath,
+            catalog,
+            completionRenderer,
             fetcher: invocation.fetcher ?? fetch,
-            cwd: invocation.cwd,
-            env: invocation.env,
             fileDownloadSessionStore,
             fileUploadStore,
-            stdin: invocation.stdin ?? createDetachedStdin(),
+            invocation,
             logger,
+            logFilePath,
             packageName,
-            settingsStore,
-            stdout: invocation.stdout,
-            stderr: invocation.stderr,
+            settingsStore: initializedStores.settingsStore,
             translator,
-            completionRenderer,
-            catalog,
             version,
-            versionText: formatCliVersionText(
-                {
-                    ...buildInfo,
-                    version,
-                },
-                translator,
-            ),
-        };
+        });
         if (shouldSynchronizeBundledSkills) {
             await maybeSynchronizeInstalledBundledSkills(
                 context,
@@ -270,39 +273,26 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         const cleanupFileUploadStore = fileUploadStore;
         const cleanupFileDownloadSessionStore = fileDownloadSessionStore;
 
-        if (cleanupCacheStore) {
-            exitCode = closeCleanupResource({
-                close: () => cleanupCacheStore.close(),
-                exitCode,
-                failureMessage: "Failed to close the cache store cleanly.",
-                logger,
-                stderr: invocation.stderr,
-                translator,
-            });
-        }
-
-        if (cleanupFileUploadStore) {
-            exitCode = closeCleanupResource({
-                close: () => cleanupFileUploadStore.close(),
-                exitCode,
-                failureMessage: "Failed to close the file upload store cleanly.",
-                logger,
-                stderr: invocation.stderr,
-                translator,
-            });
-        }
-
-        if (cleanupFileDownloadSessionStore) {
-            exitCode = closeCleanupResource({
-                close: () => cleanupFileDownloadSessionStore.close(),
-                exitCode,
-                failureMessage:
+        exitCode = closeCleanupResources(
+            [
+                createCleanupResource(
+                    cleanupCacheStore,
+                    "Failed to close the cache store cleanly.",
+                ),
+                createCleanupResource(
+                    cleanupFileUploadStore,
+                    "Failed to close the file upload store cleanly.",
+                ),
+                createCleanupResource(
+                    cleanupFileDownloadSessionStore,
                     "Failed to close the file download session store cleanly.",
-                logger,
-                stderr: invocation.stderr,
-                translator,
-            });
-        }
+                ),
+            ],
+            exitCode,
+            logger,
+            invocation.stderr,
+            translator,
+        );
 
         logger.debug(
             {
@@ -318,6 +308,80 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     }
 
     return exitCode;
+}
+
+async function initializeCliStores(
+    invocation: CliInvocation,
+    logger: Logger,
+    storePaths: ReturnType<typeof resolveStorePaths>,
+): Promise<InitializedCliStores> {
+    const cacheStore
+        = invocation.cacheStore
+            ?? new SqliteCacheStore(storePaths.cacheFilePath, logger);
+    const fileUploadStore
+        = invocation.fileUploadStore
+            ?? new SqliteFileUploadStore(
+                storePaths.uploadsFilePath,
+                logger,
+            );
+    const fileDownloadSessionStore
+        = invocation.fileDownloadSessionStore
+            ?? new SqliteFileDownloadSessionStore(
+                storePaths.downloadSessionsFilePath,
+                logger,
+            );
+    const settingsStore
+        = invocation.settingsStore
+            ?? new FileSettingsStore({
+                filePath: storePaths.settingsFilePath,
+                logger,
+            });
+    const authStore
+        = invocation.authStore
+            ?? new FileAuthStore({
+                filePath: storePaths.authFilePath,
+                logger,
+            });
+
+    return {
+        authStore,
+        cacheStore,
+        fileDownloadSessionStore,
+        fileUploadStore,
+        settingsStore,
+    };
+}
+
+function createCliExecutionContext(
+    options: CreateCliExecutionContextOptions,
+): CliExecutionContext {
+    return {
+        authStore: options.authStore,
+        cacheStore: options.cacheStore,
+        currentLogFilePath: options.logFilePath,
+        fetcher: options.fetcher,
+        cwd: options.invocation.cwd,
+        env: options.invocation.env,
+        fileDownloadSessionStore: options.fileDownloadSessionStore,
+        fileUploadStore: options.fileUploadStore,
+        stdin: options.invocation.stdin ?? createDetachedStdin(),
+        logger: options.logger,
+        packageName: options.packageName,
+        settingsStore: options.settingsStore,
+        stdout: options.invocation.stdout,
+        stderr: options.invocation.stderr,
+        translator: options.translator,
+        completionRenderer: options.completionRenderer,
+        catalog: options.catalog,
+        version: options.version,
+        versionText: formatCliVersionText(
+            {
+                ...options.buildInfo,
+                version: options.version,
+            },
+            options.translator,
+        ),
+    };
 }
 
 function hasCliDebugFlag(argv: readonly string[]): boolean {
@@ -466,6 +530,47 @@ function closeCleanupResource(options: {
 
         return 1;
     }
+}
+
+function closeCleanupResources(
+    resources: Array<CleanupResource | undefined>,
+    exitCode: number,
+    logger: Logger,
+    stderr: Writer,
+    translator: ReturnType<typeof createTranslator>,
+): number {
+    let nextExitCode = exitCode;
+
+    for (const resource of resources) {
+        if (!resource) {
+            continue;
+        }
+
+        nextExitCode = closeCleanupResource({
+            close: resource.close,
+            exitCode: nextExitCode,
+            failureMessage: resource.failureMessage,
+            logger,
+            stderr,
+            translator,
+        });
+    }
+
+    return nextExitCode;
+}
+
+function createCleanupResource(
+    resource: CacheStore | FileDownloadSessionStore | FileUploadRecordStore | undefined,
+    failureMessage: string,
+): CleanupResource | undefined {
+    if (!resource) {
+        return undefined;
+    }
+
+    return {
+        close: () => resource.close(),
+        failureMessage,
+    };
 }
 
 function createDetachedStdin(): InteractiveInput {

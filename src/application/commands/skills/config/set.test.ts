@@ -72,6 +72,14 @@ describe("skills config set command", () => {
             expect(await readFile(ownershipFilePath, "utf8")).toContain(
                 "allow_implicit_invocation: false",
             );
+            expect(await readFile(
+                resolveStorePaths({
+                    appName: APP_NAME,
+                    env: sandbox.env,
+                    platform: process.platform,
+                }).settingsFilePath,
+                "utf8",
+            )).toContain("implicit_invocation = false");
         }
         finally {
             await sandbox.cleanup();

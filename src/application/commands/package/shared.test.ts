@@ -225,6 +225,35 @@ describe("loadPackageInfo", () => {
     });
 });
 
+describe("parsePackageSpecifier", () => {
+    test("accepts semver prerelease and build metadata when semver is required", () => {
+        expect(parsePackageSpecifier("pkg@1.2.3-beta.1+build.01", {
+            requireSemver: true,
+        })).toEqual({
+            packageName: "pkg",
+            packageVersion: "1.2.3-beta.1+build.01",
+            shouldReadCache: true,
+        });
+    });
+
+    test("rejects invalid semver when semver is required", () => {
+        expect(() => parsePackageSpecifier("pkg@1.2.3-01", {
+            requireSemver: true,
+            requireVersion: true,
+        })).toThrow("errors.packageInfo.invalidPackageSpecifier");
+    });
+
+    test("keeps invalid semver suffixes as latest when version is optional", () => {
+        expect(parsePackageSpecifier("pkg@1.2.3-01", {
+            requireSemver: true,
+        })).toEqual({
+            packageName: "pkg@1.2.3-01",
+            packageVersion: "latest",
+            shouldReadCache: false,
+        });
+    });
+});
+
 function createRawPackageInfoResponse() {
     return {
         packageName: "qrcode",

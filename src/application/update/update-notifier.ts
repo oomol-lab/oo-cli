@@ -2,6 +2,7 @@ import type { CliExecutionContext, Fetcher, Writer } from "../contracts/cli.ts";
 
 import type { TerminalColors } from "../terminal-colors.ts";
 import { APP_NAME } from "../config/app-config.ts";
+import { compareSemver, isSemver as isValidSemver } from "../semver.ts";
 import { createWriterColors } from "../terminal-colors.ts";
 
 const defaultRegistryUrl = "https://registry.npmjs.org/";
@@ -26,11 +27,6 @@ type LatestReleaseRequestAttemptResult
         | LatestReleaseRequestRetryableFailure
         | LatestReleaseRequestTerminalFailure;
 
-interface ParsedReleaseVersion {
-    core: readonly [number, number, number];
-    prerelease: readonly (number | string)[];
-}
-
 export type CliUpdateCheckResult
     = | {
         status: "failed";
@@ -52,7 +48,7 @@ export async function checkForCliUpdate(
     context: CliExecutionContext,
 ): Promise<CliUpdateCheckResult> {
     try {
-        if (parseReleaseVersion(context.version) === null) {
+        if (!isValidSemver(context.version)) {
             context.logger.debug(
                 {
                     currentVersion: context.version,
@@ -193,25 +189,7 @@ function renderNoticeBodyLine(
 }
 
 export function compareReleaseVersions(left: string, right: string): number {
-    const parsedLeft = parseReleaseVersion(left);
-    const parsedRight = parseReleaseVersion(right);
-
-    if (parsedLeft === null || parsedRight === null) {
-        return 0;
-    }
-
-    for (const [index, leftValue] of parsedLeft.core.entries()) {
-        const rightValue = parsedRight.core[index]!;
-
-        if (leftValue !== rightValue) {
-            return leftValue > rightValue ? 1 : -1;
-        }
-    }
-
-    return comparePrereleaseIdentifiers(
-        parsedLeft.prerelease,
-        parsedRight.prerelease,
-    );
+    return compareSemver(left, right);
 }
 
 export function resolvePackageManagerUpgradeCommand(
@@ -486,164 +464,6 @@ function normalizePackageManagerName(value: string | undefined): string | undefi
         default:
             return undefined;
     }
-}
-
-function parseReleaseVersion(value: string): ParsedReleaseVersion | null {
-    if (value === "") {
-        return null;
-    }
-
-    const buildSeparatorIndex = value.indexOf("+");
-    const versionWithoutBuild = buildSeparatorIndex >= 0
-        ? value.slice(0, buildSeparatorIndex)
-        : value;
-    const prereleaseSeparatorIndex = versionWithoutBuild.indexOf("-");
-    const coreVersion = prereleaseSeparatorIndex >= 0
-        ? versionWithoutBuild.slice(0, prereleaseSeparatorIndex)
-        : versionWithoutBuild;
-    const prereleaseVersion = prereleaseSeparatorIndex >= 0
-        ? versionWithoutBuild.slice(prereleaseSeparatorIndex + 1)
-        : "";
-    const coreParts = coreVersion.split(".");
-
-    if (coreParts.length !== 3) {
-        return null;
-    }
-
-    const parsedCore = coreParts.map(parseNumericIdentifier);
-
-    if (parsedCore.includes(null)) {
-        return null;
-    }
-
-    const prereleaseParts = prereleaseVersion === ""
-        ? []
-        : prereleaseVersion.split(".");
-    const parsedPrerelease = prereleaseParts.map(parsePrereleaseIdentifier);
-
-    if (parsedPrerelease.includes(null)) {
-        return null;
-    }
-
-    return {
-        core: [
-            parsedCore[0]!,
-            parsedCore[1]!,
-            parsedCore[2]!,
-        ],
-        prerelease: parsedPrerelease as readonly (number | string)[],
-    };
-}
-
-function parseNumericIdentifier(value: string): number | null {
-    if (value === "" || (value.length > 1 && value.startsWith("0"))) {
-        return null;
-    }
-
-    for (const character of value) {
-        if (!isAsciiDigit(character)) {
-            return null;
-        }
-    }
-
-    const parsedValue = Number.parseInt(value, 10);
-
-    return Number.isSafeInteger(parsedValue) ? parsedValue : null;
-}
-
-function parsePrereleaseIdentifier(value: string): number | string | null {
-    if (value === "") {
-        return null;
-    }
-
-    let isNumeric = true;
-
-    for (const character of value) {
-        if (!isAllowedPrereleaseCharacter(character)) {
-            return null;
-        }
-
-        if (!isAsciiDigit(character)) {
-            isNumeric = false;
-        }
-    }
-
-    if (!isNumeric) {
-        return value;
-    }
-
-    if (value.length > 1 && value.startsWith("0")) {
-        return null;
-    }
-
-    const parsedValue = Number.parseInt(value, 10);
-
-    return Number.isSafeInteger(parsedValue) ? parsedValue : null;
-}
-
-function comparePrereleaseIdentifiers(
-    left: readonly (number | string)[],
-    right: readonly (number | string)[],
-): number {
-    if (left.length === 0 && right.length === 0) {
-        return 0;
-    }
-
-    if (left.length === 0) {
-        return 1;
-    }
-
-    if (right.length === 0) {
-        return -1;
-    }
-
-    const partCount = Math.max(left.length, right.length);
-
-    for (let index = 0; index < partCount; index += 1) {
-        const leftPart = left[index];
-        const rightPart = right[index];
-
-        if (leftPart === undefined) {
-            return -1;
-        }
-
-        if (rightPart === undefined) {
-            return 1;
-        }
-
-        if (leftPart === rightPart) {
-            continue;
-        }
-
-        if (typeof leftPart === "number" && typeof rightPart === "number") {
-            return leftPart > rightPart ? 1 : -1;
-        }
-
-        if (typeof leftPart === "number") {
-            return -1;
-        }
-
-        if (typeof rightPart === "number") {
-            return 1;
-        }
-
-        return leftPart > rightPart ? 1 : -1;
-    }
-
-    return 0;
-}
-
-function isAsciiDigit(value: string): boolean {
-    return value >= "0" && value <= "9";
-}
-
-function isAsciiLetter(value: string): boolean {
-    return (value >= "a" && value <= "z")
-        || (value >= "A" && value <= "Z");
-}
-
-function isAllowedPrereleaseCharacter(value: string): boolean {
-    return isAsciiDigit(value) || isAsciiLetter(value) || value === "-";
 }
 
 function measureDisplayWidth(value: string): number {

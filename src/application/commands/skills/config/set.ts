@@ -1,4 +1,5 @@
 import type { CliCommandDefinition } from "../../../contracts/cli.ts";
+import type { AppSettings } from "../../../schemas/settings.ts";
 import type { SkillConfigSkillName } from "./shared.ts";
 
 import { z } from "zod";
@@ -6,12 +7,14 @@ import { maybeSynchronizeInstalledBundledSkills } from "../shared.ts";
 import {
     createInvalidSkillConfigKeyError,
     createInvalidSkillConfigSkillError,
-    getSkillConfigDefinition,
     getSkillConfigDefinitionByRawInput,
     skillConfigSkillSchema,
 } from "./shared.ts";
 
-interface SkillsConfigSetInput {
+interface ResolvedSkillsConfigSetInput {
+    definition: {
+        setValue: (settings: AppSettings, value: string) => AppSettings;
+    };
     key: string;
     skill: SkillConfigSkillName;
     value: string;
@@ -46,10 +49,15 @@ const skillsConfigSetInputSchema = z.object({
         return z.NEVER;
     }
 
-    return input;
+    return {
+        definition,
+        key: input.key,
+        skill: input.skill,
+        value: input.value,
+    } as ResolvedSkillsConfigSetInput;
 });
 
-export const skillsConfigSetCommand: CliCommandDefinition<SkillsConfigSetInput> = {
+export const skillsConfigSetCommand: CliCommandDefinition<ResolvedSkillsConfigSetInput> = {
     name: "set",
     summaryKey: "commands.skills.config.set.summary",
     descriptionKey: "commands.skills.config.set.description",
@@ -86,14 +94,13 @@ export const skillsConfigSetCommand: CliCommandDefinition<SkillsConfigSetInput> 
         }
 
         return definition.createInvalidValueError(
-            rawInput.skill as SkillsConfigSetInput["skill"],
+            rawInput.skill as ResolvedSkillsConfigSetInput["skill"],
             rawInput.value,
         );
     },
     handler: async (input, context) => {
-        const definition = getSkillConfigDefinition(input.skill, input.key);
         const nextSettings = await context.settingsStore.update(settings =>
-            definition.setValue(settings, input.value),
+            input.definition.setValue(settings, input.value),
         );
 
         await maybeSynchronizeInstalledBundledSkills(context, {

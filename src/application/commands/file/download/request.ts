@@ -2,7 +2,7 @@ import type { CliExecutionContext } from "../../../contracts/cli.ts";
 import type { FileDownloadSessionRecord } from "../../../contracts/file-download-session-store.ts";
 
 import { CliUserError } from "../../../contracts/cli.ts";
-import { withRequestTarget } from "../../../logging/log-fields.ts";
+import { performLoggedRequest } from "../../shared/request.ts";
 
 type DownloadRequestContext = Pick<CliExecutionContext, "fetcher" | "logger">;
 
@@ -37,71 +37,45 @@ async function requestFileDownload(
     init?: RequestInit,
     allowedStatuses: readonly number[] = [],
 ): Promise<Response> {
-    const requestStartedAt = Date.now();
-
-    context.logger.debug(
-        {
-            method: "GET",
-            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            query: requestUrl.searchParams.toString(),
-            url: requestUrl.toString(),
-        },
-        "File download request started.",
-    );
-
-    try {
-        const response = await context.fetcher(requestUrl, init);
-        const durationMs = Date.now() - requestStartedAt;
-
-        if (!response.ok && !allowedStatuses.includes(response.status)) {
-            context.logger.warn(
-                {
-                    durationMs,
-                    method: "GET",
-                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                    status: response.status,
-                    url: requestUrl.toString(),
-                },
-                "File download request returned a non-success status.",
-            );
-            throw new CliUserError("errors.fileDownload.requestFailed", 1, {
-                status: response.status,
-            });
-        }
-
-        context.logger.debug(
+    return await performLoggedRequest({
+        allowedStatuses,
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.fileDownload.requestFailed",
+            1,
             {
-                durationMs,
+                status,
+            },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.fileDownload.requestError",
+            1,
+            {
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ),
+        fields: {
+            error: {
                 method: "GET",
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                url: requestUrl.toString(),
+            },
+            response: {
+                method: "GET",
+                url: requestUrl.toString(),
+            },
+            start: {
+                method: "GET",
+                query: requestUrl.searchParams.toString(),
+                url: requestUrl.toString(),
+            },
+            success: response => ({
                 finalUrl: response.url === "" ? requestUrl.toString() : response.url,
-                status: response.status,
-                url: requestUrl.toString(),
-            },
-            "File download request completed.",
-        );
-
-        return response;
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            throw error;
-        }
-
-        context.logger.warn(
-            {
-                durationMs: Date.now() - requestStartedAt,
-                err: error,
-                method: "GET",
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                url: requestUrl.toString(),
-            },
-            "File download request failed unexpectedly.",
-        );
-        throw new CliUserError("errors.fileDownload.requestError", 1, {
-            message: error instanceof Error ? error.message : String(error),
-        });
-    }
+            }),
+        },
+        init,
+        requestLabel: "File download",
+        requestUrl,
+    });
 }
 
 function buildRequestHeaders(): Headers {

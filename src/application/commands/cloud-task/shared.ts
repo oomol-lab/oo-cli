@@ -3,8 +3,8 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { withRequestTarget } from "../../logging/log-fields.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
+import { requestText } from "../shared/request.ts";
 
 export const cloudTaskFormatValues = ["json"] as const;
 export const cloudTaskStatusValues = [
@@ -262,81 +262,53 @@ export async function requestCloudTask(
         method?: string;
     } = {},
 ): Promise<string> {
-    const requestStartedAt = Date.now();
     const method = options.method ?? "GET";
+    const headers: Record<string, string> = {
+        Authorization: apiKey,
+    };
 
-    context.logger.debug(
-        {
-            bodyBytes: options.body?.length ?? 0,
-            hasBody: options.body !== undefined,
-            method,
-            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            query: requestUrl.searchParams.toString(),
+    if (options.body !== undefined) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    return await requestText({
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.cloudTask.requestFailed",
+            1,
+            {
+                status,
+            },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.cloudTask.requestError",
+            1,
+            {
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ),
+        fields: {
+            error: {
+                method,
+            },
+            response: {
+                method,
+            },
+            start: {
+                bodyBytes: options.body?.length ?? 0,
+                hasBody: options.body !== undefined,
+                method,
+                query: requestUrl.searchParams.toString(),
+            },
         },
-        "Cloud task request started.",
-    );
-
-    try {
-        const headers: Record<string, string> = {
-            Authorization: apiKey,
-        };
-
-        if (options.body !== undefined) {
-            headers["Content-Type"] = "application/json";
-        }
-
-        const response = await context.fetcher(requestUrl, {
+        init: {
             body: options.body,
             headers,
             method,
-        });
-        const durationMs = Date.now() - requestStartedAt;
-
-        if (!response.ok) {
-            context.logger.warn(
-                {
-                    durationMs,
-                    method,
-                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                    status: response.status,
-                },
-                "Cloud task request returned a non-success status.",
-            );
-            throw new CliUserError("errors.cloudTask.requestFailed", 1, {
-                status: response.status,
-            });
-        }
-
-        context.logger.debug(
-            {
-                durationMs,
-                method,
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                status: response.status,
-            },
-            "Cloud task request completed.",
-        );
-
-        return await response.text();
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            throw error;
-        }
-
-        context.logger.warn(
-            {
-                durationMs: Date.now() - requestStartedAt,
-                err: error,
-                method,
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            },
-            "Cloud task request failed unexpectedly.",
-        );
-        throw new CliUserError("errors.cloudTask.requestError", 1, {
-            message: error instanceof Error ? error.message : String(error),
-        });
-    }
+        },
+        requestLabel: "Cloud task",
+        requestUrl,
+    });
 }
 
 export function parseCloudTaskCreateResponse(

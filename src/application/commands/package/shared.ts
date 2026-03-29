@@ -7,9 +7,10 @@ import { CliUserError } from "../../contracts/cli.ts";
 import {
     withAccountIdentity,
     withPackageIdentity,
-    withRequestTarget,
 } from "../../logging/log-fields.ts";
+import { isSemver as isValidSemver } from "../../semver.ts";
 import { patchHandleSchema } from "../shared/handle-schema.ts";
+import { requestText } from "../shared/request.ts";
 
 const PACKAGE_INFO_CACHE_ID = "package.info.v5";
 const PACKAGE_INFO_CACHE_MAX_ENTRIES = 300;
@@ -132,7 +133,7 @@ export function parsePackageSpecifier(
 
     const versionSeparatorIndex = resolveVersionSeparatorIndex(
         trimmedPackageSpecifier,
-        options.requireSemver === true ? isSemverVersion : looksLikePackageVersion,
+        options.requireSemver === true ? isValidSemver : looksLikePackageVersion,
     );
 
     if (versionSeparatorIndex < 0) {
@@ -155,7 +156,7 @@ export function parsePackageSpecifier(
     if (
         packageName === ""
         || packageVersion === ""
-        || (options.requireSemver === true && !isSemverVersion(packageVersion))
+        || (options.requireSemver === true && !isValidSemver(packageVersion))
     ) {
         throw new CliUserError(errorKey, 2, {
             value: packageSpecifier,
@@ -319,124 +320,8 @@ function looksLikePackageVersion(version: string): boolean {
     return Array.from(version).some(character => isAsciiDigit(character));
 }
 
-function isSemverVersion(version: string): boolean {
-    if (version === "") {
-        return false;
-    }
-
-    const [versionWithPrerelease, buildMetadata] = splitVersionSection(version, "+");
-    const [coreVersion, prerelease] = splitVersionSection(versionWithPrerelease, "-");
-
-    if (!isSemverCore(coreVersion)) {
-        return false;
-    }
-
-    if (
-        prerelease !== undefined
-        && !isSemverIdentifiers(prerelease, false)
-    ) {
-        return false;
-    }
-
-    if (
-        buildMetadata !== undefined
-        && !isSemverIdentifiers(buildMetadata, true)
-    ) {
-        return false;
-    }
-
-    return true;
-}
-
-function splitVersionSection(
-    value: string,
-    separator: string,
-): [string, string | undefined] {
-    const separatorIndex = value.indexOf(separator);
-
-    if (separatorIndex < 0) {
-        return [value, undefined];
-    }
-
-    return [
-        value.slice(0, separatorIndex),
-        value.slice(separatorIndex + separator.length),
-    ];
-}
-
-function isSemverCore(version: string): boolean {
-    const segments = version.split(".");
-
-    if (segments.length !== 3) {
-        return false;
-    }
-
-    return segments.every(segment => isNumericIdentifier(segment));
-}
-
-function isSemverIdentifiers(
-    value: string,
-    allowLeadingZeroNumeric: boolean,
-): boolean {
-    if (value === "") {
-        return false;
-    }
-
-    return value.split(".").every((identifier) => {
-        if (!isSemverIdentifier(identifier)) {
-            return false;
-        }
-
-        if (
-            !allowLeadingZeroNumeric
-            && isDigits(identifier)
-            && identifier.length > 1
-            && identifier[0] === "0"
-        ) {
-            return false;
-        }
-
-        return true;
-    });
-}
-
-function isNumericIdentifier(value: string): boolean {
-    if (!isDigits(value)) {
-        return false;
-    }
-
-    return value.length === 1 || value[0] !== "0";
-}
-
-function isDigits(value: string): boolean {
-    if (value === "") {
-        return false;
-    }
-
-    return Array.from(value).every(character => isAsciiDigit(character));
-}
-
-function isSemverIdentifier(value: string): boolean {
-    if (value === "") {
-        return false;
-    }
-
-    return Array.from(value).every(character =>
-        isAsciiDigit(character)
-        || isAsciiLetter(character)
-        || character === "-",
-    );
-}
-
 function isAsciiDigit(character: string): boolean {
     return character >= "0" && character <= "9";
-}
-
-function isAsciiLetter(character: string): boolean {
-    return (
-        (character >= "a" && character <= "z")
-        || (character >= "A" && character <= "Z")
-    );
 }
 
 function createPackageInfoCacheKey(
@@ -473,73 +358,40 @@ async function requestPackageInfo(
     apiKey: string,
     context: Pick<CliExecutionContext, "fetcher" | "logger">,
 ): Promise<string> {
-    const requestStartedAt = Date.now();
     const pathSegments = requestUrl.pathname.split("/");
     const packageName = decodeURIComponent(pathSegments.at(-2) ?? "");
     const packageVersion = decodeURIComponent(pathSegments.at(-1) ?? "");
 
-    context.logger.debug(
-        {
-            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            ...withPackageIdentity(packageName, packageVersion),
-            requestLanguage: requestUrl.searchParams.get("lang") ?? "",
+    return await requestText({
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.packageInfo.requestFailed",
+            1,
+            {
+                status,
+            },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.packageInfo.requestError",
+            1,
+            {
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ),
+        fields: {
+            common: withPackageIdentity(packageName, packageVersion),
+            start: {
+                requestLanguage: requestUrl.searchParams.get("lang") ?? "",
+            },
         },
-        "Package info request started.",
-    );
-
-    try {
-        const response = await context.fetcher(requestUrl, {
+        init: {
             headers: {
                 Authorization: apiKey,
             },
-        });
-        const durationMs = Date.now() - requestStartedAt;
-
-        if (!response.ok) {
-            context.logger.warn(
-                {
-                    durationMs,
-                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                    ...withPackageIdentity(packageName, packageVersion),
-                    status: response.status,
-                },
-                "Package info request returned a non-success status.",
-            );
-            throw new CliUserError("errors.packageInfo.requestFailed", 1, {
-                status: response.status,
-            });
-        }
-
-        context.logger.debug(
-            {
-                durationMs,
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                ...withPackageIdentity(packageName, packageVersion),
-                status: response.status,
-            },
-            "Package info request completed.",
-        );
-
-        return await response.text();
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            throw error;
-        }
-
-        context.logger.warn(
-            {
-                durationMs: Date.now() - requestStartedAt,
-                err: error,
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                ...withPackageIdentity(packageName, packageVersion),
-            },
-            "Package info request failed unexpectedly.",
-        );
-        throw new CliUserError("errors.packageInfo.requestError", 1, {
-            message: error instanceof Error ? error.message : String(error),
-        });
-    }
+        },
+        requestLabel: "Package info",
+        requestUrl,
+    });
 }
 
 function parseCachedPackageInfoResponse(rawResponse: string): PackageInfoResponse {

@@ -1,19 +1,26 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
 
-import type { ConfigSetInput } from "./shared.ts";
+import type { ConfigKey } from "./shared.ts";
 import { z } from "zod";
 import { maybeSynchronizeInstalledBundledSkills } from "../skills/shared.ts";
 import {
     configKeyChoices,
     configKeySchema,
     createInvalidConfigKeyError,
-    fileDownloadOutDirConfigKey,
     getConfigDefinition,
     getConfigDefinitionByRawKey,
     ooSkillImplicitInvocationConfigKey,
     writeLine,
 } from "./shared.ts";
+
+interface ResolvedConfigSetInput {
+    definition: {
+        setValue: (settings: AppSettings, value: string) => AppSettings;
+    };
+    key: ConfigKey;
+    value: string;
+}
 
 const configSetInputSchema = z.object({
     key: configKeySchema,
@@ -33,12 +40,13 @@ const configSetInputSchema = z.object({
     }
 
     return {
+        definition,
         key: input.key,
         value: valueResult.data,
-    } as ConfigSetInput;
+    } as ResolvedConfigSetInput;
 });
 
-export const configSetCommand: CliCommandDefinition<ConfigSetInput> = {
+export const configSetCommand: CliCommandDefinition<ResolvedConfigSetInput> = {
     name: "set",
     summaryKey: "commands.config.set.summary",
     descriptionKey: "commands.config.set.description",
@@ -67,7 +75,7 @@ export const configSetCommand: CliCommandDefinition<ConfigSetInput> = {
     },
     handler: async (input, context) => {
         const nextSettings = await context.settingsStore.update(
-            settings => setConfigValue(settings, input),
+            settings => input.definition.setValue(settings, input.value),
         );
 
         if (input.key === ooSkillImplicitInvocationConfigKey) {
@@ -92,22 +100,3 @@ export const configSetCommand: CliCommandDefinition<ConfigSetInput> = {
         );
     },
 };
-
-function setConfigValue(
-    settings: AppSettings,
-    input: ConfigSetInput,
-): AppSettings {
-    switch (input.key) {
-        case "lang":
-            return getConfigDefinition("lang").setValue(settings, input.value);
-        case fileDownloadOutDirConfigKey:
-            return getConfigDefinition(fileDownloadOutDirConfigKey).setValue(
-                settings,
-                input.value,
-            );
-        case ooSkillImplicitInvocationConfigKey:
-            return getConfigDefinition(
-                ooSkillImplicitInvocationConfigKey,
-            ).setValue(settings, input.value);
-    }
-}
