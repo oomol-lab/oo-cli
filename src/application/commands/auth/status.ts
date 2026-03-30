@@ -8,14 +8,11 @@ import {
     writeAuthBlock,
 } from "./shared.ts";
 
-const apiKeyStatusTranslationKeys: Record<
-    "invalid" | "request_failed" | "valid",
-    string
-> = {
-    invalid: "auth.status.apiKeyInvalid",
-    request_failed: "auth.status.apiKeyRequestFailed",
-    valid: "auth.status.apiKeyValid",
-};
+const apiKeyStatusConfig = {
+    invalid: { tone: "danger" as const, translationKey: "auth.status.apiKeyInvalid" as const },
+    request_failed: { tone: "warning" as const, translationKey: "auth.status.apiKeyRequestFailed" as const },
+    valid: { tone: "success" as const, translationKey: "auth.status.apiKeyValid" as const },
+} as const;
 
 export const authStatusCommand: CliCommandDefinition = {
     name: "status",
@@ -48,8 +45,9 @@ export const authStatusCommand: CliCommandDefinition = {
         }
 
         const apiKeyStatus = await readApiKeyStatus(currentAccount, context);
+        const statusConfig = apiKeyStatusConfig[apiKeyStatus];
         writeAuthBlock(context, {
-            tone: readAuthStatusTone(apiKeyStatus),
+            tone: statusConfig.tone,
             summary: context.translator.t("auth.status.loggedIn", {
                 endpoint: formatAuthStrong(context, currentAccount.endpoint),
                 name: formatAuthStrong(context, currentAccount.name),
@@ -61,7 +59,7 @@ export const authStatusCommand: CliCommandDefinition = {
                 },
                 {
                     label: context.translator.t("auth.status.apiKeyStatus"),
-                    value: context.translator.t(apiKeyStatusTranslationKeys[apiKeyStatus]),
+                    value: context.translator.t(statusConfig.translationKey),
                 },
             ],
         });
@@ -115,18 +113,5 @@ async function readApiKeyStatus(
             "Auth status request failed unexpectedly.",
         );
         return "request_failed";
-    }
-}
-
-function readAuthStatusTone(
-    apiKeyStatus: "invalid" | "request_failed" | "valid",
-): "danger" | "success" | "warning" {
-    switch (apiKeyStatus) {
-        case "invalid":
-            return "danger";
-        case "request_failed":
-            return "warning";
-        case "valid":
-            return "success";
     }
 }

@@ -7,7 +7,7 @@ type RequestContext = Pick<CliExecutionContext, "fetcher" | "logger">;
 type LogFields = Record<string, unknown>;
 type LogFieldsResolver<TValue> = LogFields | ((input: TValue) => LogFields);
 
-export interface ExecuteCliRequestOptions {
+interface ExecuteCliRequestOptions {
     allowedStatusCodes?: readonly number[];
     context: RequestContext;
     createRequestError: (error: unknown) => CliUserError;
@@ -105,14 +105,6 @@ export async function executeCliRequest(
         );
         throw options.createRequestError(error);
     }
-}
-
-export async function executeCliTextRequest(
-    options: ExecuteCliRequestOptions,
-): Promise<string> {
-    const response = await executeCliRequest(options);
-
-    return await response.text();
 }
 
 function createBaseLogFields(

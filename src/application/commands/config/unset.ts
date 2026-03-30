@@ -1,6 +1,6 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import type { ConfigUnsetInput } from "./shared.ts";
+import type { ConfigKeyInput } from "./shared.ts";
 import { z } from "zod";
 import { writeLine } from "../shared/output.ts";
 import { maybeSynchronizeInstalledBundledSkills } from "../skills/shared.ts";
@@ -12,7 +12,7 @@ import {
     ooSkillImplicitInvocationConfigKey,
 } from "./shared.ts";
 
-export const configUnsetCommand: CliCommandDefinition<ConfigUnsetInput> = {
+export const configUnsetCommand: CliCommandDefinition<ConfigKeyInput> = {
     name: "unset",
     summaryKey: "commands.config.unset.summary",
     descriptionKey: "commands.config.unset.description",

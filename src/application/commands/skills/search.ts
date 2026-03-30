@@ -1,12 +1,11 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
-import type { AuthAccount } from "../../schemas/auth.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { requestText } from "../shared/request.ts";
 
 const searchFormatValues = ["json"] as const;
@@ -65,7 +64,7 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
     }),
     mapInputError: (_, rawInput) => createSkillsSearchInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentSkillsSearchAccount(context);
+        const account = await requireCurrentAccount(context, "errors.skillsSearch.authRequired", "errors.skillsSearch.activeAccountMissing");
         const requestUrl = createSkillsSearchRequestUrl(
             account.endpoint,
             input.text,
@@ -96,23 +95,6 @@ function createSkillsSearchInputError(
     return new CliUserError("errors.skillsSearch.invalidFormat", 2, {
         value: String(rawInput.format ?? ""),
     });
-}
-
-async function requireCurrentSkillsSearchAccount(
-    context: CliExecutionContext,
-): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.skillsSearch.authRequired"
-            : "errors.skillsSearch.activeAccountMissing",
-        1,
-    );
 }
 
 function createSkillsSearchRequestUrl(

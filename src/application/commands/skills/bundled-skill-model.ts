@@ -13,9 +13,6 @@ export interface BundledSkillMetadata {
 
 export type BundledSkillInstallConflict = "nameConflict" | "storageConflict";
 
-export type BundledSkillMissingInstallationAction
-    = "install-missing" | "skip-missing";
-
 export type BundledSkillManagedSynchronizationAction
     = "skip-current" | "sync-installation" | "sync-policy";
 
@@ -34,12 +31,6 @@ export function resolveBundledSkillInstallConflict(input: {
     }
 
     return undefined;
-}
-
-export function resolveBundledSkillMissingInstallationAction(
-    installMissing: boolean,
-): BundledSkillMissingInstallationAction {
-    return installMissing ? "install-missing" : "skip-missing";
 }
 
 export function resolveBundledSkillManagedSynchronizationAction(input: {
@@ -191,10 +182,16 @@ export function parseBundledSkillMetadataContent(
     };
 }
 
+export function renderSkillMetadataJson(
+    metadata: object,
+): string {
+    return `${JSON.stringify(metadata, null, 2)}\n`;
+}
+
 export function renderBundledSkillMetadataContent(
     metadata: BundledSkillMetadata,
 ): string {
-    return `${JSON.stringify(metadata, null, 2)}\n`;
+    return renderSkillMetadataJson(metadata);
 }
 
 export function isBundledSkillInstallationCurrentState(input: {

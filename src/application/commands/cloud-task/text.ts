@@ -67,7 +67,7 @@ function formatCloudTaskResultLines(
         case "scheduling":
         case "scheduled":
         case "running":
-            if (!(options.hideZeroProgress === true && response.progress === 0)) {
+            if (!options.hideZeroProgress || response.progress !== 0) {
                 lines.push(
                     formatCloudTaskDetailLine(
                         context.translator.t("cloudTask.text.progress"),

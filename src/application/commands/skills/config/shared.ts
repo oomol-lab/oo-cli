@@ -27,18 +27,12 @@ interface SkillConfigDefinition {
     valueSchema: ZodType<string>;
 }
 
-function defineSkillConfigDefinition(
-    definition: SkillConfigDefinition,
-): SkillConfigDefinition {
-    return definition;
-}
-
 const skillConfigDefinitions: Record<
     BundledSkillName,
     Record<string, SkillConfigDefinition>
 > = {
     oo: {
-        "allow-implicit-invocation": defineSkillConfigDefinition({
+        "allow-implicit-invocation": {
             createInvalidValueError(skillName, rawValue) {
                 return new CliUserError(
                     "errors.skills.config.invalidAllowImplicitInvocationValue",
@@ -64,7 +58,7 @@ const skillConfigDefinitions: Record<
             },
             valueChoices: booleanConfigValueChoices,
             valueSchema: booleanConfigValueSchema,
-        }),
+        } satisfies SkillConfigDefinition,
     },
 };
 

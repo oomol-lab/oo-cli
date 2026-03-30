@@ -355,7 +355,7 @@ export class SqliteCache<Value> implements Cache<Value> {
         let value: Value;
 
         try {
-            value = deserializeCacheValue<Value>(row.value);
+            value = JSON.parse(row.value) as Value;
         }
         catch (error) {
             const deletedResult = this.attemptRecoverableSqliteOperation({
@@ -590,11 +590,9 @@ function ensureCacheTable(database: Database, tableName: string): void {
 }
 
 function validateCacheId(id: string): void {
-    if (id !== "") {
-        return;
+    if (id === "") {
+        throw new TypeError("SqliteCache requires a non-empty id.");
     }
-
-    throw new TypeError("SqliteCache requires a non-empty id.");
 }
 
 function validateMaxEntries(maxEntries?: number): void {
@@ -602,11 +600,9 @@ function validateMaxEntries(maxEntries?: number): void {
         return;
     }
 
-    if (Number.isInteger(maxEntries) && maxEntries > 0) {
-        return;
+    if (!(Number.isInteger(maxEntries) && maxEntries > 0)) {
+        throw new TypeError("SqliteCache maxEntries must be a positive integer.");
     }
-
-    throw new TypeError("SqliteCache maxEntries must be a positive integer.");
 }
 
 function validateTtl(ttlMs: number | undefined, label: string): void {
@@ -614,11 +610,9 @@ function validateTtl(ttlMs: number | undefined, label: string): void {
         return;
     }
 
-    if (Number.isFinite(ttlMs) && ttlMs >= 0) {
-        return;
+    if (!(Number.isFinite(ttlMs) && ttlMs >= 0)) {
+        throw new TypeError(`${label} must be a finite number greater than or equal to 0.`);
     }
-
-    throw new TypeError(`${label} must be a finite number greater than or equal to 0.`);
 }
 
 function resolveTtlMs(
@@ -633,17 +627,7 @@ function resolveTtlMs(
 }
 
 function serializeCacheValue<Value>(value: Value): string {
-    const serializedValue = JSON.stringify(value);
-
-    if (serializedValue === undefined) {
-        throw new TypeError("SqliteCache value cannot be serialized to JSON.");
-    }
-
-    return serializedValue;
-}
-
-function deserializeCacheValue<Value>(value: string): Value {
-    return JSON.parse(value) as Value;
+    return JSON.stringify(value);
 }
 
 function createCacheKeyFingerprint(key: string): string {

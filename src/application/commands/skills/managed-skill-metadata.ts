@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
+import { renderSkillMetadataJson } from "./bundled-skill-model.ts";
 
 import { resolveManagedSkillMetadataFilePath } from "./managed-skill-paths.ts";
 
@@ -54,7 +55,7 @@ export function parseManagedSkillMetadataContent(
 export function renderManagedSkillMetadataContent(
     metadata: ManagedSkillMetadata,
 ): string {
-    return `${JSON.stringify(metadata, null, 2)}\n`;
+    return renderSkillMetadataJson(metadata);
 }
 
 export async function readManagedSkillMetadata(

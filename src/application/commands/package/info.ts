@@ -171,7 +171,7 @@ function formatPackageInfoInputHandleSection(
             line += `  ${handle.description}`;
         }
 
-        lines.push(trimTrailingWhitespace(line));
+        lines.push(line.trimEnd());
     }
 
     return lines;
@@ -208,7 +208,7 @@ function formatPackageInfoOutputHandleSection(
             line += `  ${handle.description}`;
         }
 
-        lines.push(trimTrailingWhitespace(line));
+        lines.push(line.trimEnd());
     }
 
     return lines;
@@ -245,7 +245,7 @@ function readPackageInfoSchemaTypeNames(schema: unknown): string[] {
     const directTypeNames = readPackageInfoDirectTypeNames(schema);
 
     if (directTypeNames.length > 0) {
-        return dedupePackageInfoTypeNames(
+        return Array.from(new Set(
             directTypeNames.map((typeName) => {
                 if (typeName === "array") {
                     return readPackageInfoArrayTypeName(schema);
@@ -253,7 +253,7 @@ function readPackageInfoSchemaTypeNames(schema: unknown): string[] {
 
                 return typeName;
             }),
-        );
+        ));
     }
 
     const anyOfTypeNames = readPackageInfoVariantTypeNames(schema.anyOf);
@@ -288,9 +288,9 @@ function readPackageInfoVariantTypeNames(value: unknown): string[] {
         return [];
     }
 
-    return dedupePackageInfoTypeNames(
+    return Array.from(new Set(
         value.flatMap(item => readPackageInfoSchemaTypeNames(item)),
-    );
+    ));
 }
 
 function readPackageInfoArrayTypeName(schema: Record<string, unknown>): string {
@@ -315,14 +315,6 @@ function readPackageInfoContentMediaTypeLabel(schema: unknown): string {
     return schema.contentMediaType.startsWith("oomol/")
         ? schema.contentMediaType.slice("oomol/".length)
         : schema.contentMediaType;
-}
-
-function dedupePackageInfoTypeNames(typeNames: string[]): string[] {
-    return Array.from(new Set(typeNames));
-}
-
-function trimTrailingWhitespace(value: string): string {
-    return value.trimEnd();
 }
 
 function readPackageInfoLabel(

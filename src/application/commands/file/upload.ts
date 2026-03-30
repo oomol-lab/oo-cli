@@ -5,12 +5,12 @@ import { basename, resolve } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     createFormatInputError,
     initFileUpload,
     maxFileUploadSizeBytes,
     parseFileFormat,
-    requireCurrentFileUploadAccount,
     resolveUploadedFileUrl,
     serializeFileUploadRecord,
     uploadFileParts,
@@ -42,7 +42,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const format = parseFileFormat(input.format);
-        const account = await requireCurrentFileUploadAccount(context);
+        const account = await requireCurrentAccount(context, "errors.fileUpload.authRequired", "errors.fileUpload.activeAccountMissing");
         const sourceFile = await readSourceFile(input.filePath, context.cwd);
         const uploadSession = await initFileUpload(
             account,

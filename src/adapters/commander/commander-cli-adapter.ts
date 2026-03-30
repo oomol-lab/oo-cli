@@ -223,11 +223,7 @@ function bindCommandHandler<TInput>(
     inputSchema: ZodType<TInput>,
     context: CliExecutionContext,
 ): void {
-    const handler = definition.handler;
-
-    if (!handler) {
-        return;
-    }
+    const handler = definition.handler!;
 
     command.action(async (...actionArguments) => {
         const commandInstance = actionArguments.at(-1) as Command;
@@ -361,7 +357,7 @@ function parseInput<TInput>(
     const result = inputSchema.safeParse(rawInput);
 
     if (result.success) {
-        return result.data as TInput;
+        return result.data;
     }
 
     throw mapInputError(definition, result.error, rawInput);

@@ -7,7 +7,6 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
 import { performLoggedRequest, requestText } from "../shared/request.ts";
 
 export const fileFormatValues = ["json"] as const;
@@ -57,23 +56,6 @@ const finalFileUploadResponseSchema = z.object({
         url: z.string().min(1),
     }).passthrough(),
 }).passthrough();
-
-export async function requireCurrentFileUploadAccount(
-    context: CliExecutionContext,
-): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.fileUpload.authRequired"
-            : "errors.fileUpload.activeAccountMissing",
-        1,
-    );
-}
 
 export function parseFileFormat(
     value: string | undefined,
@@ -385,6 +367,8 @@ async function uploadFilePart(
             if (error instanceof CliUserError) {
                 throw error;
             }
+
+            throw error;
         }
     }
 }
@@ -405,5 +389,5 @@ function splitFileNameAndExtension(fileName: string): [string, string] {
 function delayRetry(attempt: number): Promise<void> {
     const delayMs = Math.min(30_000, 2 ** (attempt - 1) * 1_000);
 
-    return new Promise(resolve => setTimeout(resolve, delayMs));
+    return Bun.sleep(delayMs);
 }

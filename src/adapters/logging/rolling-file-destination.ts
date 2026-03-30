@@ -159,10 +159,7 @@ export class RollingFileDestination implements DestinationStream {
 }
 
 function createSessionId(now: Date, pid: number): string {
-    return [
-        formatLocalDateTime(now),
-        `p${String(pid)}`,
-    ].join("-");
+    return `${formatLocalDateTime(now)}-p${pid}`;
 }
 
 function resolveLogFileName(options: {
@@ -194,16 +191,12 @@ function listExistingLogFileNames(directoryPath: string): string[] {
 }
 
 function formatLocalDateTime(date: Date): string {
-    return [
-        [
-            String(date.getFullYear()).padStart(4, "0"),
-            String(date.getMonth() + 1).padStart(2, "0"),
-            String(date.getDate()).padStart(2, "0"),
-        ].join("-"),
-        [
-            String(date.getHours()).padStart(2, "0"),
-            String(date.getMinutes()).padStart(2, "0"),
-            String(date.getSeconds()).padStart(2, "0"),
-        ].join("-"),
-    ].join("_");
+    const y = String(date.getFullYear()).padStart(4, "0");
+    const mo = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    const h = String(date.getHours()).padStart(2, "0");
+    const mi = String(date.getMinutes()).padStart(2, "0");
+    const s = String(date.getSeconds()).padStart(2, "0");
+
+    return `${y}-${mo}-${d}_${h}-${mi}-${s}`;
 }

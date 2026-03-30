@@ -52,7 +52,7 @@ export function resolveStoreDirectory(
     return join(homeDirectory, ".config", appName);
 }
 
-export function resolveLogDirectory(
+function resolveLogDirectory(
     options: FileStoreLocationOptions,
 ): string {
     const homeDirectory = resolveHomeDirectory(options.env, options.homeDirectory);

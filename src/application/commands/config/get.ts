@@ -1,6 +1,6 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import type { ConfigGetInput } from "./shared.ts";
+import type { ConfigKeyInput } from "./shared.ts";
 import { z } from "zod";
 import {
     configKeyChoices,
@@ -9,7 +9,7 @@ import {
     getConfigValue,
 } from "./shared.ts";
 
-export const configGetCommand: CliCommandDefinition<ConfigGetInput> = {
+export const configGetCommand: CliCommandDefinition<ConfigKeyInput> = {
     name: "get",
     summaryKey: "commands.config.get.summary",
     descriptionKey: "commands.config.get.description",

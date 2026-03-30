@@ -99,11 +99,13 @@ function isIdentifier(value: string): boolean {
         return false;
     }
 
-    return Array.from(value).every(character =>
-        isAsciiDigit(character)
-        || isAsciiLetter(character)
-        || character === "-",
-    );
+    for (const character of value) {
+        if (!isAsciiDigit(character) && !isAsciiLetter(character) && character !== "-") {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function parseNumericIdentifier(value: string): number | null {
@@ -191,7 +193,13 @@ function isDigits(value: string): boolean {
         return false;
     }
 
-    return Array.from(value).every(character => isAsciiDigit(character));
+    for (const character of value) {
+        if (!isAsciiDigit(character)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function isAsciiDigit(character: string): boolean {

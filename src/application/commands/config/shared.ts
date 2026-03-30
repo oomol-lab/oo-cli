@@ -126,11 +126,7 @@ export const configKeySchema = z.custom<ConfigKey>(
     isConfigKey,
 );
 
-export interface ConfigGetInput {
-    key: ConfigKey;
-}
-
-export interface ConfigUnsetInput {
+export interface ConfigKeyInput {
     key: ConfigKey;
 }
 

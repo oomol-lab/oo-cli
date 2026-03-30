@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createLogCapture } from "../../../../__tests__/helpers.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { executeCliRequest, executeCliTextRequest } from "./request.ts";
+import { executeCliRequest } from "./request.ts";
 
 describe("executeCliRequest", () => {
     test("logs request lifecycle and returns the response", async () => {
@@ -131,7 +131,7 @@ describe("executeCliRequest", () => {
         const logCapture = createLogCapture();
 
         try {
-            await expect(executeCliTextRequest({
+            await expect(executeCliRequest({
                 context: {
                     fetcher: async () => {
                         throw new Error("network down");

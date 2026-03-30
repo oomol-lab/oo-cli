@@ -182,5 +182,5 @@ function resolveAliasOption(options: {
 function normalizeOptionValue(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
 
-    return trimmed === "" || trimmed === undefined ? undefined : trimmed;
+    return trimmed || undefined;
 }

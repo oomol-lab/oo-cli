@@ -10,7 +10,6 @@ export const emptyAuthCommandInputSchema = z.object({});
 interface AuthBlockDetail {
     label: string;
     value: string;
-    emphasize?: boolean;
 }
 
 type AuthBlockTone = "danger" | "success" | "warning";
@@ -63,11 +62,7 @@ export function writeAuthBlock(
     context.stdout.write(`${icon} ${options.summary}\n`);
 
     for (const detail of details) {
-        const value = detail.emphasize === false
-            ? detail.value
-            : colors.bold(detail.value);
-
-        context.stdout.write(`  ${colors.dim("-")} ${detail.label}: ${value}\n`);
+        context.stdout.write(`  ${colors.dim("-")} ${detail.label}: ${colors.bold(detail.value)}\n`);
     }
 }
 
