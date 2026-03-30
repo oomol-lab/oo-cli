@@ -1,7 +1,6 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { ManagedSkillListItem } from "./list.ts";
 import type { PreparedRegistrySkillPublication } from "./registry-skill-publication.ts";
-import type { RegistrySkillSummary } from "./registry-skill-source.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -10,7 +9,6 @@ import {
     fileExists,
     requireCodexHomeDirectory,
 } from "./bundled-skill-observation.ts";
-import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { listManagedSkillInstallations } from "./list.ts";
 import {
     isManagedSkillPathContained,
@@ -20,6 +18,9 @@ import {
 } from "./managed-skill-paths.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
+    findPackageSkillOrThrow,
+} from "./registry-skill-install.ts";
+import {
     prepareRegistrySkillPublication,
     publishPreparedRegistrySkillPublication,
 } from "./registry-skill-publication.ts";
@@ -28,6 +29,7 @@ import {
     loadRegistryPackageSkillInfo,
     requireCurrentSkillsInstallAccount,
 } from "./registry-skill-source.ts";
+import { isBundledSkillName, writeLine } from "./shared.ts";
 import { SkillsUpdateProgressReporter } from "./update-progress.ts";
 
 interface SkillsUpdateInput {
@@ -56,12 +58,11 @@ interface RegistryPreparedSkillUpdate {
     preparedPublication: PreparedRegistrySkillPublication;
 }
 
-type PreparedSkillUpdate = RegistryPreparedSkillUpdate;
 type SkillUpdateEvent = CurrentSkillUpdate | FailedSkillUpdate;
 
 interface SkillPreparationResult {
     events: SkillUpdateEvent[];
-    publications: PreparedSkillUpdate[];
+    publications: RegistryPreparedSkillUpdate[];
 }
 
 export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
@@ -418,7 +419,7 @@ async function prepareRegistrySkillGroupUpdate(
                             packageName: packageInfo.packageName,
                             packageVersion: packageInfo.packageVersion,
                             settingsFilePath: options.settingsFilePath,
-                            skill: findRegistrySkillOrThrow(
+                            skill: findPackageSkillOrThrow(
                                 packageInfo.skills,
                                 skill.name,
                                 packageInfo.packageName,
@@ -445,29 +446,6 @@ async function prepareRegistrySkillGroupUpdate(
             publications: [],
         };
     }
-}
-
-function findRegistrySkillOrThrow(
-    skills: readonly RegistrySkillSummary[],
-    skillName: string,
-    packageName: string,
-): RegistrySkillSummary {
-    const skill = skills.find(entry => entry.name === skillName);
-
-    if (skill !== undefined) {
-        return skill;
-    }
-
-    throw new CliUserError("errors.skills.install.skillNotFound", 1, {
-        name: skillName,
-        packageName,
-    });
-}
-
-function isBundledSkillName(value: string): value is (typeof availableBundledSkillNames)[number] {
-    return availableBundledSkillNames.includes(
-        value as (typeof availableBundledSkillNames)[number],
-    );
 }
 
 function normalizeSkillUpdateError(error: unknown): Error {
@@ -541,11 +519,4 @@ function localizeSkillUpdateError(
     }
 
     return error.message;
-}
-
-function writeLine(
-    context: Pick<CliExecutionContext, "stdout">,
-    message: string,
-): void {
-    context.stdout.write(`${message}\n`);
 }

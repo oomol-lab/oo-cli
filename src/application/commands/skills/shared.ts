@@ -46,7 +46,6 @@ import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
-    resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
 
 export {
@@ -382,8 +381,10 @@ export async function uninstallBundledSkill(
 
     const previousVersion = await readInstalledBundledSkillVersion(skillDirectoryPath);
 
-    await removePath(skillDirectoryPath);
-    await removePath(canonicalSkillDirectoryPath);
+    await Promise.all([
+        removePath(skillDirectoryPath),
+        removePath(canonicalSkillDirectoryPath),
+    ]);
 
     writeLine(
         context,
@@ -483,7 +484,10 @@ export async function writeBundledSkillCanonicalInstallation(options: {
     };
 }
 
-function writeLine(context: CliExecutionContext, message: string): void {
+export function writeLine(
+    context: Pick<CliExecutionContext, "stdout">,
+    message: string,
+): void {
     context.stdout.write(`${message}\n`);
 }
 
@@ -515,17 +519,11 @@ async function uninstallRegistrySkill(
         settingsFilePath,
         skillName,
     );
-    const installedSkillDirectoryExists = await directoryExists(skillDirectoryPath);
-    const installedSkillMetadataExists = installedSkillDirectoryExists
-        ? await fileExists(resolveManagedSkillMetadataFilePath(skillDirectoryPath))
-        : false;
+    const metadata = await readManagedSkillMetadata(skillDirectoryPath);
 
-    if (
-        !canUninstallManagedBundledSkillInstallation({
-            installedDirectoryExists: installedSkillDirectoryExists,
-            installedDirectoryManaged: installedSkillMetadataExists,
-        })
-    ) {
+    if (metadata === undefined) {
+        const installedSkillDirectoryExists = await directoryExists(skillDirectoryPath);
+
         context.logger.warn(
             {
                 path: skillDirectoryPath,
@@ -540,10 +538,10 @@ async function uninstallRegistrySkill(
         });
     }
 
-    const metadata = await readManagedSkillMetadata(skillDirectoryPath);
-
-    await removePath(skillDirectoryPath);
-    await removePath(canonicalSkillDirectoryPath);
+    await Promise.all([
+        removePath(skillDirectoryPath),
+        removePath(canonicalSkillDirectoryPath),
+    ]);
 
     if (options?.silent !== true) {
         writeLine(
@@ -557,9 +555,9 @@ async function uninstallRegistrySkill(
     context.logger.info(
         {
             canonicalPath: canonicalSkillDirectoryPath,
-            packageName: metadata?.packageName,
+            packageName: metadata.packageName,
             path: skillDirectoryPath,
-            previousVersion: metadata?.version ?? "unknown",
+            previousVersion: metadata.version ?? "unknown",
             skillName,
         },
         "Managed Codex skill removed explicitly.",
@@ -583,6 +581,6 @@ function createManagedSkillUninstallError(options: {
     );
 }
 
-function isBundledSkillName(value: string): value is BundledSkillName {
+export function isBundledSkillName(value: string): value is BundledSkillName {
     return availableBundledSkillNames.includes(value as BundledSkillName);
 }

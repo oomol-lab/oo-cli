@@ -2,23 +2,24 @@ import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/
 import type { TerminalColors } from "../../terminal-colors.ts";
 
 import type { ManagedSkillMetadata } from "./managed-skill-metadata.ts";
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { createWriterColors } from "../../terminal-colors.ts";
+import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
-    directoryExists,
-    fileExists,
     requireCodexHomeDirectory,
 } from "./bundled-skill-observation.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
-import { resolveManagedSkillMetadataFilePath } from "./managed-skill-paths.ts";
+import { parseManagedSkillMetadataContent } from "./managed-skill-metadata.ts";
+import {
+    resolveManagedSkillMetadataFilePath,
+    resolveManagedSkillsDirectoryPath,
+} from "./managed-skill-paths.ts";
 
 const managedSkillNameColor = "#59F78D";
 const managedSkillSourceColor = "#CAA8FA";
 const managedSkillVersionColor = "#7DD3FC";
-const codexSkillsDirectoryName = "skills";
 
 export interface ManagedSkillListItem {
     metadata?: ManagedSkillMetadata;
@@ -37,9 +38,8 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
     inputSchema: z.object({}),
     handler: async (_, context) => {
         const codexHomeDirectory = await requireCodexHomeDirectory(context);
-        const skillsDirectoryPath = join(
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(
             codexHomeDirectory,
-            codexSkillsDirectoryName,
         );
         const skills = await listManagedSkillInstallations(skillsDirectoryPath);
 
@@ -65,25 +65,29 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
 export async function listManagedSkillInstallations(
     skillsDirectoryPath: string,
 ): Promise<ManagedSkillListItem[]> {
-    const entryNames = await readSkillsDirectoryEntries(skillsDirectoryPath);
+    const entries = await readSkillsDirectoryEntries(skillsDirectoryPath);
     const skills: Array<ManagedSkillListItem | undefined> = await Promise.all(
-        entryNames.map(async (entryName) => {
+        entries.map(async (entryName) => {
             const skillDirectoryPath = join(skillsDirectoryPath, entryName);
+            const metadataFilePath = resolveManagedSkillMetadataFilePath(
+                skillDirectoryPath,
+            );
 
-            if (!(await directoryExists(skillDirectoryPath))) {
-                return undefined;
+            let metadataContent: string;
+
+            try {
+                metadataContent = await readFile(metadataFilePath, "utf8");
             }
+            catch (error) {
+                if (isNodeNotFoundError(error)) {
+                    return undefined;
+                }
 
-            if (
-                !(await fileExists(
-                    resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-                ))
-            ) {
-                return undefined;
+                throw error;
             }
 
             return {
-                metadata: await readManagedSkillMetadata(skillDirectoryPath),
+                metadata: parseManagedSkillMetadataContent(metadataContent),
                 name: entryName,
                 path: skillDirectoryPath,
             } satisfies ManagedSkillListItem;
@@ -101,7 +105,7 @@ export function formatManagedSkillListAsText(
     },
     context: ManagedSkillListTextContext,
 ): string {
-    const colors = createManagedSkillListColors(context);
+    const colors = createWriterColors(context.stdout);
 
     if (inventory.skills.length === 0) {
         return `${colors.yellow("!")} ${context.translator.t("skills.list.noResults")}`;
@@ -125,7 +129,11 @@ async function readSkillsDirectoryEntries(
     skillsDirectoryPath: string,
 ): Promise<string[]> {
     try {
-        return await readdir(skillsDirectoryPath);
+        const entries = await readdir(skillsDirectoryPath, { withFileTypes: true });
+
+        return entries
+            .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
+            .map(entry => entry.name);
     }
     catch (error) {
         if (isNodeNotFoundError(error)) {
@@ -185,16 +193,6 @@ function readManagedSkillSource(
     }
 
     return context.translator.t("versionInfo.unknown");
-}
-
-function createManagedSkillListColors(
-    context: Pick<CliExecutionContext, "stdout">,
-): TerminalColors {
-    return createWriterColors(context.stdout);
-}
-
-function isNodeNotFoundError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 function isManagedSkillListItem(

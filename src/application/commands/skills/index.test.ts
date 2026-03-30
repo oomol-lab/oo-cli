@@ -8,7 +8,9 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createInteractiveInput,
+    createRegistrySkillArchiveBytes,
     createTextBuffer,
+    formatManagedSkillMetadataContent,
     toRequest,
     waitForOutputText,
     writeAuthFile,
@@ -1345,19 +1347,4 @@ describe("skills commands", () => {
 
 function formatBundledSkillMetadataContent(version: string): string {
     return `${JSON.stringify({ version }, null, 2)}\n`;
-}
-
-function formatManagedSkillMetadataContent(
-    packageName: string,
-    version: string,
-): string {
-    return `${JSON.stringify({ packageName, version }, null, 2)}\n`;
-}
-
-async function createRegistrySkillArchiveBytes(
-    files: Record<string, string>,
-): Promise<Uint8Array<ArrayBuffer>> {
-    return await new Bun.Archive(files, {
-        compress: "gzip",
-    }).bytes();
 }

@@ -668,3 +668,18 @@ interface ResolvedSnapshotReplacement {
     readonly placeholder: string;
     readonly value: string;
 }
+
+export function formatManagedSkillMetadataContent(
+    packageName: string,
+    version: string,
+): string {
+    return `${JSON.stringify({ packageName, version }, null, 2)}\n`;
+}
+
+export async function createRegistrySkillArchiveBytes(
+    files: Record<string, string>,
+): Promise<Uint8Array<ArrayBuffer>> {
+    return await new Bun.Archive(files, {
+        compress: "gzip",
+    }).bytes();
+}

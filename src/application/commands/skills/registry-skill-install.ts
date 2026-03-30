@@ -1,5 +1,7 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
+import type { RegistrySkillSummary } from "./registry-skill-source.ts";
+
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
 
@@ -27,7 +29,7 @@ import {
     loadRegistryPackageSkillInfo,
     requireCurrentSkillsInstallAccount,
 } from "./registry-skill-source.ts";
-import { uninstallManagedSkill } from "./shared.ts";
+import { uninstallManagedSkill, writeLine } from "./shared.ts";
 
 interface ManagedSkillPathState {
     exists: boolean;
@@ -180,7 +182,7 @@ async function executeInstallActions(
 
     try {
         for (const { skillName } of installActions) {
-            const skill = findPackageSkillOrThrow(packageInfo, skillName);
+            const skill = findPackageSkillOrThrow(packageInfo.skills, skillName, packageInfo.packageName);
             const installation = await publishPreparedRegistrySkillPublication(
                 await prepareRegistrySkillPublication({
                     codexHomeDirectory,
@@ -261,7 +263,7 @@ async function resolveSelectionActions(
 
     if (request.skillNames.length > 0) {
         const selectedSkillNames = request.skillNames.flatMap((skillName) => {
-            findPackageSkillOrThrow(packageInfo, skillName);
+            findPackageSkillOrThrow(packageInfo.skills, skillName, packageInfo.packageName);
 
             return skillName;
         });
@@ -424,16 +426,17 @@ async function filterConfirmedSkillNames(
     return confirmedSkillNames;
 }
 
-function findPackageSkillOrThrow(
-    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
+export function findPackageSkillOrThrow(
+    skills: readonly RegistrySkillSummary[],
     skillName: string,
-): Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>["skills"][number] {
-    const skill = packageInfo.skills.find(entry => entry.name === skillName);
+    packageName: string,
+): RegistrySkillSummary {
+    const skill = skills.find(entry => entry.name === skillName);
 
     if (skill === undefined) {
         throw new CliUserError("errors.skills.install.skillNotFound", 1, {
             name: skillName,
-            packageName: packageInfo.packageName,
+            packageName,
         });
     }
 
@@ -548,11 +551,4 @@ function createInstallActions(
         skillName,
         type: "install",
     }));
-}
-
-function writeLine(
-    context: Pick<CliExecutionContext, "stdout">,
-    message: string,
-): void {
-    context.stdout.write(`${message}\n`);
 }
