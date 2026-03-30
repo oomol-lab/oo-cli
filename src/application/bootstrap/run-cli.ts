@@ -96,6 +96,7 @@ export async function runCli(argv: string[]): Promise<number> {
         cwd: process.cwd(),
         env: process.env,
         fetcher: fetch,
+        stdin: process.stdin,
         stdout: process.stdout,
         stderr: process.stderr,
         systemLocale: getSystemLocale(),

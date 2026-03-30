@@ -1,12 +1,30 @@
 import { mkdir, readFile, realpath, stat } from "node:fs/promises";
+
 import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 
 import { describe, expect, test } from "bun:test";
 
-import { createCliSandbox } from "../../../../__tests__/helpers.ts";
+import {
+    createCliSandbox,
+    createInteractiveInput,
+    createTextBuffer,
+    toRequest,
+    waitForOutputText,
+    writeAuthFile,
+} from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
+import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
+import {
+    resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillMetadataFilePath,
+} from "./managed-skill-paths.ts";
+import {
+    installedRegistrySkillCompatibility,
+    renderOoPackageExecutionGuidance,
+} from "./registry-skill-markdown.ts";
 import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
@@ -14,6 +32,8 @@ import {
 } from "./shared.ts";
 
 describe("skills commands", () => {
+    const guidance = renderOoPackageExecutionGuidance();
+
     test("installs the default bundled Codex skill when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -610,8 +630,378 @@ describe("skills commands", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("installs a published registry skill by explicit --skill name", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+        const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
+        const requests: Request[] = [];
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "--skill", "chatgpt"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                                "package/package/skills/chatgpt/agents/openai.yaml":
+                                    "agent\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Installed Codex skill chatgpt to ${skillDirectoryPath}.\n`,
+            );
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                [
+                    "---",
+                    "name: chatgpt",
+                    "description: \"Chat with a model\"",
+                    `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
+                    "metadata:",
+                    "  title: \"ChatGPT\"",
+                    "---",
+                    "",
+                    "# ChatGPT",
+                    "",
+                    guidance,
+                    "",
+                ].join("\n"),
+            );
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                formatManagedSkillMetadataContent("openai", "0.0.3"),
+            );
+            expect(requests).toHaveLength(2);
+            expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
+            expect(requests[1]!.headers.get("Authorization")).toBe("secret-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs selected published skills through the interactive picker", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const selectedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const unselectedSkillDirectoryPath = join(codexHomeDirectory, "skills", "vision");
+        const stdin = createInteractiveInput();
+        const stdout = createTextBuffer({
+            isTTY: true,
+        });
+        const stderr = createTextBuffer();
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+            const execution = executeCli({
+                argv: ["skills", "install", "openai"],
+                cwd: sandbox.cwd,
+                env: sandbox.env,
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+
+                    if (request.url.includes("/package-info/")) {
+                        return new Response(JSON.stringify({
+                            packageName: "openai",
+                            version: "0.0.3",
+                            skills: [
+                                {
+                                    description: "Chat with a model",
+                                    name: "chatgpt",
+                                    title: "ChatGPT",
+                                },
+                                {
+                                    description: "See images",
+                                    name: "vision",
+                                    title: "Vision",
+                                },
+                            ],
+                        }));
+                    }
+
+                    if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+                        return new Response(await createRegistrySkillArchiveBytes({
+                            "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                            "package/package/skills/vision/SKILL.md": "# Vision\n",
+                        }));
+                    }
+
+                    throw new Error(`Unexpected request: ${request.url}`);
+                },
+                stdin,
+                stderr: stderr.writer,
+                stdout: stdout.writer,
+                systemLocale: "en-US",
+            });
+
+            await waitForOutputText(stdout, "Select skills to install");
+            stdin.feed(" ");
+            stdin.feed("\r");
+
+            const exitCode = await execution;
+            const plainOutput = stripVTControlCharacters(stdout.read());
+
+            expect(exitCode).toBe(0);
+            expect(stderr.read()).toBe("");
+            expect(plainOutput).toContain("Select skills to install");
+            expect(plainOutput).toContain("chatgpt");
+            expect(plainOutput).toContain("vision");
+            expect(plainOutput).toContain(
+                `Installed Codex skill chatgpt to ${selectedSkillDirectoryPath}.`,
+            );
+            await expect(stat(join(selectedSkillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
+                isFile: expect.any(Function),
+            });
+            await expect(stat(unselectedSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("skips overwriting an existing published skill when confirmation is declined", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+        const stdin = createInteractiveInput();
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "stale\n");
+            stdin.feed("n\n");
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "--skill", "chatgpt"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                    stdin,
+                    stdout: {
+                        isTTY: true,
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain(
+                "Skill chatgpt already exists. Overwrite? [y/N] ",
+            );
+            expect(result.stdout).toContain("Skipped Codex skill chatgpt.");
+            expect(await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                "stale\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs all published skills when --yes is passed without --skill", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const chatgptSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const visionSkillDirectoryPath = join(codexHomeDirectory, "skills", "vision");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "--yes"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                    {
+                                        description: "See images",
+                                        name: "vision",
+                                        title: "Vision",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                                "package/package/skills/vision/SKILL.md": "# Vision\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Installing all 2 skills.");
+            await expect(stat(join(chatgptSkillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
+                isFile: expect.any(Function),
+            });
+            await expect(stat(join(visionSkillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
+                isFile: expect.any(Function),
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails outside a TTY when multiple skills require selection", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                    {
+                                        description: "See images",
+                                        name: "vision",
+                                        title: "Vision",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Package openai has multiple skills. Use --skill <name>, --all -y, or run in an interactive terminal.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
 
 function formatBundledSkillMetadataContent(version: string): string {
     return `${JSON.stringify({ version }, null, 2)}\n`;
+}
+
+function formatManagedSkillMetadataContent(
+    packageName: string,
+    version: string,
+): string {
+    return `${JSON.stringify({ packageName, version }, null, 2)}\n`;
+}
+
+async function createRegistrySkillArchiveBytes(
+    files: Record<string, string>,
+): Promise<Uint8Array<ArrayBuffer>> {
+    return await new Bun.Archive(files, {
+        compress: "gzip",
+    }).bytes();
 }

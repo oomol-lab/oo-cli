@@ -122,8 +122,8 @@ export const enMessages = {
     "commands.skills.search.summary":
         "Search published skills",
     "commands.skills.install.description":
-        "Install one bundled Codex skill into the local Codex skills directory.",
-    "commands.skills.install.summary": "Install a bundled Codex skill",
+        "Install bundled or published Codex skills into the local Codex skills directory.",
+    "commands.skills.install.summary": "Install Codex skills",
     "commands.skills.uninstall.description":
         "Remove one bundled Codex skill from the local Codex skills directory.",
     "commands.skills.uninstall.summary": "Remove a bundled Codex skill",
@@ -305,6 +305,30 @@ export const enMessages = {
         "The package info request returned HTTP {status}.",
     "errors.skills.codexNotInstalled":
         "Codex is not installed. Expected the Codex home directory at {path}.",
+    "errors.skills.install.activeAccountMissing":
+        "The active auth account is missing from the auth store.",
+    "errors.skills.install.authRequired":
+        "You must log in before installing published skills.",
+    "errors.skills.install.confirmationRequired":
+        "Skill {name} already exists and requires interactive confirmation.",
+    "errors.skills.install.invalidArchive":
+        "Downloaded package archive does not contain a valid skill directory for {name}.",
+    "errors.skills.install.invalidPackageInfo":
+        "The skills install package info service returned an unsupported response body.",
+    "errors.skills.install.noPublishedSkills":
+        "Package {packageName} does not publish any skills.",
+    "errors.skills.install.nonInteractiveSelection":
+        "Package {packageName} has multiple skills. Use --skill <name>, --all -y, or run in an interactive terminal.",
+    "errors.skills.install.packageDownloadError":
+        "The skills package download failed: {message}",
+    "errors.skills.install.packageDownloadFailed":
+        "The skills package download returned HTTP {status}.",
+    "errors.skills.install.packageInfoRequestError":
+        "The skills install package info request failed: {message}",
+    "errors.skills.install.packageInfoRequestFailed":
+        "The skills install package info request returned HTTP {status}.",
+    "errors.skills.install.skillNotFound":
+        "Skill {name} was not found in package {packageName}.",
     "errors.skills.nameConflict":
         "Skill name {name} is already used by a non-OOMOL Codex skill at {path}.",
     "errors.skills.storageConflict":
@@ -357,7 +381,11 @@ export const enMessages = {
     "options.json": "Alias for --format=json",
     "options.keywords":
         "Specify comma-separated keywords to refine the skill search",
+    "options.skill":
+        "Specify skill names to install (use * for all skills)",
     "options.onlyPackageId": "Return only package ids",
+    "options.all":
+        "Install all published skills without prompting for skill selection",
     "options.nextToken": "Specify the pagination token for the next page",
     "options.packageId": "Filter by package id",
     "options.packageName": "Alias for --package-id",
@@ -367,11 +395,27 @@ export const enMessages = {
     "options.status": "Filter by task status",
     "options.timeout":
         "Set how long to wait before timing out (default 6h, range 10s to 24h)",
+    "options.yes": "Skip confirmation prompts",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
+    "skills.install.allSelected":
+        "Installing all {count} skills.",
     "skills.config.set.success":
         "Set Codex skill {name} {key} to {value}.",
     "skills.install.success": "Installed Codex skill {name} to {path}.",
+    "skills.install.overwrite.invalid":
+        "Invalid choice. Enter y/yes or n/no.",
+    "skills.install.overwrite.prompt":
+        "Skill {name} already exists. Overwrite? [y/N] ",
+    "skills.install.selection.invalid":
+        "Invalid selection. Use one or more comma-separated numbers, or press Enter to cancel.",
+    "skills.install.selection.prompt":
+        "Select skills to install (space to toggle)",
+    "skills.install.skipped": "Skipped Codex skill {name}.",
+    "skills.install.status.conflict": "conflict",
+    "skills.install.status.installed": "installed",
+    "skills.install.singleSelected":
+        "Skill: {name}",
     "skills.uninstall.success": "Removed Codex skill {name} from {path}.",
     "versionInfo.version": "Version",
     "versionInfo.buildTime": "Build Time",
@@ -381,6 +425,7 @@ export const enMessages = {
     "arguments.index": "Log index",
     "arguments.key": "Configuration key",
     "arguments.outDir": "Output directory",
+    "arguments.packageName": "Package name",
     "arguments.packageSpecifier": "Package specifier",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
@@ -544,8 +589,9 @@ export const zhMessages = {
         "使用自由文本通过 skills search API 搜索已发布的 skill。",
     "commands.skills.search.summary":
         "搜索已发布的 skill",
-    "commands.skills.install.description": "将一个内置 Codex skill 安装到本地 Codex skills 目录。",
-    "commands.skills.install.summary": "安装一个内置 Codex skill",
+    "commands.skills.install.description":
+        "将内置或已发布的 Codex skill 安装到本地 Codex skills 目录。",
+    "commands.skills.install.summary": "安装 Codex skills",
     "commands.skills.uninstall.description": "从本地 Codex skills 目录移除一个内置 Codex skill。",
     "commands.skills.uninstall.summary": "移除一个内置 Codex skill",
     "config.set.success": "已将 {key} 设置为 {value}。",
@@ -719,6 +765,30 @@ export const zhMessages = {
         "包信息请求返回了 HTTP {status}。",
     "errors.skills.codexNotInstalled":
         "未检测到 Codex 安装。期望的 Codex 根目录为 {path}。",
+    "errors.skills.install.activeAccountMissing":
+        "当前激活账号不存在于认证数据中。",
+    "errors.skills.install.authRequired":
+        "安装已发布 skill 前请先登录。",
+    "errors.skills.install.confirmationRequired":
+        "Skill {name} 已存在，且需要在交互终端中确认覆盖。",
+    "errors.skills.install.invalidArchive":
+        "下载的包归档中不包含 {name} 对应的有效 skill 目录。",
+    "errors.skills.install.invalidPackageInfo":
+        "skills install 使用的包信息服务返回了不受支持的响应内容。",
+    "errors.skills.install.noPublishedSkills":
+        "包 {packageName} 没有发布任何 skill。",
+    "errors.skills.install.nonInteractiveSelection":
+        "包 {packageName} 包含多个 skill。请使用 --skill <name>、--all -y，或在交互终端中运行。",
+    "errors.skills.install.packageDownloadError":
+        "下载 skills 包失败：{message}",
+    "errors.skills.install.packageDownloadFailed":
+        "skills 包下载请求返回了 HTTP {status}。",
+    "errors.skills.install.packageInfoRequestError":
+        "skills install 的包信息请求失败：{message}",
+    "errors.skills.install.packageInfoRequestFailed":
+        "skills install 的包信息请求返回了 HTTP {status}。",
+    "errors.skills.install.skillNotFound":
+        "在包 {packageName} 中未找到 skill {name}。",
     "errors.skills.nameConflict":
         "Skill 名称 {name} 已被 {path} 中的非 OOMOL Codex skill 占用。",
     "errors.skills.storageConflict":
@@ -766,7 +836,11 @@ export const zhMessages = {
     "options.json": "--format=json 的别名",
     "options.keywords":
         "指定用于细化 skill 搜索的逗号分隔关键词",
+    "options.skill":
+        "指定要安装的 skill 名称（使用 * 表示全部）",
     "options.onlyPackageId": "仅返回 package id",
+    "options.all":
+        "安装全部已发布 skill，并跳过 skill 选择提示",
     "options.nextToken": "指定下一页分页令牌",
     "options.packageId": "按 package id 过滤",
     "options.packageName": "--package-id 的别名",
@@ -775,11 +849,27 @@ export const zhMessages = {
     "options.size": "指定每页数量",
     "options.status": "按任务状态过滤",
     "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
+    "options.yes": "跳过确认提示",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
+    "skills.install.allSelected":
+        "将安装全部 {count} 个 skill。",
     "skills.config.set.success":
         "已将 Codex skill {name} 的 {key} 设置为 {value}。",
     "skills.install.success": "已将 Codex skill {name} 安装到 {path}。",
+    "skills.install.overwrite.invalid":
+        "输入无效。请输入 y/yes 或 n/no。",
+    "skills.install.overwrite.prompt":
+        "Skill {name} 已存在，是否覆盖？[y/N] ",
+    "skills.install.selection.invalid":
+        "选择无效。请输入一个或多个逗号分隔的序号，或直接回车取消。",
+    "skills.install.selection.prompt":
+        "选择要安装的 skill（空格切换）",
+    "skills.install.skipped": "已跳过 Codex skill {name}。",
+    "skills.install.status.conflict": "冲突",
+    "skills.install.status.installed": "已安装",
+    "skills.install.singleSelected":
+        "Skill：{name}",
     "skills.uninstall.success": "已从 {path} 移除 Codex skill {name}。",
     "versionInfo.version": "版本",
     "versionInfo.buildTime": "构建时间",
@@ -789,6 +879,7 @@ export const zhMessages = {
     "arguments.index": "日志序号",
     "arguments.key": "配置键",
     "arguments.outDir": "输出目录",
+    "arguments.packageName": "包名",
     "arguments.packageSpecifier": "包标识",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",

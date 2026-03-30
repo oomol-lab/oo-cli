@@ -27,6 +27,10 @@ export interface TextBuffer {
     read: () => string;
 }
 
+export interface TestInteractiveInput extends InteractiveInput {
+    feed: (chunk: string) => void;
+}
+
 export interface TextBufferOptions {
     hasColors?: boolean;
     isTTY?: boolean;
@@ -189,6 +193,64 @@ export function createTextBuffer(options: TextBufferOptions = {}): TextBuffer {
             return chunks.join("");
         },
     };
+}
+
+export function createInteractiveInput(): TestInteractiveInput {
+    const listeners = new Set<(chunk: string | Uint8Array) => void>();
+    const bufferedChunks: Uint8Array[] = [];
+    const textEncoder = new TextEncoder();
+
+    return {
+        isTTY: true,
+        feed(chunk) {
+            const encodedChunk = textEncoder.encode(chunk);
+
+            if (listeners.size === 0) {
+                bufferedChunks.push(encodedChunk);
+                return;
+            }
+
+            for (const listener of listeners) {
+                listener(encodedChunk);
+            }
+        },
+        off(_, listener) {
+            listeners.delete(listener);
+        },
+        on(_, listener) {
+            listeners.add(listener);
+
+            while (bufferedChunks.length > 0) {
+                const chunk = bufferedChunks.shift();
+
+                if (chunk === undefined) {
+                    break;
+                }
+
+                listener(chunk);
+            }
+        },
+        pause() {},
+        resume() {},
+        setRawMode() {},
+    };
+}
+
+export async function waitForOutputText(
+    buffer: Pick<TextBuffer, "read">,
+    text: string,
+): Promise<void> {
+    const deadline = Date.now() + 1000;
+
+    while (Date.now() < deadline) {
+        if (buffer.read().includes(text)) {
+            return;
+        }
+
+        await Bun.sleep(10);
+    }
+
+    throw new Error(`Timed out waiting for output text: ${text}`);
 }
 
 export async function createTemporaryDirectory(prefix: string): Promise<string> {

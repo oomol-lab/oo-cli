@@ -2,20 +2,18 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import type { BundledSkillName } from "./embedded-assets.ts";
 
 import { z } from "zod";
-import { CliUserError } from "../../contracts/cli.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { installRegistrySkills } from "./registry-skill-install.ts";
 import { installBundledSkill } from "./shared.ts";
 
 interface SkillsInstallInput {
-    skill: BundledSkillName;
+    all?: boolean;
+    packageName?: string;
+    skill?: string[];
+    yes?: boolean;
 }
 
 const defaultBundledSkillName = "oo" as const;
-const bundledSkillNameSchema = z.enum(availableBundledSkillNames);
-
-const skillsInstallInputSchema = z.object({
-    skill: bundledSkillNameSchema.default(defaultBundledSkillName),
-});
 
 export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
     name: "install",
@@ -23,18 +21,62 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
     descriptionKey: "commands.skills.install.description",
     arguments: [
         {
-            name: "skill",
-            descriptionKey: "arguments.skill",
+            name: "packageName",
+            descriptionKey: "arguments.packageName",
             required: false,
         },
     ],
-    inputSchema: skillsInstallInputSchema,
-    mapInputError: (_, rawInput) =>
-        new CliUserError("errors.skills.invalidName", 2, {
-            choices: availableBundledSkillNames.join(", "),
-            value: String(rawInput.skill ?? ""),
-        }),
+    options: [
+        {
+            name: "skill",
+            longFlag: "--skill",
+            shortFlag: "-s",
+            valueName: "skills...",
+            descriptionKey: "options.skill",
+        },
+        {
+            name: "yes",
+            longFlag: "--yes",
+            shortFlag: "-y",
+            descriptionKey: "options.yes",
+        },
+        {
+            name: "all",
+            longFlag: "--all",
+            descriptionKey: "options.all",
+        },
+    ],
+    inputSchema: z.object({
+        all: z.boolean().optional(),
+        packageName: z.string().optional(),
+        skill: z.array(z.string()).optional(),
+        yes: z.boolean().optional(),
+    }),
     handler: async (input, context) => {
-        await installBundledSkill(input.skill, context);
+        if (
+            input.packageName === undefined
+            || isBundledSkillName(input.packageName)
+        ) {
+            await installBundledSkill(
+                (input.packageName as BundledSkillName | undefined)
+                ?? defaultBundledSkillName,
+                context,
+            );
+            return;
+        }
+
+        await installRegistrySkills(
+            {
+                all: input.all === true,
+                packageName: input.packageName,
+                skillNames: input.skill ?? [],
+                yes: input.yes === true,
+            },
+            context,
+        );
     },
 };
+
+function isBundledSkillName(value: string): value is BundledSkillName {
+    return availableBundledSkillNames.includes(value as BundledSkillName);
+}

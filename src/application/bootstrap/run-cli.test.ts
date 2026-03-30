@@ -3,17 +3,22 @@ import type { FileDownloadSessionStore } from "../contracts/file-download-sessio
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 
-import { readdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createCliSnapshot,
+    createInteractiveInput,
     createTextBuffer,
     readLatestLogContent,
+    toRequest,
+    writeAuthFile,
 } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
+import { resolveCodexHomeDirectory } from "../commands/skills/shared.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
@@ -33,6 +38,77 @@ describe("runCli bootstrap", () => {
             expect(createCliSnapshot(result)).toMatchSnapshot();
         }
         finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("executes published skill installation with explicit --skill", async () => {
+        const sandbox = await createCliSandbox();
+        const originalCwd = process.cwd;
+        const originalEnv = process.env;
+        const stdout = createTextBuffer({
+            isTTY: true,
+        });
+        const stderr = createTextBuffer();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+
+        try {
+            await writeAuthFile(sandbox);
+            await mkdir(codexHomeDirectory, { recursive: true });
+            process.cwd = () => sandbox.cwd;
+            process.env = sandbox.env;
+
+            const exitCode = await executeCli({
+                argv: [
+                    "skills",
+                    "install",
+                    "red-note-ng",
+                    "--skill",
+                    "writer",
+                ],
+                cwd: sandbox.cwd,
+                env: sandbox.env,
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+
+                    if (request.url.includes("/package-info/")) {
+                        return new Response(JSON.stringify({
+                            packageName: "red-note-ng",
+                            version: "0.0.3",
+                            skills: [
+                                {
+                                    description: "Optimize notes",
+                                    name: "writer",
+                                    title: "Writer",
+                                },
+                            ],
+                        }));
+                    }
+
+                    if (request.url.endsWith("/red-note-ng/-/meta/red-note-ng-0.0.3.tgz")) {
+                        return new Response(await new Bun.Archive({
+                            "package/package/skills/writer/SKILL.md": "# Writer\n",
+                        }, {
+                            compress: "gzip",
+                        }).bytes());
+                    }
+
+                    throw new Error(`Unexpected request: ${request.url}`);
+                },
+                stderr: stderr.writer,
+                stdin: createInteractiveInput(),
+                stdout: stdout.writer,
+                systemLocale: "en-US",
+            });
+            const plainOutput = stripVTControlCharacters(stdout.read());
+
+            expect(exitCode).toBe(0);
+            expect(stderr.read()).toBe("");
+            expect(plainOutput).toContain("Installed Codex skill writer");
+        }
+        finally {
+            process.cwd = originalCwd;
+            process.env = originalEnv;
             await sandbox.cleanup();
         }
     });

@@ -1,10 +1,10 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`skills CLI rejects unsupported skill names for skills install 1`] = `
+exports[`skills CLI requires login before installing published skills 1`] = `
 {
-  "exitCode": 2,
+  "exitCode": 1,
   "stderr": 
-"Unsupported skill: unknown. Use oo.
+"You must log in before installing published skills.
 "
 ,
   "stdout": "",

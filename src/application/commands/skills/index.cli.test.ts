@@ -16,7 +16,7 @@ import {
 } from "./shared.ts";
 
 describe("skills CLI", () => {
-    test("rejects unsupported skill names for skills install", async () => {
+    test("requires login before installing published skills", async () => {
         const sandbox = await createCliSandbox();
 
         try {

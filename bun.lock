@@ -5,10 +5,12 @@
     "": {
       "name": "oo",
       "dependencies": {
+        "@clack/core": "0.5.0",
         "ajv": "^8.18.0",
         "ajv-formats": "^3.0.1",
         "ajv-i18n": "^4.2.0",
         "commander": "^14.0.3",
+        "picocolors": "^1.1.1",
         "pino": "^10.3.1",
         "smol-toml": "^1.6.0",
         "zod": "^4.3.6",
@@ -38,7 +40,7 @@
 
     "@babel/types": ["@babel/types@7.29.0", "", { "dependencies": { "@babel/helper-string-parser": "^7.27.1", "@babel/helper-validator-identifier": "^7.28.5" } }, "sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A=="],
 
-    "@clack/core": ["@clack/core@1.1.0", "", { "dependencies": { "sisteransi": "^1.0.5" } }, "sha512-SVcm4Dqm2ukn64/8Gub2wnlA5nS2iWJyCkdNHcvNHPIeBTGojpdJ+9cZKwLfmqy7irD4N5qLteSilJlE0WLAtA=="],
+    "@clack/core": ["@clack/core@0.5.0", "", { "dependencies": { "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-p3y0FIOwaYRUPRcMO7+dlmLh8PSRcrjuTndsiA0WAFbWES0mLZlrjVoBRZ9DzkPFJZG6KGkJmoEAY0ZcVWTkow=="],
 
     "@clack/prompts": ["@clack/prompts@1.1.0", "", { "dependencies": { "@clack/core": "1.1.0", "sisteransi": "^1.0.5" } }, "sha512-pkqbPGtohJAvm4Dphs2M8xE29ggupihHdy1x84HNojZuMtFsHiUlRvqD24tM2+XmI+61LlfNceM3Wr7U5QES5g=="],
 
@@ -711,6 +713,8 @@
     "zod": ["zod@4.3.6", "", {}, "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="],
 
     "zwitch": ["zwitch@2.0.4", "", {}, "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="],
+
+    "@clack/prompts/@clack/core": ["@clack/core@1.1.0", "", { "dependencies": { "sisteransi": "^1.0.5" } }, "sha512-SVcm4Dqm2ukn64/8Gub2wnlA5nS2iWJyCkdNHcvNHPIeBTGojpdJ+9cZKwLfmqy7irD4N5qLteSilJlE0WLAtA=="],
 
     "@eslint-community/eslint-plugin-eslint-comments/ignore": ["ignore@7.0.5", "", {}, "sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg=="],
 
