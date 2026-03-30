@@ -92,7 +92,7 @@ export const configSetCommand: CliCommandDefinition<ResolvedConfigSetInput> = {
             "Config value persisted.",
         );
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("config.set.success", {
                 key: input.key,
                 value: input.value,

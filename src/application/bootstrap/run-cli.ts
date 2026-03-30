@@ -152,11 +152,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             return exitCode;
         }
 
-        cacheStore
-            = undefined;
-        fileUploadStore = undefined;
-        fileDownloadSessionStore = undefined;
-
         const initializedStores = await initializeCliStores(
             invocation,
             logger,
@@ -270,22 +265,18 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         exitCode = writeBootstrapError(error, translator, invocation.stderr);
     }
     finally {
-        const cleanupCacheStore = cacheStore;
-        const cleanupFileUploadStore = fileUploadStore;
-        const cleanupFileDownloadSessionStore = fileDownloadSessionStore;
-
         exitCode = closeCleanupResources(
             [
                 createCleanupResource(
-                    cleanupCacheStore,
+                    cacheStore,
                     "Failed to close the cache store cleanly.",
                 ),
                 createCleanupResource(
-                    cleanupFileUploadStore,
+                    fileUploadStore,
                     "Failed to close the file upload store cleanly.",
                 ),
                 createCleanupResource(
-                    cleanupFileDownloadSessionStore,
+                    fileDownloadSessionStore,
                     "Failed to close the file download session store cleanly.",
                 ),
             ],

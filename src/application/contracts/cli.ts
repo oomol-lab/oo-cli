@@ -52,6 +52,9 @@ export interface CliArgumentDefinition {
     variadic?: boolean;
 }
 
+// Bivariance hack: enables covariant handler input types under --strict.
+// Without this, CliCommandHandler<SpecificInput> would not be assignable to
+// CliCommandHandler<unknown> due to function parameter contravariance.
 export type CliCommandHandler<TInput> = {
     bivarianceHack: (
         input: TInput,

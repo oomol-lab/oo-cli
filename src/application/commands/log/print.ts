@@ -35,7 +35,7 @@ export const logPrintCommand: CliCommandDefinition<LogPrintInput> = {
         });
 
         if (!content) {
-            writeLine(context, context.translator.t("log.print.missing", { index }));
+            writeLine(context.stdout, context.translator.t("log.print.missing", { index }));
             return;
         }
 

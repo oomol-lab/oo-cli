@@ -3,7 +3,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { requestText } from "../shared/request.ts";
 
 export const cloudTaskFormatValues = ["json"] as const;
@@ -79,17 +79,10 @@ export type CloudTaskListResponse = z.output<typeof cloudTaskListResponseSchema>
 export async function requireCurrentCloudTaskAccount(
     context: CliExecutionContext,
 ): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.cloudTask.authRequired"
-            : "errors.cloudTask.activeAccountMissing",
-        1,
+    return requireCurrentAccount(
+        context,
+        "errors.cloudTask.authRequired",
+        "errors.cloudTask.activeAccountMissing",
     );
 }
 

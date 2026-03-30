@@ -13,6 +13,4 @@ export function resolveCliLogDirectoryPath(
     }).logDirectoryPath;
 }
 
-export function writeLine(context: CliExecutionContext, message: string): void {
-    context.stdout.write(`${message}\n`);
-}
+export { writeLine } from "../shared/output.ts";

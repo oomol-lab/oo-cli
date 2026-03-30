@@ -109,7 +109,7 @@ export async function updateManagedSkills(
     );
 
     if (selectedSkills.length === 0) {
-        writeLine(context, context.translator.t("skills.update.noResults"));
+        writeLine(context.stdout, context.translator.t("skills.update.noResults"));
         return;
     }
 
@@ -466,7 +466,7 @@ function writeUpdateSuccessLine(
     }
 
     writeLine(
-        context,
+        context.stdout,
         context.translator.t("skills.update.success", {
             name: skillName,
             path: installationPath,
@@ -484,7 +484,7 @@ function writeUpdateCurrentLine(
     }
 
     writeLine(
-        context,
+        context.stdout,
         context.translator.t("skills.update.current", {
             name: skillName,
             version,
@@ -502,7 +502,7 @@ function writeUpdateFailureLine(
     }
 
     writeLine(
-        context,
+        context.stdout,
         context.translator.t("skills.update.failure", {
             message: localizeSkillUpdateError(error, context),
             name: skillName,

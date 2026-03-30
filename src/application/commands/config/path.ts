@@ -9,6 +9,6 @@ export const configPathCommand: CliCommandDefinition = {
     descriptionKey: "commands.config.path.description",
     inputSchema: z.object({}),
     handler: (_, context) => {
-        writeLine(context, context.settingsStore.getFilePath());
+        writeLine(context.stdout, context.settingsStore.getFilePath());
     },
 };

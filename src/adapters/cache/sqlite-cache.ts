@@ -1,15 +1,16 @@
+import type { Database } from "bun:sqlite";
 import type { Logger } from "pino";
+
 import type {
     Cache,
     CacheOptions,
     CacheSetOptions,
     CacheStore,
 } from "../../application/contracts/cache.ts";
-
 import { createHash } from "node:crypto";
-import { accessSync, constants as fsConstants, mkdirSync, statSync } from "node:fs";
+import { accessSync, constants as fsConstants, statSync } from "node:fs";
 import { dirname } from "node:path";
-import { Database, constants as sqliteConstants } from "bun:sqlite";
+import { constants as sqliteConstants } from "bun:sqlite";
 import { logCategory } from "../../application/logging/log-categories.ts";
 import {
     withCacheId,
@@ -17,6 +18,7 @@ import {
     withKeyFingerprint,
     withStorePath,
 } from "../../application/logging/log-fields.ts";
+import { openSqliteDatabase } from "../store/sqlite-utils.ts";
 
 interface CacheRow {
     value: string;
@@ -89,7 +91,7 @@ export class SqliteCacheStore implements CacheStore {
         this.logger = logger;
 
         try {
-            this.database = openDatabase(filePath);
+            this.database = openSqliteDatabase(filePath, { busyTimeoutMs: sqliteBusyTimeoutMs });
             this.logger?.debug(
                 {
                     ...withStorePath(this.filePath),
@@ -224,7 +226,7 @@ export class SqliteCacheStore implements CacheStore {
             return this.database;
         }
 
-        this.database = openDatabase(this.filePath);
+        this.database = openSqliteDatabase(this.filePath, { busyTimeoutMs: sqliteBusyTimeoutMs });
 
         this.logger?.debug(
             {
@@ -560,20 +562,6 @@ export function resolveSqliteCacheTableName(id: string): string {
     return `cache_${createHash("sha256").update(id).digest("hex")}`;
 }
 
-function openDatabase(filePath: string): Database {
-    mkdirSync(dirname(filePath), { recursive: true });
-
-    const database = new Database(filePath, {
-        create: true,
-        strict: true,
-    });
-
-    database.run(`PRAGMA busy_timeout = ${sqliteBusyTimeoutMs};`);
-    database.run("PRAGMA journal_mode = WAL;");
-
-    return database;
-}
-
 function ensureCacheTable(database: Database, tableName: string): void {
     database.run(
         [
@@ -651,7 +639,7 @@ function serializeCacheValue<Value>(value: Value): string {
         return serializedValue;
     }
 
-    throw new TypeError("SqliteCache does not support undefined values.");
+    throw new TypeError("SqliteCache value cannot be serialized to JSON.");
 }
 
 function deserializeCacheValue<Value>(value: string): Value {
@@ -732,8 +720,6 @@ function resolveRecoverableSqliteStorePathDiagnosticsPolicy(
         case "never":
             return false;
     }
-
-    return false;
 }
 
 export function isRecoverableSqliteCacheErrorCode(code: string): boolean {

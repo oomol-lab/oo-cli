@@ -70,35 +70,27 @@ export function upsertAuthAccount(
     account: AuthAccount,
 ): AuthFile {
     const parsedAuthFile = authFileSchema.parse(authFile);
-    const parsedAccount = authAccountSchema.parse(account);
     const existingIndex = parsedAuthFile.auth.findIndex(
-        currentAccount => currentAccount.id === parsedAccount.id,
+        currentAccount => currentAccount.id === account.id,
     );
 
     if (existingIndex === -1) {
         return {
-            auth: [...parsedAuthFile.auth, parsedAccount],
-            id: parsedAccount.id,
+            auth: [...parsedAuthFile.auth, account],
+            id: account.id,
         };
     }
 
     return {
         auth: parsedAuthFile.auth.map((currentAccount, index) =>
-            index === existingIndex ? parsedAccount : currentAccount,
+            index === existingIndex ? account : currentAccount,
         ),
-        id: parsedAccount.id,
+        id: account.id,
     };
 }
 
 export function removeCurrentAuthAccount(authFile: AuthFile): AuthFile {
     const parsedAuthFile = authFileSchema.parse(authFile);
-
-    if (parsedAuthFile.id === "") {
-        return {
-            ...parsedAuthFile,
-            id: "",
-        };
-    }
 
     return {
         auth: parsedAuthFile.auth.filter(account => account.id !== parsedAuthFile.id),

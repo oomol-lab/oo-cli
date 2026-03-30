@@ -197,7 +197,7 @@ async function executeInstallActions(
 
             if (!isInteractive) {
                 writeLine(
-                    context,
+                    context.stdout,
                     context.translator.t("skills.install.success", {
                         name: skillName,
                         path: installation.path,
@@ -235,7 +235,7 @@ async function resolveSelectionActions(
 ): Promise<RegistrySkillSelectionResolution> {
     if (request.all) {
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("skills.install.allSelected", {
                 count: packageInfo.skills.length,
             }),
@@ -249,7 +249,7 @@ async function resolveSelectionActions(
 
     if (request.skillNames.includes("*")) {
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("skills.install.allSelected", {
                 count: packageInfo.skills.length,
             }),
@@ -285,7 +285,7 @@ async function resolveSelectionActions(
         const firstSkill = packageInfo.skills[0]!;
 
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("skills.install.singleSelected", {
                 name: firstSkill.name,
             }),
@@ -299,7 +299,7 @@ async function resolveSelectionActions(
 
     if (request.yes) {
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("skills.install.allSelected", {
                 count: packageInfo.skills.length,
             }),
@@ -412,7 +412,7 @@ async function filterConfirmedSkillNames(
 
         if (!confirmed) {
             writeLine(
-                context,
+                context.stdout,
                 context.translator.t("skills.install.skipped", {
                     name: skillName,
                 }),

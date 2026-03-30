@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { resolveHomeDirectory } from "../../application/path/home-directory.ts";
 
-const defaultSettingsFileName = "settings.toml";
-const defaultAuthFileName = "auth.toml";
+export const defaultSettingsFileName = "settings.toml";
+export const defaultAuthFileName = "auth.toml";
 const defaultCacheFileName = "cache.sqlite";
 const defaultDownloadSessionsFileName = "download-sessions.sqlite";
 const defaultUploadsFileName = "uploads.sqlite";

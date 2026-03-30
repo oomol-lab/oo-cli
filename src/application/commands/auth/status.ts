@@ -120,15 +120,14 @@ function readAuthStatusTone(
     }
 }
 
+const apiKeyStatusKeys: Record<string, string> = {
+    invalid: "auth.status.apiKeyInvalid",
+    request_failed: "auth.status.apiKeyRequestFailed",
+    valid: "auth.status.apiKeyValid",
+};
+
 function readApiKeyStatusKey(
     apiKeyStatus: "invalid" | "request_failed" | "valid",
-): "auth.status.apiKeyInvalid" | "auth.status.apiKeyRequestFailed" | "auth.status.apiKeyValid" {
-    switch (apiKeyStatus) {
-        case "invalid":
-            return "auth.status.apiKeyInvalid";
-        case "request_failed":
-            return "auth.status.apiKeyRequestFailed";
-        case "valid":
-            return "auth.status.apiKeyValid";
-    }
+): string {
+    return apiKeyStatusKeys[apiKeyStatus] ?? "auth.status.apiKeyInvalid";
 }

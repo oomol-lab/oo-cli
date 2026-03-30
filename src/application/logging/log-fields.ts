@@ -13,12 +13,6 @@ export function withAccountIdentity(
     };
 }
 
-export function withAccountId(accountId: string): {
-    accountId: string;
-} {
-    return { accountId };
-}
-
 export function withCacheId(cacheId: string): {
     cacheId: string;
 } {

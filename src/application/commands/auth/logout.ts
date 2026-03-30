@@ -1,7 +1,8 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { removeCurrentAuthAccount } from "../../schemas/auth.ts";
-import { emptyAuthCommandInputSchema, writeAuthLine } from "./shared.ts";
+import { writeLine } from "../shared/output.ts";
+import { emptyAuthCommandInputSchema } from "./shared.ts";
 
 export const authLogoutCommand: CliCommandDefinition = {
     name: "logout",
@@ -29,8 +30,8 @@ export const authLogoutCommand: CliCommandDefinition = {
             "Current auth account was removed.",
         );
 
-        writeAuthLine(
-            context,
+        writeLine(
+            context.stdout,
             context.translator.t("auth.logout.success"),
         );
     },

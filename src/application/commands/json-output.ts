@@ -25,11 +25,5 @@ export function writeJsonOutput(
     writer: Writer,
     value: unknown,
 ): void {
-    const serialized = JSON.stringify(value);
-
-    if (serialized === undefined) {
-        throw new Error("JSON output value must be serializable.");
-    }
-
-    writer.write(`${serialized}\n`);
+    writer.write(`${JSON.stringify(value)}\n`);
 }

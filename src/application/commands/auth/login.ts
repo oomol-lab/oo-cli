@@ -6,11 +6,11 @@ import type {
 import { startAuthLoginSession } from "../../auth/login-flow.ts";
 import { upsertAuthAccount } from "../../schemas/auth.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
+import { writeLine } from "../shared/output.ts";
 import {
     emptyAuthCommandInputSchema,
     formatAuthStrong,
     writeAuthBlock,
-    writeAuthLine,
 } from "./shared.ts";
 
 const loginUrlColor = "#c09ff5";
@@ -35,14 +35,14 @@ export const authLoginCommand: CliCommandDefinition = {
             },
             "Auth login URL prepared.",
         );
-        writeAuthLine(
-            context,
+        writeLine(
+            context.stdout,
             context.translator.t("auth.login.openManually", {
                 url: formatLoginUrl(context, loginUrl.toString()),
             }),
         );
-        writeAuthLine(
-            context,
+        writeLine(
+            context.stdout,
             context.translator.t("auth.login.waitingForBrowser"),
         );
 

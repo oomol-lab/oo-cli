@@ -71,5 +71,11 @@ function isWideCodePoint(codePoint: number): boolean {
         || (codePoint >= 0xFE30 && codePoint <= 0xFE6F)
         || (codePoint >= 0xFF00 && codePoint <= 0xFF60)
         || (codePoint >= 0xFFE0 && codePoint <= 0xFFE6)
+        // CJK Unified Ideographs Extension B
+        || (codePoint >= 0x20000 && codePoint <= 0x2A6DF)
+        // CJK Unified Ideographs Extensions C through H
+        || (codePoint >= 0x2A700 && codePoint <= 0x323AF)
+        // CJK Compatibility Ideographs Supplement
+        || (codePoint >= 0x2F800 && codePoint <= 0x2FA1F)
     );
 }

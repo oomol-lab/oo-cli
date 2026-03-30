@@ -45,7 +45,7 @@ const thirdWaitPrintIntervalMs = 5 * 60_000;
 
 export const cloudTaskWaitCommand: CliCommandDefinition<CloudTaskWaitInput> = {
     name: "wait",
-    aliases: ["wati"],
+    aliases: ["wati"], // Intentional typo-tolerance alias
     summaryKey: "commands.cloudTask.wait.summary",
     descriptionKey: "commands.cloudTask.wait.description",
     missingArgumentBehavior: "showHelp",

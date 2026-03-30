@@ -9,6 +9,7 @@ import {
 import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
 import { defaultSettings } from "../../schemas/settings.ts";
+import { writeLine } from "../shared/output.ts";
 import {
     publishBundledSkillInstallation,
     removePath,
@@ -42,12 +43,14 @@ import {
     getBundledSkillFiles,
 } from "./embedded-assets.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
+
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
 } from "./managed-skill-paths.ts";
 
+export { writeLine } from "../shared/output.ts";
 export {
     createBundledSkillDirectorySymlink,
     publishBundledSkillInstallation,
@@ -58,12 +61,6 @@ export type {
     CreateBundledSkillDirectorySymlinkDependencies,
     RemoveBundledSkillSymbolicPathDependencies,
 } from "./bundled-skill-filesystem.ts";
-export {
-    resolveBundledSkillCanonicalDirectoryPath,
-    resolveBundledSkillDirectoryPath,
-    resolveBundledSkillMetadataFilePath,
-    resolveCodexHomeDirectory,
-} from "./bundled-skill-paths.ts";
 
 export async function installBundledSkill(
     skillName: BundledSkillName,
@@ -146,7 +143,7 @@ export async function installBundledSkill(
     });
 
     writeLine(
-        context,
+        context.stdout,
         context.translator.t("skills.install.success", {
             name: skillName,
             path: installation.path,
@@ -387,7 +384,7 @@ export async function uninstallBundledSkill(
     ]);
 
     writeLine(
-        context,
+        context.stdout,
         context.translator.t("skills.uninstall.success", {
             name: skillName,
             path: skillDirectoryPath,
@@ -484,12 +481,12 @@ export async function writeBundledSkillCanonicalInstallation(options: {
     };
 }
 
-export function writeLine(
-    context: Pick<CliExecutionContext, "stdout">,
-    message: string,
-): void {
-    context.stdout.write(`${message}\n`);
-}
+export {
+    resolveBundledSkillCanonicalDirectoryPath,
+    resolveBundledSkillDirectoryPath,
+    resolveBundledSkillMetadataFilePath,
+    resolveCodexHomeDirectory,
+} from "./bundled-skill-paths.ts";
 
 async function uninstallRegistrySkill(
     skillName: string,
@@ -545,7 +542,7 @@ async function uninstallRegistrySkill(
 
     if (options?.silent !== true) {
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("skills.uninstall.success", {
                 name: skillName,
                 path: skillDirectoryPath,

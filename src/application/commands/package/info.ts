@@ -6,8 +6,8 @@ import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     isPackageInfoInputHandleOptional,
     loadPackageInfo,
@@ -72,17 +72,10 @@ function createPackageInfoInputError(rawInput: Record<string, unknown>): CliUser
 async function requireCurrentPackageInfoAccount(
     context: CliExecutionContext,
 ): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.packageInfo.authRequired"
-            : "errors.packageInfo.activeAccountMissing",
-        1,
+    return requireCurrentAccount(
+        context,
+        "errors.packageInfo.authRequired",
+        "errors.packageInfo.activeAccountMissing",
     );
 }
 

@@ -20,7 +20,8 @@ import {
     settingsFileReadSchema,
     settingsFileSchema,
 } from "../../application/schemas/settings.ts";
-import { resolveStoreDirectory } from "./store-path.ts";
+import { isFileAlreadyExistsError, isFileMissingError } from "./file-store-utils.ts";
+import { defaultSettingsFileName, resolveStoreDirectory } from "./store-path.ts";
 
 interface FileSettingsStoreSharedOptions {
     logger?: Logger;
@@ -280,7 +281,7 @@ function resolveSettingsFilePath(options: FileSettingsStoreOptions): string {
 
     return join(
         resolveStoreDirectory(options),
-        options.fileName ?? "settings.toml",
+        options.fileName ?? defaultSettingsFileName,
     );
 }
 
@@ -288,22 +289,4 @@ function readConfiguredSettingsKeys(settings: AppSettings): string[] {
     return Object.entries(settings)
         .flatMap(([key, value]) => (value !== undefined ? [key] : []))
         .sort();
-}
-
-function isFileMissingError(error: unknown): error is NodeJS.ErrnoException {
-    return Boolean(
-        error
-        && typeof error === "object"
-        && "code" in error
-        && error.code === "ENOENT",
-    );
-}
-
-function isFileAlreadyExistsError(error: unknown): error is NodeJS.ErrnoException {
-    return Boolean(
-        error
-        && typeof error === "object"
-        && "code" in error
-        && error.code === "EEXIST",
-    );
 }

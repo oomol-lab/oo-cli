@@ -7,6 +7,7 @@ import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
+import { isPlainObject } from "../shared/schema-utils.ts";
 import {
     createCloudTaskTasksUrl,
     parseCloudTaskCreateResponse,
@@ -206,14 +207,4 @@ function parseInputValues(
             message: error instanceof Error ? error.message : String(error),
         });
     }
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-    if (value === null || typeof value !== "object" || Array.isArray(value)) {
-        return false;
-    }
-
-    const prototype = Object.getPrototypeOf(value);
-
-    return prototype === Object.prototype || prototype === null;
 }

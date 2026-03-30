@@ -1,8 +1,5 @@
 import type { ZodType } from "zod";
-import type {
-    CliExecutionContext,
-    SupportedLocale,
-} from "../../contracts/cli.ts";
+import type { SupportedLocale } from "../../contracts/cli.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
 
 import { z } from "zod";
@@ -31,18 +28,12 @@ export interface ConfigDefinition<TValue extends string> {
     valueSchema: ZodType<TValue>;
 }
 
-function defineConfigDefinition<TValue extends string>(
-    definition: ConfigDefinition<TValue>,
-): ConfigDefinition<TValue> {
-    return definition;
-}
-
 export const ooSkillImplicitInvocationConfigKey
     = "skills.oo.implicit_invocation" as const;
 export const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
 
 export const configDefinitions = {
-    lang: defineConfigDefinition({
+    lang: {
         createInvalidValueError(rawValue: unknown): CliUserError {
             return new CliUserError("errors.config.invalidLangValue", 2, {
                 value: String(rawValue ?? ""),
@@ -66,8 +57,8 @@ export const configDefinitions = {
         },
         valueChoices: localeSchema.options,
         valueSchema: localeSchema,
-    }),
-    [fileDownloadOutDirConfigKey]: defineConfigDefinition({
+    } satisfies ConfigDefinition<SupportedLocale>,
+    [fileDownloadOutDirConfigKey]: {
         createInvalidValueError(rawValue: unknown): CliUserError {
             return new CliUserError(
                 "errors.config.invalidFileDownloadOutDirValue",
@@ -88,8 +79,8 @@ export const configDefinitions = {
         },
         valueChoices: [],
         valueSchema: fileDownloadOutDirConfigValueSchema,
-    }),
-    [ooSkillImplicitInvocationConfigKey]: defineConfigDefinition({
+    } satisfies ConfigDefinition<string>,
+    [ooSkillImplicitInvocationConfigKey]: {
         createInvalidValueError(rawValue: unknown): CliUserError {
             return new CliUserError(
                 "errors.config.invalidSkillsOoImplicitInvocationValue",
@@ -118,7 +109,7 @@ export const configDefinitions = {
         },
         valueChoices: booleanConfigValueChoices,
         valueSchema: booleanConfigValueSchema,
-    }),
+    } satisfies ConfigDefinition<"false" | "true">,
 } as const;
 
 export type ConfigKey = keyof typeof configDefinitions;
@@ -142,7 +133,7 @@ export interface ConfigGetInput {
     key: ConfigKey;
 }
 
-export interface ConfigListInput {}
+export type ConfigListInput = Record<string, never>;
 
 export type ConfigSetInput = {
     [TKey in ConfigKey]: {
@@ -155,9 +146,7 @@ export interface ConfigUnsetInput {
     key: ConfigKey;
 }
 
-export function writeLine(context: CliExecutionContext, message: string): void {
-    context.stdout.write(`${message}\n`);
-}
+export { writeLine } from "../shared/output.ts";
 
 export function createInvalidConfigKeyError(
     rawInput: Record<string, unknown>,

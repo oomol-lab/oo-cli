@@ -10,8 +10,8 @@ import {
     withPath,
 } from "../../logging/log-fields.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { requestText } from "../shared/request.ts";
 
 const MAX_SEARCH_TEXT_LENGTH = 200;
@@ -144,17 +144,10 @@ function createSearchInputError(rawInput: Record<string, unknown>): CliUserError
 async function requireCurrentSearchAccount(
     context: CliExecutionContext,
 ): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.search.authRequired"
-            : "errors.search.activeAccountMissing",
-        1,
+    return requireCurrentAccount(
+        context,
+        "errors.search.authRequired",
+        "errors.search.activeAccountMissing",
     );
 }
 

@@ -46,7 +46,7 @@ export const configUnsetCommand: CliCommandDefinition<ConfigUnsetInput> = {
             "Config value removed.",
         );
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("config.unset.success", {
                 key: input.key,
             }),

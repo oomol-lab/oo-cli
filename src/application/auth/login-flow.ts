@@ -29,17 +29,17 @@ export async function startAuthLoginSession(
         const server = createServer();
         let resolveAccount: (account: AuthAccount) => void = () => {};
         let rejectAccount: (error: unknown) => void = () => {};
-        let settled = false;
+        const state = { settled: false };
         const accountPromise = new Promise<AuthAccount>((innerResolve, innerReject) => {
             resolveAccount = innerResolve;
             rejectAccount = innerReject;
         });
         const timer = setTimeout(() => {
-            if (settled) {
+            if (state.settled) {
                 return;
             }
 
-            settled = true;
+            state.settled = true;
             options.logger.warn(
                 {
                     timeoutMs: loginTimeoutMs,
@@ -57,10 +57,7 @@ export async function startAuthLoginSession(
                 resolveAccount,
                 response,
                 server,
-                settled,
-                setSettled(value) {
-                    settled = value;
-                },
+                state,
                 logger: options.logger,
                 translator: options.translator,
             });
@@ -114,27 +111,26 @@ interface HandleRequestOptions {
     resolveAccount: (account: AuthAccount) => void;
     response: ServerResponse;
     server: ReturnType<typeof createServer>;
-    settled: boolean;
-    setSettled: (value: boolean) => void;
+    state: { settled: boolean };
     logger: Logger;
     translator: Translator;
 }
 
 async function handleRequest(options: HandleRequestOptions): Promise<void> {
     const url = new URL(options.requestUrl, "http://127.0.0.1");
-    const hasApiKey = (url.searchParams.get("apiKey") ?? "") !== "";
-    const hasEndpoint = (url.searchParams.get("endpoint") ?? "") !== "";
-    const hasId = (url.searchParams.get("id") ?? "") !== "";
-    const hasName = (url.searchParams.get("name") ?? "") !== "";
+    const apiKey = url.searchParams.get("apiKey");
+    const endpoint = url.searchParams.get("endpoint");
+    const id = url.searchParams.get("id");
+    const name = url.searchParams.get("name");
 
     options.logger.debug(
         {
-            hasApiKey,
-            hasEndpoint,
-            hasId,
-            hasName,
+            hasApiKey: apiKey !== null,
+            hasEndpoint: endpoint !== null,
+            hasId: id !== null,
+            hasName: name !== null,
             ...withPath(url.pathname),
-            settled: options.settled,
+            settled: options.state.settled,
         },
         "Auth login callback received.",
     );
@@ -154,7 +150,7 @@ async function handleRequest(options: HandleRequestOptions): Promise<void> {
         return;
     }
 
-    if (options.settled) {
+    if (options.state.settled) {
         options.logger.warn(
             {
                 ...withPath(url.pathname),
@@ -169,25 +165,18 @@ async function handleRequest(options: HandleRequestOptions): Promise<void> {
         return;
     }
 
-    const callbackFields = {
-        apiKey: url.searchParams.get("apiKey") ?? "",
-        endpoint: url.searchParams.get("endpoint") ?? "",
-        id: url.searchParams.get("id") ?? "",
-        name: url.searchParams.get("name") ?? "",
-    };
-
     if (
-        callbackFields.apiKey === ""
-        || callbackFields.endpoint === ""
-        || callbackFields.id === ""
-        || callbackFields.name === ""
+        !apiKey
+        || !endpoint
+        || !id
+        || !name
     ) {
         options.logger.warn(
             {
-                hasApiKey,
-                hasEndpoint,
-                hasId,
-                hasName,
+                hasApiKey: apiKey !== null,
+                hasEndpoint: endpoint !== null,
+                hasId: id !== null,
+                hasName: name !== null,
             },
             "Auth login callback was missing required fields.",
         );
@@ -199,19 +188,16 @@ async function handleRequest(options: HandleRequestOptions): Promise<void> {
         return;
     }
 
-    let apiKey = "";
+    let decodedApiKey = "";
 
     try {
-        apiKey = decodeApiKey(callbackFields.apiKey);
+        decodedApiKey = decodeApiKey(apiKey);
     }
     catch {
         options.logger.warn(
             {
-                ...withAccountIdentity(
-                    callbackFields.id,
-                    callbackFields.endpoint,
-                ),
-                name: callbackFields.name,
+                ...withAccountIdentity(id, endpoint),
+                name,
             },
             "Auth login callback contained an invalid api key payload.",
         );
@@ -223,7 +209,7 @@ async function handleRequest(options: HandleRequestOptions): Promise<void> {
         return;
     }
 
-    options.setSettled(true);
+    options.state.settled = true;
     writeHttpResponse(
         options.response,
         200,
@@ -231,19 +217,16 @@ async function handleRequest(options: HandleRequestOptions): Promise<void> {
     );
     options.logger.info(
         {
-            ...withAccountIdentity(
-                callbackFields.id,
-                callbackFields.endpoint,
-            ),
-            name: callbackFields.name,
+            ...withAccountIdentity(id, endpoint),
+            name,
         },
         "Auth login callback completed successfully.",
     );
     options.resolveAccount({
-        apiKey,
-        endpoint: callbackFields.endpoint,
-        id: callbackFields.id,
-        name: callbackFields.name,
+        apiKey: decodedApiKey,
+        endpoint,
+        id,
+        name,
     });
     await closeServer(options.server);
 }

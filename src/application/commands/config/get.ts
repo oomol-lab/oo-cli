@@ -37,7 +37,7 @@ export const configGetCommand: CliCommandDefinition<ConfigGetInput> = {
             "Config value read.",
         );
 
-        if (value) {
+        if (value !== undefined) {
             context.stdout.write(`${value}\n`);
         }
     },

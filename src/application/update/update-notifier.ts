@@ -189,6 +189,7 @@ function renderNoticeBodyLine(
     ].join("");
 }
 
+// Thin wrapper over compareSemver retained as a named export for testing convenience.
 export function compareReleaseVersions(left: string, right: string): number {
     return compareSemver(left, right);
 }
@@ -456,12 +457,14 @@ function readPackageManagerName(npmUserAgent: string | undefined): string | unde
 }
 
 function normalizePackageManagerName(value: string | undefined): string | undefined {
-    switch (value?.trim().toLowerCase()) {
+    const normalized = value?.trim().toLowerCase();
+
+    switch (normalized) {
         case "npm":
         case "pnpm":
         case "bun":
         case "yarn":
-            return value.trim().toLowerCase();
+            return normalized;
         default:
             return undefined;
     }

@@ -41,13 +41,6 @@ export async function readCurrentAuth(
     };
 }
 
-export function writeAuthLine(
-    context: CliExecutionContext,
-    message: string,
-): void {
-    context.stdout.write(`${message}\n`);
-}
-
 export function formatAuthStrong(
     context: CliExecutionContext,
     value: string,

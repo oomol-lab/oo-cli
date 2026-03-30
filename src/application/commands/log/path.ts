@@ -12,6 +12,6 @@ export const logPathCommand: CliCommandDefinition = {
     descriptionKey: "commands.log.path.description",
     inputSchema: z.object({}),
     handler: (_, context) => {
-        writeLine(context, resolveCliLogDirectoryPath(context));
+        writeLine(context.stdout, resolveCliLogDirectoryPath(context));
     },
 };
