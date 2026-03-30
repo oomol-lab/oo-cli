@@ -1,13 +1,8 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
-import { cp, mkdir } from "node:fs/promises";
 
-import { dirname } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
-import {
-    publishBundledSkillInstallation,
-    removePath,
-} from "./bundled-skill-filesystem.ts";
+
 import { directoryExists, requireCodexHomeDirectory } from "./bundled-skill-observation.ts";
 import {
     confirmInteractiveValue,
@@ -15,18 +10,17 @@ import {
 } from "./interactive-prompts.ts";
 import {
     readManagedSkillMetadata,
-    writeManagedSkillMetadata,
 } from "./managed-skill-metadata.ts";
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
 } from "./managed-skill-paths.ts";
+import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
-    extractRegistryPackageArchive,
-    requireExtractedRegistrySkillDirectory,
-} from "./registry-skill-archive.ts";
-import { rewriteInstalledRegistrySkillMarkdown } from "./registry-skill-markdown.ts";
+    prepareRegistrySkillPublication,
+    publishPreparedRegistrySkillPublication,
+} from "./registry-skill-publication.ts";
 import {
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
@@ -101,46 +95,17 @@ export async function installRegistrySkills(
     try {
         for (const skillName of selectedSkillNames) {
             const skill = findPackageSkillOrThrow(packageInfo, skillName);
-            const canonicalSkillDirectoryPath
-                = resolveManagedSkillCanonicalDirectoryPath(
-                    settingsFilePath,
-                    skillName,
-                );
-            const installedSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-                codexHomeDirectory,
-                skillName,
-            );
-
-            await removePath(canonicalSkillDirectoryPath);
-            await mkdir(dirname(canonicalSkillDirectoryPath), { recursive: true });
-            await cp(
-                await requireExtractedRegistrySkillDirectory(
+            const installation = await publishPreparedRegistrySkillPublication(
+                await prepareRegistrySkillPublication({
+                    codexHomeDirectory,
                     extractedPackage,
-                    skillName,
-                ),
-                canonicalSkillDirectoryPath,
-                {
-                    force: true,
-                    recursive: true,
-                },
-            );
-            await rewriteInstalledRegistrySkillMarkdown(
-                canonicalSkillDirectoryPath,
-                skill,
-                packageInfo.packageName,
-            );
-            await writeManagedSkillMetadata(
-                canonicalSkillDirectoryPath,
-                {
                     packageName: packageInfo.packageName,
-                    version: packageInfo.packageVersion,
-                },
+                    packageVersion: packageInfo.packageVersion,
+                    settingsFilePath,
+                    skill,
+                    skillName,
+                }),
             );
-
-            const installation = await publishBundledSkillInstallation({
-                canonicalSkillDirectoryPath,
-                installedSkillDirectoryPath,
-            });
 
             writeLine(
                 context,

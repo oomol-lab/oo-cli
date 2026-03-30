@@ -240,6 +240,26 @@ directory.
   checks whether the recorded metadata `version` matches the current CLI
   version and silently refreshes the installed files when needed.
 
+### `oo skills update [skills...]`
+
+Update installed oo-managed Codex skills.
+
+- Arguments: when omitted, the command checks every installed oo-managed
+  published skill.
+- Arguments: when one or more skill names are provided, only those named skills
+  are checked and updated.
+- Bundled skills: the bundled `oo` skill is excluded from this command because
+  the CLI synchronizes it automatically during startup when needed.
+- Published skills: registry-backed skills derive their package identity from
+  `.oo-metadata.json`, then fetch package info without an explicit version to
+  determine the latest available package version.
+- Update order: the command refreshes the canonical
+  `<config-dir>/skills/<skill-id>` copy before republishing to
+  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
+- Interactive terminals: renders live progress while checking and updating
+  skills.
+- Non-interactive terminals: prints one status line per processed skill.
+
 ### `oo skills uninstall [skill]`
 
 Remove one oo-managed skill from the local Codex skills directory.

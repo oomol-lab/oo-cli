@@ -49,6 +49,7 @@ export interface CliArgumentDefinition {
     descriptionKey: string;
     required?: boolean;
     choices?: readonly string[];
+    variadic?: boolean;
 }
 
 export type CliCommandHandler<TInput> = {

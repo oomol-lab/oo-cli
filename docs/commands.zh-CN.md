@@ -210,6 +210,22 @@
   与当前 CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。不一
   致时会静默刷新已安装的文件。
 
+### `oo skills update [skills...]`
+
+更新已安装且由 oo 管理的 Codex skill。
+
+- 参数：省略时，会检查所有已安装且由 oo 管理的已发布 skill。
+- 参数：提供一个或多个 skill 名称时，只会检查并更新这些指定 skill。
+- 内置 skill：bundled `oo` 不在此命令处理范围内，因为 CLI 启动时会在需要时
+  自动同步它。
+- 已发布 skill：registry skill 会从 `.oo-metadata.json` 读取所属包名，再通过
+  不带显式版本的 package info 请求判断最新可用版本。
+- 更新顺序：命令会先刷新 canonical 目录
+  `<config-dir>/skills/<skill-id>`，再同步到
+  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`。
+- 交互式终端：会显示实时进度。
+- 非交互式终端：每个处理过的 skill 输出一行状态信息。
+
 ### `oo skills uninstall [skill]`
 
 从本地 Codex skills 目录移除一个由 oo 管理的 skill。
