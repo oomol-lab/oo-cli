@@ -1014,25 +1014,144 @@ describe("skills commands", () => {
                 systemLocale: "en-US",
             });
 
-            await waitForOutputText(stdout, "Select skills to install");
+            await waitForOutputText(
+                stdout,
+                "Select skills to install or keep installed",
+            );
             stdin.feed(" ");
             stdin.feed("\r");
 
             const exitCode = await execution;
-            const plainOutput = stripVTControlCharacters(stdout.read());
+            const plainOutput = stripVTControlCharacters(stdout.read()).replaceAll(
+                "\u200B",
+                "",
+            );
 
             expect(exitCode).toBe(0);
             expect(stderr.read()).toBe("");
-            expect(plainOutput).toContain("Select skills to install");
+            expect(plainOutput).toContain(
+                "Select skills to install or keep installed",
+            );
+            expect(plainOutput).toContain(
+                "◆ Select skills to install or keep installed",
+            );
             expect(plainOutput).toContain("chatgpt");
             expect(plainOutput).toContain("vision");
-            expect(plainOutput).toContain(
+            expect(plainOutput).toContain("Installing selected skills...");
+            expect(plainOutput).toContain("◆ Installed");
+            expect(plainOutput).toContain("  chatgpt");
+            expect(plainOutput).not.toContain(
                 `Installed Codex skill chatgpt to ${selectedSkillDirectoryPath}.`,
             );
             await expect(stat(join(selectedSkillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
                 isFile: expect.any(Function),
             });
             await expect(stat(unselectedSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uninstalls deselected published skills through the interactive picker", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const stdin = createInteractiveInput();
+        const stdout = createTextBuffer({
+            isTTY: true,
+        });
+        const stderr = createTextBuffer();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+            await mkdir(join(installedSkillDirectoryPath, "agents"), { recursive: true });
+            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+                recursive: true,
+            });
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
+                formatManagedSkillMetadataContent("openai", "0.0.3"),
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
+                formatManagedSkillMetadataContent("openai", "0.0.3"),
+            );
+            await Bun.write(join(installedSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+
+            const execution = executeCli({
+                argv: ["skills", "install", "openai"],
+                cwd: sandbox.cwd,
+                env: sandbox.env,
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+
+                    if (request.url.includes("/package-info/")) {
+                        return new Response(JSON.stringify({
+                            packageName: "openai",
+                            version: "0.0.3",
+                            skills: [
+                                {
+                                    description: "Chat with a model",
+                                    name: "chatgpt",
+                                    title: "ChatGPT",
+                                },
+                                {
+                                    description: "See images",
+                                    name: "vision",
+                                    title: "Vision",
+                                },
+                            ],
+                        }));
+                    }
+
+                    throw new Error(`Unexpected request: ${request.url}`);
+                },
+                stdin,
+                stderr: stderr.writer,
+                stdout: stdout.writer,
+                systemLocale: "en-US",
+            });
+
+            await waitForOutputText(
+                stdout,
+                "Select skills to install or keep installed",
+            );
+            stdin.feed(" ");
+            stdin.feed("\r");
+
+            const exitCode = await execution;
+            const plainOutput = stripVTControlCharacters(stdout.read()).replaceAll(
+                "\u200B",
+                "",
+            );
+
+            expect(exitCode).toBe(0);
+            expect(stderr.read()).toBe("");
+            expect(plainOutput).toContain("\n ◼ chatgpt");
+            expect(plainOutput).toContain("Removing deselected skills...");
+            expect(plainOutput).toContain("◆ Removed");
+            expect(plainOutput).toContain("  chatgpt");
+            expect(plainOutput).not.toContain(
+                `Removed Codex skill chatgpt from ${installedSkillDirectoryPath}.`,
+            );
+            await expect(stat(installedSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(canonicalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }

@@ -25,6 +25,7 @@ export interface InteractivePromptContext {
 export interface InteractiveSkillSelectItem {
     description: string;
     name: string;
+    selected?: boolean;
     statusLabel?: string;
     title: string;
 }
@@ -74,6 +75,9 @@ export async function selectInteractiveSkills(
 ): Promise<string[]> {
     const promptStreams = createPromptStreams(context);
     const colors = createWriterColors(context.stdout);
+    const initialValues = options.items
+        .filter(item => item.selected === true)
+        .map(item => item.name);
     const promptOptions = options.items.map((item) => {
         const label = formatSkillOptionLabel(item, promptStreams.output.columns);
 
@@ -93,6 +97,7 @@ export async function selectInteractiveSkills(
             promptStreams.output,
             async () => await new MultiSelectPrompt<MultiSelectOption>({
                 cursorAt: promptOptions[0]?.value,
+                initialValues,
                 input: promptStreams.input,
                 options: promptOptions,
                 output: promptStreams.output,
@@ -157,15 +162,26 @@ function renderMultiSelectPrompt(
     message: string,
     colors: TerminalColors,
 ): string {
-    const header = `${message}\n`;
+    const header = `${formatPromptHeader(prompt.state, message, colors)}\n`;
     const itemIndent = "\u200B ";
 
     switch (prompt.state) {
-        case "submit":
-            return `${header}${itemIndent}${prompt.options
-                .filter(({ value }) => prompt.value.includes(value))
-                .map(option => formatRenderedOption(option, "submitted", colors))
-                .join(colors.dim(", ")) || colors.dim("none")}`;
+        case "submit": {
+            const formatOption = (option: MultiSelectOption) => formatRenderedOption(
+                option,
+                isOptionSelected(prompt, option)
+                    ? "selected"
+                    : "inactive",
+                colors,
+            );
+
+            return `${header}${itemIndent}${renderScrollableOptions(
+                prompt.cursor,
+                prompt.options,
+                formatOption,
+                formatOption,
+            ).join(`\n${itemIndent}`)}\n`;
+        }
         case "cancel": {
             const selectedOptions = prompt.options
                 .filter(({ value }) => prompt.value.includes(value))
@@ -222,23 +238,33 @@ function renderMultiSelectPrompt(
     }
 }
 
+function formatPromptHeader(
+    state: MultiSelectPrompt<MultiSelectOption>["state"],
+    message: string,
+    colors: TerminalColors,
+): string {
+    switch (state) {
+        case "submit":
+            return `${colors.green("◆")} ${message}`;
+        case "cancel":
+            return `${colors.dim("◇")} ${colors.dim(message)}`;
+        default:
+            return `${colors.green("◇")} ${message}`;
+    }
+}
+
 function renderScrollableOptions(
     cursor: number,
     options: readonly MultiSelectOption[],
     activeStyle: (option: MultiSelectOption) => string,
     inactiveStyle: (option: MultiSelectOption) => string,
 ): string[] {
-    const maxItems = Number.POSITIVE_INFINITY;
     const visibleRows = Math.max((process.stdout.rows ?? 24) - 4, 0);
-    const windowSize = Math.min(
-        visibleRows,
-        Math.max(maxItems, 5),
-    );
     let offset = 0;
 
-    if (cursor >= offset + windowSize - 3) {
+    if (cursor >= offset + visibleRows - 3) {
         offset = Math.max(
-            Math.min(cursor - windowSize + 3, options.length - windowSize),
+            Math.min(cursor - visibleRows + 3, options.length - visibleRows),
             0,
         );
     }
@@ -246,14 +272,14 @@ function renderScrollableOptions(
         offset = Math.max(cursor - 2, 0);
     }
 
-    return options.slice(offset, offset + windowSize).map((option, index) =>
+    return options.slice(offset, offset + visibleRows).map((option, index) =>
         index + offset === cursor ? activeStyle(option) : inactiveStyle(option),
     );
 }
 
 function formatRenderedOption(
     option: MultiSelectOption,
-    state: "active" | "active-selected" | "cancelled" | "inactive" | "selected" | "submitted",
+    state: "active" | "active-selected" | "cancelled" | "inactive" | "selected",
     colors: TerminalColors,
 ): string {
     switch (state) {
@@ -267,8 +293,6 @@ function formatRenderedOption(
             return `${colors.dim("◻")} ${colors.dim(option.label)}`;
         case "selected":
             return `${colors.green("◼")} ${colors.dim(option.label)} ${option.hint === "" ? "" : colors.dim(`(${option.hint})`)}`;
-        case "submitted":
-            return colors.dim(option.label);
     }
 }
 

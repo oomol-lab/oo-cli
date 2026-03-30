@@ -432,10 +432,19 @@ export const enMessages = {
     "skills.install.selection.invalid":
         "Invalid selection. Use one or more comma-separated numbers, or press Enter to cancel.",
     "skills.install.selection.prompt":
-        "Select skills to install (space to toggle)",
+        "Select skills to install or keep installed (space to toggle)",
+    "skills.install.progress.installing.start": "Installing selected skills...",
+    "skills.install.progress.installing.complete":
+        "Installed",
+    "skills.install.progress.installing.failed":
+        "Installing selected skills failed",
+    "skills.install.progress.removing.start": "Removing deselected skills...",
+    "skills.install.progress.removing.complete":
+        "Removed",
+    "skills.install.progress.removing.failed":
+        "Removing deselected skills failed",
     "skills.install.skipped": "Skipped Codex skill {name}.",
     "skills.install.status.conflict": "conflict",
-    "skills.install.status.installed": "installed",
     "skills.install.singleSelected":
         "Skill: {name}",
     "skills.update.noResults":
@@ -922,10 +931,19 @@ export const zhMessages = {
     "skills.install.selection.invalid":
         "选择无效。请输入一个或多个逗号分隔的序号，或直接回车取消。",
     "skills.install.selection.prompt":
-        "选择要安装的 skill（空格切换）",
+        "选择要安装或保留的 skill（空格切换）",
+    "skills.install.progress.installing.start": "正在安装所选 skill...",
+    "skills.install.progress.installing.complete":
+        "已安装",
+    "skills.install.progress.installing.failed":
+        "安装所选 skill 失败",
+    "skills.install.progress.removing.start": "正在移除未选择的 skill...",
+    "skills.install.progress.removing.complete":
+        "已移除",
+    "skills.install.progress.removing.failed":
+        "移除未选择的 skill 失败",
     "skills.install.skipped": "已跳过 Codex skill {name}。",
     "skills.install.status.conflict": "冲突",
-    "skills.install.status.installed": "已安装",
     "skills.install.singleSelected":
         "Skill：{name}",
     "skills.update.noResults":
