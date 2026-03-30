@@ -422,6 +422,21 @@ async function writeBundledSkillInstallation(options: {
     skillName: BundledSkillName;
     version: string;
 }): Promise<BundledSkillPublicationResult> {
+    const installationPaths = await writeBundledSkillCanonicalInstallation(options);
+
+    return publishBundledSkillInstallation(installationPaths);
+}
+
+export async function writeBundledSkillCanonicalInstallation(options: {
+    codexHomeDirectory: string;
+    settings: AppSettings;
+    settingsFilePath: string;
+    skillName: BundledSkillName;
+    version: string;
+}): Promise<{
+    canonicalSkillDirectoryPath: string;
+    installedSkillDirectoryPath: string;
+}> {
     const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
         options.settingsFilePath,
         options.skillName,
@@ -459,10 +474,10 @@ async function writeBundledSkillInstallation(options: {
         },
     );
 
-    return publishBundledSkillInstallation({
+    return {
         canonicalSkillDirectoryPath,
         installedSkillDirectoryPath,
-    });
+    };
 }
 
 function writeLine(context: CliExecutionContext, message: string): void {

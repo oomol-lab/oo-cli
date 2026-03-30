@@ -5,6 +5,7 @@ import { skillsInstallCommand } from "./install.ts";
 import { skillsListCommand } from "./list.ts";
 import { skillsSearchCommand } from "./search.ts";
 import { skillsUninstallCommand } from "./uninstall.ts";
+import { skillsUpdateCommand } from "./update.ts";
 
 export const skillsCommand: CliCommandDefinition = {
     name: "skills",
@@ -15,6 +16,7 @@ export const skillsCommand: CliCommandDefinition = {
         skillsListCommand,
         skillsConfigCommand,
         skillsInstallCommand,
+        skillsUpdateCommand,
         skillsUninstallCommand,
     ],
 };

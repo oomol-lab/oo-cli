@@ -291,12 +291,17 @@ function createOption(
 function formatArgumentSyntax(argument: {
     name: string;
     required?: boolean;
+    variadic?: boolean;
 }): string {
+    const argumentName = argument.variadic === true
+        ? `${argument.name}...`
+        : argument.name;
+
     if (argument.required === false) {
-        return `[${argument.name}]`;
+        return `[${argumentName}]`;
     }
 
-    return `<${argument.name}>`;
+    return `<${argumentName}>`;
 }
 
 function createArgument(
@@ -305,6 +310,7 @@ function createArgument(
         descriptionKey: string;
         required?: boolean;
         choices?: readonly string[];
+        variadic?: boolean;
     },
     translator: Translator,
 ): Argument {

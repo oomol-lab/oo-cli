@@ -128,6 +128,9 @@ export const enMessages = {
     "commands.skills.install.description":
         "Install bundled or published Codex skills into the local Codex skills directory.",
     "commands.skills.install.summary": "Install Codex skills",
+    "commands.skills.update.description":
+        "Update installed oo-managed Codex skills to the latest available version.",
+    "commands.skills.update.summary": "Update oo-managed Codex skills",
     "commands.skills.uninstall.description":
         "Remove one oo-managed Codex skill from the local Codex skills directory.",
     "commands.skills.uninstall.summary": "Remove an oo-managed Codex skill",
@@ -335,6 +338,10 @@ export const enMessages = {
         "The skills install package info request returned HTTP {status}.",
     "errors.skills.install.skillNotFound":
         "Skill {name} was not found in package {packageName}.",
+    "errors.skills.update.bundledUnsupported":
+        "Codex skill {name} is synchronized automatically and cannot be updated with skills update.",
+    "errors.skills.update.packageNameMissing":
+        "Managed skill {name} cannot be updated because its package metadata is missing.",
     "errors.skills.nameConflict":
         "Skill name {name} is already used by a non-OOMOL Codex skill at {path}.",
     "errors.skills.storageConflict":
@@ -431,6 +438,20 @@ export const enMessages = {
     "skills.install.status.installed": "installed",
     "skills.install.singleSelected":
         "Skill: {name}",
+    "skills.update.noResults":
+        "No updatable oo-managed skills were found.",
+    "skills.update.current":
+        "Codex skill {name} is already up to date at {version}.",
+    "skills.update.failure":
+        "Failed to update Codex skill {name}: {message}",
+    "skills.update.progress.header": "Updating installed skills",
+    "skills.update.progress.checking": "checking for updates",
+    "skills.update.progress.preparing": "updating canonical files",
+    "skills.update.progress.publishing": "publishing to Codex",
+    "skills.update.progress.current": "up to date",
+    "skills.update.progress.updated": "updated",
+    "skills.update.progress.failed": "failed",
+    "skills.update.success": "Updated Codex skill {name} to {path}.",
     "skills.uninstall.success": "Removed Codex skill {name} from {path}.",
     "versionInfo.version": "Version",
     "versionInfo.buildTime": "Build Time",
@@ -611,6 +632,9 @@ export const zhMessages = {
     "commands.skills.install.description":
         "将内置或已发布的 Codex skill 安装到本地 Codex skills 目录。",
     "commands.skills.install.summary": "安装 Codex skills",
+    "commands.skills.update.description":
+        "将已安装且由 oo 管理的 Codex skill 更新到最新可用版本。",
+    "commands.skills.update.summary": "更新由 oo 管理的 Codex skill",
     "commands.skills.uninstall.description": "从本地 Codex skills 目录移除一个由 oo 管理的 Codex skill。",
     "commands.skills.uninstall.summary": "移除一个由 oo 管理的 Codex skill",
     "config.set.success": "已将 {key} 设置为 {value}。",
@@ -810,6 +834,10 @@ export const zhMessages = {
         "skills install 的包信息请求返回了 HTTP {status}。",
     "errors.skills.install.skillNotFound":
         "在包 {packageName} 中未找到 skill {name}。",
+    "errors.skills.update.bundledUnsupported":
+        "Codex skill {name} 会自动同步，不能通过 skills update 更新。",
+    "errors.skills.update.packageNameMissing":
+        "由 oo 管理的 skill {name} 缺少 package 元数据，无法更新。",
     "errors.skills.nameConflict":
         "Skill 名称 {name} 已被 {path} 中的非 OOMOL Codex skill 占用。",
     "errors.skills.storageConflict":
@@ -900,6 +928,20 @@ export const zhMessages = {
     "skills.install.status.installed": "已安装",
     "skills.install.singleSelected":
         "Skill：{name}",
+    "skills.update.noResults":
+        "未找到可更新的 oo-managed skill。",
+    "skills.update.current":
+        "Codex skill {name} 已是最新版本 {version}。",
+    "skills.update.failure":
+        "更新 Codex skill {name} 失败：{message}",
+    "skills.update.progress.header": "正在更新已安装的 skill",
+    "skills.update.progress.checking": "检查更新中",
+    "skills.update.progress.preparing": "更新 canonical 文件中",
+    "skills.update.progress.publishing": "同步到 Codex 中",
+    "skills.update.progress.current": "已是最新",
+    "skills.update.progress.updated": "已更新",
+    "skills.update.progress.failed": "失败",
+    "skills.update.success": "已将 Codex skill {name} 更新到 {path}。",
     "skills.uninstall.success": "已从 {path} 移除 Codex skill {name}。",
     "versionInfo.version": "版本",
     "versionInfo.buildTime": "构建时间",
