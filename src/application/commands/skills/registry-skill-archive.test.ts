@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -22,7 +24,7 @@ describe("registry skill archive", () => {
         try {
             await expect(
                 requireExtractedRegistrySkillDirectory(archive, "chatgpt"),
-            ).resolves.toContain("/skills/chatgpt");
+            ).resolves.toContain(join("skills", "chatgpt"));
         }
         finally {
             await archive.cleanup();
