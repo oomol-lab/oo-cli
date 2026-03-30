@@ -296,7 +296,90 @@ describe("skills commands", () => {
         }
     });
 
-    test("does not uninstall a same-name skill that is not managed by OOMOL", async () => {
+    test("uninstalls a published Codex skill from the Codex skills directory", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+        const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+                recursive: true,
+            });
+            await Bun.write(metadataFilePath, formatManagedSkillMetadataContent("openai", "0.0.3"));
+            await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+
+            const result = await sandbox.run(["skills", "uninstall", "chatgpt"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Removed Codex skill chatgpt from ${skillDirectoryPath}.\n`,
+            );
+            expect(result.stderr).toBe("");
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(canonicalSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports skills remove as an alias for uninstall", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+        const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+                recursive: true,
+            });
+            await Bun.write(metadataFilePath, formatManagedSkillMetadataContent("openai", "0.0.3"));
+            await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+
+            const result = await sandbox.run(["skills", "remove", "chatgpt"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Removed Codex skill chatgpt from ${skillDirectoryPath}.\n`,
+            );
+            expect(result.stderr).toBe("");
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not uninstall a same-name skill without oo metadata", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -330,10 +413,36 @@ describe("skills commands", () => {
         }
     });
 
+    test("does not uninstall a published skill without oo metadata", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+
+            const result = await sandbox.run(["skills", "uninstall", "chatgpt"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                `Codex skill chatgpt is not installed at ${skillDirectoryPath}.\n`,
+            );
+            await expect(stat(skillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("uninstall removes canonical bundled skill storage even when it contains unmanaged content", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -355,6 +464,10 @@ describe("skills commands", () => {
             await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
                 recursive: true,
             });
+            await Bun.write(
+                metadataFilePath,
+                formatBundledSkillMetadataContent("9.9.9"),
+            );
             await Bun.write(ownershipFilePath, "# OOMOL\n");
             await Bun.write(
                 canonicalOwnershipFilePath,

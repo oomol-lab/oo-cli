@@ -198,14 +198,20 @@
   与当前 CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。不一
   致时会静默刷新已安装的文件。
 
-### `oo skills uninstall`
+### `oo skills uninstall [skill]`
 
-从本地 Codex skills 目录移除一个内置 skill。
+从本地 Codex skills 目录移除一个由 oo 管理的 skill。
 
-- 内置 skill：`oo`。
-- 会同时移除 canonical 目录：`<config-dir>/skills/oo`，其中
+- 别名：`oo skills remove [skill]`。
+- 参数：省略 `[skill]` 时，默认使用 `oo`。
+- 所有权规则：只有当
+  `${CODEX_HOME:-~/.codex}/skills/<skill>` 中存在 `.oo-metadata.json`
+  时，才允许移除该 skill。
+- 会同时移除 canonical 目录：`<config-dir>/skills/<skill>`，其中
   `<config-dir>` 是 `settings.toml` 所在目录。
-- 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
+- 会同时移除目标目录：`${CODEX_HOME:-~/.codex}/skills/<skill>`。
+- 说明：如果目标目录不存在，或者目录存在但没有 `.oo-metadata.json`，
+  命令会直接报错，不会删除任何内容。
 
 ## 日志
 

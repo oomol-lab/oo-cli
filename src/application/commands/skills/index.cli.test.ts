@@ -141,6 +141,30 @@ describe("skills CLI", () => {
         }
     });
 
+    test("supports skills remove as an alias for uninstall", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "remove"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Removed Codex skill oo from ${skillDirectoryPath}.\n`,
+            );
+            expect(result.stderr).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("synchronizes the managed Codex skill policy from persisted settings", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
