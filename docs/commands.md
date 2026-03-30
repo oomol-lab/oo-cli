@@ -161,37 +161,69 @@ Persist one skill configuration value.
   persists the setting and applies it on the next install or startup
   synchronization.
 
-### `oo skills install [skill]`
+### `oo skills install [packageName]`
 
-Install one bundled skill into the local Codex skills directory.
+Install bundled or published Codex skills into the local Codex skills
+directory.
 
-- Arguments: `[skill]` is optional. When omitted, the command behaves the same
-  as `oo skills install oo`.
-- Supported skill names: currently `oo`.
-- Canonical directory: the bundled files are materialized to
+- Arguments: `[packageName]` is optional.
+- Arguments: when omitted, the command behaves the same as
+  `oo skills install oo`.
+- Arguments: when `[packageName]` is `oo`, the command installs the
+  bundled `oo` skill.
+- Arguments: when `[packageName]` is a published package name, the command
+  installs skills from that package.
+- Options: `-s, --skill <skills...>` installs one or more named published
+  skills from the package.
+- Options: `-s, --skill '*'` installs all published skills from the package.
+- Options: `--all` is shorthand for installing all published skills from the
+  package without a skill-selection prompt.
+- Options: `-y, --yes` skips confirmation prompts. When a package publishes
+  multiple skills and no explicit `--skill` is provided, `-y` installs all of
+  them.
+- Notes: when a package publishes exactly one skill and no `--skill` is
+  provided, the command installs that skill automatically.
+- Notes: when a package publishes multiple skills and no `--skill`, `--all`, or
+  `-y` is provided, the command opens an interactive picker in a TTY.
+- Canonical directory: bundled `oo` is materialized to
   `<config-dir>/skills/oo`, where `<config-dir>` is the directory that
   contains `settings.toml`.
-- Target directory: `${CODEX_HOME:-~/.codex}/skills/oo`.
+- Canonical directory: published skills are materialized to
+  `<config-dir>/skills/<skill-id>`.
+- Target directory: every installed skill is published to
+  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
 - Installation mode: `oo` publishes the target directory as a symlink to the
   canonical directory when the current platform and environment allow it. When
   symlink creation fails, `oo` falls back to copying the canonical files into
   the Codex skills directory.
-- Metadata: the installation writes a hidden `.oo-metadata.json` file inside
-  the skill directory with a `version` field for the current `oo` version.
-- Metadata: `agents/openai.yaml` uses the persisted
+- Metadata: bundled `oo` writes a hidden `.oo-metadata.json` file whose
+  `version` field matches the current `oo` version.
+- Metadata: published skills write a hidden `.oo-metadata.json` file whose
+  `version` field matches the package version and whose `packageName` field
+  records the source package.
+- Metadata: `agents/openai.yaml` in bundled `oo` uses the persisted
   `skills.oo.implicit_invocation` value when configured, otherwise the
   bundled default is used.
+- Notes: all registry requests for published skills send the active account's
+  `Authorization` header.
+- Notes: when a package publishes multiple skills and the command runs outside
+  an interactive terminal, you must provide `--skill <name>` or `--all -y`.
+- Notes: when an explicitly requested published skill conflicts with an
+  existing same-name skill, the command asks for `yes` or `no` before
+  overwriting it in an interactive terminal.
+- Notes: in the interactive picker, conflicting skills are marked in the list;
+  selecting one means it will be overwritten.
 - Notes: the command exits with an error when the Codex home directory does
   not exist, which indicates Codex is not installed on the current machine.
 - Notes: an existing `oo/agents/openai.yaml` is considered managed by
   `oo` only when it contains the string `OOMOL`. Otherwise `oo` treats it as a
   different skill and will not overwrite it.
 - Notes: on the first `oo` run, when there is no existing config, auth, or log
-  data yet, `oo` silently installs the managed skill automatically if the
-  Codex home directory already exists.
-- Notes: when a bundled skill is already installed, every `oo` startup checks
-  whether the recorded metadata `version` matches the current CLI version and
-  silently refreshes the installed files when needed.
+  data yet, `oo` silently installs the bundled managed skill automatically if
+  the Codex home directory already exists.
+- Notes: when the bundled `oo` skill is already installed, every `oo` startup
+  checks whether the recorded metadata `version` matches the current CLI
+  version and silently refreshes the installed files when needed.
 
 ### `oo skills uninstall`
 

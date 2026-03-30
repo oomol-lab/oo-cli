@@ -145,32 +145,58 @@
 - 说明：当目标受管 skill 尚未安装时，命令仍会写入设置，并在下次安装或启
   动同步时生效。
 
-### `oo skills install [skill]`
+### `oo skills install [packageName]`
 
-将一个内置 skill 安装到本地 Codex skills 目录。
+将内置或已发布的 Codex skill 安装到本地 Codex skills 目录。
 
-- 参数：`[skill]` 可选。未提供时，该命令等价于 `oo skills install oo`。
-- 支持的 skill 名称：当前仅 `oo`。
-- canonical 目录：内置文件会先释放到 `<config-dir>/skills/oo`，
+- 参数：`[packageName]` 可选。
+- 参数：未提供时，该命令等价于 `oo skills install oo`。
+- 参数：当 `[packageName]` 为 `oo` 时，命令安装内置的 `oo` skill。
+- 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
+  安装 skill。
+- 选项：`-s, --skill <skills...>` 用于安装 package 中一个或多个指定的
+  skill。
+- 选项：`-s, --skill '*'` 用于安装该 package 中全部已发布 skill。
+- 选项：`--all` 是安装全部已发布 skill 的快捷方式，并跳过 skill 选择提示。
+- 选项：`-y, --yes` 用于跳过确认提示。当 package 下有多个 skill 且未显式
+  提供 `--skill` 时，`-y` 会安装全部 skill。
+- 说明：如果 package 只发布了一个 skill，且未提供 `--skill`，命令会自动
+  安装这个唯一的 skill。
+- 说明：如果 package 发布了多个 skill，且未提供 `--skill`、`--all` 或
+  `-y`，命令会在 TTY 中打开交互选择页面。
+- canonical 目录：内置 `oo` 的文件会先释放到 `<config-dir>/skills/oo`，
   其中 `<config-dir>` 是 `settings.toml` 所在目录。
-- 目标目录：`${CODEX_HOME:-~/.codex}/skills/oo`。
+- canonical 目录：已发布 skill 会先释放到 `<config-dir>/skills/<skill-id>`。
+- 目标目录：所有已安装 skill 都会发布到
+  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`。
 - 安装方式：`oo` 会优先将目标目录发布为指向 canonical 目录的软连接。
   如果当前平台或环境下创建软连接失败，则会回退为把 canonical 目录内容复制
   到 Codex skills 目录。
-- 元数据：安装时会在 skill 目录内写入一个隐藏的 `.oo-metadata.json`
-  文件，并在其中记录 `version` 字段。
+- 元数据：内置 `oo` 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
+  `version` 字段记录当前 `oo` 版本。
+- 元数据：已发布 skill 也会写入一个隐藏的 `.oo-metadata.json` 文件，
+  其中 `version` 字段记录 package 版本，`packageName` 字段记录来源
+  package。
 - 元数据：当存在持久化的 `skills.oo.implicit_invocation` 配置时，
-  `agents/openai.yaml` 会使用该值；否则使用内置默认值。
+  bundled `oo` 的 `agents/openai.yaml` 会使用该值；否则使用内置默认值。
+- 说明：安装已发布 skill 时，所有 registry 请求都会携带当前激活账号的
+  `Authorization` header。
+- 说明：如果 package 下有多个 skill，且当前不是交互终端，则必须提供
+  `--skill <name>` 或 `--all -y`。
+- 说明：如果显式安装的已发布 skill 与现有同名 skill 冲突，命令会在交互终
+  端中要求用户输入 `yes` 或 `no` 决定是否覆盖。
+- 说明：在交互选择页面中，存在重名冲突的 skill 会在列表中显示状态标记；
+  只要用户仍然选择该项，就会执行覆盖。
 - 说明：当 Codex 根目录不存在时，命令会直接报错退出，这表示当前机器上没有
   安装 Codex。
 - 说明：只有当 `oo/agents/openai.yaml` 中包含 `OOMOL` 字符串时，`oo`
-  才会认为这是自己管理的 skill；否则会视为其他 skill，并拒绝覆盖。
+  才会认为这是自己管理的内置 skill；否则会视为其他 skill，并拒绝覆盖。
 - 说明：如果这是 `oo` 的首次运行，且当前还没有已有的 config、auth、log
-  数据，那么只要 Codex 根目录已经存在，`oo` 就会静默自动安装这个受管
-  skill。
-- 说明：如果内置 skill 已经安装，`oo` 每次启动都会检查其记录版本是否与当前
-  CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。不一致时会
-  静默刷新已安装的文件。
+  数据，那么只要 Codex 根目录已经存在，`oo` 就会静默自动安装这个 bundled
+  受管 skill。
+- 说明：如果 bundled `oo` 已经安装，`oo` 每次启动都会检查其记录版本是否
+  与当前 CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。不一
+  致时会静默刷新已安装的文件。
 
 ### `oo skills uninstall`
 
