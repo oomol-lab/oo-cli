@@ -3,25 +3,19 @@ import type {
     Writer,
 } from "../../contracts/cli.ts";
 
+import type { TerminalColors } from "../../terminal-colors.ts";
 import process from "node:process";
-import { PassThrough, Writable } from "node:stream";
 
+import { PassThrough, Writable } from "node:stream";
 import { isCancel, MultiSelectPrompt } from "@clack/core";
-import color from "picocolors";
+import {
+    measureDisplayWidth,
+    truncateDisplayWidth,
+} from "../../display-width.ts";
+import { createWriterColors } from "../../terminal-colors.ts";
 
 const outputTextDecoder = new TextDecoder();
 const inputTextDecoder = new TextDecoder();
-
-const promptSymbols = {
-    active: color.cyan("◆"),
-    cancelled: color.red("■"),
-    inactive: color.dim("◻"),
-    line: color.cyan("│"),
-    mutedLine: color.gray("│"),
-    selected: color.green("◼"),
-    submitted: color.green("◇"),
-    tail: color.cyan("└"),
-} as const;
 
 export interface InteractivePromptContext {
     stdin: InteractiveInput;
@@ -79,11 +73,20 @@ export async function selectInteractiveSkills(
     },
 ): Promise<string[]> {
     const promptStreams = createPromptStreams(context);
-    const promptOptions = options.items.map(item => ({
-        hint: item.description,
-        label: formatSkillOptionLabel(item, promptStreams.output.columns),
-        value: item.name,
-    }));
+    const colors = createWriterColors(context.stdout);
+    const promptOptions = options.items.map((item) => {
+        const label = formatSkillOptionLabel(item, promptStreams.output.columns);
+
+        return {
+            hint: formatSkillOptionHint(
+                item.description,
+                label,
+                promptStreams.output.columns,
+            ),
+            label,
+            value: item.name,
+        };
+    });
 
     try {
         const selectedValues = await withPatchedPromptOutput(
@@ -94,7 +97,11 @@ export async function selectInteractiveSkills(
                 options: promptOptions,
                 output: promptStreams.output,
                 render() {
-                    return renderMultiSelectPrompt(this, options.prompt);
+                    return renderMultiSelectPrompt(
+                        this,
+                        options.prompt,
+                        colors,
+                    );
                 },
                 required: false,
             }).prompt() as string[] | symbol,
@@ -148,31 +155,33 @@ function createPromptStreams(
 function renderMultiSelectPrompt(
     prompt: Omit<MultiSelectPrompt<MultiSelectOption>, "prompt">,
     message: string,
+    colors: TerminalColors,
 ): string {
-    const header = `${color.gray("│")}\n${readPromptStateSymbol(prompt.state)}  ${message}\n`;
+    const header = `${message}\n`;
+    const itemIndent = "\u200B ";
 
     switch (prompt.state) {
         case "submit":
-            return `${header}${color.gray("│")}  ${prompt.options
+            return `${header}${itemIndent}${prompt.options
                 .filter(({ value }) => prompt.value.includes(value))
-                .map(option => formatRenderedOption(option, "submitted"))
-                .join(color.dim(", ")) || color.dim("none")}`;
+                .map(option => formatRenderedOption(option, "submitted", colors))
+                .join(colors.dim(", ")) || colors.dim("none")}`;
         case "cancel": {
             const selectedOptions = prompt.options
                 .filter(({ value }) => prompt.value.includes(value))
-                .map(option => formatRenderedOption(option, "cancelled"))
-                .join(color.dim(", "));
+                .map(option => formatRenderedOption(option, "cancelled", colors))
+                .join(colors.dim(", "));
 
-            return `${header}${color.gray("│")}  ${selectedOptions.trim() === "" ? "" : `${selectedOptions}\n${color.gray("│")}`}`;
+            return `${header}${selectedOptions.trim() === "" ? "" : `${itemIndent}${selectedOptions}\n`}`;
         }
         case "error": {
             const renderedError = prompt.error.split("\n").map((line, index) =>
                 index === 0
-                    ? `${color.yellow("└")}  ${color.yellow(line)}`
+                    ? `${itemIndent}${colors.yellow("└")}  ${colors.yellow(line)}`
                     : `   ${line}`,
             ).join("\n");
 
-            return `${header}${color.yellow("│")}  ${renderScrollableOptions(
+            return `${header}${itemIndent}${renderScrollableOptions(
                 prompt.cursor,
                 prompt.options,
                 option => formatRenderedOption(
@@ -180,26 +189,36 @@ function renderMultiSelectPrompt(
                     isOptionSelected(prompt, option)
                         ? "active-selected"
                         : "active",
-                ),
-            ).join(`\n${color.yellow("│")}  `)}\n${renderedError}\n`;
-        }
-        default:
-            return `${header}${promptSymbols.line}  ${renderScrollableOptions(
-                prompt.cursor,
-                prompt.options,
-                option => formatRenderedOption(
-                    option,
-                    isOptionSelected(prompt, option)
-                        ? "active-selected"
-                        : "active",
+                    colors,
                 ),
                 option => formatRenderedOption(
                     option,
                     isOptionSelected(prompt, option)
                         ? "selected"
                         : "inactive",
+                    colors,
                 ),
-            ).join(`\n${promptSymbols.line}  `)}\n${promptSymbols.tail}\n`;
+            ).join(`\n${itemIndent}`)}\n${renderedError}\n`;
+        }
+        default:
+            return `${header}${itemIndent}${renderScrollableOptions(
+                prompt.cursor,
+                prompt.options,
+                option => formatRenderedOption(
+                    option,
+                    isOptionSelected(prompt, option)
+                        ? "active-selected"
+                        : "active",
+                    colors,
+                ),
+                option => formatRenderedOption(
+                    option,
+                    isOptionSelected(prompt, option)
+                        ? "selected"
+                        : "inactive",
+                    colors,
+                ),
+            ).join(`\n${itemIndent}`)}\n`;
     }
 }
 
@@ -207,8 +226,7 @@ function renderScrollableOptions(
     cursor: number,
     options: readonly MultiSelectOption[],
     activeStyle: (option: MultiSelectOption) => string,
-    inactiveStyle: (option: MultiSelectOption) => string = option =>
-        formatRenderedOption(option, "inactive"),
+    inactiveStyle: (option: MultiSelectOption) => string,
 ): string[] {
     const maxItems = Number.POSITIVE_INFINITY;
     const visibleRows = Math.max((process.stdout.rows ?? 24) - 4, 0);
@@ -236,31 +254,21 @@ function renderScrollableOptions(
 function formatRenderedOption(
     option: MultiSelectOption,
     state: "active" | "active-selected" | "cancelled" | "inactive" | "selected" | "submitted",
+    colors: TerminalColors,
 ): string {
     switch (state) {
         case "active":
-            return `${color.cyan("◻")} ${option.label} ${option.hint === "" ? "" : color.dim(`(${option.hint})`)}`;
+            return `${colors.cyan("◻")} ${option.label} ${option.hint === "" ? "" : colors.dim(`(${option.hint})`)}`;
         case "active-selected":
-            return `${color.green("◼")} ${option.label} ${option.hint === "" ? "" : color.dim(`(${option.hint})`)}`;
+            return `${colors.green("◼")} ${option.label} ${option.hint === "" ? "" : colors.dim(`(${option.hint})`)}`;
         case "cancelled":
-            return color.strikethrough(color.dim(option.label));
+            return colors.strikethrough(colors.dim(option.label));
         case "inactive":
-            return `${color.dim("◻")} ${color.dim(option.label)}`;
+            return `${colors.dim("◻")} ${colors.dim(option.label)}`;
         case "selected":
-            return `${color.green("◼")} ${color.dim(option.label)} ${option.hint === "" ? "" : color.dim(`(${option.hint})`)}`;
+            return `${colors.green("◼")} ${colors.dim(option.label)} ${option.hint === "" ? "" : colors.dim(`(${option.hint})`)}`;
         case "submitted":
-            return color.dim(option.label);
-    }
-}
-
-function readPromptStateSymbol(state: string): string {
-    switch (state) {
-        case "cancel":
-            return promptSymbols.cancelled;
-        case "submit":
-            return promptSymbols.submitted;
-        default:
-            return promptSymbols.active;
+            return colors.dim(option.label);
     }
 }
 
@@ -295,6 +303,26 @@ function formatSkillOptionLabel(
     );
 
     return `${displayName}${" ".repeat(paddingWidth)}${item.statusLabel}`;
+}
+
+function formatSkillOptionHint(
+    hint: string,
+    label: string,
+    terminalColumns: number,
+): string {
+    if (hint === "") {
+        return "";
+    }
+
+    const safeColumns = terminalColumns > 0 ? terminalColumns : 80;
+    const reservedWidth = measureDisplayWidth(label) + 8;
+    const availableWidth = safeColumns - reservedWidth;
+
+    if (availableWidth <= 0) {
+        return "";
+    }
+
+    return truncateDisplayWidth(hint, availableWidth);
 }
 
 async function readPromptLine(stdin: InteractiveInput): Promise<string> {

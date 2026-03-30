@@ -63,10 +63,11 @@ export function createRegistryPackageTarballRequestUrl(
     packageName: string,
     packageVersion: string,
 ): URL {
-    const encodedPackageName = encodeURIComponent(packageName);
+    const packagePath = encodeURI(packageName);
+    const tarballPackageName = resolveRegistryPackageTarballPackageName(packageName);
 
     return new URL(
-        `https://registry.${endpoint}/${encodedPackageName}/-/meta/${encodedPackageName}-${encodeURIComponent(packageVersion)}.tgz`,
+        `https://registry.${endpoint}/${packagePath}/-/meta/${encodeURIComponent(tarballPackageName)}-${encodeURIComponent(packageVersion)}.tgz`,
     );
 }
 
@@ -180,4 +181,18 @@ function parseRegistryPackageSkillInfo(
     catch {
         throw new CliUserError("errors.skills.install.invalidPackageInfo", 1);
     }
+}
+
+function resolveRegistryPackageTarballPackageName(packageName: string): string {
+    if (!packageName.startsWith("@")) {
+        return packageName;
+    }
+
+    const scopeSeparatorIndex = packageName.indexOf("/");
+
+    if (scopeSeparatorIndex < 0 || scopeSeparatorIndex === packageName.length - 1) {
+        return packageName;
+    }
+
+    return packageName.slice(scopeSeparatorIndex + 1);
 }

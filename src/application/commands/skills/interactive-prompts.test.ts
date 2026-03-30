@@ -99,4 +99,97 @@ describe("interactive prompts", () => {
         expect(plainOutput).toContain("conflict");
         expect(plainOutput).toContain("First description");
     });
+
+    test("uses project terminal colors for the multiselect prompt", async () => {
+        const stdin = createInteractiveInput();
+        const stdout = createTextBuffer({
+            hasColors: true,
+            isTTY: true,
+        });
+        const selectionPromise = selectInteractiveSkills(
+            {
+                stdin,
+                stdout: stdout.writer,
+            },
+            {
+                items: [
+                    {
+                        description: "First description",
+                        name: "alpha",
+                        title: "Alpha",
+                    },
+                ],
+                prompt: "Select skills to install",
+            },
+        );
+
+        await waitForOutputText(stdout, "Select skills to install");
+        stdin.feed("\r");
+
+        await expect(selectionPromise).resolves.toEqual([]);
+
+        const renderedOutput = stdout.read();
+        const plainOutput = stripVTControlCharacters(renderedOutput).replaceAll("\u200B", "");
+
+        expect(renderedOutput).not.toContain("\u001B[36m◆\u001B[39m");
+        expect(renderedOutput).not.toContain("\u001B[90m│\u001B[39m");
+        expect(renderedOutput).not.toContain("\u001B[36m│\u001B[39m");
+        expect(plainOutput).toContain("\n ◻ alpha");
+    });
+
+    test("truncates long option descriptions to avoid wrapped prompt rows", async () => {
+        const columnsDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "columns");
+        const rowsDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "rows");
+
+        Object.defineProperty(process.stdout, "columns", {
+            configurable: true,
+            value: 90,
+        });
+        Object.defineProperty(process.stdout, "rows", {
+            configurable: true,
+            value: 12,
+        });
+
+        try {
+            const stdin = createInteractiveInput();
+            const stdout = createTextBuffer({
+                hasColors: true,
+                isTTY: true,
+            });
+            const selectionPromise = selectInteractiveSkills(
+                {
+                    stdin,
+                    stdout: stdout.writer,
+                },
+                {
+                    items: [
+                        {
+                            description: "Adapt UI for different contexts, screen sizes, and user needs with responsive behavior and layout changes",
+                            name: "adapt",
+                            title: "Adapt",
+                        },
+                    ],
+                    prompt: "Select skills to install",
+                },
+            );
+
+            await waitForOutputText(stdout, "Select skills to install");
+
+            const plainOutput = stripVTControlCharacters(stdout.read());
+
+            expect(plainOutput).toContain("...");
+            expect(plainOutput).not.toContain("behavior and layout changes");
+
+            stdin.feed("\r");
+            await expect(selectionPromise).resolves.toEqual([]);
+        }
+        finally {
+            if (columnsDescriptor) {
+                Object.defineProperty(process.stdout, "columns", columnsDescriptor);
+            }
+            if (rowsDescriptor) {
+                Object.defineProperty(process.stdout, "rows", rowsDescriptor);
+            }
+        }
+    });
 });

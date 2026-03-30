@@ -775,7 +775,7 @@ describe("cloudTaskCommand CLI", () => {
                 },
             )).toMatchSnapshot();
             expect(result.stdout).toContain(colors.green("✓"));
-            expect(result.stdout).toContain(colors.green.bold("success"));
+            expect(result.stdout).toContain(colors.green(colors.bold("success")));
             expect(result.stdout).toContain(colors.bold("task-1"));
         }
         finally {
@@ -853,7 +853,7 @@ describe("cloudTaskCommand CLI", () => {
                 },
             )).toMatchSnapshot();
             expect(result.stdout).toContain(colors.blue("▶"));
-            expect(result.stdout).toContain(colors.blue.bold("running"));
+            expect(result.stdout).toContain(colors.blue(colors.bold("running")));
             expect(result.stdout).toContain(colors.hex(searchDisplayNameColor)("foo"));
         }
         finally {
