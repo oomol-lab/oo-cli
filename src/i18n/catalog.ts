@@ -225,6 +225,8 @@ export const enMessages = {
         "Invalid skills.oo.implicit_invocation value: {value}. Use true or false.",
     "errors.skills.invalidName":
         "Unsupported skill: {value}. Use {choices}.",
+    "errors.skills.invalidPath":
+        "Skill name {name} resolves outside the local Codex skills directory.",
     "errors.skills.config.invalidKey":
         "Invalid config key for skill {skill}: {value}. Use {choices}.",
     "errors.skills.config.invalidAllowImplicitInvocationValue":
@@ -339,6 +341,8 @@ export const enMessages = {
         "Bundled skill storage for {name} is already occupied by non-OOMOL content at {path}.",
     "errors.skills.notInstalled":
         "Codex skill {name} is not installed at {path}.",
+    "errors.skills.notManaged":
+        "{name} is not managed by oo and cannot be removed.",
     "errors.store.invalidToml":
         "The settings file at {path} is not valid TOML.",
     "errors.store.invalidSchema":
@@ -696,6 +700,8 @@ export const zhMessages = {
         "无效的 skills.oo.implicit_invocation 值：{value}。请使用 true 或 false。",
     "errors.skills.invalidName":
         "不支持的 skill：{value}。请使用 {choices}。",
+    "errors.skills.invalidPath":
+        "skill 名称 {name} 解析到了本地 Codex skills 目录之外。",
     "errors.skills.config.invalidKey":
         "skill {skill} 的配置键无效：{value}。请使用 {choices}。",
     "errors.skills.config.invalidAllowImplicitInvocationValue":
@@ -810,6 +816,8 @@ export const zhMessages = {
         "{path} 中用于 {name} 的内置 skill 存储目录已被非 OOMOL 内容占用。",
     "errors.skills.notInstalled":
         "Codex skill {name} 未安装在 {path}。",
+    "errors.skills.notManaged":
+        "{name} 不是由 oo 管理的 skill，无法移除。",
     "errors.store.invalidToml": "配置文件 {path} 不是有效的 TOML。",
     "errors.store.invalidSchema": "配置文件 {path} 的结构不受支持。",
     "errors.store.readFailed": "读取配置文件 {path} 失败。",

@@ -43,6 +43,7 @@ import {
 } from "./embedded-assets.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
+    isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
@@ -372,9 +373,10 @@ export async function uninstallBundledSkill(
             },
             "Bundled Codex skill uninstall skipped because no managed installation was found.",
         );
-        throw new CliUserError("errors.skills.notInstalled", 1, {
-            name: skillName,
+        throw createManagedSkillUninstallError({
+            installedDirectoryExists: installedSkillDirectoryExists,
             path: skillDirectoryPath,
+            skillName,
         });
     }
 
@@ -472,12 +474,24 @@ async function uninstallRegistrySkill(
     context: CliExecutionContext,
 ): Promise<void> {
     const codexHomeDirectory = await requireCodexHomeDirectory(context);
+    const settingsFilePath = context.settingsStore.getFilePath();
+
+    if (!isManagedSkillPathContained(
+        codexHomeDirectory,
+        settingsFilePath,
+        skillName,
+    )) {
+        throw new CliUserError("errors.skills.invalidPath", 1, {
+            name: skillName,
+        });
+    }
+
     const skillDirectoryPath = resolveManagedSkillDirectoryPath(
         codexHomeDirectory,
         skillName,
     );
     const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
-        context.settingsStore.getFilePath(),
+        settingsFilePath,
         skillName,
     );
     const installedSkillDirectoryExists = await directoryExists(skillDirectoryPath);
@@ -498,9 +512,10 @@ async function uninstallRegistrySkill(
             },
             "Managed Codex skill uninstall skipped because no OOMOL metadata was found.",
         );
-        throw new CliUserError("errors.skills.notInstalled", 1, {
-            name: skillName,
+        throw createManagedSkillUninstallError({
+            installedDirectoryExists: installedSkillDirectoryExists,
             path: skillDirectoryPath,
+            skillName,
         });
     }
 
@@ -525,6 +540,23 @@ async function uninstallRegistrySkill(
             skillName,
         },
         "Managed Codex skill removed explicitly.",
+    );
+}
+
+function createManagedSkillUninstallError(options: {
+    installedDirectoryExists: boolean;
+    path: string;
+    skillName: string;
+}): CliUserError {
+    return new CliUserError(
+        options.installedDirectoryExists
+            ? "errors.skills.notManaged"
+            : "errors.skills.notInstalled",
+        1,
+        {
+            name: options.skillName,
+            path: options.path,
+        },
     );
 }
 
