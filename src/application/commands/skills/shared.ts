@@ -23,6 +23,7 @@ import {
 } from "./bundled-skill-model.ts";
 import {
     directoryExists,
+    fileExists,
     isBundledSkillInstallationCurrent,
     isManagedBundledSkillInstallation,
     readInstalledBundledSkillImplicitInvocation,
@@ -33,12 +34,19 @@ import {
 import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillDirectoryPath,
+    resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import {
     availableBundledSkillNames,
     getBundledSkillFiles,
 } from "./embedded-assets.ts";
+import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
+import {
+    resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillDirectoryPath,
+    resolveManagedSkillMetadataFilePath,
+} from "./managed-skill-paths.ts";
 
 export {
     createBundledSkillDirectorySymlink,
@@ -349,13 +357,13 @@ export async function uninstallBundledSkill(
         skillName,
     );
     const installedSkillDirectoryExists = await directoryExists(skillDirectoryPath);
-    const installedSkillDirectoryManaged = installedSkillDirectoryExists
-        ? await isManagedBundledSkillInstallation(skillDirectoryPath)
+    const installedSkillMetadataExists = installedSkillDirectoryExists
+        ? await fileExists(resolveBundledSkillMetadataFilePath(skillDirectoryPath))
         : false;
 
     if (!canUninstallManagedBundledSkillInstallation({
         installedDirectoryExists: installedSkillDirectoryExists,
-        installedDirectoryManaged: installedSkillDirectoryManaged,
+        installedDirectoryManaged: installedSkillMetadataExists,
     })) {
         context.logger.warn(
             {
@@ -391,6 +399,18 @@ export async function uninstallBundledSkill(
         },
         "Bundled Codex skill removed explicitly.",
     );
+}
+
+export async function uninstallManagedSkill(
+    skillName: string,
+    context: CliExecutionContext,
+): Promise<void> {
+    if (isBundledSkillName(skillName)) {
+        await uninstallBundledSkill(skillName, context);
+        return;
+    }
+
+    await uninstallRegistrySkill(skillName, context);
 }
 
 async function writeBundledSkillInstallation(options: {
@@ -445,4 +465,69 @@ async function writeBundledSkillInstallation(options: {
 
 function writeLine(context: CliExecutionContext, message: string): void {
     context.stdout.write(`${message}\n`);
+}
+
+async function uninstallRegistrySkill(
+    skillName: string,
+    context: CliExecutionContext,
+): Promise<void> {
+    const codexHomeDirectory = await requireCodexHomeDirectory(context);
+    const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+        codexHomeDirectory,
+        skillName,
+    );
+    const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+        context.settingsStore.getFilePath(),
+        skillName,
+    );
+    const installedSkillDirectoryExists = await directoryExists(skillDirectoryPath);
+    const installedSkillMetadataExists = installedSkillDirectoryExists
+        ? await fileExists(resolveManagedSkillMetadataFilePath(skillDirectoryPath))
+        : false;
+
+    if (
+        !canUninstallManagedBundledSkillInstallation({
+            installedDirectoryExists: installedSkillDirectoryExists,
+            installedDirectoryManaged: installedSkillMetadataExists,
+        })
+    ) {
+        context.logger.warn(
+            {
+                path: skillDirectoryPath,
+                skillName,
+            },
+            "Managed Codex skill uninstall skipped because no OOMOL metadata was found.",
+        );
+        throw new CliUserError("errors.skills.notInstalled", 1, {
+            name: skillName,
+            path: skillDirectoryPath,
+        });
+    }
+
+    const metadata = await readManagedSkillMetadata(skillDirectoryPath);
+
+    await removePath(skillDirectoryPath);
+    await removePath(canonicalSkillDirectoryPath);
+
+    writeLine(
+        context,
+        context.translator.t("skills.uninstall.success", {
+            name: skillName,
+            path: skillDirectoryPath,
+        }),
+    );
+    context.logger.info(
+        {
+            canonicalPath: canonicalSkillDirectoryPath,
+            packageName: metadata?.packageName,
+            path: skillDirectoryPath,
+            previousVersion: metadata?.version ?? "unknown",
+            skillName,
+        },
+        "Managed Codex skill removed explicitly.",
+    );
+}
+
+function isBundledSkillName(value: string): value is BundledSkillName {
+    return availableBundledSkillNames.includes(value as BundledSkillName);
 }

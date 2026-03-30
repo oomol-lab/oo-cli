@@ -125,8 +125,8 @@ export const enMessages = {
         "Install bundled or published Codex skills into the local Codex skills directory.",
     "commands.skills.install.summary": "Install Codex skills",
     "commands.skills.uninstall.description":
-        "Remove one bundled Codex skill from the local Codex skills directory.",
-    "commands.skills.uninstall.summary": "Remove a bundled Codex skill",
+        "Remove one oo-managed Codex skill from the local Codex skills directory.",
+    "commands.skills.uninstall.summary": "Remove an oo-managed Codex skill",
     "config.set.success": "Set {key} to {value}.",
     "config.unset.success": "Removed {key}.",
     "errors.commander.excessArguments": "Too many arguments were provided.",
@@ -592,8 +592,8 @@ export const zhMessages = {
     "commands.skills.install.description":
         "将内置或已发布的 Codex skill 安装到本地 Codex skills 目录。",
     "commands.skills.install.summary": "安装 Codex skills",
-    "commands.skills.uninstall.description": "从本地 Codex skills 目录移除一个内置 Codex skill。",
-    "commands.skills.uninstall.summary": "移除一个内置 Codex skill",
+    "commands.skills.uninstall.description": "从本地 Codex skills 目录移除一个由 oo 管理的 Codex skill。",
+    "commands.skills.uninstall.summary": "移除一个由 oo 管理的 Codex skill",
     "config.set.success": "已将 {key} 设置为 {value}。",
     "config.unset.success": "已移除 {key}。",
     "errors.commander.excessArguments": "提供了过多的参数。",

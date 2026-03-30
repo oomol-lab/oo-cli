@@ -225,14 +225,20 @@ directory.
   checks whether the recorded metadata `version` matches the current CLI
   version and silently refreshes the installed files when needed.
 
-### `oo skills uninstall`
+### `oo skills uninstall [skill]`
 
-Remove one bundled skill from the local Codex skills directory.
+Remove one oo-managed skill from the local Codex skills directory.
 
-- Managed skill: `oo`.
-- Canonical directory removed: `<config-dir>/skills/oo`, where
+- Alias: `oo skills remove [skill]`.
+- Arguments: `[skill]` defaults to `oo` when omitted.
+- Ownership rule: the target skill is removable only when
+  `${CODEX_HOME:-~/.codex}/skills/<skill>` contains `.oo-metadata.json`.
+- Canonical directory removed: `<config-dir>/skills/<skill>`, where
   `<config-dir>` is the directory that contains `settings.toml`.
-- Target directory: `${CODEX_HOME:-~/.codex}/skills/oo`.
+- Target directory removed: `${CODEX_HOME:-~/.codex}/skills/<skill>`.
+- Notes: when the target directory is missing, or it exists without
+  `.oo-metadata.json`, the command exits with an error and does not remove
+  anything.
 
 ## Logs
 
