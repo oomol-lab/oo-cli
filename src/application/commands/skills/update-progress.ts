@@ -1,6 +1,7 @@
 import type { CliExecutionContext, Writer } from "../../contracts/cli.ts";
 
 import { createWriterColors } from "../../terminal-colors.ts";
+import { TerminalProgressRenderer } from "./progress-renderer.ts";
 
 export type SkillUpdateProgressState
     = | "checking"
@@ -15,22 +16,19 @@ interface SkillUpdateProgressItem {
     state: SkillUpdateProgressState;
 }
 
-const spinnerFrames = ["|", "/", "-", "\\"] as const;
-
-export class SkillsUpdateProgressReporter {
-    private frameIndex = 0;
-    private intervalId: ReturnType<typeof setInterval> | undefined;
+export class SkillsUpdateProgressReporter extends TerminalProgressRenderer {
+    private readonly colors;
     private readonly itemOrder: string[];
     private readonly items = new Map<string, SkillUpdateProgressItem>();
-    private renderedLineCount = 0;
-    private renderedOutput = "";
-    private started = false;
+    private spinnerStarted = false;
 
     constructor(
-        private readonly writer: Pick<Writer, "hasColors" | "write">,
+        writer: Pick<Writer, "hasColors" | "write">,
         skillNames: readonly string[],
         private readonly translator: Pick<CliExecutionContext["translator"], "t">,
     ) {
+        super(writer);
+        this.colors = createWriterColors(writer);
         this.itemOrder = [...skillNames];
 
         for (const skillName of skillNames) {
@@ -42,31 +40,12 @@ export class SkillsUpdateProgressReporter {
     }
 
     start(): void {
-        if (this.started) {
+        if (this.spinnerStarted) {
             return;
         }
 
-        this.started = true;
-        this.render();
-        this.intervalId = setInterval(() => {
-            this.frameIndex = (this.frameIndex + 1) % spinnerFrames.length;
-            this.render();
-        }, 80);
-        this.intervalId.unref?.();
-    }
-
-    stop(): void {
-        if (this.intervalId !== undefined) {
-            clearInterval(this.intervalId);
-            this.intervalId = undefined;
-        }
-
-        if (!this.started) {
-            return;
-        }
-
-        this.render();
-        this.writer.write("\u001B[?25h");
+        this.spinnerStarted = true;
+        this.startSpinner();
     }
 
     updateSkill(
@@ -81,38 +60,9 @@ export class SkillsUpdateProgressReporter {
         this.render();
     }
 
-    private render(): void {
-        const nextOutput = this.renderLines().join("\n");
-
-        if (nextOutput === this.renderedOutput) {
-            return;
-        }
-
-        if (this.renderedLineCount === 0) {
-            this.writer.write("\u001B[?25l");
-            this.writer.write(`${nextOutput}\n`);
-            this.renderedLineCount = countRenderedLines(nextOutput);
-            this.renderedOutput = nextOutput;
-            return;
-        }
-
-        const renderedLines = nextOutput.split("\n");
-        const rewrittenContent = renderedLines.map(
-            line => `\r\u001B[2K${line}`,
-        ).join("\n");
-
-        this.writer.write(
-            `\u001B[${this.renderedLineCount}A${rewrittenContent}\n`,
-        );
-        this.renderedLineCount = renderedLines.length;
-        this.renderedOutput = nextOutput;
-    }
-
-    private renderLines(): string[] {
-        const colors = createWriterColors(this.writer);
-
+    protected renderLines(): string[] {
         return [
-            colors.bold(this.translator.t("skills.update.progress.header")),
+            this.colors.bold(this.translator.t("skills.update.progress.header")),
             ...this.itemOrder.map((skillName) => {
                 const item = this.items.get(skillName) ?? {
                     detail: undefined,
@@ -122,8 +72,8 @@ export class SkillsUpdateProgressReporter {
                 return formatProgressItemLine(
                     skillName,
                     item,
-                    spinnerFrames[this.frameIndex]!,
-                    colors,
+                    this.currentFrame,
+                    this.colors,
                     this.translator,
                 );
             }),
@@ -157,8 +107,4 @@ function readProgressStateLabel(
     translator: Pick<CliExecutionContext["translator"], "t">,
 ): string {
     return translator.t(`skills.update.progress.${state}`);
-}
-
-function countRenderedLines(output: string): number {
-    return output.split("\n").length;
 }

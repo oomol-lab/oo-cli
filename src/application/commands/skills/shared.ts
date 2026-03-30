@@ -406,13 +406,16 @@ export async function uninstallBundledSkill(
 export async function uninstallManagedSkill(
     skillName: string,
     context: CliExecutionContext,
+    options?: {
+        silent?: boolean;
+    },
 ): Promise<void> {
     if (isBundledSkillName(skillName)) {
         await uninstallBundledSkill(skillName, context);
         return;
     }
 
-    await uninstallRegistrySkill(skillName, context);
+    await uninstallRegistrySkill(skillName, context, options);
 }
 
 async function writeBundledSkillInstallation(options: {
@@ -487,6 +490,9 @@ function writeLine(context: CliExecutionContext, message: string): void {
 async function uninstallRegistrySkill(
     skillName: string,
     context: CliExecutionContext,
+    options?: {
+        silent?: boolean;
+    },
 ): Promise<void> {
     const codexHomeDirectory = await requireCodexHomeDirectory(context);
     const settingsFilePath = context.settingsStore.getFilePath();
@@ -539,13 +545,15 @@ async function uninstallRegistrySkill(
     await removePath(skillDirectoryPath);
     await removePath(canonicalSkillDirectoryPath);
 
-    writeLine(
-        context,
-        context.translator.t("skills.uninstall.success", {
-            name: skillName,
-            path: skillDirectoryPath,
-        }),
-    );
+    if (options?.silent !== true) {
+        writeLine(
+            context,
+            context.translator.t("skills.uninstall.success", {
+                name: skillName,
+                path: skillDirectoryPath,
+            }),
+        );
+    }
     context.logger.info(
         {
             canonicalPath: canonicalSkillDirectoryPath,

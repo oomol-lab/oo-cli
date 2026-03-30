@@ -4,6 +4,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
 
 import { directoryExists, requireCodexHomeDirectory } from "./bundled-skill-observation.ts";
+import { SkillsInstallProgressReporter } from "./install-progress.ts";
 import {
     confirmInteractiveValue,
     selectInteractiveSkills,
@@ -26,6 +27,7 @@ import {
     loadRegistryPackageSkillInfo,
     requireCurrentSkillsInstallAccount,
 } from "./registry-skill-source.ts";
+import { uninstallManagedSkill } from "./shared.ts";
 
 interface ManagedSkillPathState {
     exists: boolean;
@@ -37,6 +39,23 @@ export interface RegistrySkillInstallRequest {
     packageName: string;
     skillNames: string[];
     yes: boolean;
+}
+
+interface RegistrySkillSelectionResolution {
+    actions: RegistrySkillSelectionAction[];
+    isInteractive: boolean;
+}
+
+interface RegistrySkillSelectionAction {
+    skillName: string;
+    type: "install" | "uninstall";
+}
+
+interface RegistrySkillState {
+    description: string;
+    name: string;
+    status: RegistrySkillInstallStatus;
+    title: string;
 }
 
 type RegistrySkillInstallStatus = "conflict" | "installed" | "new";
@@ -59,20 +78,20 @@ export async function installRegistrySkills(
         });
     }
 
-    const selectedSkillNames = await resolveSelectedSkillNames(
+    const selectionActions = await resolveSelectionActions(
         request,
         packageInfo,
         codexHomeDirectory,
         context,
     );
 
-    if (selectedSkillNames.length === 0) {
+    if (selectionActions.actions.length === 0) {
         return;
     }
 
     const settingsFilePath = context.settingsStore.getFilePath();
 
-    for (const skillName of selectedSkillNames) {
+    for (const { skillName } of selectionActions.actions) {
         if (!isManagedSkillPathContained(
             codexHomeDirectory,
             settingsFilePath,
@@ -84,6 +103,73 @@ export async function installRegistrySkills(
         }
     }
 
+    const installActions = selectionActions.actions.filter(
+        action => action.type === "install",
+    );
+    const uninstallActions = selectionActions.actions.filter(
+        action => action.type === "uninstall",
+    );
+    const progressReporter = selectionActions.isInteractive
+        ? new SkillsInstallProgressReporter(context.stdout, context.translator)
+        : undefined;
+
+    try {
+        if (installActions.length > 0) {
+            const installSkillNames = installActions.map(action => action.skillName);
+            progressReporter?.startInstalling(installSkillNames);
+
+            try {
+                await executeInstallActions(
+                    installActions,
+                    packageInfo,
+                    account,
+                    codexHomeDirectory,
+                    settingsFilePath,
+                    selectionActions.isInteractive,
+                    context,
+                );
+            }
+            catch (error) {
+                progressReporter?.failInstalling();
+                throw error;
+            }
+
+            progressReporter?.completeInstalling(installSkillNames);
+        }
+
+        if (uninstallActions.length > 0) {
+            const uninstallSkillNames = uninstallActions.map(action => action.skillName);
+            progressReporter?.startRemoving(uninstallSkillNames);
+
+            try {
+                for (const { skillName } of uninstallActions) {
+                    await uninstallManagedSkill(skillName, context, {
+                        silent: selectionActions.isInteractive,
+                    });
+                }
+            }
+            catch (error) {
+                progressReporter?.failRemoving();
+                throw error;
+            }
+
+            progressReporter?.completeRemoving(uninstallSkillNames);
+        }
+    }
+    finally {
+        progressReporter?.stop();
+    }
+}
+
+async function executeInstallActions(
+    installActions: readonly RegistrySkillSelectionAction[],
+    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
+    account: Awaited<ReturnType<typeof requireCurrentSkillsInstallAccount>>,
+    codexHomeDirectory: string,
+    settingsFilePath: string,
+    isInteractive: boolean,
+    context: CliExecutionContext,
+): Promise<void> {
     const packageBytes = await downloadRegistryPackageTarball(
         packageInfo.packageName,
         packageInfo.packageVersion,
@@ -93,7 +179,7 @@ export async function installRegistrySkills(
     const extractedPackage = await extractRegistryPackageArchive(packageBytes);
 
     try {
-        for (const skillName of selectedSkillNames) {
+        for (const { skillName } of installActions) {
             const skill = findPackageSkillOrThrow(packageInfo, skillName);
             const installation = await publishPreparedRegistrySkillPublication(
                 await prepareRegistrySkillPublication({
@@ -107,13 +193,16 @@ export async function installRegistrySkills(
                 }),
             );
 
-            writeLine(
-                context,
-                context.translator.t("skills.install.success", {
-                    name: skillName,
-                    path: installation.path,
-                }),
-            );
+            if (!isInteractive) {
+                writeLine(
+                    context,
+                    context.translator.t("skills.install.success", {
+                        name: skillName,
+                        path: installation.path,
+                    }),
+                );
+            }
+
             context.logger.info(
                 {
                     ...withPackageIdentity(
@@ -133,7 +222,7 @@ export async function installRegistrySkills(
     }
 }
 
-async function resolveSelectedSkillNames(
+async function resolveSelectionActions(
     request: RegistrySkillInstallRequest,
     packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
     codexHomeDirectory: string,
@@ -141,7 +230,7 @@ async function resolveSelectedSkillNames(
         CliExecutionContext,
         "settingsStore" | "stdin" | "stdout" | "translator"
     >,
-): Promise<string[]> {
+): Promise<RegistrySkillSelectionResolution> {
     if (request.all) {
         writeLine(
             context,
@@ -150,7 +239,10 @@ async function resolveSelectedSkillNames(
             }),
         );
 
-        return packageInfo.skills.map(skill => skill.name);
+        return {
+            actions: createInstallActions(packageInfo.skills.map(skill => skill.name)),
+            isInteractive: false,
+        };
     }
 
     if (request.skillNames.includes("*")) {
@@ -161,7 +253,10 @@ async function resolveSelectedSkillNames(
             }),
         );
 
-        return packageInfo.skills.map(skill => skill.name);
+        return {
+            actions: createInstallActions(packageInfo.skills.map(skill => skill.name)),
+            isInteractive: false,
+        };
     }
 
     if (request.skillNames.length > 0) {
@@ -171,12 +266,17 @@ async function resolveSelectedSkillNames(
             return skillName;
         });
 
-        return await filterConfirmedSkillNames(
-            packageInfo.packageName,
-            selectedSkillNames,
-            codexHomeDirectory,
-            context,
-        );
+        return {
+            actions: createInstallActions(
+                await filterConfirmedSkillNames(
+                    packageInfo.packageName,
+                    selectedSkillNames,
+                    codexHomeDirectory,
+                    context,
+                ),
+            ),
+            isInteractive: false,
+        };
     }
 
     if (packageInfo.skills.length === 1) {
@@ -189,7 +289,10 @@ async function resolveSelectedSkillNames(
             }),
         );
 
-        return [firstSkill.name];
+        return {
+            actions: createInstallActions([firstSkill.name]),
+            isInteractive: false,
+        };
     }
 
     if (request.yes) {
@@ -200,7 +303,10 @@ async function resolveSelectedSkillNames(
             }),
         );
 
-        return packageInfo.skills.map(skill => skill.name);
+        return {
+            actions: createInstallActions(packageInfo.skills.map(skill => skill.name)),
+            isInteractive: false,
+        };
     }
 
     if (context.stdin.isTTY !== true || context.stdout.isTTY !== true) {
@@ -209,28 +315,48 @@ async function resolveSelectedSkillNames(
         });
     }
 
-    return await selectInteractiveSkills(
+    const skillStates = await readRegistrySkillStates(
+        packageInfo,
+        codexHomeDirectory,
+        context.settingsStore.getFilePath(),
+    );
+    const selectedSkillNames = await selectInteractiveSkills(
         context,
         {
-            items: await Promise.all(
-                packageInfo.skills.map(async skill => ({
-                    description: skill.description,
-                    name: skill.name,
-                    statusLabel: readRegistrySkillStatusLabel(
-                        await readRegistrySkillInstallStatus(
-                            packageInfo.packageName,
-                            skill.name,
-                            codexHomeDirectory,
-                            context.settingsStore.getFilePath(),
-                        ),
-                        context.translator,
-                    ),
-                    title: skill.title,
-                })),
-            ),
+            items: skillStates.map(skill => ({
+                description: skill.description,
+                name: skill.name,
+                selected: skill.status === "installed",
+                statusLabel: readRegistrySkillStatusLabel(
+                    skill.status,
+                    context.translator,
+                ),
+                title: skill.title,
+            })),
             prompt: context.translator.t("skills.install.selection.prompt"),
         },
     );
+
+    return {
+        actions: skillStates.flatMap((skill) => {
+            if (selectedSkillNames.includes(skill.name)) {
+                return {
+                    skillName: skill.name,
+                    type: "install",
+                } satisfies RegistrySkillSelectionAction;
+            }
+
+            if (skill.status === "installed") {
+                return {
+                    skillName: skill.name,
+                    type: "uninstall",
+                } satisfies RegistrySkillSelectionAction;
+            }
+
+            return [];
+        }),
+        isInteractive: true,
+    };
 }
 
 async function filterConfirmedSkillNames(
@@ -314,6 +440,26 @@ function findPackageSkillOrThrow(
     return skill;
 }
 
+async function readRegistrySkillStates(
+    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
+    codexHomeDirectory: string,
+    settingsFilePath: string,
+): Promise<RegistrySkillState[]> {
+    return await Promise.all(
+        packageInfo.skills.map(async skill => ({
+            description: skill.description,
+            name: skill.name,
+            status: await readRegistrySkillInstallStatus(
+                packageInfo.packageName,
+                skill.name,
+                codexHomeDirectory,
+                settingsFilePath,
+            ),
+            title: skill.title,
+        })),
+    );
+}
+
 async function readRegistrySkillInstallStatus(
     packageName: string,
     skillName: string,
@@ -390,10 +536,18 @@ function readRegistrySkillStatusLabel(
         case "conflict":
             return translator.t("skills.install.status.conflict");
         case "installed":
-            return translator.t("skills.install.status.installed");
         case "new":
             return undefined;
     }
+}
+
+function createInstallActions(
+    skillNames: readonly string[],
+): RegistrySkillSelectionAction[] {
+    return skillNames.map(skillName => ({
+        skillName,
+        type: "install",
+    }));
 }
 
 function writeLine(

@@ -176,6 +176,8 @@
   安装这个唯一的 skill。
 - 说明：如果 package 发布了多个 skill，且未提供 `--skill`、`--all` 或
   `-y`，命令会在 TTY 中打开交互选择页面。
+- 说明：在交互选择页面中，同一 package 下已安装的 skill 会默认保持勾选；
+  如果用户取消这些勾选，命令完成时会移除对应已安装 skill。
 - canonical 目录：内置 `oo` 的文件会先释放到 `<config-dir>/skills/oo`，
   其中 `<config-dir>` 是 `settings.toml` 所在目录。
 - canonical 目录：已发布 skill 会先释放到 `<config-dir>/skills/<skill-id>`。

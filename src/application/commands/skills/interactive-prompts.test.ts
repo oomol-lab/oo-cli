@@ -82,22 +82,69 @@ describe("interactive prompts", () => {
                         title: "Beta",
                     },
                 ],
-                prompt: "Select skills to install (space to toggle)",
+                prompt: "Select skills to install or keep installed (space to toggle)",
             },
         );
 
-        await waitForOutputText(stdout, "Select skills to install");
+        await waitForOutputText(stdout, "Select skills to install or keep installed");
         stdin.feed(" ");
         stdin.feed("\r");
 
         await expect(selectionPromise).resolves.toEqual(["alpha"]);
         const plainOutput = stripVTControlCharacters(stdout.read());
 
-        expect(plainOutput).toContain("Select skills to install");
+        expect(plainOutput).toContain("◇ Select skills to install or keep installed");
+        expect(plainOutput).toContain("◆ Select skills to install or keep installed");
+        expect(plainOutput).toContain("Select skills to install or keep installed");
         expect(plainOutput).toContain("alpha");
         expect(plainOutput).toContain("beta");
         expect(plainOutput).toContain("conflict");
         expect(plainOutput).toContain("First description");
+    });
+
+    test("preselects installed skills without rendering a right-side status label", async () => {
+        const stdin = createInteractiveInput();
+        const stdout = createTextBuffer({
+            isTTY: true,
+        });
+        const selectionPromise = selectInteractiveSkills(
+            {
+                stdin,
+                stdout: stdout.writer,
+            },
+            {
+                items: [
+                    {
+                        description: "Already installed",
+                        name: "alpha",
+                        selected: true,
+                        title: "Alpha",
+                    },
+                    {
+                        description: "Needs confirmation",
+                        name: "beta",
+                        statusLabel: "conflict",
+                        title: "Beta",
+                    },
+                ],
+                prompt: "Select skills to install or keep installed (space to toggle)",
+            },
+        );
+
+        await waitForOutputText(stdout, "Select skills to install or keep installed");
+        stdin.feed("\r");
+
+        await expect(selectionPromise).resolves.toEqual(["alpha"]);
+        const plainOutput = stripVTControlCharacters(stdout.read()).replaceAll(
+            "\u200B",
+            "",
+        );
+
+        expect(plainOutput).toContain("◆ Select skills to install or keep installed");
+        expect(plainOutput).toContain("\n ◼ alpha");
+        expect(plainOutput).not.toContain("alpha  installed");
+        expect(plainOutput).toContain("beta");
+        expect(plainOutput).toContain("conflict");
     });
 
     test("uses project terminal colors for the multiselect prompt", async () => {
@@ -119,11 +166,11 @@ describe("interactive prompts", () => {
                         title: "Alpha",
                     },
                 ],
-                prompt: "Select skills to install",
+                prompt: "Select skills to install or keep installed",
             },
         );
 
-        await waitForOutputText(stdout, "Select skills to install");
+        await waitForOutputText(stdout, "Select skills to install or keep installed");
         stdin.feed("\r");
 
         await expect(selectionPromise).resolves.toEqual([]);
@@ -169,11 +216,14 @@ describe("interactive prompts", () => {
                             title: "Adapt",
                         },
                     ],
-                    prompt: "Select skills to install",
+                    prompt: "Select skills to install or keep installed",
                 },
             );
 
-            await waitForOutputText(stdout, "Select skills to install");
+            await waitForOutputText(
+                stdout,
+                "Select skills to install or keep installed",
+            );
 
             const plainOutput = stripVTControlCharacters(stdout.read());
 

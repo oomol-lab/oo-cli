@@ -198,6 +198,9 @@ directory.
   provided, the command installs that skill automatically.
 - Notes: when a package publishes multiple skills and no `--skill`, `--all`, or
   `-y` is provided, the command opens an interactive picker in a TTY.
+- Notes: in the interactive picker, skills already installed from the same
+  package start selected. Clearing such a selection removes that installed
+  skill when the command completes.
 - Canonical directory: bundled `oo` is materialized to
   `<config-dir>/skills/oo`, where `<config-dir>` is the directory that
   contains `settings.toml`.
