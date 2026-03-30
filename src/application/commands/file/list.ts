@@ -1,9 +1,9 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
-import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import {
+    createFormatInputError,
     parseFileFormat,
     parseFileLimit,
     parseFileStatus,
@@ -41,7 +41,7 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
         limit: z.string().optional(),
         status: z.string().optional(),
     }),
-    mapInputError: (_, rawInput) => createFileListInputError(rawInput),
+    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: (input, context) => {
         const format = parseFileFormat(input.format);
         const limit = parseFileLimit(input.limit);
@@ -61,15 +61,13 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
         }
 
         if (records.length === 0) {
-            context.stdout.write(
-                `${
-                    status === undefined
-                        ? context.translator.t("file.list.noResults")
-                        : context.translator.t("file.list.noResultsForStatus", {
-                                status: context.translator.t(`file.status.${status}`),
-                            })
-                }\n`,
-            );
+            const message = status === undefined
+                ? context.translator.t("file.list.noResults")
+                : context.translator.t("file.list.noResultsForStatus", {
+                        status: context.translator.t(`file.status.${status}`),
+                    });
+
+            context.stdout.write(`${message}\n`);
             return;
         }
 
@@ -78,9 +76,3 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
         );
     },
 };
-
-function createFileListInputError(rawInput: Record<string, unknown>): CliUserError {
-    return new CliUserError("errors.file.invalidFormat", 2, {
-        value: String(rawInput.format ?? ""),
-    });
-}

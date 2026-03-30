@@ -34,21 +34,12 @@ export function parseFileDownloadExtensionOption(
     }
 
     const trimmedValue = value.trim();
-
-    if (trimmedValue === "" || trimmedValue === "." || trimmedValue === "..") {
-        throw new CliUserError("errors.fileDownload.invalidExt", 2, {
-            value,
-        });
-    }
-
     const normalizedValue = trimmedValue.startsWith(".")
         ? trimmedValue.slice(1)
         : trimmedValue;
 
     if (
         normalizedValue === ""
-        || normalizedValue === "."
-        || normalizedValue === ".."
         || normalizedValue.startsWith(".")
         || hasPathSeparator(normalizedValue)
     ) {

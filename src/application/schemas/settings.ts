@@ -93,32 +93,24 @@ export function renderSettingsFile(settings: AppSettings): string {
         ...(index === 0 ? [] : [""]),
         ...block,
     ]);
-    const persistedSettings = {
-        ...(parsedSettings.lang !== undefined
-            ? {
-                    lang: parsedSettings.lang,
-                }
-            : {}),
-        ...(parsedSettings.file?.download?.out_dir !== undefined
-            ? {
-                    file: {
-                        download: {
-                            out_dir: parsedSettings.file.download.out_dir,
-                        },
-                    },
-                }
-            : {}),
-        ...(parsedSettings.skills?.oo?.implicit_invocation !== undefined
-            ? {
-                    skills: {
-                        oo: {
-                            implicit_invocation:
-                                parsedSettings.skills.oo.implicit_invocation,
-                        },
-                    },
-                }
-            : {}),
-    };
+    const persistedSettings: Record<string, unknown> = {};
+
+    if (parsedSettings.lang !== undefined) {
+        persistedSettings.lang = parsedSettings.lang;
+    }
+
+    if (parsedSettings.file?.download?.out_dir !== undefined) {
+        persistedSettings.file = {
+            download: { out_dir: parsedSettings.file.download.out_dir },
+        };
+    }
+
+    if (parsedSettings.skills?.oo?.implicit_invocation !== undefined) {
+        persistedSettings.skills = {
+            oo: { implicit_invocation: parsedSettings.skills.oo.implicit_invocation },
+        };
+    }
+
     const serializedSettings = stringifyToml(persistedSettings).trimEnd();
 
     if (serializedSettings !== "") {

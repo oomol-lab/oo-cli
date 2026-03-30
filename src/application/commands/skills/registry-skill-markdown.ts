@@ -221,7 +221,7 @@ function insertOoPackageExecutionGuidance(body: string): string {
     const firstLine = lines[0] ?? "";
 
     if (isTopLevelHeading(firstLine)) {
-        const remainingBody = trimExtraWhitespace(lines.slice(1).join("\n"));
+        const remainingBody = lines.slice(1).join("\n").trim();
 
         if (remainingBody === "") {
             return `${firstLine}\n\n${guidance}\n`;
@@ -247,11 +247,6 @@ function renderSkillMarkdown(frontmatterLines: string[], body: string): string {
 function isTopLevelHeading(line: string): boolean {
     return line.startsWith("# ");
 }
-
-function trimExtraWhitespace(content: string): string {
-    return content.trim();
-}
-
 export function renderOoPackageExecutionGuidance(): string {
     return [
         "Important:",

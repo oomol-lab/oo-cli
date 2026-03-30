@@ -85,34 +85,34 @@ export function createCloudTaskWaitHandler(
         const startedAt = dependencies.now();
         let lastPrintedElapsedMs: number | undefined;
 
-        while (true) {
-            const elapsedBeforeRequestMs = dependencies.now() - startedAt;
+        const throwTimedOut = (): never => {
+            throw new CliUserError("errors.cloudTaskWait.timedOut", 1, {
+                taskId: input.taskId,
+                timeout: formatCloudTaskDuration(timeoutMs),
+            });
+        };
 
-            if (elapsedBeforeRequestMs >= timeoutMs) {
-                throw new CliUserError("errors.cloudTaskWait.timedOut", 1, {
-                    taskId: input.taskId,
-                    timeout: formatCloudTaskDuration(timeoutMs),
-                });
+        while (true) {
+            if (dependencies.now() - startedAt >= timeoutMs) {
+                throwTimedOut();
             }
 
             const response = parseCloudTaskResultResponse(
                 await requestCloudTask(requestUrl, account.apiKey, context),
             );
 
-            if (response.status === "success") {
+            if (response.status === "success" || response.status === "failed") {
                 context.stdout.write(
                     `${formatCloudTaskResultAsText(input.taskId, response, context)}\n`,
                 );
-                return;
-            }
 
-            if (response.status === "failed") {
-                context.stdout.write(
-                    `${formatCloudTaskResultAsText(input.taskId, response, context)}\n`,
-                );
-                throw new CliUserError("errors.cloudTaskWait.failed", 1, {
-                    taskId: input.taskId,
-                });
+                if (response.status === "failed") {
+                    throw new CliUserError("errors.cloudTaskWait.failed", 1, {
+                        taskId: input.taskId,
+                    });
+                }
+
+                return;
             }
 
             const elapsedMs = dependencies.now() - startedAt;
@@ -127,10 +127,7 @@ export function createCloudTaskWaitHandler(
             const remainingMs = timeoutMs - elapsedMs;
 
             if (remainingMs <= 0) {
-                throw new CliUserError("errors.cloudTaskWait.timedOut", 1, {
-                    taskId: input.taskId,
-                    timeout: formatCloudTaskDuration(timeoutMs),
-                });
+                throwTimedOut();
             }
 
             await dependencies.sleep(Math.min(pollIntervalMs, remainingMs));

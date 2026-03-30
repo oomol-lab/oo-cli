@@ -38,9 +38,7 @@ function readBuildVersion(fallbackVersion: string): string {
         return fallbackVersion;
     }
 
-    const normalizedVersion = BUILD_VERSION.trim();
-
-    return normalizedVersion === "" ? fallbackVersion : normalizedVersion;
+    return BUILD_VERSION.trim() || fallbackVersion;
 }
 
 function readBuildTimestamp(): number | undefined {
@@ -53,7 +51,7 @@ function readBuildTimestamp(): number | undefined {
         rawTimestamp = Number(BUILD_TIMESTAMP);
     }
 
-    if (typeof rawTimestamp !== "number" || !Number.isFinite(rawTimestamp)) {
+    if (rawTimestamp === undefined || !Number.isFinite(rawTimestamp)) {
         return undefined;
     }
 
@@ -65,9 +63,7 @@ function readCommitHash(): string | undefined {
         return undefined;
     }
 
-    const normalizedCommitHash = GIT_COMMIT.trim();
-
-    return normalizedCommitHash === "" ? undefined : normalizedCommitHash;
+    return GIT_COMMIT.trim() || undefined;
 }
 
 function formatBuildTime(
@@ -91,9 +87,5 @@ function formatCommitHash(
     commitHash: string | undefined,
     unknownValue: string,
 ): string {
-    if (commitHash === undefined) {
-        return unknownValue;
-    }
-
-    return commitHash.slice(0, 8);
+    return commitHash?.slice(0, 8) ?? unknownValue;
 }

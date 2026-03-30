@@ -1,7 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
-import { writeLine } from "./shared.ts";
+import { writeLine } from "../shared/output.ts";
 
 export const configPathCommand: CliCommandDefinition = {
     name: "path",

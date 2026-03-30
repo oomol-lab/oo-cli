@@ -20,7 +20,6 @@ import {
     resolveBundledSkillImplicitInvocation,
     resolveBundledSkillInstallConflict,
     resolveBundledSkillManagedSynchronizationAction,
-    resolveBundledSkillMissingInstallationAction,
 } from "./bundled-skill-model.ts";
 import {
     directoryExists,
@@ -198,11 +197,7 @@ export async function maybeSynchronizeInstalledBundledSkills(
             );
 
             if (!installedSkillDirectoryExists) {
-                if (
-                    resolveBundledSkillMissingInstallationAction(
-                        options.installMissing === true,
-                    ) === "skip-missing"
-                ) {
+                if (options.installMissing !== true) {
                     context.logger.debug(
                         {
                             path: skillDirectoryPath,
@@ -270,61 +265,64 @@ export async function maybeSynchronizeInstalledBundledSkills(
                     isCurrentInstallation,
                 });
 
-            if (managedSynchronizationAction === "sync-installation") {
-                const previousVersion
-                    = await readInstalledBundledSkillVersion(skillDirectoryPath);
-                const installation = await writeBundledSkillInstallation({
-                    codexHomeDirectory,
-                    settings,
-                    settingsFilePath,
-                    skillName,
-                    version: context.version,
-                });
-
-                context.logger.info(
-                    {
-                        canonicalPath: canonicalSkillDirectoryPath,
-                        installMode: installation.mode,
-                        path: installation.path,
-                        previousVersion: previousVersion ?? "unknown",
+            switch (managedSynchronizationAction) {
+                case "skip-current": {
+                    context.logger.debug(
+                        {
+                            path: skillDirectoryPath,
+                            skillName,
+                            version: context.version,
+                        },
+                        "Bundled Codex skill synchronization skipped because the managed skill is already current.",
+                    );
+                    continue;
+                }
+                case "sync-installation": {
+                    const previousVersion
+                        = await readInstalledBundledSkillVersion(skillDirectoryPath);
+                    const installation = await writeBundledSkillInstallation({
+                        codexHomeDirectory,
+                        settings,
+                        settingsFilePath,
                         skillName,
                         version: context.version,
-                    },
-                    "Bundled Codex skill synchronized.",
-                );
-                continue;
-            }
+                    });
 
-            if (managedSynchronizationAction === "skip-current") {
-                context.logger.debug(
-                    {
-                        path: skillDirectoryPath,
+                    context.logger.info(
+                        {
+                            canonicalPath: canonicalSkillDirectoryPath,
+                            installMode: installation.mode,
+                            path: installation.path,
+                            previousVersion: previousVersion ?? "unknown",
+                            skillName,
+                            version: context.version,
+                        },
+                        "Bundled Codex skill synchronized.",
+                    );
+                    continue;
+                }
+                case "sync-policy": {
+                    const installation = await writeBundledSkillInstallation({
+                        codexHomeDirectory,
+                        settings,
+                        settingsFilePath,
                         skillName,
                         version: context.version,
-                    },
-                    "Bundled Codex skill synchronization skipped because the managed skill is already current.",
-                );
-                continue;
+                    });
+                    context.logger.info(
+                        {
+                            canonicalPath: canonicalSkillDirectoryPath,
+                            implicitInvocation: desiredImplicitInvocation,
+                            installMode: installation.mode,
+                            path: installation.path,
+                            skillName,
+                            version: context.version,
+                        },
+                        "Bundled Codex skill policy synchronized.",
+                    );
+                    continue;
+                }
             }
-
-            const installation = await writeBundledSkillInstallation({
-                codexHomeDirectory,
-                settings,
-                settingsFilePath,
-                skillName,
-                version: context.version,
-            });
-            context.logger.info(
-                {
-                    canonicalPath: canonicalSkillDirectoryPath,
-                    implicitInvocation: desiredImplicitInvocation,
-                    installMode: installation.mode,
-                    path: installation.path,
-                    skillName,
-                    version: context.version,
-                },
-                "Bundled Codex skill policy synchronized.",
-            );
         }
         catch (error) {
             context.logger.warn(

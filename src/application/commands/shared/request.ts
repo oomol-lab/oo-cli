@@ -120,12 +120,17 @@ function createBaseLogFields(
     method: string,
     options: Pick<ExecuteCliRequestOptions, "includeMethod" | "includeRequestTarget">,
 ): LogFields {
-    return {
-        ...(options.includeMethod === true ? { method } : {}),
-        ...(options.includeRequestTarget === false
-            ? {}
-            : withRequestTarget(requestUrl.host, requestUrl.pathname)),
-    };
+    const fields: LogFields = {};
+
+    if (options.includeMethod === true) {
+        fields.method = method;
+    }
+
+    if (options.includeRequestTarget !== false) {
+        Object.assign(fields, withRequestTarget(requestUrl.host, requestUrl.pathname));
+    }
+
+    return fields;
 }
 
 function resolveLogFields<TValue>(

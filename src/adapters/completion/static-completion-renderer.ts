@@ -99,17 +99,11 @@ function flattenOptionFlags(
         shortFlag?: string;
     }[],
 ): string[] {
-    const flags: string[] = [];
-
-    for (const option of options) {
-        if (option.shortFlag) {
-            flags.push(option.shortFlag);
-        }
-
-        flags.push(option.longFlag);
-    }
-
-    return flags;
+    return options.flatMap(option =>
+        option.shortFlag
+            ? [option.shortFlag, option.longFlag]
+            : [option.longFlag],
+    );
 }
 
 function renderBashCompletion(
@@ -149,7 +143,7 @@ _${commandName}_completion() {
         fi
 
         case "$path_key|$token" in
-${buildTransitionCases(nodes, "bash")}
+${buildTransitionCases(nodes)}
         esac
 
         break
@@ -231,7 +225,7 @@ _${commandName}() {
         fi
 
         case "$path_key|$token" in
-${buildTransitionCases(nodes, "zsh")}
+${buildTransitionCases(nodes)}
         esac
 
         break
@@ -360,7 +354,6 @@ function renderFishCompletion(
 
 function buildTransitionCases(
     nodes: readonly CompletionNode[],
-    shell: "bash" | "zsh",
 ): string {
     const lines: string[] = [];
 
@@ -375,10 +368,6 @@ function buildTransitionCases(
                 "                ;;",
             );
         }
-    }
-
-    if (shell === "zsh") {
-        return lines.join("\n");
     }
 
     return lines.join("\n");

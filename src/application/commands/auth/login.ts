@@ -101,11 +101,5 @@ function createAuthLoginUrl(
 function readAuthEndpoint(
     env: CliExecutionContext["env"],
 ): string {
-    const configuredEndpoint = env.OOMOL_ENDPOINT?.trim();
-
-    if (!configuredEndpoint) {
-        return defaultAuthEndpoint;
-    }
-
-    return configuredEndpoint;
+    return env.OOMOL_ENDPOINT?.trim() || defaultAuthEndpoint;
 }

@@ -10,6 +10,7 @@ import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     isPackageInfoInputHandleOptional,
+    isPackageInfoSchemaObject,
     loadPackageInfo,
     parsePackageSpecifier,
 } from "./shared.ts";
@@ -227,12 +228,7 @@ function readPackageInfoRequirementLabel(
 function formatPackageInfoSchemaSummary(schema: unknown): string {
     const typeNames = readPackageInfoSchemaTypeNames(schema);
     const contentMediaTypeLabel = readPackageInfoContentMediaTypeLabel(schema);
-
-    let summary = "unknown";
-
-    if (typeNames.length > 0) {
-        summary = typeNames.join(" | ");
-    }
+    const summary = typeNames.length > 0 ? typeNames.join(" | ") : "unknown";
 
     if (contentMediaTypeLabel === "") {
         return summary;
@@ -284,13 +280,7 @@ function readPackageInfoDirectTypeNames(schema: Record<string, unknown>): string
         return [];
     }
 
-    return schema.type.flatMap((typeName) => {
-        if (typeof typeName !== "string") {
-            return [];
-        }
-
-        return [typeName];
-    });
+    return schema.type.filter((typeName): typeName is string => typeof typeName === "string");
 }
 
 function readPackageInfoVariantTypeNames(value: unknown): string[] {
@@ -331,18 +321,8 @@ function dedupePackageInfoTypeNames(typeNames: string[]): string[] {
     return Array.from(new Set(typeNames));
 }
 
-function isPackageInfoSchemaObject(value: unknown): value is Record<string, unknown> {
-    return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 function trimTrailingWhitespace(value: string): string {
-    let endIndex = value.length;
-
-    while (endIndex > 0 && value[endIndex - 1] === " ") {
-        endIndex -= 1;
-    }
-
-    return value.slice(0, endIndex);
+    return value.trimEnd();
 }
 
 function readPackageInfoLabel(

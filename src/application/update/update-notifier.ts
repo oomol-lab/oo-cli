@@ -69,7 +69,13 @@ export async function checkForCliUpdate(
             },
             "CLI update check started.",
         );
-        const latestVersion = await resolveLatestReleaseVersion(context);
+        const latestVersion = await fetchLatestReleaseVersion({
+            currentVersion: context.version,
+            env: context.env,
+            fetcher: context.fetcher,
+            logger: context.logger,
+            packageName: context.packageName,
+        });
 
         if (latestVersion === null) {
             context.logger.debug(
@@ -210,18 +216,6 @@ export function resolvePackageManagerUpgradeCommand(
     }
 }
 
-async function resolveLatestReleaseVersion(
-    context: CliExecutionContext,
-): Promise<string | null> {
-    return await fetchLatestReleaseVersion({
-        currentVersion: context.version,
-        env: context.env,
-        fetcher: context.fetcher,
-        logger: context.logger,
-        packageName: context.packageName,
-    });
-}
-
 async function fetchLatestReleaseVersion(options: {
     currentVersion: string;
     env: Record<string, string | undefined>;
@@ -337,37 +331,10 @@ async function fetchLatestReleaseVersionAttempt(options: {
         };
     }
 
-    let payload: unknown;
+    const latestVersion = await extractLatestVersionFromPayload(response);
 
-    try {
-        payload = await response.json();
-    }
-    catch {
-        return {
-            status: "terminal-failure",
-        };
-    }
-
-    if (!payload || typeof payload !== "object") {
-        return {
-            status: "terminal-failure",
-        };
-    }
-
-    const distTags = "dist-tags" in payload ? payload["dist-tags"] : undefined;
-
-    if (!distTags || typeof distTags !== "object") {
-        return {
-            status: "terminal-failure",
-        };
-    }
-
-    const latestVersion = "latest" in distTags ? distTags.latest : undefined;
-
-    if (typeof latestVersion !== "string" || latestVersion === "") {
-        return {
-            status: "terminal-failure",
-        };
+    if (latestVersion === null) {
+        return { status: "terminal-failure" };
     }
 
     options.logger.debug(
@@ -387,6 +354,37 @@ async function fetchLatestReleaseVersionAttempt(options: {
         latestVersion,
         status: "success",
     };
+}
+
+async function extractLatestVersionFromPayload(
+    response: Response,
+): Promise<string | null> {
+    let payload: unknown;
+
+    try {
+        payload = await response.json();
+    }
+    catch {
+        return null;
+    }
+
+    if (!payload || typeof payload !== "object") {
+        return null;
+    }
+
+    const distTags = "dist-tags" in payload ? payload["dist-tags"] : undefined;
+
+    if (!distTags || typeof distTags !== "object") {
+        return null;
+    }
+
+    const latestVersion = "latest" in distTags ? distTags.latest : undefined;
+
+    if (typeof latestVersion !== "string" || latestVersion === "") {
+        return null;
+    }
+
+    return latestVersion;
 }
 
 async function fetchWithTimeout(

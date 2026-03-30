@@ -42,12 +42,7 @@ async function readSortedLogFileNames(directoryPath: string): Promise<string[]> 
     }).catch(() => []);
 
     return entries
-        .flatMap((entry) => {
-            if (!entry.isFile() || !entry.name.endsWith(".log")) {
-                return [];
-            }
-
-            return [entry.name];
-        })
+        .filter(entry => entry.isFile() && entry.name.endsWith(".log"))
+        .map(entry => entry.name)
         .sort((left, right) => left.localeCompare(right));
 }

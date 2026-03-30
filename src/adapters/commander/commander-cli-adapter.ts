@@ -251,19 +251,13 @@ function formatOptionFlags(option: {
     shortFlag?: string;
     valueName?: string;
 }): string {
-    const flags = [];
-
-    if (option.shortFlag) {
-        flags.push(option.shortFlag);
-    }
-
     const longFlag = option.valueName
         ? `${option.longFlag} <${option.valueName}>`
         : option.longFlag;
 
-    flags.push(longFlag);
-
-    return flags.join(", ");
+    return option.shortFlag
+        ? `${option.shortFlag}, ${longFlag}`
+        : longFlag;
 }
 
 function createOption(

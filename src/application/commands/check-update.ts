@@ -17,7 +17,7 @@ export const checkUpdateCommand: CliCommandDefinition = {
         const result = await checkForCliUpdate(context);
 
         switch (result.status) {
-            case "failed": {
+            case "failed":
                 switch (result.reason) {
                     case "invalid-current-version":
                         context.stdout.write(
@@ -34,9 +34,7 @@ export const checkUpdateCommand: CliCommandDefinition = {
                     case "unexpected-error":
                         throw new CliUserError("errors.checkUpdate.failed", 1);
                 }
-
                 return;
-            }
             case "up-to-date":
                 context.stdout.write(
                     `${context.translator.t("checkUpdate.upToDate", {

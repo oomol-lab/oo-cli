@@ -15,10 +15,6 @@ export async function requireCurrentAccount(
         return currentAccount;
     }
 
-    throw new CliUserError(
-        authFile.id === ""
-            ? authRequiredKey
-            : accountMissingKey,
-        1,
-    );
+    const errorKey = authFile.id === "" ? authRequiredKey : accountMissingKey;
+    throw new CliUserError(errorKey, 1);
 }

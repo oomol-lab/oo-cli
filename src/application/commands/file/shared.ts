@@ -91,23 +91,23 @@ export function parseFileFormat(
     });
 }
 
+export function createFormatInputError(
+    rawInput: Record<string, unknown>,
+): CliUserError {
+    return new CliUserError("errors.file.invalidFormat", 2, {
+        value: String(rawInput.format ?? ""),
+    });
+}
+
 export function parseFileLimit(value: string | undefined): number | undefined {
     if (value === undefined) {
         return undefined;
     }
 
     const trimmedValue = value.trim();
-
-    if (trimmedValue === "") {
-        throw new CliUserError("errors.fileList.invalidLimit", 2, {
-            option: "--limit",
-            value,
-        });
-    }
-
     const parsedValue = Number(trimmedValue);
 
-    if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    if (trimmedValue === "" || !Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
         throw new CliUserError("errors.fileList.invalidLimit", 2, {
             option: "--limit",
             value,

@@ -67,11 +67,6 @@ interface InitializedCliStores {
     settingsStore: SettingsStore;
 }
 
-interface CleanupResource {
-    close: () => void;
-    failureMessage: string;
-}
-
 interface CreateCliExecutionContextOptions {
     authStore: AuthStore;
     buildInfo: ReturnType<typeof resolveCliBuildInfo>;
@@ -152,7 +147,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             return exitCode;
         }
 
-        const initializedStores = await initializeCliStores(
+        const initializedStores = initializeCliStores(
             invocation,
             logger,
             storePaths,
@@ -266,20 +261,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     }
     finally {
         exitCode = closeCleanupResources(
-            [
-                createCleanupResource(
-                    cacheStore,
-                    "Failed to close the cache store cleanly.",
-                ),
-                createCleanupResource(
-                    fileUploadStore,
-                    "Failed to close the file upload store cleanly.",
-                ),
-                createCleanupResource(
-                    fileDownloadSessionStore,
-                    "Failed to close the file download session store cleanly.",
-                ),
-            ],
+            [cacheStore, fileUploadStore, fileDownloadSessionStore],
             exitCode,
             logger,
             invocation.stderr,
@@ -302,45 +284,34 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     return exitCode;
 }
 
-async function initializeCliStores(
+function initializeCliStores(
     invocation: CliInvocation,
     logger: Logger,
     storePaths: ReturnType<typeof resolveStorePaths>,
-): Promise<InitializedCliStores> {
-    const cacheStore
-        = invocation.cacheStore
-            ?? new SqliteCacheStore(storePaths.cacheFilePath, logger);
-    const fileUploadStore
-        = invocation.fileUploadStore
-            ?? new SqliteFileUploadStore(
-                storePaths.uploadsFilePath,
-                logger,
-            );
-    const fileDownloadSessionStore
-        = invocation.fileDownloadSessionStore
-            ?? new SqliteFileDownloadSessionStore(
-                storePaths.downloadSessionsFilePath,
-                logger,
-            );
-    const settingsStore
-        = invocation.settingsStore
-            ?? new FileSettingsStore({
-                filePath: storePaths.settingsFilePath,
-                logger,
-            });
-    const authStore
-        = invocation.authStore
+): InitializedCliStores {
+    return {
+        authStore: invocation.authStore
             ?? new FileAuthStore({
                 filePath: storePaths.authFilePath,
                 logger,
-            });
-
-    return {
-        authStore,
-        cacheStore,
-        fileDownloadSessionStore,
-        fileUploadStore,
-        settingsStore,
+            }),
+        cacheStore: invocation.cacheStore
+            ?? new SqliteCacheStore(storePaths.cacheFilePath, logger),
+        fileDownloadSessionStore: invocation.fileDownloadSessionStore
+            ?? new SqliteFileDownloadSessionStore(
+                storePaths.downloadSessionsFilePath,
+                logger,
+            ),
+        fileUploadStore: invocation.fileUploadStore
+            ?? new SqliteFileUploadStore(
+                storePaths.uploadsFilePath,
+                logger,
+            ),
+        settingsStore: invocation.settingsStore
+            ?? new FileSettingsStore({
+                filePath: storePaths.settingsFilePath,
+                logger,
+            }),
     };
 }
 
@@ -494,38 +465,12 @@ function writeBootstrapError(
     return 1;
 }
 
-function closeCleanupResource(options: {
+interface ClosableResource {
     close: () => void;
-    exitCode: number;
-    failureMessage: string;
-    logger: Logger;
-    stderr: Writer;
-    translator: ReturnType<typeof createTranslator>;
-}): number {
-    try {
-        options.close();
-        return options.exitCode;
-    }
-    catch (error) {
-        options.logger.error(
-            {
-                ...withCategory(logCategory.systemError),
-                err: error,
-            },
-            options.failureMessage,
-        );
-        options.stderr.write(
-            `${options.translator.t("errors.unexpected", {
-                message: error instanceof Error ? error.message : String(error),
-            })}\n`,
-        );
-
-        return 1;
-    }
 }
 
 function closeCleanupResources(
-    resources: Array<CleanupResource | undefined>,
+    resources: Array<ClosableResource | undefined>,
     exitCode: number,
     logger: Logger,
     stderr: Writer,
@@ -538,31 +483,27 @@ function closeCleanupResources(
             continue;
         }
 
-        nextExitCode = closeCleanupResource({
-            close: resource.close,
-            exitCode: nextExitCode,
-            failureMessage: resource.failureMessage,
-            logger,
-            stderr,
-            translator,
-        });
+        try {
+            resource.close();
+        }
+        catch (error) {
+            logger.error(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                },
+                "Failed to close a resource cleanly.",
+            );
+            stderr.write(
+                `${translator.t("errors.unexpected", {
+                    message: error instanceof Error ? error.message : String(error),
+                })}\n`,
+            );
+            nextExitCode = 1;
+        }
     }
 
     return nextExitCode;
-}
-
-function createCleanupResource(
-    resource: CacheStore | FileDownloadSessionStore | FileUploadRecordStore | undefined,
-    failureMessage: string,
-): CleanupResource | undefined {
-    if (!resource) {
-        return undefined;
-    }
-
-    return {
-        close: () => resource.close(),
-        failureMessage,
-    };
 }
 
 function createDetachedStdin(): InteractiveInput {

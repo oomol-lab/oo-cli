@@ -287,6 +287,7 @@ function resolveSettingsFilePath(options: FileSettingsStoreOptions): string {
 
 function readConfiguredSettingsKeys(settings: AppSettings): string[] {
     return Object.entries(settings)
-        .flatMap(([key, value]) => (value !== undefined ? [key] : []))
+        .filter(([, value]) => value !== undefined)
+        .map(([key]) => key)
         .sort();
 }

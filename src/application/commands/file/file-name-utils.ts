@@ -189,7 +189,7 @@ export function splitFileNameParts(fileName: string): ResolvedDownloadFileName {
 function parseContentDispositionFileName(
     contentDisposition: string | null | undefined,
 ): ResolvedDownloadFileName | undefined {
-    if (contentDisposition === null || contentDisposition === undefined) {
+    if (contentDisposition == null) {
         return undefined;
     }
 
@@ -341,12 +341,15 @@ function decodeExtendedDispositionValue(
 
     const charset = parsedValue.slice(0, firstQuoteIndex).trim().toLowerCase();
     const encodedValue = parsedValue.slice(secondQuoteIndex + 1);
-    const decoderLabel
-        = charset === "" || charset === "utf-8" || charset === "us-ascii"
-            ? "utf-8"
-            : charset === "iso-8859-1"
-                ? "latin1"
-                : undefined;
+
+    let decoderLabel: "latin1" | "utf-8" | undefined;
+
+    if (charset === "" || charset === "utf-8" || charset === "us-ascii") {
+        decoderLabel = "utf-8";
+    }
+    else if (charset === "iso-8859-1") {
+        decoderLabel = "latin1";
+    }
 
     if (decoderLabel === undefined || encodedValue === "") {
         return undefined;
@@ -405,11 +408,11 @@ function parseFileNameFromUrl(urlValue: string): ResolvedDownloadFileName | unde
 
     const segment = url.pathname.split("/").at(-1);
 
-    if (segment === undefined || segment === "") {
+    if (!segment) {
         return undefined;
     }
 
-    let decodedSegment = segment;
+    let decodedSegment: string;
 
     try {
         decodedSegment = decodeURIComponent(segment);
@@ -460,7 +463,7 @@ function takeLastPathSegment(value: string): string {
 }
 
 function parseContentTypeExtension(value: string | null | undefined): string | undefined {
-    if (value === null || value === undefined) {
+    if (value == null) {
         return undefined;
     }
 

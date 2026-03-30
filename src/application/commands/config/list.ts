@@ -1,13 +1,12 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import type { ConfigListInput } from "./shared.ts";
 import { z } from "zod";
 import {
     configKeyChoices,
     getConfigValue,
 } from "./shared.ts";
 
-export const configListCommand: CliCommandDefinition<ConfigListInput> = {
+export const configListCommand: CliCommandDefinition = {
     name: "list",
     summaryKey: "commands.config.list.summary",
     descriptionKey: "commands.config.list.description",

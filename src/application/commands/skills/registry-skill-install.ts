@@ -233,21 +233,7 @@ async function resolveSelectionActions(
         "settingsStore" | "stdin" | "stdout" | "translator"
     >,
 ): Promise<RegistrySkillSelectionResolution> {
-    if (request.all) {
-        writeLine(
-            context.stdout,
-            context.translator.t("skills.install.allSelected", {
-                count: packageInfo.skills.length,
-            }),
-        );
-
-        return {
-            actions: createInstallActions(packageInfo.skills.map(skill => skill.name)),
-            isInteractive: false,
-        };
-    }
-
-    if (request.skillNames.includes("*")) {
+    if (request.all || request.skillNames.includes("*")) {
         writeLine(
             context.stdout,
             context.translator.t("skills.install.allSelected", {
@@ -490,8 +476,8 @@ async function readRegistrySkillInstallStatus(
     }
 
     if (
-        isSameManagedRegistryPackage(canonicalState.metadataPackageName, packageName)
-        || isSameManagedRegistryPackage(installedState.metadataPackageName, packageName)
+        canonicalState.metadataPackageName === packageName
+        || installedState.metadataPackageName === packageName
     ) {
         return "installed";
     }
@@ -520,17 +506,8 @@ function hasManagedSkillPathConflict(
     state: ManagedSkillPathState,
     packageName: string,
 ): boolean {
-    return state.exists
-        && !isSameManagedRegistryPackage(state.metadataPackageName, packageName);
+    return state.exists && state.metadataPackageName !== packageName;
 }
-
-function isSameManagedRegistryPackage(
-    metadataPackageName: string | undefined,
-    packageName: string,
-): boolean {
-    return metadataPackageName === packageName;
-}
-
 function readRegistrySkillStatusLabel(
     status: RegistrySkillInstallStatus,
     translator: Pick<CliExecutionContext["translator"], "t">,

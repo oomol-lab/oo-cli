@@ -30,7 +30,6 @@ export class RollingFileDestination implements DestinationStream {
     private readonly sessionId: string;
     private readonly filePath: string;
     private currentFileDescriptor?: number;
-    private initialized = false;
     private writable = true;
 
     constructor(options: RollingFileDestinationOptions) {
@@ -58,7 +57,6 @@ export class RollingFileDestination implements DestinationStream {
         }
 
         try {
-            this.ensureInitialized();
             this.ensureFileOpened();
 
             const currentFileDescriptor = this.currentFileDescriptor;
@@ -96,14 +94,6 @@ export class RollingFileDestination implements DestinationStream {
         return this.filePath;
     }
 
-    private ensureInitialized(): void {
-        if (this.initialized) {
-            return;
-        }
-
-        this.initialized = true;
-    }
-
     private ensureFileOpened(): void {
         if (this.currentFileDescriptor !== undefined) {
             return;
@@ -134,17 +124,13 @@ export class RollingFileDestination implements DestinationStream {
         try {
             const entries = readdirSync(this.directoryPath, { withFileTypes: true });
 
-            return entries.flatMap((entry) => {
-                if (
-                    !entry.isFile()
-                    || !entry.name.startsWith(`${this.filePrefix}-`)
-                    || !entry.name.endsWith(".log")
-                ) {
-                    return [];
-                }
-
-                return [join(this.directoryPath, entry.name)];
-            }).sort((left, right) => left.localeCompare(right));
+            return entries
+                .filter(entry =>
+                    entry.isFile()
+                    && entry.name.startsWith(`${this.filePrefix}-`)
+                    && entry.name.endsWith(".log"))
+                .map(entry => join(this.directoryPath, entry.name))
+                .sort((left, right) => left.localeCompare(right));
         }
         catch {
             return [];
@@ -199,13 +185,8 @@ function resolveLogFileName(options: {
 function listExistingLogFileNames(directoryPath: string): string[] {
     try {
         return readdirSync(directoryPath, { withFileTypes: true })
-            .flatMap((entry) => {
-                if (!entry.isFile()) {
-                    return [];
-                }
-
-                return [entry.name];
-            });
+            .filter(entry => entry.isFile())
+            .map(entry => entry.name);
     }
     catch {
         return [];

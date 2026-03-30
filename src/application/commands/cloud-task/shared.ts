@@ -93,8 +93,8 @@ export function parseCloudTaskFormat(
         return undefined;
     }
 
-    if (value === "json") {
-        return value;
+    if (cloudTaskFormatValues.includes(value as CloudTaskFormat)) {
+        return value as CloudTaskFormat;
     }
 
     throw new CliUserError("errors.cloudTask.invalidFormat", 2, {
@@ -196,20 +196,16 @@ export function parseDurationOption(
     }
 
     const amountValue = Number(trimmedValue.slice(0, unitIndex));
-    const unitValue = trimmedValue
-        .slice(unitIndex)
-        .toLowerCase() as "" | "s" | "m" | "h";
+    const unitSuffix = trimmedValue.slice(unitIndex).toLowerCase();
+    const durationUnit = unitSuffix === ""
+        ? (options.defaultUnit ?? "s")
+        : unitSuffix;
 
-    if (!Number.isSafeInteger(amountValue) || amountValue <= 0) {
-        throw new CliUserError(errorKey, 2, {
-            option: options.optionName,
-            value,
-        });
-    }
-
-    const durationUnit = readDurationUnit(unitValue, options.defaultUnit);
-
-    if (durationUnit === undefined) {
+    if (
+        !Number.isSafeInteger(amountValue)
+        || amountValue <= 0
+        || (durationUnit !== "s" && durationUnit !== "m" && durationUnit !== "h")
+    ) {
         throw new CliUserError(errorKey, 2, {
             option: options.optionName,
             value,
@@ -345,21 +341,6 @@ function parseCloudTaskResponse<T>(
     catch {
         throw new CliUserError("errors.cloudTask.invalidResponse", 1);
     }
-}
-
-function readDurationUnit(
-    value: string,
-    defaultUnit: "s" | "m" | "h" = "s",
-): "s" | "m" | "h" | undefined {
-    if (value === "") {
-        return defaultUnit;
-    }
-
-    if (value === "s" || value === "m" || value === "h") {
-        return value;
-    }
-
-    return undefined;
 }
 
 function readDurationUnitMs(unit: "s" | "m" | "h"): number {

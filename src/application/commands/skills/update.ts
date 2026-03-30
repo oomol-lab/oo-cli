@@ -312,12 +312,13 @@ async function resolveSelectedManagedSkills(
         const installedDirectoryExists = await directoryExists(
             installedSkillDirectoryPath,
         );
-
-        throw new CliUserError(
-            installedDirectoryExists
+        const hasDirectoryWithoutMetadata = installedDirectoryExists
             && !(await fileExists(
                 resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
-            ))
+            ));
+
+        throw new CliUserError(
+            hasDirectoryWithoutMetadata
                 ? "errors.skills.notManaged"
                 : "errors.skills.notInstalled",
             1,
@@ -456,17 +457,22 @@ function normalizeSkillUpdateError(error: unknown): Error {
     return new Error(String(error));
 }
 
+function writeNonTtyLine(
+    context: CliExecutionContext,
+    message: string,
+): void {
+    if (context.stdout.isTTY !== true) {
+        writeLine(context.stdout, message);
+    }
+}
+
 function writeUpdateSuccessLine(
     context: CliExecutionContext,
     skillName: string,
     installationPath: string,
 ): void {
-    if (context.stdout.isTTY === true) {
-        return;
-    }
-
-    writeLine(
-        context.stdout,
+    writeNonTtyLine(
+        context,
         context.translator.t("skills.update.success", {
             name: skillName,
             path: installationPath,
@@ -479,12 +485,8 @@ function writeUpdateCurrentLine(
     skillName: string,
     version: string,
 ): void {
-    if (context.stdout.isTTY === true) {
-        return;
-    }
-
-    writeLine(
-        context.stdout,
+    writeNonTtyLine(
+        context,
         context.translator.t("skills.update.current", {
             name: skillName,
             version,
@@ -497,12 +499,8 @@ function writeUpdateFailureLine(
     skillName: string,
     error: Error,
 ): void {
-    if (context.stdout.isTTY === true) {
-        return;
-    }
-
-    writeLine(
-        context.stdout,
+    writeNonTtyLine(
+        context,
         context.translator.t("skills.update.failure", {
             message: localizeSkillUpdateError(error, context),
             name: skillName,

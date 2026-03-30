@@ -95,7 +95,7 @@ export async function listManagedSkillInstallations(
     );
 
     return skills
-        .filter(isManagedSkillListItem)
+        .filter(skill => skill !== undefined)
         .sort(compareManagedSkillListItems);
 }
 
@@ -194,13 +194,6 @@ function readManagedSkillSource(
 
     return context.translator.t("versionInfo.unknown");
 }
-
-function isManagedSkillListItem(
-    skill: ManagedSkillListItem | undefined,
-): skill is ManagedSkillListItem {
-    return skill !== undefined;
-}
-
 function compareManagedSkillListItems(
     left: ManagedSkillListItem,
     right: ManagedSkillListItem,

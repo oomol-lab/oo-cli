@@ -187,60 +187,25 @@ export async function loadPackageInfo(
         packageSpecifier.packageVersion,
         requestLanguage,
     );
+    const logFields = {
+        ...withAccountIdentity(account.id, account.endpoint),
+        ...withPackageIdentity(
+            packageSpecifier.packageName,
+            packageSpecifier.packageVersion,
+        ),
+        requestLanguage,
+    };
 
     if (packageSpecifier.shouldReadCache) {
-        const cachedResponse = packageInfoCache.get(requestedCacheKey);
+        const cached = tryReadPackageInfoCache(
+            packageInfoCache,
+            requestedCacheKey,
+            logFields,
+            context,
+        );
 
-        if (cachedResponse !== null) {
-            context.logger.debug(
-                {
-                    ...withAccountIdentity(account.id, account.endpoint),
-                    ...withPackageIdentity(
-                        packageSpecifier.packageName,
-                        packageSpecifier.packageVersion,
-                    ),
-                    requestLanguage,
-                },
-                "Package info cache hit.",
-            );
-
-            try {
-                return parseCachedPackageInfoResponse(cachedResponse);
-            }
-            catch (error) {
-                if (
-                    !(error instanceof CliUserError)
-                    || error.key !== "errors.packageInfo.invalidResponse"
-                ) {
-                    throw error;
-                }
-
-                packageInfoCache.delete(requestedCacheKey);
-                context.logger.warn(
-                    {
-                        ...withAccountIdentity(account.id, account.endpoint),
-                        ...withPackageIdentity(
-                            packageSpecifier.packageName,
-                            packageSpecifier.packageVersion,
-                        ),
-                        requestLanguage,
-                    },
-                    "Package info cache entry was invalidated after a parse failure.",
-                );
-            }
-        }
-        else {
-            context.logger.debug(
-                {
-                    ...withAccountIdentity(account.id, account.endpoint),
-                    ...withPackageIdentity(
-                        packageSpecifier.packageName,
-                        packageSpecifier.packageVersion,
-                    ),
-                    requestLanguage,
-                },
-                "Package info cache miss.",
-            );
+        if (cached !== undefined) {
+            return cached;
         }
     }
     else {
@@ -287,6 +252,42 @@ export async function loadPackageInfo(
     }
 
     return response;
+}
+
+function tryReadPackageInfoCache(
+    cache: { delete: (key: string) => void; get: (key: string) => string | null },
+    cacheKey: string,
+    logFields: Record<string, unknown>,
+    context: Pick<CliExecutionContext, "logger">,
+): PackageInfoResponse | undefined {
+    const cachedResponse = cache.get(cacheKey);
+
+    if (cachedResponse === null) {
+        context.logger.debug(logFields, "Package info cache miss.");
+        return undefined;
+    }
+
+    context.logger.debug(logFields, "Package info cache hit.");
+
+    try {
+        return parseCachedPackageInfoResponse(cachedResponse);
+    }
+    catch (error) {
+        if (
+            !(error instanceof CliUserError)
+            || error.key !== "errors.packageInfo.invalidResponse"
+        ) {
+            throw error;
+        }
+
+        cache.delete(cacheKey);
+        context.logger.warn(
+            logFields,
+            "Package info cache entry was invalidated after a parse failure.",
+        );
+
+        return undefined;
+    }
 }
 
 function resolveVersionSeparatorIndex(
@@ -575,6 +576,6 @@ function hasPackageInfoSchemaDefault(schema: unknown): boolean {
     return isPackageInfoSchemaObject(schema) && Object.hasOwn(schema, "default");
 }
 
-function isPackageInfoSchemaObject(value: unknown): value is Record<string, unknown> {
+export function isPackageInfoSchemaObject(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === "object" && !Array.isArray(value);
 }

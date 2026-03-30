@@ -8,6 +8,15 @@ import {
     writeAuthBlock,
 } from "./shared.ts";
 
+const apiKeyStatusTranslationKeys: Record<
+    "invalid" | "request_failed" | "valid",
+    string
+> = {
+    invalid: "auth.status.apiKeyInvalid",
+    request_failed: "auth.status.apiKeyRequestFailed",
+    valid: "auth.status.apiKeyValid",
+};
+
 export const authStatusCommand: CliCommandDefinition = {
     name: "status",
     summaryKey: "commands.auth.status.summary",
@@ -17,21 +26,23 @@ export const authStatusCommand: CliCommandDefinition = {
         const { authFile, currentAccount } = await readCurrentAuth(context);
 
         if (!currentAccount) {
+            const hasStaleId = authFile.id !== "";
+
             writeAuthBlock(context, {
-                tone: authFile.id === "" ? "warning" : "danger",
+                tone: hasStaleId ? "danger" : "warning",
                 summary: context.translator.t(
-                    authFile.id === ""
-                        ? "auth.status.loggedOut"
-                        : "auth.status.missing",
+                    hasStaleId
+                        ? "auth.status.missing"
+                        : "auth.status.loggedOut",
                 ),
-                details: authFile.id === ""
-                    ? []
-                    : [
+                details: hasStaleId
+                    ? [
                             {
                                 label: context.translator.t("auth.status.accountId"),
                                 value: authFile.id,
                             },
-                        ],
+                        ]
+                    : [],
             });
             return;
         }
@@ -50,7 +61,7 @@ export const authStatusCommand: CliCommandDefinition = {
                 },
                 {
                     label: context.translator.t("auth.status.apiKeyStatus"),
-                    value: context.translator.t(readApiKeyStatusKey(apiKeyStatus)),
+                    value: context.translator.t(apiKeyStatusTranslationKeys[apiKeyStatus]),
                 },
             ],
         });
@@ -118,16 +129,4 @@ function readAuthStatusTone(
         case "valid":
             return "success";
     }
-}
-
-const apiKeyStatusKeys: Record<string, string> = {
-    invalid: "auth.status.apiKeyInvalid",
-    request_failed: "auth.status.apiKeyRequestFailed",
-    valid: "auth.status.apiKeyValid",
-};
-
-function readApiKeyStatusKey(
-    apiKeyStatus: "invalid" | "request_failed" | "valid",
-): string {
-    return apiKeyStatusKeys[apiKeyStatus] ?? "auth.status.apiKeyInvalid";
 }

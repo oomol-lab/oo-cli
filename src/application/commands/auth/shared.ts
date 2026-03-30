@@ -7,13 +7,13 @@ import { createWriterColors } from "../../terminal-colors.ts";
 
 export const emptyAuthCommandInputSchema = z.object({});
 
-export interface AuthBlockDetail {
+interface AuthBlockDetail {
     label: string;
     value: string;
     emphasize?: boolean;
 }
 
-export type AuthBlockTone = "danger" | "success" | "warning";
+type AuthBlockTone = "danger" | "success" | "warning";
 
 export async function readCurrentAuth(
     context: CliExecutionContext,
@@ -45,7 +45,7 @@ export function formatAuthStrong(
     context: CliExecutionContext,
     value: string,
 ): string {
-    return createAuthColors(context).bold(value);
+    return createWriterColors(context.stdout).bold(value);
 }
 
 export function writeAuthBlock(
@@ -56,7 +56,7 @@ export function writeAuthBlock(
         details?: readonly AuthBlockDetail[];
     },
 ): void {
-    const colors = createAuthColors(context);
+    const colors = createWriterColors(context.stdout);
     const details = options.details ?? [];
     const icon = readAuthIcon(options.tone, colors);
 
@@ -69,10 +69,6 @@ export function writeAuthBlock(
 
         context.stdout.write(`  ${colors.dim("-")} ${detail.label}: ${value}\n`);
     }
-}
-
-function createAuthColors(context: CliExecutionContext): TerminalColors {
-    return createWriterColors(context.stdout);
 }
 
 function readAuthIcon(tone: AuthBlockTone, colors: TerminalColors): string {

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import {
+    createFormatInputError,
     initFileUpload,
     maxFileUploadSizeBytes,
     parseFileFormat,
@@ -38,7 +39,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
         format: z.string().optional(),
         filePath: z.string(),
     }),
-    mapInputError: (_, rawInput) => createFileUploadInputError(rawInput),
+    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const format = parseFileFormat(input.format);
         const account = await requireCurrentFileUploadAccount(context);
@@ -130,12 +131,4 @@ async function readSourceFile(
         fileName: basename(resolvedPath),
         fileSize: metadata.size,
     };
-}
-
-function createFileUploadInputError(
-    rawInput: Record<string, unknown>,
-): CliUserError {
-    return new CliUserError("errors.file.invalidFormat", 2, {
-        value: String(rawInput.format ?? ""),
-    });
 }

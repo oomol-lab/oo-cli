@@ -180,11 +180,7 @@ function resolveAliasOption(options: {
 }
 
 function normalizeOptionValue(value: string | undefined): string | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
+    const trimmed = value?.trim();
 
-    const trimmedValue = value.trim();
-
-    return trimmedValue === "" ? undefined : trimmedValue;
+    return trimmed === "" || trimmed === undefined ? undefined : trimmed;
 }

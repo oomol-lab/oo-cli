@@ -3,6 +3,7 @@ import type { AppSettings } from "../../schemas/settings.ts";
 
 import type { ConfigKey } from "./shared.ts";
 import { z } from "zod";
+import { writeLine } from "../shared/output.ts";
 import { maybeSynchronizeInstalledBundledSkills } from "../skills/shared.ts";
 import {
     configKeyChoices,
@@ -11,7 +12,6 @@ import {
     getConfigDefinition,
     getConfigDefinitionByRawKey,
     ooSkillImplicitInvocationConfigKey,
-    writeLine,
 } from "./shared.ts";
 
 interface ResolvedConfigSetInput {

@@ -20,8 +20,7 @@ export const authLogoutCommand: CliCommandDefinition = {
             remainingSavedAccounts = nextAuthFile.auth.length;
 
             return nextAuthFile;
-        },
-        );
+        });
         context.logger.info(
             {
                 previousCurrentAuthId,

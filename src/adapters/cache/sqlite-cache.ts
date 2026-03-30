@@ -635,11 +635,11 @@ function resolveTtlMs(
 function serializeCacheValue<Value>(value: Value): string {
     const serializedValue = JSON.stringify(value);
 
-    if (serializedValue !== undefined) {
-        return serializedValue;
+    if (serializedValue === undefined) {
+        throw new TypeError("SqliteCache value cannot be serialized to JSON.");
     }
 
-    throw new TypeError("SqliteCache value cannot be serialized to JSON.");
+    return serializedValue;
 }
 
 function deserializeCacheValue<Value>(value: string): Value {

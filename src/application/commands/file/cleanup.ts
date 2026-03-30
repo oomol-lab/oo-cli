@@ -1,9 +1,8 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
-import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { parseFileFormat } from "./shared.ts";
+import { createFormatInputError, parseFileFormat } from "./shared.ts";
 
 interface FileCleanupInput {
     format?: string;
@@ -17,7 +16,7 @@ export const fileCleanupCommand: CliCommandDefinition<FileCleanupInput> = {
     inputSchema: z.object({
         format: z.string().optional(),
     }),
-    mapInputError: (_, rawInput) => createFileCleanupInputError(rawInput),
+    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: (input, context) => {
         const format = parseFileFormat(input.format);
         const deletedCount = context.fileUploadStore.deleteExpired(Date.now());
@@ -36,11 +35,3 @@ export const fileCleanupCommand: CliCommandDefinition<FileCleanupInput> = {
         );
     },
 };
-
-function createFileCleanupInputError(
-    rawInput: Record<string, unknown>,
-): CliUserError {
-    return new CliUserError("errors.file.invalidFormat", 2, {
-        value: String(rawInput.format ?? ""),
-    });
-}

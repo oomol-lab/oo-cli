@@ -91,11 +91,7 @@ function splitSection(
 // so this only checks that each dot-separated identifier is non-empty and
 // contains only ASCII alphanumerics and hyphens.
 function isBuildMetadataIdentifierList(value: string): boolean {
-    if (value === "") {
-        return false;
-    }
-
-    return value.split(".").every(identifier => isIdentifier(identifier));
+    return value !== "" && value.split(".").every(isIdentifier);
 }
 
 function isIdentifier(value: string): boolean {

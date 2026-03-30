@@ -213,48 +213,15 @@ async function loadSearchResponse(
         endpoint: account.endpoint,
         requestUrl: requestUrl.toString(),
     });
-    const cachedResponse = searchCache.get(cacheKey);
+    const logFields = {
+        ...withAccountIdentity(account.id, account.endpoint),
+        ...withPath(requestUrl.pathname),
+    };
 
-    if (cachedResponse !== null) {
-        context.logger.debug(
-            {
-                ...withAccountIdentity(account.id, account.endpoint),
-                ...withPath(requestUrl.pathname),
-                queryLength: requestUrl.searchParams.get("q")?.length ?? 0,
-            },
-            "Search response cache hit.",
-        );
+    const cached = tryReadSearchCache(searchCache, cacheKey, logFields, context);
 
-        try {
-            return parseSearchResponse(cachedResponse);
-        }
-        catch (error) {
-            if (
-                !(error instanceof CliUserError)
-                || error.key !== "errors.search.invalidResponse"
-            ) {
-                throw error;
-            }
-
-            searchCache.delete(cacheKey);
-            context.logger.warn(
-                {
-                    ...withAccountIdentity(account.id, account.endpoint),
-                    ...withPath(requestUrl.pathname),
-                },
-                "Search response cache entry was invalidated after a parse failure.",
-            );
-        }
-    }
-    else {
-        context.logger.debug(
-            {
-                ...withAccountIdentity(account.id, account.endpoint),
-                ...withPath(requestUrl.pathname),
-                queryLength: requestUrl.searchParams.get("q")?.length ?? 0,
-            },
-            "Search response cache miss.",
-        );
+    if (cached !== undefined) {
+        return cached;
     }
 
     const rawResponse = await requestSearch(requestUrl, account.apiKey, context);
@@ -263,14 +230,49 @@ async function loadSearchResponse(
     searchCache.set(cacheKey, rawResponse);
     context.logger.debug(
         {
-            ...withAccountIdentity(account.id, account.endpoint),
+            ...logFields,
             packageCount: response.text.packages.length,
-            ...withPath(requestUrl.pathname),
         },
         "Search response cached.",
     );
 
     return response;
+}
+
+function tryReadSearchCache(
+    cache: { delete: (key: string) => void; get: (key: string) => string | null },
+    cacheKey: string,
+    logFields: Record<string, unknown>,
+    context: Pick<CliExecutionContext, "logger">,
+): ParsedSearchResponse | undefined {
+    const cachedResponse = cache.get(cacheKey);
+
+    if (cachedResponse === null) {
+        context.logger.debug(logFields, "Search response cache miss.");
+        return undefined;
+    }
+
+    context.logger.debug(logFields, "Search response cache hit.");
+
+    try {
+        return parseSearchResponse(cachedResponse);
+    }
+    catch (error) {
+        if (
+            !(error instanceof CliUserError)
+            || error.key !== "errors.search.invalidResponse"
+        ) {
+            throw error;
+        }
+
+        cache.delete(cacheKey);
+        context.logger.warn(
+            logFields,
+            "Search response cache entry was invalidated after a parse failure.",
+        );
+
+        return undefined;
+    }
 }
 
 function parseSearchResponse(rawResponse: string): ParsedSearchResponse {
@@ -299,15 +301,9 @@ function formatSearchResponseAsText(
 }
 
 function readSearchPackageIds(response: SearchResponse): string[] {
-    return response.packages.flatMap((pkg) => {
-        const packageId = readPackageId(pkg);
-
-        if (packageId === "") {
-            return [];
-        }
-
-        return [packageId];
-    });
+    return response.packages
+        .map(pkg => readPackageId(pkg))
+        .filter(id => id !== "");
 }
 
 function formatSearchPackage(
@@ -356,10 +352,7 @@ function readPackageLabel(
     if (pkg.displayName !== "") {
         const displayName = colors.hex(searchDisplayNameColor)(pkg.displayName);
 
-        if (
-            packageId !== ""
-            && pkg.displayName !== packageId
-        ) {
+        if (packageId !== "" && pkg.displayName !== packageId) {
             return `${displayName} (${packageId})`;
         }
 
@@ -393,10 +386,7 @@ function readBlockLabel(
     if (block.title !== "") {
         const title = colors.hex(searchBlockTitleColor)(block.title);
 
-        if (
-            block.name !== ""
-            && block.title !== block.name
-        ) {
+        if (block.name !== "" && block.title !== block.name) {
             return `- ${title} (${block.name})`;
         }
 

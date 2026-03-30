@@ -37,6 +37,8 @@ async function requestFileDownload(
     init?: RequestInit,
     allowedStatuses: readonly number[] = [],
 ): Promise<Response> {
+    const urlString = requestUrl.toString();
+
     return await performLoggedRequest({
         allowedStatuses,
         context,
@@ -57,19 +59,19 @@ async function requestFileDownload(
         fields: {
             error: {
                 method: "GET",
-                url: requestUrl.toString(),
+                url: urlString,
             },
             response: {
                 method: "GET",
-                url: requestUrl.toString(),
+                url: urlString,
             },
             start: {
                 method: "GET",
                 query: requestUrl.searchParams.toString(),
-                url: requestUrl.toString(),
+                url: urlString,
             },
             success: response => ({
-                finalUrl: response.url === "" ? requestUrl.toString() : response.url,
+                finalUrl: response.url === "" ? urlString : response.url,
             }),
         },
         init,

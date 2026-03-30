@@ -44,12 +44,11 @@ export function withPackageIdentity(
     packageName: string;
     packageVersion?: string;
 } {
-    return packageVersion === undefined
-        ? { packageName }
-        : {
-                packageName,
-                packageVersion,
-            };
+    if (packageVersion === undefined) {
+        return { packageName };
+    }
+
+    return { packageName, packageVersion };
 }
 
 export function withPath(path: string): {

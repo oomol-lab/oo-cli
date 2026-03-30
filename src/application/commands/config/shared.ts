@@ -19,7 +19,7 @@ import {
     unsetOoSkillImplicitInvocation,
 } from "../../schemas/settings.ts";
 
-export interface ConfigDefinition<TValue extends string> {
+interface ConfigDefinition<TValue extends string> {
     createInvalidValueError: (rawValue: unknown) => CliUserError;
     getValue: (settings: AppSettings) => TValue | undefined;
     setValue: (settings: AppSettings, value: TValue) => AppSettings;
@@ -113,15 +113,12 @@ export const configDefinitions = {
 } as const;
 
 export type ConfigKey = keyof typeof configDefinitions;
-type ConfigDefinitionValue<TKey extends ConfigKey> = z.output<
-    (typeof configDefinitions)[TKey]["valueSchema"]
->;
 
 export const configKeyChoices = Object.freeze(
     Object.keys(configDefinitions) as ConfigKey[],
 );
 
-export function isConfigKey(value: unknown): value is ConfigKey {
+function isConfigKey(value: unknown): value is ConfigKey {
     return typeof value === "string" && value in configDefinitions;
 }
 
@@ -133,20 +130,9 @@ export interface ConfigGetInput {
     key: ConfigKey;
 }
 
-export type ConfigListInput = Record<string, never>;
-
-export type ConfigSetInput = {
-    [TKey in ConfigKey]: {
-        key: TKey;
-        value: ConfigDefinitionValue<TKey>;
-    };
-}[ConfigKey];
-
 export interface ConfigUnsetInput {
     key: ConfigKey;
 }
-
-export { writeLine } from "../shared/output.ts";
 
 export function createInvalidConfigKeyError(
     rawInput: Record<string, unknown>,
@@ -166,13 +152,6 @@ export function getConfigDefinitionByRawKey(
     rawKey: unknown,
 ): (typeof configDefinitions)[ConfigKey] | undefined {
     return isConfigKey(rawKey) ? getConfigDefinition(rawKey) : undefined;
-}
-
-export function createConfigSetInput<TKey extends ConfigKey>(
-    key: TKey,
-    value: ConfigDefinitionValue<TKey>,
-): Extract<ConfigSetInput, { key: TKey }> {
-    return { key, value } as unknown as Extract<ConfigSetInput, { key: TKey }>;
 }
 
 export function getConfigValue(

@@ -97,29 +97,14 @@ export async function loadExistingDownloadSession(
         );
     }
 
-    if (!metadata.isFile() || metadata.size === 0) {
-        await deleteDownloadSessionArtifacts(
-            {
-                localBytes: metadata.size,
-                session,
-                tempFilePath,
-            },
-            sessionStore,
-        );
+    const isInvalid
+        = !metadata.isFile()
+            || metadata.size === 0
+            || (session.totalBytes !== undefined && metadata.size > session.totalBytes);
 
-        return undefined;
-    }
-
-    if (
-        session.totalBytes !== undefined
-        && metadata.size > session.totalBytes
-    ) {
+    if (isInvalid) {
         await deleteDownloadSessionArtifacts(
-            {
-                localBytes: metadata.size,
-                session,
-                tempFilePath,
-            },
+            { localBytes: metadata.size, session, tempFilePath },
             sessionStore,
         );
 
@@ -243,23 +228,9 @@ async function createDownloadSessionRecord(
             plannedFileParts.baseName,
             reservedTempFileNames,
         ),
-        totalBytes: parseContentLength(response.headers.get("Content-Length")),
+        totalBytes: parseSafeInteger(response.headers.get("Content-Length") ?? ""),
         updatedAtMs: Date.now(),
     };
-}
-
-function parseContentLength(value: string | null): number | undefined {
-    if (value === null) {
-        return undefined;
-    }
-
-    const parsedValue = Number(value);
-
-    if (!Number.isSafeInteger(parsedValue) || parsedValue < 0) {
-        return undefined;
-    }
-
-    return parsedValue;
 }
 
 function parseSafeInteger(value: string): number | undefined {
