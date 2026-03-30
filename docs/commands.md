@@ -178,6 +178,7 @@ Persist one skill configuration value.
 Install bundled or published Codex skills into the local Codex skills
 directory.
 
+- Alias: `oo skills add [packageName]`.
 - Arguments: `[packageName]` is optional.
 - Arguments: when omitted, the command behaves the same as
   `oo skills install oo`.

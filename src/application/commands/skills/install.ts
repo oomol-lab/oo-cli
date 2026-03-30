@@ -17,6 +17,7 @@ const defaultBundledSkillName = "oo" as const;
 
 export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
     name: "install",
+    aliases: ["add"],
     summaryKey: "commands.skills.install.summary",
     descriptionKey: "commands.skills.install.description",
     arguments: [

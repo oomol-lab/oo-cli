@@ -165,6 +165,29 @@ describe("skills CLI", () => {
         }
     });
 
+    test("supports skills add as an alias for install", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "add"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Installed Codex skill oo to ${skillDirectoryPath}.\n`,
+            );
+            expect(result.stderr).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("synchronizes the managed Codex skill policy from persisted settings", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
