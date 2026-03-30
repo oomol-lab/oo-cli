@@ -142,7 +142,7 @@ function formatManagedSkillListItem(
     colors: TerminalColors,
 ): string {
     const lines = [
-        colors.hex(managedSkillNameColor).bold(skill.name),
+        colors.bold(colors.hex(managedSkillNameColor)(skill.name)),
         formatManagedSkillDetailLine(
             context.translator.t("skills.list.source"),
             colors.hex(managedSkillSourceColor)(readManagedSkillSource(skill, context)),

@@ -102,7 +102,7 @@ describe("skills list CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toContain(
-                colors.hex(managedSkillNameColor).bold("alpha-skill"),
+                colors.bold(colors.hex(managedSkillNameColor)("alpha-skill")),
             );
             expect(result.stdout).toContain(
                 `${colors.dim("Source:")} ${colors.hex(managedSkillSourceColor)("@oomol/alpha")}`,
