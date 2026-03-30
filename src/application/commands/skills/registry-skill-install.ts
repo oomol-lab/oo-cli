@@ -18,6 +18,7 @@ import {
     writeManagedSkillMetadata,
 } from "./managed-skill-metadata.ts";
 import {
+    isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
 } from "./managed-skill-paths.ts";
@@ -75,6 +76,20 @@ export async function installRegistrySkills(
         return;
     }
 
+    const settingsFilePath = context.settingsStore.getFilePath();
+
+    for (const skillName of selectedSkillNames) {
+        if (!isManagedSkillPathContained(
+            codexHomeDirectory,
+            settingsFilePath,
+            skillName,
+        )) {
+            throw new CliUserError("errors.skills.invalidPath", 1, {
+                name: skillName,
+            });
+        }
+    }
+
     const packageBytes = await downloadRegistryPackageTarball(
         packageInfo.packageName,
         packageInfo.packageVersion,
@@ -88,7 +103,7 @@ export async function installRegistrySkills(
             const skill = findPackageSkillOrThrow(packageInfo, skillName);
             const canonicalSkillDirectoryPath
                 = resolveManagedSkillCanonicalDirectoryPath(
-                    context.settingsStore.getFilePath(),
+                    settingsFilePath,
                     skillName,
                 );
             const installedSkillDirectoryPath = resolveManagedSkillDirectoryPath(

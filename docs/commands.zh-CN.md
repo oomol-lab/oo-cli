@@ -221,6 +221,8 @@
 - 会同时移除 canonical 目录：`<config-dir>/skills/<skill>`，其中
   `<config-dir>` 是 `settings.toml` 所在目录。
 - 会同时移除目标目录：`${CODEX_HOME:-~/.codex}/skills/<skill>`。
+- 路径规则：`[skill]` 解析后必须仍然落在这些本地 `skills` 根目录的子目录中。
+  任何会逃出这些根目录的名称都会被拒绝。
 - 说明：如果目标目录不存在，或者目录存在但没有 `.oo-metadata.json`，
   命令会直接报错，不会删除任何内容。
 

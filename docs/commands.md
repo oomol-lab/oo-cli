@@ -204,6 +204,8 @@ directory.
   `<config-dir>/skills/<skill-id>`.
 - Target directory: every installed skill is published to
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
+- Path rule: published skill names are accepted only when their resolved
+  canonical and target directories remain under those local `skills` roots.
 - Installation mode: `oo` publishes the target directory as a symlink to the
   canonical directory when the current platform and environment allow it. When
   symlink creation fails, `oo` falls back to copying the canonical files into
@@ -248,6 +250,8 @@ Remove one oo-managed skill from the local Codex skills directory.
 - Canonical directory removed: `<config-dir>/skills/<skill>`, where
   `<config-dir>` is the directory that contains `settings.toml`.
 - Target directory removed: `${CODEX_HOME:-~/.codex}/skills/<skill>`.
+- Path rule: `[skill]` must resolve to child directories under those local
+  `skills` roots. Names that escape those roots are rejected.
 - Notes: when the target directory is missing, or it exists without
   `.oo-metadata.json`, the command exits with an error and does not remove
   anything.

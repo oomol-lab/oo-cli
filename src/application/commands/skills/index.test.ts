@@ -339,6 +339,61 @@ describe("skills commands", () => {
         }
     });
 
+    test("rejects uninstall when the skill path escapes the Codex skills directory", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const escapedSkillDirectoryPath = join(
+            codexHomeDirectory,
+            "skills",
+            "../../outside",
+        );
+        const escapedCanonicalSkillDirectoryPath = join(
+            storePaths.settingsFilePath,
+            "..",
+            "skills",
+            "../../outside",
+        );
+        const installedSentinelPath = join(escapedSkillDirectoryPath, "sentinel.txt");
+        const canonicalSentinelPath = join(
+            escapedCanonicalSkillDirectoryPath,
+            "sentinel.txt",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(escapedSkillDirectoryPath, { recursive: true });
+            await mkdir(escapedCanonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(escapedSkillDirectoryPath),
+                formatManagedSkillMetadataContent("openai", "0.0.3"),
+            );
+            await Bun.write(installedSentinelPath, "installed\n");
+            await Bun.write(canonicalSentinelPath, "canonical\n");
+
+            const result = await sandbox.run(["skills", "uninstall", "../../outside"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Skill name ../../outside resolves outside the local Codex skills directory.\n",
+            );
+            await expect(stat(installedSentinelPath)).resolves.toMatchObject({
+                isFile: expect.any(Function),
+            });
+            await expect(stat(canonicalSentinelPath)).resolves.toMatchObject({
+                isFile: expect.any(Function),
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports skills remove as an alias for uninstall", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -402,7 +457,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `Codex skill oo is not installed at ${skillDirectoryPath}.\n`,
+                "oo is not managed by oo and cannot be removed.\n",
             );
             await expect(stat(skillDirectoryPath)).resolves.toMatchObject({
                 isDirectory: expect.any(Function),
@@ -427,11 +482,32 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `Codex skill chatgpt is not installed at ${skillDirectoryPath}.\n`,
+                "chatgpt is not managed by oo and cannot be removed.\n",
             );
             await expect(stat(skillDirectoryPath)).resolves.toMatchObject({
                 isDirectory: expect.any(Function),
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports an unmanaged existing skill directory clearly", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", ".system");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+
+            const result = await sandbox.run(["skills", "remove", ".system"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                ".system is not managed by oo and cannot be removed.\n",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -829,6 +905,54 @@ describe("skills commands", () => {
             expect(requests).toHaveLength(2);
             expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
             expect(requests[1]!.headers.get("Authorization")).toBe("secret-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects published registry skills that escape the Codex skills directory", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const requests: Request[] = [];
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Escapes the skills root",
+                                        name: "../../outside",
+                                        title: "Outside",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("Skill: ../../outside\n");
+            expect(result.stderr).toBe(
+                "Skill name ../../outside resolves outside the local Codex skills directory.\n",
+            );
+            expect(requests).toHaveLength(1);
         }
         finally {
             await sandbox.cleanup();
