@@ -1,59 +1,81 @@
 import type { Writer } from "./contracts/cli.ts";
 
 const colorResetCode = "\u001B[39m";
-const intensityResetCode = "\u001B[22m";
-const basicColorOpenCodes = {
-    blue: "\u001B[34m",
-    cyan: "\u001B[36m",
-    green: "\u001B[32m",
-    magenta: "\u001B[35m",
-    red: "\u001B[31m",
-    yellow: "\u001B[33m",
-} as const;
-const boldStyle = {
-    close: intensityResetCode,
-    open: "\u001B[1m",
-} as const;
-const dimStyle = {
-    close: intensityResetCode,
-    open: "\u001B[2m",
-} as const;
+const stringFormatter = String as TerminalFormatter;
 
-interface TerminalStyle {
+interface TerminalFormatterDefinition {
     close: string;
     open: string;
+    replace?: string;
 }
 
-export type TerminalFormatter = ((value: string) => string) & {
-    bold: (value: string) => string;
-    dim: (value: string) => string;
-};
+const formatterDefinitions = {
+    reset: {
+        close: "\u001B[0m",
+        open: "\u001B[0m",
+    },
+    bold: {
+        close: "\u001B[22m",
+        open: "\u001B[1m",
+        replace: "\u001B[22m\u001B[1m",
+    },
+    dim: {
+        close: "\u001B[22m",
+        open: "\u001B[2m",
+        replace: "\u001B[22m\u001B[2m",
+    },
+    strikethrough: {
+        close: "\u001B[29m",
+        open: "\u001B[9m",
+    },
+    red: {
+        close: colorResetCode,
+        open: "\u001B[31m",
+    },
+    green: {
+        close: colorResetCode,
+        open: "\u001B[32m",
+    },
+    yellow: {
+        close: colorResetCode,
+        open: "\u001B[33m",
+    },
+    blue: {
+        close: colorResetCode,
+        open: "\u001B[34m",
+    },
+    magenta: {
+        close: colorResetCode,
+        open: "\u001B[35m",
+    },
+    cyan: {
+        close: colorResetCode,
+        open: "\u001B[36m",
+    },
+    gray: {
+        close: colorResetCode,
+        open: "\u001B[90m",
+    },
+} as const satisfies Record<string, TerminalFormatterDefinition>;
 
-export interface TerminalColors {
-    blue: TerminalFormatter;
-    bold: (value: string) => string;
-    cyan: TerminalFormatter;
-    dim: (value: string) => string;
-    green: TerminalFormatter;
+type TerminalFormatterName = keyof typeof formatterDefinitions;
+
+export type TerminalInput = string | number | null | undefined;
+
+export type TerminalFormatter = (value: TerminalInput) => string;
+
+export type TerminalColors = Record<TerminalFormatterName, TerminalFormatter> & {
+    isColorSupported: boolean;
     hex: (color: string) => TerminalFormatter;
-    magenta: TerminalFormatter;
-    red: TerminalFormatter;
     strip: (value: string) => string;
-    yellow: TerminalFormatter;
-}
+};
 
 export function createTerminalColors(enabled: boolean): TerminalColors {
     return {
-        blue: createBasicColorFormatter(enabled, "blue"),
-        bold: value => applyTerminalStyles(value, enabled, [boldStyle]),
-        cyan: createBasicColorFormatter(enabled, "cyan"),
-        dim: value => applyTerminalStyles(value, enabled, [dimStyle]),
-        green: createBasicColorFormatter(enabled, "green"),
-        hex: color => createColorFormatter(enabled, color),
-        magenta: createBasicColorFormatter(enabled, "magenta"),
-        red: createBasicColorFormatter(enabled, "red"),
+        ...createNamedFormatters(enabled),
+        isColorSupported: enabled,
+        hex: color => createHexFormatter(enabled, color),
         strip: value => Bun.stripANSI(value),
-        yellow: createBasicColorFormatter(enabled, "yellow"),
     };
 }
 
@@ -63,76 +85,85 @@ export function createWriterColors(
     return createTerminalColors(writer.hasColors?.() ?? false);
 }
 
-function createColorFormatter(
+function createNamedFormatters(
+    enabled: boolean,
+): Record<TerminalFormatterName, TerminalFormatter> {
+    const formatters = {} as Record<TerminalFormatterName, TerminalFormatter>;
+
+    for (const [name, definition] of Object.entries(
+        formatterDefinitions,
+    ) as [TerminalFormatterName, TerminalFormatterDefinition][]) {
+        formatters[name] = createFormatter(enabled, definition);
+    }
+
+    return formatters;
+}
+
+function createHexFormatter(
     enabled: boolean,
     color: string,
 ): TerminalFormatter {
-    const style = createColorStyle(color);
-
-    if (style === null) {
-        return createFormatter(enabled, []);
+    if (!enabled) {
+        return stringFormatter;
     }
 
-    return createFormatter(enabled, [style]);
-}
+    const open = Bun.color(color, "ansi-16m");
 
-function createBasicColorFormatter(
-    enabled: boolean,
-    color: keyof typeof basicColorOpenCodes,
-): TerminalFormatter {
-    return createFormatter(enabled, [
-        {
-            close: colorResetCode,
-            open: basicColorOpenCodes[color],
-        },
-    ]);
+    if (typeof open !== "string" || open === "") {
+        return stringFormatter;
+    }
+
+    return createFormatter(enabled, {
+        close: colorResetCode,
+        open,
+    });
 }
 
 function createFormatter(
     enabled: boolean,
-    styles: readonly TerminalStyle[],
+    definition: TerminalFormatterDefinition,
 ): TerminalFormatter {
-    const formatter = ((value: string) =>
-        applyTerminalStyles(value, enabled, styles)) as TerminalFormatter;
-
-    formatter.bold = (value: string) =>
-        applyTerminalStyles(value, enabled, [...styles, boldStyle]);
-    formatter.dim = (value: string) =>
-        applyTerminalStyles(value, enabled, [...styles, dimStyle]);
-
-    return formatter;
-}
-
-function createColorStyle(color: string): TerminalStyle | null {
-    // Bun exposes ANSI conversion and stripping, but not ansis-style chaining.
-    // Keep that behavior local so the rest of the CLI stays unchanged.
-    const open = Bun.color(color, "ansi-16m");
-
-    if (typeof open !== "string" || open === "") {
-        return null;
+    if (!enabled) {
+        return stringFormatter;
     }
 
-    return {
-        close: colorResetCode,
-        open,
+    const replace = definition.replace ?? definition.open;
+
+    return (value) => {
+        const stringValue = String(value);
+        const closeIndex = stringValue.indexOf(
+            definition.close,
+            definition.open.length,
+        );
+
+        if (closeIndex === -1) {
+            return `${definition.open}${stringValue}${definition.close}`;
+        }
+
+        return `${definition.open}${replaceClose(
+            stringValue,
+            definition.close,
+            replace,
+            closeIndex,
+        )}${definition.close}`;
     };
 }
 
-function applyTerminalStyles(
+function replaceClose(
     value: string,
-    enabled: boolean,
-    styles: readonly TerminalStyle[],
+    close: string,
+    replace: string,
+    index: number,
 ): string {
-    if (!enabled || styles.length === 0) {
-        return value;
+    let result = "";
+    let cursor = 0;
+    let currentIndex = index;
+
+    while (currentIndex !== -1) {
+        result += value.slice(cursor, currentIndex) + replace;
+        cursor = currentIndex + close.length;
+        currentIndex = value.indexOf(close, cursor);
     }
 
-    const openCodes = styles.map(style => style.open).join("");
-    const closeCodes = styles
-        .slice()
-        .reverse()
-        .map(style => style.close)
-        .join("");
-
-    return `${openCodes}${value}${closeCodes}`;
+    return result + value.slice(cursor);
 }

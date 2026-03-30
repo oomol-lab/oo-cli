@@ -260,13 +260,13 @@ function readCloudTaskStatusLabel(
         case "queued":
         case "scheduling":
         case "scheduled":
-            return colors.yellow.bold(label);
+            return colors.yellow(colors.bold(label));
         case "running":
-            return colors.blue.bold(label);
+            return colors.blue(colors.bold(label));
         case "success":
-            return colors.green.bold(label);
+            return colors.green(colors.bold(label));
         case "failed":
-            return colors.red.bold(label);
+            return colors.red(colors.bold(label));
     }
 }
 

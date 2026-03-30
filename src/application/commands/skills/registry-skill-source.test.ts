@@ -33,7 +33,19 @@ describe("registry skill source", () => {
                 "1.2.3",
             ).toString(),
         ).toBe(
-            "https://registry.oomol.com/%40foo%2Fbar/-/meta/%40foo%2Fbar-1.2.3.tgz",
+            "https://registry.oomol.com/@foo/bar/-/meta/bar-1.2.3.tgz",
+        );
+    });
+
+    test("creates the package tarball URL for unscoped packages", () => {
+        expect(
+            createRegistryPackageTarballRequestUrl(
+                "oomol.com",
+                "openai",
+                "1.2.3",
+            ).toString(),
+        ).toBe(
+            "https://registry.oomol.com/openai/-/meta/openai-1.2.3.tgz",
         );
     });
 

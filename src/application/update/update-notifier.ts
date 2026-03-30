@@ -2,6 +2,7 @@ import type { CliExecutionContext, Fetcher, Writer } from "../contracts/cli.ts";
 
 import type { TerminalColors } from "../terminal-colors.ts";
 import { APP_NAME } from "../config/app-config.ts";
+import { measureDisplayWidth } from "../display-width.ts";
 import { compareSemver, isSemver as isValidSemver } from "../semver.ts";
 import { createWriterColors } from "../terminal-colors.ts";
 
@@ -126,7 +127,7 @@ export function renderCliUpdateNotice(options: {
     const lines = [
         options.context.translator.t("update.available.message", {
             currentVersion: colors.dim(options.context.version),
-            latestVersion: colors.green.bold(options.latestVersion),
+            latestVersion: colors.green(colors.bold(options.latestVersion)),
         }),
         options.context.translator.t("update.available.command", {
             command: colors.cyan(options.updateCommand),
@@ -464,39 +465,4 @@ function normalizePackageManagerName(value: string | undefined): string | undefi
         default:
             return undefined;
     }
-}
-
-function measureDisplayWidth(value: string): number {
-    let width = 0;
-
-    for (let index = 0; index < value.length; index += 1) {
-        const codePoint = value.codePointAt(index);
-
-        if (codePoint === undefined) {
-            continue;
-        }
-
-        width += isWideCodePoint(codePoint) ? 2 : 1;
-
-        if (codePoint > 0xFFFF) {
-            index += 1;
-        }
-    }
-
-    return width;
-}
-
-function isWideCodePoint(codePoint: number): boolean {
-    return codePoint >= 0x1100 && (
-        codePoint <= 0x115F
-        || codePoint === 0x2329
-        || codePoint === 0x232A
-        || (codePoint >= 0x2E80 && codePoint <= 0xA4CF && codePoint !== 0x303F)
-        || (codePoint >= 0xAC00 && codePoint <= 0xD7A3)
-        || (codePoint >= 0xF900 && codePoint <= 0xFAFF)
-        || (codePoint >= 0xFE10 && codePoint <= 0xFE19)
-        || (codePoint >= 0xFE30 && codePoint <= 0xFE6F)
-        || (codePoint >= 0xFF00 && codePoint <= 0xFF60)
-        || (codePoint >= 0xFFE0 && codePoint <= 0xFFE6)
-    );
 }
