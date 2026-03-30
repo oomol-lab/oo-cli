@@ -160,6 +160,7 @@
 
 将内置或已发布的 Codex skill 安装到本地 Codex skills 目录。
 
+- 别名：`oo skills add [packageName]`。
 - 参数：`[packageName]` 可选。
 - 参数：未提供时，该命令等价于 `oo skills install oo`。
 - 参数：当 `[packageName]` 为 `oo` 时，命令安装内置的 `oo` skill。
