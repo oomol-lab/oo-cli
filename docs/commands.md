@@ -118,6 +118,18 @@ Check whether a newer CLI release is available.
 
 ## Codex Skills
 
+### `oo skills list`
+
+List oo-managed skills from the local Codex skills directory.
+
+- Ownership rule: the command scans `${CODEX_HOME:-~/.codex}/skills` and keeps
+  only child directories that contain `.oo-metadata.json`.
+- Output: text output prints a summary line and one block per skill.
+- Ordering: `oo` is always listed first when present; the remaining skills are
+  ordered by skill name.
+- Output: each skill block shows the skill name, source package or bundled
+  marker, and recorded version.
+
 ### `oo skills search <text>`
 
 Search published skills with free-form text.

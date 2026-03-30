@@ -108,6 +108,17 @@
 
 ## Codex Skill
 
+### `oo skills list`
+
+列出本地 Codex skills 目录中由 oo 管理的 skill。
+
+- 所有权规则：命令会扫描 `${CODEX_HOME:-~/.codex}/skills`，只保留包含
+  `.oo-metadata.json` 的子目录。
+- 输出：文本输出会先打印摘要行，再为每个 skill 打印一个块。
+- 排序：如果存在 `oo`，它总是排在最前面；其余 skill 按名称排序。
+- 输出：每个 skill 块会显示 skill 名称、来源 package 或内置标记、记录的版
+  本号。
+
 ### `oo skills search <text>`
 
 使用自由文本搜索已发布的 skill。
