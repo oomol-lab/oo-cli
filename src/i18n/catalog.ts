@@ -121,6 +121,10 @@ export const enMessages = {
         "Search published skills against the skills search API.",
     "commands.skills.search.summary":
         "Search published skills",
+    "commands.skills.list.description":
+        "List oo-managed Codex skills from the local Codex skills directory.",
+    "commands.skills.list.summary":
+        "List oo-managed Codex skills",
     "commands.skills.install.description":
         "Install bundled or published Codex skills into the local Codex skills directory.",
     "commands.skills.install.summary": "Install Codex skills",
@@ -402,6 +406,13 @@ export const enMessages = {
         "Installing all {count} skills.",
     "skills.config.set.success":
         "Set Codex skill {name} {key} to {value}.",
+    "skills.list.noResults":
+        "No oo-managed skills were found.",
+    "skills.list.source": "Source",
+    "skills.list.source.bundled": "bundled",
+    "skills.list.summary":
+        "Found {count} oo-managed skills.",
+    "skills.list.version": "Version",
     "skills.install.success": "Installed Codex skill {name} to {path}.",
     "skills.install.overwrite.invalid":
         "Invalid choice. Enter y/yes or n/no.",
@@ -589,6 +600,10 @@ export const zhMessages = {
         "使用自由文本通过 skills search API 搜索已发布的 skill。",
     "commands.skills.search.summary":
         "搜索已发布的 skill",
+    "commands.skills.list.description":
+        "列出本地 Codex skills 目录中由 oo 管理的 Codex skill。",
+    "commands.skills.list.summary":
+        "列出由 oo 管理的 Codex skill",
     "commands.skills.install.description":
         "将内置或已发布的 Codex skill 安装到本地 Codex skills 目录。",
     "commands.skills.install.summary": "安装 Codex skills",
@@ -856,6 +871,13 @@ export const zhMessages = {
         "将安装全部 {count} 个 skill。",
     "skills.config.set.success":
         "已将 Codex skill {name} 的 {key} 设置为 {value}。",
+    "skills.list.noResults":
+        "未找到由 oo 管理的 skill。",
+    "skills.list.source": "来源",
+    "skills.list.source.bundled": "内置",
+    "skills.list.summary":
+        "找到 {count} 个由 oo 管理的 skill。",
+    "skills.list.version": "版本",
     "skills.install.success": "已将 Codex skill {name} 安装到 {path}。",
     "skills.install.overwrite.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
