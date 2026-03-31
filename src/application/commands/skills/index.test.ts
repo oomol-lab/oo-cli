@@ -685,16 +685,13 @@ describe("skills commands", () => {
         }
     });
 
-    test("rebuilds managed skills that do not have the metadata file yet", async () => {
+    test("does not synchronize bundled skills that do not have managed metadata", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const managedSkillPath = join(skillDirectoryPath, "SKILL.md");
         const managedOwnershipPath = join(skillDirectoryPath, "agents", "openai.yaml");
-        const expectedSkillContent = await Bun.file(
-            getBundledSkillFiles("oo")[0]!.sourcePath,
-        ).text();
         const expectedOwnershipContent = await Bun.file(
             getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
         ).text();
@@ -710,11 +707,12 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatBundledSkillMetadataContent("9.9.9"),
-            );
-            expect(await readFile(managedSkillPath, "utf8")).toBe(
-                expectedSkillContent,
+            await expect(stat(metadataFilePath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            expect(await readFile(managedSkillPath, "utf8")).toBe("stale\n");
+            expect(await readFile(managedOwnershipPath, "utf8")).toBe(
+                expectedOwnershipContent,
             );
         }
         finally {
@@ -784,12 +782,19 @@ describe("skills commands", () => {
         }
     });
 
-    test("does not synchronize a same-name skill that is not managed by OOMOL", async () => {
+    test("synchronizes a same-name bundled skill when it has managed metadata", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const managedSkillPath = join(skillDirectoryPath, "SKILL.md");
+        const expectedOwnershipContent = await Bun.file(
+            getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+        ).text();
+        const expectedSkillContent = await Bun.file(
+            getBundledSkillFiles("oo")[0]!.sourcePath,
+        ).text();
 
         try {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
@@ -806,6 +811,7 @@ describe("skills commands", () => {
                     "",
                 ].join("\n"),
             );
+            await Bun.write(managedSkillPath, "stale\n");
 
             const result = await sandbox.run(["--help"], {
                 version: "9.9.9",
@@ -813,9 +819,14 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatBundledSkillMetadataContent("0.0.1"),
+                formatBundledSkillMetadataContent("9.9.9"),
             );
-            expect(await readFile(ownershipFilePath, "utf8")).not.toContain("OOMOL");
+            expect(await readFile(ownershipFilePath, "utf8")).toBe(
+                expectedOwnershipContent,
+            );
+            expect(await readFile(managedSkillPath, "utf8")).toBe(
+                expectedSkillContent,
+            );
         }
         finally {
             await sandbox.cleanup();

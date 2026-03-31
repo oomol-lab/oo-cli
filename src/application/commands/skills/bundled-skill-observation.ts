@@ -7,7 +7,6 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
     isBundledSkillInstallationCurrentState,
-    isManagedBundledSkillOwnershipContent,
     parseBundledSkillMetadataContent,
     readImplicitInvocationValue,
     renderSkillMetadataJson,
@@ -82,21 +81,7 @@ export async function readInstalledBundledSkillImplicitInvocation(
 export async function isManagedBundledSkillInstallation(
     skillDirectoryPath: string,
 ): Promise<boolean> {
-    try {
-        const content = await readFile(
-            join(skillDirectoryPath, bundledSkillOwnershipFileRelativePath),
-            "utf8",
-        );
-
-        return isManagedBundledSkillOwnershipContent(content);
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
+    return (await readInstalledBundledSkillMetadata(skillDirectoryPath)) !== undefined;
 }
 
 export async function readInstalledBundledSkillVersion(
@@ -142,15 +127,10 @@ export async function isBundledSkillInstallationCurrent(
     skillDirectoryPath: string,
     version: string,
 ): Promise<boolean> {
-    const managedInstallation = await isManagedBundledSkillInstallation(
-        skillDirectoryPath,
-    );
-    const hasMetadataFile = managedInstallation
-        ? await fileExists(resolveBundledSkillMetadataFilePath(skillDirectoryPath))
-        : false;
-    const installedVersion = hasMetadataFile
-        ? await readInstalledBundledSkillVersion(skillDirectoryPath)
-        : undefined;
+    const metadata = await readInstalledBundledSkillMetadata(skillDirectoryPath);
+    const managedInstallation = metadata !== undefined;
+    const hasMetadataFile = managedInstallation;
+    const installedVersion = metadata?.version;
     let hasAllBundledFiles = false;
 
     if (installedVersion === version) {

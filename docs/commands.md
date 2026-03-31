@@ -123,7 +123,8 @@ Check whether a newer CLI release is available.
 List oo-managed skills from the local Codex skills directory.
 
 - Ownership rule: the command scans `${CODEX_HOME:-~/.codex}/skills` and keeps
-  only child directories that contain `.oo-metadata.json`.
+  only child directories whose `.oo-metadata.json` can be parsed and contains
+  a non-empty `version`.
 - Output: text output prints a summary line and one block per skill.
 - Ordering: `oo` is always listed first when present; the remaining skills are
   ordered by skill name.
@@ -235,9 +236,10 @@ directory.
   selecting one means it will be overwritten.
 - Notes: the command exits with an error when the Codex home directory does
   not exist, which indicates Codex is not installed on the current machine.
-- Notes: an existing `oo/agents/openai.yaml` is considered managed by
-  `oo` only when it contains the string `OOMOL`. Otherwise `oo` treats it as a
-  different skill and will not overwrite it.
+- Notes: an existing bundled `oo` installation is considered managed by `oo`
+  only when its `.oo-metadata.json` file can be parsed and contains a
+  non-empty `version`. Otherwise `oo` treats it as a different skill and will
+  not overwrite it.
 - Notes: on the first `oo` run, when there is no existing config, auth, or log
   data yet, `oo` silently installs the bundled managed skill automatically if
   the Codex home directory already exists.
@@ -272,14 +274,15 @@ Remove one oo-managed skill from the local Codex skills directory.
 - Alias: `oo skills remove [skill]`.
 - Arguments: `[skill]` defaults to `oo` when omitted.
 - Ownership rule: the target skill is removable only when
-  `${CODEX_HOME:-~/.codex}/skills/<skill>` contains `.oo-metadata.json`.
+  `${CODEX_HOME:-~/.codex}/skills/<skill>` has a `.oo-metadata.json` file that
+  can be parsed and contains a non-empty `version`.
 - Canonical directory removed: `<config-dir>/skills/<skill>`, where
   `<config-dir>` is the directory that contains `settings.toml`.
 - Target directory removed: `${CODEX_HOME:-~/.codex}/skills/<skill>`.
 - Path rule: `[skill]` must resolve to child directories under those local
   `skills` roots. Names that escape those roots are rejected.
-- Notes: when the target directory is missing, or it exists without
-  `.oo-metadata.json`, the command exits with an error and does not remove
+- Notes: when the target directory is missing, or its `.oo-metadata.json` file
+  is missing or invalid, the command exits with an error and does not remove
   anything.
 
 ## Logs

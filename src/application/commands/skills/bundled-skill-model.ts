@@ -4,7 +4,6 @@ import type { BundledSkillName } from "./embedded-assets.ts";
 import { getOoSkillImplicitInvocation } from "../../schemas/settings.ts";
 import { bundledSkillOwnershipFileRelativePath } from "./bundled-skill-paths.ts";
 
-const bundledSkillOwnershipMarker = "OOMOL";
 const bundledSkillImplicitInvocationKey = "allow_implicit_invocation";
 
 export interface BundledSkillMetadata {
@@ -80,10 +79,6 @@ export function renderBundledSkillFileContent(
         content,
         resolveBundledSkillImplicitInvocation(skillName, settings),
     );
-}
-
-export function isManagedBundledSkillOwnershipContent(content: string): boolean {
-    return content.includes(bundledSkillOwnershipMarker);
 }
 
 export function readImplicitInvocationValue(

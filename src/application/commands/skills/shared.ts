@@ -23,10 +23,10 @@ import {
 } from "./bundled-skill-model.ts";
 import {
     directoryExists,
-    fileExists,
     isBundledSkillInstallationCurrent,
     isManagedBundledSkillInstallation,
     readInstalledBundledSkillImplicitInvocation,
+    readInstalledBundledSkillMetadata,
     readInstalledBundledSkillVersion,
     requireCodexHomeDirectory,
     writeInstalledBundledSkillMetadata,
@@ -34,7 +34,6 @@ import {
 import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillDirectoryPath,
-    resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import {
@@ -340,13 +339,13 @@ export async function uninstallBundledSkill(
         skillName,
     );
     const installedSkillDirectoryExists = await directoryExists(skillDirectoryPath);
-    const installedSkillMetadataExists = installedSkillDirectoryExists
-        ? await fileExists(resolveBundledSkillMetadataFilePath(skillDirectoryPath))
-        : false;
+    const installedSkillMetadata = installedSkillDirectoryExists
+        ? await readInstalledBundledSkillMetadata(skillDirectoryPath)
+        : undefined;
 
     if (!canUninstallManagedBundledSkillInstallation({
         installedDirectoryExists: installedSkillDirectoryExists,
-        installedDirectoryManaged: installedSkillMetadataExists,
+        installedDirectoryManaged: installedSkillMetadata !== undefined,
     })) {
         context.logger.warn(
             {
@@ -362,7 +361,9 @@ export async function uninstallBundledSkill(
         });
     }
 
-    const previousVersion = await readInstalledBundledSkillVersion(skillDirectoryPath);
+    const previousVersion
+        = installedSkillMetadata?.version
+            ?? await readInstalledBundledSkillVersion(skillDirectoryPath);
 
     await Promise.all([
         removePath(skillDirectoryPath),
