@@ -11,8 +11,7 @@ export default antfu(
             semi: true,
         },
         ignores: [
-            "README.md",
-            "CLAUDE.md",
+            "**/*.md",
             "docs/plans",
             "docs/rfcs",
             ".sisyphus",
