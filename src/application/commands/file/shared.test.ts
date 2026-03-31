@@ -6,16 +6,10 @@ import { uploadFileParts } from "./shared.ts";
 describe("uploadFileParts", () => {
     test("keeps the request method in unexpected error logs", async () => {
         const logCapture = createLogCapture();
-        const originalSetTimeout = globalThis.setTimeout;
+        const originalSleep = Bun.sleep;
 
         try {
-            globalThis.setTimeout = ((handler: unknown, _timeout?: number, ...args: unknown[]) => {
-                if (typeof handler === "function") {
-                    (handler as (...callbackArgs: unknown[]) => void)(...args);
-                }
-
-                return 0 as unknown as ReturnType<typeof setTimeout>;
-            }) as typeof setTimeout;
+            Bun.sleep = (() => Promise.resolve()) as typeof Bun.sleep;
 
             await expect(uploadFileParts(
                 {
@@ -48,7 +42,7 @@ describe("uploadFileParts", () => {
             expect(logs).toContain("\"method\":\"PUT\"");
         }
         finally {
-            globalThis.setTimeout = originalSetTimeout;
+            Bun.sleep = originalSleep;
             logCapture.close();
         }
     });

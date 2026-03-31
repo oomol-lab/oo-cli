@@ -48,10 +48,9 @@ export const defaultAuthFile: AuthFile = {
 };
 
 export function renderAuthFile(authFile: AuthFile): string {
-    const parsedAuthFile = authFileSchema.parse(authFile);
-    const lines = [renderTomlLine("id", parsedAuthFile.id)];
+    const lines = [renderTomlLine("id", authFile.id)];
 
-    for (const account of parsedAuthFile.auth) {
+    for (const account of authFile.auth) {
         lines.push(
             "",
             "[[auth]]",
@@ -69,39 +68,28 @@ export function upsertAuthAccount(
     authFile: AuthFile,
     account: AuthAccount,
 ): AuthFile {
-    const parsedAuthFile = authFileSchema.parse(authFile);
-    const parsedAccount = authAccountSchema.parse(account);
-    const existingIndex = parsedAuthFile.auth.findIndex(
-        currentAccount => currentAccount.id === parsedAccount.id,
+    const existingIndex = authFile.auth.findIndex(
+        currentAccount => currentAccount.id === account.id,
     );
 
     if (existingIndex === -1) {
         return {
-            auth: [...parsedAuthFile.auth, parsedAccount],
-            id: parsedAccount.id,
+            auth: [...authFile.auth, account],
+            id: account.id,
         };
     }
 
     return {
-        auth: parsedAuthFile.auth.map((currentAccount, index) =>
-            index === existingIndex ? parsedAccount : currentAccount,
+        auth: authFile.auth.map((currentAccount, index) =>
+            index === existingIndex ? account : currentAccount,
         ),
-        id: parsedAccount.id,
+        id: account.id,
     };
 }
 
 export function removeCurrentAuthAccount(authFile: AuthFile): AuthFile {
-    const parsedAuthFile = authFileSchema.parse(authFile);
-
-    if (parsedAuthFile.id === "") {
-        return {
-            ...parsedAuthFile,
-            id: "",
-        };
-    }
-
     return {
-        auth: parsedAuthFile.auth.filter(account => account.id !== parsedAuthFile.id),
+        auth: authFile.auth.filter(account => account.id !== authFile.id),
         id: "",
     };
 }
@@ -110,10 +98,8 @@ export function setCurrentAuthId(
     authFile: AuthFile,
     id: string,
 ): AuthFile {
-    const parsedAuthFile = authFileSchema.parse(authFile);
-
     return {
-        ...parsedAuthFile,
+        ...authFile,
         id,
     };
 }
@@ -121,32 +107,28 @@ export function setCurrentAuthId(
 export function getNextAuthAccount(
     authFile: AuthFile,
 ): AuthAccount | undefined {
-    const parsedAuthFile = authFileSchema.parse(authFile);
-
-    if (parsedAuthFile.auth.length === 0) {
+    if (authFile.auth.length === 0) {
         return undefined;
     }
 
-    const currentIndex = parsedAuthFile.auth.findIndex(
-        account => account.id === parsedAuthFile.id,
+    const currentIndex = authFile.auth.findIndex(
+        account => account.id === authFile.id,
     );
     const nextIndex = currentIndex < 0
         ? 0
-        : (currentIndex + 1) % parsedAuthFile.auth.length;
+        : (currentIndex + 1) % authFile.auth.length;
 
-    return parsedAuthFile.auth[nextIndex];
+    return authFile.auth[nextIndex];
 }
 
 export function getCurrentAuthAccount(
     authFile: AuthFile,
 ): AuthAccount | undefined {
-    const parsedAuthFile = authFileSchema.parse(authFile);
-
-    if (parsedAuthFile.id === "") {
+    if (authFile.id === "") {
         return undefined;
     }
 
-    return parsedAuthFile.auth.find(account => account.id === parsedAuthFile.id);
+    return authFile.auth.find(account => account.id === authFile.id);
 }
 
 function renderTomlLine(key: string, value: string): string {

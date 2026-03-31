@@ -7,7 +7,6 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
 import { performLoggedRequest, requestText } from "../shared/request.ts";
 
 export const fileFormatValues = ["json"] as const;
@@ -58,23 +57,6 @@ const finalFileUploadResponseSchema = z.object({
     }).passthrough(),
 }).passthrough();
 
-export async function requireCurrentFileUploadAccount(
-    context: CliExecutionContext,
-): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.fileUpload.authRequired"
-            : "errors.fileUpload.activeAccountMissing",
-        1,
-    );
-}
-
 export function parseFileFormat(
     value: string | undefined,
 ): FileFormat | undefined {
@@ -91,23 +73,23 @@ export function parseFileFormat(
     });
 }
 
+export function createFormatInputError(
+    rawInput: Record<string, unknown>,
+): CliUserError {
+    return new CliUserError("errors.file.invalidFormat", 2, {
+        value: String(rawInput.format ?? ""),
+    });
+}
+
 export function parseFileLimit(value: string | undefined): number | undefined {
     if (value === undefined) {
         return undefined;
     }
 
     const trimmedValue = value.trim();
-
-    if (trimmedValue === "") {
-        throw new CliUserError("errors.fileList.invalidLimit", 2, {
-            option: "--limit",
-            value,
-        });
-    }
-
     const parsedValue = Number(trimmedValue);
 
-    if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    if (trimmedValue === "" || !Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
         throw new CliUserError("errors.fileList.invalidLimit", 2, {
             option: "--limit",
             value,
@@ -255,10 +237,10 @@ export function readFileUploadStatus(
 
 function createFileUploadRequestUrl(
     endpoint: string,
-    pathSuffix?: string,
+    pathSuffix: string,
 ): URL {
     return new URL(
-        `https://llm.${endpoint}/api/tasks/files/remote-cache/${pathSuffix ?? ""}`,
+        `https://llm.${endpoint}/api/tasks/files/remote-cache/${pathSuffix}`,
     );
 }
 
@@ -382,9 +364,7 @@ async function uploadFilePart(
                 continue;
             }
 
-            if (error instanceof CliUserError) {
-                throw error;
-            }
+            throw error;
         }
     }
 }
@@ -405,5 +385,5 @@ function splitFileNameAndExtension(fileName: string): [string, string] {
 function delayRetry(attempt: number): Promise<void> {
     const delayMs = Math.min(30_000, 2 ** (attempt - 1) * 1_000);
 
-    return new Promise(resolve => setTimeout(resolve, delayMs));
+    return Bun.sleep(delayMs);
 }

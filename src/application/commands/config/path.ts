@@ -1,7 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
-import { writeLine } from "./shared.ts";
+import { writeLine } from "../shared/output.ts";
 
 export const configPathCommand: CliCommandDefinition = {
     name: "path",
@@ -9,6 +9,6 @@ export const configPathCommand: CliCommandDefinition = {
     descriptionKey: "commands.config.path.description",
     inputSchema: z.object({}),
     handler: (_, context) => {
-        writeLine(context, context.settingsStore.getFilePath());
+        writeLine(context.stdout, context.settingsStore.getFilePath());
     },
 };

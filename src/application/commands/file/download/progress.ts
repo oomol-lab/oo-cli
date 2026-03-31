@@ -31,7 +31,7 @@ export class DownloadProgressReporter {
 
         if (
             downloadedBytes === this.lastRenderedBytes
-            || (downloadedBytes !== this.totalBytes && now - this.lastRenderedAt < 100)
+            || now - this.lastRenderedAt < 100
         ) {
             return;
         }
@@ -39,7 +39,7 @@ export class DownloadProgressReporter {
         this.lastRenderedBytes = downloadedBytes;
         this.lastRenderedAt = now;
         this.writeProgressLine(
-            formatProgressLine(downloadedBytes, this.totalBytes),
+            formatProgressStatusLine("Downloading", downloadedBytes, this.totalBytes),
         );
     }
 
@@ -47,7 +47,7 @@ export class DownloadProgressReporter {
         this.lastRenderedBytes = downloadedBytes;
         this.lastRenderedAt = Date.now();
         this.writeProgressLine(
-            formatProgressLine(downloadedBytes, this.totalBytes),
+            formatProgressStatusLine("Downloading", downloadedBytes, this.totalBytes),
         );
     }
 
@@ -55,7 +55,7 @@ export class DownloadProgressReporter {
         this.lastRenderedBytes = downloadedBytes;
         this.lastRenderedAt = Date.now();
         this.writeProgressLine(
-            formatCompletedProgressLine(downloadedBytes, this.totalBytes),
+            formatProgressStatusLine("Downloaded", downloadedBytes, this.totalBytes),
         );
     }
 
@@ -74,20 +74,6 @@ export class DownloadProgressReporter {
         this.lastRenderedLine = line;
         this.writer.write(`\u001B[1A\r\u001B[2K${line}\n`);
     }
-}
-
-function formatProgressLine(
-    downloadedBytes: number,
-    totalBytes: number | undefined,
-): string {
-    return formatProgressStatusLine("Downloading", downloadedBytes, totalBytes);
-}
-
-function formatCompletedProgressLine(
-    downloadedBytes: number,
-    totalBytes: number | undefined,
-): string {
-    return formatProgressStatusLine("Downloaded", downloadedBytes, totalBytes);
 }
 
 function formatProgressStatusLine(

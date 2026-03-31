@@ -1,14 +1,13 @@
+import type { Database } from "bun:sqlite";
 import type { Logger } from "pino";
+
 import type {
     FileDownloadSessionKey,
     FileDownloadSessionRecord,
     FileDownloadSessionStore,
 } from "../../application/contracts/file-download-session-store.ts";
-
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { constants, Database } from "bun:sqlite";
 import { withStorePath } from "../../application/logging/log-fields.ts";
+import { closeSqliteDatabase, openSqliteDatabase, validateQueryTimestamp } from "./sqlite-utils.ts";
 
 interface FileDownloadSessionRow {
     entityTag: string;
@@ -209,7 +208,7 @@ export class SqliteFileDownloadSessionStore implements FileDownloadSessionStore 
     }
 
     deleteDownloadSessionsUpdatedBefore(cutoffMs: number): number {
-        validateQueryTimestamp(cutoffMs);
+        validateQueryTimestamp(cutoffMs, "Download session");
 
         const deletedCount = this.getDatabase().query(
             [
@@ -240,20 +239,7 @@ export class SqliteFileDownloadSessionStore implements FileDownloadSessionStore 
         }
 
         this.database = undefined;
-
-        try {
-            database.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
-            database.run("PRAGMA wal_checkpoint(TRUNCATE);");
-        }
-        finally {
-            database.close();
-            this.logger?.debug(
-                {
-                    ...withStorePath(this.filePath),
-                },
-                "Sqlite file download session store closed.",
-            );
-        }
+        closeSqliteDatabase(database, this.logger, this.filePath, "Sqlite file download session store closed.");
     }
 
     private getDatabase(): Database {
@@ -261,7 +247,9 @@ export class SqliteFileDownloadSessionStore implements FileDownloadSessionStore 
             return this.database;
         }
 
-        this.database = openDatabase(this.filePath);
+        const database = openSqliteDatabase(this.filePath);
+        ensureDownloadSessionTable(database);
+        this.database = database;
         this.logger?.debug(
             {
                 ...withStorePath(this.filePath),
@@ -271,22 +259,6 @@ export class SqliteFileDownloadSessionStore implements FileDownloadSessionStore 
 
         return this.database;
     }
-}
-
-function openDatabase(filePath: string): Database {
-    mkdirSync(dirname(filePath), {
-        recursive: true,
-    });
-
-    const database = new Database(filePath, {
-        create: true,
-        strict: true,
-    });
-
-    database.run("PRAGMA journal_mode = WAL;");
-    ensureDownloadSessionTable(database);
-
-    return database;
 }
 
 function ensureDownloadSessionTable(database: Database): void {
@@ -364,11 +336,5 @@ function validateDownloadSessionRecord(record: FileDownloadSessionRecord): void 
         throw new Error("Download session totalBytes must be a safe integer.");
     }
 
-    validateQueryTimestamp(record.updatedAtMs);
-}
-
-function validateQueryTimestamp(value: number): void {
-    if (!Number.isSafeInteger(value) || value < 0) {
-        throw new Error("Download session timestamp must be a safe integer.");
-    }
+    validateQueryTimestamp(record.updatedAtMs, "Download session");
 }

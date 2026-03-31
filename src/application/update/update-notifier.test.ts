@@ -11,10 +11,10 @@ import {
 import { createTranslator } from "../../i18n/translator.ts";
 import { defaultAuthFile } from "../schemas/auth.ts";
 import { defaultSettings } from "../schemas/settings.ts";
+import { compareSemver } from "../semver.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
 import {
     checkForCliUpdate,
-    compareReleaseVersions,
     renderCliUpdateNotice,
     resolvePackageManagerUpgradeCommand,
 } from "./update-notifier.ts";
@@ -23,12 +23,12 @@ const packageName = "@oomol-lab/oo-cli";
 
 describe("update notifier", () => {
     test("compares stable and prerelease versions", () => {
-        expect(compareReleaseVersions("1.2.4", "1.2.3")).toBe(1);
-        expect(compareReleaseVersions("1.2.3", "1.2.3")).toBe(0);
-        expect(compareReleaseVersions("1.2.3", "1.2.4")).toBe(-1);
-        expect(compareReleaseVersions("1.2.3", "1.2.3-beta.1")).toBe(1);
-        expect(compareReleaseVersions("1.2.3-beta.2", "1.2.3-beta.10")).toBe(-1);
-        expect(compareReleaseVersions("1.2.3+build.1", "1.2.3+build.2")).toBe(0);
+        expect(compareSemver("1.2.4", "1.2.3")).toBe(1);
+        expect(compareSemver("1.2.3", "1.2.3")).toBe(0);
+        expect(compareSemver("1.2.3", "1.2.4")).toBe(-1);
+        expect(compareSemver("1.2.3", "1.2.3-beta.1")).toBe(1);
+        expect(compareSemver("1.2.3-beta.2", "1.2.3-beta.10")).toBe(-1);
+        expect(compareSemver("1.2.3+build.1", "1.2.3+build.2")).toBe(0);
     });
 
     test("accepts build metadata in the current version check", async () => {

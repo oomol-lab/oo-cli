@@ -4,12 +4,13 @@ import type { BundledSkillName } from "./embedded-assets.ts";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
+import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
     isBundledSkillInstallationCurrentState,
     isManagedBundledSkillOwnershipContent,
     parseBundledSkillMetadataContent,
     readImplicitInvocationValue,
-    renderBundledSkillMetadataContent,
+    renderSkillMetadataJson,
 } from "./bundled-skill-model.ts";
 import {
     bundledSkillOwnershipFileRelativePath,
@@ -132,7 +133,7 @@ export async function writeInstalledBundledSkillMetadata(
 ): Promise<void> {
     await Bun.write(
         resolveBundledSkillMetadataFilePath(skillDirectoryPath),
-        renderBundledSkillMetadataContent(metadata),
+        renderSkillMetadataJson(metadata),
     );
 }
 
@@ -170,8 +171,4 @@ export async function isBundledSkillInstallationCurrent(
         isManagedInstallation: managedInstallation,
         version,
     });
-}
-
-function isNodeNotFoundError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error && error.code === "ENOENT";
 }

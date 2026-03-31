@@ -81,20 +81,13 @@ function constrainSchema(
     };
 }
 
+const compositionKeywords = ["$ref", "allOf", "anyOf", "else", "if", "not", "oneOf", "then"] as const;
+
 function canMergeConstraint(
     schema: JsonSchemaObject,
     constraint: JsonSchemaObject,
 ): boolean {
-    if (
-        schema.$ref !== undefined
-        || schema.allOf !== undefined
-        || schema.anyOf !== undefined
-        || schema.not !== undefined
-        || schema.oneOf !== undefined
-        || schema.if !== undefined
-        || schema.then !== undefined
-        || schema.else !== undefined
-    ) {
+    if (compositionKeywords.some(key => schema[key] !== undefined)) {
         return false;
     }
 

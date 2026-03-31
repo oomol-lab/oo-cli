@@ -278,25 +278,17 @@ function normalizeHandleSchema(
     schema: unknown,
     ext?: Record<string, unknown>,
 ): { schema: unknown } | { error: ValidationError } {
-    if (!isPlainObject(schema)) {
+    if (!isPlainObject(schema) || typeof schema.contentMediaType !== "string") {
         return {
             schema: patchHandleSchema(schema, ext),
         };
     }
 
-    const contentMediaType = schema.contentMediaType;
-
-    if (typeof contentMediaType !== "string") {
-        return {
-            schema: patchHandleSchema(schema, ext),
-        };
-    }
-
-    if (contentMediaType !== "oomol/secret") {
+    if (schema.contentMediaType !== "oomol/secret") {
         return {
             error: {
                 code: "unsupportedContentMediaType",
-                contentMediaType,
+                contentMediaType: schema.contentMediaType,
             },
         };
     }
@@ -458,9 +450,5 @@ function isHexColorString(value: string): boolean {
 }
 
 function isOomolStoragePath(value: string): boolean {
-    if (!value.startsWith(oomolStoragePathPrefix)) {
-        return false;
-    }
-
-    return !value.includes("\\");
+    return value.startsWith(oomolStoragePathPrefix) && !value.includes("\\");
 }

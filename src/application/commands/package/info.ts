@@ -6,10 +6,11 @@ import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     isPackageInfoInputHandleOptional,
+    isPackageInfoSchemaObject,
     loadPackageInfo,
     parsePackageSpecifier,
 } from "./shared.ts";
@@ -72,17 +73,10 @@ function createPackageInfoInputError(rawInput: Record<string, unknown>): CliUser
 async function requireCurrentPackageInfoAccount(
     context: CliExecutionContext,
 ): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.packageInfo.authRequired"
-            : "errors.packageInfo.activeAccountMissing",
-        1,
+    return requireCurrentAccount(
+        context,
+        "errors.packageInfo.authRequired",
+        "errors.packageInfo.activeAccountMissing",
     );
 }
 
@@ -90,7 +84,7 @@ function formatPackageInfoResponseAsText(
     response: PackageInfoResponse,
     context: PackageInfoTextContext,
 ): string {
-    const colors = createPackageInfoColors(context);
+    const colors = createWriterColors(context.stdout);
     const lines = [readPackageInfoLabel(response, colors)];
 
     if (response.description !== "") {
@@ -177,7 +171,7 @@ function formatPackageInfoInputHandleSection(
             line += `  ${handle.description}`;
         }
 
-        lines.push(trimTrailingWhitespace(line));
+        lines.push(line.trimEnd());
     }
 
     return lines;
@@ -214,7 +208,7 @@ function formatPackageInfoOutputHandleSection(
             line += `  ${handle.description}`;
         }
 
-        lines.push(trimTrailingWhitespace(line));
+        lines.push(line.trimEnd());
     }
 
     return lines;
@@ -234,12 +228,7 @@ function readPackageInfoRequirementLabel(
 function formatPackageInfoSchemaSummary(schema: unknown): string {
     const typeNames = readPackageInfoSchemaTypeNames(schema);
     const contentMediaTypeLabel = readPackageInfoContentMediaTypeLabel(schema);
-
-    let summary = "unknown";
-
-    if (typeNames.length > 0) {
-        summary = typeNames.join(" | ");
-    }
+    const summary = typeNames.length > 0 ? typeNames.join(" | ") : "unknown";
 
     if (contentMediaTypeLabel === "") {
         return summary;
@@ -256,7 +245,7 @@ function readPackageInfoSchemaTypeNames(schema: unknown): string[] {
     const directTypeNames = readPackageInfoDirectTypeNames(schema);
 
     if (directTypeNames.length > 0) {
-        return dedupePackageInfoTypeNames(
+        return Array.from(new Set(
             directTypeNames.map((typeName) => {
                 if (typeName === "array") {
                     return readPackageInfoArrayTypeName(schema);
@@ -264,7 +253,7 @@ function readPackageInfoSchemaTypeNames(schema: unknown): string[] {
 
                 return typeName;
             }),
-        );
+        ));
     }
 
     const anyOfTypeNames = readPackageInfoVariantTypeNames(schema.anyOf);
@@ -291,13 +280,7 @@ function readPackageInfoDirectTypeNames(schema: Record<string, unknown>): string
         return [];
     }
 
-    return schema.type.flatMap((typeName) => {
-        if (typeof typeName !== "string") {
-            return [];
-        }
-
-        return [typeName];
-    });
+    return schema.type.filter((typeName): typeName is string => typeof typeName === "string");
 }
 
 function readPackageInfoVariantTypeNames(value: unknown): string[] {
@@ -305,9 +288,9 @@ function readPackageInfoVariantTypeNames(value: unknown): string[] {
         return [];
     }
 
-    return dedupePackageInfoTypeNames(
+    return Array.from(new Set(
         value.flatMap(item => readPackageInfoSchemaTypeNames(item)),
-    );
+    ));
 }
 
 function readPackageInfoArrayTypeName(schema: Record<string, unknown>): string {
@@ -332,24 +315,6 @@ function readPackageInfoContentMediaTypeLabel(schema: unknown): string {
     return schema.contentMediaType.startsWith("oomol/")
         ? schema.contentMediaType.slice("oomol/".length)
         : schema.contentMediaType;
-}
-
-function dedupePackageInfoTypeNames(typeNames: string[]): string[] {
-    return Array.from(new Set(typeNames));
-}
-
-function isPackageInfoSchemaObject(value: unknown): value is Record<string, unknown> {
-    return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function trimTrailingWhitespace(value: string): string {
-    let endIndex = value.length;
-
-    while (endIndex > 0 && value[endIndex - 1] === " ") {
-        endIndex -= 1;
-    }
-
-    return value.slice(0, endIndex);
 }
 
 function readPackageInfoLabel(
@@ -390,10 +355,4 @@ function readPackageInfoBlockLabel(
     }
 
     return "- unnamed-block";
-}
-
-function createPackageInfoColors(
-    context: Pick<CliExecutionContext, "stdout">,
-): TerminalColors {
-    return createWriterColors(context.stdout);
 }

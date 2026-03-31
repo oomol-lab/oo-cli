@@ -13,7 +13,7 @@ import { APP_NAME } from "../../config/app-config.ts";
 import {
     resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
-} from "../skills/shared.ts";
+} from "../skills/bundled-skill-paths.ts";
 
 describe("config CLI", () => {
     test("writes settings-store and config mutation logs", async () => {

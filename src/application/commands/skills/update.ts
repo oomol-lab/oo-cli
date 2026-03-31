@@ -1,16 +1,16 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type { AuthAccount } from "../../schemas/auth.ts";
 import type { ManagedSkillListItem } from "./list.ts";
 import type { PreparedRegistrySkillPublication } from "./registry-skill-publication.ts";
-import type { RegistrySkillSummary } from "./registry-skill-source.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { writeLine } from "../shared/output.ts";
 import {
     directoryExists,
     fileExists,
     requireCodexHomeDirectory,
 } from "./bundled-skill-observation.ts";
-import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { listManagedSkillInstallations } from "./list.ts";
 import {
     isManagedSkillPathContained,
@@ -20,6 +20,9 @@ import {
 } from "./managed-skill-paths.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
+    findPackageSkillOrThrow,
+} from "./registry-skill-install.ts";
+import {
     prepareRegistrySkillPublication,
     publishPreparedRegistrySkillPublication,
 } from "./registry-skill-publication.ts";
@@ -28,6 +31,7 @@ import {
     loadRegistryPackageSkillInfo,
     requireCurrentSkillsInstallAccount,
 } from "./registry-skill-source.ts";
+import { isBundledSkillName } from "./shared.ts";
 import { SkillsUpdateProgressReporter } from "./update-progress.ts";
 
 interface SkillsUpdateInput {
@@ -52,16 +56,14 @@ interface FailedSkillUpdate {
 }
 
 interface RegistryPreparedSkillUpdate {
-    kind: "registry";
     preparedPublication: PreparedRegistrySkillPublication;
 }
 
-type PreparedSkillUpdate = RegistryPreparedSkillUpdate;
 type SkillUpdateEvent = CurrentSkillUpdate | FailedSkillUpdate;
 
 interface SkillPreparationResult {
     events: SkillUpdateEvent[];
-    publications: PreparedSkillUpdate[];
+    publications: RegistryPreparedSkillUpdate[];
 }
 
 export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
@@ -108,7 +110,7 @@ export async function updateManagedSkills(
     );
 
     if (selectedSkills.length === 0) {
-        writeLine(context, context.translator.t("skills.update.noResults"));
+        writeLine(context.stdout, context.translator.t("skills.update.noResults"));
         return;
     }
 
@@ -131,24 +133,24 @@ export async function updateManagedSkills(
         const account = registrySkillGroups.length > 0
             ? await requireCurrentSkillsInstallAccount(context)
             : undefined;
-        const phaseOneResults = await Promise.all([
-            ...unresolvedSkills.map(skill => Promise.resolve({
-                events: [
-                    {
-                        error: new CliUserError(
-                            "errors.skills.update.packageNameMissing",
-                            1,
-                            {
-                                name: skill.name,
-                            },
-                        ),
-                        kind: "failed" as const,
-                        skillName: skill.name,
-                    },
-                ],
-                publications: [],
-            })),
-            ...registrySkillGroups.map(group =>
+        const unresolvedSkillFailures: SkillPreparationResult[] = unresolvedSkills.map(skill => ({
+            events: [
+                {
+                    error: new CliUserError(
+                        "errors.skills.update.packageNameMissing",
+                        1,
+                        {
+                            name: skill.name,
+                        },
+                    ),
+                    kind: "failed" as const,
+                    skillName: skill.name,
+                },
+            ],
+            publications: [],
+        }));
+        const registryResults = await Promise.all(
+            registrySkillGroups.map(group =>
                 prepareRegistrySkillGroupUpdate(
                     group,
                     {
@@ -160,7 +162,8 @@ export async function updateManagedSkills(
                     context,
                 ),
             ),
-        ]);
+        );
+        const phaseOneResults = [...unresolvedSkillFailures, ...registryResults];
         const publications = phaseOneResults.flatMap(result => result.publications);
 
         for (const event of phaseOneResults.flatMap(result => result.events)) {
@@ -311,12 +314,13 @@ async function resolveSelectedManagedSkills(
         const installedDirectoryExists = await directoryExists(
             installedSkillDirectoryPath,
         );
-
-        throw new CliUserError(
-            installedDirectoryExists
+        const hasDirectoryWithoutMetadata = installedDirectoryExists
             && !(await fileExists(
                 resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
-            ))
+            ));
+
+        throw new CliUserError(
+            hasDirectoryWithoutMetadata
                 ? "errors.skills.notManaged"
                 : "errors.skills.notInstalled",
             1,
@@ -361,7 +365,7 @@ function groupRegistrySkills(
 async function prepareRegistrySkillGroupUpdate(
     group: RegistrySkillGroup,
     options: {
-        account: Awaited<ReturnType<typeof requireCurrentSkillsInstallAccount>>;
+        account: AuthAccount;
         codexHomeDirectory: string;
         progressReporter?: SkillsUpdateProgressReporter;
         settingsFilePath: string;
@@ -411,14 +415,13 @@ async function prepareRegistrySkillGroupUpdate(
                 events: [],
                 publications: await Promise.all(
                     group.skills.map(async skill => ({
-                        kind: "registry",
                         preparedPublication: await prepareRegistrySkillPublication({
                             codexHomeDirectory: options.codexHomeDirectory,
                             extractedPackage,
                             packageName: packageInfo.packageName,
                             packageVersion: packageInfo.packageVersion,
                             settingsFilePath: options.settingsFilePath,
-                            skill: findRegistrySkillOrThrow(
+                            skill: findPackageSkillOrThrow(
                                 packageInfo.skills,
                                 skill.name,
                                 packageInfo.packageName,
@@ -447,29 +450,6 @@ async function prepareRegistrySkillGroupUpdate(
     }
 }
 
-function findRegistrySkillOrThrow(
-    skills: readonly RegistrySkillSummary[],
-    skillName: string,
-    packageName: string,
-): RegistrySkillSummary {
-    const skill = skills.find(entry => entry.name === skillName);
-
-    if (skill !== undefined) {
-        return skill;
-    }
-
-    throw new CliUserError("errors.skills.install.skillNotFound", 1, {
-        name: skillName,
-        packageName,
-    });
-}
-
-function isBundledSkillName(value: string): value is (typeof availableBundledSkillNames)[number] {
-    return availableBundledSkillNames.includes(
-        value as (typeof availableBundledSkillNames)[number],
-    );
-}
-
 function normalizeSkillUpdateError(error: unknown): Error {
     if (error instanceof Error) {
         return error;
@@ -478,16 +458,21 @@ function normalizeSkillUpdateError(error: unknown): Error {
     return new Error(String(error));
 }
 
+function writeNonTtyLine(
+    context: CliExecutionContext,
+    message: string,
+): void {
+    if (context.stdout.isTTY !== true) {
+        writeLine(context.stdout, message);
+    }
+}
+
 function writeUpdateSuccessLine(
     context: CliExecutionContext,
     skillName: string,
     installationPath: string,
 ): void {
-    if (context.stdout.isTTY === true) {
-        return;
-    }
-
-    writeLine(
+    writeNonTtyLine(
         context,
         context.translator.t("skills.update.success", {
             name: skillName,
@@ -501,11 +486,7 @@ function writeUpdateCurrentLine(
     skillName: string,
     version: string,
 ): void {
-    if (context.stdout.isTTY === true) {
-        return;
-    }
-
-    writeLine(
+    writeNonTtyLine(
         context,
         context.translator.t("skills.update.current", {
             name: skillName,
@@ -519,11 +500,7 @@ function writeUpdateFailureLine(
     skillName: string,
     error: Error,
 ): void {
-    if (context.stdout.isTTY === true) {
-        return;
-    }
-
-    writeLine(
+    writeNonTtyLine(
         context,
         context.translator.t("skills.update.failure", {
             message: localizeSkillUpdateError(error, context),
@@ -541,11 +518,4 @@ function localizeSkillUpdateError(
     }
 
     return error.message;
-}
-
-function writeLine(
-    context: Pick<CliExecutionContext, "stdout">,
-    message: string,
-): void {
-    context.stdout.write(`${message}\n`);
 }

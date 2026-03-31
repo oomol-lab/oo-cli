@@ -13,12 +13,6 @@ export function withAccountIdentity(
     };
 }
 
-export function withAccountId(accountId: string): {
-    accountId: string;
-} {
-    return { accountId };
-}
-
 export function withCacheId(cacheId: string): {
     cacheId: string;
 } {
@@ -50,12 +44,11 @@ export function withPackageIdentity(
     packageName: string;
     packageVersion?: string;
 } {
-    return packageVersion === undefined
-        ? { packageName }
-        : {
-                packageName,
-                packageVersion,
-            };
+    if (packageVersion === undefined) {
+        return { packageName };
+    }
+
+    return { packageName, packageVersion };
 }
 
 export function withPath(path: string): {

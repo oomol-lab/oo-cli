@@ -1,5 +1,5 @@
 import type { CliCommandDefinition } from "../../../contracts/cli.ts";
-import type { SkillConfigSkillName } from "./shared.ts";
+import type { BundledSkillName } from "../embedded-assets.ts";
 
 import { z } from "zod";
 import {
@@ -13,7 +13,7 @@ import {
 
 interface SkillsConfigGetInput {
     key?: string;
-    skill: SkillConfigSkillName;
+    skill: BundledSkillName;
 }
 
 const skillsConfigGetInputSchema = z.object({

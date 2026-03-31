@@ -9,6 +9,7 @@ import {
 import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
 import { defaultSettings } from "../../schemas/settings.ts";
+import { writeLine } from "../shared/output.ts";
 import {
     publishBundledSkillInstallation,
     removePath,
@@ -19,7 +20,6 @@ import {
     resolveBundledSkillImplicitInvocation,
     resolveBundledSkillInstallConflict,
     resolveBundledSkillManagedSynchronizationAction,
-    resolveBundledSkillMissingInstallationAction,
 } from "./bundled-skill-model.ts";
 import {
     directoryExists,
@@ -42,29 +42,12 @@ import {
     getBundledSkillFiles,
 } from "./embedded-assets.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
+
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
-    resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-
-export {
-    createBundledSkillDirectorySymlink,
-    publishBundledSkillInstallation,
-    removeBundledSkillSymbolicPath,
-} from "./bundled-skill-filesystem.ts";
-export type {
-    BundledSkillPublicationResult,
-    CreateBundledSkillDirectorySymlinkDependencies,
-    RemoveBundledSkillSymbolicPathDependencies,
-} from "./bundled-skill-filesystem.ts";
-export {
-    resolveBundledSkillCanonicalDirectoryPath,
-    resolveBundledSkillDirectoryPath,
-    resolveBundledSkillMetadataFilePath,
-    resolveCodexHomeDirectory,
-} from "./bundled-skill-paths.ts";
 
 export async function installBundledSkill(
     skillName: BundledSkillName,
@@ -147,7 +130,7 @@ export async function installBundledSkill(
     });
 
     writeLine(
-        context,
+        context.stdout,
         context.translator.t("skills.install.success", {
             name: skillName,
             path: installation.path,
@@ -202,11 +185,7 @@ export async function maybeSynchronizeInstalledBundledSkills(
             );
 
             if (!installedSkillDirectoryExists) {
-                if (
-                    resolveBundledSkillMissingInstallationAction(
-                        options.installMissing === true,
-                    ) === "skip-missing"
-                ) {
+                if (options.installMissing !== true) {
                     context.logger.debug(
                         {
                             path: skillDirectoryPath,
@@ -274,61 +253,64 @@ export async function maybeSynchronizeInstalledBundledSkills(
                     isCurrentInstallation,
                 });
 
-            if (managedSynchronizationAction === "sync-installation") {
-                const previousVersion
-                    = await readInstalledBundledSkillVersion(skillDirectoryPath);
-                const installation = await writeBundledSkillInstallation({
-                    codexHomeDirectory,
-                    settings,
-                    settingsFilePath,
-                    skillName,
-                    version: context.version,
-                });
-
-                context.logger.info(
-                    {
-                        canonicalPath: canonicalSkillDirectoryPath,
-                        installMode: installation.mode,
-                        path: installation.path,
-                        previousVersion: previousVersion ?? "unknown",
+            switch (managedSynchronizationAction) {
+                case "skip-current": {
+                    context.logger.debug(
+                        {
+                            path: skillDirectoryPath,
+                            skillName,
+                            version: context.version,
+                        },
+                        "Bundled Codex skill synchronization skipped because the managed skill is already current.",
+                    );
+                    continue;
+                }
+                case "sync-installation": {
+                    const previousVersion
+                        = await readInstalledBundledSkillVersion(skillDirectoryPath);
+                    const installation = await writeBundledSkillInstallation({
+                        codexHomeDirectory,
+                        settings,
+                        settingsFilePath,
                         skillName,
                         version: context.version,
-                    },
-                    "Bundled Codex skill synchronized.",
-                );
-                continue;
-            }
+                    });
 
-            if (managedSynchronizationAction === "skip-current") {
-                context.logger.debug(
-                    {
-                        path: skillDirectoryPath,
+                    context.logger.info(
+                        {
+                            canonicalPath: canonicalSkillDirectoryPath,
+                            installMode: installation.mode,
+                            path: installation.path,
+                            previousVersion: previousVersion ?? "unknown",
+                            skillName,
+                            version: context.version,
+                        },
+                        "Bundled Codex skill synchronized.",
+                    );
+                    continue;
+                }
+                case "sync-policy": {
+                    const installation = await writeBundledSkillInstallation({
+                        codexHomeDirectory,
+                        settings,
+                        settingsFilePath,
                         skillName,
                         version: context.version,
-                    },
-                    "Bundled Codex skill synchronization skipped because the managed skill is already current.",
-                );
-                continue;
+                    });
+                    context.logger.info(
+                        {
+                            canonicalPath: canonicalSkillDirectoryPath,
+                            implicitInvocation: desiredImplicitInvocation,
+                            installMode: installation.mode,
+                            path: installation.path,
+                            skillName,
+                            version: context.version,
+                        },
+                        "Bundled Codex skill policy synchronized.",
+                    );
+                    continue;
+                }
             }
-
-            const installation = await writeBundledSkillInstallation({
-                codexHomeDirectory,
-                settings,
-                settingsFilePath,
-                skillName,
-                version: context.version,
-            });
-            context.logger.info(
-                {
-                    canonicalPath: canonicalSkillDirectoryPath,
-                    implicitInvocation: desiredImplicitInvocation,
-                    installMode: installation.mode,
-                    path: installation.path,
-                    skillName,
-                    version: context.version,
-                },
-                "Bundled Codex skill policy synchronized.",
-            );
         }
         catch (error) {
             context.logger.warn(
@@ -382,11 +364,13 @@ export async function uninstallBundledSkill(
 
     const previousVersion = await readInstalledBundledSkillVersion(skillDirectoryPath);
 
-    await removePath(skillDirectoryPath);
-    await removePath(canonicalSkillDirectoryPath);
+    await Promise.all([
+        removePath(skillDirectoryPath),
+        removePath(canonicalSkillDirectoryPath),
+    ]);
 
     writeLine(
-        context,
+        context.stdout,
         context.translator.t("skills.uninstall.success", {
             name: skillName,
             path: skillDirectoryPath,
@@ -430,7 +414,7 @@ async function writeBundledSkillInstallation(options: {
     return publishBundledSkillInstallation(installationPaths);
 }
 
-export async function writeBundledSkillCanonicalInstallation(options: {
+async function writeBundledSkillCanonicalInstallation(options: {
     codexHomeDirectory: string;
     settings: AppSettings;
     settingsFilePath: string;
@@ -483,10 +467,6 @@ export async function writeBundledSkillCanonicalInstallation(options: {
     };
 }
 
-function writeLine(context: CliExecutionContext, message: string): void {
-    context.stdout.write(`${message}\n`);
-}
-
 async function uninstallRegistrySkill(
     skillName: string,
     context: CliExecutionContext,
@@ -515,17 +495,11 @@ async function uninstallRegistrySkill(
         settingsFilePath,
         skillName,
     );
-    const installedSkillDirectoryExists = await directoryExists(skillDirectoryPath);
-    const installedSkillMetadataExists = installedSkillDirectoryExists
-        ? await fileExists(resolveManagedSkillMetadataFilePath(skillDirectoryPath))
-        : false;
+    const metadata = await readManagedSkillMetadata(skillDirectoryPath);
 
-    if (
-        !canUninstallManagedBundledSkillInstallation({
-            installedDirectoryExists: installedSkillDirectoryExists,
-            installedDirectoryManaged: installedSkillMetadataExists,
-        })
-    ) {
+    if (metadata === undefined) {
+        const installedSkillDirectoryExists = await directoryExists(skillDirectoryPath);
+
         context.logger.warn(
             {
                 path: skillDirectoryPath,
@@ -540,14 +514,14 @@ async function uninstallRegistrySkill(
         });
     }
 
-    const metadata = await readManagedSkillMetadata(skillDirectoryPath);
-
-    await removePath(skillDirectoryPath);
-    await removePath(canonicalSkillDirectoryPath);
+    await Promise.all([
+        removePath(skillDirectoryPath),
+        removePath(canonicalSkillDirectoryPath),
+    ]);
 
     if (options?.silent !== true) {
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("skills.uninstall.success", {
                 name: skillName,
                 path: skillDirectoryPath,
@@ -557,9 +531,9 @@ async function uninstallRegistrySkill(
     context.logger.info(
         {
             canonicalPath: canonicalSkillDirectoryPath,
-            packageName: metadata?.packageName,
+            packageName: metadata.packageName,
             path: skillDirectoryPath,
-            previousVersion: metadata?.version ?? "unknown",
+            previousVersion: metadata.version ?? "unknown",
             skillName,
         },
         "Managed Codex skill removed explicitly.",
@@ -583,6 +557,6 @@ function createManagedSkillUninstallError(options: {
     );
 }
 
-function isBundledSkillName(value: string): value is BundledSkillName {
+export function isBundledSkillName(value: string): value is BundledSkillName {
     return availableBundledSkillNames.includes(value as BundledSkillName);
 }

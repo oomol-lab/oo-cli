@@ -51,7 +51,7 @@ function formatCloudTaskResultLines(
         hideZeroProgress?: boolean;
     } = {},
 ): string[] {
-    const colors = createCloudTaskColors(context);
+    const colors = createWriterColors(context.stdout);
     const lines = [readCloudTaskHeading(response.status, context, colors)];
 
     lines.push(
@@ -67,7 +67,7 @@ function formatCloudTaskResultLines(
         case "scheduling":
         case "scheduled":
         case "running":
-            if (!(options.hideZeroProgress === true && response.progress === 0)) {
+            if (!options.hideZeroProgress || response.progress !== 0) {
                 lines.push(
                     formatCloudTaskDetailLine(
                         context.translator.t("cloudTask.text.progress"),
@@ -122,7 +122,7 @@ export function formatCloudTaskListAsText(
     response: CloudTaskListResponse,
     context: CloudTaskTextContext,
 ): string {
-    const colors = createCloudTaskColors(context);
+    const colors = createWriterColors(context.stdout);
     const taskBlocks = response.tasks.map(task =>
         formatCloudTaskListTask(task, context, colors),
     );
@@ -145,55 +145,24 @@ function formatCloudTaskListTask(
     context: CloudTaskTextContext,
     colors: TerminalColors,
 ): string {
-    const lines = [readCloudTaskHeading(task.status, context, colors)];
+    const t = context.translator.t.bind(context.translator);
+    const detail = (key: string, value: string): string =>
+        formatCloudTaskDetailLine(t(key), value, colors);
 
-    lines.push(
-        formatCloudTaskDetailLine(
-            context.translator.t("cloudTask.text.taskId"),
-            colors.bold(task.taskID),
-            colors,
-        ),
-    );
-    lines.push(
-        formatCloudTaskDetailLine(
-            context.translator.t("cloudTask.text.packageBlock"),
-            readCloudTaskPackageBlock(task, colors),
-            colors,
-        ),
-    );
-    lines.push(
-        formatCloudTaskDetailLine(
-            context.translator.t("cloudTask.text.workload"),
-            task.workload,
-            colors,
-        ),
-    );
-    lines.push(
-        formatCloudTaskDetailLine(
-            context.translator.t("cloudTask.text.progress"),
-            formatCloudTaskProgress(task.progress, task.status, colors),
-            colors,
-        ),
-    );
-    lines.push(
-        formatCloudTaskDetailLine(
-            context.translator.t("cloudTask.text.createdAt"),
-            formatCloudTaskTimestamp(task.createdAt),
-            colors,
-        ),
-    );
-    lines.push(
-        formatCloudTaskDetailLine(
-            context.translator.t("cloudTask.text.updatedAt"),
-            formatCloudTaskTimestamp(task.updatedAt),
-            colors,
-        ),
-    );
+    const lines = [
+        readCloudTaskHeading(task.status, context, colors),
+        detail("cloudTask.text.taskId", colors.bold(task.taskID)),
+        detail("cloudTask.text.packageBlock", readCloudTaskPackageBlock(task, colors)),
+        detail("cloudTask.text.workload", task.workload),
+        detail("cloudTask.text.progress", formatCloudTaskProgress(task.progress, task.status, colors)),
+        detail("cloudTask.text.createdAt", formatCloudTaskTimestamp(task.createdAt)),
+        detail("cloudTask.text.updatedAt", formatCloudTaskTimestamp(task.updatedAt)),
+    ];
 
     if (Object.hasOwn(task.schedulerPayload, "inputValues")) {
         lines.push(
             formatCloudTaskDataBlock(
-                context.translator.t("cloudTask.text.inputValues"),
+                t("cloudTask.text.inputValues"),
                 task.schedulerPayload.inputValues,
                 colors,
             ),
@@ -201,23 +170,11 @@ function formatCloudTaskListTask(
     }
 
     if (task.resultURL) {
-        lines.push(
-            formatCloudTaskDetailLine(
-                context.translator.t("cloudTask.text.resultUrl"),
-                colors.hex(cloudTaskUrlColor)(task.resultURL),
-                colors,
-            ),
-        );
+        lines.push(detail("cloudTask.text.resultUrl", colors.hex(cloudTaskUrlColor)(task.resultURL)));
     }
 
     if (task.failedMessage) {
-        lines.push(
-            formatCloudTaskDetailLine(
-                context.translator.t("cloudTask.text.error"),
-                colors.red(task.failedMessage),
-                colors,
-            ),
-        );
+        lines.push(detail("cloudTask.text.error", colors.red(task.failedMessage)));
     }
 
     return lines.join("\n");
@@ -228,45 +185,34 @@ function readCloudTaskHeading(
     context: CloudTaskTextContext,
     colors: TerminalColors,
 ): string {
-    return `${readCloudTaskStatusIcon(status, colors)} ${readCloudTaskStatusLabel(status, context, colors)}`;
+    const icon = colorizeCloudTaskByStatus(
+        readCloudTaskStatusIcon(status),
+        status,
+        colors,
+    );
+    const label = colorizeCloudTaskByStatus(
+        colors.bold(context.translator.t(`cloudTask.status.${status}`)),
+        status,
+        colors,
+    );
+
+    return `${icon} ${label}`;
 }
 
 function readCloudTaskStatusIcon(
     status: CloudTaskStatus,
-    colors: TerminalColors,
 ): string {
     switch (status) {
         case "queued":
         case "scheduling":
         case "scheduled":
-            return colors.yellow("○");
+            return "○";
         case "running":
-            return colors.blue("▶");
+            return "▶";
         case "success":
-            return colors.green("✓");
+            return "✓";
         case "failed":
-            return colors.red("X");
-    }
-}
-
-function readCloudTaskStatusLabel(
-    status: CloudTaskStatus,
-    context: CloudTaskTextContext,
-    colors: TerminalColors,
-): string {
-    const label = context.translator.t(`cloudTask.status.${status}`);
-
-    switch (status) {
-        case "queued":
-        case "scheduling":
-        case "scheduled":
-            return colors.yellow(colors.bold(label));
-        case "running":
-            return colors.blue(colors.bold(label));
-        case "success":
-            return colors.green(colors.bold(label));
-        case "failed":
-            return colors.red(colors.bold(label));
+            return "X";
     }
 }
 
@@ -275,18 +221,9 @@ function formatCloudTaskDetailLine(
     value: string,
     colors: TerminalColors,
 ): string {
-    const valueLines = value.split("\n");
-    const firstValueLine = valueLines[0] ?? "";
-    const remainingValueLines = valueLines.slice(1);
-    const lines = [
-        `  ${colors.dim(formatCloudTaskLabel(label))} ${firstValueLine}`,
-    ];
+    const prefix = `  ${colors.dim(formatCloudTaskLabel(label))} `;
 
-    for (const line of remainingValueLines) {
-        lines.push(`    ${line}`);
-    }
-
-    return lines.join("\n");
+    return prefix + value.replaceAll("\n", "\n    ");
 }
 
 function formatCloudTaskDataBlock(
@@ -295,11 +232,6 @@ function formatCloudTaskDataBlock(
     colors: TerminalColors,
 ): string {
     const json = JSON.stringify(value, null, 2);
-
-    if (json === undefined) {
-        return `  ${colors.dim(formatCloudTaskLabel(label))}`;
-    }
-
     const lines = json.split("\n");
 
     return [
@@ -376,12 +308,6 @@ function colorizeCloudTaskByStatus(
         case "failed":
             return colors.red(value);
     }
-}
-
-function createCloudTaskColors(
-    context: Pick<CliExecutionContext, "stdout">,
-): TerminalColors {
-    return createWriterColors(context.stdout);
 }
 
 function formatCloudTaskLabel(label: string): string {

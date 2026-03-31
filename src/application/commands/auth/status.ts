@@ -8,6 +8,12 @@ import {
     writeAuthBlock,
 } from "./shared.ts";
 
+const apiKeyStatusConfig = {
+    invalid: { tone: "danger", translationKey: "auth.status.apiKeyInvalid" },
+    request_failed: { tone: "warning", translationKey: "auth.status.apiKeyRequestFailed" },
+    valid: { tone: "success", translationKey: "auth.status.apiKeyValid" },
+} as const;
+
 export const authStatusCommand: CliCommandDefinition = {
     name: "status",
     summaryKey: "commands.auth.status.summary",
@@ -17,28 +23,33 @@ export const authStatusCommand: CliCommandDefinition = {
         const { authFile, currentAccount } = await readCurrentAuth(context);
 
         if (!currentAccount) {
-            writeAuthBlock(context, {
-                tone: authFile.id === "" ? "warning" : "danger",
-                summary: context.translator.t(
-                    authFile.id === ""
-                        ? "auth.status.loggedOut"
-                        : "auth.status.missing",
-                ),
-                details: authFile.id === ""
-                    ? []
-                    : [
-                            {
-                                label: context.translator.t("auth.status.accountId"),
-                                value: authFile.id,
-                            },
-                        ],
-            });
+            const hasStaleId = authFile.id !== "";
+
+            if (hasStaleId) {
+                writeAuthBlock(context, {
+                    tone: "danger",
+                    summary: context.translator.t("auth.status.missing"),
+                    details: [
+                        {
+                            label: context.translator.t("auth.status.accountId"),
+                            value: authFile.id,
+                        },
+                    ],
+                });
+            }
+            else {
+                writeAuthBlock(context, {
+                    tone: "warning",
+                    summary: context.translator.t("auth.status.loggedOut"),
+                });
+            }
             return;
         }
 
         const apiKeyStatus = await readApiKeyStatus(currentAccount, context);
+        const statusConfig = apiKeyStatusConfig[apiKeyStatus];
         writeAuthBlock(context, {
-            tone: readAuthStatusTone(apiKeyStatus),
+            tone: statusConfig.tone,
             summary: context.translator.t("auth.status.loggedIn", {
                 endpoint: formatAuthStrong(context, currentAccount.endpoint),
                 name: formatAuthStrong(context, currentAccount.name),
@@ -50,7 +61,7 @@ export const authStatusCommand: CliCommandDefinition = {
                 },
                 {
                     label: context.translator.t("auth.status.apiKeyStatus"),
-                    value: context.translator.t(readApiKeyStatusKey(apiKeyStatus)),
+                    value: context.translator.t(statusConfig.translationKey),
                 },
             ],
         });
@@ -104,31 +115,5 @@ async function readApiKeyStatus(
             "Auth status request failed unexpectedly.",
         );
         return "request_failed";
-    }
-}
-
-function readAuthStatusTone(
-    apiKeyStatus: "invalid" | "request_failed" | "valid",
-): "danger" | "success" | "warning" {
-    switch (apiKeyStatus) {
-        case "invalid":
-            return "danger";
-        case "request_failed":
-            return "warning";
-        case "valid":
-            return "success";
-    }
-}
-
-function readApiKeyStatusKey(
-    apiKeyStatus: "invalid" | "request_failed" | "valid",
-): "auth.status.apiKeyInvalid" | "auth.status.apiKeyRequestFailed" | "auth.status.apiKeyValid" {
-    switch (apiKeyStatus) {
-        case "invalid":
-            return "auth.status.apiKeyInvalid";
-        case "request_failed":
-            return "auth.status.apiKeyRequestFailed";
-        case "valid":
-            return "auth.status.apiKeyValid";
     }
 }

@@ -30,7 +30,6 @@ export class RollingFileDestination implements DestinationStream {
     private readonly sessionId: string;
     private readonly filePath: string;
     private currentFileDescriptor?: number;
-    private initialized = false;
     private writable = true;
 
     constructor(options: RollingFileDestinationOptions) {
@@ -58,7 +57,6 @@ export class RollingFileDestination implements DestinationStream {
         }
 
         try {
-            this.ensureInitialized();
             this.ensureFileOpened();
 
             const currentFileDescriptor = this.currentFileDescriptor;
@@ -96,14 +94,6 @@ export class RollingFileDestination implements DestinationStream {
         return this.filePath;
     }
 
-    private ensureInitialized(): void {
-        if (this.initialized) {
-            return;
-        }
-
-        this.initialized = true;
-    }
-
     private ensureFileOpened(): void {
         if (this.currentFileDescriptor !== undefined) {
             return;
@@ -134,17 +124,13 @@ export class RollingFileDestination implements DestinationStream {
         try {
             const entries = readdirSync(this.directoryPath, { withFileTypes: true });
 
-            return entries.flatMap((entry) => {
-                if (
-                    !entry.isFile()
-                    || !entry.name.startsWith(`${this.filePrefix}-`)
-                    || !entry.name.endsWith(".log")
-                ) {
-                    return [];
-                }
-
-                return [join(this.directoryPath, entry.name)];
-            }).sort((left, right) => left.localeCompare(right));
+            return entries
+                .filter(entry =>
+                    entry.isFile()
+                    && entry.name.startsWith(`${this.filePrefix}-`)
+                    && entry.name.endsWith(".log"))
+                .map(entry => join(this.directoryPath, entry.name))
+                .sort((left, right) => left.localeCompare(right));
         }
         catch {
             return [];
@@ -173,10 +159,7 @@ export class RollingFileDestination implements DestinationStream {
 }
 
 function createSessionId(now: Date, pid: number): string {
-    return [
-        formatLocalDateTime(now),
-        `p${String(pid)}`,
-    ].join("-");
+    return `${formatLocalDateTime(now)}-p${pid}`;
 }
 
 function resolveLogFileName(options: {
@@ -199,13 +182,8 @@ function resolveLogFileName(options: {
 function listExistingLogFileNames(directoryPath: string): string[] {
     try {
         return readdirSync(directoryPath, { withFileTypes: true })
-            .flatMap((entry) => {
-                if (!entry.isFile()) {
-                    return [];
-                }
-
-                return [entry.name];
-            });
+            .filter(entry => entry.isFile())
+            .map(entry => entry.name);
     }
     catch {
         return [];
@@ -213,16 +191,12 @@ function listExistingLogFileNames(directoryPath: string): string[] {
 }
 
 function formatLocalDateTime(date: Date): string {
-    return [
-        [
-            String(date.getFullYear()).padStart(4, "0"),
-            String(date.getMonth() + 1).padStart(2, "0"),
-            String(date.getDate()).padStart(2, "0"),
-        ].join("-"),
-        [
-            String(date.getHours()).padStart(2, "0"),
-            String(date.getMinutes()).padStart(2, "0"),
-            String(date.getSeconds()).padStart(2, "0"),
-        ].join("-"),
-    ].join("_");
+    const y = String(date.getFullYear()).padStart(4, "0");
+    const mo = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    const h = String(date.getHours()).padStart(2, "0");
+    const mi = String(date.getMinutes()).padStart(2, "0");
+    const s = String(date.getSeconds()).padStart(2, "0");
+
+    return `${y}-${mo}-${d}_${h}-${mi}-${s}`;
 }

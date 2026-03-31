@@ -2,9 +2,8 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import type { BundledSkillName } from "./embedded-assets.ts";
 
 import { z } from "zod";
-import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
-import { installBundledSkill } from "./shared.ts";
+import { installBundledSkill, isBundledSkillName } from "./shared.ts";
 
 interface SkillsInstallInput {
     all?: boolean;
@@ -77,7 +76,3 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         );
     },
 };
-
-function isBundledSkillName(value: string): value is BundledSkillName {
-    return availableBundledSkillNames.includes(value as BundledSkillName);
-}

@@ -50,7 +50,7 @@ function buildCompletionNodes(
         commands: readonly CliCommandDefinition[],
         argumentChoices: readonly (readonly string[])[] = [],
     ): void => {
-        const pathKey = serializePath(path);
+        const pathKey = path.join(" ");
         const childCommands = commands.map(command => ({
             name: command.name,
             summary: translator.t(command.summaryKey),
@@ -99,17 +99,11 @@ function flattenOptionFlags(
         shortFlag?: string;
     }[],
 ): string[] {
-    const flags: string[] = [];
-
-    for (const option of options) {
-        if (option.shortFlag) {
-            flags.push(option.shortFlag);
-        }
-
-        flags.push(option.longFlag);
-    }
-
-    return flags;
+    return options.flatMap(option =>
+        option.shortFlag
+            ? [option.shortFlag, option.longFlag]
+            : [option.longFlag],
+    );
 }
 
 function renderBashCompletion(
@@ -149,7 +143,7 @@ _${commandName}_completion() {
         fi
 
         case "$path_key|$token" in
-${buildTransitionCases(nodes, "bash")}
+${buildTransitionCases(nodes)}
         esac
 
         break
@@ -231,7 +225,7 @@ _${commandName}() {
         fi
 
         case "$path_key|$token" in
-${buildTransitionCases(nodes, "zsh")}
+${buildTransitionCases(nodes)}
         esac
 
         break
@@ -360,13 +354,12 @@ function renderFishCompletion(
 
 function buildTransitionCases(
     nodes: readonly CompletionNode[],
-    shell: "bash" | "zsh",
 ): string {
     const lines: string[] = [];
 
     for (const node of nodes) {
         for (const command of node.childCommands) {
-            const nextPath = serializePath([...node.path, command.name]);
+            const nextPath = [...node.path, command.name].join(" ");
             lines.push(
                 `            "${node.pathKey}|${command.name}")`,
                 `                path_key="${nextPath}"`,
@@ -375,10 +368,6 @@ function buildTransitionCases(
                 "                ;;",
             );
         }
-    }
-
-    if (shell === "zsh") {
-        return lines.join("\n");
     }
 
     return lines.join("\n");
@@ -451,10 +440,6 @@ function buildSuggestionCases(
     return lines.join("\n");
 }
 
-function serializePath(path: readonly string[]): string {
-    return path.join(" ");
-}
-
 function escapeSingleQuotes(value: string): string {
-    return value.split("'").join("\\'");
+    return value.replaceAll("'", "\\'");
 }

@@ -223,11 +223,7 @@ function bindCommandHandler<TInput>(
     inputSchema: ZodType<TInput>,
     context: CliExecutionContext,
 ): void {
-    const handler = definition.handler;
-
-    if (!handler) {
-        return;
-    }
+    const handler = definition.handler!;
 
     command.action(async (...actionArguments) => {
         const commandInstance = actionArguments.at(-1) as Command;
@@ -251,19 +247,13 @@ function formatOptionFlags(option: {
     shortFlag?: string;
     valueName?: string;
 }): string {
-    const flags = [];
-
-    if (option.shortFlag) {
-        flags.push(option.shortFlag);
-    }
-
     const longFlag = option.valueName
         ? `${option.longFlag} <${option.valueName}>`
         : option.longFlag;
 
-    flags.push(longFlag);
-
-    return flags.join(", ");
+    return option.shortFlag
+        ? `${option.shortFlag}, ${longFlag}`
+        : longFlag;
 }
 
 function createOption(
@@ -367,7 +357,7 @@ function parseInput<TInput>(
     const result = inputSchema.safeParse(rawInput);
 
     if (result.success) {
-        return result.data as TInput;
+        return result.data;
     }
 
     throw mapInputError(definition, result.error, rawInput);

@@ -27,18 +27,12 @@ interface SkillConfigDefinition {
     valueSchema: ZodType<string>;
 }
 
-function defineSkillConfigDefinition(
-    definition: SkillConfigDefinition,
-): SkillConfigDefinition {
-    return definition;
-}
-
 const skillConfigDefinitions: Record<
     BundledSkillName,
     Record<string, SkillConfigDefinition>
 > = {
     oo: {
-        "allow-implicit-invocation": defineSkillConfigDefinition({
+        "allow-implicit-invocation": {
             createInvalidValueError(skillName, rawValue) {
                 return new CliUserError(
                     "errors.skills.config.invalidAllowImplicitInvocationValue",
@@ -64,16 +58,14 @@ const skillConfigDefinitions: Record<
             },
             valueChoices: booleanConfigValueChoices,
             valueSchema: booleanConfigValueSchema,
-        }),
+        } satisfies SkillConfigDefinition,
     },
 };
-
-export type SkillConfigSkillName = BundledSkillName;
 
 export const skillConfigSkillChoices = availableBundledSkillNames;
 export const skillConfigSkillSchema = z.enum(skillConfigSkillChoices);
 
-export function isSkillConfigSkillName(value: unknown): value is SkillConfigSkillName {
+export function isBundledSkillName(value: unknown): value is BundledSkillName {
     return typeof value === "string" && value in skillConfigDefinitions;
 }
 
@@ -89,7 +81,7 @@ export function createInvalidSkillConfigSkillError(
 export function createInvalidSkillConfigKeyError(
     rawInput: Record<string, unknown>,
 ): CliUserError {
-    const skillName = isSkillConfigSkillName(rawInput.skill)
+    const skillName = isBundledSkillName(rawInput.skill)
         ? rawInput.skill
         : skillConfigSkillChoices[0];
 
@@ -101,13 +93,13 @@ export function createInvalidSkillConfigKeyError(
 }
 
 export function getSkillConfigKeyChoices(
-    skillName: SkillConfigSkillName,
+    skillName: BundledSkillName,
 ): readonly string[] {
     return Object.keys(getSkillConfigDefinitions(skillName));
 }
 
 export function getSkillConfigDefinition(
-    skillName: SkillConfigSkillName,
+    skillName: BundledSkillName,
     key: string,
 ): SkillConfigDefinition {
     return getSkillConfigDefinitions(skillName)[key]!;
@@ -115,7 +107,7 @@ export function getSkillConfigDefinition(
 
 export function getSkillConfigValue(
     settings: AppSettings,
-    skillName: SkillConfigSkillName,
+    skillName: BundledSkillName,
     key: string,
 ): string {
     return getSkillConfigDefinition(skillName, key).getValue(settings);
@@ -123,7 +115,7 @@ export function getSkillConfigValue(
 
 export function listSkillConfigValues(
     settings: AppSettings,
-    skillName: SkillConfigSkillName,
+    skillName: BundledSkillName,
 ): string[] {
     return getSkillConfigKeyChoices(skillName).map(
         key => `${key}=${getSkillConfigValue(settings, skillName, key)}`,
@@ -134,7 +126,7 @@ export function getSkillConfigDefinitionByRawInput(
     rawSkillName: unknown,
     rawKey: unknown,
 ): SkillConfigDefinition | undefined {
-    if (!isSkillConfigSkillName(rawSkillName) || typeof rawKey !== "string") {
+    if (!isBundledSkillName(rawSkillName) || typeof rawKey !== "string") {
         return undefined;
     }
 
@@ -148,7 +140,7 @@ export function getSkillConfigDefinitionByRawInput(
 }
 
 function getSkillConfigDefinitions(
-    skillName: SkillConfigSkillName,
+    skillName: BundledSkillName,
 ): Record<string, SkillConfigDefinition> {
     return skillConfigDefinitions[skillName];
 }

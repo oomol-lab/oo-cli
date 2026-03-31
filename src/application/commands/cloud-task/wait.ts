@@ -45,7 +45,7 @@ const thirdWaitPrintIntervalMs = 5 * 60_000;
 
 export const cloudTaskWaitCommand: CliCommandDefinition<CloudTaskWaitInput> = {
     name: "wait",
-    aliases: ["wati"],
+    aliases: ["wati"], // Intentional typo-tolerance alias
     summaryKey: "commands.cloudTask.wait.summary",
     descriptionKey: "commands.cloudTask.wait.description",
     missingArgumentBehavior: "showHelp",
@@ -86,9 +86,10 @@ export function createCloudTaskWaitHandler(
         let lastPrintedElapsedMs: number | undefined;
 
         while (true) {
-            const elapsedBeforeRequestMs = dependencies.now() - startedAt;
+            const elapsedMs = dependencies.now() - startedAt;
+            const remainingMs = timeoutMs - elapsedMs;
 
-            if (elapsedBeforeRequestMs >= timeoutMs) {
+            if (remainingMs <= 0) {
                 throw new CliUserError("errors.cloudTaskWait.timedOut", 1, {
                     taskId: input.taskId,
                     timeout: formatCloudTaskDuration(timeoutMs),
@@ -99,38 +100,25 @@ export function createCloudTaskWaitHandler(
                 await requestCloudTask(requestUrl, account.apiKey, context),
             );
 
-            if (response.status === "success") {
+            if (response.status === "success" || response.status === "failed") {
                 context.stdout.write(
                     `${formatCloudTaskResultAsText(input.taskId, response, context)}\n`,
                 );
+
+                if (response.status === "failed") {
+                    throw new CliUserError("errors.cloudTaskWait.failed", 1, {
+                        taskId: input.taskId,
+                    });
+                }
+
                 return;
             }
-
-            if (response.status === "failed") {
-                context.stdout.write(
-                    `${formatCloudTaskResultAsText(input.taskId, response, context)}\n`,
-                );
-                throw new CliUserError("errors.cloudTaskWait.failed", 1, {
-                    taskId: input.taskId,
-                });
-            }
-
-            const elapsedMs = dependencies.now() - startedAt;
 
             if (shouldPrintCloudTaskWaitUpdate(lastPrintedElapsedMs, elapsedMs)) {
                 context.stdout.write(
                     `${formatCloudTaskWaitUpdateAsText(input.taskId, response, elapsedMs, context)}\n\n`,
                 );
                 lastPrintedElapsedMs = elapsedMs;
-            }
-
-            const remainingMs = timeoutMs - elapsedMs;
-
-            if (remainingMs <= 0) {
-                throw new CliUserError("errors.cloudTaskWait.timedOut", 1, {
-                    taskId: input.taskId,
-                    timeout: formatCloudTaskDuration(timeoutMs),
-                });
             }
 
             await dependencies.sleep(Math.min(pollIntervalMs, remainingMs));

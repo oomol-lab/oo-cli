@@ -1,3 +1,5 @@
+import type { Stats } from "node:fs";
+
 import { mkdir, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -34,21 +36,12 @@ export function parseFileDownloadExtensionOption(
     }
 
     const trimmedValue = value.trim();
-
-    if (trimmedValue === "" || trimmedValue === "." || trimmedValue === "..") {
-        throw new CliUserError("errors.fileDownload.invalidExt", 2, {
-            value,
-        });
-    }
-
     const normalizedValue = trimmedValue.startsWith(".")
         ? trimmedValue.slice(1)
         : trimmedValue;
 
     if (
         normalizedValue === ""
-        || normalizedValue === "."
-        || normalizedValue === ".."
         || normalizedValue.startsWith(".")
         || hasPathSeparator(normalizedValue)
     ) {
@@ -82,15 +75,15 @@ export function parseFileDownloadUrl(value: string): URL {
 }
 
 export async function ensureOutputDirectory(
-    outDir: string | undefined,
+    outDir: string,
     cwd: string,
     env: Record<string, string | undefined>,
 ): Promise<string> {
     const outputDirectoryPath = resolve(
         cwd,
-        expandHomeDirectoryPath(outDir ?? ".", env),
+        expandHomeDirectoryPath(outDir, env),
     );
-    let metadata: Awaited<ReturnType<typeof stat>> | undefined;
+    let metadata: Stats | undefined;
 
     try {
         metadata = await stat(outputDirectoryPath);

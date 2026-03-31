@@ -8,7 +8,9 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createInteractiveInput,
+    createRegistrySkillArchiveBytes,
     createTextBuffer,
+    formatManagedSkillMetadataContent,
     toRequest,
     waitForOutputText,
     writeAuthFile,
@@ -16,6 +18,11 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    resolveBundledSkillCanonicalDirectoryPath,
+    resolveBundledSkillMetadataFilePath,
+    resolveCodexHomeDirectory,
+} from "./bundled-skill-paths.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
@@ -25,11 +32,6 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
-import {
-    resolveBundledSkillCanonicalDirectoryPath,
-    resolveBundledSkillMetadataFilePath,
-    resolveCodexHomeDirectory,
-} from "./shared.ts";
 
 describe("skills commands", () => {
     const guidance = renderOoPackageExecutionGuidance();
@@ -1345,19 +1347,4 @@ describe("skills commands", () => {
 
 function formatBundledSkillMetadataContent(version: string): string {
     return `${JSON.stringify({ version }, null, 2)}\n`;
-}
-
-function formatManagedSkillMetadataContent(
-    packageName: string,
-    version: string,
-): string {
-    return `${JSON.stringify({ packageName, version }, null, 2)}\n`;
-}
-
-async function createRegistrySkillArchiveBytes(
-    files: Record<string, string>,
-): Promise<Uint8Array<ArrayBuffer>> {
-    return await new Bun.Archive(files, {
-        compress: "gzip",
-    }).bytes();
 }

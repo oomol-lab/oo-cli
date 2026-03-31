@@ -1,3 +1,4 @@
+import type { Stats } from "node:fs";
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { stat } from "node:fs/promises";
@@ -5,11 +6,12 @@ import { basename, resolve } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
+    createFormatInputError,
     initFileUpload,
     maxFileUploadSizeBytes,
     parseFileFormat,
-    requireCurrentFileUploadAccount,
     resolveUploadedFileUrl,
     serializeFileUploadRecord,
     uploadFileParts,
@@ -38,10 +40,10 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
         format: z.string().optional(),
         filePath: z.string(),
     }),
-    mapInputError: (_, rawInput) => createFileUploadInputError(rawInput),
+    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const format = parseFileFormat(input.format);
-        const account = await requireCurrentFileUploadAccount(context);
+        const account = await requireCurrentAccount(context, "errors.fileUpload.authRequired", "errors.fileUpload.activeAccountMissing");
         const sourceFile = await readSourceFile(input.filePath, context.cwd);
         const uploadSession = await initFileUpload(
             account,
@@ -99,7 +101,7 @@ async function readSourceFile(
     fileSize: number;
 }> {
     const resolvedPath = resolve(cwd, filePath);
-    let metadata: Awaited<ReturnType<typeof stat>>;
+    let metadata: Stats;
 
     try {
         metadata = await stat(resolvedPath);
@@ -130,12 +132,4 @@ async function readSourceFile(
         fileName: basename(resolvedPath),
         fileSize: metadata.size,
     };
-}
-
-function createFileUploadInputError(
-    rawInput: Record<string, unknown>,
-): CliUserError {
-    return new CliUserError("errors.file.invalidFormat", 2, {
-        value: String(rawInput.format ?? ""),
-    });
 }

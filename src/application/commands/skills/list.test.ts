@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
+import { renderSkillMetadataJson } from "./bundled-skill-model.ts";
 import { listManagedSkillInstallations } from "./list.ts";
-import { renderManagedSkillMetadataContent } from "./managed-skill-metadata.ts";
 
 describe("skills list command helpers", () => {
     test("lists managed skills and keeps oo before the remaining sorted names", async () => {
@@ -24,7 +24,7 @@ describe("skills list command helpers", () => {
 
             await Bun.write(
                 join(zebraSkillDirectoryPath, ".oo-metadata.json"),
-                renderManagedSkillMetadataContent({
+                renderSkillMetadataJson({
                     packageName: "@oomol/zebra",
                     version: "2.0.0",
                 }),
@@ -35,7 +35,7 @@ describe("skills list command helpers", () => {
             );
             await Bun.write(
                 join(ooSkillDirectoryPath, ".oo-metadata.json"),
-                renderManagedSkillMetadataContent({
+                renderSkillMetadataJson({
                     version: "9.9.9",
                 }),
             );

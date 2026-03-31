@@ -1,5 +1,3 @@
-import { Buffer } from "node:buffer";
-
 // Keep longer and more specific suffixes before shorter overlapping ones so the
 // first match always preserves the intended composite extension.
 export const compositeExtensions = [
@@ -341,12 +339,15 @@ function decodeExtendedDispositionValue(
 
     const charset = parsedValue.slice(0, firstQuoteIndex).trim().toLowerCase();
     const encodedValue = parsedValue.slice(secondQuoteIndex + 1);
-    const decoderLabel
-        = charset === "" || charset === "utf-8" || charset === "us-ascii"
-            ? "utf-8"
-            : charset === "iso-8859-1"
-                ? "latin1"
-                : undefined;
+
+    let decoderLabel: string | undefined;
+
+    if (charset === "" || charset === "utf-8" || charset === "us-ascii") {
+        decoderLabel = "utf-8";
+    }
+    else if (charset === "iso-8859-1") {
+        decoderLabel = "iso-8859-1";
+    }
 
     if (decoderLabel === undefined || encodedValue === "") {
         return undefined;
@@ -384,9 +385,7 @@ function decodeExtendedDispositionValue(
     }
 
     try {
-        return Buffer.from(bytes).toString(
-            decoderLabel === "latin1" ? "latin1" : "utf8",
-        );
+        return new TextDecoder(decoderLabel as Bun.Encoding).decode(new Uint8Array(bytes));
     }
     catch {
         return undefined;
@@ -405,11 +404,11 @@ function parseFileNameFromUrl(urlValue: string): ResolvedDownloadFileName | unde
 
     const segment = url.pathname.split("/").at(-1);
 
-    if (segment === undefined || segment === "") {
+    if (!segment) {
         return undefined;
     }
 
-    let decodedSegment = segment;
+    let decodedSegment: string;
 
     try {
         decodedSegment = decodeURIComponent(segment);

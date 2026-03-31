@@ -38,26 +38,18 @@ function readBuildVersion(fallbackVersion: string): string {
         return fallbackVersion;
     }
 
-    const normalizedVersion = BUILD_VERSION.trim();
-
-    return normalizedVersion === "" ? fallbackVersion : normalizedVersion;
+    return BUILD_VERSION.trim() || fallbackVersion;
 }
 
 function readBuildTimestamp(): number | undefined {
-    let rawTimestamp: number | undefined;
-
     if (typeof BUILD_TIMESTAMP === "number") {
-        rawTimestamp = BUILD_TIMESTAMP;
+        return Number.isFinite(BUILD_TIMESTAMP) ? BUILD_TIMESTAMP : undefined;
     }
-    else if (typeof BUILD_TIMESTAMP === "string") {
-        rawTimestamp = Number(BUILD_TIMESTAMP);
+    if (typeof BUILD_TIMESTAMP === "string") {
+        const parsed = Number(BUILD_TIMESTAMP);
+        return Number.isFinite(parsed) ? parsed : undefined;
     }
-
-    if (typeof rawTimestamp !== "number" || !Number.isFinite(rawTimestamp)) {
-        return undefined;
-    }
-
-    return rawTimestamp;
+    return undefined;
 }
 
 function readCommitHash(): string | undefined {
@@ -65,9 +57,7 @@ function readCommitHash(): string | undefined {
         return undefined;
     }
 
-    const normalizedCommitHash = GIT_COMMIT.trim();
-
-    return normalizedCommitHash === "" ? undefined : normalizedCommitHash;
+    return GIT_COMMIT.trim() || undefined;
 }
 
 function formatBuildTime(
@@ -78,22 +68,12 @@ function formatBuildTime(
         return unknownValue;
     }
 
-    const buildTime = new Date(buildTimestamp);
-
-    if (Number.isNaN(buildTime.getTime())) {
-        return unknownValue;
-    }
-
-    return buildTime.toISOString();
+    return new Date(buildTimestamp).toISOString();
 }
 
 function formatCommitHash(
     commitHash: string | undefined,
     unknownValue: string,
 ): string {
-    if (commitHash === undefined) {
-        return unknownValue;
-    }
-
-    return commitHash.slice(0, 8);
+    return commitHash?.slice(0, 8) ?? unknownValue;
 }

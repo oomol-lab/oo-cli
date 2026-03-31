@@ -4,7 +4,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { performLoggedRequest, requestText } from "../shared/request.ts";
 
 const registrySkillSchema = z.object({
@@ -35,18 +35,7 @@ export interface RegistryPackageSkillInfo {
 export async function requireCurrentSkillsInstallAccount(
     context: CliExecutionContext,
 ): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.skills.install.authRequired"
-            : "errors.skills.install.activeAccountMissing",
-        1,
-    );
+    return requireCurrentAccount(context, "errors.skills.install.authRequired", "errors.skills.install.activeAccountMissing");
 }
 
 export function createRegistryPackageInfoRequestUrl(

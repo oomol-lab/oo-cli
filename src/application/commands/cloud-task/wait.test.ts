@@ -1,22 +1,21 @@
-import type { AuthStore } from "../../contracts/auth-store.ts";
-import type { CacheStore } from "../../contracts/cache.ts";
 import type {
     CliCatalog,
     CliExecutionContext,
     Fetcher,
     InteractiveInput,
 } from "../../contracts/cli.ts";
-import type { SettingsStore } from "../../contracts/settings-store.ts";
 import type { Translator } from "../../contracts/translator.ts";
 import type { AuthFile } from "../../schemas/auth.ts";
-import type { AppSettings } from "../../schemas/settings.ts";
 
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
 import {
+    createAuthStore,
+    createCacheStore,
     createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
+    createSettingsStore,
     createTextBuffer,
 } from "../../../../__tests__/helpers.ts";
 import { enMessages } from "../../../i18n/catalog.ts";
@@ -329,56 +328,4 @@ function createSequentialFetcher(responses: readonly unknown[]): Fetcher & {
     });
 
     return fetcher;
-}
-
-function createAuthStore(authFile: AuthFile): AuthStore {
-    let currentAuthFile = authFile;
-
-    return {
-        getFilePath: () => "",
-        read: async () => currentAuthFile,
-        write: async (nextAuthFile) => {
-            currentAuthFile = nextAuthFile;
-
-            return currentAuthFile;
-        },
-        update: async (updater) => {
-            currentAuthFile = updater(currentAuthFile);
-
-            return currentAuthFile;
-        },
-    };
-}
-
-function createSettingsStore(settings: AppSettings): SettingsStore {
-    let currentSettings = settings;
-
-    return {
-        getFilePath: () => "",
-        read: async () => currentSettings,
-        write: async (nextSettings) => {
-            currentSettings = nextSettings;
-
-            return currentSettings;
-        },
-        update: async (updater) => {
-            currentSettings = updater(currentSettings);
-
-            return currentSettings;
-        },
-    };
-}
-
-function createCacheStore(): CacheStore {
-    return {
-        getFilePath: () => "",
-        getCache: () => ({
-            clear() {},
-            delete: () => false,
-            get: () => null,
-            has: () => false,
-            set() {},
-        }),
-        close() {},
-    };
 }

@@ -3,7 +3,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { requestText } from "../shared/request.ts";
 
 export const cloudTaskFormatValues = ["json"] as const;
@@ -79,50 +79,23 @@ export type CloudTaskListResponse = z.output<typeof cloudTaskListResponseSchema>
 export async function requireCurrentCloudTaskAccount(
     context: CliExecutionContext,
 ): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.cloudTask.authRequired"
-            : "errors.cloudTask.activeAccountMissing",
-        1,
+    return requireCurrentAccount(
+        context,
+        "errors.cloudTask.authRequired",
+        "errors.cloudTask.activeAccountMissing",
     );
 }
 
 export function parseCloudTaskFormat(
     value: string | undefined,
 ): CloudTaskFormat | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    if (value === "json") {
-        return value;
-    }
-
-    throw new CliUserError("errors.cloudTask.invalidFormat", 2, {
-        value,
-    });
+    return parseEnumOption(value, cloudTaskFormatValues, "errors.cloudTask.invalidFormat");
 }
 
 export function parseCloudTaskStatus(
     value: string | undefined,
 ): CloudTaskStatus | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    if (cloudTaskStatusValues.includes(value as CloudTaskStatus)) {
-        return value as CloudTaskStatus;
-    }
-
-    throw new CliUserError("errors.cloudTaskList.invalidStatus", 2, {
-        value,
-    });
+    return parseEnumOption(value, cloudTaskStatusValues, "errors.cloudTaskList.invalidStatus");
 }
 
 export function parsePositiveIntegerOption(
@@ -186,37 +159,25 @@ export function parseDurationOption(
         });
     }
 
-    let unitIndex = 0;
+    const amountValue = Number.parseInt(trimmedValue, 10);
 
-    while (
-        unitIndex < trimmedValue.length
-        && isAsciiDigit(trimmedValue.charCodeAt(unitIndex))
+    if (Number.isNaN(amountValue)) {
+        throw new CliUserError(errorKey, 2, {
+            option: options.optionName,
+            value,
+        });
+    }
+
+    const unitSuffix = trimmedValue.slice(String(amountValue).length).toLowerCase();
+    const durationUnit = unitSuffix === ""
+        ? (options.defaultUnit ?? "s")
+        : unitSuffix;
+
+    if (
+        !Number.isSafeInteger(amountValue)
+        || amountValue <= 0
+        || (durationUnit !== "s" && durationUnit !== "m" && durationUnit !== "h")
     ) {
-        unitIndex += 1;
-    }
-
-    if (unitIndex === 0) {
-        throw new CliUserError(errorKey, 2, {
-            option: options.optionName,
-            value,
-        });
-    }
-
-    const amountValue = Number(trimmedValue.slice(0, unitIndex));
-    const unitValue = trimmedValue
-        .slice(unitIndex)
-        .toLowerCase() as "" | "s" | "m" | "h";
-
-    if (!Number.isSafeInteger(amountValue) || amountValue <= 0) {
-        throw new CliUserError(errorKey, 2, {
-            option: options.optionName,
-            value,
-        });
-    }
-
-    const durationUnit = readDurationUnit(unitValue, options.defaultUnit);
-
-    if (durationUnit === undefined) {
         throw new CliUserError(errorKey, 2, {
             option: options.optionName,
             value,
@@ -295,7 +256,7 @@ export async function requestCloudTask(
                 method,
             },
             start: {
-                bodyBytes: options.body?.length ?? 0,
+                bodyLength: options.body?.length ?? 0,
                 hasBody: options.body !== undefined,
                 method,
                 query: requestUrl.searchParams.toString(),
@@ -354,21 +315,6 @@ function parseCloudTaskResponse<T>(
     }
 }
 
-function readDurationUnit(
-    value: string,
-    defaultUnit: "s" | "m" | "h" = "s",
-): "s" | "m" | "h" | undefined {
-    if (value === "") {
-        return defaultUnit;
-    }
-
-    if (value === "s" || value === "m" || value === "h") {
-        return value;
-    }
-
-    return undefined;
-}
-
 function readDurationUnitMs(unit: "s" | "m" | "h"): number {
     switch (unit) {
         case "s":
@@ -380,6 +326,18 @@ function readDurationUnitMs(unit: "s" | "m" | "h"): number {
     }
 }
 
-function isAsciiDigit(characterCode: number): boolean {
-    return characterCode >= 48 && characterCode <= 57;
+function parseEnumOption<T extends string>(
+    value: string | undefined,
+    allowedValues: readonly T[],
+    errorKey: string,
+): T | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+
+    if (allowedValues.includes(value as T)) {
+        return value as T;
+    }
+
+    throw new CliUserError(errorKey, 2, { value });
 }

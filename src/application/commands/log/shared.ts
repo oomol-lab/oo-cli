@@ -12,7 +12,3 @@ export function resolveCliLogDirectoryPath(
         platform: process.platform,
     }).logDirectoryPath;
 }
-
-export function writeLine(context: CliExecutionContext, message: string): void {
-    context.stdout.write(`${message}\n`);
-}

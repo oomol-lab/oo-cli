@@ -1,12 +1,11 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
-import type { AuthAccount } from "../../schemas/auth.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { requestText } from "../shared/request.ts";
 
 const searchFormatValues = ["json"] as const;
@@ -23,15 +22,10 @@ const skillSearchItemSchema = z.object({
     title: z.string().optional().default(""),
 });
 
-const skillSearchJsonResponseSchema = z.object({
-    data: z.array(skillSearchItemSchema).optional().default([]),
-}).passthrough();
-
 const skillSearchResponseSchema = z.object({
     data: z.array(skillSearchItemSchema).optional().default([]),
 }).passthrough();
 
-type SkillSearchJsonResponse = z.output<typeof skillSearchJsonResponseSchema>;
 type SkillSearchResponse = z.output<typeof skillSearchResponseSchema>;
 type SkillSearchTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
 
@@ -70,7 +64,7 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
     }),
     mapInputError: (_, rawInput) => createSkillsSearchInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentSkillsSearchAccount(context);
+        const account = await requireCurrentAccount(context, "errors.skillsSearch.authRequired", "errors.skillsSearch.activeAccountMissing");
         const requestUrl = createSkillsSearchRequestUrl(
             account.endpoint,
             input.text,
@@ -81,11 +75,11 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
         );
 
         if (input.format === "json") {
-            writeJsonOutput(context.stdout, response.json.data);
+            writeJsonOutput(context.stdout, response.data);
             return;
         }
 
-        const output = formatSkillsSearchResponseAsText(response.text, context);
+        const output = formatSkillsSearchResponseAsText(response, context);
 
         context.stdout.write(
             output === ""
@@ -101,23 +95,6 @@ function createSkillsSearchInputError(
     return new CliUserError("errors.skillsSearch.invalidFormat", 2, {
         value: String(rawInput.format ?? ""),
     });
-}
-
-async function requireCurrentSkillsSearchAccount(
-    context: CliExecutionContext,
-): Promise<AuthAccount> {
-    const { authFile, currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
-        return currentAccount;
-    }
-
-    throw new CliUserError(
-        authFile.id === ""
-            ? "errors.skillsSearch.authRequired"
-            : "errors.skillsSearch.activeAccountMissing",
-        1,
-    );
 }
 
 function createSkillsSearchRequestUrl(
@@ -203,17 +180,11 @@ async function requestSkillsSearch(
     });
 }
 
-function parseSkillsSearchResponse(rawResponse: string): {
-    json: SkillSearchJsonResponse;
-    text: SkillSearchResponse;
-} {
+function parseSkillsSearchResponse(rawResponse: string): SkillSearchResponse {
     try {
-        const parsed = JSON.parse(rawResponse) as unknown;
-
-        return {
-            json: skillSearchJsonResponseSchema.parse(parsed),
-            text: skillSearchResponseSchema.parse(parsed),
-        };
+        return skillSearchResponseSchema.parse(
+            JSON.parse(rawResponse) as unknown,
+        );
     }
     catch {
         throw new CliUserError("errors.skillsSearch.invalidResponse", 1);
@@ -224,7 +195,7 @@ function formatSkillsSearchResponseAsText(
     response: SkillSearchResponse,
     context: SkillSearchTextContext,
 ): string {
-    const colors = createSkillsSearchColors(context);
+    const colors = createWriterColors(context.stdout);
 
     return response.data
         .map(item => formatSkillsSearchItem(item, context, colors))
@@ -287,10 +258,4 @@ function readSkillsSearchPackageLabel(
     }
 
     return `${item.packageName}@${item.packageVersion}`;
-}
-
-function createSkillsSearchColors(
-    context: Pick<CliExecutionContext, "stdout">,
-): TerminalColors {
-    return createWriterColors(context.stdout);
 }

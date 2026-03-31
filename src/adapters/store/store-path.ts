@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { resolveHomeDirectory } from "../../application/path/home-directory.ts";
 
-const defaultSettingsFileName = "settings.toml";
-const defaultAuthFileName = "auth.toml";
+export const defaultSettingsFileName = "settings.toml";
+export const defaultAuthFileName = "auth.toml";
 const defaultCacheFileName = "cache.sqlite";
 const defaultDownloadSessionsFileName = "download-sessions.sqlite";
 const defaultUploadsFileName = "uploads.sqlite";
@@ -52,7 +52,7 @@ export function resolveStoreDirectory(
     return join(homeDirectory, ".config", appName);
 }
 
-export function resolveLogDirectory(
+function resolveLogDirectory(
     options: FileStoreLocationOptions,
 ): string {
     const homeDirectory = resolveHomeDirectory(options.env, options.homeDirectory);

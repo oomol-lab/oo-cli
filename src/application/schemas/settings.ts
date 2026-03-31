@@ -93,32 +93,24 @@ export function renderSettingsFile(settings: AppSettings): string {
         ...(index === 0 ? [] : [""]),
         ...block,
     ]);
-    const persistedSettings = {
-        ...(parsedSettings.lang !== undefined
-            ? {
-                    lang: parsedSettings.lang,
-                }
-            : {}),
-        ...(parsedSettings.file?.download?.out_dir !== undefined
-            ? {
-                    file: {
-                        download: {
-                            out_dir: parsedSettings.file.download.out_dir,
-                        },
-                    },
-                }
-            : {}),
-        ...(parsedSettings.skills?.oo?.implicit_invocation !== undefined
-            ? {
-                    skills: {
-                        oo: {
-                            implicit_invocation:
-                                parsedSettings.skills.oo.implicit_invocation,
-                        },
-                    },
-                }
-            : {}),
-    };
+    const persistedSettings: Record<string, unknown> = {};
+
+    if (parsedSettings.lang !== undefined) {
+        persistedSettings.lang = parsedSettings.lang;
+    }
+
+    if (parsedSettings.file?.download?.out_dir !== undefined) {
+        persistedSettings.file = {
+            download: { out_dir: parsedSettings.file.download.out_dir },
+        };
+    }
+
+    if (parsedSettings.skills?.oo?.implicit_invocation !== undefined) {
+        persistedSettings.skills = {
+            oo: { implicit_invocation: parsedSettings.skills.oo.implicit_invocation },
+        };
+    }
+
     const serializedSettings = stringifyToml(persistedSettings).trimEnd();
 
     if (serializedSettings !== "") {
@@ -172,27 +164,7 @@ export function unsetFileDownloadOutDir(
         return settings;
     }
 
-    const nextSettings = { ...settings };
-    const nextFileSettings = { ...nextSettings.file };
-    const nextFileDownloadSettings = { ...nextFileSettings.download };
-
-    delete nextFileDownloadSettings.out_dir;
-
-    if (Object.keys(nextFileDownloadSettings).length === 0) {
-        delete nextFileSettings.download;
-    }
-    else {
-        nextFileSettings.download = nextFileDownloadSettings;
-    }
-
-    if (Object.keys(nextFileSettings).length === 0) {
-        delete nextSettings.file;
-    }
-    else {
-        nextSettings.file = nextFileSettings;
-    }
-
-    return nextSettings;
+    return deleteNestedProperty(settings, ["file", "download", "out_dir"]);
 }
 
 export function getConfiguredOoSkillImplicitInvocation(
@@ -231,27 +203,55 @@ export function unsetOoSkillImplicitInvocation(
         return settings;
     }
 
-    const nextSettings = { ...settings };
-    const nextSkills = { ...nextSettings.skills };
-    const nextOoSkillSettings = { ...nextSkills.oo };
+    return deleteNestedProperty(settings, ["skills", "oo", "implicit_invocation"]);
+}
 
-    delete nextOoSkillSettings.implicit_invocation;
-
-    if (Object.keys(nextOoSkillSettings).length === 0) {
-        delete nextSkills.oo;
-    }
-    else {
-        nextSkills.oo = nextOoSkillSettings;
-    }
-
-    if (Object.keys(nextSkills).length === 0) {
-        delete nextSettings.skills;
-    }
-    else {
-        nextSettings.skills = nextSkills;
+// Shallow-clones each level of a nested object along the given path,
+// deletes the leaf property, and prunes any parent objects left empty.
+function deleteNestedProperty(
+    root: AppSettings,
+    path: string[],
+): AppSettings {
+    if (path.length === 0) {
+        return root;
     }
 
-    return nextSettings;
+    // Build a chain of shallow clones along the path.
+    const clones: Record<string, unknown>[] = [{ ...root }];
+
+    for (let depth = 0; depth < path.length - 1; depth += 1) {
+        const parent = clones[depth]!;
+        const key = path[depth]!;
+        const child = parent[key];
+
+        if (child === null || typeof child !== "object" || Array.isArray(child)) {
+            return root;
+        }
+
+        const clonedChild = { ...(child as Record<string, unknown>) };
+        parent[key] = clonedChild;
+        clones.push(clonedChild);
+    }
+
+    // Delete the leaf property.
+    const leafParent = clones.at(-1)!;
+    const leafKey = path.at(-1)!;
+    delete leafParent[leafKey];
+
+    // Prune empty parent objects from leaf back toward root.
+    for (let depth = clones.length - 1; depth >= 1; depth -= 1) {
+        const current = clones[depth]!;
+
+        if (Object.keys(current).length > 0) {
+            break;
+        }
+
+        const parentClone = clones[depth - 1]!;
+        const parentKey = path[depth - 1]!;
+        delete parentClone[parentKey];
+    }
+
+    return clones[0] as AppSettings;
 }
 
 function collectStrippedObjectPaths(

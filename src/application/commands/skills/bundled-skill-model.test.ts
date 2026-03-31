@@ -9,10 +9,9 @@ import {
     parseBundledSkillMetadataContent,
     readImplicitInvocationValue,
     renderBundledSkillFileContent,
-    renderBundledSkillMetadataContent,
+    renderSkillMetadataJson,
     resolveBundledSkillInstallConflict,
     resolveBundledSkillManagedSynchronizationAction,
-    resolveBundledSkillMissingInstallationAction,
     writeImplicitInvocationValue,
 } from "./bundled-skill-model.ts";
 
@@ -73,7 +72,7 @@ describe("bundled skill model", () => {
         expect(parseBundledSkillMetadataContent("[]")).toBeUndefined();
         expect(parseBundledSkillMetadataContent("{}")).toBeUndefined();
         expect(parseBundledSkillMetadataContent("{\"version\":1}")).toBeUndefined();
-        expect(renderBundledSkillMetadataContent({ version: "1.2.3" })).toBe(
+        expect(renderSkillMetadataJson({ version: "1.2.3" })).toBe(
             "{\n  \"version\": \"1.2.3\"\n}\n",
         );
     });
@@ -110,10 +109,7 @@ describe("bundled skill model", () => {
         })).toBeUndefined();
     });
 
-    test("resolves synchronization actions for missing and managed installations", () => {
-        expect(resolveBundledSkillMissingInstallationAction(false)).toBe("skip-missing");
-        expect(resolveBundledSkillMissingInstallationAction(true)).toBe("install-missing");
-
+    test("resolves synchronization actions for managed installations", () => {
         expect(resolveBundledSkillManagedSynchronizationAction({
             desiredImplicitInvocation: true,
             installedImplicitInvocation: true,

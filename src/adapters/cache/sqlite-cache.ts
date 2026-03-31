@@ -1,15 +1,16 @@
+import type { Database } from "bun:sqlite";
 import type { Logger } from "pino";
+
 import type {
     Cache,
     CacheOptions,
     CacheSetOptions,
     CacheStore,
 } from "../../application/contracts/cache.ts";
-
 import { createHash } from "node:crypto";
-import { accessSync, constants as fsConstants, mkdirSync, statSync } from "node:fs";
+import { accessSync, constants as fsConstants, statSync } from "node:fs";
 import { dirname } from "node:path";
-import { Database, constants as sqliteConstants } from "bun:sqlite";
+import { constants as sqliteConstants } from "bun:sqlite";
 import { logCategory } from "../../application/logging/log-categories.ts";
 import {
     withCacheId,
@@ -17,6 +18,7 @@ import {
     withKeyFingerprint,
     withStorePath,
 } from "../../application/logging/log-fields.ts";
+import { openSqliteDatabase } from "../store/sqlite-utils.ts";
 
 interface CacheRow {
     value: string;
@@ -89,7 +91,7 @@ export class SqliteCacheStore implements CacheStore {
         this.logger = logger;
 
         try {
-            this.database = openDatabase(filePath);
+            this.database = openSqliteDatabase(filePath, { busyTimeoutMs: sqliteBusyTimeoutMs });
             this.logger?.debug(
                 {
                     ...withStorePath(this.filePath),
@@ -224,7 +226,7 @@ export class SqliteCacheStore implements CacheStore {
             return this.database;
         }
 
-        this.database = openDatabase(this.filePath);
+        this.database = openSqliteDatabase(this.filePath, { busyTimeoutMs: sqliteBusyTimeoutMs });
 
         this.logger?.debug(
             {
@@ -248,7 +250,6 @@ export class SqliteCache<Value> implements Cache<Value> {
     private readonly evictLeastRecentlyUsedStatement;
 
     constructor(private readonly options: SqliteCacheOptionsInternal) {
-        validateCacheId(options.id);
         validateMaxEntries(options.maxEntries);
         validateTtl(options.defaultTtlMs, "defaultTtlMs");
 
@@ -353,7 +354,7 @@ export class SqliteCache<Value> implements Cache<Value> {
         let value: Value;
 
         try {
-            value = deserializeCacheValue<Value>(row.value);
+            value = JSON.parse(row.value) as Value;
         }
         catch (error) {
             const deletedResult = this.attemptRecoverableSqliteOperation({
@@ -410,7 +411,7 @@ export class SqliteCache<Value> implements Cache<Value> {
         }, () => {
             this.upsertStatement.run({
                 key,
-                value: serializeCacheValue(value),
+                value: JSON.stringify(value),
                 expiresAtMs,
                 now,
             });
@@ -560,20 +561,6 @@ export function resolveSqliteCacheTableName(id: string): string {
     return `cache_${createHash("sha256").update(id).digest("hex")}`;
 }
 
-function openDatabase(filePath: string): Database {
-    mkdirSync(dirname(filePath), { recursive: true });
-
-    const database = new Database(filePath, {
-        create: true,
-        strict: true,
-    });
-
-    database.run(`PRAGMA busy_timeout = ${sqliteBusyTimeoutMs};`);
-    database.run("PRAGMA journal_mode = WAL;");
-
-    return database;
-}
-
 function ensureCacheTable(database: Database, tableName: string): void {
     database.run(
         [
@@ -602,11 +589,9 @@ function ensureCacheTable(database: Database, tableName: string): void {
 }
 
 function validateCacheId(id: string): void {
-    if (id !== "") {
-        return;
+    if (id === "") {
+        throw new TypeError("SqliteCache requires a non-empty id.");
     }
-
-    throw new TypeError("SqliteCache requires a non-empty id.");
 }
 
 function validateMaxEntries(maxEntries?: number): void {
@@ -614,11 +599,9 @@ function validateMaxEntries(maxEntries?: number): void {
         return;
     }
 
-    if (Number.isInteger(maxEntries) && maxEntries > 0) {
-        return;
+    if (!(Number.isInteger(maxEntries) && maxEntries > 0)) {
+        throw new TypeError("SqliteCache maxEntries must be a positive integer.");
     }
-
-    throw new TypeError("SqliteCache maxEntries must be a positive integer.");
 }
 
 function validateTtl(ttlMs: number | undefined, label: string): void {
@@ -626,11 +609,9 @@ function validateTtl(ttlMs: number | undefined, label: string): void {
         return;
     }
 
-    if (Number.isFinite(ttlMs) && ttlMs >= 0) {
-        return;
+    if (!(Number.isFinite(ttlMs) && ttlMs >= 0)) {
+        throw new TypeError(`${label} must be a finite number greater than or equal to 0.`);
     }
-
-    throw new TypeError(`${label} must be a finite number greater than or equal to 0.`);
 }
 
 function resolveTtlMs(
@@ -642,20 +623,6 @@ function resolveTtlMs(
     validateTtl(resolvedTtlMs, "ttlMs");
 
     return resolvedTtlMs;
-}
-
-function serializeCacheValue<Value>(value: Value): string {
-    const serializedValue = JSON.stringify(value);
-
-    if (serializedValue !== undefined) {
-        return serializedValue;
-    }
-
-    throw new TypeError("SqliteCache does not support undefined values.");
-}
-
-function deserializeCacheValue<Value>(value: string): Value {
-    return JSON.parse(value) as Value;
 }
 
 function createCacheKeyFingerprint(key: string): string {
@@ -732,8 +699,6 @@ function resolveRecoverableSqliteStorePathDiagnosticsPolicy(
         case "never":
             return false;
     }
-
-    return false;
 }
 
 export function isRecoverableSqliteCacheErrorCode(code: string): boolean {
@@ -771,23 +736,13 @@ function readStorePathDiagnostics(filePath: string): StorePathDiagnostics {
     const parentDirectoryPath = dirname(filePath);
 
     return {
-        parentDirectoryExists: pathExists(parentDirectoryPath),
+        parentDirectoryExists: pathHasAccess(parentDirectoryPath, fsConstants.F_OK),
         parentDirectoryPath,
         parentDirectoryReadable: pathHasAccess(parentDirectoryPath, fsConstants.R_OK),
         parentDirectoryWritable: pathHasAccess(parentDirectoryPath, fsConstants.W_OK),
-        storePathExists: pathExists(filePath),
+        storePathExists: pathHasAccess(filePath, fsConstants.F_OK),
         storePathKind: readStorePathKind(filePath),
     };
-}
-
-function pathExists(path: string): boolean {
-    try {
-        statSync(path);
-        return true;
-    }
-    catch {
-        return false;
-    }
 }
 
 function pathHasAccess(path: string, mode: number): boolean {

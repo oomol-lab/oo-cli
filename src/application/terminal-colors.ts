@@ -88,15 +88,10 @@ export function createWriterColors(
 function createNamedFormatters(
     enabled: boolean,
 ): Record<TerminalFormatterName, TerminalFormatter> {
-    const formatters = {} as Record<TerminalFormatterName, TerminalFormatter>;
-
-    for (const [name, definition] of Object.entries(
-        formatterDefinitions,
-    ) as [TerminalFormatterName, TerminalFormatterDefinition][]) {
-        formatters[name] = createFormatter(enabled, definition);
-    }
-
-    return formatters;
+    return Object.fromEntries(
+        (Object.entries(formatterDefinitions) as [TerminalFormatterName, TerminalFormatterDefinition][])
+            .map(([name, definition]) => [name, createFormatter(enabled, definition)]),
+    ) as Record<TerminalFormatterName, TerminalFormatter>;
 }
 
 function createHexFormatter(

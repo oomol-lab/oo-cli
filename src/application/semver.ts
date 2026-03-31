@@ -48,7 +48,7 @@ function parseSemver(value: string): ParsedSemver | null {
         return null;
     }
 
-    if (buildMetadata !== undefined && !isIdentifierList(buildMetadata, true)) {
+    if (buildMetadata !== undefined && !isBuildMetadataIdentifierList(buildMetadata)) {
         return null;
     }
 
@@ -87,30 +87,11 @@ function splitSection(
     ];
 }
 
-function isIdentifierList(
-    value: string,
-    allowLeadingZeroNumeric: boolean,
-): boolean {
-    if (value === "") {
-        return false;
-    }
-
-    return value.split(".").every((identifier) => {
-        if (!isIdentifier(identifier)) {
-            return false;
-        }
-
-        if (
-            !allowLeadingZeroNumeric
-            && isDigits(identifier)
-            && identifier.length > 1
-            && identifier.startsWith("0")
-        ) {
-            return false;
-        }
-
-        return true;
-    });
+// Build metadata allows leading-zero numeric identifiers per the semver spec,
+// so this only checks that each dot-separated identifier is non-empty and
+// contains only ASCII alphanumerics and hyphens.
+function isBuildMetadataIdentifierList(value: string): boolean {
+    return value !== "" && value.split(".").every(isIdentifier);
 }
 
 function isIdentifier(value: string): boolean {
@@ -118,11 +99,13 @@ function isIdentifier(value: string): boolean {
         return false;
     }
 
-    return Array.from(value).every(character =>
-        isAsciiDigit(character)
-        || isAsciiLetter(character)
-        || character === "-",
-    );
+    for (const character of value) {
+        if (!isAsciiDigit(character) && !isAsciiLetter(character) && character !== "-") {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function parseNumericIdentifier(value: string): number | null {
@@ -210,10 +193,16 @@ function isDigits(value: string): boolean {
         return false;
     }
 
-    return Array.from(value).every(character => isAsciiDigit(character));
+    for (const character of value) {
+        if (!isAsciiDigit(character)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
-function isAsciiDigit(character: string): boolean {
+export function isAsciiDigit(character: string): boolean {
     return character >= "0" && character <= "9";
 }
 

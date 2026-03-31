@@ -5,11 +5,10 @@ import { Help } from "commander";
 import { APP_NAME } from "../../application/config/app-config.ts";
 import { createTerminalColors } from "../../application/terminal-colors.ts";
 
-const OO_BRAND_NAME = APP_NAME;
 const OOMOL_BRAND_NAME = "OOMOL";
 
 export class LocalizedHelp extends Help {
-    private colors = createBrandColors(false);
+    private colors = createTerminalColors(false);
 
     constructor(private readonly translator: Translator) {
         super();
@@ -22,7 +21,7 @@ export class LocalizedHelp extends Help {
         outputHasColors?: boolean;
     }): void {
         super.prepareContext(contextOptions);
-        this.colors = createBrandColors(Boolean(contextOptions.outputHasColors));
+        this.colors = createTerminalColors(Boolean(contextOptions.outputHasColors));
     }
 
     override styleTitle(title: string): string {
@@ -78,7 +77,7 @@ export class LocalizedHelp extends Help {
         }
 
         return this.translator.t("help.appDescription.colored", {
-            appName: this.colors.magenta(OO_BRAND_NAME),
+            appName: this.colors.magenta(APP_NAME),
             companyName: this.colors.cyan(OOMOL_BRAND_NAME),
         });
     }
@@ -98,10 +97,6 @@ export class LocalizedHelp extends Help {
 
 function formatChoices(choices: readonly string[]): string {
     return choices.map(choice => JSON.stringify(choice)).join(", ");
-}
-
-function createBrandColors(enabled: boolean) {
-    return createTerminalColors(enabled);
 }
 
 function formatHelpDescription(

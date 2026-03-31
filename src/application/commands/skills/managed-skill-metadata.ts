@@ -1,4 +1,6 @@
 import { readFile } from "node:fs/promises";
+import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
+import { renderSkillMetadataJson } from "./bundled-skill-model.ts";
 
 import { resolveManagedSkillMetadataFilePath } from "./managed-skill-paths.ts";
 
@@ -34,25 +36,20 @@ export function parseManagedSkillMetadataContent(
     }
 
     const rawPackageName = (parsedContent as Record<string, unknown>).packageName;
+    let packageName: string | undefined;
 
-    if (rawPackageName !== undefined && typeof rawPackageName !== "string") {
-        return undefined;
-    }
+    if (rawPackageName !== undefined) {
+        if (typeof rawPackageName !== "string" || rawPackageName.trim() === "") {
+            return undefined;
+        }
 
-    if (typeof rawPackageName === "string" && rawPackageName.trim() === "") {
-        return undefined;
+        packageName = rawPackageName;
     }
 
     return {
-        packageName: typeof rawPackageName === "string" ? rawPackageName : undefined,
+        packageName,
         version: rawVersion.trim(),
     };
-}
-
-export function renderManagedSkillMetadataContent(
-    metadata: ManagedSkillMetadata,
-): string {
-    return `${JSON.stringify(metadata, null, 2)}\n`;
 }
 
 export async function readManagedSkillMetadata(
@@ -81,10 +78,6 @@ export async function writeManagedSkillMetadata(
 ): Promise<void> {
     await Bun.write(
         resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-        renderManagedSkillMetadataContent(metadata),
+        renderSkillMetadataJson(metadata),
     );
-}
-
-function isNodeNotFoundError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error && error.code === "ENOENT";
 }

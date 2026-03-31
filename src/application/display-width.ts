@@ -13,18 +13,10 @@ export function truncateDisplayWidth(value: string, maxWidth: number): string {
 export function measureDisplayWidth(value: string): number {
     let width = 0;
 
-    for (let index = 0; index < value.length; index += 1) {
-        const codePoint = value.codePointAt(index);
-
-        if (codePoint === undefined) {
-            continue;
-        }
+    for (const char of value) {
+        const codePoint = char.codePointAt(0)!;
 
         width += isWideCodePoint(codePoint) ? 2 : 1;
-
-        if (codePoint > 0xFFFF) {
-            index += 1;
-        }
     }
 
     return width;
@@ -34,26 +26,16 @@ function sliceDisplayWidth(value: string, maxWidth: number): string {
     let result = "";
     let width = 0;
 
-    for (let index = 0; index < value.length; index += 1) {
-        const codePoint = value.codePointAt(index);
-
-        if (codePoint === undefined) {
-            continue;
-        }
-
-        const segment = String.fromCodePoint(codePoint);
+    for (const char of value) {
+        const codePoint = char.codePointAt(0)!;
         const nextWidth = width + (isWideCodePoint(codePoint) ? 2 : 1);
 
         if (nextWidth > maxWidth) {
             break;
         }
 
-        result += segment;
+        result += char;
         width = nextWidth;
-
-        if (codePoint > 0xFFFF) {
-            index += 1;
-        }
     }
 
     return result;
@@ -71,5 +53,11 @@ function isWideCodePoint(codePoint: number): boolean {
         || (codePoint >= 0xFE30 && codePoint <= 0xFE6F)
         || (codePoint >= 0xFF00 && codePoint <= 0xFF60)
         || (codePoint >= 0xFFE0 && codePoint <= 0xFFE6)
+        // CJK Unified Ideographs Extension B
+        || (codePoint >= 0x20000 && codePoint <= 0x2A6DF)
+        // CJK Unified Ideographs Extensions C through H
+        || (codePoint >= 0x2A700 && codePoint <= 0x323AF)
+        // CJK Compatibility Ideographs Supplement
+        || (codePoint >= 0x2F800 && codePoint <= 0x2FA1F)
     );
 }

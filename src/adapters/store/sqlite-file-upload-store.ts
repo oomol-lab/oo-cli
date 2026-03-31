@@ -1,15 +1,14 @@
+import type { Database } from "bun:sqlite";
 import type { Logger } from "pino";
+
 import type {
     FileUploadListOptions,
     FileUploadRecord,
     FileUploadRecordStore,
     FileUploadStatus,
 } from "../../application/contracts/file-upload-store.ts";
-
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { constants, Database } from "bun:sqlite";
 import { withStorePath } from "../../application/logging/log-fields.ts";
+import { closeSqliteDatabase, openSqliteDatabase, validateQueryTimestamp } from "./sqlite-utils.ts";
 
 interface FileUploadRow {
     downloadUrl: string;
@@ -83,7 +82,7 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
         };
         const whereClauses: string[] = [];
 
-        validateQueryTimestamp(options.now);
+        validateQueryTimestamp(options.now, "File upload record");
         validateLimit(options.limit);
 
         if (options.status === "active") {
@@ -138,7 +137,7 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
     }
 
     deleteExpired(now: number): number {
-        validateQueryTimestamp(now);
+        validateQueryTimestamp(now, "File upload record");
 
         const result = this.getDatabase().query(
             [
@@ -170,20 +169,7 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
         }
 
         this.database = undefined;
-
-        try {
-            database.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
-            database.run("PRAGMA wal_checkpoint(TRUNCATE);");
-        }
-        finally {
-            database.close();
-            this.logger?.debug(
-                {
-                    ...withStorePath(this.filePath),
-                },
-                "Sqlite file upload store closed.",
-            );
-        }
+        closeSqliteDatabase(database, this.logger, this.filePath, "Sqlite file upload store closed.");
     }
 
     private getDatabase(): Database {
@@ -191,7 +177,9 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
             return this.database;
         }
 
-        this.database = openDatabase(this.filePath);
+        const database = openSqliteDatabase(this.filePath);
+        ensureUploadTable(database);
+        this.database = database;
         this.logger?.debug(
             {
                 ...withStorePath(this.filePath),
@@ -208,22 +196,6 @@ export function readFileUploadStatus(
     now: number,
 ): FileUploadStatus {
     return expiresAtMs <= now ? "expired" : "active";
-}
-
-function openDatabase(filePath: string): Database {
-    mkdirSync(dirname(filePath), {
-        recursive: true,
-    });
-
-    const database = new Database(filePath, {
-        create: true,
-        strict: true,
-    });
-
-    database.run("PRAGMA journal_mode = WAL;");
-    ensureUploadTable(database);
-
-    return database;
 }
 
 function ensureUploadTable(database: Database): void {
@@ -270,8 +242,8 @@ function validateFileUploadRecord(record: FileUploadRecord): void {
         throw new Error("File upload record downloadUrl cannot be empty.");
     }
 
-    validateQueryTimestamp(record.uploadedAtMs);
-    validateQueryTimestamp(record.expiresAtMs);
+    validateQueryTimestamp(record.uploadedAtMs, "File upload record");
+    validateQueryTimestamp(record.expiresAtMs, "File upload record");
 }
 
 function validateLimit(limit: number | undefined): void {
@@ -280,11 +252,5 @@ function validateLimit(limit: number | undefined): void {
         && (!Number.isSafeInteger(limit) || limit <= 0)
     ) {
         throw new Error("File upload record limit must be a positive integer.");
-    }
-}
-
-function validateQueryTimestamp(value: number): void {
-    if (!Number.isSafeInteger(value) || value < 0) {
-        throw new Error("File upload record timestamp must be a safe integer.");
     }
 }

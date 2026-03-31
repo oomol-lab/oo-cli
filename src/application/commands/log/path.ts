@@ -1,10 +1,8 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
-import {
-    resolveCliLogDirectoryPath,
-    writeLine,
-} from "./shared.ts";
+import { writeLine } from "../shared/output.ts";
+import { resolveCliLogDirectoryPath } from "./shared.ts";
 
 export const logPathCommand: CliCommandDefinition = {
     name: "path",
@@ -12,6 +10,6 @@ export const logPathCommand: CliCommandDefinition = {
     descriptionKey: "commands.log.path.description",
     inputSchema: z.object({}),
     handler: (_, context) => {
-        writeLine(context, resolveCliLogDirectoryPath(context));
+        writeLine(context.stdout, resolveCliLogDirectoryPath(context));
     },
 };

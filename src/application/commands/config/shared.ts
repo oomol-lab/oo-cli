@@ -1,8 +1,5 @@
 import type { ZodType } from "zod";
-import type {
-    CliExecutionContext,
-    SupportedLocale,
-} from "../../contracts/cli.ts";
+import type { SupportedLocale } from "../../contracts/cli.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
 
 import { z } from "zod";
@@ -22,7 +19,7 @@ import {
     unsetOoSkillImplicitInvocation,
 } from "../../schemas/settings.ts";
 
-export interface ConfigDefinition<TValue extends string> {
+interface ConfigDefinition<TValue extends string> {
     createInvalidValueError: (rawValue: unknown) => CliUserError;
     getValue: (settings: AppSettings) => TValue | undefined;
     setValue: (settings: AppSettings, value: TValue) => AppSettings;
@@ -31,10 +28,12 @@ export interface ConfigDefinition<TValue extends string> {
     valueSchema: ZodType<TValue>;
 }
 
-function defineConfigDefinition<TValue extends string>(
-    definition: ConfigDefinition<TValue>,
-): ConfigDefinition<TValue> {
-    return definition;
+function createValueErrorFactory(translationKey: string) {
+    return function createInvalidValueError(rawValue: unknown): CliUserError {
+        return new CliUserError(translationKey, 2, {
+            value: String(rawValue ?? ""),
+        });
+    };
 }
 
 export const ooSkillImplicitInvocationConfigKey
@@ -42,12 +41,8 @@ export const ooSkillImplicitInvocationConfigKey
 export const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
 
 export const configDefinitions = {
-    lang: defineConfigDefinition({
-        createInvalidValueError(rawValue: unknown): CliUserError {
-            return new CliUserError("errors.config.invalidLangValue", 2, {
-                value: String(rawValue ?? ""),
-            });
-        },
+    lang: {
+        createInvalidValueError: createValueErrorFactory("errors.config.invalidLangValue"),
         getValue(settings: AppSettings): SupportedLocale | undefined {
             return settings.lang;
         },
@@ -66,17 +61,9 @@ export const configDefinitions = {
         },
         valueChoices: localeSchema.options,
         valueSchema: localeSchema,
-    }),
-    [fileDownloadOutDirConfigKey]: defineConfigDefinition({
-        createInvalidValueError(rawValue: unknown): CliUserError {
-            return new CliUserError(
-                "errors.config.invalidFileDownloadOutDirValue",
-                2,
-                {
-                    value: String(rawValue ?? ""),
-                },
-            );
-        },
+    } satisfies ConfigDefinition<SupportedLocale>,
+    [fileDownloadOutDirConfigKey]: {
+        createInvalidValueError: createValueErrorFactory("errors.config.invalidFileDownloadOutDirValue"),
         getValue(settings: AppSettings): string | undefined {
             return getConfiguredFileDownloadOutDir(settings);
         },
@@ -88,17 +75,9 @@ export const configDefinitions = {
         },
         valueChoices: [],
         valueSchema: fileDownloadOutDirConfigValueSchema,
-    }),
-    [ooSkillImplicitInvocationConfigKey]: defineConfigDefinition({
-        createInvalidValueError(rawValue: unknown): CliUserError {
-            return new CliUserError(
-                "errors.config.invalidSkillsOoImplicitInvocationValue",
-                2,
-                {
-                    value: String(rawValue ?? ""),
-                },
-            );
-        },
+    } satisfies ConfigDefinition<string>,
+    [ooSkillImplicitInvocationConfigKey]: {
+        createInvalidValueError: createValueErrorFactory("errors.config.invalidSkillsOoImplicitInvocationValue"),
         getValue(settings: AppSettings): "false" | "true" | undefined {
             const configuredValue
                 = getConfiguredOoSkillImplicitInvocation(settings);
@@ -118,13 +97,10 @@ export const configDefinitions = {
         },
         valueChoices: booleanConfigValueChoices,
         valueSchema: booleanConfigValueSchema,
-    }),
+    } satisfies ConfigDefinition<"false" | "true">,
 } as const;
 
 export type ConfigKey = keyof typeof configDefinitions;
-type ConfigDefinitionValue<TKey extends ConfigKey> = z.output<
-    (typeof configDefinitions)[TKey]["valueSchema"]
->;
 
 export const configKeyChoices = Object.freeze(
     Object.keys(configDefinitions) as ConfigKey[],
@@ -138,25 +114,8 @@ export const configKeySchema = z.custom<ConfigKey>(
     isConfigKey,
 );
 
-export interface ConfigGetInput {
+export interface ConfigKeyInput {
     key: ConfigKey;
-}
-
-export interface ConfigListInput {}
-
-export type ConfigSetInput = {
-    [TKey in ConfigKey]: {
-        key: TKey;
-        value: ConfigDefinitionValue<TKey>;
-    };
-}[ConfigKey];
-
-export interface ConfigUnsetInput {
-    key: ConfigKey;
-}
-
-export function writeLine(context: CliExecutionContext, message: string): void {
-    context.stdout.write(`${message}\n`);
 }
 
 export function createInvalidConfigKeyError(
@@ -167,28 +126,9 @@ export function createInvalidConfigKeyError(
     });
 }
 
-export function getConfigDefinition<TKey extends ConfigKey>(
-    key: TKey,
-): (typeof configDefinitions)[TKey] {
-    return configDefinitions[key];
-}
-
-export function getConfigDefinitionByRawKey(
-    rawKey: unknown,
-): (typeof configDefinitions)[ConfigKey] | undefined {
-    return isConfigKey(rawKey) ? getConfigDefinition(rawKey) : undefined;
-}
-
-export function createConfigSetInput<TKey extends ConfigKey>(
-    key: TKey,
-    value: ConfigDefinitionValue<TKey>,
-): Extract<ConfigSetInput, { key: TKey }> {
-    return { key, value } as unknown as Extract<ConfigSetInput, { key: TKey }>;
-}
-
 export function getConfigValue(
     settings: AppSettings,
     key: ConfigKey,
 ): string | undefined {
-    return getConfigDefinition(key).getValue(settings);
+    return configDefinitions[key].getValue(settings);
 }

@@ -6,11 +6,11 @@ import type {
 import { startAuthLoginSession } from "../../auth/login-flow.ts";
 import { upsertAuthAccount } from "../../schemas/auth.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
+import { writeLine } from "../shared/output.ts";
 import {
     emptyAuthCommandInputSchema,
     formatAuthStrong,
     writeAuthBlock,
-    writeAuthLine,
 } from "./shared.ts";
 
 const loginUrlColor = "#c09ff5";
@@ -22,27 +22,29 @@ export const authLoginCommand: CliCommandDefinition = {
     descriptionKey: "commands.auth.login.description",
     inputSchema: emptyAuthCommandInputSchema,
     handler: async (_, context) => {
+        const authEndpoint = readAuthEndpoint(context.env);
         const session = await startAuthLoginSession({
             logger: context.logger,
             translator: context.translator,
         });
-        const loginUrl = createAuthLoginUrl(context, session.redirectUrl);
+        const loginUrl = createAuthLoginUrl(authEndpoint, session.redirectUrl);
+        const colors = createWriterColors(context.stdout);
 
         context.logger.debug(
             {
-                authEndpoint: readAuthEndpoint(context.env),
+                authEndpoint,
                 redirectUrl: session.redirectUrl,
             },
             "Auth login URL prepared.",
         );
-        writeAuthLine(
-            context,
+        writeLine(
+            context.stdout,
             context.translator.t("auth.login.openManually", {
-                url: formatLoginUrl(context, loginUrl.toString()),
+                url: colors.hex(loginUrlColor)(loginUrl.toString()),
             }),
         );
-        writeAuthLine(
-            context,
+        writeLine(
+            context.stdout,
             context.translator.t("auth.login.waitingForBrowser"),
         );
 
@@ -76,21 +78,12 @@ export const authLoginCommand: CliCommandDefinition = {
     },
 };
 
-function formatLoginUrl(
-    context: CliExecutionContext,
-    url: string,
-): string {
-    const colors = createWriterColors(context.stdout);
-
-    return colors.hex(loginUrlColor)(url);
-}
-
 function createAuthLoginUrl(
-    context: Pick<CliExecutionContext, "env">,
+    authEndpoint: string,
     redirectUrl: string,
 ): URL {
     const loginUrl = new URL(
-        `https://api.${readAuthEndpoint(context.env)}/v1/auth/redirect`,
+        `https://api.${authEndpoint}/v1/auth/redirect`,
     );
 
     loginUrl.searchParams.set("redirect", redirectUrl);
@@ -101,11 +94,5 @@ function createAuthLoginUrl(
 function readAuthEndpoint(
     env: CliExecutionContext["env"],
 ): string {
-    const configuredEndpoint = env.OOMOL_ENDPOINT?.trim();
-
-    if (!configuredEndpoint) {
-        return defaultAuthEndpoint;
-    }
-
-    return configuredEndpoint;
+    return env.OOMOL_ENDPOINT?.trim() || defaultAuthEndpoint;
 }

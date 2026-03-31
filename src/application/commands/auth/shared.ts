@@ -7,13 +7,12 @@ import { createWriterColors } from "../../terminal-colors.ts";
 
 export const emptyAuthCommandInputSchema = z.object({});
 
-export interface AuthBlockDetail {
+interface AuthBlockDetail {
     label: string;
     value: string;
-    emphasize?: boolean;
 }
 
-export type AuthBlockTone = "danger" | "success" | "warning";
+type AuthBlockTone = "danger" | "success" | "warning";
 
 export async function readCurrentAuth(
     context: CliExecutionContext,
@@ -41,18 +40,11 @@ export async function readCurrentAuth(
     };
 }
 
-export function writeAuthLine(
-    context: CliExecutionContext,
-    message: string,
-): void {
-    context.stdout.write(`${message}\n`);
-}
-
 export function formatAuthStrong(
     context: CliExecutionContext,
     value: string,
 ): string {
-    return createAuthColors(context).bold(value);
+    return createWriterColors(context.stdout).bold(value);
 }
 
 export function writeAuthBlock(
@@ -63,23 +55,15 @@ export function writeAuthBlock(
         details?: readonly AuthBlockDetail[];
     },
 ): void {
-    const colors = createAuthColors(context);
+    const colors = createWriterColors(context.stdout);
     const details = options.details ?? [];
     const icon = readAuthIcon(options.tone, colors);
 
     context.stdout.write(`${icon} ${options.summary}\n`);
 
     for (const detail of details) {
-        const value = detail.emphasize === false
-            ? detail.value
-            : colors.bold(detail.value);
-
-        context.stdout.write(`  ${colors.dim("-")} ${detail.label}: ${value}\n`);
+        context.stdout.write(`  ${colors.dim("-")} ${detail.label}: ${colors.bold(detail.value)}\n`);
     }
-}
-
-function createAuthColors(context: CliExecutionContext): TerminalColors {
-    return createWriterColors(context.stdout);
 }
 
 function readAuthIcon(tone: AuthBlockTone, colors: TerminalColors): string {

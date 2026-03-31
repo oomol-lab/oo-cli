@@ -1,7 +1,8 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import type { ConfigGetInput } from "./shared.ts";
+import type { ConfigKeyInput } from "./shared.ts";
 import { z } from "zod";
+import { writeLine } from "../shared/output.ts";
 import {
     configKeyChoices,
     configKeySchema,
@@ -9,7 +10,7 @@ import {
     getConfigValue,
 } from "./shared.ts";
 
-export const configGetCommand: CliCommandDefinition<ConfigGetInput> = {
+export const configGetCommand: CliCommandDefinition<ConfigKeyInput> = {
     name: "get",
     summaryKey: "commands.config.get.summary",
     descriptionKey: "commands.config.get.description",
@@ -37,8 +38,8 @@ export const configGetCommand: CliCommandDefinition<ConfigGetInput> = {
             "Config value read.",
         );
 
-        if (value) {
-            context.stdout.write(`${value}\n`);
+        if (value !== undefined) {
+            writeLine(context.stdout, value);
         }
     },
 };

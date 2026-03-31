@@ -3,15 +3,15 @@ import type { AppSettings } from "../../schemas/settings.ts";
 
 import type { ConfigKey } from "./shared.ts";
 import { z } from "zod";
+import { writeLine } from "../shared/output.ts";
 import { maybeSynchronizeInstalledBundledSkills } from "../skills/shared.ts";
 import {
+    configDefinitions,
     configKeyChoices,
     configKeySchema,
     createInvalidConfigKeyError,
-    getConfigDefinition,
-    getConfigDefinitionByRawKey,
+    isConfigKey,
     ooSkillImplicitInvocationConfigKey,
-    writeLine,
 } from "./shared.ts";
 
 interface ResolvedConfigSetInput {
@@ -26,7 +26,7 @@ const configSetInputSchema = z.object({
     key: configKeySchema,
     value: z.string(),
 }).transform((input, ctx) => {
-    const definition = getConfigDefinition(input.key);
+    const definition = configDefinitions[input.key];
     const valueResult = definition.valueSchema.safeParse(input.value);
 
     if (!valueResult.success) {
@@ -65,7 +65,7 @@ export const configSetCommand: CliCommandDefinition<ResolvedConfigSetInput> = {
     ],
     inputSchema: configSetInputSchema,
     mapInputError: (_, rawInput) => {
-        const definition = getConfigDefinitionByRawKey(rawInput.key);
+        const definition = isConfigKey(rawInput.key) ? configDefinitions[rawInput.key] : undefined;
 
         if (!definition) {
             return createInvalidConfigKeyError(rawInput);
@@ -92,7 +92,7 @@ export const configSetCommand: CliCommandDefinition<ResolvedConfigSetInput> = {
             "Config value persisted.",
         );
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("config.set.success", {
                 key: input.key,
                 value: input.value,

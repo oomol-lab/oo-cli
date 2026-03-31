@@ -13,7 +13,7 @@ import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
-} from "./shared.ts";
+} from "./bundled-skill-paths.ts";
 
 describe("skills CLI", () => {
     test("requires login before installing published skills", async () => {

@@ -7,6 +7,7 @@ import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
+import { isPlainObject } from "../shared/schema-utils.ts";
 import {
     createCloudTaskTasksUrl,
     parseCloudTaskCreateResponse,
@@ -67,10 +68,12 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
     }),
     handler: async (input, context) => {
         const format = parseCloudTaskFormat(input.format);
-        const blockId = readRequiredOption(
-            input.blockId,
-            "errors.cloudTaskRun.blockIdRequired",
-        );
+
+        if (input.blockId === undefined || input.blockId.trim() === "") {
+            throw new CliUserError("errors.cloudTaskRun.blockIdRequired", 2);
+        }
+
+        const blockId = input.blockId;
         const account = await requireCurrentCloudTaskAccount(context);
         const packageSpecifier = parsePackageSpecifier(input.packageSpecifier, {
             errorKey: "errors.cloudTaskRun.invalidPackageSpecifier",
@@ -139,17 +142,6 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
     },
 };
 
-function readRequiredOption(
-    value: string | undefined,
-    errorKey: string,
-): string {
-    if (value === undefined || value.trim() === "") {
-        throw new CliUserError(errorKey, 2);
-    }
-
-    return value;
-}
-
 async function readInputValuesSource(
     value: string | undefined,
     context: Pick<CliExecutionContext, "cwd">,
@@ -188,32 +180,20 @@ function parseInputValues(
         ? rawInputValues.slice(1)
         : rawInputValues;
 
+    let parsedValue: unknown;
+
     try {
-        const parsedValue = JSON.parse(normalizedInput) as unknown;
-
-        if (!isPlainObject(parsedValue)) {
-            throw new CliUserError("errors.cloudTaskRun.invalidPayloadShape", 2);
-        }
-
-        return parsedValue;
+        parsedValue = JSON.parse(normalizedInput) as unknown;
     }
     catch (error) {
-        if (error instanceof CliUserError) {
-            throw error;
-        }
-
         throw new CliUserError("errors.cloudTaskRun.invalidDataJson", 2, {
             message: error instanceof Error ? error.message : String(error),
         });
     }
-}
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-    if (value === null || typeof value !== "object" || Array.isArray(value)) {
-        return false;
+    if (!isPlainObject(parsedValue)) {
+        throw new CliUserError("errors.cloudTaskRun.invalidPayloadShape", 2);
     }
 
-    const prototype = Object.getPrototypeOf(value);
-
-    return prototype === Object.prototype || prototype === null;
+    return parsedValue;
 }

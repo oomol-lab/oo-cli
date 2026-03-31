@@ -6,10 +6,9 @@ import {
     computeReleaseVersion,
     formatGitHubOutput,
     readVersionBump,
-
 } from "./release-version.ts";
 
-export async function listGitTags(): Promise<string[]> {
+export function listGitTags(): string[] {
     const processResult = Bun.spawnSync(
         ["git", "tag", "-l", "v*", "--sort=-v:refname"],
         {
@@ -45,7 +44,7 @@ export async function writeGitHubOutput(result: ReleaseVersionResult): Promise<v
 }
 
 export async function main(): Promise<void> {
-    const tags = await listGitTags();
+    const tags = listGitTags();
     const releaseVersion = computeReleaseVersion({
         expectedVersion: process.env.EXPECTED_VERSION ?? "",
         versionBump: readVersionBump(process.env.VERSION_BUMP),

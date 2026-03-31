@@ -1,8 +1,13 @@
 import type { Logger } from "pino";
 import type { CliInvocation } from "../src/application/bootstrap/run-cli.ts";
+import type { AuthStore } from "../src/application/contracts/auth-store.ts";
+import type { Cache, CacheOptions, CacheStore } from "../src/application/contracts/cache.ts";
 import type { Fetcher, InteractiveInput, Writer } from "../src/application/contracts/cli.ts";
 import type { FileDownloadSessionStore } from "../src/application/contracts/file-download-session-store.ts";
 import type { FileUploadRecordStore } from "../src/application/contracts/file-upload-store.ts";
+import type { SettingsStore } from "../src/application/contracts/settings-store.ts";
+import type { AuthFile } from "../src/application/schemas/auth.ts";
+import type { AppSettings } from "../src/application/schemas/settings.ts";
 import { Buffer } from "node:buffer";
 import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 
@@ -667,4 +672,88 @@ async function completeLoginCallback(
 interface ResolvedSnapshotReplacement {
     readonly placeholder: string;
     readonly value: string;
+}
+
+export function formatManagedSkillMetadataContent(
+    packageName: string,
+    version: string,
+): string {
+    return `${JSON.stringify({ packageName, version }, null, 2)}\n`;
+}
+
+export async function createRegistrySkillArchiveBytes(
+    files: Record<string, string>,
+): Promise<Uint8Array<ArrayBuffer>> {
+    return await new Bun.Archive(files, {
+        compress: "gzip",
+    }).bytes();
+}
+
+export function createAuthStore(authFile: AuthFile): AuthStore {
+    let currentAuthFile = authFile;
+
+    return {
+        getFilePath: () => "",
+        read: async () => currentAuthFile,
+        write: async (nextAuthFile) => {
+            currentAuthFile = nextAuthFile;
+
+            return currentAuthFile;
+        },
+        update: async (updater) => {
+            currentAuthFile = updater(currentAuthFile);
+
+            return currentAuthFile;
+        },
+    };
+}
+
+export function createSettingsStore(settings: AppSettings): SettingsStore {
+    let currentSettings = settings;
+
+    return {
+        getFilePath: () => "",
+        read: async () => currentSettings,
+        write: async (nextSettings) => {
+            currentSettings = nextSettings;
+
+            return currentSettings;
+        },
+        update: async (updater) => {
+            currentSettings = updater(currentSettings);
+
+            return currentSettings;
+        },
+    };
+}
+
+export function createCacheStore<Value>(
+    cache?: Cache<Value>,
+    cacheOptions?: CacheOptions[],
+): CacheStore {
+    return {
+        getFilePath: () => "",
+        getCache: <CurrentValue>(options: CacheOptions) => {
+            cacheOptions?.push(options);
+
+            return (cache ?? { clear() {}, delete: () => false, get: () => null, has: () => false, set() {} }) as unknown as Cache<CurrentValue>;
+        },
+        close() {},
+    };
+}
+
+export function createCache<Value>(handlers: {
+    delete: Cache<Value>["delete"];
+    get: Cache<Value>["get"];
+    set: Cache<Value>["set"];
+}): Cache<Value> {
+    return {
+        delete: handlers.delete,
+        get: handlers.get,
+        set: handlers.set,
+        has(key) {
+            return handlers.get(key) !== null;
+        },
+        clear: () => {},
+    };
 }

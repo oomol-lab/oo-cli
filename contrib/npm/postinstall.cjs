@@ -115,12 +115,13 @@ function splitPathSegments(rawValue) {
 }
 
 function normalizePackageManagerName(value) {
-    switch (String(value).trim().toLowerCase()) {
+    const normalized = String(value).trim().toLowerCase();
+    switch (normalized) {
         case "npm":
         case "pnpm":
         case "bun":
         case "yarn":
-            return String(value).trim().toLowerCase();
+            return normalized;
         default:
             return undefined;
     }

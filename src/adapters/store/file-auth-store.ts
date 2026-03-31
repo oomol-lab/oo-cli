@@ -18,7 +18,8 @@ import {
     defaultAuthFile,
     renderAuthFile,
 } from "../../application/schemas/auth.ts";
-import { resolveStoreDirectory } from "./store-path.ts";
+import { isFileAlreadyExistsError, isFileMissingError } from "./file-store-utils.ts";
+import { defaultAuthFileName, resolveStoreDirectory } from "./store-path.ts";
 
 interface FileAuthStoreSharedOptions {
     logger?: Logger;
@@ -269,24 +270,6 @@ function resolveAuthFilePath(options: FileAuthStoreOptions): string {
 
     return join(
         resolveStoreDirectory(options),
-        options.fileName ?? "auth.toml",
-    );
-}
-
-function isFileMissingError(error: unknown): error is NodeJS.ErrnoException {
-    return Boolean(
-        error
-        && typeof error === "object"
-        && "code" in error
-        && error.code === "ENOENT",
-    );
-}
-
-function isFileAlreadyExistsError(error: unknown): error is NodeJS.ErrnoException {
-    return Boolean(
-        error
-        && typeof error === "object"
-        && "code" in error
-        && error.code === "EEXIST",
+        options.fileName ?? defaultAuthFileName,
     );
 }

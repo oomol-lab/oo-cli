@@ -11,7 +11,7 @@ import {
     createBundledSkillDirectorySymlink,
     publishBundledSkillInstallation,
     removeBundledSkillSymbolicPath,
-} from "./shared.ts";
+} from "./bundled-skill-filesystem.ts";
 
 describe("bundled skill publication", () => {
     test("publishes the bundled skill through a symlink-compatible path", async () => {

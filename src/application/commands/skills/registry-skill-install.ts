@@ -1,8 +1,11 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
+import type { AuthAccount } from "../../schemas/auth.ts";
+import type { RegistryPackageSkillInfo, RegistrySkillSummary } from "./registry-skill-source.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
 
+import { writeLine } from "../shared/output.ts";
 import { directoryExists, requireCodexHomeDirectory } from "./bundled-skill-observation.ts";
 import { SkillsInstallProgressReporter } from "./install-progress.ts";
 import {
@@ -163,8 +166,8 @@ export async function installRegistrySkills(
 
 async function executeInstallActions(
     installActions: readonly RegistrySkillSelectionAction[],
-    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
-    account: Awaited<ReturnType<typeof requireCurrentSkillsInstallAccount>>,
+    packageInfo: RegistryPackageSkillInfo,
+    account: AuthAccount,
     codexHomeDirectory: string,
     settingsFilePath: string,
     isInteractive: boolean,
@@ -180,7 +183,7 @@ async function executeInstallActions(
 
     try {
         for (const { skillName } of installActions) {
-            const skill = findPackageSkillOrThrow(packageInfo, skillName);
+            const skill = findPackageSkillOrThrow(packageInfo.skills, skillName, packageInfo.packageName);
             const installation = await publishPreparedRegistrySkillPublication(
                 await prepareRegistrySkillPublication({
                     codexHomeDirectory,
@@ -195,7 +198,7 @@ async function executeInstallActions(
 
             if (!isInteractive) {
                 writeLine(
-                    context,
+                    context.stdout,
                     context.translator.t("skills.install.success", {
                         name: skillName,
                         path: installation.path,
@@ -224,30 +227,16 @@ async function executeInstallActions(
 
 async function resolveSelectionActions(
     request: RegistrySkillInstallRequest,
-    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
+    packageInfo: RegistryPackageSkillInfo,
     codexHomeDirectory: string,
     context: Pick<
         CliExecutionContext,
         "settingsStore" | "stdin" | "stdout" | "translator"
     >,
 ): Promise<RegistrySkillSelectionResolution> {
-    if (request.all) {
+    if (request.all || request.skillNames.includes("*")) {
         writeLine(
-            context,
-            context.translator.t("skills.install.allSelected", {
-                count: packageInfo.skills.length,
-            }),
-        );
-
-        return {
-            actions: createInstallActions(packageInfo.skills.map(skill => skill.name)),
-            isInteractive: false,
-        };
-    }
-
-    if (request.skillNames.includes("*")) {
-        writeLine(
-            context,
+            context.stdout,
             context.translator.t("skills.install.allSelected", {
                 count: packageInfo.skills.length,
             }),
@@ -260,17 +249,15 @@ async function resolveSelectionActions(
     }
 
     if (request.skillNames.length > 0) {
-        const selectedSkillNames = request.skillNames.flatMap((skillName) => {
-            findPackageSkillOrThrow(packageInfo, skillName);
-
-            return skillName;
-        });
+        for (const skillName of request.skillNames) {
+            findPackageSkillOrThrow(packageInfo.skills, skillName, packageInfo.packageName);
+        }
 
         return {
             actions: createInstallActions(
                 await filterConfirmedSkillNames(
                     packageInfo.packageName,
-                    selectedSkillNames,
+                    request.skillNames,
                     codexHomeDirectory,
                     context,
                 ),
@@ -283,7 +270,7 @@ async function resolveSelectionActions(
         const firstSkill = packageInfo.skills[0]!;
 
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("skills.install.singleSelected", {
                 name: firstSkill.name,
             }),
@@ -297,7 +284,7 @@ async function resolveSelectionActions(
 
     if (request.yes) {
         writeLine(
-            context,
+            context.stdout,
             context.translator.t("skills.install.allSelected", {
                 count: packageInfo.skills.length,
             }),
@@ -410,7 +397,7 @@ async function filterConfirmedSkillNames(
 
         if (!confirmed) {
             writeLine(
-                context,
+                context.stdout,
                 context.translator.t("skills.install.skipped", {
                     name: skillName,
                 }),
@@ -424,16 +411,17 @@ async function filterConfirmedSkillNames(
     return confirmedSkillNames;
 }
 
-function findPackageSkillOrThrow(
-    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
+export function findPackageSkillOrThrow(
+    skills: readonly RegistrySkillSummary[],
     skillName: string,
-): Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>["skills"][number] {
-    const skill = packageInfo.skills.find(entry => entry.name === skillName);
+    packageName: string,
+): RegistrySkillSummary {
+    const skill = skills.find(entry => entry.name === skillName);
 
     if (skill === undefined) {
         throw new CliUserError("errors.skills.install.skillNotFound", 1, {
             name: skillName,
-            packageName: packageInfo.packageName,
+            packageName,
         });
     }
 
@@ -441,7 +429,7 @@ function findPackageSkillOrThrow(
 }
 
 async function readRegistrySkillStates(
-    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
+    packageInfo: RegistryPackageSkillInfo,
     codexHomeDirectory: string,
     settingsFilePath: string,
 ): Promise<RegistrySkillState[]> {
@@ -487,8 +475,8 @@ async function readRegistrySkillInstallStatus(
     }
 
     if (
-        isSameManagedRegistryPackage(canonicalState.metadataPackageName, packageName)
-        || isSameManagedRegistryPackage(installedState.metadataPackageName, packageName)
+        canonicalState.metadataPackageName === packageName
+        || installedState.metadataPackageName === packageName
     ) {
         return "installed";
     }
@@ -517,17 +505,8 @@ function hasManagedSkillPathConflict(
     state: ManagedSkillPathState,
     packageName: string,
 ): boolean {
-    return state.exists
-        && !isSameManagedRegistryPackage(state.metadataPackageName, packageName);
+    return state.exists && state.metadataPackageName !== packageName;
 }
-
-function isSameManagedRegistryPackage(
-    metadataPackageName: string | undefined,
-    packageName: string,
-): boolean {
-    return metadataPackageName === packageName;
-}
-
 function readRegistrySkillStatusLabel(
     status: RegistrySkillInstallStatus,
     translator: Pick<CliExecutionContext["translator"], "t">,
@@ -548,11 +527,4 @@ function createInstallActions(
         skillName,
         type: "install",
     }));
-}
-
-function writeLine(
-    context: Pick<CliExecutionContext, "stdout">,
-    message: string,
-): void {
-    context.stdout.write(`${message}\n`);
 }

@@ -1,6 +1,6 @@
 import type { SupportedLocale } from "../application/contracts/cli.ts";
 
-export interface ResolvePreferredLocaleInput {
+interface ResolvePreferredLocaleInput {
     cliFlag?: SupportedLocale;
     storedLocale?: SupportedLocale;
     env: Record<string, string | undefined>;
@@ -46,10 +46,6 @@ export function detectCliLanguageFlag(argv: readonly string[]): string | undefin
     for (let index = 0; index < argv.length; index += 1) {
         const token = argv[index];
 
-        if (!token) {
-            continue;
-        }
-
         if (token === "--lang") {
             const nextToken = argv[index + 1];
 
@@ -57,8 +53,7 @@ export function detectCliLanguageFlag(argv: readonly string[]): string | undefin
                 value = nextToken;
             }
         }
-
-        if (token.startsWith("--lang=")) {
+        else if (token?.startsWith("--lang=")) {
             value = token.slice("--lang=".length);
         }
     }

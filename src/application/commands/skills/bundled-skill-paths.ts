@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { resolveHomeDirectory } from "../../path/home-directory.ts";
 
 const codexDirectoryName = ".codex";
-const codexSkillsDirectoryName = "skills";
+export const codexSkillsDirectoryName = "skills";
 
 export const bundledSkillMetadataFileName = ".oo-metadata.json";
 export const bundledSkillOwnershipFileRelativePath = "agents/openai.yaml";

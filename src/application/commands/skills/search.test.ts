@@ -1,21 +1,20 @@
-import type { AuthStore } from "../../contracts/auth-store.ts";
 import type {
     CliCatalog,
     CliExecutionContext,
     Fetcher,
     InteractiveInput,
 } from "../../contracts/cli.ts";
-import type { SettingsStore } from "../../contracts/settings-store.ts";
 import type { Translator } from "../../contracts/translator.ts";
 import type { AuthFile } from "../../schemas/auth.ts";
-import type { AppSettings } from "../../schemas/settings.ts";
 
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
 import {
+    createAuthStore,
     createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
+    createSettingsStore,
     createTextBuffer,
     toRequest,
 } from "../../../../__tests__/helpers.ts";
@@ -162,43 +161,5 @@ function createSearchContext(options: {
         },
         catalog: emptyCatalog,
         version: "0.1.0",
-    };
-}
-
-function createAuthStore(authFile: AuthFile): AuthStore {
-    let currentAuthFile = authFile;
-
-    return {
-        getFilePath: () => "",
-        read: async () => currentAuthFile,
-        write: async (nextAuthFile) => {
-            currentAuthFile = nextAuthFile;
-
-            return currentAuthFile;
-        },
-        update: async (updater) => {
-            currentAuthFile = updater(currentAuthFile);
-
-            return currentAuthFile;
-        },
-    };
-}
-
-function createSettingsStore(settings: AppSettings): SettingsStore {
-    let currentSettings = settings;
-
-    return {
-        getFilePath: () => "",
-        read: async () => currentSettings,
-        write: async (nextSettings) => {
-            currentSettings = nextSettings;
-
-            return currentSettings;
-        },
-        update: async (updater) => {
-            currentSettings = updater(currentSettings);
-
-            return currentSettings;
-        },
     };
 }

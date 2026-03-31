@@ -7,7 +7,9 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createInteractiveInput,
+    createRegistrySkillArchiveBytes,
     createTextBuffer,
+    formatManagedSkillMetadataContent,
     toRequest,
     waitForOutputText,
     writeAuthFile,
@@ -15,11 +17,11 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import { resolveCodexHomeDirectory } from "./bundled-skill-paths.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-import { resolveCodexHomeDirectory } from "./shared.ts";
 
 describe("skills update command", () => {
     test("skips bundled oo when no explicit skill names are provided", async () => {
@@ -512,21 +514,6 @@ describe("skills update command", () => {
         }
     });
 });
-
-function formatManagedSkillMetadataContent(
-    packageName: string,
-    version: string,
-): string {
-    return `${JSON.stringify({ packageName, version }, null, 2)}\n`;
-}
-
-async function createRegistrySkillArchiveBytes(
-    files: Record<string, string>,
-): Promise<Uint8Array<ArrayBuffer>> {
-    return await new Bun.Archive(files, {
-        compress: "gzip",
-    }).bytes();
-}
 
 async function writeManagedRegistrySkillInstallation(options: {
     canonicalSkillDirectoryPath: string;

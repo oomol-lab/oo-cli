@@ -69,7 +69,13 @@ export async function checkForCliUpdate(
             },
             "CLI update check started.",
         );
-        const latestVersion = await resolveLatestReleaseVersion(context);
+        const latestVersion = await fetchLatestReleaseVersion({
+            currentVersion: context.version,
+            env: context.env,
+            fetcher: context.fetcher,
+            logger: context.logger,
+            packageName: context.packageName,
+        });
 
         if (latestVersion === null) {
             context.logger.debug(
@@ -84,7 +90,7 @@ export async function checkForCliUpdate(
             };
         }
 
-        if (compareReleaseVersions(latestVersion, context.version) <= 0) {
+        if (compareSemver(latestVersion, context.version) <= 0) {
             context.logger.debug(
                 {
                     currentVersion: context.version,
@@ -189,10 +195,6 @@ function renderNoticeBodyLine(
     ].join("");
 }
 
-export function compareReleaseVersions(left: string, right: string): number {
-    return compareSemver(left, right);
-}
-
 export function resolvePackageManagerUpgradeCommand(
     env: Record<string, string | undefined>,
     packageName: string,
@@ -207,18 +209,6 @@ export function resolvePackageManagerUpgradeCommand(
         default:
             return `npm install -g ${packageName}@latest`;
     }
-}
-
-async function resolveLatestReleaseVersion(
-    context: CliExecutionContext,
-): Promise<string | null> {
-    return await fetchLatestReleaseVersion({
-        currentVersion: context.version,
-        env: context.env,
-        fetcher: context.fetcher,
-        logger: context.logger,
-        packageName: context.packageName,
-    });
 }
 
 async function fetchLatestReleaseVersion(options: {
@@ -336,37 +326,10 @@ async function fetchLatestReleaseVersionAttempt(options: {
         };
     }
 
-    let payload: unknown;
+    const latestVersion = await extractLatestVersionFromPayload(response);
 
-    try {
-        payload = await response.json();
-    }
-    catch {
-        return {
-            status: "terminal-failure",
-        };
-    }
-
-    if (!payload || typeof payload !== "object") {
-        return {
-            status: "terminal-failure",
-        };
-    }
-
-    const distTags = "dist-tags" in payload ? payload["dist-tags"] : undefined;
-
-    if (!distTags || typeof distTags !== "object") {
-        return {
-            status: "terminal-failure",
-        };
-    }
-
-    const latestVersion = "latest" in distTags ? distTags.latest : undefined;
-
-    if (typeof latestVersion !== "string" || latestVersion === "") {
-        return {
-            status: "terminal-failure",
-        };
+    if (latestVersion === null) {
+        return { status: "terminal-failure" };
     }
 
     options.logger.debug(
@@ -386,6 +349,37 @@ async function fetchLatestReleaseVersionAttempt(options: {
         latestVersion,
         status: "success",
     };
+}
+
+async function extractLatestVersionFromPayload(
+    response: Response,
+): Promise<string | null> {
+    let payload: unknown;
+
+    try {
+        payload = await response.json();
+    }
+    catch {
+        return null;
+    }
+
+    if (!payload || typeof payload !== "object") {
+        return null;
+    }
+
+    const distTags = "dist-tags" in payload ? payload["dist-tags"] : undefined;
+
+    if (!distTags || typeof distTags !== "object") {
+        return null;
+    }
+
+    const latestVersion = "latest" in distTags ? distTags.latest : undefined;
+
+    if (typeof latestVersion !== "string" || latestVersion === "") {
+        return null;
+    }
+
+    return latestVersion;
 }
 
 async function fetchWithTimeout(
@@ -446,22 +440,23 @@ function readPackageManagerName(npmUserAgent: string | undefined): string | unde
         return undefined;
     }
 
-    const [firstToken] = npmUserAgent.split(" ", 1);
-    const resolvedFirstToken = firstToken ?? "npm";
-    const slashIndex = resolvedFirstToken.indexOf("/");
+    const firstToken = npmUserAgent.split(" ", 1)[0]!;
+    const slashIndex = firstToken.indexOf("/");
 
     return slashIndex >= 0
-        ? resolvedFirstToken.slice(0, slashIndex)
-        : resolvedFirstToken;
+        ? firstToken.slice(0, slashIndex)
+        : firstToken;
 }
 
 function normalizePackageManagerName(value: string | undefined): string | undefined {
-    switch (value?.trim().toLowerCase()) {
+    const normalized = value?.trim().toLowerCase();
+
+    switch (normalized) {
         case "npm":
         case "pnpm":
         case "bun":
         case "yarn":
-            return value.trim().toLowerCase();
+            return normalized;
         default:
             return undefined;
     }

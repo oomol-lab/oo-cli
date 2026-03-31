@@ -18,7 +18,7 @@ import {
 } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
-import { resolveCodexHomeDirectory } from "../commands/skills/shared.ts";
+import { resolveCodexHomeDirectory } from "../commands/skills/bundled-skill-paths.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
@@ -372,7 +372,7 @@ describe("runCli bootstrap", () => {
                 "Unexpected error: cache store close failed\n",
             );
             expect(result.logContent).toContain(
-                "Failed to close the cache store cleanly.",
+                "Failed to close a resource cleanly.",
             );
         }
         finally {
@@ -398,7 +398,7 @@ describe("runCli bootstrap", () => {
                 "Unexpected error: file upload store close failed\n",
             );
             expect(result.logContent).toContain(
-                "Failed to close the file upload store cleanly.",
+                "Failed to close a resource cleanly.",
             );
         }
         finally {
@@ -424,7 +424,7 @@ describe("runCli bootstrap", () => {
                 "Unexpected error: file download session store close failed\n",
             );
             expect(result.logContent).toContain(
-                "Failed to close the file download session store cleanly.",
+                "Failed to close a resource cleanly.",
             );
         }
         finally {
@@ -455,13 +455,13 @@ describe("runCli bootstrap", () => {
                 "",
             ].join("\n"));
             expect(result.logContent).toContain(
-                "Failed to close the cache store cleanly.",
+                "Failed to close a resource cleanly.",
             );
             expect(result.logContent).toContain(
-                "Failed to close the file upload store cleanly.",
+                "Failed to close a resource cleanly.",
             );
             expect(result.logContent).toContain(
-                "Failed to close the file download session store cleanly.",
+                "Failed to close a resource cleanly.",
             );
         }
         finally {

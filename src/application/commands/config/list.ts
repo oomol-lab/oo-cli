@@ -1,29 +1,34 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import type { ConfigListInput } from "./shared.ts";
 import { z } from "zod";
+import { writeLine } from "../shared/output.ts";
 import {
     configKeyChoices,
     getConfigValue,
 } from "./shared.ts";
 
-export const configListCommand: CliCommandDefinition<ConfigListInput> = {
+export const configListCommand: CliCommandDefinition = {
     name: "list",
     summaryKey: "commands.config.list.summary",
     descriptionKey: "commands.config.list.description",
     inputSchema: z.object({}),
     handler: async (_, context) => {
         const settings = await context.settingsStore.read();
-        const lines = configKeyChoices
-            .flatMap((key) => {
-                const value = getConfigValue(settings, key);
+        const configuredKeys: string[] = [];
+        const lines: string[] = [];
 
-                return value !== undefined ? [`${key}=${value}`] : [];
-            });
+        for (const key of configKeyChoices) {
+            const value = getConfigValue(settings, key);
+
+            if (value !== undefined) {
+                configuredKeys.push(key);
+                lines.push(`${key}=${value}`);
+            }
+        }
 
         context.logger.debug(
             {
-                configuredKeys: lines.map(line => line.split("=")[0] ?? ""),
+                configuredKeys,
             },
             "Config values listed.",
         );
@@ -32,6 +37,6 @@ export const configListCommand: CliCommandDefinition<ConfigListInput> = {
             return;
         }
 
-        context.stdout.write(`${lines.join("\n")}\n`);
+        writeLine(context.stdout, lines.join("\n"));
     },
 };

@@ -1,8 +1,12 @@
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { CliUserError } from "../../contracts/cli.ts";
+import {
+    directoryExists,
+    fileExists,
+} from "./bundled-skill-observation.ts";
 
 export interface ExtractedRegistryPackageArchive {
     cleanup: () => Promise<void>;
@@ -51,34 +55,4 @@ export async function requireExtractedRegistrySkillDirectory(
     }
 
     return skillDirectoryPath;
-}
-
-async function directoryExists(path: string): Promise<boolean> {
-    try {
-        return (await stat(path)).isDirectory();
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
-}
-
-async function fileExists(path: string): Promise<boolean> {
-    try {
-        return (await stat(path)).isFile();
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
-}
-
-function isNodeNotFoundError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
