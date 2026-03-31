@@ -1,5 +1,11 @@
 import type { Writer } from "../../contracts/cli.ts";
 
+import {
+    moveCursorUp,
+    rewriteTerminalLines,
+    terminalControl,
+} from "../../terminal-control.ts";
+
 const spinnerFrames = ["|", "/", "-", "\\"] as const;
 
 export abstract class TerminalProgressRenderer {
@@ -20,7 +26,7 @@ export abstract class TerminalProgressRenderer {
         }
 
         this.render();
-        this.writer.write("\u001B[?25h");
+        this.writer.write(terminalControl.showCursor);
     }
 
     protected get currentFrame(): string {
@@ -55,7 +61,7 @@ export abstract class TerminalProgressRenderer {
         }
 
         if (this.renderedLineCount === 0) {
-            this.writer.write("\u001B[?25l");
+            this.writer.write(terminalControl.hideCursor);
             this.writer.write(`${nextOutput}\n`);
             this.renderedLineCount = nextOutput.split("\n").length;
             this.renderedOutput = nextOutput;
@@ -63,12 +69,10 @@ export abstract class TerminalProgressRenderer {
         }
 
         const renderedLines = nextOutput.split("\n");
-        const rewrittenContent = renderedLines.map(
-            line => `\r\u001B[2K${line}`,
-        ).join("\n");
+        const rewrittenContent = rewriteTerminalLines(renderedLines);
 
         this.writer.write(
-            `\u001B[${this.renderedLineCount}A${rewrittenContent}\n`,
+            `${moveCursorUp(this.renderedLineCount)}${rewrittenContent}\n`,
         );
         this.renderedLineCount = renderedLines.length;
         this.renderedOutput = nextOutput;
