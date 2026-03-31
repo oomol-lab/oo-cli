@@ -106,7 +106,7 @@ export const configKeyChoices = Object.freeze(
     Object.keys(configDefinitions) as ConfigKey[],
 );
 
-function isConfigKey(value: unknown): value is ConfigKey {
+export function isConfigKey(value: unknown): value is ConfigKey {
     return typeof value === "string" && value in configDefinitions;
 }
 
@@ -126,21 +126,9 @@ export function createInvalidConfigKeyError(
     });
 }
 
-export function getConfigDefinition<TKey extends ConfigKey>(
-    key: TKey,
-): (typeof configDefinitions)[TKey] {
-    return configDefinitions[key];
-}
-
-export function getConfigDefinitionByRawKey(
-    rawKey: unknown,
-): (typeof configDefinitions)[ConfigKey] | undefined {
-    return isConfigKey(rawKey) ? getConfigDefinition(rawKey) : undefined;
-}
-
 export function getConfigValue(
     settings: AppSettings,
     key: ConfigKey,
 ): string | undefined {
-    return getConfigDefinition(key).getValue(settings);
+    return configDefinitions[key].getValue(settings);
 }

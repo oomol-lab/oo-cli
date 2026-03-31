@@ -1,6 +1,6 @@
 import type { CliCommandDefinition } from "../../../contracts/cli.ts";
 import type { AppSettings } from "../../../schemas/settings.ts";
-import type { SkillConfigSkillName } from "./shared.ts";
+import type { BundledSkillName } from "../embedded-assets.ts";
 
 import { z } from "zod";
 import { maybeSynchronizeInstalledBundledSkills } from "../shared.ts";
@@ -16,7 +16,7 @@ interface ResolvedSkillsConfigSetInput {
         setValue: (settings: AppSettings, value: string) => AppSettings;
     };
     key: string;
-    skill: SkillConfigSkillName;
+    skill: BundledSkillName;
     value: string;
 }
 

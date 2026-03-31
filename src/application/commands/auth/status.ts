@@ -9,9 +9,9 @@ import {
 } from "./shared.ts";
 
 const apiKeyStatusConfig = {
-    invalid: { tone: "danger" as const, translationKey: "auth.status.apiKeyInvalid" as const },
-    request_failed: { tone: "warning" as const, translationKey: "auth.status.apiKeyRequestFailed" as const },
-    valid: { tone: "success" as const, translationKey: "auth.status.apiKeyValid" as const },
+    invalid: { tone: "danger", translationKey: "auth.status.apiKeyInvalid" },
+    request_failed: { tone: "warning", translationKey: "auth.status.apiKeyRequestFailed" },
+    valid: { tone: "success", translationKey: "auth.status.apiKeyValid" },
 } as const;
 
 export const authStatusCommand: CliCommandDefinition = {

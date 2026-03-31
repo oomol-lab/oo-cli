@@ -1,6 +1,6 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
-
-import type { RegistrySkillSummary } from "./registry-skill-source.ts";
+import type { AuthAccount } from "../../schemas/auth.ts";
+import type { RegistryPackageSkillInfo, RegistrySkillSummary } from "./registry-skill-source.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
@@ -166,8 +166,8 @@ export async function installRegistrySkills(
 
 async function executeInstallActions(
     installActions: readonly RegistrySkillSelectionAction[],
-    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
-    account: Awaited<ReturnType<typeof requireCurrentSkillsInstallAccount>>,
+    packageInfo: RegistryPackageSkillInfo,
+    account: AuthAccount,
     codexHomeDirectory: string,
     settingsFilePath: string,
     isInteractive: boolean,
@@ -227,7 +227,7 @@ async function executeInstallActions(
 
 async function resolveSelectionActions(
     request: RegistrySkillInstallRequest,
-    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
+    packageInfo: RegistryPackageSkillInfo,
     codexHomeDirectory: string,
     context: Pick<
         CliExecutionContext,
@@ -249,17 +249,15 @@ async function resolveSelectionActions(
     }
 
     if (request.skillNames.length > 0) {
-        const selectedSkillNames = request.skillNames.flatMap((skillName) => {
+        for (const skillName of request.skillNames) {
             findPackageSkillOrThrow(packageInfo.skills, skillName, packageInfo.packageName);
-
-            return skillName;
-        });
+        }
 
         return {
             actions: createInstallActions(
                 await filterConfirmedSkillNames(
                     packageInfo.packageName,
-                    selectedSkillNames,
+                    request.skillNames,
                     codexHomeDirectory,
                     context,
                 ),
@@ -431,7 +429,7 @@ export function findPackageSkillOrThrow(
 }
 
 async function readRegistrySkillStates(
-    packageInfo: Awaited<ReturnType<typeof loadRegistryPackageSkillInfo>>,
+    packageInfo: RegistryPackageSkillInfo,
     codexHomeDirectory: string,
     settingsFilePath: string,
 ): Promise<RegistrySkillState[]> {

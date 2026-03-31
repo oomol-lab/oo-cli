@@ -2,6 +2,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import type { ConfigKeyInput } from "./shared.ts";
 import { z } from "zod";
+import { writeLine } from "../shared/output.ts";
 import {
     configKeyChoices,
     configKeySchema,
@@ -38,7 +39,7 @@ export const configGetCommand: CliCommandDefinition<ConfigKeyInput> = {
         );
 
         if (value !== undefined) {
-            context.stdout.write(`${value}\n`);
+            writeLine(context.stdout, value);
         }
     },
 };

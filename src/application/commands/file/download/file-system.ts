@@ -1,4 +1,5 @@
 import type { PathLike } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 import type { CliExecutionContext } from "../../../contracts/cli.ts";
 import type { DownloadProgressReporter } from "./progress.ts";
 import type { ExistingDownloadSession, WriteDownloadPlan } from "./types.ts";
@@ -8,8 +9,6 @@ import { join } from "node:path";
 
 import { CliUserError } from "../../../contracts/cli.ts";
 import { createDownloadFailedError, isErrorCode } from "./errors.ts";
-
-type DownloadFileHandle = Awaited<ReturnType<typeof open>>;
 
 export async function deleteDownloadSessionArtifacts(
     session: ExistingDownloadSession,
@@ -62,7 +61,7 @@ export async function openTemporaryDownloadFile(
     temporaryFilePath: string,
     mode: WriteDownloadPlan["mode"],
     expectedExistingBytes: number,
-): Promise<DownloadFileHandle> {
+): Promise<FileHandle> {
     try {
         const fileHandle = await open(temporaryFilePath, mode === "append" ? "a" : "wx");
 
@@ -95,7 +94,7 @@ export async function openTemporaryDownloadFile(
 
 export async function writeDownloadToTemporaryFile(
     response: Response,
-    fileHandle: DownloadFileHandle,
+    fileHandle: FileHandle,
     temporaryFilePath: string,
     progressReporter: DownloadProgressReporter | undefined,
     initialDownloadedBytes: number,
@@ -170,7 +169,7 @@ export async function finalizeDownloadedFile(
 }
 
 async function writeChunk(
-    fileHandle: DownloadFileHandle,
+    fileHandle: FileHandle,
     chunk: Uint8Array,
 ): Promise<void> {
     let offset = 0;

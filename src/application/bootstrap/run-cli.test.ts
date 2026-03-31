@@ -18,7 +18,7 @@ import {
 } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
-import { resolveCodexHomeDirectory } from "../commands/skills/shared.ts";
+import { resolveCodexHomeDirectory } from "../commands/skills/bundled-skill-paths.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { createTerminalColors } from "../terminal-colors.ts";

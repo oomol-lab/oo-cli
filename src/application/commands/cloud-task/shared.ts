@@ -256,7 +256,7 @@ export async function requestCloudTask(
                 method,
             },
             start: {
-                bodyBytes: options.body?.length ?? 0,
+                bodyLength: options.body?.length ?? 0,
                 hasBody: options.body !== undefined,
                 method,
                 query: requestUrl.searchParams.toString(),

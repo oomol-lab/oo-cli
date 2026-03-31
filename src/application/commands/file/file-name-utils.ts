@@ -1,5 +1,3 @@
-import { Buffer } from "node:buffer";
-
 // Keep longer and more specific suffixes before shorter overlapping ones so the
 // first match always preserves the intended composite extension.
 export const compositeExtensions = [
@@ -189,7 +187,7 @@ export function splitFileNameParts(fileName: string): ResolvedDownloadFileName {
 function parseContentDispositionFileName(
     contentDisposition: string | null | undefined,
 ): ResolvedDownloadFileName | undefined {
-    if (contentDisposition == null) {
+    if (contentDisposition === null || contentDisposition === undefined) {
         return undefined;
     }
 
@@ -342,13 +340,13 @@ function decodeExtendedDispositionValue(
     const charset = parsedValue.slice(0, firstQuoteIndex).trim().toLowerCase();
     const encodedValue = parsedValue.slice(secondQuoteIndex + 1);
 
-    let decoderLabel: "latin1" | "utf-8" | undefined;
+    let decoderLabel: string | undefined;
 
     if (charset === "" || charset === "utf-8" || charset === "us-ascii") {
         decoderLabel = "utf-8";
     }
     else if (charset === "iso-8859-1") {
-        decoderLabel = "latin1";
+        decoderLabel = "iso-8859-1";
     }
 
     if (decoderLabel === undefined || encodedValue === "") {
@@ -387,9 +385,7 @@ function decodeExtendedDispositionValue(
     }
 
     try {
-        return Buffer.from(bytes).toString(
-            decoderLabel === "latin1" ? "latin1" : "utf8",
-        );
+        return new TextDecoder(decoderLabel as Bun.Encoding).decode(new Uint8Array(bytes));
     }
     catch {
         return undefined;
@@ -463,7 +459,7 @@ function takeLastPathSegment(value: string): string {
 }
 
 function parseContentTypeExtension(value: string | null | undefined): string | undefined {
-    if (value == null) {
+    if (value === null || value === undefined) {
         return undefined;
     }
 

@@ -18,6 +18,11 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    resolveBundledSkillCanonicalDirectoryPath,
+    resolveBundledSkillMetadataFilePath,
+    resolveCodexHomeDirectory,
+} from "./bundled-skill-paths.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
@@ -27,11 +32,6 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
-import {
-    resolveBundledSkillCanonicalDirectoryPath,
-    resolveBundledSkillMetadataFilePath,
-    resolveCodexHomeDirectory,
-} from "./shared.ts";
 
 describe("skills commands", () => {
     const guidance = renderOoPackageExecutionGuidance();

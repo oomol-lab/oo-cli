@@ -86,7 +86,10 @@ export function createCloudTaskWaitHandler(
         let lastPrintedElapsedMs: number | undefined;
 
         while (true) {
-            if (dependencies.now() - startedAt >= timeoutMs) {
+            const elapsedMs = dependencies.now() - startedAt;
+            const remainingMs = timeoutMs - elapsedMs;
+
+            if (remainingMs <= 0) {
                 throw new CliUserError("errors.cloudTaskWait.timedOut", 1, {
                     taskId: input.taskId,
                     timeout: formatCloudTaskDuration(timeoutMs),
@@ -111,22 +114,11 @@ export function createCloudTaskWaitHandler(
                 return;
             }
 
-            const elapsedMs = dependencies.now() - startedAt;
-
             if (shouldPrintCloudTaskWaitUpdate(lastPrintedElapsedMs, elapsedMs)) {
                 context.stdout.write(
                     `${formatCloudTaskWaitUpdateAsText(input.taskId, response, elapsedMs, context)}\n\n`,
                 );
                 lastPrintedElapsedMs = elapsedMs;
-            }
-
-            const remainingMs = timeoutMs - elapsedMs;
-
-            if (remainingMs <= 0) {
-                throw new CliUserError("errors.cloudTaskWait.timedOut", 1, {
-                    taskId: input.taskId,
-                    timeout: formatCloudTaskDuration(timeoutMs),
-                });
             }
 
             await dependencies.sleep(Math.min(pollIntervalMs, remainingMs));

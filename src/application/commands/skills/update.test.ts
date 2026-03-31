@@ -17,11 +17,11 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import { resolveCodexHomeDirectory } from "./bundled-skill-paths.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-import { resolveCodexHomeDirectory } from "./shared.ts";
 
 describe("skills update command", () => {
     test("skips bundled oo when no explicit skill names are provided", async () => {

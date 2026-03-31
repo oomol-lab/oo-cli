@@ -51,7 +51,7 @@ function formatCloudTaskResultLines(
         hideZeroProgress?: boolean;
     } = {},
 ): string[] {
-    const colors = createCloudTaskColors(context);
+    const colors = createWriterColors(context.stdout);
     const lines = [readCloudTaskHeading(response.status, context, colors)];
 
     lines.push(
@@ -122,7 +122,7 @@ export function formatCloudTaskListAsText(
     response: CloudTaskListResponse,
     context: CloudTaskTextContext,
 ): string {
-    const colors = createCloudTaskColors(context);
+    const colors = createWriterColors(context.stdout);
     const taskBlocks = response.tasks.map(task =>
         formatCloudTaskListTask(task, context, colors),
     );
@@ -232,11 +232,6 @@ function formatCloudTaskDataBlock(
     colors: TerminalColors,
 ): string {
     const json = JSON.stringify(value, null, 2);
-
-    if (json === undefined) {
-        return `  ${colors.dim(formatCloudTaskLabel(label))}`;
-    }
-
     const lines = json.split("\n");
 
     return [
@@ -313,12 +308,6 @@ function colorizeCloudTaskByStatus(
         case "failed":
             return colors.red(value);
     }
-}
-
-function createCloudTaskColors(
-    context: Pick<CliExecutionContext, "stdout">,
-): TerminalColors {
-    return createWriterColors(context.stdout);
 }
 
 function formatCloudTaskLabel(label: string): string {

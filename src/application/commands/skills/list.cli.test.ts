@@ -5,8 +5,8 @@ import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
-import { renderManagedSkillMetadataContent } from "./managed-skill-metadata.ts";
-import { resolveCodexHomeDirectory } from "./shared.ts";
+import { renderSkillMetadataJson } from "./bundled-skill-model.ts";
+import { resolveCodexHomeDirectory } from "./bundled-skill-paths.ts";
 
 const managedSkillNameColor = "#59F78D";
 const managedSkillSourceColor = "#CAA8FA";
@@ -29,7 +29,7 @@ describe("skills list CLI", () => {
             await mkdir(unmanagedSkillDirectoryPath, { recursive: true });
             await Bun.write(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderManagedSkillMetadataContent({
+                renderSkillMetadataJson({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
                 }),
@@ -88,7 +88,7 @@ describe("skills list CLI", () => {
             await mkdir(alphaSkillDirectoryPath, { recursive: true });
             await Bun.write(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderManagedSkillMetadataContent({
+                renderSkillMetadataJson({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
                 }),

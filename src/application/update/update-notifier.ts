@@ -90,7 +90,7 @@ export async function checkForCliUpdate(
             };
         }
 
-        if (compareReleaseVersions(latestVersion, context.version) <= 0) {
+        if (compareSemver(latestVersion, context.version) <= 0) {
             context.logger.debug(
                 {
                     currentVersion: context.version,
@@ -193,11 +193,6 @@ function renderNoticeBodyLine(
         " ".repeat(horizontalPadding + rightSpacing),
         sideBorder,
     ].join("");
-}
-
-// Thin wrapper over compareSemver retained as a named export for testing convenience.
-export function compareReleaseVersions(left: string, right: string): number {
-    return compareSemver(left, right);
 }
 
 export function resolvePackageManagerUpgradeCommand(

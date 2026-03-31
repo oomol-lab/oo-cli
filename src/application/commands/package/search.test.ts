@@ -1,6 +1,4 @@
-import type { AuthStore } from "../../contracts/auth-store.ts";
 import type {
-    Cache,
     CacheOptions,
     CacheStore,
 } from "../../contracts/cache.ts";
@@ -10,17 +8,19 @@ import type {
     Fetcher,
     InteractiveInput,
 } from "../../contracts/cli.ts";
-import type { SettingsStore } from "../../contracts/settings-store.ts";
 import type { Translator } from "../../contracts/translator.ts";
 import type { AuthFile } from "../../schemas/auth.ts";
-import type { AppSettings } from "../../schemas/settings.ts";
 
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
 import {
+    createAuthStore,
+    createCache,
+    createCacheStore,
     createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
+    createSettingsStore,
     createTextBuffer,
 } from "../../../../__tests__/helpers.ts";
 import { packageSearchCommand } from "./search.ts";
@@ -214,74 +214,5 @@ function createSearchContext(options: {
         },
         catalog: emptyCatalog,
         version: "0.1.0",
-    };
-}
-
-function createAuthStore(authFile: AuthFile): AuthStore {
-    let currentAuthFile = authFile;
-
-    return {
-        getFilePath: () => "",
-        read: async () => currentAuthFile,
-        write: async (nextAuthFile) => {
-            currentAuthFile = nextAuthFile;
-
-            return currentAuthFile;
-        },
-        update: async (updater) => {
-            currentAuthFile = updater(currentAuthFile);
-
-            return currentAuthFile;
-        },
-    };
-}
-
-function createSettingsStore(settings: AppSettings): SettingsStore {
-    let currentSettings = settings;
-
-    return {
-        getFilePath: () => "",
-        read: async () => currentSettings,
-        write: async (nextSettings) => {
-            currentSettings = nextSettings;
-
-            return currentSettings;
-        },
-        update: async (updater) => {
-            currentSettings = updater(currentSettings);
-
-            return currentSettings;
-        },
-    };
-}
-
-function createCacheStore<Value>(
-    cache: Cache<Value>,
-    cacheOptions: CacheOptions[] = [],
-): CacheStore {
-    return {
-        getFilePath: () => "",
-        getCache: <CurrentValue>(options: CacheOptions) => {
-            cacheOptions.push(options);
-
-            return cache as unknown as Cache<CurrentValue>;
-        },
-        close() {},
-    };
-}
-
-function createCache<Value>(handlers: {
-    delete: Cache<Value>["delete"];
-    get: Cache<Value>["get"];
-    set: Cache<Value>["set"];
-}): Cache<Value> {
-    return {
-        delete: handlers.delete,
-        get: handlers.get,
-        set: handlers.set,
-        has(key) {
-            return handlers.get(key) !== null;
-        },
-        clear() {},
     };
 }

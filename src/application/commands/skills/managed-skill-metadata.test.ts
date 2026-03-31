@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
+import { renderSkillMetadataJson } from "./bundled-skill-model.ts";
 import {
     parseManagedSkillMetadataContent,
-    renderManagedSkillMetadataContent,
 } from "./managed-skill-metadata.ts";
 
 describe("managed skill metadata", () => {
@@ -45,7 +45,7 @@ describe("managed skill metadata", () => {
 
     test("renders metadata with packageName when present", () => {
         expect(
-            renderManagedSkillMetadataContent({
+            renderSkillMetadataJson({
                 packageName: "openai",
                 version: "0.0.3",
             }),

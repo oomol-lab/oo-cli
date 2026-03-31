@@ -3,10 +3,8 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import { z } from "zod";
 import { readHistoricalLog } from "../../../adapters/logging/log-reader.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import {
-    resolveCliLogDirectoryPath,
-    writeLine,
-} from "./shared.ts";
+import { writeLine } from "../shared/output.ts";
+import { resolveCliLogDirectoryPath } from "./shared.ts";
 
 interface LogPrintInput {
     index?: string;

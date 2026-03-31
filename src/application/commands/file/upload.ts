@@ -1,3 +1,4 @@
+import type { Stats } from "node:fs";
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { stat } from "node:fs/promises";
@@ -100,7 +101,7 @@ async function readSourceFile(
     fileSize: number;
 }> {
     const resolvedPath = resolve(cwd, filePath);
-    let metadata: Awaited<ReturnType<typeof stat>>;
+    let metadata: Stats;
 
     try {
         metadata = await stat(resolvedPath);

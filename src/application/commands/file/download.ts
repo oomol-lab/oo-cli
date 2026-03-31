@@ -20,8 +20,9 @@ import {
     parseFileDownloadNameOption,
     parseFileDownloadUrl,
 } from "./download/input.ts";
-import { createDownloadSessionKey, resolveDownloadPlan } from "./download/plan.ts";
+import { resolveDownloadPlan } from "./download/plan.ts";
 import { createDownloadProgressReporter } from "./download/progress.ts";
+import { createDownloadSessionKey } from "./download/session.ts";
 
 interface FileDownloadInput {
     ext?: string;

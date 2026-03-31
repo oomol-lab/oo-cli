@@ -31,7 +31,7 @@ export class DownloadProgressReporter {
 
         if (
             downloadedBytes === this.lastRenderedBytes
-            || (downloadedBytes !== this.totalBytes && now - this.lastRenderedAt < 100)
+            || now - this.lastRenderedAt < 100
         ) {
             return;
         }

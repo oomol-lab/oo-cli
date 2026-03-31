@@ -1,12 +1,9 @@
-import type { AuthStore } from "../../contracts/auth-store.ts";
-import type { Cache, CacheStore } from "../../contracts/cache.ts";
 import type {
     CliCatalog,
     CliExecutionContext,
     Fetcher,
     InteractiveInput,
 } from "../../contracts/cli.ts";
-import type { SettingsStore } from "../../contracts/settings-store.ts";
 import type { AuthFile } from "../../schemas/auth.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
 
@@ -17,7 +14,10 @@ import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
 import {
+    createAuthStore,
+    createCacheStore,
     createNoopFileUploadStore,
+    createSettingsStore,
     createTemporaryDirectory,
     createTextBuffer,
     readFileDownloadSuccessOutput,
@@ -243,7 +243,7 @@ function createDownloadContext(options: {
 
     return {
         context: {
-            authStore: createAuthStore(),
+            authStore: createAuthStore(emptyAuthFile),
             cacheStore: createCacheStore(),
             completionRenderer: {
                 render: () => "",
@@ -270,63 +270,5 @@ function createDownloadContext(options: {
         },
         stderr,
         stdout,
-    };
-}
-
-function createAuthStore(): AuthStore {
-    let currentAuthFile = emptyAuthFile;
-
-    return {
-        getFilePath: () => "",
-        read: async () => currentAuthFile,
-        write: async (auth) => {
-            currentAuthFile = auth;
-            return currentAuthFile;
-        },
-        update: async (updater) => {
-            currentAuthFile = updater(currentAuthFile);
-            return currentAuthFile;
-        },
-    };
-}
-
-function createCacheStore(): CacheStore {
-    return {
-        close() {},
-        getCache: <Value>() => createCache<Value>(),
-        getFilePath: () => "",
-    };
-}
-
-function createCache<Value>(): Cache<Value> {
-    return {
-        clear() {},
-        delete() {
-            return false;
-        },
-        get() {
-            return null;
-        },
-        has() {
-            return false;
-        },
-        set() {},
-    };
-}
-
-function createSettingsStore(settings: AppSettings): SettingsStore {
-    let currentSettings = settings;
-
-    return {
-        getFilePath: () => "",
-        read: async () => currentSettings,
-        write: async (nextSettings) => {
-            currentSettings = nextSettings;
-            return currentSettings;
-        },
-        update: async (updater) => {
-            currentSettings = updater(currentSettings);
-            return currentSettings;
-        },
     };
 }

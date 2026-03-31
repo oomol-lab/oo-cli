@@ -49,17 +49,6 @@ import {
     resolveManagedSkillDirectoryPath,
 } from "./managed-skill-paths.ts";
 
-export {
-    createBundledSkillDirectorySymlink,
-    publishBundledSkillInstallation,
-    removeBundledSkillSymbolicPath,
-} from "./bundled-skill-filesystem.ts";
-export type {
-    BundledSkillPublicationResult,
-    CreateBundledSkillDirectorySymlinkDependencies,
-    RemoveBundledSkillSymbolicPathDependencies,
-} from "./bundled-skill-filesystem.ts";
-
 export async function installBundledSkill(
     skillName: BundledSkillName,
     context: CliExecutionContext,
@@ -425,7 +414,7 @@ async function writeBundledSkillInstallation(options: {
     return publishBundledSkillInstallation(installationPaths);
 }
 
-export async function writeBundledSkillCanonicalInstallation(options: {
+async function writeBundledSkillCanonicalInstallation(options: {
     codexHomeDirectory: string;
     settings: AppSettings;
     settingsFilePath: string;
@@ -477,13 +466,6 @@ export async function writeBundledSkillCanonicalInstallation(options: {
         installedSkillDirectoryPath,
     };
 }
-
-export {
-    resolveBundledSkillCanonicalDirectoryPath,
-    resolveBundledSkillDirectoryPath,
-    resolveBundledSkillMetadataFilePath,
-    resolveCodexHomeDirectory,
-} from "./bundled-skill-paths.ts";
 
 async function uninstallRegistrySkill(
     skillName: string,

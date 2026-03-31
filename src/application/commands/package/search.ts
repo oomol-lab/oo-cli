@@ -293,7 +293,7 @@ function formatSearchResponseAsText(
     response: SearchResponse,
     context: SearchTextContext,
 ): string {
-    const colors = createSearchColors(context);
+    const colors = createWriterColors(context.stdout);
 
     return response.packages
         .map(pkg => formatSearchPackage(pkg, context, colors))
@@ -398,10 +398,4 @@ function readBlockLabel(
     }
 
     return `- ${context.translator.t("search.text.unnamedBlock")}`;
-}
-
-function createSearchColors(
-    context: Pick<CliExecutionContext, "stdout">,
-): TerminalColors {
-    return createWriterColors(context.stdout);
 }

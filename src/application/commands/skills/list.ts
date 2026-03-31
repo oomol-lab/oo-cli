@@ -27,11 +27,9 @@ export interface ManagedSkillListItem {
     path: string;
 }
 
-interface SkillsListInput {}
-
 type ManagedSkillListTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
 
-export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
+export const skillsListCommand: CliCommandDefinition<Record<string, never>> = {
     name: "list",
     summaryKey: "commands.skills.list.summary",
     descriptionKey: "commands.skills.list.description",

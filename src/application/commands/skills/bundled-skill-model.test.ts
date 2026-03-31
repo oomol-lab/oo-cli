@@ -9,7 +9,7 @@ import {
     parseBundledSkillMetadataContent,
     readImplicitInvocationValue,
     renderBundledSkillFileContent,
-    renderBundledSkillMetadataContent,
+    renderSkillMetadataJson,
     resolveBundledSkillInstallConflict,
     resolveBundledSkillManagedSynchronizationAction,
     writeImplicitInvocationValue,
@@ -72,7 +72,7 @@ describe("bundled skill model", () => {
         expect(parseBundledSkillMetadataContent("[]")).toBeUndefined();
         expect(parseBundledSkillMetadataContent("{}")).toBeUndefined();
         expect(parseBundledSkillMetadataContent("{\"version\":1}")).toBeUndefined();
-        expect(renderBundledSkillMetadataContent({ version: "1.2.3" })).toBe(
+        expect(renderSkillMetadataJson({ version: "1.2.3" })).toBe(
             "{\n  \"version\": \"1.2.3\"\n}\n",
         );
     });

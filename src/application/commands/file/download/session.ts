@@ -1,3 +1,4 @@
+import type { Stats } from "node:fs";
 import type { CliExecutionContext } from "../../../contracts/cli.ts";
 import type {
     FileDownloadSessionKey,
@@ -80,7 +81,7 @@ export async function loadExistingDownloadSession(
     }
 
     const tempFilePath = join(session.outDirPath, session.tempFileName);
-    let metadata: Awaited<ReturnType<typeof stat>>;
+    let metadata: Stats;
 
     try {
         metadata = await stat(tempFilePath);

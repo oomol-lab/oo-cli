@@ -1,4 +1,5 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type { AuthAccount } from "../../schemas/auth.ts";
 import type { ManagedSkillListItem } from "./list.ts";
 import type { PreparedRegistrySkillPublication } from "./registry-skill-publication.ts";
 
@@ -55,7 +56,6 @@ interface FailedSkillUpdate {
 }
 
 interface RegistryPreparedSkillUpdate {
-    kind: "registry";
     preparedPublication: PreparedRegistrySkillPublication;
 }
 
@@ -133,24 +133,24 @@ export async function updateManagedSkills(
         const account = registrySkillGroups.length > 0
             ? await requireCurrentSkillsInstallAccount(context)
             : undefined;
-        const phaseOneResults = await Promise.all([
-            ...unresolvedSkills.map(skill => Promise.resolve({
-                events: [
-                    {
-                        error: new CliUserError(
-                            "errors.skills.update.packageNameMissing",
-                            1,
-                            {
-                                name: skill.name,
-                            },
-                        ),
-                        kind: "failed" as const,
-                        skillName: skill.name,
-                    },
-                ],
-                publications: [],
-            })),
-            ...registrySkillGroups.map(group =>
+        const unresolvedSkillFailures: SkillPreparationResult[] = unresolvedSkills.map(skill => ({
+            events: [
+                {
+                    error: new CliUserError(
+                        "errors.skills.update.packageNameMissing",
+                        1,
+                        {
+                            name: skill.name,
+                        },
+                    ),
+                    kind: "failed" as const,
+                    skillName: skill.name,
+                },
+            ],
+            publications: [],
+        }));
+        const registryResults = await Promise.all(
+            registrySkillGroups.map(group =>
                 prepareRegistrySkillGroupUpdate(
                     group,
                     {
@@ -162,7 +162,8 @@ export async function updateManagedSkills(
                     context,
                 ),
             ),
-        ]);
+        );
+        const phaseOneResults = [...unresolvedSkillFailures, ...registryResults];
         const publications = phaseOneResults.flatMap(result => result.publications);
 
         for (const event of phaseOneResults.flatMap(result => result.events)) {
@@ -364,7 +365,7 @@ function groupRegistrySkills(
 async function prepareRegistrySkillGroupUpdate(
     group: RegistrySkillGroup,
     options: {
-        account: Awaited<ReturnType<typeof requireCurrentSkillsInstallAccount>>;
+        account: AuthAccount;
         codexHomeDirectory: string;
         progressReporter?: SkillsUpdateProgressReporter;
         settingsFilePath: string;
@@ -414,7 +415,6 @@ async function prepareRegistrySkillGroupUpdate(
                 events: [],
                 publications: await Promise.all(
                     group.skills.map(async skill => ({
-                        kind: "registry",
                         preparedPublication: await prepareRegistrySkillPublication({
                             codexHomeDirectory: options.codexHomeDirectory,
                             extractedPackage,

@@ -1,13 +1,15 @@
 import type {
     Cache,
-    CacheOptions,
-    CacheStore,
 } from "../../contracts/cache.ts";
 import type { Fetcher } from "../../contracts/cli.ts";
 
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
+import {
+    createCache,
+    createCacheStore,
+} from "../../../../__tests__/helpers.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "./shared.ts";
 
 const packageInfoAccount = {
@@ -393,35 +395,4 @@ function createPackageInfoCacheKeyForTest(
         packageName,
         packageVersion,
     });
-}
-
-function createCacheStore<Value>(
-    cache: Cache<Value>,
-    cacheOptions: CacheOptions[] = [],
-): CacheStore {
-    return {
-        getFilePath: () => "",
-        getCache: <CurrentValue>(options: CacheOptions) => {
-            cacheOptions.push(options);
-
-            return cache as unknown as Cache<CurrentValue>;
-        },
-        close() {},
-    };
-}
-
-function createCache<Value>(handlers: {
-    delete: Cache<Value>["delete"];
-    get: Cache<Value>["get"];
-    set: Cache<Value>["set"];
-}): Cache<Value> {
-    return {
-        delete: handlers.delete,
-        get: handlers.get,
-        set: handlers.set,
-        has(key) {
-            return handlers.get(key) !== null;
-        },
-        clear: () => {},
-    };
 }

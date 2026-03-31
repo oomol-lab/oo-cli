@@ -5,7 +5,6 @@ import { Help } from "commander";
 import { APP_NAME } from "../../application/config/app-config.ts";
 import { createTerminalColors } from "../../application/terminal-colors.ts";
 
-const OO_BRAND_NAME = APP_NAME;
 const OOMOL_BRAND_NAME = "OOMOL";
 
 export class LocalizedHelp extends Help {
@@ -78,7 +77,7 @@ export class LocalizedHelp extends Help {
         }
 
         return this.translator.t("help.appDescription.colored", {
-            appName: this.colors.magenta(OO_BRAND_NAME),
+            appName: this.colors.magenta(APP_NAME),
             companyName: this.colors.cyan(OOMOL_BRAND_NAME),
         });
     }

@@ -84,7 +84,7 @@ function formatPackageInfoResponseAsText(
     response: PackageInfoResponse,
     context: PackageInfoTextContext,
 ): string {
-    const colors = createPackageInfoColors(context);
+    const colors = createWriterColors(context.stdout);
     const lines = [readPackageInfoLabel(response, colors)];
 
     if (response.description !== "") {
@@ -355,10 +355,4 @@ function readPackageInfoBlockLabel(
     }
 
     return "- unnamed-block";
-}
-
-function createPackageInfoColors(
-    context: Pick<CliExecutionContext, "stdout">,
-): TerminalColors {
-    return createWriterColors(context.stdout);
 }

@@ -202,7 +202,7 @@ function isDigits(value: string): boolean {
     return true;
 }
 
-function isAsciiDigit(character: string): boolean {
+export function isAsciiDigit(character: string): boolean {
     return character >= "0" && character <= "9";
 }
 

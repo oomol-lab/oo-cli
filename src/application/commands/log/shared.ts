@@ -12,5 +12,3 @@ export function resolveCliLogDirectoryPath(
         platform: process.platform,
     }).logDirectoryPath;
 }
-
-export { writeLine } from "../shared/output.ts";

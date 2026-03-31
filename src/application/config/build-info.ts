@@ -42,20 +42,14 @@ function readBuildVersion(fallbackVersion: string): string {
 }
 
 function readBuildTimestamp(): number | undefined {
-    let rawTimestamp: number | undefined;
-
     if (typeof BUILD_TIMESTAMP === "number") {
-        rawTimestamp = BUILD_TIMESTAMP;
+        return Number.isFinite(BUILD_TIMESTAMP) ? BUILD_TIMESTAMP : undefined;
     }
-    else if (typeof BUILD_TIMESTAMP === "string") {
-        rawTimestamp = Number(BUILD_TIMESTAMP);
+    if (typeof BUILD_TIMESTAMP === "string") {
+        const parsed = Number(BUILD_TIMESTAMP);
+        return Number.isFinite(parsed) ? parsed : undefined;
     }
-
-    if (rawTimestamp === undefined || !Number.isFinite(rawTimestamp)) {
-        return undefined;
-    }
-
-    return rawTimestamp;
+    return undefined;
 }
 
 function readCommitHash(): string | undefined {
@@ -74,13 +68,7 @@ function formatBuildTime(
         return unknownValue;
     }
 
-    const buildTime = new Date(buildTimestamp);
-
-    if (Number.isNaN(buildTime.getTime())) {
-        return unknownValue;
-    }
-
-    return buildTime.toISOString();
+    return new Date(buildTimestamp).toISOString();
 }
 
 function formatCommitHash(

@@ -22,8 +22,6 @@ type DownloadPlanContext = Pick<
     "fetcher" | "fileDownloadSessionStore" | "logger"
 >;
 
-export { createDownloadSessionKey } from "./session.ts";
-
 export async function resolveDownloadPlan(
     requestUrl: URL,
     sessionKey: FileDownloadSessionKey,

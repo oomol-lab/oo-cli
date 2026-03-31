@@ -8,7 +8,7 @@ import {
     withAccountIdentity,
     withPackageIdentity,
 } from "../../logging/log-fields.ts";
-import { isSemver as isValidSemver } from "../../semver.ts";
+import { isAsciiDigit, isSemver as isValidSemver } from "../../semver.ts";
 import { patchHandleSchema } from "../shared/handle-schema.ts";
 import { requestText } from "../shared/request.ts";
 
@@ -319,10 +319,6 @@ function looksLikePackageVersion(version: string): boolean {
     }
 
     return Array.from(version).some(character => isAsciiDigit(character));
-}
-
-function isAsciiDigit(character: string): boolean {
-    return character >= "0" && character <= "9";
 }
 
 function createPackageInfoCacheKey(

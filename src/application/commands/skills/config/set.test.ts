@@ -6,8 +6,8 @@ import { describe, expect, test } from "bun:test";
 import { createCliSandbox } from "../../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../../config/app-config.ts";
+import { resolveCodexHomeDirectory } from "../bundled-skill-paths.ts";
 import { getBundledSkillFiles } from "../embedded-assets.ts";
-import { resolveCodexHomeDirectory } from "../shared.ts";
 
 describe("skills config set command", () => {
     test("persists the oo skill config without requiring Codex", async () => {
