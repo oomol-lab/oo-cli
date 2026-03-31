@@ -128,6 +128,8 @@
 - 选项：`--keywords <keywords>` 接收逗号分隔的关键词列表，去掉空项后以
   重复的 `keywords` 查询参数发送。
 - 选项：`--format=json` 和 `--json` 会输出匹配 skill 条目的 JSON 数组。
+- 输出：JSON 条目只包含稳定的 CLI 字段：`description`、`name`、
+  `packageName`、`packageVersion`、`skillDisplayName`；不会暴露服务端专有字段。
 - 输出：文本输出会为每个 skill 打印一个块，包含标题或名称、可选描述，以及
   在可用时显示来源包标识。
 - 说明：每次调用最多请求 `5` 条结果。

@@ -8,8 +8,23 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 
-const skillSearchTitleColor = "#59F78D";
+const skillSearchDisplayNameColor = "#59F78D";
 const skillSearchPackageColor = "#CAA8FA";
+
+const fullServerResponse = {
+    data: [
+        {
+            description: "Generate text using AI models",
+            icon: "https://example.com/text-generation.png",
+            name: "text-generation",
+            owner: "0195f082-f87a-7772-80a9-9a2e4245d4d5",
+            packageName: "@oomol/ai-tools",
+            packageVersion: "1.0.0",
+            title: "Text Generation",
+            when: "Use this when the user asks for text generation.",
+        },
+    ],
+};
 
 describe("skills search CLI", () => {
     test("supports skills search command with text output", async () => {
@@ -25,20 +40,7 @@ describe("skills search CLI", () => {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
 
-                        return new Response(JSON.stringify({
-                            data: [
-                                {
-                                    description: "Generate text using AI models",
-                                    icon: "https://example.com/text-generation.png",
-                                    name: "text-generation",
-                                    owner: "0195f082-f87a-7772-80a9-9a2e4245d4d5",
-                                    packageName: "@oomol/ai-tools",
-                                    packageVersion: "1.0.0",
-                                    title: "Text Generation",
-                                    when: "Use this when the user asks for text generation.",
-                                },
-                            ],
-                        }));
+                        return new Response(JSON.stringify(fullServerResponse));
                     },
                 },
             );
@@ -100,14 +102,15 @@ describe("skills search CLI", () => {
             expect(JSON.parse(result.stdout)).toEqual([
                 {
                     description: "Generate text using AI models",
-                    icon: "https://example.com/text-generation.png",
                     name: "text-generation",
                     packageName: "@oomol/ai-tools",
                     packageVersion: "1.0.0",
-                    title: "Text Generation",
+                    skillDisplayName: "Text Generation",
                 },
             ]);
+            expect(result.stdout).not.toContain("\"icon\"");
             expect(result.stdout).not.toContain("\"owner\"");
+            expect(result.stdout).not.toContain("\"title\"");
             expect(result.stdout).not.toContain("\"when\"");
             expect(requests).toHaveLength(1);
             expect(new URL(requests[0]!.url).searchParams.get("text")).toBe(
@@ -116,6 +119,51 @@ describe("skills search CLI", () => {
             expect(
                 new URL(requests[0]!.url).searchParams.getAll("keywords"),
             ).toEqual(["bar", "baz"]);
+            expect(new URL(requests[0]!.url).searchParams.get("size")).toBe("5");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports skills search with the --json alias", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["skills", "search", "text generation", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify(fullServerResponse));
+                    },
+                },
+            );
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(JSON.parse(result.stdout)).toEqual([
+                {
+                    description: "Generate text using AI models",
+                    name: "text-generation",
+                    packageName: "@oomol/ai-tools",
+                    packageVersion: "1.0.0",
+                    skillDisplayName: "Text Generation",
+                },
+            ]);
+            expect(result.stdout).not.toContain("\"icon\"");
+            expect(result.stdout).not.toContain("\"owner\"");
+            expect(result.stdout).not.toContain("\"title\"");
+            expect(result.stdout).not.toContain("\"when\"");
+            expect(requests).toHaveLength(1);
+            expect(new URL(requests[0]!.url).searchParams.get("text")).toBe(
+                "text generation",
+            );
             expect(new URL(requests[0]!.url).searchParams.get("size")).toBe("5");
         }
         finally {
@@ -154,7 +202,7 @@ describe("skills search CLI", () => {
                 stripAnsi: true,
             })).toMatchSnapshot();
             expect(result.stdout).toContain(
-                `${colors.hex(skillSearchTitleColor)("Text Generation")} (text-generation)`,
+                `${colors.hex(skillSearchDisplayNameColor)("Text Generation")} (text-generation)`,
             );
             expect(result.stdout).toContain(
                 `Package: ${colors.hex(skillSearchPackageColor)("@oomol/ai-tools@1.0.0")}`,

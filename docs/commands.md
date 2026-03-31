@@ -140,6 +140,8 @@ Search published skills with free-form text.
   repeated `keywords` query parameters after trimming empty entries.
 - Options: `--format=json` and `--json` print a JSON array of matching skill
   entries.
+- Output: JSON entries include only the stable CLI fields `description`,
+  `name`, `packageName`, `packageVersion`, and `skillDisplayName` when present.
 - Output: text output prints one block per skill with its title or name,
   optional description, and source package reference when available.
 - Notes: every invocation requests at most `5` results.
