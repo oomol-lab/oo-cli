@@ -5,7 +5,6 @@ import { describe, expect, test } from "bun:test";
 import {
     canUninstallManagedBundledSkillInstallation,
     isBundledSkillInstallationCurrentState,
-    isManagedBundledSkillOwnershipContent,
     parseBundledSkillMetadataContent,
     readImplicitInvocationValue,
     renderBundledSkillFileContent,
@@ -75,11 +74,6 @@ describe("bundled skill model", () => {
         expect(renderSkillMetadataJson({ version: "1.2.3" })).toBe(
             "{\n  \"version\": \"1.2.3\"\n}\n",
         );
-    });
-
-    test("detects managed ownership content using the OOMOL marker", () => {
-        expect(isManagedBundledSkillOwnershipContent("# OOMOL\n")).toBeTrue();
-        expect(isManagedBundledSkillOwnershipContent("custom skill\n")).toBeFalse();
     });
 
     test("throws when the ownership policy file does not define implicit invocation", () => {

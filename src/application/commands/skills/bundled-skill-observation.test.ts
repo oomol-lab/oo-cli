@@ -71,9 +71,10 @@ describe("bundled skill observation", () => {
         }
     });
 
-    test("reads implicit invocation and managed ownership from the ownership file", async () => {
+    test("reads implicit invocation from the ownership file and managed state from metadata", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
         const skillDirectoryPath = join(rootDirectory, "skills", "oo");
+        const metadataFilePath = join(skillDirectoryPath, ".oo-metadata.json");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
 
         try {
@@ -93,6 +94,14 @@ describe("bundled skill observation", () => {
             );
 
             expect(await readInstalledBundledSkillImplicitInvocation(skillDirectoryPath)).toBeFalse();
+            expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeFalse();
+
+            await Bun.write(metadataFilePath, "not json");
+            expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeFalse();
+
+            await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
+                version: "1.2.3",
+            });
             expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeTrue();
 
             await Bun.write(
@@ -106,7 +115,7 @@ describe("bundled skill observation", () => {
             );
 
             expect(await readInstalledBundledSkillImplicitInvocation(skillDirectoryPath)).toBeUndefined();
-            expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeFalse();
+            expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeTrue();
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });
@@ -120,7 +129,10 @@ describe("bundled skill observation", () => {
 
         try {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-            await Bun.write(ownershipFilePath, "# OOMOL\n");
+            await Bun.write(
+                ownershipFilePath,
+                "policy:\n  allow_implicit_invocation: true\n",
+            );
 
             expect(
                 await isBundledSkillInstallationCurrent(

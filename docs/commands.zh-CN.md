@@ -113,7 +113,7 @@
 列出本地 Codex skills 目录中由 oo 管理的 skill。
 
 - 所有权规则：命令会扫描 `${CODEX_HOME:-~/.codex}/skills`，只保留包含
-  `.oo-metadata.json` 的子目录。
+  可解析 `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
 - 输出：文本输出会先打印摘要行，再为每个 skill 打印一个块。
 - 排序：如果存在 `oo`，它总是排在最前面；其余 skill 按名称排序。
 - 输出：每个 skill 块会显示 skill 名称、来源 package 或内置标记、记录的版
@@ -205,8 +205,9 @@
   只要用户仍然选择该项，就会执行覆盖。
 - 说明：当 Codex 根目录不存在时，命令会直接报错退出，这表示当前机器上没有
   安装 Codex。
-- 说明：只有当 `oo/agents/openai.yaml` 中包含 `OOMOL` 字符串时，`oo`
-  才会认为这是自己管理的内置 skill；否则会视为其他 skill，并拒绝覆盖。
+- 说明：只有当 bundled `oo` 的 `.oo-metadata.json` 可以被解析，且其中包
+  含非空的 `version` 时，`oo` 才会认为这是自己管理的内置 skill；否则会视
+  为其他 skill，并拒绝覆盖。
 - 说明：如果这是 `oo` 的首次运行，且当前还没有已有的 config、auth、log
   数据，那么只要 Codex 根目录已经存在，`oo` 就会静默自动安装这个 bundled
   受管 skill。
@@ -237,14 +238,14 @@
 - 别名：`oo skills remove [skill]`。
 - 参数：省略 `[skill]` 时，默认使用 `oo`。
 - 所有权规则：只有当
-  `${CODEX_HOME:-~/.codex}/skills/<skill>` 中存在 `.oo-metadata.json`
-  时，才允许移除该 skill。
+  `${CODEX_HOME:-~/.codex}/skills/<skill>` 中的 `.oo-metadata.json` 可
+  以被解析，且其中包含非空 `version` 时，才允许移除该 skill。
 - 会同时移除 canonical 目录：`<config-dir>/skills/<skill>`，其中
   `<config-dir>` 是 `settings.toml` 所在目录。
 - 会同时移除目标目录：`${CODEX_HOME:-~/.codex}/skills/<skill>`。
 - 路径规则：`[skill]` 解析后必须仍然落在这些本地 `skills` 根目录的子目录中。
   任何会逃出这些根目录的名称都会被拒绝。
-- 说明：如果目标目录不存在，或者目录存在但没有 `.oo-metadata.json`，
+- 说明：如果目标目录不存在，或者其 `.oo-metadata.json` 缺失或无效，
   命令会直接报错，不会删除任何内容。
 
 ## 日志
