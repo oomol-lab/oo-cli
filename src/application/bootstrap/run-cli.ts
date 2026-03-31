@@ -509,9 +509,6 @@ function closeCleanupResources(
 function createDetachedStdin(): InteractiveInput {
     return {
         isTTY: false,
-        setRawMode() {},
-        resume() {},
-        pause() {},
         on() {},
         off() {},
     };

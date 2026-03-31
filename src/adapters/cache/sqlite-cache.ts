@@ -250,7 +250,6 @@ export class SqliteCache<Value> implements Cache<Value> {
     private readonly evictLeastRecentlyUsedStatement;
 
     constructor(private readonly options: SqliteCacheOptionsInternal) {
-        validateCacheId(options.id);
         validateMaxEntries(options.maxEntries);
         validateTtl(options.defaultTtlMs, "defaultTtlMs");
 
@@ -412,7 +411,7 @@ export class SqliteCache<Value> implements Cache<Value> {
         }, () => {
             this.upsertStatement.run({
                 key,
-                value: serializeCacheValue(value),
+                value: JSON.stringify(value),
                 expiresAtMs,
                 now,
             });
@@ -626,10 +625,6 @@ function resolveTtlMs(
     return resolvedTtlMs;
 }
 
-function serializeCacheValue<Value>(value: Value): string {
-    return JSON.stringify(value);
-}
-
 function createCacheKeyFingerprint(key: string): string {
     return createHash("sha256").update(key).digest("hex").slice(0, 12);
 }
@@ -741,23 +736,13 @@ function readStorePathDiagnostics(filePath: string): StorePathDiagnostics {
     const parentDirectoryPath = dirname(filePath);
 
     return {
-        parentDirectoryExists: pathExists(parentDirectoryPath),
+        parentDirectoryExists: pathHasAccess(parentDirectoryPath, fsConstants.F_OK),
         parentDirectoryPath,
         parentDirectoryReadable: pathHasAccess(parentDirectoryPath, fsConstants.R_OK),
         parentDirectoryWritable: pathHasAccess(parentDirectoryPath, fsConstants.W_OK),
-        storePathExists: pathExists(filePath),
+        storePathExists: pathHasAccess(filePath, fsConstants.F_OK),
         storePathKind: readStorePathKind(filePath),
     };
-}
-
-function pathExists(path: string): boolean {
-    try {
-        statSync(path);
-        return true;
-    }
-    catch {
-        return false;
-    }
 }
 
 function pathHasAccess(path: string, mode: number): boolean {

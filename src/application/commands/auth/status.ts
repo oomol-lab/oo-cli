@@ -25,22 +25,24 @@ export const authStatusCommand: CliCommandDefinition = {
         if (!currentAccount) {
             const hasStaleId = authFile.id !== "";
 
-            writeAuthBlock(context, {
-                tone: hasStaleId ? "danger" : "warning",
-                summary: context.translator.t(
-                    hasStaleId
-                        ? "auth.status.missing"
-                        : "auth.status.loggedOut",
-                ),
-                details: hasStaleId
-                    ? [
-                            {
-                                label: context.translator.t("auth.status.accountId"),
-                                value: authFile.id,
-                            },
-                        ]
-                    : [],
-            });
+            if (hasStaleId) {
+                writeAuthBlock(context, {
+                    tone: "danger",
+                    summary: context.translator.t("auth.status.missing"),
+                    details: [
+                        {
+                            label: context.translator.t("auth.status.accountId"),
+                            value: authFile.id,
+                        },
+                    ],
+                });
+            }
+            else {
+                writeAuthBlock(context, {
+                    tone: "warning",
+                    summary: context.translator.t("auth.status.loggedOut"),
+                });
+            }
             return;
         }
 

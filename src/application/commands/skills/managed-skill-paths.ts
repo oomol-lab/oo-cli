@@ -1,8 +1,10 @@
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import {
+    bundledSkillMetadataFileName,
+    codexSkillsDirectoryName,
+} from "./bundled-skill-paths.ts";
 
-const codexSkillsDirectoryName = "skills";
-
-export const managedSkillMetadataFileName = ".oo-metadata.json";
+export { bundledSkillMetadataFileName as managedSkillMetadataFileName } from "./bundled-skill-paths.ts";
 
 interface PathOperations {
     isAbsolute: (path: string) => boolean;
@@ -81,5 +83,5 @@ export function isManagedSkillPathContained(
 export function resolveManagedSkillMetadataFilePath(
     skillDirectoryPath: string,
 ): string {
-    return join(skillDirectoryPath, managedSkillMetadataFileName);
+    return join(skillDirectoryPath, bundledSkillMetadataFileName);
 }

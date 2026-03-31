@@ -445,13 +445,12 @@ function readPackageManagerName(npmUserAgent: string | undefined): string | unde
         return undefined;
     }
 
-    const [firstToken] = npmUserAgent.split(" ", 1);
-    const resolvedFirstToken = firstToken ?? "npm";
-    const slashIndex = resolvedFirstToken.indexOf("/");
+    const firstToken = npmUserAgent.split(" ", 1)[0]!;
+    const slashIndex = firstToken.indexOf("/");
 
     return slashIndex >= 0
-        ? resolvedFirstToken.slice(0, slashIndex)
-        : resolvedFirstToken;
+        ? firstToken.slice(0, slashIndex)
+        : firstToken;
 }
 
 function normalizePackageManagerName(value: string | undefined): string | undefined {

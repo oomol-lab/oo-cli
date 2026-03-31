@@ -105,13 +105,13 @@ function createFinalizeExistingPlan(
     };
 }
 
-async function resolvePartialContentResumePlan(
+function resolvePartialContentResumePlan(
     requestUrl: URL,
     sessionKey: FileDownloadSessionKey,
     existingSession: ExistingDownloadSession,
     response: Response,
     context: DownloadPlanContext,
-): Promise<DownloadPlan> {
+): DownloadPlan | Promise<DownloadPlan> {
     const contentRange = parseContentRange(
         response.headers.get("Content-Range"),
     );
@@ -145,12 +145,12 @@ async function resolvePartialContentResumePlan(
     };
 }
 
-async function resolveRangeNotSatisfiablePlan(
+function resolveRangeNotSatisfiablePlan(
     requestUrl: URL,
     sessionKey: FileDownloadSessionKey,
     existingSession: ExistingDownloadSession,
     context: DownloadPlanContext,
-): Promise<DownloadPlan> {
+): DownloadPlan | Promise<DownloadPlan> {
     if (isExistingSessionComplete(existingSession)) {
         return createFinalizeExistingPlan(existingSession);
     }

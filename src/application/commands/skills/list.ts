@@ -10,12 +10,12 @@ import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
     requireCodexHomeDirectory,
 } from "./bundled-skill-observation.ts";
-import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { parseManagedSkillMetadataContent } from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillMetadataFilePath,
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
+import { isBundledSkillName } from "./shared.ts";
 
 const managedSkillNameColor = "#59F78D";
 const managedSkillSourceColor = "#CAA8FA";
@@ -184,11 +184,7 @@ function readManagedSkillSource(
         return skill.metadata.packageName;
     }
 
-    if (
-        availableBundledSkillNames.includes(
-            skill.name as (typeof availableBundledSkillNames)[number],
-        )
-    ) {
+    if (isBundledSkillName(skill.name)) {
         return context.translator.t("skills.list.source.bundled");
     }
 

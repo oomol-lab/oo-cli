@@ -188,6 +188,7 @@ export function renderSkillMetadataJson(
     return `${JSON.stringify(metadata, null, 2)}\n`;
 }
 
+// Re-exported for backward compatibility with existing consumers
 export function renderBundledSkillMetadataContent(
     metadata: BundledSkillMetadata,
 ): string {

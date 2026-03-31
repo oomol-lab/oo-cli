@@ -28,17 +28,21 @@ interface ConfigDefinition<TValue extends string> {
     valueSchema: ZodType<TValue>;
 }
 
+function createValueErrorFactory(translationKey: string) {
+    return function createInvalidValueError(rawValue: unknown): CliUserError {
+        return new CliUserError(translationKey, 2, {
+            value: String(rawValue ?? ""),
+        });
+    };
+}
+
 export const ooSkillImplicitInvocationConfigKey
     = "skills.oo.implicit_invocation" as const;
 export const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
 
 export const configDefinitions = {
     lang: {
-        createInvalidValueError(rawValue: unknown): CliUserError {
-            return new CliUserError("errors.config.invalidLangValue", 2, {
-                value: String(rawValue ?? ""),
-            });
-        },
+        createInvalidValueError: createValueErrorFactory("errors.config.invalidLangValue"),
         getValue(settings: AppSettings): SupportedLocale | undefined {
             return settings.lang;
         },
@@ -59,15 +63,7 @@ export const configDefinitions = {
         valueSchema: localeSchema,
     } satisfies ConfigDefinition<SupportedLocale>,
     [fileDownloadOutDirConfigKey]: {
-        createInvalidValueError(rawValue: unknown): CliUserError {
-            return new CliUserError(
-                "errors.config.invalidFileDownloadOutDirValue",
-                2,
-                {
-                    value: String(rawValue ?? ""),
-                },
-            );
-        },
+        createInvalidValueError: createValueErrorFactory("errors.config.invalidFileDownloadOutDirValue"),
         getValue(settings: AppSettings): string | undefined {
             return getConfiguredFileDownloadOutDir(settings);
         },
@@ -81,15 +77,7 @@ export const configDefinitions = {
         valueSchema: fileDownloadOutDirConfigValueSchema,
     } satisfies ConfigDefinition<string>,
     [ooSkillImplicitInvocationConfigKey]: {
-        createInvalidValueError(rawValue: unknown): CliUserError {
-            return new CliUserError(
-                "errors.config.invalidSkillsOoImplicitInvocationValue",
-                2,
-                {
-                    value: String(rawValue ?? ""),
-                },
-            );
-        },
+        createInvalidValueError: createValueErrorFactory("errors.config.invalidSkillsOoImplicitInvocationValue"),
         getValue(settings: AppSettings): "false" | "true" | undefined {
             const configuredValue
                 = getConfiguredOoSkillImplicitInvocation(settings);

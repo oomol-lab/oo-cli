@@ -52,12 +52,6 @@ export function parseManagedSkillMetadataContent(
     };
 }
 
-export function renderManagedSkillMetadataContent(
-    metadata: ManagedSkillMetadata,
-): string {
-    return renderSkillMetadataJson(metadata);
-}
-
 export async function readManagedSkillMetadata(
     skillDirectoryPath: string,
 ): Promise<ManagedSkillMetadata | undefined> {
@@ -84,6 +78,13 @@ export async function writeManagedSkillMetadata(
 ): Promise<void> {
     await Bun.write(
         resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-        renderManagedSkillMetadataContent(metadata),
+        renderSkillMetadataJson(metadata),
     );
+}
+
+// Re-exported for backward compatibility with existing consumers
+export function renderManagedSkillMetadataContent(
+    metadata: ManagedSkillMetadata,
+): string {
+    return renderSkillMetadataJson(metadata);
 }

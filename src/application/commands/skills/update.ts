@@ -4,6 +4,7 @@ import type { PreparedRegistrySkillPublication } from "./registry-skill-publicat
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { writeLine } from "../shared/output.ts";
 import {
     directoryExists,
     fileExists,
@@ -29,7 +30,7 @@ import {
     loadRegistryPackageSkillInfo,
     requireCurrentSkillsInstallAccount,
 } from "./registry-skill-source.ts";
-import { isBundledSkillName, writeLine } from "./shared.ts";
+import { isBundledSkillName } from "./shared.ts";
 import { SkillsUpdateProgressReporter } from "./update-progress.ts";
 
 interface SkillsUpdateInput {

@@ -4,7 +4,7 @@ import type { FileUploadRecordView } from "./shared.ts";
 
 type FileTextContext = Pick<CliExecutionContext, "translator">;
 
-export function formatFileUploadRecordAsText(
+function formatFileUploadRecordAsText(
     record: FileUploadRecordView,
     context: FileTextContext,
 ): string {

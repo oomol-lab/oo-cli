@@ -223,7 +223,7 @@ function formatCloudTaskDetailLine(
 ): string {
     const prefix = `  ${colors.dim(formatCloudTaskLabel(label))} `;
 
-    return prefix + value.split("\n").join("\n    ");
+    return prefix + value.replaceAll("\n", "\n    ");
 }
 
 function formatCloudTaskDataBlock(

@@ -5,6 +5,7 @@ import type { RegistrySkillSummary } from "./registry-skill-source.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
 
+import { writeLine } from "../shared/output.ts";
 import { directoryExists, requireCodexHomeDirectory } from "./bundled-skill-observation.ts";
 import { SkillsInstallProgressReporter } from "./install-progress.ts";
 import {
@@ -29,7 +30,7 @@ import {
     loadRegistryPackageSkillInfo,
     requireCurrentSkillsInstallAccount,
 } from "./registry-skill-source.ts";
-import { uninstallManagedSkill, writeLine } from "./shared.ts";
+import { uninstallManagedSkill } from "./shared.ts";
 
 interface ManagedSkillPathState {
     exists: boolean;

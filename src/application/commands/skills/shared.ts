@@ -49,7 +49,6 @@ import {
     resolveManagedSkillDirectoryPath,
 } from "./managed-skill-paths.ts";
 
-export { writeLine } from "../shared/output.ts";
 export {
     createBundledSkillDirectorySymlink,
     publishBundledSkillInstallation,

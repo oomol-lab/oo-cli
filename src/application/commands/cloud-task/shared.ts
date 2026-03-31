@@ -89,33 +89,13 @@ export async function requireCurrentCloudTaskAccount(
 export function parseCloudTaskFormat(
     value: string | undefined,
 ): CloudTaskFormat | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    if (cloudTaskFormatValues.includes(value as CloudTaskFormat)) {
-        return value as CloudTaskFormat;
-    }
-
-    throw new CliUserError("errors.cloudTask.invalidFormat", 2, {
-        value,
-    });
+    return parseEnumOption(value, cloudTaskFormatValues, "errors.cloudTask.invalidFormat");
 }
 
 export function parseCloudTaskStatus(
     value: string | undefined,
 ): CloudTaskStatus | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    if (cloudTaskStatusValues.includes(value as CloudTaskStatus)) {
-        return value as CloudTaskStatus;
-    }
-
-    throw new CliUserError("errors.cloudTaskList.invalidStatus", 2, {
-        value,
-    });
+    return parseEnumOption(value, cloudTaskStatusValues, "errors.cloudTaskList.invalidStatus");
 }
 
 export function parsePositiveIntegerOption(
@@ -179,24 +159,16 @@ export function parseDurationOption(
         });
     }
 
-    let unitIndex = 0;
+    const amountValue = Number.parseInt(trimmedValue, 10);
 
-    while (
-        unitIndex < trimmedValue.length
-        && isAsciiDigit(trimmedValue.charCodeAt(unitIndex))
-    ) {
-        unitIndex += 1;
-    }
-
-    if (unitIndex === 0) {
+    if (Number.isNaN(amountValue)) {
         throw new CliUserError(errorKey, 2, {
             option: options.optionName,
             value,
         });
     }
 
-    const amountValue = Number(trimmedValue.slice(0, unitIndex));
-    const unitSuffix = trimmedValue.slice(unitIndex).toLowerCase();
+    const unitSuffix = trimmedValue.slice(String(amountValue).length).toLowerCase();
     const durationUnit = unitSuffix === ""
         ? (options.defaultUnit ?? "s")
         : unitSuffix;
@@ -354,6 +326,18 @@ function readDurationUnitMs(unit: "s" | "m" | "h"): number {
     }
 }
 
-function isAsciiDigit(characterCode: number): boolean {
-    return characterCode >= 48 && characterCode <= 57;
+function parseEnumOption<T extends string>(
+    value: string | undefined,
+    allowedValues: readonly T[],
+    errorKey: string,
+): T | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+
+    if (allowedValues.includes(value as T)) {
+        return value as T;
+    }
+
+    throw new CliUserError(errorKey, 2, { value });
 }

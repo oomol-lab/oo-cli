@@ -10,7 +10,7 @@ import {
     isManagedBundledSkillOwnershipContent,
     parseBundledSkillMetadataContent,
     readImplicitInvocationValue,
-    renderBundledSkillMetadataContent,
+    renderSkillMetadataJson,
 } from "./bundled-skill-model.ts";
 import {
     bundledSkillOwnershipFileRelativePath,
@@ -133,7 +133,7 @@ export async function writeInstalledBundledSkillMetadata(
 ): Promise<void> {
     await Bun.write(
         resolveBundledSkillMetadataFilePath(skillDirectoryPath),
-        renderBundledSkillMetadataContent(metadata),
+        renderSkillMetadataJson(metadata),
     );
 }
 

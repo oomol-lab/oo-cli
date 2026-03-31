@@ -237,10 +237,10 @@ export function readFileUploadStatus(
 
 function createFileUploadRequestUrl(
     endpoint: string,
-    pathSuffix?: string,
+    pathSuffix: string,
 ): URL {
     return new URL(
-        `https://llm.${endpoint}/api/tasks/files/remote-cache/${pathSuffix ?? ""}`,
+        `https://llm.${endpoint}/api/tasks/files/remote-cache/${pathSuffix}`,
     );
 }
 
@@ -362,10 +362,6 @@ async function uploadFilePart(
             if (error instanceof CliUserError && attempt < maxAttempts) {
                 await delayRetry(attempt);
                 continue;
-            }
-
-            if (error instanceof CliUserError) {
-                throw error;
             }
 
             throw error;

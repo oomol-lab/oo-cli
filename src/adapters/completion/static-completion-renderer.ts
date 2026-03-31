@@ -50,7 +50,7 @@ function buildCompletionNodes(
         commands: readonly CliCommandDefinition[],
         argumentChoices: readonly (readonly string[])[] = [],
     ): void => {
-        const pathKey = serializePath(path);
+        const pathKey = path.join(" ");
         const childCommands = commands.map(command => ({
             name: command.name,
             summary: translator.t(command.summaryKey),
@@ -359,7 +359,7 @@ function buildTransitionCases(
 
     for (const node of nodes) {
         for (const command of node.childCommands) {
-            const nextPath = serializePath([...node.path, command.name]);
+            const nextPath = [...node.path, command.name].join(" ");
             lines.push(
                 `            "${node.pathKey}|${command.name}")`,
                 `                path_key="${nextPath}"`,
@@ -440,10 +440,6 @@ function buildSuggestionCases(
     return lines.join("\n");
 }
 
-function serializePath(path: readonly string[]): string {
-    return path.join(" ");
-}
-
 function escapeSingleQuotes(value: string): string {
-    return value.split("'").join("\\'");
+    return value.replaceAll("'", "\\'");
 }

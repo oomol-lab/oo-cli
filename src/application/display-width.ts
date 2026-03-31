@@ -13,18 +13,10 @@ export function truncateDisplayWidth(value: string, maxWidth: number): string {
 export function measureDisplayWidth(value: string): number {
     let width = 0;
 
-    for (let index = 0; index < value.length; index += 1) {
-        const codePoint = value.codePointAt(index);
-
-        if (codePoint === undefined) {
-            continue;
-        }
+    for (const char of value) {
+        const codePoint = char.codePointAt(0)!;
 
         width += isWideCodePoint(codePoint) ? 2 : 1;
-
-        if (codePoint > 0xFFFF) {
-            index += 1;
-        }
     }
 
     return width;
@@ -34,26 +26,16 @@ function sliceDisplayWidth(value: string, maxWidth: number): string {
     let result = "";
     let width = 0;
 
-    for (let index = 0; index < value.length; index += 1) {
-        const codePoint = value.codePointAt(index);
-
-        if (codePoint === undefined) {
-            continue;
-        }
-
-        const segment = String.fromCodePoint(codePoint);
+    for (const char of value) {
+        const codePoint = char.codePointAt(0)!;
         const nextWidth = width + (isWideCodePoint(codePoint) ? 2 : 1);
 
         if (nextWidth > maxWidth) {
             break;
         }
 
-        result += segment;
+        result += char;
         width = nextWidth;
-
-        if (codePoint > 0xFFFF) {
-            index += 1;
-        }
     }
 
     return result;
