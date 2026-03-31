@@ -1,29 +1,8 @@
-## Project Overview
-
-- Runtime: Bun (version pinned in `.bun-version`)
-- Language: TypeScript (strict mode, ESM)
-- Key deps: zod (validation), pino (logging)
-- Setup: `bun install`
-
-### Bun Runtime
-
-- Documentation index: <https://bun.com/llm.txt>
-- When you need to look up any Bun API, feature, or usage pattern, fetch the above URL to find the relevant doc page, then read the specific page for details.
-
-## Development Standards
-
-- After each code modification, you must execute: `bun run lint:fix` `bun run ts-check`
-- For any change that affects commands or CLI behavior, you must check whether documentation under `docs/` needs to be updated and update it when necessary
-- Documentation under `docs/commands*.md` should describe the user-facing CLI contract only: command purpose, arguments, options, stable output shapes, and externally observable behavior. Do not document internal implementation details such as validator order, AJV usage, schema patching, or other internal lint mechanics unless the user explicitly asks for that level of detail.
-- Comments must be in English
-- When generating UUIDs, you must use v7 and must use bun's `randomUUIDv7` function
-- Avoid using regular expressions when possible
-
-## Code Quality Rules
+# Code Quality Rules
 
 These rules are extracted from past refactoring sessions to prevent recurring code smells.
 
-### No Trivial Wrappers
+## No Trivial Wrappers
 
 Never create single-line functions that merely delegate to another function without adding logic, validation, or semantic value.
 
@@ -43,7 +22,7 @@ const serialized = JSON.stringify(value);
 
 The same applies to constant aliases (`const OO_BRAND_NAME = APP_NAME`) and identity type-check functions (`function define<T>(d: T): T { return d; }` — use `satisfies` instead).
 
-### DRY — Extract Shared Utilities
+## DRY — Extract Shared Utilities
 
 When identical logic appears in 2+ files, extract it to a shared module. Common candidates:
 
@@ -67,7 +46,7 @@ export async function requireCurrentAccount(
 ): Promise<AuthAccount> { /* ... */ }
 ```
 
-### Trust the Type System
+## Trust the Type System
 
 Do not re-parse or re-validate data whose type is already guaranteed by the function signature. Internal functions should trust their callers.
 
@@ -83,14 +62,14 @@ function renderAuthFile(authFile: AuthFile): string {
 }
 ```
 
-### Use Modern, Idiomatic APIs
+## Use Modern, Idiomatic APIs
 
 - `str.replaceAll(a, b)` instead of `str.split(a).join(b)`
 - `for (const char of str)` for Unicode-aware iteration instead of manual index + surrogate pair handling
 - `Bun.sleep(ms)` instead of `new Promise(r => setTimeout(r, ms))` in Bun environment
 - `satisfies` for type-checking object literals instead of identity wrapper functions
 
-### Guard Clauses — Fail First
+## Guard Clauses — Fail First
 
 Check error conditions at the top; let the success path be the default flow. Don't wrap success logic inside `if (valid)`.
 
@@ -107,7 +86,7 @@ function validate(id: string): void {
 }
 ```
 
-### No Fake Async
+## No Fake Async
 
 Never mark a function `async` if it contains no `await`. Remove `async` when all code paths are synchronous.
 
@@ -123,11 +102,11 @@ function listGitTags(): string[] {
 }
 ```
 
-### Minimize Export Surface
+## Minimize Export Surface
 
 Only `export` symbols that are used by other modules. Internal helpers, types, and constants should remain module-private. Smaller public API = more refactoring freedom.
 
-### filter+map over flatMap-as-Filter
+## filter+map over flatMap-as-Filter
 
 Use `filter()` for filtering and `map()` for transformation. Do not abuse `flatMap()` with empty arrays as a filtering mechanism — it obscures intent.
 
@@ -139,7 +118,7 @@ entries.flatMap(e => e.isFile() ? [e.name] : []);
 entries.filter(e => e.isFile()).map(e => e.name);
 ```
 
-### No Redundant Intermediate Variables
+## No Redundant Intermediate Variables
 
 Don't create variables that pass through a value unchanged. If no transformation occurs, use the original directly.
 
@@ -153,13 +132,13 @@ for (const n of request.names) { validate(n); }
 doWork(request.names);
 ```
 
-### Eliminate Dead Code
+## Eliminate Dead Code
 
 - Remove unused functions, parameters, type fields, and unreachable branches
 - Remove `if (error instanceof X) { throw error; }` inside catch — restructure control flow instead
 - Remove `JSON.stringify() === undefined` checks — `JSON.stringify` never returns `undefined`
 
-### Parallel Async Operations
+## Parallel Async Operations
 
 Use `Promise.all()` for independent async operations instead of sequential `await`.
 
@@ -172,7 +151,7 @@ await removePath(pathB);
 await Promise.all([removePath(pathA), removePath(pathB)]);
 ```
 
-### EAFP over LBYL for File Operations
+## EAFP over LBYL for File Operations
 
 Attempt the operation and catch the error, rather than pre-checking existence then reading. Reduces filesystem calls and avoids TOCTOU races.
 
@@ -192,7 +171,7 @@ catch (e) {
 }
 ```
 
-### Data-Driven over Parallel Mappings
+## Data-Driven over Parallel Mappings
 
 When multiple switch/map structures share the same keys, consolidate into a single configuration object.
 
@@ -208,7 +187,7 @@ const statusConfig = {
 } as const;
 ```
 
-### Precise Type Checks
+## Precise Type Checks
 
 Use `!== undefined` instead of truthy checks when empty string `""` or `0` are valid values.
 
@@ -220,7 +199,7 @@ if (value) { output(value); }
 if (value !== undefined) { output(value); }
 ```
 
-### No Duplicate Computations
+## No Duplicate Computations
 
 Compute an expression once, store in a variable, reuse. Especially inside `switch` statements and loops.
 
@@ -237,11 +216,11 @@ switch (normalized) {
 }
 ```
 
-### Single Source of Truth for Constants
+## Single Source of Truth for Constants
 
 Never duplicate constant values across files. Define once, import or re-export with aliases elsewhere.
 
-### Parameterize Common Patterns with Factories
+## Parameterize Common Patterns with Factories
 
 When multiple definitions share the same shape with only one or two varying fields, use a factory function.
 
@@ -258,7 +237,7 @@ lang: { createError: createValueErrorFactory("errors.config.invalidLang") },
 dir:  { createError: createValueErrorFactory("errors.config.invalidDir") },
 ```
 
-### Keep Function Parameters Narrow
+## Keep Function Parameters Narrow
 
 Pass only what the function needs, not entire context objects. This improves testability and reduces coupling.
 
@@ -273,13 +252,3 @@ function writeLine(stream: Writer, msg: string) {
     stream.write(`${msg}\n`);
 }
 ```
-
-## Testing
-
-- Any modification must include sufficient tests
-- Do not write tests for Markdown files
-- Tests can only be run using `bun run test`
-- Test titles must be in English
-- The testing framework is bun's built-in framework
-- Test files should be placed in the same directory as the source files
-- If a helper function might be called by other test files, it must be placed in the `__tests__/helpers.ts` file. Otherwise, the function should be placed in the test file (at the end of that file).

@@ -19,6 +19,8 @@
 - When generating UUIDs, you must use v7 and must use bun's `randomUUIDv7` function
 - Avoid using regular expressions when possible
 
+@import CODE_QUALITY_RULES.md
+
 ## Testing
 
 - Any modification must include sufficient tests
