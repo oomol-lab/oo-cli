@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { createTextBuffer } from "../../../../__tests__/helpers.ts";
+import {
+    createTextBuffer,
+    waitForOutputText,
+} from "../../../../__tests__/helpers.ts";
 import { TerminalProgressRenderer } from "./progress-renderer.ts";
 
 describe("terminal progress renderer", () => {
@@ -20,6 +23,28 @@ describe("terminal progress renderer", () => {
             + "\u001B[?25h",
         );
     });
+
+    test("updates spinner output when the interval ticks", async () => {
+        const stdout = createTextBuffer({
+            isTTY: true,
+        });
+        const renderer = new SpinnerTerminalProgressRenderer(stdout.writer);
+
+        try {
+            renderer.start("Loading selected skills...");
+            renderer.rerender();
+
+            const initialOutput = stdout.read();
+
+            expect(initialOutput).toContain("| Loading selected skills...");
+            expect(stdout.read()).toBe(initialOutput);
+
+            await waitForOutputText(stdout, "/ Loading selected skills...");
+        }
+        finally {
+            renderer.stop();
+        }
+    });
 });
 
 class TestTerminalProgressRenderer extends TerminalProgressRenderer {
@@ -27,6 +52,24 @@ class TestTerminalProgressRenderer extends TerminalProgressRenderer {
 
     setLines(lines: readonly string[]): void {
         this.lines = [...lines];
+        this.render();
+    }
+
+    protected renderLines(): string[] {
+        return this.lines;
+    }
+}
+
+class SpinnerTerminalProgressRenderer extends TerminalProgressRenderer {
+    private lines: string[] = [];
+
+    start(message: string): void {
+        this.startSpinner(() => {
+            this.lines = [`${this.currentFrame} ${message}`];
+        });
+    }
+
+    rerender(): void {
         this.render();
     }
 

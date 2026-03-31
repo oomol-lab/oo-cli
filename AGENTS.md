@@ -274,6 +274,58 @@ function writeLine(stream: Writer, msg: string) {
 }
 ```
 
+### DRY in Tests — Extract Repeated Setup
+
+When the same mock, stub, or setup object appears in multiple tests within the same file, extract it into a local factory function at the bottom of the file. Copy-pasted test setup is still copy-paste.
+
+```typescript
+// BAD - identical 15-line mock in every test
+test("case A", () => {
+    const translator = { t: (key) => { switch (key) { case "x": return "X"; /* 10 more */ } } };
+    // ...
+});
+test("case B", () => {
+    const translator = { t: (key) => { switch (key) { case "x": return "X"; /* same 10 */ } } };
+    // ...
+});
+
+// GOOD - one factory, all tests share it
+test("case A", () => {
+    const translator = createTranslatorStub();
+    // ...
+});
+test("case B", () => {
+    const translator = createTranslatorStub();
+    // ...
+});
+
+function createTranslatorStub() {
+    return { t: (key: string) => { switch (key) { case "x": return "X"; /* ... */ default: return key; } } };
+}
+```
+
+### `try/finally` over `try/catch/rethrow` for Cleanup
+
+When the only purpose of a `catch` block is to clean up and rethrow, use `finally` instead. It eliminates the duplicate cleanup call and removes dead code in the success path.
+
+```typescript
+// BAD - cleanup duplicated, catch block only rethrows
+try {
+    doWork();
+} catch (error) {
+    cleanup();
+    throw error;
+}
+cleanup();
+
+// GOOD
+try {
+    doWork();
+} finally {
+    cleanup();
+}
+```
+
 ## Testing
 
 - Any modification must include sufficient tests
