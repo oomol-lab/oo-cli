@@ -13,26 +13,7 @@ describe("skills install progress reporter", () => {
         });
         const reporter = new SkillsInstallProgressReporter(
             stdout.writer,
-            {
-                t: (key) => {
-                    switch (key) {
-                        case "skills.install.progress.installing.start":
-                            return "Installing selected skills...";
-                        case "skills.install.progress.installing.complete":
-                            return "Installed";
-                        case "skills.install.progress.installing.failed":
-                            return "Installing selected skills failed";
-                        case "skills.install.progress.removing.start":
-                            return "Removing deselected skills...";
-                        case "skills.install.progress.removing.complete":
-                            return "Removed";
-                        case "skills.install.progress.removing.failed":
-                            return "Removing deselected skills failed";
-                        default:
-                            return key;
-                    }
-                },
-            },
+            createTranslatorStub(),
         );
 
         reporter.startInstalling(["audit", "frontend-design"]);
@@ -61,13 +42,71 @@ describe("skills install progress reporter", () => {
         reporter.completeRemoving(["clarify"]);
         reporter.stop();
 
-        const finalOutput = stripVTControlCharacters(stdout.read()).replaceAll(
-            "\r",
-            "",
-        );
+        const finalOutput = normalizeOutput(stdout.read());
 
         expect(finalOutput).toContain("  frontend-design\n\n◆ Removed");
         expect(finalOutput).toContain("◆ Removed");
         expect(finalOutput).toContain("  clarify");
     });
+
+    test("renders failure summaries for installing and removing steps", () => {
+        const stdout = createTextBuffer({
+            hasColors: true,
+            isTTY: true,
+        });
+        const reporter = new SkillsInstallProgressReporter(
+            stdout.writer,
+            createTranslatorStub(),
+        );
+
+        reporter.startInstalling(["audit"]);
+        const installingStartOutput = stdout.read();
+        reporter.failInstalling();
+        const installingFailureOutput = normalizeOutput(
+            stdout.read().slice(installingStartOutput.length),
+        );
+
+        reporter.startRemoving(["clarify"]);
+        const removingStartOutput = stdout.read();
+        reporter.failRemoving();
+        reporter.stop();
+        const removingFailureOutput = normalizeOutput(
+            stdout.read().slice(removingStartOutput.length),
+        );
+
+        const output = normalizeOutput(stdout.read());
+
+        expect(installingFailureOutput).toContain("◆ Installing selected skills failed");
+        expect(installingFailureOutput).not.toContain("  audit");
+        expect(removingFailureOutput).toContain("◆ Removing deselected skills failed");
+        expect(removingFailureOutput).not.toContain("  clarify");
+        expect(output).toContain("◆ Installing selected skills failed\n\n◆ Removing deselected skills failed");
+    });
 });
+
+function normalizeOutput(text: string): string {
+    return stripVTControlCharacters(text).replaceAll("\r", "");
+}
+
+function createTranslatorStub() {
+    return {
+        t: (key: string) => {
+            switch (key) {
+                case "skills.install.progress.installing.start":
+                    return "Installing selected skills...";
+                case "skills.install.progress.installing.complete":
+                    return "Installed";
+                case "skills.install.progress.installing.failed":
+                    return "Installing selected skills failed";
+                case "skills.install.progress.removing.start":
+                    return "Removing deselected skills...";
+                case "skills.install.progress.removing.complete":
+                    return "Removed";
+                case "skills.install.progress.removing.failed":
+                    return "Removing deselected skills failed";
+                default:
+                    return key;
+            }
+        },
+    };
+}
