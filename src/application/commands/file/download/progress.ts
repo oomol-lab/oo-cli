@@ -1,5 +1,10 @@
 import type { CliExecutionContext } from "../../../contracts/cli.ts";
 
+import {
+    moveCursorUp,
+    rewriteTerminalLine,
+} from "../../../terminal-control.ts";
+
 export function createDownloadProgressReporter(
     writer: CliExecutionContext["stderr"],
     totalBytes: number | undefined,
@@ -72,7 +77,7 @@ export class DownloadProgressReporter {
         }
 
         this.lastRenderedLine = line;
-        this.writer.write(`\u001B[1A\r\u001B[2K${line}\n`);
+        this.writer.write(`${moveCursorUp(1)}${rewriteTerminalLine(line)}\n`);
     }
 }
 
