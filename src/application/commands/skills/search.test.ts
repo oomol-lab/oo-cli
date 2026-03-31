@@ -32,6 +32,20 @@ const activeAuthFile: AuthFile = {
         },
     ],
 };
+const fullServerResponse = {
+    data: [
+        {
+            description: "Generate text using AI models",
+            icon: "https://example.com/text-generation.png",
+            name: "text-generation",
+            owner: "0195f082-f87a-7772-80a9-9a2e4245d4d5",
+            packageName: "@oomol/ai-tools",
+            packageVersion: "1.0.0",
+            title: "Text Generation",
+            when: "Use this when the user asks for text generation.",
+        },
+    ],
+};
 const emptyCatalog: CliCatalog = {
     name: "oo",
     descriptionKey: "catalog.description",
@@ -103,6 +117,24 @@ describe("skillsSearchCommand", () => {
         );
 
         expect(context.stdoutBuffer.read()).toBe("No matching skills were found.\n");
+    });
+
+    test("writes json output without service-only fields", async () => {
+        const context = createSearchContext({
+            fetcher: async () => new Response(JSON.stringify(fullServerResponse)),
+        });
+
+        await searchHandler(
+            {
+                text: "text generation",
+                format: "json",
+            },
+            context,
+        );
+
+        expect(context.stdoutBuffer.read()).toBe(
+            "[{\"description\":\"Generate text using AI models\",\"name\":\"text-generation\",\"packageName\":\"@oomol/ai-tools\",\"packageVersion\":\"1.0.0\",\"skillDisplayName\":\"Text Generation\"}]\n",
+        );
     });
 
     test("rejects unsupported skills search responses", async () => {

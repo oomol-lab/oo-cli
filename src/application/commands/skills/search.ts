@@ -10,23 +10,30 @@ import { requestText } from "../shared/request.ts";
 
 const searchFormatValues = ["json"] as const;
 const skillSearchResultLimit = 5;
-const skillSearchTitleColor = "#59F78D";
+const skillSearchDisplayNameColor = "#59F78D";
 const skillSearchPackageColor = "#CAA8FA";
 
 const skillSearchItemSchema = z.object({
     description: z.string().optional().default(""),
-    icon: z.string().optional().default(""),
     name: z.string().optional().default(""),
     packageName: z.string().optional().default(""),
     packageVersion: z.string().optional().default(""),
     title: z.string().optional().default(""),
-});
+}).transform(item => ({
+    description: item.description,
+    name: item.name,
+    packageName: item.packageName,
+    packageVersion: item.packageVersion,
+    skillDisplayName: item.title,
+}));
 
 const skillSearchResponseSchema = z.object({
     data: z.array(skillSearchItemSchema).optional().default([]),
-}).passthrough();
+});
 
+type SkillSearchItem = z.output<typeof skillSearchItemSchema>;
 type SkillSearchResponse = z.output<typeof skillSearchResponseSchema>;
+
 type SkillSearchTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
 
 interface SkillsSearchInput {
@@ -203,7 +210,7 @@ function formatSkillsSearchResponseAsText(
 }
 
 function formatSkillsSearchItem(
-    item: SkillSearchResponse["data"][number],
+    item: SkillSearchItem,
     context: SkillSearchTextContext,
     colors: TerminalColors,
 ): string {
@@ -225,29 +232,31 @@ function formatSkillsSearchItem(
 }
 
 function readSkillsSearchItemLabel(
-    item: SkillSearchResponse["data"][number],
+    item: SkillSearchItem,
     context: SkillSearchTextContext,
     colors: TerminalColors,
 ): string {
-    if (item.title !== "") {
-        const title = colors.hex(skillSearchTitleColor)(item.title);
+    if (item.skillDisplayName !== "") {
+        const skillDisplayName = colors.hex(skillSearchDisplayNameColor)(
+            item.skillDisplayName,
+        );
 
-        if (item.name !== "" && item.title !== item.name) {
-            return `${title} (${item.name})`;
+        if (item.name !== "" && item.skillDisplayName !== item.name) {
+            return `${skillDisplayName} (${item.name})`;
         }
 
-        return title;
+        return skillDisplayName;
     }
 
     if (item.name !== "") {
-        return colors.hex(skillSearchTitleColor)(item.name);
+        return colors.hex(skillSearchDisplayNameColor)(item.name);
     }
 
     return context.translator.t("skills.search.text.unnamedSkill");
 }
 
 function readSkillsSearchPackageLabel(
-    item: SkillSearchResponse["data"][number],
+    item: SkillSearchItem,
 ): string {
     if (item.packageName === "") {
         return "";

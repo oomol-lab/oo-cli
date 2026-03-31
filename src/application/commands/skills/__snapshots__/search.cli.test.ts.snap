@@ -18,7 +18,18 @@ exports[`skills search CLI supports skills find alias with json output and keywo
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"[{"description":"Generate text using AI models","icon":"https://example.com/text-generation.png","name":"text-generation","packageName":"@oomol/ai-tools","packageVersion":"1.0.0","title":"Text Generation"}]
+"[{"description":"Generate text using AI models","name":"text-generation","packageName":"@oomol/ai-tools","packageVersion":"1.0.0","skillDisplayName":"Text Generation"}]
+"
+,
+}
+`;
+
+exports[`skills search CLI supports skills search with the --json alias 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"[{"description":"Generate text using AI models","name":"text-generation","packageName":"@oomol/ai-tools","packageVersion":"1.0.0","skillDisplayName":"Text Generation"}]
 "
 ,
 }
