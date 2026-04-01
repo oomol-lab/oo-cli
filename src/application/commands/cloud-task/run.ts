@@ -7,13 +7,13 @@ import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { isPlainObject } from "../shared/schema-utils.ts";
 import {
     createCloudTaskTasksUrl,
     parseCloudTaskCreateResponse,
     parseCloudTaskFormat,
     requestCloudTask,
-    requireCurrentCloudTaskAccount,
 } from "./shared.ts";
 import { validateCloudTaskInputValues } from "./validation.ts";
 
@@ -74,7 +74,7 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
         }
 
         const blockId = input.blockId;
-        const account = await requireCurrentCloudTaskAccount(context);
+        const account = await requireCurrentAccount(context);
         const packageSpecifier = parsePackageSpecifier(input.packageSpecifier, {
             errorKey: "errors.cloudTaskRun.invalidPackageSpecifier",
             requireSemver: true,

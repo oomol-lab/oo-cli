@@ -71,7 +71,7 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
     }),
     mapInputError: (_, rawInput) => createSkillsSearchInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentAccount(context, "errors.skillsSearch.authRequired", "errors.skillsSearch.activeAccountMissing");
+        const account = await requireCurrentAccount(context);
         const requestUrl = createSkillsSearchRequestUrl(
             account.endpoint,
             input.text,

@@ -3,6 +3,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     createCloudTaskTasksUrl,
     parseCloudTaskFormat,
@@ -10,7 +11,6 @@ import {
     parseCloudTaskStatus,
     parsePositiveIntegerOption,
     requestCloudTask,
-    requireCurrentCloudTaskAccount,
 } from "./shared.ts";
 import { formatCloudTaskListAsText } from "./text.ts";
 
@@ -113,7 +113,7 @@ export const cloudTaskListCommand: CliCommandDefinition<CloudTaskListInput> = {
             throw new CliUserError("errors.cloudTaskList.blockIdRequiresPackageId", 2);
         }
 
-        const account = await requireCurrentCloudTaskAccount(context);
+        const account = await requireCurrentAccount(context);
         const requestUrl = createCloudTaskTasksUrl(account.endpoint);
 
         if (size !== undefined) {

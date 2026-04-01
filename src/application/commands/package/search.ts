@@ -86,7 +86,7 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
     }),
     mapInputError: (_, rawInput) => createSearchInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentSearchAccount(context);
+        const account = await requireCurrentAccount(context);
         const query = truncateSearchText(input.text);
         const requestUrl = new URL(
             `https://search.${account.endpoint}/v1/packages/-/intent-search`,
@@ -139,16 +139,6 @@ function createSearchInputError(rawInput: Record<string, unknown>): CliUserError
     return new CliUserError("errors.search.invalidFormat", 2, {
         value: String(rawInput.format ?? ""),
     });
-}
-
-async function requireCurrentSearchAccount(
-    context: CliExecutionContext,
-): Promise<AuthAccount> {
-    return requireCurrentAccount(
-        context,
-        "errors.search.authRequired",
-        "errors.search.activeAccountMissing",
-    );
 }
 
 function truncateSearchText(text: string): string {

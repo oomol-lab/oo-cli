@@ -4,7 +4,7 @@ exports[`skills CLI requires login before installing published skills 1`] = `
 {
   "exitCode": 1,
   "stderr": 
-"You must log in before installing published skills.
+"You must log in before using this command.
 "
 ,
   "stdout": "",

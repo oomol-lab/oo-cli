@@ -4,10 +4,13 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
 
+const authErrorKeys = {
+    activeAccountMissing: "errors.auth.activeAccountMissing",
+    required: "errors.auth.required",
+} as const;
+
 export async function requireCurrentAccount(
     context: CliExecutionContext,
-    authRequiredKey: string,
-    accountMissingKey: string,
 ): Promise<AuthAccount> {
     const { authFile, currentAccount } = await readCurrentAuth(context);
 
@@ -15,6 +18,8 @@ export async function requireCurrentAccount(
         return currentAccount;
     }
 
-    const errorKey = authFile.id === "" ? authRequiredKey : accountMissingKey;
+    const errorKey = authFile.id === ""
+        ? authErrorKeys.required
+        : authErrorKeys.activeAccountMissing;
     throw new CliUserError(errorKey, 1);
 }

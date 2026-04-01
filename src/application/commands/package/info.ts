@@ -1,5 +1,4 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
-import type { AuthAccount } from "../../schemas/auth.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 import type { PackageInfoResponse } from "./shared.ts";
 import { z } from "zod";
@@ -46,7 +45,7 @@ export const packageInfoCommand: CliCommandDefinition<PackageInfoInput> = {
     }),
     mapInputError: (_, rawInput) => createPackageInfoInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentPackageInfoAccount(context);
+        const account = await requireCurrentAccount(context);
         const packageSpecifier = parsePackageSpecifier(input.packageSpecifier);
         const response = await loadPackageInfo(
             packageSpecifier,
@@ -68,16 +67,6 @@ function createPackageInfoInputError(rawInput: Record<string, unknown>): CliUser
     return new CliUserError("errors.packageInfo.invalidFormat", 2, {
         value: String(rawInput.format ?? ""),
     });
-}
-
-async function requireCurrentPackageInfoAccount(
-    context: CliExecutionContext,
-): Promise<AuthAccount> {
-    return requireCurrentAccount(
-        context,
-        "errors.packageInfo.authRequired",
-        "errors.packageInfo.activeAccountMissing",
-    );
 }
 
 function formatPackageInfoResponseAsText(

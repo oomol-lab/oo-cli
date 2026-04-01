@@ -2,13 +2,13 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     createCloudTaskTaskUrl,
     parseCloudTaskFormat,
     parseCloudTaskLogResponse,
     parsePositiveIntegerOption,
     requestCloudTask,
-    requireCurrentCloudTaskAccount,
 } from "./shared.ts";
 
 interface CloudTaskLogInput {
@@ -53,7 +53,7 @@ export const cloudTaskLogCommand: CliCommandDefinition<CloudTaskLogInput> = {
                 optionName: "--page",
             },
         );
-        const account = await requireCurrentCloudTaskAccount(context);
+        const account = await requireCurrentAccount(context);
         const requestUrl = createCloudTaskTaskUrl(
             account.endpoint,
             input.taskId,

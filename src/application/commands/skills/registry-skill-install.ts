@@ -5,6 +5,7 @@ import type { RegistryPackageSkillInfo, RegistrySkillSummary } from "./registry-
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
 
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists, requireCodexHomeDirectory } from "./bundled-skill-observation.ts";
 import { SkillsInstallProgressReporter } from "./install-progress.ts";
@@ -28,7 +29,6 @@ import {
 import {
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
-    requireCurrentSkillsInstallAccount,
 } from "./registry-skill-source.ts";
 import { uninstallManagedSkill } from "./shared.ts";
 
@@ -67,7 +67,7 @@ export async function installRegistrySkills(
     request: RegistrySkillInstallRequest,
     context: CliExecutionContext,
 ): Promise<void> {
-    const account = await requireCurrentSkillsInstallAccount(context);
+    const account = await requireCurrentAccount(context);
     const codexHomeDirectory = await requireCodexHomeDirectory(context);
     const packageInfo = await loadRegistryPackageSkillInfo(
         request.packageName,

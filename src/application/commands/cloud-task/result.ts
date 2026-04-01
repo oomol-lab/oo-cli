@@ -2,12 +2,12 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     createCloudTaskTaskUrl,
     parseCloudTaskFormat,
     parseCloudTaskResultResponse,
     requestCloudTask,
-    requireCurrentCloudTaskAccount,
 } from "./shared.ts";
 import { formatCloudTaskResultAsText } from "./text.ts";
 
@@ -35,7 +35,7 @@ export const cloudTaskResultCommand: CliCommandDefinition<CloudTaskResultInput> 
     }),
     handler: async (input, context) => {
         const format = parseCloudTaskFormat(input.format);
-        const account = await requireCurrentCloudTaskAccount(context);
+        const account = await requireCurrentAccount(context);
         const response = parseCloudTaskResultResponse(
             await requestCloudTask(
                 createCloudTaskTaskUrl(account.endpoint, input.taskId, "result"),

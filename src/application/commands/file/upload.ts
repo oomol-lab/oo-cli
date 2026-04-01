@@ -43,7 +43,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const format = parseFileFormat(input.format);
-        const account = await requireCurrentAccount(context, "errors.fileUpload.authRequired", "errors.fileUpload.activeAccountMissing");
+        const account = await requireCurrentAccount(context);
         const sourceFile = await readSourceFile(input.filePath, context.cwd);
         const uploadSession = await initFileUpload(
             account,
