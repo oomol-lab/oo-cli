@@ -3,6 +3,7 @@ import type { AppSettings } from "../../schemas/settings.ts";
 import type { BundledSkillName } from "./embedded-assets.ts";
 import { getOoSkillImplicitInvocation } from "../../schemas/settings.ts";
 import { bundledSkillOwnershipFileRelativePath } from "./bundled-skill-paths.ts";
+import { parseSkillMetadataWithVersion } from "./skill-metadata.ts";
 
 const bundledSkillImplicitInvocationKey = "allow_implicit_invocation";
 
@@ -143,44 +144,15 @@ export function writeImplicitInvocationValue(
 export function parseBundledSkillMetadataContent(
     content: string,
 ): BundledSkillMetadata | undefined {
-    let parsedContent: unknown;
+    const parsedMetadata = parseSkillMetadataWithVersion(content);
 
-    try {
-        parsedContent = JSON.parse(content);
-    }
-    catch {
-        return undefined;
-    }
-
-    if (
-        typeof parsedContent !== "object"
-        || parsedContent === null
-        || Array.isArray(parsedContent)
-    ) {
-        return undefined;
-    }
-
-    const rawVersion = (parsedContent as Record<string, unknown>).version;
-
-    if (typeof rawVersion !== "string") {
-        return undefined;
-    }
-
-    const version = rawVersion.trim();
-
-    if (version === "") {
+    if (parsedMetadata === undefined) {
         return undefined;
     }
 
     return {
-        version,
+        version: parsedMetadata.version,
     };
-}
-
-export function renderSkillMetadataJson(
-    metadata: object,
-): string {
-    return `${JSON.stringify(metadata, null, 2)}\n`;
 }
 
 export function isBundledSkillInstallationCurrentState(input: {

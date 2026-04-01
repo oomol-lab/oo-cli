@@ -1,8 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
-import { renderSkillMetadataJson } from "./bundled-skill-model.ts";
-
 import { resolveManagedSkillMetadataFilePath } from "./managed-skill-paths.ts";
+import {
+    parseSkillMetadataWithVersion,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 export interface ManagedSkillMetadata {
     packageName?: string;
@@ -12,30 +14,12 @@ export interface ManagedSkillMetadata {
 export function parseManagedSkillMetadataContent(
     content: string,
 ): ManagedSkillMetadata | undefined {
-    let parsedContent: unknown;
+    const parsedMetadata = parseSkillMetadataWithVersion(content);
 
-    try {
-        parsedContent = JSON.parse(content);
-    }
-    catch {
+    if (parsedMetadata === undefined) {
         return undefined;
     }
-
-    if (
-        typeof parsedContent !== "object"
-        || parsedContent === null
-        || Array.isArray(parsedContent)
-    ) {
-        return undefined;
-    }
-
-    const rawVersion = (parsedContent as Record<string, unknown>).version;
-
-    if (typeof rawVersion !== "string" || rawVersion.trim() === "") {
-        return undefined;
-    }
-
-    const rawPackageName = (parsedContent as Record<string, unknown>).packageName;
+    const rawPackageName = parsedMetadata.fields.packageName;
     let packageName: string | undefined;
 
     if (rawPackageName !== undefined) {
@@ -48,7 +32,7 @@ export function parseManagedSkillMetadataContent(
 
     return {
         packageName,
-        version: rawVersion.trim(),
+        version: parsedMetadata.version,
     };
 }
 

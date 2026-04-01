@@ -5,8 +5,8 @@ import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
-import { renderSkillMetadataJson } from "./bundled-skill-model.ts";
 import { resolveCodexHomeDirectory } from "./bundled-skill-paths.ts";
+import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 const managedSkillNameColor = "#59F78D";
 const managedSkillSourceColor = "#CAA8FA";

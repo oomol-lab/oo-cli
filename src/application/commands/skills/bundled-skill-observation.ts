@@ -9,7 +9,6 @@ import {
     isBundledSkillInstallationCurrentState,
     parseBundledSkillMetadataContent,
     readImplicitInvocationValue,
-    renderSkillMetadataJson,
 } from "./bundled-skill-model.ts";
 import {
     bundledSkillOwnershipFileRelativePath,
@@ -17,6 +16,7 @@ import {
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
+import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 export async function requireCodexHomeDirectory(
     context: Pick<{ env: Record<string, string | undefined> }, "env">,
@@ -128,8 +128,22 @@ export async function isBundledSkillInstallationCurrent(
     version: string,
 ): Promise<boolean> {
     const metadata = await readInstalledBundledSkillMetadata(skillDirectoryPath);
+
+    return isBundledSkillInstallationCurrentFromMetadata(
+        skillName,
+        skillDirectoryPath,
+        metadata,
+        version,
+    );
+}
+
+export async function isBundledSkillInstallationCurrentFromMetadata(
+    skillName: BundledSkillName,
+    skillDirectoryPath: string,
+    metadata: BundledSkillMetadata | undefined,
+    version: string,
+): Promise<boolean> {
     const managedInstallation = metadata !== undefined;
-    const hasMetadataFile = managedInstallation;
     const installedVersion = metadata?.version;
     let hasAllBundledFiles = false;
 
@@ -146,7 +160,7 @@ export async function isBundledSkillInstallationCurrent(
 
     return isBundledSkillInstallationCurrentState({
         hasAllBundledFiles,
-        hasMetadataFile,
+        hasMetadataFile: managedInstallation,
         installedVersion,
         isManagedInstallation: managedInstallation,
         version,

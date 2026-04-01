@@ -10,7 +10,6 @@ import {
     createInteractiveInput,
     createRegistrySkillArchiveBytes,
     createTextBuffer,
-    formatManagedSkillMetadataContent,
     toRequest,
     waitForOutputText,
     writeAuthFile,
@@ -32,6 +31,7 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
+import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 describe("skills commands", () => {
     const guidance = renderOoPackageExecutionGuidance();
@@ -78,7 +78,7 @@ describe("skills commands", () => {
                 "allow_implicit_invocation: true",
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatBundledSkillMetadataContent(resultVersion),
+                renderSkillMetadataJson({ version: resultVersion }),
             );
         }
         finally {
@@ -118,7 +118,7 @@ describe("skills commands", () => {
                 await realpath(canonicalSkillDirectoryPath),
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatBundledSkillMetadataContent(resultVersion),
+                renderSkillMetadataJson({ version: resultVersion }),
             );
         }
         finally {
@@ -318,7 +318,7 @@ describe("skills commands", () => {
             await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
                 recursive: true,
             });
-            await Bun.write(metadataFilePath, formatManagedSkillMetadataContent("openai", "0.0.3"));
+            await Bun.write(metadataFilePath, renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }));
             await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
             await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
 
@@ -372,7 +372,7 @@ describe("skills commands", () => {
             await mkdir(escapedCanonicalSkillDirectoryPath, { recursive: true });
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(escapedSkillDirectoryPath),
-                formatManagedSkillMetadataContent("openai", "0.0.3"),
+                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
             );
             await Bun.write(installedSentinelPath, "installed\n");
             await Bun.write(canonicalSentinelPath, "canonical\n");
@@ -416,7 +416,7 @@ describe("skills commands", () => {
             await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
                 recursive: true,
             });
-            await Bun.write(metadataFilePath, formatManagedSkillMetadataContent("openai", "0.0.3"));
+            await Bun.write(metadataFilePath, renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }));
             await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
             await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
 
@@ -544,7 +544,7 @@ describe("skills commands", () => {
             });
             await Bun.write(
                 metadataFilePath,
-                formatBundledSkillMetadataContent("9.9.9"),
+                renderSkillMetadataJson({ version: "9.9.9" }),
             );
             await Bun.write(ownershipFilePath, "# OOMOL\n");
             await Bun.write(
@@ -595,7 +595,7 @@ describe("skills commands", () => {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             await Bun.write(
                 metadataFilePath,
-                formatBundledSkillMetadataContent("0.0.1"),
+                renderSkillMetadataJson({ version: "0.0.1" }),
             );
             await Bun.write(managedSkillPath, "stale\n");
             await Bun.write(managedOwnershipPath, expectedOwnershipContent);
@@ -608,7 +608,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatBundledSkillMetadataContent("9.9.9"),
+                renderSkillMetadataJson({ version: "9.9.9" }),
             );
             expect(await readFile(managedSkillPath, "utf8")).toBe(
                 expectedSkillContent,
@@ -653,7 +653,7 @@ describe("skills commands", () => {
             });
             await Bun.write(
                 metadataFilePath,
-                formatBundledSkillMetadataContent("0.0.1"),
+                renderSkillMetadataJson({ version: "0.0.1" }),
             );
             await Bun.write(managedOwnershipPath, expectedOwnershipContent);
             await Bun.write(
@@ -673,7 +673,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatBundledSkillMetadataContent("9.9.9"),
+                renderSkillMetadataJson({ version: "9.9.9" }),
             );
             expect(await readFile(canonicalOwnershipPath, "utf8")).toContain("OOMOL");
             expect(await readFile(canonicalOwnershipPath, "utf8")).not.toContain(
@@ -735,7 +735,7 @@ describe("skills commands", () => {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             await Bun.write(
                 metadataFilePath,
-                formatBundledSkillMetadataContent("0.0.1"),
+                renderSkillMetadataJson({ version: "0.0.1" }),
             );
             await Bun.write(managedSkillPath, "stale\n");
             await Bun.write(managedOwnershipPath, expectedOwnershipContent);
@@ -745,7 +745,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatBundledSkillMetadataContent("0.0.1"),
+                renderSkillMetadataJson({ version: "0.0.1" }),
             );
             expect(await readFile(managedSkillPath, "utf8")).toBe("stale\n");
         }
@@ -800,7 +800,7 @@ describe("skills commands", () => {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             await Bun.write(
                 metadataFilePath,
-                formatBundledSkillMetadataContent("0.0.1"),
+                renderSkillMetadataJson({ version: "0.0.1" }),
             );
             await Bun.write(
                 ownershipFilePath,
@@ -819,7 +819,7 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatBundledSkillMetadataContent("9.9.9"),
+                renderSkillMetadataJson({ version: "9.9.9" }),
             );
             expect(await readFile(ownershipFilePath, "utf8")).toBe(
                 expectedOwnershipContent,
@@ -913,7 +913,7 @@ describe("skills commands", () => {
                 ].join("\n"),
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatManagedSkillMetadataContent("openai", "0.0.3"),
+                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
             );
             expect(requests).toHaveLength(2);
             expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
@@ -1096,11 +1096,11 @@ describe("skills commands", () => {
             });
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
-                formatManagedSkillMetadataContent("openai", "0.0.3"),
+                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
             );
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
-                formatManagedSkillMetadataContent("openai", "0.0.3"),
+                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
             );
             await Bun.write(join(installedSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
             await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
@@ -1355,7 +1355,3 @@ describe("skills commands", () => {
         }
     });
 });
-
-function formatBundledSkillMetadataContent(version: string): string {
-    return `${JSON.stringify({ version }, null, 2)}\n`;
-}

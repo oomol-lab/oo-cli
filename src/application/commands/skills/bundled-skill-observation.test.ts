@@ -8,6 +8,7 @@ import {
     directoryExists,
     fileExists,
     isBundledSkillInstallationCurrent,
+    isBundledSkillInstallationCurrentFromMetadata,
     isManagedBundledSkillInstallation,
     readInstalledBundledSkillImplicitInvocation,
     readInstalledBundledSkillMetadata,
@@ -175,6 +176,52 @@ describe("bundled skill observation", () => {
                 await isBundledSkillInstallationCurrent(
                     "oo",
                     skillDirectoryPath,
+                    "1.2.3",
+                ),
+            ).toBeTrue();
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("evaluates current installations from preloaded metadata", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const skillDirectoryPath = join(rootDirectory, "skills", "oo");
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+
+            expect(
+                await isBundledSkillInstallationCurrentFromMetadata(
+                    "oo",
+                    skillDirectoryPath,
+                    undefined,
+                    "1.2.3",
+                ),
+            ).toBeFalse();
+
+            expect(
+                await isBundledSkillInstallationCurrentFromMetadata(
+                    "oo",
+                    skillDirectoryPath,
+                    { version: "1.2.3" },
+                    "1.2.3",
+                ),
+            ).toBeFalse();
+
+            for (const file of getBundledSkillFiles("oo")) {
+                const filePath = join(skillDirectoryPath, file.relativePath);
+
+                await mkdir(join(filePath, ".."), { recursive: true });
+                await Bun.write(filePath, await Bun.file(file.sourcePath).text());
+            }
+
+            expect(
+                await isBundledSkillInstallationCurrentFromMetadata(
+                    "oo",
+                    skillDirectoryPath,
+                    { version: "1.2.3" },
                     "1.2.3",
                 ),
             ).toBeTrue();

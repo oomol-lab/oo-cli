@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { renderSkillMetadataJson } from "./bundled-skill-model.ts";
 import {
     parseManagedSkillMetadataContent,
 } from "./managed-skill-metadata.ts";
+import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 describe("managed skill metadata", () => {
     test("parses version-only metadata", () => {
@@ -38,6 +38,17 @@ describe("managed skill metadata", () => {
             parseManagedSkillMetadataContent(
                 JSON.stringify({
                     version: "",
+                }),
+            ),
+        ).toBeUndefined();
+    });
+
+    test("rejects metadata with an empty packageName", () => {
+        expect(
+            parseManagedSkillMetadataContent(
+                JSON.stringify({
+                    packageName: "  ",
+                    version: "1.2.3",
                 }),
             ),
         ).toBeUndefined();

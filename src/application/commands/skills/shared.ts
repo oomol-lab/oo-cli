@@ -23,7 +23,7 @@ import {
 } from "./bundled-skill-model.ts";
 import {
     directoryExists,
-    isBundledSkillInstallationCurrent,
+    isBundledSkillInstallationCurrentFromMetadata,
     isManagedBundledSkillInstallation,
     readInstalledBundledSkillImplicitInvocation,
     readInstalledBundledSkillMetadata,
@@ -216,9 +216,10 @@ export async function maybeSynchronizeInstalledBundledSkills(
                 continue;
             }
 
-            const managedInstallation = await isManagedBundledSkillInstallation(
+            const installedSkillMetadata = await readInstalledBundledSkillMetadata(
                 skillDirectoryPath,
             );
+            const managedInstallation = installedSkillMetadata !== undefined;
 
             if (!managedInstallation) {
                 context.logger.debug(
@@ -231,11 +232,13 @@ export async function maybeSynchronizeInstalledBundledSkills(
                 continue;
             }
 
-            const isCurrentInstallation = await isBundledSkillInstallationCurrent(
-                skillName,
-                skillDirectoryPath,
-                context.version,
-            );
+            const isCurrentInstallation
+                = await isBundledSkillInstallationCurrentFromMetadata(
+                    skillName,
+                    skillDirectoryPath,
+                    installedSkillMetadata,
+                    context.version,
+                );
             const desiredImplicitInvocation = resolveBundledSkillImplicitInvocation(
                 skillName,
                 settings,
@@ -265,8 +268,7 @@ export async function maybeSynchronizeInstalledBundledSkills(
                     continue;
                 }
                 case "sync-installation": {
-                    const previousVersion
-                        = await readInstalledBundledSkillVersion(skillDirectoryPath);
+                    const previousVersion = installedSkillMetadata.version;
                     const installation = await writeBundledSkillInstallation({
                         codexHomeDirectory,
                         settings,
