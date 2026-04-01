@@ -138,4 +138,53 @@ describe("skills config set command", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("updates the installed oo-find-skills managed skill when the config changes", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(
+                metadataFilePath,
+                renderSkillMetadataJson({
+                    version: "9.9.9",
+                }),
+            );
+            await Bun.write(
+                ownershipFilePath,
+                await Bun.file(
+                    getBundledSkillFiles("oo-find-skills").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+                ).text(),
+            );
+
+            const result = await sandbox.run([
+                "skills",
+                "config",
+                "set",
+                "oo-find-skills",
+                "allow-implicit-invocation",
+                "false",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: false",
+            );
+            expect(await readFile(
+                resolveStorePaths({
+                    appName: APP_NAME,
+                    env: sandbox.env,
+                    platform: process.platform,
+                }).settingsFilePath,
+                "utf8",
+            )).toContain("[skills.oo-find-skills]");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });

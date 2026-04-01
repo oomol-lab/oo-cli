@@ -36,21 +36,34 @@ import { renderSkillMetadataJson } from "./skill-metadata.ts";
 describe("skills commands", () => {
     const guidance = renderOoPackageExecutionGuidance();
 
-    test("installs the default bundled Codex skill when no skill name is provided", async () => {
+    test("installs all bundled Codex skills when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+        const ooCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "oo",
         );
-        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
-        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const findSkillsCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo-find-skills",
+        );
+        const ooOwnershipFilePath = join(ooSkillDirectoryPath, "agents", "openai.yaml");
+        const ooMetadataFilePath = resolveBundledSkillMetadataFilePath(ooSkillDirectoryPath);
+        const findSkillsOwnershipFilePath = join(
+            findSkillsDirectoryPath,
+            "agents",
+            "openai.yaml",
+        );
+        const findSkillsMetadataFilePath = resolveBundledSkillMetadataFilePath(
+            findSkillsDirectoryPath,
+        );
         const resultVersion = "9.9.9";
 
         try {
@@ -62,22 +75,40 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Installed Codex skill oo to ${skillDirectoryPath}.\n`,
+                [
+                    `Installed Codex skill oo to ${ooSkillDirectoryPath}.`,
+                    `Installed Codex skill oo-find-skills to ${findSkillsDirectoryPath}.`,
+                    "",
+                ].join("\n"),
             );
             expect(result.stderr).toBe("");
-            expect(await realpath(skillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            expect(await realpath(ooSkillDirectoryPath)).toBe(
+                await realpath(ooCanonicalSkillDirectoryPath),
+            );
+            expect(await realpath(findSkillsDirectoryPath)).toBe(
+                await realpath(findSkillsCanonicalSkillDirectoryPath),
             );
 
             for (const file of getBundledSkillFiles("oo")) {
                 expect(
-                    await readFile(join(skillDirectoryPath, file.relativePath), "utf8"),
+                    await readFile(join(ooSkillDirectoryPath, file.relativePath), "utf8"),
                 ).toBe(await Bun.file(file.sourcePath).text());
             }
-            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+            for (const file of getBundledSkillFiles("oo-find-skills")) {
+                expect(
+                    await readFile(join(findSkillsDirectoryPath, file.relativePath), "utf8"),
+                ).toBe(await Bun.file(file.sourcePath).text());
+            }
+            expect(await readFile(ooOwnershipFilePath, "utf8")).toContain(
                 "allow_implicit_invocation: true",
             );
-            expect(await readFile(metadataFilePath, "utf8")).toBe(
+            expect(await readFile(findSkillsOwnershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: true",
+            );
+            expect(await readFile(ooMetadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({ version: resultVersion }),
+            );
+            expect(await readFile(findSkillsMetadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
             );
         }
@@ -126,11 +157,57 @@ describe("skills commands", () => {
         }
     });
 
+    test("installs the oo-find-skills bundled Codex skill by explicit name", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo-find-skills",
+        );
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const resultVersion = "9.9.9";
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "install", "oo-find-skills"], {
+                version: resultVersion,
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Installed Codex skill oo-find-skills to ${skillDirectoryPath}.\n`,
+            );
+            expect(result.stderr).toBe("");
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({ version: resultVersion }),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("installs the bundled Codex skill with the persisted implicit invocation policy", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const ooOwnershipFilePath = join(ooSkillDirectoryPath, "agents", "openai.yaml");
+        const findSkillsOwnershipFilePath = join(
+            findSkillsDirectoryPath,
+            "agents",
+            "openai.yaml",
+        );
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -145,6 +222,9 @@ describe("skills commands", () => {
                     "[skills.oo]",
                     "implicit_invocation = false",
                     "",
+                    "[skills.oo-find-skills]",
+                    "implicit_invocation = false",
+                    "",
                 ].join("\n"),
             );
 
@@ -153,7 +233,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
-            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+            expect(await readFile(ooOwnershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: false",
+            );
+            expect(await readFile(findSkillsOwnershipFilePath, "utf8")).toContain(
                 "allow_implicit_invocation: false",
             );
         }
@@ -259,18 +342,23 @@ describe("skills commands", () => {
         }
     });
 
-    test("uninstalls a bundled Codex skill from the Codex skills directory", async () => {
+    test("uninstalls all bundled Codex skills from the Codex skills directory when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+        const ooCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "oo",
+        );
+        const findSkillsCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo-find-skills",
         );
 
         try {
@@ -283,13 +371,23 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Removed Codex skill oo from ${skillDirectoryPath}.\n`,
+                [
+                    `Removed Codex skill oo from ${ooSkillDirectoryPath}.`,
+                    `Removed Codex skill oo-find-skills from ${findSkillsDirectoryPath}.`,
+                    "",
+                ].join("\n"),
             );
             expect(result.stderr).toBe("");
-            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+            await expect(stat(ooSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
-            await expect(stat(canonicalSkillDirectoryPath)).rejects.toMatchObject({
+            await expect(stat(findSkillsDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(ooCanonicalSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(findSkillsCanonicalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }
@@ -399,35 +497,30 @@ describe("skills commands", () => {
     test("supports skills remove as an alias for uninstall", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            "chatgpt",
-        );
-        const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
+        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
 
         try {
-            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
-                recursive: true,
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
             });
-            await Bun.write(metadataFilePath, renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }));
-            await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
-            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
 
-            const result = await sandbox.run(["skills", "remove", "chatgpt"]);
+            const result = await sandbox.run(["skills", "remove"]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Removed Codex skill chatgpt from ${skillDirectoryPath}.\n`,
+                [
+                    `Removed Codex skill oo from ${ooSkillDirectoryPath}.`,
+                    `Removed Codex skill oo-find-skills from ${findSkillsDirectoryPath}.`,
+                    "",
+                ].join("\n"),
             );
             expect(result.stderr).toBe("");
-            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+            await expect(stat(ooSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(findSkillsDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }
@@ -454,7 +547,7 @@ describe("skills commands", () => {
                 ].join("\n"),
             );
 
-            const result = await sandbox.run(["skills", "uninstall"]);
+            const result = await sandbox.run(["skills", "uninstall", "oo"]);
 
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
@@ -557,7 +650,7 @@ describe("skills commands", () => {
                 ].join("\n"),
             );
 
-            const result = await sandbox.run(["skills", "uninstall"]);
+            const result = await sandbox.run(["skills", "uninstall", "oo"]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(

@@ -7,31 +7,10 @@ import { describe, expect, test } from "bun:test";
 import {
     createLogCapture,
     createTemporaryDirectory,
+    defaultSettingsFileContent,
 } from "../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../application/config/app-config.ts";
 import { FileSettingsStore } from "./file-settings-store.ts";
-
-const defaultSettingsFileContent = [
-    "# lang controls the CLI display language for help text, messages, and errors.",
-    "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
-    "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
-    "# lang = \"en\"",
-    "",
-    "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
-    "# Default: ~/Downloads.",
-    "# Supported values: any non-empty path string.",
-    "# Relative values resolve from the current working directory when the command runs.",
-    "# A leading `~` expands to the current user's home directory.",
-    "# [file.download]",
-    "# out_dir = \"~/Downloads\"",
-    "",
-    "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
-    "# Supported values: true, false.",
-    "# Default: true.",
-    "# [skills.oo]",
-    "# implicit_invocation = false",
-    "",
-].join("\n");
 
 describe("FileSettingsStore", () => {
     test("returns default settings when the file does not exist", async () => {
@@ -68,29 +47,9 @@ describe("FileSettingsStore", () => {
 
         expect(store.getFilePath()).toEndWith("settings.toml");
         expect(await readFile(store.getFilePath(), "utf8")).toBe(
-            [
-                "# lang controls the CLI display language for help text, messages, and errors.",
-                "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
-                "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
-                "# lang = \"en\"",
-                "",
-                "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
-                "# Default: ~/Downloads.",
-                "# Supported values: any non-empty path string.",
-                "# Relative values resolve from the current working directory when the command runs.",
-                "# A leading `~` expands to the current user's home directory.",
-                "# [file.download]",
-                "# out_dir = \"~/Downloads\"",
-                "",
-                "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
-                "# Supported values: true, false.",
-                "# Default: true.",
-                "# [skills.oo]",
-                "# implicit_invocation = false",
-                "",
+            createExpectedSettingsFileContent([
                 "lang = \"zh\"",
-                "",
-            ].join("\n"),
+            ]),
         );
         expect(await store.read()).toEqual({
             lang: "zh",
@@ -117,34 +76,48 @@ describe("FileSettingsStore", () => {
         });
 
         expect(await readFile(store.getFilePath(), "utf8")).toBe(
-            [
-                "# lang controls the CLI display language for help text, messages, and errors.",
-                "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
-                "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
-                "# lang = \"en\"",
-                "",
-                "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
-                "# Default: ~/Downloads.",
-                "# Supported values: any non-empty path string.",
-                "# Relative values resolve from the current working directory when the command runs.",
-                "# A leading `~` expands to the current user's home directory.",
-                "# [file.download]",
-                "# out_dir = \"~/Downloads\"",
-                "",
-                "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
-                "# Supported values: true, false.",
-                "# Default: true.",
-                "# [skills.oo]",
-                "# implicit_invocation = false",
-                "",
+            createExpectedSettingsFileContent([
                 "[skills.oo]",
                 "implicit_invocation = false",
-                "",
-            ].join("\n"),
+            ]),
         );
         expect(await store.read()).toEqual({
             skills: {
                 oo: {
+                    implicit_invocation: false,
+                },
+            },
+        });
+    });
+
+    test("writes and reads persisted oo-find-skills settings", async () => {
+        const root = await createTemporaryDirectory("store-find-skills-write");
+        const store = new FileSettingsStore({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+
+        await store.write({
+            skills: {
+                "oo-find-skills": {
+                    implicit_invocation: false,
+                },
+            },
+        });
+
+        expect(await readFile(store.getFilePath(), "utf8")).toBe(
+            createExpectedSettingsFileContent([
+                "[skills.oo-find-skills]",
+                "implicit_invocation = false",
+            ]),
+        );
+        expect(await store.read()).toEqual({
+            skills: {
+                "oo-find-skills": {
                     implicit_invocation: false,
                 },
             },
@@ -171,30 +144,10 @@ describe("FileSettingsStore", () => {
         });
 
         expect(await readFile(store.getFilePath(), "utf8")).toBe(
-            [
-                "# lang controls the CLI display language for help text, messages, and errors.",
-                "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
-                "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
-                "# lang = \"en\"",
-                "",
-                "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
-                "# Default: ~/Downloads.",
-                "# Supported values: any non-empty path string.",
-                "# Relative values resolve from the current working directory when the command runs.",
-                "# A leading `~` expands to the current user's home directory.",
-                "# [file.download]",
-                "# out_dir = \"~/Downloads\"",
-                "",
-                "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
-                "# Supported values: true, false.",
-                "# Default: true.",
-                "# [skills.oo]",
-                "# implicit_invocation = false",
-                "",
+            createExpectedSettingsFileContent([
                 "[file.download]",
                 "out_dir = \"~/Downloads\"",
-                "",
-            ].join("\n"),
+            ]),
         );
         expect(await store.read()).toEqual({
             file: {
@@ -243,6 +196,9 @@ describe("FileSettingsStore", () => {
                 "lang = \"zh\"",
                 "updateNotifier = false",
                 "",
+                "[skills.oo-find-skills]",
+                "implicit_invocation = false",
+                "",
                 "[skills.oo]",
                 "implicit_invocation = false",
                 "extra = true",
@@ -254,7 +210,10 @@ describe("FileSettingsStore", () => {
         await expect(store.read()).resolves.toEqual({
             lang: "zh",
             skills: {
-                oo: {
+                "oo-find-skills": {
+                    implicit_invocation: false,
+                },
+                "oo": {
                     implicit_invocation: false,
                 },
             },
@@ -327,3 +286,13 @@ describe("FileSettingsStore", () => {
         } satisfies Partial<CliUserError>);
     });
 });
+
+function createExpectedSettingsFileContent(
+    persistedLines: string[],
+): string {
+    if (persistedLines.length === 0) {
+        return defaultSettingsFileContent;
+    }
+
+    return `${defaultSettingsFileContent}\n${persistedLines.join("\n")}\n`;
+}

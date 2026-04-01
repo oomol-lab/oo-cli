@@ -17,7 +17,10 @@ describe("bundled skill model", () => {
     test("renders the ownership policy file with the configured implicit invocation value", () => {
         const settings: AppSettings = {
             skills: {
-                oo: {
+                "oo-find-skills": {
+                    implicit_invocation: false,
+                },
+                "oo": {
                     implicit_invocation: false,
                 },
             },
@@ -39,6 +42,14 @@ describe("bundled skill model", () => {
         expect(
             renderBundledSkillFileContent("oo", "SKILL.md", "skill\n", settings),
         ).toBe("skill\n");
+        expect(
+            renderBundledSkillFileContent(
+                "oo-find-skills",
+                "agents/openai.yaml",
+                content,
+                settings,
+            ),
+        ).toContain("allow_implicit_invocation: false");
     });
 
     test("reads and writes the implicit invocation value while preserving CRLF formatting", () => {

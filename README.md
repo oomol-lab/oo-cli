@@ -33,9 +33,9 @@ $oo generate a QR code for the string OOMOL
 
 ## Codex Skills
 
-On the first `oo` launch, or after running `oo skills install` (equivalent to
-`oo skills install oo`), Codex will get the bundled `oo` skill under
-`${CODEX_HOME:-~/.codex}/skills/oo`.
+On the first `oo` launch, Codex will get the bundled `oo` skill under
+`${CODEX_HOME:-~/.codex}/skills/oo` and the bundled `oo-find-skills` helper
+under `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`.
 
 Then you can use it in Codex, for example:
 
@@ -43,10 +43,16 @@ Then you can use it in Codex, for example:
 $oo generate a QR code for the string OOMOL
 ```
 
-You can also install it explicitly with:
+You can also install all bundled skills explicitly with:
 
 ```bash
 oo skills install
+```
+
+And you can install the search helper explicitly with:
+
+```bash
+oo skills install oo-find-skills
 ```
 
 ## Documentation

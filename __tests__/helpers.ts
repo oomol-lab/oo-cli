@@ -25,6 +25,7 @@ import {
     executeCli as executeCliInvocation,
 } from "../src/application/bootstrap/run-cli.ts";
 import { APP_NAME } from "../src/application/config/app-config.ts";
+import { defaultSettings, renderSettingsFile } from "../src/application/schemas/settings.ts";
 import { createTerminalColors } from "../src/application/terminal-colors.ts";
 
 export interface TextBuffer {
@@ -131,27 +132,7 @@ export const platformTest = createPlatformScope(test);
 
 export const platformDescribe = createPlatformScope(describe);
 
-export const defaultSettingsFileContent = [
-    "# lang controls the CLI display language for help text, messages, and errors.",
-    "# Supported values: \"en\" (English), \"zh\" (Simplified Chinese).",
-    "# Default: auto-detect from LC_ALL, LC_MESSAGES, LANG, then system locale.",
-    "# lang = \"en\"",
-    "",
-    "# file.download.out_dir controls the default output directory used by `oo file download` when [outDir] is omitted.",
-    "# Default: ~/Downloads.",
-    "# Supported values: any non-empty path string.",
-    "# Relative values resolve from the current working directory when the command runs.",
-    "# A leading `~` expands to the current user's home directory.",
-    "# [file.download]",
-    "# out_dir = \"~/Downloads\"",
-    "",
-    "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
-    "# Supported values: true, false.",
-    "# Default: true.",
-    "# [skills.oo]",
-    "# implicit_invocation = false",
-    "",
-].join("\n");
+export const defaultSettingsFileContent = renderSettingsFile(defaultSettings);
 
 export function createNoopFileUploadStore(): FileUploadRecordStore {
     return {

@@ -59,4 +59,32 @@ describe("skills config get command", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("reads oo-find-skills configured values after skills config set", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const setResult = await sandbox.run([
+                "skills",
+                "config",
+                "set",
+                "oo-find-skills",
+                "allow-implicit-invocation",
+                "false",
+            ]);
+            const getResult = await sandbox.run([
+                "skills",
+                "config",
+                "get",
+                "oo-find-skills",
+            ]);
+
+            expect(setResult.exitCode).toBe(0);
+            expect(getResult.exitCode).toBe(0);
+            expect(getResult.stdout).toBe("allow-implicit-invocation=false\n");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });

@@ -31,18 +31,20 @@ const ooSkillSettingsShape = {
     implicit_invocation: z.boolean().optional(),
 };
 
-const ooSkillSettingsReadSchema = z.object(ooSkillSettingsShape);
-const ooSkillSettingsSchema = z.object(ooSkillSettingsShape).strict();
+const skillImplicitInvocationReadSchema = z.object(ooSkillSettingsShape);
+const skillImplicitInvocationSchema = z.object(ooSkillSettingsShape).strict();
 
 const skillsSettingsReadSchema = z.object({
-    oo: ooSkillSettingsReadSchema.optional(),
+    "oo-find-skills": skillImplicitInvocationReadSchema.optional(),
+    "oo": skillImplicitInvocationReadSchema.optional(),
 });
 
 const skillsSettingsSchema = z.object({
-    oo: ooSkillSettingsSchema.optional(),
+    "oo-find-skills": skillImplicitInvocationSchema.optional(),
+    "oo": skillImplicitInvocationSchema.optional(),
 }).strict();
 
-export const defaultOoSkillImplicitInvocation = true;
+export const defaultBundledSkillImplicitInvocation = true;
 
 export const settingsFileReadSchema = z.object({
     file: fileSettingsReadSchema.optional(),
@@ -58,6 +60,7 @@ export const settingsFileSchema = z.object({
 
 export type AppSettings = z.output<typeof settingsFileSchema>;
 export type BooleanConfigValue = z.output<typeof booleanConfigValueSchema>;
+export type BundledSkillSettingsKey = keyof NonNullable<AppSettings["skills"]>;
 export const defaultFileDownloadOutDir = "~/Downloads";
 
 export const defaultSettings: AppSettings = {};
@@ -78,13 +81,13 @@ const defaultSettingsCommentBlocks = [
         "# [file.download]",
         `# out_dir = "${defaultFileDownloadOutDir}"`,
     ],
-    [
-        "# skills.oo.implicit_invocation controls whether Codex may invoke the bundled oo skill without an explicit mention.",
+    ...["oo", "oo-find-skills"].map(skillName => [
+        `# skills.${skillName}.implicit_invocation controls whether Codex may invoke the bundled ${skillName} skill without an explicit mention.`,
         "# Supported values: true, false.",
-        `# Default: ${stringifyBooleanConfigValue(defaultOoSkillImplicitInvocation)}.`,
-        "# [skills.oo]",
+        `# Default: ${stringifyBooleanConfigValue(defaultBundledSkillImplicitInvocation)}.`,
+        `# [skills.${skillName}]`,
         "# implicit_invocation = false",
-    ],
+    ]),
 ] as const;
 
 export function renderSettingsFile(settings: AppSettings): string {
@@ -105,10 +108,20 @@ export function renderSettingsFile(settings: AppSettings): string {
         };
     }
 
-    if (parsedSettings.skills?.oo?.implicit_invocation !== undefined) {
-        persistedSettings.skills = {
-            oo: { implicit_invocation: parsedSettings.skills.oo.implicit_invocation },
-        };
+    const persistedSkillSettings: Record<string, unknown> = {};
+
+    for (const skillName of Object.keys(parsedSettings.skills ?? {})) {
+        const skillSettings = parsedSettings.skills?.[skillName as BundledSkillSettingsKey];
+
+        if (skillSettings?.implicit_invocation !== undefined) {
+            persistedSkillSettings[skillName] = {
+                implicit_invocation: skillSettings.implicit_invocation,
+            };
+        }
+    }
+
+    if (Object.keys(persistedSkillSettings).length > 0) {
+        persistedSettings.skills = persistedSkillSettings;
     }
 
     const serializedSettings = stringifyToml(persistedSettings).trimEnd();
@@ -167,43 +180,50 @@ export function unsetFileDownloadOutDir(
     return deleteNestedProperty(settings, ["file", "download", "out_dir"]);
 }
 
-export function getConfiguredOoSkillImplicitInvocation(
+export function getConfiguredSkillImplicitInvocation(
     settings: AppSettings,
+    skillName: BundledSkillSettingsKey,
 ): boolean | undefined {
-    return settings.skills?.oo?.implicit_invocation;
+    return settings.skills?.[skillName]?.implicit_invocation;
 }
 
-export function getOoSkillImplicitInvocation(
+export function getSkillImplicitInvocation(
     settings: AppSettings,
+    skillName: BundledSkillSettingsKey,
 ): boolean {
-    return getConfiguredOoSkillImplicitInvocation(settings)
-        ?? defaultOoSkillImplicitInvocation;
+    return getConfiguredSkillImplicitInvocation(settings, skillName)
+        ?? defaultBundledSkillImplicitInvocation;
 }
 
-export function setOoSkillImplicitInvocation(
+export function setSkillImplicitInvocation(
     settings: AppSettings,
+    skillName: BundledSkillSettingsKey,
     value: boolean,
 ): AppSettings {
     return {
         ...settings,
         skills: {
             ...settings.skills,
-            oo: {
-                ...settings.skills?.oo,
+            [skillName]: {
+                ...settings.skills?.[skillName],
                 implicit_invocation: value,
             },
         },
     };
 }
 
-export function unsetOoSkillImplicitInvocation(
+export function unsetSkillImplicitInvocation(
     settings: AppSettings,
+    skillName: BundledSkillSettingsKey,
 ): AppSettings {
-    if (settings.skills?.oo?.implicit_invocation === undefined) {
+    if (settings.skills?.[skillName]?.implicit_invocation === undefined) {
         return settings;
     }
 
-    return deleteNestedProperty(settings, ["skills", "oo", "implicit_invocation"]);
+    return deleteNestedProperty(
+        settings,
+        ["skills", skillName, "implicit_invocation"],
+    );
 }
 
 // Shallow-clones each level of a nested object along the given path,
