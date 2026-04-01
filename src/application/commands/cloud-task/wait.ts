@@ -5,12 +5,12 @@ import type {
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     createCloudTaskTaskUrl,
     parseCloudTaskResultResponse,
     parseDurationOption,
     requestCloudTask,
-    requireCurrentCloudTaskAccount,
 } from "./shared.ts";
 import {
     formatCloudTaskDuration,
@@ -76,7 +76,7 @@ export function createCloudTaskWaitHandler(
 ): CliCommandHandler<CloudTaskWaitInput> {
     return async (input, context) => {
         const timeoutMs = parseCloudTaskWaitTimeout(input.timeout);
-        const account = await requireCurrentCloudTaskAccount(context);
+        const account = await requireCurrentAccount(context);
         const requestUrl = createCloudTaskTaskUrl(
             account.endpoint,
             input.taskId,

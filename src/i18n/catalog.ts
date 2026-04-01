@@ -148,8 +148,12 @@ export const enMessages = {
     "errors.commander.unknownOption": "Unknown option: {value}.",
     "errors.auth.loginTimeout":
         "Timed out waiting for the browser login callback.",
+    "errors.auth.activeAccountMissing":
+        "The active auth account is missing from the auth store.",
     "errors.auth.noSavedAccounts":
         "There are no auth accounts to switch to.",
+    "errors.auth.required":
+        "You must log in before using this command.",
     "errors.authStore.invalidToml":
         "The auth file at {path} is not valid TOML.",
     "errors.authStore.invalidSchema":
@@ -158,10 +162,6 @@ export const enMessages = {
         "Failed to read the auth file at {path}.",
     "errors.authStore.writeFailed":
         "Failed to write the auth file at {path}.",
-    "errors.cloudTask.activeAccountMissing":
-        "The active auth account is missing from the auth store.",
-    "errors.cloudTask.authRequired":
-        "You must log in before using cloud-task commands.",
     "errors.cloudTask.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.cloudTask.invalidResponse":
@@ -256,10 +256,6 @@ export const enMessages = {
         "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
     "errors.fileList.invalidStatus":
         "Invalid status: {value}. Use active or expired.",
-    "errors.fileUpload.activeAccountMissing":
-        "The active auth account is missing from the auth store.",
-    "errors.fileUpload.authRequired":
-        "You must log in before using the file upload command.",
     "errors.fileUpload.invalidResponse":
         "The file upload service returned an unsupported response body.",
     "errors.fileUpload.pathNotFile":
@@ -274,10 +270,6 @@ export const enMessages = {
         "The file at {path} is {size} bytes, which exceeds the 512 MiB limit of {max} bytes.",
     "errors.lang.invalidFlag":
         "Invalid value for --lang: {value}. Use en or zh.",
-    "errors.search.activeAccountMissing":
-        "The active auth account is missing from the auth store.",
-    "errors.search.authRequired":
-        "You must log in before using the packages search command.",
     "errors.search.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.search.invalidResponse":
@@ -286,10 +278,6 @@ export const enMessages = {
         "The search request failed: {message}",
     "errors.search.requestFailed":
         "The search request returned HTTP {status}.",
-    "errors.skillsSearch.activeAccountMissing":
-        "The active auth account is missing from the auth store.",
-    "errors.skillsSearch.authRequired":
-        "You must log in before using the skills search command.",
     "errors.skillsSearch.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.skillsSearch.invalidResponse":
@@ -298,10 +286,6 @@ export const enMessages = {
         "The skills search request failed: {message}",
     "errors.skillsSearch.requestFailed":
         "The skills search request returned HTTP {status}.",
-    "errors.packageInfo.activeAccountMissing":
-        "The active auth account is missing from the auth store.",
-    "errors.packageInfo.authRequired":
-        "You must log in before using the packages info command.",
     "errors.packageInfo.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.packageInfo.invalidPackageSpecifier":
@@ -314,10 +298,6 @@ export const enMessages = {
         "The package info request returned HTTP {status}.",
     "errors.skills.codexNotInstalled":
         "Codex is not installed. Expected the Codex home directory at {path}.",
-    "errors.skills.install.activeAccountMissing":
-        "The active auth account is missing from the auth store.",
-    "errors.skills.install.authRequired":
-        "You must log in before installing published skills.",
     "errors.skills.install.confirmationRequired":
         "Skill {name} already exists and requires interactive confirmation.",
     "errors.skills.install.invalidArchive":
@@ -658,15 +638,15 @@ export const zhMessages = {
     "errors.commander.unknownCommand": "未知命令：{value}。",
     "errors.commander.unknownOption": "未知选项：{value}。",
     "errors.auth.loginTimeout": "等待浏览器登录回调超时。",
+    "errors.auth.activeAccountMissing":
+        "当前激活账号不存在于认证数据中。",
     "errors.auth.noSavedAccounts": "没有可切换的认证账号。",
+    "errors.auth.required":
+        "使用此命令前请先登录。",
     "errors.authStore.invalidToml": "认证文件 {path} 不是有效的 TOML。",
     "errors.authStore.invalidSchema": "认证文件 {path} 的结构不受支持。",
     "errors.authStore.readFailed": "读取认证文件 {path} 失败。",
     "errors.authStore.writeFailed": "写入认证文件 {path} 失败。",
-    "errors.cloudTask.activeAccountMissing":
-        "当前激活账号不存在于认证数据中。",
-    "errors.cloudTask.authRequired":
-        "使用 cloud-task 命令前请先登录。",
     "errors.cloudTask.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.cloudTask.invalidResponse":
@@ -761,10 +741,6 @@ export const zhMessages = {
         "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
     "errors.fileList.invalidStatus":
         "无效的 status：{value}。请使用 active 或 expired。",
-    "errors.fileUpload.activeAccountMissing":
-        "当前激活账号不存在于认证数据中。",
-    "errors.fileUpload.authRequired":
-        "使用 file upload 命令前请先登录。",
     "errors.fileUpload.invalidResponse":
         "文件上传服务返回了不受支持的响应内容。",
     "errors.fileUpload.pathNotFile":
@@ -779,10 +755,6 @@ export const zhMessages = {
         "文件 {path} 的大小为 {size} 字节，超出了 512 MiB 上限 {max} 字节。",
     "errors.lang.invalidFlag":
         "--lang 的值无效：{value}。请使用 en 或 zh。",
-    "errors.search.activeAccountMissing":
-        "当前激活账号不存在于认证数据中。",
-    "errors.search.authRequired":
-        "使用 packages search 命令前请先登录。",
     "errors.search.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.search.invalidResponse":
@@ -791,10 +763,6 @@ export const zhMessages = {
         "搜索请求失败：{message}",
     "errors.search.requestFailed":
         "搜索请求返回了 HTTP {status}。",
-    "errors.skillsSearch.activeAccountMissing":
-        "当前激活账号不存在于认证数据中。",
-    "errors.skillsSearch.authRequired":
-        "使用 skills search 命令前请先登录。",
     "errors.skillsSearch.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.skillsSearch.invalidResponse":
@@ -803,10 +771,6 @@ export const zhMessages = {
         "skills 搜索请求失败：{message}",
     "errors.skillsSearch.requestFailed":
         "skills 搜索请求返回了 HTTP {status}。",
-    "errors.packageInfo.activeAccountMissing":
-        "当前激活账号不存在于认证数据中。",
-    "errors.packageInfo.authRequired":
-        "使用 packages info 命令前请先登录。",
     "errors.packageInfo.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.packageInfo.invalidPackageSpecifier":
@@ -819,10 +783,6 @@ export const zhMessages = {
         "包信息请求返回了 HTTP {status}。",
     "errors.skills.codexNotInstalled":
         "未检测到 Codex 安装。期望的 Codex 根目录为 {path}。",
-    "errors.skills.install.activeAccountMissing":
-        "当前激活账号不存在于认证数据中。",
-    "errors.skills.install.authRequired":
-        "安装已发布 skill 前请先登录。",
     "errors.skills.install.confirmationRequired":
         "Skill {name} 已存在，且需要在交互终端中确认覆盖。",
     "errors.skills.install.invalidArchive":

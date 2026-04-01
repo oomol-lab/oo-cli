@@ -1,9 +1,7 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
-import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { requestText } from "../shared/request.ts";
 
 export const cloudTaskFormatValues = ["json"] as const;
@@ -75,16 +73,6 @@ export type CloudTaskResultResponse = z.output<
 >;
 export type CloudTaskLogResponse = z.output<typeof cloudTaskLogResponseSchema>;
 export type CloudTaskListResponse = z.output<typeof cloudTaskListResponseSchema>;
-
-export async function requireCurrentCloudTaskAccount(
-    context: CliExecutionContext,
-): Promise<AuthAccount> {
-    return requireCurrentAccount(
-        context,
-        "errors.cloudTask.authRequired",
-        "errors.cloudTask.activeAccountMissing",
-    );
-}
 
 export function parseCloudTaskFormat(
     value: string | undefined,

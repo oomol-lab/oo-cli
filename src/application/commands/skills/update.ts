@@ -5,6 +5,7 @@ import type { PreparedRegistrySkillPublication } from "./registry-skill-publicat
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     directoryExists,
@@ -29,7 +30,6 @@ import {
 import {
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
-    requireCurrentSkillsInstallAccount,
 } from "./registry-skill-source.ts";
 import { isBundledSkillName } from "./shared.ts";
 import { SkillsUpdateProgressReporter } from "./update-progress.ts";
@@ -131,7 +131,7 @@ export async function updateManagedSkills(
 
     try {
         const account = registrySkillGroups.length > 0
-            ? await requireCurrentSkillsInstallAccount(context)
+            ? await requireCurrentAccount(context)
             : undefined;
         const unresolvedSkillFailures: SkillPreparationResult[] = unresolvedSkills.map(skill => ({
             events: [
