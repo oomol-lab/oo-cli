@@ -14,6 +14,7 @@ import {
     resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
 } from "../skills/bundled-skill-paths.ts";
+import { renderSkillMetadataJson } from "../skills/skill-metadata.ts";
 
 describe("config CLI", () => {
     test("writes settings-store and config mutation logs", async () => {
@@ -180,7 +181,7 @@ describe("config CLI", () => {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             await Bun.write(
                 metadataFilePath,
-                formatBundledSkillMetadataContent("9.9.9"),
+                renderSkillMetadataJson({ version: "9.9.9" }),
             );
             await Bun.write(
                 ownershipFilePath,
@@ -224,7 +225,7 @@ describe("config CLI", () => {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             await Bun.write(
                 metadataFilePath,
-                formatBundledSkillMetadataContent("9.9.9"),
+                renderSkillMetadataJson({ version: "9.9.9" }),
             );
             await Bun.write(
                 ownershipFilePath,
@@ -434,7 +435,3 @@ describe("config CLI", () => {
         }
     });
 });
-
-function formatBundledSkillMetadataContent(version: string): string {
-    return `${JSON.stringify({ version }, null, 2)}\n`;
-}

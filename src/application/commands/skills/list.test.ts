@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
-import { renderSkillMetadataJson } from "./bundled-skill-model.ts";
 import { listManagedSkillInstallations } from "./list.ts";
+import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 describe("skills list command helpers", () => {
     test("lists managed skills and keeps oo before the remaining sorted names", async () => {

@@ -14,6 +14,7 @@ import {
     resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
+import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 describe("skills CLI", () => {
     test("requires login before installing published skills", async () => {
@@ -78,7 +79,7 @@ describe("skills CLI", () => {
                 "allow_implicit_invocation: true",
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                formatBundledSkillMetadataContent("9.9.9"),
+                renderSkillMetadataJson({ version: "9.9.9" }),
             );
             expect(content).toContain(`"msg":"CLI first-run detection completed."`);
             expect(content).toContain(`"isFirstRun":true`);
@@ -204,7 +205,7 @@ describe("skills CLI", () => {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             await Bun.write(
                 metadataFilePath,
-                formatBundledSkillMetadataContent("9.9.9"),
+                renderSkillMetadataJson({ version: "9.9.9" }),
             );
             await Bun.write(
                 ownershipFilePath,
@@ -273,7 +274,3 @@ describe("skills CLI", () => {
         }
     });
 });
-
-function formatBundledSkillMetadataContent(version: string): string {
-    return `${JSON.stringify({ version }, null, 2)}\n`;
-}

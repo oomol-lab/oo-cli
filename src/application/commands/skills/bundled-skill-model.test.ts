@@ -8,7 +8,6 @@ import {
     parseBundledSkillMetadataContent,
     readImplicitInvocationValue,
     renderBundledSkillFileContent,
-    renderSkillMetadataJson,
     resolveBundledSkillInstallConflict,
     resolveBundledSkillManagedSynchronizationAction,
     writeImplicitInvocationValue,
@@ -62,7 +61,7 @@ describe("bundled skill model", () => {
         );
     });
 
-    test("parses and renders bundled skill metadata content", () => {
+    test("parses bundled skill metadata content", () => {
         expect(parseBundledSkillMetadataContent("{\"version\":\" 1.2.3 \"}\n")).toEqual({
             version: "1.2.3",
         });
@@ -71,9 +70,6 @@ describe("bundled skill model", () => {
         expect(parseBundledSkillMetadataContent("[]")).toBeUndefined();
         expect(parseBundledSkillMetadataContent("{}")).toBeUndefined();
         expect(parseBundledSkillMetadataContent("{\"version\":1}")).toBeUndefined();
-        expect(renderSkillMetadataJson({ version: "1.2.3" })).toBe(
-            "{\n  \"version\": \"1.2.3\"\n}\n",
-        );
     });
 
     test("throws when the ownership policy file does not define implicit invocation", () => {

@@ -283,6 +283,30 @@ function createTranslatorStub() {
 }
 ```
 
+## Complete the Extraction — Propagate to Tests
+
+When extracting a shared utility from production code, also replace any test helpers or inline expressions that duplicate the same logic. An extraction is incomplete if test files still contain local functions or raw inline code doing the same thing under a different name.
+
+```typescript
+// BAD - shared utility extracted, but tests still duplicate it
+// skill-metadata.ts (shared module)
+export function renderSkillMetadataJson(metadata: object): string {
+    return `${JSON.stringify(metadata, null, 2)}\n`;
+}
+
+// index.test.ts (local helper duplicates the shared utility)
+function formatBundledSkillMetadataContent(version: string): string {
+    return `${JSON.stringify({ version }, null, 2)}\n`;
+}
+
+// update.test.ts (inline expression duplicates the shared utility)
+await Bun.write(path, `${JSON.stringify({ version: "1.0.0" }, null, 2)}\n`);
+
+// GOOD - tests import the shared utility directly
+import { renderSkillMetadataJson } from "./skill-metadata.ts";
+await Bun.write(path, renderSkillMetadataJson({ version: "1.0.0" }));
+```
+
 ## `try/finally` over `try/catch/rethrow` for Cleanup
 
 When the only purpose of a `catch` block is to clean up and rethrow, use `finally` instead. It eliminates the duplicate cleanup call and removes dead code in the success path.
