@@ -37,7 +37,10 @@ export function normalizeInstalledRegistrySkillMarkdown(
     skill: RegistrySkillSummary,
     packageName: string,
 ): string {
-    const normalizedContent = normalizeLineEndings(content);
+    const normalizedContent = resolveOoSelfReferences(
+        normalizeLineEndings(content),
+        packageName,
+    );
     const splitFrontmatter = trySplitFrontmatter(normalizedContent);
 
     if (splitFrontmatter === undefined) {
@@ -57,6 +60,13 @@ function normalizeLineEndings(content: string): string {
     return content
         .replaceAll("\r\n", "\n")
         .replaceAll("\r", "\n");
+}
+
+function resolveOoSelfReferences(content: string, packageName: string): string {
+    return content.replaceAll(
+        "`oo::self::",
+        `\`oo::${packageName}::`,
+    );
 }
 
 function trySplitFrontmatter(content: string): SplitFrontmatterResult | undefined {

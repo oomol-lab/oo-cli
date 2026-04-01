@@ -877,7 +877,12 @@ describe("skills commands", () => {
 
                         if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
                             return new Response(await createRegistrySkillArchiveBytes({
-                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                                "package/package/skills/chatgpt/SKILL.md": [
+                                    "# ChatGPT",
+                                    "",
+                                    "Use `oo::self::chat` for the remote workflow.",
+                                    "",
+                                ].join("\n"),
                                 "package/package/skills/chatgpt/agents/openai.yaml":
                                     "agent\n",
                             }));
@@ -909,6 +914,8 @@ describe("skills commands", () => {
                     "# ChatGPT",
                     "",
                     guidance,
+                    "",
+                    "Use `oo::openai::chat` for the remote workflow.",
                     "",
                 ].join("\n"),
             );

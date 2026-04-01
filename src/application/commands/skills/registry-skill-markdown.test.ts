@@ -161,4 +161,49 @@ describe("registry skill markdown", () => {
             ].join("\n"),
         );
     });
+
+    test("rewrites backticked oo self references to the published package name", () => {
+        const content = [
+            "---",
+            "name: chatgpt",
+            "description: \"Mention oo::self::summarize in prose.\"",
+            "---",
+            "",
+            "# ChatGPT",
+            "",
+            "Use `oo::self::summarize` for the primary workflow.",
+            "Mention oo::self::summarize in prose.",
+            "Keep `oo::text-tools::chat` unchanged.",
+            "",
+        ].join("\n");
+
+        const result = normalizeInstalledRegistrySkillMarkdown(
+            content,
+            {
+                description: "Chat with a model",
+                name: "chatgpt",
+                title: "ChatGPT",
+            },
+            "@oomol/text-tools",
+        );
+
+        expect(result).toBe(
+            [
+                "---",
+                "name: chatgpt",
+                "description: \"Mention oo::self::summarize in prose.\"",
+                `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
+                "---",
+                "",
+                "# ChatGPT",
+                "",
+                guidance,
+                "",
+                "Use `oo::@oomol/text-tools::summarize` for the primary workflow.",
+                "Mention oo::self::summarize in prose.",
+                "Keep `oo::text-tools::chat` unchanged.",
+                "",
+            ].join("\n"),
+        );
+    });
 });
