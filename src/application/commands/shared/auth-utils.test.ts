@@ -59,6 +59,21 @@ describe("requireCurrentAccount", () => {
             key: "errors.auth.activeAccountMissing",
         });
     });
+
+    test("returns the current account when it exists", async () => {
+        const account = {
+            id: "user-1",
+            name: "Test User",
+            apiKey: "test-key",
+            endpoint: "api.example.com",
+        };
+        const context = createAuthContext({
+            auth: [account],
+            id: "user-1",
+        });
+
+        await expect(requireCurrentAccount(context)).resolves.toEqual(account);
+    });
 });
 
 function createAuthContext(authFile: AuthFile): CliExecutionContext {
