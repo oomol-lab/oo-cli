@@ -90,7 +90,7 @@ describe("config CLI", () => {
         }
     });
 
-    test("supports the oo skill implicit invocation config key", async () => {
+    test("supports bundled skill implicit invocation config keys", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -116,8 +116,21 @@ describe("config CLI", () => {
                 "get",
                 "skills.oo.implicit_invocation",
             ]);
+            const findSetResult = await sandbox.run([
+                "config",
+                "set",
+                "skills.oo-find-skills.implicit_invocation",
+                "false",
+            ]);
+            const findGetResult = await sandbox.run([
+                "config",
+                "get",
+                "skills.oo-find-skills.implicit_invocation",
+            ]);
 
             expect({
+                findGet: createCliSnapshot(findGetResult),
+                findSet: createCliSnapshot(findSetResult),
                 get: createCliSnapshot(getResult),
                 getAfterUnset: createCliSnapshot(getAfterUnsetResult),
                 list: createCliSnapshot(listResult),
@@ -209,6 +222,52 @@ describe("config CLI", () => {
         }
     });
 
+    test("config set immediately synchronizes the installed oo-find-skills policy", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(
+                metadataFilePath,
+                renderSkillMetadataJson({ version: "9.9.9" }),
+            );
+            await Bun.write(
+                ownershipFilePath,
+                await Bun.file(
+                    join(
+                        process.cwd(),
+                        "contrib",
+                        "skills",
+                        "oo-find-skills",
+                        "agents",
+                        "openai.yaml",
+                    ),
+                ).text(),
+            );
+
+            const result = await sandbox.run([
+                "config",
+                "set",
+                "skills.oo-find-skills.implicit_invocation",
+                "false",
+            ], {
+                version: "9.9.9",
+            });
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: false",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("config unset immediately restores the installed managed skill policy default", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -255,6 +314,66 @@ describe("config CLI", () => {
                 "config",
                 "unset",
                 "skills.oo.implicit_invocation",
+            ], {
+                version: "9.9.9",
+            });
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(await readFile(ownershipFilePath, "utf8")).toContain(
+                "allow_implicit_invocation: true",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("config unset immediately restores the installed oo-find-skills policy default", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const settingsFilePath = join(
+            sandbox.env.XDG_CONFIG_HOME!,
+            APP_NAME,
+            "settings.toml",
+        );
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(
+                metadataFilePath,
+                renderSkillMetadataJson({ version: "9.9.9" }),
+            );
+            await Bun.write(
+                ownershipFilePath,
+                [
+                    "interface:",
+                    "  display_name: oo Find Skills",
+                    "  short_description: Search and install likely oo skills",
+                    "  default_prompt: \"Use $oo-find-skills when I need to search the OO skill catalog from a user request, pick a primary and fallback match, show four install choices, and then install the selected skill or skills with `oo skills install`.\"",
+                    "",
+                    "policy:",
+                    "  allow_implicit_invocation: false",
+                    "",
+                    "# OOMOL",
+                    "",
+                ].join("\n"),
+            );
+            await Bun.write(
+                settingsFilePath,
+                [
+                    "[skills.oo-find-skills]",
+                    "implicit_invocation = false",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run([
+                "config",
+                "unset",
+                "skills.oo-find-skills.implicit_invocation",
             ], {
                 version: "9.9.9",
             });
@@ -333,7 +452,7 @@ describe("config CLI", () => {
             const invalidSkillPolicyValue = await sandbox.run([
                 "config",
                 "set",
-                "skills.oo.implicit_invocation",
+                "skills.oo-find-skills.implicit_invocation",
                 "maybe",
             ]);
 
@@ -348,7 +467,7 @@ describe("config CLI", () => {
             expect(invalidConfigValue.stderr).toContain("Invalid lang value");
 
             expect(invalidSkillPolicyValue.stderr).toContain(
-                "Invalid skills.oo.implicit_invocation value",
+                "Invalid skills.oo-find-skills.implicit_invocation value",
             );
         }
         finally {

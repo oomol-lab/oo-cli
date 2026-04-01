@@ -2,6 +2,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import type { BundledSkillName } from "./embedded-assets.ts";
 
 import { z } from "zod";
+import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 import { installBundledSkill, isBundledSkillName } from "./shared.ts";
 
@@ -11,8 +12,6 @@ interface SkillsInstallInput {
     skill?: string[];
     yes?: boolean;
 }
-
-const defaultBundledSkillName = "oo" as const;
 
 export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
     name: "install",
@@ -53,13 +52,16 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         yes: z.boolean().optional(),
     }),
     handler: async (input, context) => {
-        if (
-            input.packageName === undefined
-            || isBundledSkillName(input.packageName)
-        ) {
+        if (input.packageName === undefined) {
+            for (const skillName of availableBundledSkillNames) {
+                await installBundledSkill(skillName, context);
+            }
+            return;
+        }
+
+        if (isBundledSkillName(input.packageName)) {
             await installBundledSkill(
-                (input.packageName as BundledSkillName | undefined)
-                ?? defaultBundledSkillName,
+                input.packageName as BundledSkillName,
                 context,
             );
             return;

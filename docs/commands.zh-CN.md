@@ -66,7 +66,8 @@
 读取一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`。
+  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`、
+  `skills.oo-find-skills.implicit_invocation`。
 
 ### `oo config path`
 
@@ -77,7 +78,8 @@
 写入一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`。
+  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`、
+  `skills.oo-find-skills.implicit_invocation`。
 - 参数：`<value>` 为对应配置值。
 - 取值规则：当 `<key>` 为 `lang` 时，支持的值为 `en` 和 `zh`。
 - 取值规则：当 `<key>` 为 `file.download.out_dir` 时，支持任意非空路径字符串。
@@ -85,13 +87,16 @@
   开头，则会展开为当前用户的 home 目录。
 - 取值规则：当 `<key>` 为 `skills.oo.implicit_invocation` 时，支持的
   值为 `true` 和 `false`。
+- 取值规则：当 `<key>` 为 `skills.oo-find-skills.implicit_invocation` 时，
+  支持的值为 `true` 和 `false`。
 
 ### `oo config unset <key>`
 
 删除一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`。
+  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`、
+  `skills.oo-find-skills.implicit_invocation`。
 
 ## 更新
 
@@ -164,8 +169,9 @@
 
 - 别名：`oo skills add [packageName]`。
 - 参数：`[packageName]` 可选。
-- 参数：未提供时，该命令等价于 `oo skills install oo`。
-- 参数：当 `[packageName]` 为 `oo` 时，命令安装内置的 `oo` skill。
+- 参数：未提供时，该命令会安装全部内置 skill。
+- 参数：当 `[packageName]` 为 `oo` 或 `oo-find-skills` 时，命令安装对应
+  的内置 skill。
 - 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
   安装 skill。
 - 选项：`-s, --skill <skills...>` 用于安装 package 中一个或多个指定的
@@ -180,7 +186,7 @@
   `-y`，命令会在 TTY 中打开交互选择页面。
 - 说明：在交互选择页面中，同一 package 下已安装的 skill 会默认保持勾选；
   如果用户取消这些勾选，命令完成时会移除对应已安装 skill。
-- canonical 目录：内置 `oo` 的文件会先释放到 `<config-dir>/skills/oo`，
+- canonical 目录：内置 skill 会先释放到 `<config-dir>/skills/<skill-id>`，
   其中 `<config-dir>` 是 `settings.toml` 所在目录。
 - canonical 目录：已发布 skill 会先释放到 `<config-dir>/skills/<skill-id>`。
 - 目标目录：所有已安装 skill 都会发布到
@@ -188,13 +194,14 @@
 - 安装方式：`oo` 会优先将目标目录发布为指向 canonical 目录的软连接。
   如果当前平台或环境下创建软连接失败，则会回退为把 canonical 目录内容复制
   到 Codex skills 目录。
-- 元数据：内置 `oo` 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
+- 元数据：内置 skill 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
   `version` 字段记录当前 `oo` 版本。
 - 元数据：已发布 skill 也会写入一个隐藏的 `.oo-metadata.json` 文件，
   其中 `version` 字段记录 package 版本，`packageName` 字段记录来源
   package。
-- 元数据：当存在持久化的 `skills.oo.implicit_invocation` 配置时，
-  bundled `oo` 的 `agents/openai.yaml` 会使用该值；否则使用内置默认值。
+- 元数据：当存在持久化的 `implicit_invocation` 配置时，bundled `oo`
+  和 `oo-find-skills` 的 `agents/openai.yaml` 都会使用各自的配置值；
+  否则使用内置默认值。
 - 说明：安装已发布 skill 时，所有 registry 请求都会携带当前激活账号的
   `Authorization` header。
 - 说明：如果 package 下有多个 skill，且当前不是交互终端，则必须提供
@@ -205,15 +212,15 @@
   只要用户仍然选择该项，就会执行覆盖。
 - 说明：当 Codex 根目录不存在时，命令会直接报错退出，这表示当前机器上没有
   安装 Codex。
-- 说明：只有当 bundled `oo` 的 `.oo-metadata.json` 可以被解析，且其中包
+- 说明：只有当 bundled skill 的 `.oo-metadata.json` 可以被解析，且其中包
   含非空的 `version` 时，`oo` 才会认为这是自己管理的内置 skill；否则会视
   为其他 skill，并拒绝覆盖。
 - 说明：如果这是 `oo` 的首次运行，且当前还没有已有的 config、auth、log
-  数据，那么只要 Codex 根目录已经存在，`oo` 就会静默自动安装这个 bundled
-  受管 skill。
-- 说明：如果 bundled `oo` 已经安装，`oo` 每次启动都会检查其记录版本是否
-  与当前 CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。不一
-  致时会静默刷新已安装的文件。
+  数据，那么只要 Codex 根目录已经存在，`oo` 就会静默自动安装缺失的
+  bundled 受管 skills。
+- 说明：如果某个 bundled skill 已经安装，`oo` 每次启动都会检查其记录版本
+  是否与当前 CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。
+  不一致时会静默刷新已安装的文件。
 
 ### `oo skills update [skills...]`
 
@@ -221,8 +228,8 @@
 
 - 参数：省略时，会检查所有已安装且由 oo 管理的已发布 skill。
 - 参数：提供一个或多个 skill 名称时，只会检查并更新这些指定 skill。
-- 内置 skill：bundled `oo` 不在此命令处理范围内，因为 CLI 启动时会在需要时
-  自动同步它。
+- 内置 skill：bundled `oo`、`oo-find-skills` 等内置 skill 不在此命令处理
+  范围内，因为 CLI 启动时会在需要时自动同步它们。
 - 已发布 skill：registry skill 会从 `.oo-metadata.json` 读取所属包名，再通过
   不带显式版本的 package info 请求判断最新可用版本。
 - 更新顺序：命令会先刷新 canonical 目录
@@ -236,7 +243,7 @@
 从本地 Codex skills 目录移除一个由 oo 管理的 skill。
 
 - 别名：`oo skills remove [skill]`。
-- 参数：省略 `[skill]` 时，默认使用 `oo`。
+- 参数：省略 `[skill]` 时，命令会移除全部内置 skill。
 - 所有权规则：只有当
   `${CODEX_HOME:-~/.codex}/skills/<skill>` 中的 `.oo-metadata.json` 可
   以被解析，且其中包含非空 `version` 时，才允许移除该 skill。

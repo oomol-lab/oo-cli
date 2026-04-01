@@ -73,7 +73,8 @@ List persisted configuration values that are currently set.
 Read one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`.
+  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`,
+  `skills.oo-find-skills.implicit_invocation`.
 
 ### `oo config path`
 
@@ -84,7 +85,8 @@ Print the path to the persisted configuration file.
 Persist one configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`.
+  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`,
+  `skills.oo-find-skills.implicit_invocation`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
 - Value rules: for `file.download.out_dir`, use any non-empty path string. Relative
@@ -92,13 +94,16 @@ Persist one configuration value.
   leading `~` expands to the current user's home directory.
 - Value rules: for `skills.oo.implicit_invocation`, supported values are
   `true` and `false`.
+- Value rules: for `skills.oo-find-skills.implicit_invocation`, supported
+  values are `true` and `false`.
 
 ### `oo config unset <key>`
 
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`.
+  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`,
+  `skills.oo-find-skills.implicit_invocation`.
 
 ## Updates
 
@@ -183,10 +188,9 @@ directory.
 
 - Alias: `oo skills add [packageName]`.
 - Arguments: `[packageName]` is optional.
-- Arguments: when omitted, the command behaves the same as
-  `oo skills install oo`.
-- Arguments: when `[packageName]` is `oo`, the command installs the
-  bundled `oo` skill.
+- Arguments: when omitted, the command installs all bundled skills.
+- Arguments: when `[packageName]` is `oo` or `oo-find-skills`, the command
+  installs the corresponding bundled skill.
 - Arguments: when `[packageName]` is a published package name, the command
   installs skills from that package.
 - Options: `-s, --skill <skills...>` installs one or more named published
@@ -204,8 +208,8 @@ directory.
 - Notes: in the interactive picker, skills already installed from the same
   package start selected. Clearing such a selection removes that installed
   skill when the command completes.
-- Canonical directory: bundled `oo` is materialized to
-  `<config-dir>/skills/oo`, where `<config-dir>` is the directory that
+- Canonical directory: bundled skills are materialized to
+  `<config-dir>/skills/<skill-id>`, where `<config-dir>` is the directory that
   contains `settings.toml`.
 - Canonical directory: published skills are materialized to
   `<config-dir>/skills/<skill-id>`.
@@ -217,14 +221,14 @@ directory.
   canonical directory when the current platform and environment allow it. When
   symlink creation fails, `oo` falls back to copying the canonical files into
   the Codex skills directory.
-- Metadata: bundled `oo` writes a hidden `.oo-metadata.json` file whose
+- Metadata: bundled skills write a hidden `.oo-metadata.json` file whose
   `version` field matches the current `oo` version.
 - Metadata: published skills write a hidden `.oo-metadata.json` file whose
   `version` field matches the package version and whose `packageName` field
   records the source package.
-- Metadata: `agents/openai.yaml` in bundled `oo` uses the persisted
-  `skills.oo.implicit_invocation` value when configured, otherwise the
-  bundled default is used.
+- Metadata: `agents/openai.yaml` in bundled `oo` and `oo-find-skills` uses
+  the persisted skill-specific `implicit_invocation` value when configured;
+  otherwise the bundled default is used.
 - Notes: all registry requests for published skills send the active account's
   `Authorization` header.
 - Notes: when a package publishes multiple skills and the command runs outside
@@ -236,16 +240,16 @@ directory.
   selecting one means it will be overwritten.
 - Notes: the command exits with an error when the Codex home directory does
   not exist, which indicates Codex is not installed on the current machine.
-- Notes: an existing bundled `oo` installation is considered managed by `oo`
+- Notes: an existing bundled skill installation is considered managed by `oo`
   only when its `.oo-metadata.json` file can be parsed and contains a
   non-empty `version`. Otherwise `oo` treats it as a different skill and will
   not overwrite it.
 - Notes: on the first `oo` run, when there is no existing config, auth, or log
-  data yet, `oo` silently installs the bundled managed skill automatically if
-  the Codex home directory already exists.
-- Notes: when the bundled `oo` skill is already installed, every `oo` startup
-  checks whether the recorded metadata `version` matches the current CLI
-  version and silently refreshes the installed files when needed.
+  data yet, `oo` silently installs missing bundled managed skills
+  automatically if the Codex home directory already exists.
+- Notes: when a bundled skill is already installed, every `oo` startup checks
+  whether the recorded metadata `version` matches the current CLI version and
+  silently refreshes the installed files when needed.
 
 ### `oo skills update [skills...]`
 
@@ -255,8 +259,9 @@ Update installed oo-managed Codex skills.
   published skill.
 - Arguments: when one or more skill names are provided, only those named skills
   are checked and updated.
-- Bundled skills: the bundled `oo` skill is excluded from this command because
-  the CLI synchronizes it automatically during startup when needed.
+- Bundled skills: bundled skills such as `oo` and `oo-find-skills` are
+  excluded from this command because the CLI synchronizes them automatically
+  during startup when needed.
 - Published skills: registry-backed skills derive their package identity from
   `.oo-metadata.json`, then fetch package info without an explicit version to
   determine the latest available package version.
@@ -272,7 +277,7 @@ Update installed oo-managed Codex skills.
 Remove one oo-managed skill from the local Codex skills directory.
 
 - Alias: `oo skills remove [skill]`.
-- Arguments: `[skill]` defaults to `oo` when omitted.
+- Arguments: when `[skill]` is omitted, the command removes all bundled skills.
 - Ownership rule: the target skill is removable only when
   `${CODEX_HOME:-~/.codex}/skills/<skill>` has a `.oo-metadata.json` file that
   can be parsed and contains a non-empty `version`.

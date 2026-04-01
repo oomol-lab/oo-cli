@@ -11,7 +11,7 @@ import {
     configKeySchema,
     createInvalidConfigKeyError,
     isConfigKey,
-    ooSkillImplicitInvocationConfigKey,
+    isSkillImplicitInvocationConfigKey,
 } from "./shared.ts";
 
 interface ResolvedConfigSetInput {
@@ -78,7 +78,7 @@ export const configSetCommand: CliCommandDefinition<ResolvedConfigSetInput> = {
             settings => input.definition.setValue(settings, input.value),
         );
 
-        if (input.key === ooSkillImplicitInvocationConfigKey) {
+        if (isSkillImplicitInvocationConfigKey(input.key)) {
             await maybeSynchronizeInstalledBundledSkills(context, {
                 settings: nextSettings,
             });

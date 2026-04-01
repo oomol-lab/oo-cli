@@ -31,9 +31,9 @@ $oo 帮我生成 OOMOL 字符串的二维码
 
 ## Codex Skill
 
-首次打开 `oo`，或者执行 `oo skills install`（等价于
-`oo skills install oo`）之后，Codex 中会生成内置的 `oo` skill，位置在
-`${CODEX_HOME:-~/.codex}/skills/oo`。
+首次打开 `oo` 之后，Codex 中会生成内置的 `oo` skill，位置在
+`${CODEX_HOME:-~/.codex}/skills/oo`；同时还会生成 `oo-find-skills`
+辅助 skill，位置在 `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`。
 
 然后你就可以在 Codex 中这样使用：
 
@@ -41,10 +41,16 @@ $oo 帮我生成 OOMOL 字符串的二维码
 $oo 帮我生成 OOMOL 字符串的二维码
 ```
 
-也可以手动执行安装：
+也可以手动安装全部内置 skills：
 
 ```bash
 oo skills install
+```
+
+如果你想单独安装搜索辅助 skill，也可以执行：
+
+```bash
+oo skills install oo-find-skills
 ```
 
 ## 文档

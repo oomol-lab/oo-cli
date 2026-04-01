@@ -1,6 +1,5 @@
 import type { CliCommandDefinition } from "../../../contracts/cli.ts";
-import type { BundledSkillName } from "../embedded-assets.ts";
-
+import type { ConfigurableBundledSkillName } from "./shared.ts";
 import { z } from "zod";
 import {
     createInvalidSkillConfigKeyError,
@@ -13,7 +12,7 @@ import {
 
 interface SkillsConfigGetInput {
     key?: string;
-    skill: BundledSkillName;
+    skill: ConfigurableBundledSkillName;
 }
 
 const skillsConfigGetInputSchema = z.object({

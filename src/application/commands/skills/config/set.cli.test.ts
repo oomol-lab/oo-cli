@@ -23,6 +23,26 @@ describe("skills config set CLI", () => {
         }
     });
 
+    test("supports skills config set for the oo-find-skills implicit invocation policy", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "config",
+                "set",
+                "oo-find-skills",
+                "allow-implicit-invocation",
+                "false",
+            ]);
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("validates skills config set input", async () => {
         const sandbox = await createCliSandbox();
 
@@ -47,7 +67,7 @@ describe("skills config set CLI", () => {
                 "skills",
                 "config",
                 "set",
-                "oo",
+                "oo-find-skills",
                 "allow-implicit-invocation",
                 "disabled",
             ]);

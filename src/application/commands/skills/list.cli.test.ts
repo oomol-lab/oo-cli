@@ -41,7 +41,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 2 oo-managed skills.",
+                    "✓ Found 3 oo-managed skills.",
                     "",
                     "oo",
                     "  Source: bundled",
@@ -50,6 +50,10 @@ describe("skills list CLI", () => {
                     "alpha-skill",
                     "  Source: @oomol/alpha",
                     "  Version: 1.2.3",
+                    "",
+                    "oo-find-skills",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
                     "",
                 ].join("\n"),
             );

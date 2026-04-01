@@ -84,6 +84,26 @@ describe("skills update command", () => {
         }
     });
 
+    test("rejects the bundled oo-find-skills skill as an explicit update target", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "update", "oo-find-skills"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Codex skill oo-find-skills is synchronized automatically and cannot be updated with skills update.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("updates a published managed skill to the latest version", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);

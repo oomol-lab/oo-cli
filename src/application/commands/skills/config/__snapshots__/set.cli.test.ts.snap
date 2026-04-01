@@ -11,6 +11,17 @@ exports[`skills config set CLI supports skills config set for the oo skill impli
 }
 `;
 
+exports[`skills config set CLI supports skills config set for the oo-find-skills implicit invocation policy 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Set Codex skill oo-find-skills allow-implicit-invocation to false.
+"
+,
+}
+`;
+
 exports[`skills config set CLI validates skills config set input 1`] = `
 {
   "invalidKey": {
@@ -24,7 +35,7 @@ exports[`skills config set CLI validates skills config set input 1`] = `
   "invalidSkill": {
     "exitCode": 2,
     "stderr": 
-"Unsupported skill: missing. Use oo.
+"Unsupported skill: missing. Use oo, oo-find-skills.
 "
 ,
     "stdout": "",
@@ -32,7 +43,7 @@ exports[`skills config set CLI validates skills config set input 1`] = `
   "invalidValue": {
     "exitCode": 2,
     "stderr": 
-"Invalid allow-implicit-invocation value for skill oo: disabled. Use true or false.
+"Invalid allow-implicit-invocation value for skill oo-find-skills: disabled. Use true or false.
 "
 ,
     "stdout": "",

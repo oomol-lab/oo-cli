@@ -224,8 +224,8 @@ export const enMessages = {
         "Invalid lang value: {value}. Use en or zh.",
     "errors.config.invalidFileDownloadOutDirValue":
         "Invalid file.download.out_dir value: {value}. Use a non-empty path.",
-    "errors.config.invalidSkillsOoImplicitInvocationValue":
-        "Invalid skills.oo.implicit_invocation value: {value}. Use true or false.",
+    "errors.config.invalidSkillImplicitInvocationValue":
+        "Invalid skills.{skill}.implicit_invocation value: {value}. Use true or false.",
     "errors.skills.invalidName":
         "Unsupported skill: {value}. Use {choices}.",
     "errors.skills.invalidPath":
@@ -709,8 +709,8 @@ export const zhMessages = {
         "无效的 lang 值：{value}。请使用 en 或 zh。",
     "errors.config.invalidFileDownloadOutDirValue":
         "无效的 file.download.out_dir 值：{value}。请使用非空路径。",
-    "errors.config.invalidSkillsOoImplicitInvocationValue":
-        "无效的 skills.oo.implicit_invocation 值：{value}。请使用 true 或 false。",
+    "errors.config.invalidSkillImplicitInvocationValue":
+        "无效的 skills.{skill}.implicit_invocation 值：{value}。请使用 true 或 false。",
     "errors.skills.invalidName":
         "不支持的 skill：{value}。请使用 {choices}。",
     "errors.skills.invalidPath":

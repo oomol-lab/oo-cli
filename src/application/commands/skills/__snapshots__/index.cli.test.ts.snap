@@ -133,6 +133,7 @@ exports[`skills CLI writes explicit skills install and uninstall logs 1`] = `
     "stderr": "",
     "stdout": 
 "Installed Codex skill oo to <HOME>/.codex/skills/oo.
+Installed Codex skill oo-find-skills to <HOME>/.codex/skills/oo-find-skills.
 "
 ,
   },
@@ -141,6 +142,7 @@ exports[`skills CLI writes explicit skills install and uninstall logs 1`] = `
     "stderr": "",
     "stdout": 
 "Removed Codex skill oo from <HOME>/.codex/skills/oo.
+Removed Codex skill oo-find-skills from <HOME>/.codex/skills/oo-find-skills.
 "
 ,
   },

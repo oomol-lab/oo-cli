@@ -35,6 +35,19 @@ exports[`skills search CLI supports skills search with the --json alias 1`] = `
 }
 `;
 
+exports[`skills search CLI renders skills search output with field-specific colors 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Text Generation (text-generation)
+Generate text using AI models
+Package: @oomol/ai-tools@1.0.0
+"
+,
+}
+`;
+
 exports[`skills search CLI validates the skills search format option 1`] = `
 {
   "exitCode": 2,
@@ -94,18 +107,5 @@ Global Options:
 "
 ,
   },
-}
-`;
-
-exports[`skills search CLI renders skills search output with field-specific colors 1`] = `
-{
-  "exitCode": 0,
-  "stderr": "",
-  "stdout": 
-"Text Generation (text-generation)
-Generate text using AI models
-Package: @oomol/ai-tools@1.0.0
-"
-,
 }
 `;

@@ -1,9 +1,8 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { uninstallManagedSkill } from "./shared.ts";
-
-const bundledSkillName = "oo" as const;
 
 interface SkillsUninstallInput {
     skill?: string;
@@ -25,6 +24,13 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
         skill: z.string().optional(),
     }),
     handler: async (input, context) => {
-        await uninstallManagedSkill(input.skill ?? bundledSkillName, context);
+        if (input.skill === undefined) {
+            for (const skillName of availableBundledSkillNames) {
+                await uninstallManagedSkill(skillName, context);
+            }
+            return;
+        }
+
+        await uninstallManagedSkill(input.skill, context);
     },
 };

@@ -22,6 +22,25 @@ describe("skills config get CLI", () => {
         }
     });
 
+    test("reads the effective oo-find-skills config value for a key", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "config",
+                "get",
+                "oo-find-skills",
+                "allow-implicit-invocation",
+            ]);
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("lists all known effective values when the key is omitted", async () => {
         const sandbox = await createCliSandbox();
 
@@ -54,7 +73,7 @@ describe("skills config get CLI", () => {
                 "skills",
                 "config",
                 "get",
-                "oo",
+                "oo-find-skills",
                 "missing",
             ]);
 

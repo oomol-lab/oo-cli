@@ -1,7 +1,7 @@
 import type { AppSettings } from "../../schemas/settings.ts";
 
 import type { BundledSkillName } from "./embedded-assets.ts";
-import { getOoSkillImplicitInvocation } from "../../schemas/settings.ts";
+import { getSkillImplicitInvocation } from "../../schemas/settings.ts";
 import { bundledSkillOwnershipFileRelativePath } from "./bundled-skill-paths.ts";
 import { parseSkillMetadataWithVersion } from "./skill-metadata.ts";
 
@@ -60,10 +60,7 @@ export function resolveBundledSkillImplicitInvocation(
     skillName: BundledSkillName,
     settings: AppSettings,
 ): boolean {
-    switch (skillName) {
-        case "oo":
-            return getOoSkillImplicitInvocation(settings);
-    }
+    return getSkillImplicitInvocation(settings, skillName);
 }
 
 export function renderBundledSkillFileContent(
