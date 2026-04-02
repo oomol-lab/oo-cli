@@ -1,4 +1,7 @@
-import type { BundledSkillName } from "../embedded-assets.ts";
+import type {
+    BundledSkillAgentName,
+    BundledSkillName,
+} from "../embedded-assets.ts";
 import {
     getBundledSkillFiles,
 } from "../embedded-assets.ts";
@@ -6,11 +9,16 @@ import {
 export function getBundledSkillSourcePath(
     skillName: BundledSkillName,
     relativePath: string,
+    agentName: BundledSkillAgentName = "codex",
 ): string {
-    const file = getBundledSkillFiles(skillName).find(file => file.relativePath === relativePath);
+    const file = getBundledSkillFiles(skillName, agentName).find(file =>
+        file.relativePath === relativePath,
+    );
 
     if (file === undefined) {
-        throw new Error(`Missing bundled skill file: ${skillName}/${relativePath}`);
+        throw new Error(
+            `Missing bundled skill file: ${agentName}/${skillName}/${relativePath}`,
+        );
     }
 
     return file.sourcePath;

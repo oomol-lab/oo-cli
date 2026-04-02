@@ -29,13 +29,17 @@ oo login
 $oo 帮我生成 OOMOL 字符串的二维码
 ```
 
-## Codex Skill
+## 内置 Skill
 
-首次打开 `oo` 之后，Codex 中会生成内置的 `oo` skill，位置在
-`${CODEX_HOME:-~/.codex}/skills/oo`；同时还会生成 `oo-find-skills`
-辅助 skill，位置在 `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`。
+首次打开 `oo` 之后，只要本地已存在受支持的宿主目录，就会自动安装内置
+skills：
 
-然后你就可以在 Codex 中这样使用：
+- Codex：`${CODEX_HOME:-~/.codex}/skills/oo` 和
+  `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`
+- Claude Code：`~/.claude/skills/oo` 和
+  `~/.claude/skills/oo-find-skills`
+
+之后你就可以在 Codex 或 Claude Code 中使用它们。比如在 Codex 中：
 
 ```text
 $oo 帮我生成 OOMOL 字符串的二维码

@@ -31,13 +31,16 @@ oo login
 $oo generate a QR code for the string OOMOL
 ```
 
-## Codex Skills
+## Bundled Skills
 
-On the first `oo` launch, Codex will get the bundled `oo` skill under
-`${CODEX_HOME:-~/.codex}/skills/oo` and the bundled `oo-find-skills` helper
-under `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`.
+On the first `oo` launch, bundled skills are installed automatically into each
+supported local host that already exists:
 
-Then you can use it in Codex, for example:
+- Codex: `${CODEX_HOME:-~/.codex}/skills/oo` and
+  `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`
+- Claude Code: `~/.claude/skills/oo` and `~/.claude/skills/oo-find-skills`
+
+Then you can use them in Codex or Claude Code. For example, in Codex:
 
 ```text
 $oo generate a QR code for the string OOMOL

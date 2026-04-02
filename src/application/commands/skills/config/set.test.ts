@@ -34,7 +34,7 @@ describe("skills config set command", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                "Set Codex skill oo allow-implicit-invocation to false.\n",
+                "Set skill oo allow-implicit-invocation to false.\n",
             );
             expect(await readFile(storePaths.settingsFilePath, "utf8")).toContain(
                 "[skills.oo]",

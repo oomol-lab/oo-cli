@@ -104,7 +104,7 @@ describe("runCli bootstrap", () => {
 
             expect(exitCode).toBe(0);
             expect(stderr.read()).toBe("");
-            expect(plainOutput).toContain("Installed Codex skill writer");
+            expect(plainOutput).toContain("Installed skill writer");
         }
         finally {
             process.cwd = originalCwd;

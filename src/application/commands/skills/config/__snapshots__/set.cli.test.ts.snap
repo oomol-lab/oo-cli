@@ -5,7 +5,7 @@ exports[`skills config set CLI supports skills config set for the oo skill impli
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"Set Codex skill oo allow-implicit-invocation to false.
+"Set skill oo allow-implicit-invocation to false.
 "
 ,
 }
@@ -16,7 +16,7 @@ exports[`skills config set CLI supports skills config set for the oo-find-skills
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"Set Codex skill oo-find-skills allow-implicit-invocation to false.
+"Set skill oo-find-skills allow-implicit-invocation to false.
 "
 ,
 }

@@ -126,14 +126,14 @@ export const enMessages = {
     "commands.skills.list.summary":
         "List oo-managed Codex skills",
     "commands.skills.install.description":
-        "Install bundled or published Codex skills into the local Codex skills directory.",
-    "commands.skills.install.summary": "Install Codex skills",
+        "Install bundled skills into supported local skill directories, or install published skills into the local Codex skills directory.",
+    "commands.skills.install.summary": "Install skills",
     "commands.skills.update.description":
         "Update installed oo-managed Codex skills to the latest available version.",
     "commands.skills.update.summary": "Update oo-managed Codex skills",
     "commands.skills.uninstall.description":
-        "Remove one oo-managed Codex skill from the local Codex skills directory.",
-    "commands.skills.uninstall.summary": "Remove an oo-managed Codex skill",
+        "Remove bundled skills from supported local skill directories, or remove one oo-managed published skill from the local Codex skills directory.",
+    "commands.skills.uninstall.summary": "Remove a managed skill",
     "config.set.success": "Set {key} to {value}.",
     "config.unset.success": "Removed {key}.",
     "errors.commander.excessArguments": "Too many arguments were provided.",
@@ -286,6 +286,10 @@ export const enMessages = {
         "The package info request returned HTTP {status}.",
     "errors.skills.codexNotInstalled":
         "Codex is not installed. Expected the Codex home directory at {path}.",
+    "errors.skills.claudeNotInstalled":
+        "Claude Code is not installed. Expected the Claude home directory at {path}.",
+    "errors.skills.noSupportedBundledSkillHosts":
+        "No supported bundled skill host is installed. Expected one of: {paths}.",
     "errors.skills.install.confirmationRequired":
         "Skill {name} already exists and requires interactive confirmation.",
     "errors.skills.install.invalidArchive":
@@ -307,15 +311,15 @@ export const enMessages = {
     "errors.skills.install.skillNotFound":
         "Skill {name} was not found in package {packageName}.",
     "errors.skills.update.bundledUnsupported":
-        "Codex skill {name} is synchronized automatically and cannot be updated with skills update.",
+        "Bundled skill {name} is synchronized automatically and cannot be updated with skills update.",
     "errors.skills.update.packageNameMissing":
         "Managed skill {name} cannot be updated because its package metadata is missing.",
     "errors.skills.nameConflict":
-        "Skill name {name} is already used by a non-OOMOL Codex skill at {path}.",
+        "Skill name {name} is already used by a non-OOMOL skill at {path}.",
     "errors.skills.storageConflict":
         "Bundled skill storage for {name} is already occupied by non-OOMOL content at {path}.",
     "errors.skills.notInstalled":
-        "Codex skill {name} is not installed at {path}.",
+        "Skill {name} is not installed at {path}.",
     "errors.skills.notManaged":
         "{name} is not managed by oo and cannot be removed.",
     "errors.store.invalidToml":
@@ -384,7 +388,7 @@ export const enMessages = {
     "skills.install.allSelected":
         "Installing all {count} skills.",
     "skills.config.set.success":
-        "Set Codex skill {name} {key} to {value}.",
+        "Set skill {name} {key} to {value}.",
     "skills.list.noResults":
         "No oo-managed skills were found.",
     "skills.list.source": "Source",
@@ -394,7 +398,7 @@ export const enMessages = {
     "labels.blocks": "Blocks:",
     "labels.status": "Status",
     "labels.version": "Version",
-    "skills.install.success": "Installed Codex skill {name} to {path}.",
+    "skills.install.success": "Installed skill {name} to {path}.",
     "skills.install.overwrite.invalid":
         "Invalid choice. Enter y/yes or n/no.",
     "skills.install.overwrite.prompt":
@@ -413,7 +417,7 @@ export const enMessages = {
         "Removed",
     "skills.install.progress.removing.failed":
         "Removing deselected skills failed",
-    "skills.install.skipped": "Skipped Codex skill {name}.",
+    "skills.install.skipped": "Skipped skill {name}.",
     "skills.install.status.conflict": "conflict",
     "skills.install.singleSelected":
         "Skill: {name}",
@@ -431,7 +435,7 @@ export const enMessages = {
     "skills.update.progress.updated": "updated",
     "skills.update.progress.failed": "failed",
     "skills.update.success": "Updated Codex skill {name} to {path}.",
-    "skills.uninstall.success": "Removed Codex skill {name} from {path}.",
+    "skills.uninstall.success": "Removed skill {name} from {path}.",
     "versionInfo.buildTime": "Build Time",
     "versionInfo.commit": "Commit",
     "versionInfo.unknown": "unknown",
@@ -603,13 +607,13 @@ export const zhMessages = {
     "commands.skills.list.summary":
         "列出由 oo 管理的 Codex skill",
     "commands.skills.install.description":
-        "将内置或已发布的 Codex skill 安装到本地 Codex skills 目录。",
-    "commands.skills.install.summary": "安装 Codex skills",
+        "将内置 skill 安装到受支持的本地 skill 目录，或将已发布 skill 安装到本地 Codex skills 目录。",
+    "commands.skills.install.summary": "安装 skill",
     "commands.skills.update.description":
         "将已安装且由 oo 管理的 Codex skill 更新到最新可用版本。",
     "commands.skills.update.summary": "更新由 oo 管理的 Codex skill",
-    "commands.skills.uninstall.description": "从本地 Codex skills 目录移除一个由 oo 管理的 Codex skill。",
-    "commands.skills.uninstall.summary": "移除一个由 oo 管理的 Codex skill",
+    "commands.skills.uninstall.description": "从受支持的本地 skill 目录移除内置 skill，或从本地 Codex skills 目录移除一个由 oo 管理的已发布 skill。",
+    "commands.skills.uninstall.summary": "移除一个受管理的 skill",
     "config.set.success": "已将 {key} 设置为 {value}。",
     "config.unset.success": "已移除 {key}。",
     "errors.commander.excessArguments": "提供了过多的参数。",
@@ -755,6 +759,10 @@ export const zhMessages = {
         "包信息请求返回了 HTTP {status}。",
     "errors.skills.codexNotInstalled":
         "未检测到 Codex 安装。期望的 Codex 根目录为 {path}。",
+    "errors.skills.claudeNotInstalled":
+        "未检测到 Claude Code 安装。期望的 Claude 根目录为 {path}。",
+    "errors.skills.noSupportedBundledSkillHosts":
+        "未检测到已安装的受支持内置 skill 宿主。期望其中之一位于：{paths}。",
     "errors.skills.install.confirmationRequired":
         "Skill {name} 已存在，且需要在交互终端中确认覆盖。",
     "errors.skills.install.invalidArchive":
@@ -776,15 +784,15 @@ export const zhMessages = {
     "errors.skills.install.skillNotFound":
         "在包 {packageName} 中未找到 skill {name}。",
     "errors.skills.update.bundledUnsupported":
-        "Codex skill {name} 会自动同步，不能通过 skills update 更新。",
+        "内置 skill {name} 会自动同步，不能通过 skills update 更新。",
     "errors.skills.update.packageNameMissing":
         "由 oo 管理的 skill {name} 缺少 package 元数据，无法更新。",
     "errors.skills.nameConflict":
-        "Skill 名称 {name} 已被 {path} 中的非 OOMOL Codex skill 占用。",
+        "Skill 名称 {name} 已被 {path} 中的非 OOMOL skill 占用。",
     "errors.skills.storageConflict":
         "{path} 中用于 {name} 的内置 skill 存储目录已被非 OOMOL 内容占用。",
     "errors.skills.notInstalled":
-        "Codex skill {name} 未安装在 {path}。",
+        "Skill {name} 未安装在 {path}。",
     "errors.skills.notManaged":
         "{name} 不是由 oo 管理的 skill，无法移除。",
     "errors.store.invalidToml": "配置文件 {path} 不是有效的 TOML。",
@@ -847,7 +855,7 @@ export const zhMessages = {
     "skills.install.allSelected":
         "将安装全部 {count} 个 skill。",
     "skills.config.set.success":
-        "已将 Codex skill {name} 的 {key} 设置为 {value}。",
+        "已将 skill {name} 的 {key} 设置为 {value}。",
     "skills.list.noResults":
         "未找到由 oo 管理的 skill。",
     "skills.list.source": "来源",
@@ -857,7 +865,7 @@ export const zhMessages = {
     "labels.blocks": "功能块：",
     "labels.status": "状态",
     "labels.version": "版本",
-    "skills.install.success": "已将 Codex skill {name} 安装到 {path}。",
+    "skills.install.success": "已将 skill {name} 安装到 {path}。",
     "skills.install.overwrite.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
     "skills.install.overwrite.prompt":
@@ -876,7 +884,7 @@ export const zhMessages = {
         "已移除",
     "skills.install.progress.removing.failed":
         "移除未选择的 skill 失败",
-    "skills.install.skipped": "已跳过 Codex skill {name}。",
+    "skills.install.skipped": "已跳过 skill {name}。",
     "skills.install.status.conflict": "冲突",
     "skills.install.singleSelected":
         "Skill：{name}",
@@ -894,7 +902,7 @@ export const zhMessages = {
     "skills.update.progress.updated": "已更新",
     "skills.update.progress.failed": "失败",
     "skills.update.success": "已将 Codex skill {name} 更新到 {path}。",
-    "skills.uninstall.success": "已从 {path} 移除 Codex skill {name}。",
+    "skills.uninstall.success": "已从 {path} 移除 skill {name}。",
     "versionInfo.buildTime": "构建时间",
     "versionInfo.commit": "提交",
     "versionInfo.unknown": "未知",

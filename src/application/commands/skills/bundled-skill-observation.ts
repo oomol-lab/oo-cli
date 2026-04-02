@@ -1,5 +1,5 @@
 import type { BundledSkillMetadata } from "./bundled-skill-model.ts";
-import type { BundledSkillName } from "./embedded-assets.ts";
+import type { BundledSkillAgentName, BundledSkillName } from "./embedded-assets.ts";
 
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -11,25 +11,41 @@ import {
     readImplicitInvocationValue,
 } from "./bundled-skill-model.ts";
 import {
-    bundledSkillOwnershipFileRelativePath,
+    resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
-    resolveCodexHomeDirectory,
+    resolveBundledSkillOwnershipFileRelativePath,
 } from "./bundled-skill-paths.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
+export async function requireBundledSkillHomeDirectory(
+    context: Pick<{ env: Record<string, string | undefined> }, "env">,
+    agentName: BundledSkillAgentName,
+): Promise<string> {
+    const homeDirectory = resolveBundledSkillHomeDirectory(
+        context.env,
+        agentName,
+    );
+
+    if (!(await directoryExists(homeDirectory))) {
+        throw new CliUserError(
+            agentName === "claude"
+                ? "errors.skills.claudeNotInstalled"
+                : "errors.skills.codexNotInstalled",
+            1,
+            {
+                path: homeDirectory,
+            },
+        );
+    }
+
+    return homeDirectory;
+}
+
 export async function requireCodexHomeDirectory(
     context: Pick<{ env: Record<string, string | undefined> }, "env">,
 ): Promise<string> {
-    const codexHomeDirectory = resolveCodexHomeDirectory(context.env);
-
-    if (!(await directoryExists(codexHomeDirectory))) {
-        throw new CliUserError("errors.skills.codexNotInstalled", 1, {
-            path: codexHomeDirectory,
-        });
-    }
-
-    return codexHomeDirectory;
+    return requireBundledSkillHomeDirectory(context, "codex");
 }
 
 export async function directoryExists(path: string): Promise<boolean> {
@@ -60,10 +76,19 @@ export async function fileExists(path: string): Promise<boolean> {
 
 export async function readInstalledBundledSkillImplicitInvocation(
     skillDirectoryPath: string,
+    agentName: BundledSkillAgentName = "codex",
 ): Promise<boolean | undefined> {
+    const ownershipFileRelativePath = resolveBundledSkillOwnershipFileRelativePath(
+        agentName,
+    );
+
+    if (ownershipFileRelativePath === undefined) {
+        return undefined;
+    }
+
     try {
         const content = await readFile(
-            join(skillDirectoryPath, bundledSkillOwnershipFileRelativePath),
+            join(skillDirectoryPath, ownershipFileRelativePath),
             "utf8",
         );
 
@@ -126,6 +151,7 @@ export async function isBundledSkillInstallationCurrent(
     skillName: BundledSkillName,
     skillDirectoryPath: string,
     version: string,
+    agentName: BundledSkillAgentName = "codex",
 ): Promise<boolean> {
     const metadata = await readInstalledBundledSkillMetadata(skillDirectoryPath);
 
@@ -134,6 +160,7 @@ export async function isBundledSkillInstallationCurrent(
         skillDirectoryPath,
         metadata,
         version,
+        agentName,
     );
 }
 
@@ -142,6 +169,7 @@ export async function isBundledSkillInstallationCurrentFromMetadata(
     skillDirectoryPath: string,
     metadata: BundledSkillMetadata | undefined,
     version: string,
+    agentName: BundledSkillAgentName = "codex",
 ): Promise<boolean> {
     const managedInstallation = metadata !== undefined;
     const installedVersion = metadata?.version;
@@ -150,7 +178,7 @@ export async function isBundledSkillInstallationCurrentFromMetadata(
     if (installedVersion === version) {
         hasAllBundledFiles = true;
 
-        for (const file of getBundledSkillFiles(skillName)) {
+        for (const file of getBundledSkillFiles(skillName, agentName)) {
             if (!(await fileExists(join(skillDirectoryPath, file.relativePath)))) {
                 hasAllBundledFiles = false;
                 break;

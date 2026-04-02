@@ -13,6 +13,7 @@ import {
     readInstalledBundledSkillImplicitInvocation,
     readInstalledBundledSkillMetadata,
     readInstalledBundledSkillVersion,
+    requireBundledSkillHomeDirectory,
     requireCodexHomeDirectory,
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
@@ -231,6 +232,52 @@ describe("bundled skill observation", () => {
         }
     });
 
+    test("evaluates current Claude installations without an ownership file", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const skillDirectoryPath = join(rootDirectory, "skills", "oo");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
+                version: "1.2.3",
+            });
+
+            expect(
+                await isBundledSkillInstallationCurrent(
+                    "oo",
+                    skillDirectoryPath,
+                    "1.2.3",
+                    "claude",
+                ),
+            ).toBeFalse();
+
+            for (const file of getBundledSkillFiles("oo", "claude")) {
+                const filePath = join(skillDirectoryPath, file.relativePath);
+
+                await mkdir(join(filePath, ".."), { recursive: true });
+                await Bun.write(filePath, await Bun.file(file.sourcePath).text());
+            }
+
+            expect(
+                await isBundledSkillInstallationCurrent(
+                    "oo",
+                    skillDirectoryPath,
+                    "1.2.3",
+                    "claude",
+                ),
+            ).toBeTrue();
+            expect(
+                await readInstalledBundledSkillImplicitInvocation(
+                    skillDirectoryPath,
+                    "claude",
+                ),
+            ).toBeUndefined();
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
     test("requires the resolved Codex home directory to exist", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
         const codexHomeDirectory = join(rootDirectory, ".codex");
@@ -249,6 +296,32 @@ describe("bundled skill observation", () => {
 
             expect(await requireCodexHomeDirectory({ env })).toBe(codexHomeDirectory);
             expect((await stat(codexHomeDirectory)).isDirectory()).toBeTrue();
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("requires the resolved Claude home directory to exist", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const claudeHomeDirectory = join(rootDirectory, ".claude");
+        const env = {
+            HOME: rootDirectory,
+        };
+
+        try {
+            await expect(
+                requireBundledSkillHomeDirectory({ env }, "claude"),
+            ).rejects.toMatchObject({
+                exitCode: 1,
+                key: "errors.skills.claudeNotInstalled",
+            });
+
+            await mkdir(claudeHomeDirectory, { recursive: true });
+
+            expect(await requireBundledSkillHomeDirectory({ env }, "claude")).toBe(
+                claudeHomeDirectory,
+            );
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });

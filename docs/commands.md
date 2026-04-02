@@ -183,8 +183,8 @@ Persist one skill configuration value.
 
 ### `oo skills install [packageName]`
 
-Install bundled or published Codex skills into the local Codex skills
-directory.
+Install bundled skills into supported local skill directories, or install
+published skills into the local Codex skills directory.
 
 - Alias: `oo skills add [packageName]`.
 - Arguments: `[packageName]` is optional.
@@ -208,12 +208,17 @@ directory.
 - Notes: in the interactive picker, skills already installed from the same
   package start selected. Clearing such a selection removes that installed
   skill when the command completes.
-- Canonical directory: bundled skills are materialized to
+- Canonical directory: bundled Codex skills are materialized to
   `<config-dir>/skills/<skill-id>`, where `<config-dir>` is the directory that
   contains `settings.toml`.
+- Canonical directory: bundled Claude Code skills are materialized to
+  `<config-dir>/claude-skills/<skill-id>`.
 - Canonical directory: published skills are materialized to
   `<config-dir>/skills/<skill-id>`.
-- Target directory: every installed skill is published to
+- Target directory: bundled skills are published to each existing supported
+  host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill-id>` and
+  `~/.claude/skills/<skill-id>`.
+- Target directory: published skills are published to
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
@@ -226,9 +231,10 @@ directory.
 - Metadata: published skills write a hidden `.oo-metadata.json` file whose
   `version` field matches the package version and whose `packageName` field
   records the source package.
-- Metadata: `agents/openai.yaml` in bundled `oo` and `oo-find-skills` uses
-  the persisted skill-specific `implicit_invocation` value when configured;
-  otherwise the bundled default is used.
+- Metadata: the Codex copy of bundled `oo` and `oo-find-skills` writes
+  `agents/openai.yaml` using the persisted skill-specific
+  `implicit_invocation` value when configured; otherwise the bundled default is
+  used.
 - Notes: all registry requests for published skills send the active account's
   `Authorization` header.
 - Notes: when a package publishes multiple skills and the command runs outside
@@ -238,15 +244,15 @@ directory.
   overwriting it in an interactive terminal.
 - Notes: in the interactive picker, conflicting skills are marked in the list;
   selecting one means it will be overwritten.
-- Notes: the command exits with an error when the Codex home directory does
-  not exist, which indicates Codex is not installed on the current machine.
+- Notes: the command exits with an error when neither a supported Codex nor
+  Claude Code home directory exists.
 - Notes: an existing bundled skill installation is considered managed by `oo`
   only when its `.oo-metadata.json` file can be parsed and contains a
   non-empty `version`. Otherwise `oo` treats it as a different skill and will
   not overwrite it.
 - Notes: on the first `oo` run, when there is no existing config, auth, or log
   data yet, `oo` silently installs missing bundled managed skills
-  automatically if the Codex home directory already exists.
+  automatically into every supported host whose home directory already exists.
 - Notes: when a bundled skill is already installed, every `oo` startup checks
   whether the recorded metadata `version` matches the current CLI version and
   silently refreshes the installed files when needed.
@@ -274,16 +280,22 @@ Update installed oo-managed Codex skills.
 
 ### `oo skills uninstall [skill]`
 
-Remove one oo-managed skill from the local Codex skills directory.
+Remove bundled skills from supported local skill directories, or remove one
+oo-managed published skill from the local Codex skills directory.
 
 - Alias: `oo skills remove [skill]`.
 - Arguments: when `[skill]` is omitted, the command removes all bundled skills.
-- Ownership rule: the target skill is removable only when
-  `${CODEX_HOME:-~/.codex}/skills/<skill>` has a `.oo-metadata.json` file that
-  can be parsed and contains a non-empty `version`.
-- Canonical directory removed: `<config-dir>/skills/<skill>`, where
-  `<config-dir>` is the directory that contains `settings.toml`.
-- Target directory removed: `${CODEX_HOME:-~/.codex}/skills/<skill>`.
+- Ownership rule: a bundled skill is removable from a supported host only when
+  that host's installed directory has a `.oo-metadata.json` file that can be
+  parsed and contains a non-empty `version`.
+- Canonical directory removed: bundled Codex skills remove
+  `<config-dir>/skills/<skill>`, bundled Claude Code skills remove
+  `<config-dir>/claude-skills/<skill>`, and published skills remove
+  `<config-dir>/skills/<skill>`.
+- Target directory removed: bundled skills are removed from every existing
+  supported host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill>`
+  and `~/.claude/skills/<skill>`. Published skills are removed from
+  `${CODEX_HOME:-~/.codex}/skills/<skill>`.
 - Path rule: `[skill]` must resolve to child directories under those local
   `skills` roots. Names that escape those roots are rejected.
 - Notes: when the target directory is missing, or its `.oo-metadata.json` file

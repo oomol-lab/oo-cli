@@ -165,7 +165,8 @@
 
 ### `oo skills install [packageName]`
 
-将内置或已发布的 Codex skill 安装到本地 Codex skills 目录。
+将内置 skill 安装到受支持的本地 skill 目录，或将已发布 skill 安装到本地
+Codex skills 目录。
 
 - 别名：`oo skills add [packageName]`。
 - 参数：`[packageName]` 可选。
@@ -186,10 +187,15 @@
   `-y`，命令会在 TTY 中打开交互选择页面。
 - 说明：在交互选择页面中，同一 package 下已安装的 skill 会默认保持勾选；
   如果用户取消这些勾选，命令完成时会移除对应已安装 skill。
-- canonical 目录：内置 skill 会先释放到 `<config-dir>/skills/<skill-id>`，
+- canonical 目录：内置 Codex skill 会先释放到 `<config-dir>/skills/<skill-id>`，
   其中 `<config-dir>` 是 `settings.toml` 所在目录。
+- canonical 目录：内置 Claude Code skill 会先释放到
+  `<config-dir>/claude-skills/<skill-id>`。
 - canonical 目录：已发布 skill 会先释放到 `<config-dir>/skills/<skill-id>`。
-- 目标目录：所有已安装 skill 都会发布到
+- 目标目录：内置 skill 会发布到所有已存在的受支持宿主目录，目前包括
+  `${CODEX_HOME:-~/.codex}/skills/<skill-id>` 和
+  `~/.claude/skills/<skill-id>`。
+- 目标目录：已发布 skill 会发布到
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`。
 - 安装方式：`oo` 会优先将目标目录发布为指向 canonical 目录的软连接。
   如果当前平台或环境下创建软连接失败，则会回退为把 canonical 目录内容复制
@@ -199,9 +205,9 @@
 - 元数据：已发布 skill 也会写入一个隐藏的 `.oo-metadata.json` 文件，
   其中 `version` 字段记录 package 版本，`packageName` 字段记录来源
   package。
-- 元数据：当存在持久化的 `implicit_invocation` 配置时，bundled `oo`
-  和 `oo-find-skills` 的 `agents/openai.yaml` 都会使用各自的配置值；
-  否则使用内置默认值。
+- 元数据：当存在持久化的 `implicit_invocation` 配置时，内置 `oo`
+  和 `oo-find-skills` 的 Codex 副本会在 `agents/openai.yaml` 中使用各自的
+  配置值；否则使用内置默认值。
 - 说明：安装已发布 skill 时，所有 registry 请求都会携带当前激活账号的
   `Authorization` header。
 - 说明：如果 package 下有多个 skill，且当前不是交互终端，则必须提供
@@ -210,14 +216,14 @@
   端中要求用户输入 `yes` 或 `no` 决定是否覆盖。
 - 说明：在交互选择页面中，存在重名冲突的 skill 会在列表中显示状态标记；
   只要用户仍然选择该项，就会执行覆盖。
-- 说明：当 Codex 根目录不存在时，命令会直接报错退出，这表示当前机器上没有
-  安装 Codex。
+- 说明：当 Codex 和 Claude Code 的受支持根目录都不存在时，命令会直接报错
+  退出。
 - 说明：只有当 bundled skill 的 `.oo-metadata.json` 可以被解析，且其中包
   含非空的 `version` 时，`oo` 才会认为这是自己管理的内置 skill；否则会视
   为其他 skill，并拒绝覆盖。
 - 说明：如果这是 `oo` 的首次运行，且当前还没有已有的 config、auth、log
-  数据，那么只要 Codex 根目录已经存在，`oo` 就会静默自动安装缺失的
-  bundled 受管 skills。
+  数据，那么只要受支持宿主的根目录已经存在，`oo` 就会在这些宿主中静默自
+  动安装缺失的 bundled 受管 skills。
 - 说明：如果某个 bundled skill 已经安装，`oo` 每次启动都会检查其记录版本
   是否与当前 CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。
   不一致时会静默刷新已安装的文件。
@@ -240,16 +246,21 @@
 
 ### `oo skills uninstall [skill]`
 
-从本地 Codex skills 目录移除一个由 oo 管理的 skill。
+从受支持的本地 skill 目录移除内置 skill，或从本地 Codex skills 目录移除
+一个由 oo 管理的已发布 skill。
 
 - 别名：`oo skills remove [skill]`。
 - 参数：省略 `[skill]` 时，命令会移除全部内置 skill。
-- 所有权规则：只有当
-  `${CODEX_HOME:-~/.codex}/skills/<skill>` 中的 `.oo-metadata.json` 可
-  以被解析，且其中包含非空 `version` 时，才允许移除该 skill。
-- 会同时移除 canonical 目录：`<config-dir>/skills/<skill>`，其中
-  `<config-dir>` 是 `settings.toml` 所在目录。
-- 会同时移除目标目录：`${CODEX_HOME:-~/.codex}/skills/<skill>`。
+- 所有权规则：对内置 skill 来说，只有当某个受支持宿主中的安装目录包含可解
+  析且带有非空 `version` 的 `.oo-metadata.json` 时，才允许从该宿主移除。
+- 会同时移除 canonical 目录：内置 Codex skill 会移除
+  `<config-dir>/skills/<skill>`，内置 Claude Code skill 会移除
+  `<config-dir>/claude-skills/<skill>`，已发布 skill 会移除
+  `<config-dir>/skills/<skill>`。
+- 会同时移除目标目录：内置 skill 会从所有已存在的受支持宿主目录中移除，目
+  前包括 `${CODEX_HOME:-~/.codex}/skills/<skill>` 和
+  `~/.claude/skills/<skill>`；已发布 skill 会从
+  `${CODEX_HOME:-~/.codex}/skills/<skill>` 中移除。
 - 路径规则：`[skill]` 解析后必须仍然落在这些本地 `skills` 根目录的子目录中。
   任何会逃出这些根目录的名称都会被拒绝。
 - 说明：如果目标目录不存在，或者其 `.oo-metadata.json` 缺失或无效，

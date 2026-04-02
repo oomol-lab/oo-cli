@@ -13,6 +13,7 @@ import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
 import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
+    resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
@@ -50,7 +51,7 @@ describe("skills CLI", () => {
         }
     });
 
-    test("silently installs the managed Codex skill on the first run", async () => {
+    test("silently installs the managed bundled skill on the first run", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -78,7 +79,7 @@ describe("skills CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
-            expect(result.stdout).not.toContain("Installed Codex skill");
+            expect(result.stdout).not.toContain("Installed skill");
             expect(await realpath(skillDirectoryPath)).toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
@@ -109,7 +110,7 @@ describe("skills CLI", () => {
             expect(content).toContain(`"isFirstRun":true`);
             expect(content).toContain(`"shouldInstallMissingBundledSkills":true`);
             expect(content).toContain(
-                `"msg":"Bundled Codex skill installed during first-run bootstrap."`,
+                `"msg":"Bundled skill installed during first-run bootstrap."`,
             );
             expect(content).toContain(`"skillName":"oo-find-skills"`);
         }
@@ -118,7 +119,7 @@ describe("skills CLI", () => {
         }
     });
 
-    test("does not auto-install the managed Codex skill during local development runs", async () => {
+    test("does not auto-install the managed bundled skill during local development runs", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -130,7 +131,7 @@ describe("skills CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
-            expect(result.stdout).not.toContain("Installed Codex skill");
+            expect(result.stdout).not.toContain("Installed skill");
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
@@ -138,7 +139,7 @@ describe("skills CLI", () => {
             expect(content).toContain(`"shouldSynchronizeBundledSkills":false`);
             expect(content).toContain(`"shouldInstallMissingBundledSkills":false`);
             expect(content).not.toContain(
-                `"msg":"Bundled Codex skill installed during first-run bootstrap."`,
+                `"msg":"Bundled skill installed during first-run bootstrap."`,
             );
         }
         finally {
@@ -146,7 +147,7 @@ describe("skills CLI", () => {
         }
     });
 
-    test("does not auto-install the managed Codex skill for skills subcommands", async () => {
+    test("does not auto-install the managed bundled skill for skills subcommands", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -184,8 +185,8 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    `Removed Codex skill oo from ${ooSkillDirectoryPath}.`,
-                    `Removed Codex skill oo-find-skills from ${findSkillsDirectoryPath}.`,
+                    `Removed skill oo from ${ooSkillDirectoryPath}.`,
+                    `Removed skill oo-find-skills from ${findSkillsDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -212,8 +213,8 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    `Installed Codex skill oo to ${ooSkillDirectoryPath}.`,
-                    `Installed Codex skill oo-find-skills to ${findSkillsDirectoryPath}.`,
+                    `Installed skill oo to ${ooSkillDirectoryPath}.`,
+                    `Installed skill oo-find-skills to ${findSkillsDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -224,7 +225,7 @@ describe("skills CLI", () => {
         }
     });
 
-    test("synchronizes the managed Codex skill policy from persisted settings", async () => {
+    test("synchronizes the managed bundled skill policy from persisted settings", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -271,6 +272,47 @@ describe("skills CLI", () => {
         }
     });
 
+    test("silently installs bundled skills into Claude Code on the first run when the Claude home exists", async () => {
+        const sandbox = await createCliSandbox();
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(claudeHomeDirectory, "skills", "oo");
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
+            "oo",
+            "claude",
+        );
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+
+        try {
+            await mkdir(claudeHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["--help"], {
+                version: "9.9.9",
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({ version: "9.9.9" }),
+            );
+            await expect(
+                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
+            ).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            expect(content).toContain(
+                `"msg":"Bundled skill installed during first-run bootstrap."`,
+            );
+            expect(content).toContain(`"agentName":"claude"`);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("writes explicit skills install and uninstall logs", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -294,7 +336,7 @@ describe("skills CLI", () => {
                 uninstallResult: createCliSnapshot(uninstallResult, { sandbox }),
             }).toMatchSnapshot();
             expect(installContent).toContain(
-                `"msg":"Bundled Codex skill installed explicitly."`,
+                `"msg":"Bundled skill installed explicitly."`,
             );
             expect(installContent).toContain(`"skillName":"oo"`);
             expect(installContent).toContain(`"skillName":"oo-find-skills"`);
@@ -303,7 +345,7 @@ describe("skills CLI", () => {
             expect(installContent).toContain(`"version":"9.9.9"`);
 
             expect(uninstallContent).toContain(
-                `"msg":"Bundled Codex skill removed explicitly."`,
+                `"msg":"Bundled skill removed explicitly."`,
             );
             expect(uninstallContent).toContain(`"skillName":"oo"`);
             expect(uninstallContent).toContain(`"path":${serializedOoSkillDirectoryPath}`);

@@ -76,7 +76,7 @@ describe("skills update command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Codex skill oo is synchronized automatically and cannot be updated with skills update.\n",
+                "Bundled skill oo is synchronized automatically and cannot be updated with skills update.\n",
             );
         }
         finally {
@@ -96,7 +96,7 @@ describe("skills update command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Codex skill oo-find-skills is synchronized automatically and cannot be updated with skills update.\n",
+                "Bundled skill oo-find-skills is synchronized automatically and cannot be updated with skills update.\n",
             );
         }
         finally {
