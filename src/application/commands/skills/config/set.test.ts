@@ -6,11 +6,11 @@ import { describe, expect, test } from "bun:test";
 import { createCliSandbox } from "../../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../../config/app-config.ts";
+import { getBundledSkillSourcePath } from "../__tests__/helpers.ts";
 import {
     resolveBundledSkillMetadataFilePath,
     resolveCodexHomeDirectory,
 } from "../bundled-skill-paths.ts";
-import { getBundledSkillFiles } from "../embedded-assets.ts";
 import { renderSkillMetadataJson } from "../skill-metadata.ts";
 
 describe("skills config set command", () => {
@@ -66,7 +66,7 @@ describe("skills config set command", () => {
             await Bun.write(
                 ownershipFilePath,
                 await Bun.file(
-                    getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+                    getBundledSkillSourcePath("oo", "agents/openai.yaml"),
                 ).text(),
             );
 
@@ -108,7 +108,7 @@ describe("skills config set command", () => {
             await Bun.write(
                 ownershipFilePath,
                 await Bun.file(
-                    getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+                    getBundledSkillSourcePath("oo", "agents/openai.yaml"),
                 ).text(),
             );
 
@@ -157,7 +157,7 @@ describe("skills config set command", () => {
             await Bun.write(
                 ownershipFilePath,
                 await Bun.file(
-                    getBundledSkillFiles("oo-find-skills").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+                    getBundledSkillSourcePath("oo-find-skills", "agents/openai.yaml"),
                 ).text(),
             );
 

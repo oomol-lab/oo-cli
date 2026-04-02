@@ -9,6 +9,7 @@ import {
     readLatestLogContent,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
 import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
@@ -244,7 +245,7 @@ describe("skills CLI", () => {
             await Bun.write(
                 ownershipFilePath,
                 await Bun.file(
-                    join(process.cwd(), "contrib", "skills", "oo", "agents", "openai.yaml"),
+                    getBundledSkillSourcePath("oo", "agents/openai.yaml"),
                 ).text(),
             );
             await Bun.write(
