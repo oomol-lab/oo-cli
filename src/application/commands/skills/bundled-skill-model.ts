@@ -1,8 +1,11 @@
 import type { AppSettings } from "../../schemas/settings.ts";
 
-import type { BundledSkillName } from "./embedded-assets.ts";
+import type {
+    BundledSkillAgentName,
+    BundledSkillName,
+} from "./embedded-assets.ts";
 import { getSkillImplicitInvocation } from "../../schemas/settings.ts";
-import { bundledSkillOwnershipFileRelativePath } from "./bundled-skill-paths.ts";
+import { resolveBundledSkillOwnershipFileRelativePath } from "./bundled-skill-paths.ts";
 import { parseSkillMetadataWithVersion } from "./skill-metadata.ts";
 
 const bundledSkillImplicitInvocationKey = "allow_implicit_invocation";
@@ -34,12 +37,16 @@ export function resolveBundledSkillInstallConflict(input: {
 }
 
 export function resolveBundledSkillManagedSynchronizationAction(input: {
-    desiredImplicitInvocation: boolean;
+    desiredImplicitInvocation: boolean | undefined;
     installedImplicitInvocation: boolean | undefined;
     isCurrentInstallation: boolean;
 }): BundledSkillManagedSynchronizationAction {
     if (!input.isCurrentInstallation) {
         return "sync-installation";
+    }
+
+    if (input.desiredImplicitInvocation === undefined) {
+        return "skip-current";
     }
 
     if (input.installedImplicitInvocation === input.desiredImplicitInvocation) {
@@ -68,8 +75,16 @@ export function renderBundledSkillFileContent(
     relativePath: string,
     content: string,
     settings: AppSettings,
+    agentName: BundledSkillAgentName = "codex",
 ): string {
-    if (relativePath !== bundledSkillOwnershipFileRelativePath) {
+    const ownershipFileRelativePath = resolveBundledSkillOwnershipFileRelativePath(
+        agentName,
+    );
+
+    if (
+        ownershipFileRelativePath === undefined
+        || relativePath !== ownershipFileRelativePath
+    ) {
         return content;
     }
 

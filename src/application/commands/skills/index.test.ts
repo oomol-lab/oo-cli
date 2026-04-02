@@ -21,6 +21,7 @@ import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
 import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
+    resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
@@ -37,7 +38,7 @@ import { renderSkillMetadataJson } from "./skill-metadata.ts";
 describe("skills commands", () => {
     const guidance = renderOoPackageExecutionGuidance();
 
-    test("installs all bundled Codex skills when no skill name is provided", async () => {
+    test("installs all bundled skills when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -77,8 +78,8 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    `Installed Codex skill oo to ${ooSkillDirectoryPath}.`,
-                    `Installed Codex skill oo-find-skills to ${findSkillsDirectoryPath}.`,
+                    `Installed skill oo to ${ooSkillDirectoryPath}.`,
+                    `Installed skill oo-find-skills to ${findSkillsDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -118,7 +119,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("installs a bundled Codex skill by explicit name", async () => {
+    test("installs a bundled skill by explicit name", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -143,7 +144,7 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Installed Codex skill oo to ${skillDirectoryPath}.\n`,
+                `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
             expect(await realpath(skillDirectoryPath)).toBe(
@@ -158,7 +159,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("installs the oo-find-skills bundled Codex skill by explicit name", async () => {
+    test("installs the oo-find-skills bundled skill by explicit name", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
@@ -183,7 +184,7 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Installed Codex skill oo-find-skills to ${skillDirectoryPath}.\n`,
+                `Installed skill oo-find-skills to ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
             expect(await realpath(skillDirectoryPath)).toBe(
@@ -198,7 +199,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("installs the bundled Codex skill with the persisted implicit invocation policy", async () => {
+    test("installs the bundled skill with the persisted implicit invocation policy", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -246,9 +247,10 @@ describe("skills commands", () => {
         }
     });
 
-    test("fails when the Codex home directory is missing", async () => {
+    test("fails when no supported bundled skill host is installed", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
 
         try {
             const result = await sandbox.run(["skills", "install"]);
@@ -256,8 +258,122 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `Codex is not installed. Expected the Codex home directory at ${codexHomeDirectory}.\n`,
+                `No supported bundled skill host is installed. Expected one of: ${codexHomeDirectory}, ${claudeHomeDirectory}.\n`,
             );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs bundled skills into both Codex and Claude Code when both homes exist", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexOoSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const claudeOoSkillDirectoryPath = join(claudeHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const codexCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+            "codex",
+        );
+        const claudeCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+            "claude",
+        );
+
+        try {
+            await Promise.all([
+                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(claudeHomeDirectory, { recursive: true }),
+            ]);
+
+            const result = await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                [
+                    `Installed skill oo to ${codexOoSkillDirectoryPath}.`,
+                    `Installed skill oo to ${claudeOoSkillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
+            );
+            expect(await realpath(codexOoSkillDirectoryPath)).toBe(
+                await realpath(codexCanonicalSkillDirectoryPath),
+            );
+            expect(await realpath(claudeOoSkillDirectoryPath)).toBe(
+                await realpath(claudeCanonicalSkillDirectoryPath),
+            );
+
+            for (const file of getBundledSkillFiles("oo", "codex")) {
+                expect(
+                    await readFile(
+                        join(codexOoSkillDirectoryPath, file.relativePath),
+                        "utf8",
+                    ),
+                ).toBe(await Bun.file(file.sourcePath).text());
+            }
+
+            for (const file of getBundledSkillFiles("oo", "claude")) {
+                expect(
+                    await readFile(
+                        join(claudeOoSkillDirectoryPath, file.relativePath),
+                        "utf8",
+                    ),
+                ).toBe(await Bun.file(file.sourcePath).text());
+            }
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs bundled skills into Claude Code when only Claude Code is installed", async () => {
+        const sandbox = await createCliSandbox();
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(claudeHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+            "claude",
+        );
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+
+        try {
+            await mkdir(claudeHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Installed skill oo to ${skillDirectoryPath}.\n`,
+            );
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({ version: "9.9.9" }),
+            );
+            await expect(
+                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
+            ).rejects.toMatchObject({
+                code: "ENOENT",
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -287,7 +403,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `Skill name oo is already used by a non-OOMOL Codex skill at ${skillDirectoryPath}.\n`,
+                `Skill name oo is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
             );
             expect(await readFile(ownershipFilePath, "utf8")).not.toContain("OOMOL");
         }
@@ -343,7 +459,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("uninstalls all bundled Codex skills from the Codex skills directory when no skill name is provided", async () => {
+    test("uninstalls all bundled skills from the Codex skills directory when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -373,8 +489,8 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    `Removed Codex skill oo from ${ooSkillDirectoryPath}.`,
-                    `Removed Codex skill oo-find-skills from ${findSkillsDirectoryPath}.`,
+                    `Removed skill oo from ${ooSkillDirectoryPath}.`,
+                    `Removed skill oo-find-skills from ${findSkillsDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -397,7 +513,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("uninstalls a published Codex skill from the Codex skills directory", async () => {
+    test("uninstalls a published skill from the Codex skills directory", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
@@ -425,7 +541,7 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Removed Codex skill chatgpt from ${skillDirectoryPath}.\n`,
+                `Removed skill chatgpt from ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
@@ -512,8 +628,8 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    `Removed Codex skill oo from ${ooSkillDirectoryPath}.`,
-                    `Removed Codex skill oo-find-skills from ${findSkillsDirectoryPath}.`,
+                    `Removed skill oo from ${ooSkillDirectoryPath}.`,
+                    `Removed skill oo-find-skills from ${findSkillsDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -557,6 +673,44 @@ describe("skills commands", () => {
             );
             await expect(stat(skillDirectoryPath)).resolves.toMatchObject({
                 isDirectory: expect.any(Function),
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uninstalls bundled skills from both Codex and Claude Code when both homes exist", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "oo");
+
+        try {
+            await Promise.all([
+                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(claudeHomeDirectory, { recursive: true }),
+            ]);
+            await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "uninstall", "oo"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                [
+                    `Removed skill oo from ${codexSkillDirectoryPath}.`,
+                    `Removed skill oo from ${claudeSkillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
+            );
+            await expect(stat(codexSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(claudeSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
             });
         }
         finally {
@@ -655,7 +809,7 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Removed Codex skill oo from ${skillDirectoryPath}.\n`,
+                `Removed skill oo from ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
@@ -990,7 +1144,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Installed Codex skill chatgpt to ${skillDirectoryPath}.\n`,
+                `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
             );
             expect(await realpath(skillDirectoryPath)).toBe(
                 await realpath(canonicalSkillDirectoryPath),
@@ -1155,7 +1309,7 @@ describe("skills commands", () => {
             expect(plainOutput).toContain("◆ Installed");
             expect(plainOutput).toContain("  chatgpt");
             expect(plainOutput).not.toContain(
-                `Installed Codex skill chatgpt to ${selectedSkillDirectoryPath}.`,
+                `Installed skill chatgpt to ${selectedSkillDirectoryPath}.`,
             );
             await expect(stat(join(selectedSkillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
                 isFile: expect.any(Function),
@@ -1260,7 +1414,7 @@ describe("skills commands", () => {
             expect(plainOutput).toContain("◆ Removed");
             expect(plainOutput).toContain("  chatgpt");
             expect(plainOutput).not.toContain(
-                `Removed Codex skill chatgpt from ${installedSkillDirectoryPath}.`,
+                `Removed skill chatgpt from ${installedSkillDirectoryPath}.`,
             );
             await expect(stat(installedSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
@@ -1335,7 +1489,7 @@ describe("skills commands", () => {
             expect(result.stdout).toContain(
                 "Skill chatgpt already exists. Overwrite? [y/N] ",
             );
-            expect(result.stdout).toContain("Skipped Codex skill chatgpt.");
+            expect(result.stdout).toContain("Skipped skill chatgpt.");
             expect(await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 "stale\n",
             );
