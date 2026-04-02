@@ -37,8 +37,12 @@ describe("embedded skill assets", () => {
             expect(
                 getBundledSkillFiles(skillName).every(file =>
                     file.agentName === agentName
-                    && file.sourcePath.includes(`/${sourceDirectory}/`)),
+                    && normalizePathForAssertion(file.sourcePath).includes(`/${sourceDirectory}/`)),
             ).toBeTrue();
         }
     });
 });
+
+function normalizePathForAssertion(path: string): string {
+    return path.replaceAll("\\", "/");
+}
