@@ -5,7 +5,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
 
 const authErrorKeys = {
-    activeAccountMissing: "errors.auth.activeAccountMissing",
+    activeAccountMissing: "auth.account.activeAccountMissing",
     required: "errors.auth.required",
 } as const;
 

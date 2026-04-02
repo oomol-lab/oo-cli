@@ -23,7 +23,7 @@ export function formatFileUploadRecordDetailsAsText(
         `  - ${context.translator.t("file.text.fileSize")}: ${formatFileSize(record.fileSize)}`,
         `  - ${context.translator.t("file.text.uploadedAt")}: ${record.uploadedAt}`,
         `  - ${context.translator.t("file.text.expiresAt")}: ${record.expiresAt}`,
-        `  - ${context.translator.t("file.text.status")}: ${context.translator.t(`file.status.${record.status}`)}`,
+        `  - ${context.translator.t("labels.status")}: ${context.translator.t(`file.status.${record.status}`)}`,
         `  - ${context.translator.t("file.text.downloadUrl")}: ${record.downloadUrl}`,
     ];
 }

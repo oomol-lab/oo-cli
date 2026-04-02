@@ -61,7 +61,7 @@ describe("file cleanup command", () => {
 
         expect(error).toMatchObject({
             exitCode: 2,
-            key: "errors.file.invalidFormat",
+            key: "errors.shared.invalidFormat",
             params: {
                 value: "yaml",
             },

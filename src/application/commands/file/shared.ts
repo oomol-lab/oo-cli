@@ -7,7 +7,10 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { parseEnumOption, parsePositiveIntegerOption } from "../shared/input-parsing.ts";
 import { performLoggedRequest, requestText } from "../shared/request.ts";
+
+export { createFormatInputError } from "../shared/input-parsing.ts";
 
 export const fileFormatValues = ["json"] as const;
 export const maxFileUploadSizeBytes = 512 * 1024 * 1024;
@@ -60,43 +63,15 @@ const finalFileUploadResponseSchema = z.object({
 export function parseFileFormat(
     value: string | undefined,
 ): FileFormat | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    if (value === "json") {
-        return value;
-    }
-
-    throw new CliUserError("errors.file.invalidFormat", 2, {
-        value,
-    });
-}
-
-export function createFormatInputError(
-    rawInput: Record<string, unknown>,
-): CliUserError {
-    return new CliUserError("errors.file.invalidFormat", 2, {
-        value: String(rawInput.format ?? ""),
-    });
+    return parseEnumOption(value, fileFormatValues, "errors.shared.invalidFormat");
 }
 
 export function parseFileLimit(value: string | undefined): number | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    const trimmedValue = value.trim();
-    const parsedValue = Number(trimmedValue);
-
-    if (trimmedValue === "" || !Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
-        throw new CliUserError("errors.fileList.invalidLimit", 2, {
-            option: "--limit",
-            value,
-        });
-    }
-
-    return parsedValue;
+    return parsePositiveIntegerOption(
+        value,
+        "errors.shared.invalidPositiveIntegerOption",
+        { min: 1, optionName: "--limit" },
+    );
 }
 
 export function parseFileStatus(

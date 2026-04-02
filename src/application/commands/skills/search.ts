@@ -6,6 +6,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
+import { createFormatInputError } from "../shared/input-parsing.ts";
 import { requestText } from "../shared/request.ts";
 
 const searchFormatValues = ["json"] as const;
@@ -69,7 +70,7 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
         format: z.enum(searchFormatValues).optional(),
         keywords: z.string().optional(),
     }),
-    mapInputError: (_, rawInput) => createSkillsSearchInputError(rawInput),
+    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const account = await requireCurrentAccount(context);
         const requestUrl = createSkillsSearchRequestUrl(
@@ -95,14 +96,6 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
         );
     },
 };
-
-function createSkillsSearchInputError(
-    rawInput: Record<string, unknown>,
-): CliUserError {
-    return new CliUserError("errors.skillsSearch.invalidFormat", 2, {
-        value: String(rawInput.format ?? ""),
-    });
-}
 
 function createSkillsSearchRequestUrl(
     endpoint: string,

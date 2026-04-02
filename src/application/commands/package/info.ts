@@ -3,10 +3,10 @@ import type { TerminalColors } from "../../terminal-colors.ts";
 import type { PackageInfoResponse } from "./shared.ts";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
-import { CliUserError } from "../../contracts/cli.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
+import { createFormatInputError } from "../shared/input-parsing.ts";
 import {
     isPackageInfoInputHandleOptional,
     isPackageInfoSchemaObject,
@@ -43,7 +43,7 @@ export const packageInfoCommand: CliCommandDefinition<PackageInfoInput> = {
         format: z.enum(packageInfoFormatValues).optional(),
         packageSpecifier: z.string(),
     }),
-    mapInputError: (_, rawInput) => createPackageInfoInputError(rawInput),
+    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const account = await requireCurrentAccount(context);
         const packageSpecifier = parsePackageSpecifier(input.packageSpecifier);
@@ -62,12 +62,6 @@ export const packageInfoCommand: CliCommandDefinition<PackageInfoInput> = {
         context.stdout.write(`${formatPackageInfoResponseAsText(response, context)}\n`);
     },
 };
-
-function createPackageInfoInputError(rawInput: Record<string, unknown>): CliUserError {
-    return new CliUserError("errors.packageInfo.invalidFormat", 2, {
-        value: String(rawInput.format ?? ""),
-    });
-}
 
 function formatPackageInfoResponseAsText(
     response: PackageInfoResponse,

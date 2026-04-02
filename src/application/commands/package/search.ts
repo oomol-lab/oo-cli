@@ -12,6 +12,7 @@ import {
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
+import { createFormatInputError } from "../shared/input-parsing.ts";
 import { requestText } from "../shared/request.ts";
 
 const MAX_SEARCH_TEXT_LENGTH = 200;
@@ -84,7 +85,7 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
         format: z.enum(searchFormatValues).optional(),
         onlyPackageId: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createSearchInputError(rawInput),
+    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const account = await requireCurrentAccount(context);
         const query = truncateSearchText(input.text);
@@ -134,12 +135,6 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
         );
     },
 };
-
-function createSearchInputError(rawInput: Record<string, unknown>): CliUserError {
-    return new CliUserError("errors.search.invalidFormat", 2, {
-        value: String(rawInput.format ?? ""),
-    });
-}
 
 function truncateSearchText(text: string): string {
     const characters = Array.from(text);
@@ -308,7 +303,7 @@ function formatSearchPackage(
     }
 
     if (pkg.blocks.length > 0) {
-        lines.push(context.translator.t("search.text.blocks"));
+        lines.push(context.translator.t("labels.blocks"));
 
         for (const block of pkg.blocks) {
             lines.push(...formatSearchBlock(block, context, colors));
