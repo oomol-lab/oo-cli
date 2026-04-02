@@ -90,6 +90,22 @@ function renderAuthFile(authFile: AuthFile): string {
 - `Bun.sleep(ms)` instead of `new Promise(r => setTimeout(r, ms))` in Bun environment
 - `satisfies` for type-checking object literals instead of identity wrapper functions
 
+### Cross-Platform Paths
+
+This CLI is cross-platform. Never assume POSIX path separators in code, tests, snapshots, or assertions.
+
+- Use `node:path` helpers such as `join()`, `resolve()`, and `relative()` for path construction instead of manual string concatenation.
+- Do not assert raw paths with hardcoded `"/"` or `"\\"` separators.
+- Prefer comparing paths by composing the expected value with `join()` or by comparing path relationships via `relative()`, instead of inventing ad-hoc normalization helpers in tests.
+
+```typescript
+// BAD - fails on Windows
+expect(filePath.includes("/contrib/skills/codex/oo/")).toBeTrue();
+
+// GOOD - compose the expected path with node:path
+expect(filePath.includes(join("contrib", "skills", "codex", "oo"))).toBeTrue();
+```
+
 ### Guard Clauses — Fail First
 
 Check error conditions at the top; let the success path be the default flow. Don't wrap success logic inside `if (valid)`.

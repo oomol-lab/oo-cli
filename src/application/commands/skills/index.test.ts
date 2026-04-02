@@ -17,6 +17,7 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
 import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
@@ -678,10 +679,10 @@ describe("skills commands", () => {
         const managedOwnershipPath = join(skillDirectoryPath, "agents", "openai.yaml");
         const obsoleteFilePath = join(skillDirectoryPath, "legacy.txt");
         const expectedSkillContent = await Bun.file(
-            getBundledSkillFiles("oo")[0]!.sourcePath,
+            getBundledSkillSourcePath("oo", "SKILL.md"),
         ).text();
         const expectedOwnershipContent = await Bun.file(
-            getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+            getBundledSkillSourcePath("oo", "agents/openai.yaml"),
         ).text();
 
         try {
@@ -736,7 +737,7 @@ describe("skills commands", () => {
         );
         const managedOwnershipPath = join(skillDirectoryPath, "agents", "openai.yaml");
         const expectedOwnershipContent = await Bun.file(
-            getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+            getBundledSkillSourcePath("oo", "agents/openai.yaml"),
         ).text();
 
         try {
@@ -786,7 +787,7 @@ describe("skills commands", () => {
         const managedSkillPath = join(skillDirectoryPath, "SKILL.md");
         const managedOwnershipPath = join(skillDirectoryPath, "agents", "openai.yaml");
         const expectedOwnershipContent = await Bun.file(
-            getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+            getBundledSkillSourcePath("oo", "agents/openai.yaml"),
         ).text();
 
         try {
@@ -821,7 +822,7 @@ describe("skills commands", () => {
         const managedSkillPath = join(skillDirectoryPath, "SKILL.md");
         const managedOwnershipPath = join(skillDirectoryPath, "agents", "openai.yaml");
         const expectedOwnershipContent = await Bun.file(
-            getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+            getBundledSkillSourcePath("oo", "agents/openai.yaml"),
         ).text();
 
         try {
@@ -883,10 +884,10 @@ describe("skills commands", () => {
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
         const managedSkillPath = join(skillDirectoryPath, "SKILL.md");
         const expectedOwnershipContent = await Bun.file(
-            getBundledSkillFiles("oo").find(file => file.relativePath === "agents/openai.yaml")!.sourcePath,
+            getBundledSkillSourcePath("oo", "agents/openai.yaml"),
         ).text();
         const expectedSkillContent = await Bun.file(
-            getBundledSkillFiles("oo")[0]!.sourcePath,
+            getBundledSkillSourcePath("oo", "SKILL.md"),
         ).text();
 
         try {

@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import { availableBundledSkillNames, getBundledSkillFiles } from "./embedded-assets.ts";
+import {
+    availableBundledSkillAgentNames,
+    availableBundledSkillNames,
+    getBundledSkillAgentName,
+    getBundledSkillFiles,
+    getBundledSkillSourceDirectory,
+} from "./embedded-assets.ts";
 
 describe("embedded skill assets", () => {
     test("keeps the bundled skill file registry aligned with the bundled skill names", () => {
@@ -16,4 +22,27 @@ describe("embedded skill assets", () => {
             "references/oo-cli-contract.md",
         ]);
     });
+
+    test("maps bundled skills to contrib/skills/<agent>/<skill> source directories", () => {
+        expect([...availableBundledSkillAgentNames]).toEqual(["codex"]);
+        expect(
+            Array.from(new Set(availableBundledSkillNames.map(getBundledSkillAgentName))),
+        ).toEqual([...availableBundledSkillAgentNames]);
+
+        for (const skillName of availableBundledSkillNames) {
+            const sourceDirectory = getBundledSkillSourceDirectory(skillName);
+            const agentName = getBundledSkillAgentName(skillName);
+
+            expect(sourceDirectory).toBe(`contrib/skills/${agentName}/${skillName}`);
+            expect(
+                getBundledSkillFiles(skillName).every(file =>
+                    file.agentName === agentName
+                    && normalizePathForAssertion(file.sourcePath).includes(`/${sourceDirectory}/`)),
+            ).toBeTrue();
+        }
+    });
 });
+
+function normalizePathForAssertion(path: string): string {
+    return path.replaceAll("\\", "/");
+}
