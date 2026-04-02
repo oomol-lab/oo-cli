@@ -56,7 +56,7 @@ describe("requireCurrentAccount", () => {
 
         await expect(requireCurrentAccount(context)).rejects.toMatchObject({
             exitCode: 1,
-            key: "errors.auth.activeAccountMissing",
+            key: "auth.account.activeAccountMissing",
         });
     });
 

@@ -7,7 +7,9 @@ export const enMessages = {
     "auth.login.callbackNotFound": "The requested login callback endpoint was not found.",
     "auth.login.callbackSuccess": "Login completed. You can close this tab now.",
     "auth.login.openManually": "Open this URL in your browser to continue: {url}",
-    "auth.login.success": "Logged in to {endpoint} account {name}",
+    "auth.account.activeAccountMissing":
+        "The active account is missing from the auth store.",
+    "auth.account.loggedIn": "Logged in to {endpoint} account {name}",
     "auth.login.waitingForBrowser": "Waiting for the browser login to complete...",
     "auth.logout.success": "Logged out the current account.",
     "auth.status.accountId": "Account ID",
@@ -16,9 +18,7 @@ export const enMessages = {
     "auth.status.apiKeyRequestFailed": "Request failed",
     "auth.status.apiKeyStatus": "API key status",
     "auth.status.apiKeyValid": "Valid",
-    "auth.status.loggedIn": "Logged in to {endpoint} account {name}",
     "auth.status.loggedOut": "Not logged in to any OOMOL account.",
-    "auth.status.missing": "The active account is missing from the auth store.",
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
     "commands.auth.description": "Manage CLI authentication accounts.",
     "commands.auth.login.description": "Log in with an OOMOL account in the browser.",
@@ -148,8 +148,6 @@ export const enMessages = {
     "errors.commander.unknownOption": "Unknown option: {value}.",
     "errors.auth.loginTimeout":
         "Timed out waiting for the browser login callback.",
-    "errors.auth.activeAccountMissing":
-        "The active auth account is missing from the auth store.",
     "errors.auth.noSavedAccounts":
         "There are no auth accounts to switch to.",
     "errors.auth.required":
@@ -162,8 +160,10 @@ export const enMessages = {
         "Failed to read the auth file at {path}.",
     "errors.authStore.writeFailed":
         "Failed to write the auth file at {path}.",
-    "errors.cloudTask.invalidFormat":
+    "errors.shared.invalidFormat":
         "Invalid format: {value}. Use json.",
+    "errors.shared.invalidPositiveIntegerOption":
+        "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
     "errors.cloudTask.invalidResponse":
         "The cloud task service returned an unsupported response body.",
     "errors.cloudTask.requestError":
@@ -184,8 +184,6 @@ export const enMessages = {
         "Invalid value for {option}: {value}. Use an integer between 1 and 100.",
     "errors.cloudTaskList.invalidStatus":
         "Invalid status: {value}. Use queued, scheduling, scheduled, running, success, or failed.",
-    "errors.cloudTaskLog.invalidPage":
-        "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
     "errors.cloudTaskRun.blockIdRequired":
         "The --block-id option is required.",
     "errors.cloudTaskRun.blockNotFound":
@@ -234,8 +232,6 @@ export const enMessages = {
         "Invalid config key for skill {skill}: {value}. Use {choices}.",
     "errors.skills.config.invalidAllowImplicitInvocationValue":
         "Invalid allow-implicit-invocation value for skill {skill}: {value}. Use true or false.",
-    "errors.file.invalidFormat":
-        "Invalid format: {value}. Use json.",
     "errors.fileDownload.downloadFailed":
         "Failed to download the file at {path}: {message}",
     "errors.fileDownload.invalidExt":
@@ -252,8 +248,6 @@ export const enMessages = {
         "The download request failed: {message}",
     "errors.fileDownload.requestFailed":
         "The download request returned HTTP {status}.",
-    "errors.fileList.invalidLimit":
-        "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
     "errors.fileList.invalidStatus":
         "Invalid status: {value}. Use active or expired.",
     "errors.fileUpload.invalidResponse":
@@ -270,24 +264,18 @@ export const enMessages = {
         "The file at {path} is {size} bytes, which exceeds the 512 MiB limit of {max} bytes.",
     "errors.lang.invalidFlag":
         "Invalid value for --lang: {value}. Use en or zh.",
-    "errors.search.invalidFormat":
-        "Invalid format: {value}. Use json.",
     "errors.search.invalidResponse":
         "The search service returned an unsupported response body.",
     "errors.search.requestError":
         "The search request failed: {message}",
     "errors.search.requestFailed":
         "The search request returned HTTP {status}.",
-    "errors.skillsSearch.invalidFormat":
-        "Invalid format: {value}. Use json.",
     "errors.skillsSearch.invalidResponse":
         "The skills search service returned an unsupported response body.",
     "errors.skillsSearch.requestError":
         "The skills search request failed: {message}",
     "errors.skillsSearch.requestFailed":
         "The skills search request returned HTTP {status}.",
-    "errors.packageInfo.invalidFormat":
-        "Invalid format: {value}. Use json.",
     "errors.packageInfo.invalidPackageSpecifier":
         "Invalid package specifier: {value}.",
     "errors.packageInfo.invalidResponse":
@@ -403,7 +391,9 @@ export const enMessages = {
     "skills.list.source.bundled": "bundled",
     "skills.list.summary":
         "Found {count} oo-managed skills.",
-    "skills.list.version": "Version",
+    "labels.blocks": "Blocks:",
+    "labels.status": "Status",
+    "labels.version": "Version",
     "skills.install.success": "Installed Codex skill {name} to {path}.",
     "skills.install.overwrite.invalid":
         "Invalid choice. Enter y/yes or n/no.",
@@ -442,7 +432,6 @@ export const enMessages = {
     "skills.update.progress.failed": "failed",
     "skills.update.success": "Updated Codex skill {name} to {path}.",
     "skills.uninstall.success": "Removed Codex skill {name} from {path}.",
-    "versionInfo.version": "Version",
     "versionInfo.buildTime": "Build Time",
     "versionInfo.commit": "Commit",
     "versionInfo.unknown": "unknown",
@@ -469,7 +458,6 @@ export const enMessages = {
     "cloudTask.text.progress": "Progress",
     "cloudTask.text.resultData": "Result data:",
     "cloudTask.text.resultUrl": "Result URL",
-    "cloudTask.text.status": "Status",
     "cloudTask.text.taskId": "Task ID",
     "cloudTask.text.createdAt": "Created",
     "cloudTask.text.updatedAt": "Updated",
@@ -494,17 +482,14 @@ export const enMessages = {
     "file.text.expiresAt": "Expires at",
     "file.text.fileSize": "File size",
     "file.text.id": "ID",
-    "file.text.status": "Status",
     "file.text.uploadedAt": "Uploaded at",
     "file.upload.success": "Uploaded {fileName}.",
-    "search.text.blocks": "Blocks:",
     "search.text.noResults": "No matching packages were found.",
     "search.text.unnamedBlock": "unnamed-block",
     "search.text.unnamedPackage": "unnamed-package",
     "skills.search.text.noResults": "No matching skills were found.",
     "skills.search.text.package": "Package",
     "skills.search.text.unnamedSkill": "unnamed-skill",
-    "packageInfo.text.blocks": "Blocks:",
     "packageInfo.text.inputHandle": "Input:",
     "packageInfo.text.outputHandle": "Output:",
     "packageInfo.text.optional": "[optional]",
@@ -518,7 +503,8 @@ export const zhMessages = {
     "auth.login.callbackNotFound": "未找到请求的登录回调地址。",
     "auth.login.callbackSuccess": "登录完成，现在可以关闭这个页面。",
     "auth.login.openManually": "请在浏览器中打开这个 URL 继续登录：{url}",
-    "auth.login.success": "已登录 {endpoint} 账号 {name}",
+    "auth.account.activeAccountMissing": "当前激活账号不存在于认证数据中。",
+    "auth.account.loggedIn": "已登录 {endpoint} 账号 {name}",
     "auth.login.waitingForBrowser": "正在等待浏览器完成登录...",
     "auth.logout.success": "已登出当前账号。",
     "auth.status.accountId": "账号 ID",
@@ -527,9 +513,7 @@ export const zhMessages = {
     "auth.status.apiKeyRequestFailed": "请求失败",
     "auth.status.apiKeyStatus": "API key 状态",
     "auth.status.apiKeyValid": "有效",
-    "auth.status.loggedIn": "已登录 {endpoint} 账号 {name}",
     "auth.status.loggedOut": "当前没有登录任何 OOMOL 账号。",
-    "auth.status.missing": "当前激活账号不存在于认证数据中。",
     "auth.switch.success": "已将 {endpoint} 的当前激活账号切换为 {name}",
     "commands.auth.description": "管理 CLI 的认证账号。",
     "commands.auth.login.description": "在浏览器中登录 OOMOL 账号。",
@@ -638,8 +622,6 @@ export const zhMessages = {
     "errors.commander.unknownCommand": "未知命令：{value}。",
     "errors.commander.unknownOption": "未知选项：{value}。",
     "errors.auth.loginTimeout": "等待浏览器登录回调超时。",
-    "errors.auth.activeAccountMissing":
-        "当前激活账号不存在于认证数据中。",
     "errors.auth.noSavedAccounts": "没有可切换的认证账号。",
     "errors.auth.required":
         "使用此命令前请先登录。",
@@ -647,8 +629,10 @@ export const zhMessages = {
     "errors.authStore.invalidSchema": "认证文件 {path} 的结构不受支持。",
     "errors.authStore.readFailed": "读取认证文件 {path} 失败。",
     "errors.authStore.writeFailed": "写入认证文件 {path} 失败。",
-    "errors.cloudTask.invalidFormat":
+    "errors.shared.invalidFormat":
         "无效的 format：{value}。请使用 json。",
+    "errors.shared.invalidPositiveIntegerOption":
+        "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
     "errors.cloudTask.invalidResponse":
         "云任务服务返回了不受支持的响应内容。",
     "errors.cloudTask.requestError":
@@ -669,8 +653,6 @@ export const zhMessages = {
         "{option} 的值无效：{value}。请使用 1 到 100 之间的整数。",
     "errors.cloudTaskList.invalidStatus":
         "无效的 status：{value}。请使用 queued、scheduling、scheduled、running、success 或 failed。",
-    "errors.cloudTaskLog.invalidPage":
-        "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
     "errors.cloudTaskRun.blockIdRequired":
         "--block-id 选项为必填。",
     "errors.cloudTaskRun.blockNotFound":
@@ -719,8 +701,6 @@ export const zhMessages = {
         "skill {skill} 的配置键无效：{value}。请使用 {choices}。",
     "errors.skills.config.invalidAllowImplicitInvocationValue":
         "skill {skill} 的 allow-implicit-invocation 值无效：{value}。请使用 true 或 false。",
-    "errors.file.invalidFormat":
-        "无效的 format：{value}。请使用 json。",
     "errors.fileDownload.downloadFailed":
         "下载文件到 {path} 失败：{message}",
     "errors.fileDownload.invalidExt":
@@ -737,8 +717,6 @@ export const zhMessages = {
         "下载请求失败：{message}",
     "errors.fileDownload.requestFailed":
         "下载请求返回了 HTTP {status}。",
-    "errors.fileList.invalidLimit":
-        "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
     "errors.fileList.invalidStatus":
         "无效的 status：{value}。请使用 active 或 expired。",
     "errors.fileUpload.invalidResponse":
@@ -755,24 +733,18 @@ export const zhMessages = {
         "文件 {path} 的大小为 {size} 字节，超出了 512 MiB 上限 {max} 字节。",
     "errors.lang.invalidFlag":
         "--lang 的值无效：{value}。请使用 en 或 zh。",
-    "errors.search.invalidFormat":
-        "无效的 format：{value}。请使用 json。",
     "errors.search.invalidResponse":
         "搜索服务返回了不受支持的响应内容。",
     "errors.search.requestError":
         "搜索请求失败：{message}",
     "errors.search.requestFailed":
         "搜索请求返回了 HTTP {status}。",
-    "errors.skillsSearch.invalidFormat":
-        "无效的 format：{value}。请使用 json。",
     "errors.skillsSearch.invalidResponse":
         "skills 搜索服务返回了不受支持的响应内容。",
     "errors.skillsSearch.requestError":
         "skills 搜索请求失败：{message}",
     "errors.skillsSearch.requestFailed":
         "skills 搜索请求返回了 HTTP {status}。",
-    "errors.packageInfo.invalidFormat":
-        "无效的 format：{value}。请使用 json。",
     "errors.packageInfo.invalidPackageSpecifier":
         "无效的包标识：{value}。",
     "errors.packageInfo.invalidResponse":
@@ -882,7 +854,9 @@ export const zhMessages = {
     "skills.list.source.bundled": "内置",
     "skills.list.summary":
         "找到 {count} 个由 oo 管理的 skill。",
-    "skills.list.version": "版本",
+    "labels.blocks": "功能块：",
+    "labels.status": "状态",
+    "labels.version": "版本",
     "skills.install.success": "已将 Codex skill {name} 安装到 {path}。",
     "skills.install.overwrite.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
@@ -921,7 +895,6 @@ export const zhMessages = {
     "skills.update.progress.failed": "失败",
     "skills.update.success": "已将 Codex skill {name} 更新到 {path}。",
     "skills.uninstall.success": "已从 {path} 移除 Codex skill {name}。",
-    "versionInfo.version": "版本",
     "versionInfo.buildTime": "构建时间",
     "versionInfo.commit": "提交",
     "versionInfo.unknown": "未知",
@@ -948,7 +921,6 @@ export const zhMessages = {
     "cloudTask.text.progress": "进度",
     "cloudTask.text.resultData": "结果数据：",
     "cloudTask.text.resultUrl": "结果 URL",
-    "cloudTask.text.status": "状态",
     "cloudTask.text.taskId": "任务 ID",
     "cloudTask.text.createdAt": "创建时间",
     "cloudTask.text.updatedAt": "更新时间",
@@ -970,17 +942,14 @@ export const zhMessages = {
     "file.text.expiresAt": "过期时间",
     "file.text.fileSize": "文件大小",
     "file.text.id": "ID",
-    "file.text.status": "状态",
     "file.text.uploadedAt": "上传时间",
     "file.upload.success": "已上传 {fileName}。",
-    "search.text.blocks": "功能块：",
     "search.text.noResults": "未找到匹配的包。",
     "search.text.unnamedBlock": "未命名功能块",
     "search.text.unnamedPackage": "未命名包",
     "skills.search.text.noResults": "未找到匹配的 skill。",
     "skills.search.text.package": "包",
     "skills.search.text.unnamedSkill": "未命名 skill",
-    "packageInfo.text.blocks": "功能块：",
     "packageInfo.text.inputHandle": "输入：",
     "packageInfo.text.outputHandle": "输出：",
     "packageInfo.text.optional": "[可选]",

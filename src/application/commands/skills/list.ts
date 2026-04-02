@@ -155,7 +155,7 @@ function formatManagedSkillListItem(
             colors,
         ),
         formatManagedSkillDetailLine(
-            context.translator.t("skills.list.version"),
+            context.translator.t("labels.version"),
             colors.hex(managedSkillVersionColor)(
                 skill.metadata?.version ?? context.translator.t("versionInfo.unknown"),
             ),

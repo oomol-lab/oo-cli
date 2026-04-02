@@ -2,7 +2,10 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { parseEnumOption } from "../shared/input-parsing.ts";
 import { requestText } from "../shared/request.ts";
+
+export { parsePositiveIntegerOption } from "../shared/input-parsing.ts";
 
 export const cloudTaskFormatValues = ["json"] as const;
 export const cloudTaskStatusValues = [
@@ -77,51 +80,13 @@ export type CloudTaskListResponse = z.output<typeof cloudTaskListResponseSchema>
 export function parseCloudTaskFormat(
     value: string | undefined,
 ): CloudTaskFormat | undefined {
-    return parseEnumOption(value, cloudTaskFormatValues, "errors.cloudTask.invalidFormat");
+    return parseEnumOption(value, cloudTaskFormatValues, "errors.shared.invalidFormat");
 }
 
 export function parseCloudTaskStatus(
     value: string | undefined,
 ): CloudTaskStatus | undefined {
     return parseEnumOption(value, cloudTaskStatusValues, "errors.cloudTaskList.invalidStatus");
-}
-
-export function parsePositiveIntegerOption(
-    value: string | undefined,
-    errorKey: string,
-    options: {
-        max?: number;
-        min?: number;
-        optionName: string;
-    },
-): number | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    const trimmedValue = value.trim();
-
-    if (trimmedValue === "") {
-        throw new CliUserError(errorKey, 2, {
-            option: options.optionName,
-            value,
-        });
-    }
-
-    const parsedValue = Number(trimmedValue);
-
-    if (
-        !Number.isInteger(parsedValue)
-        || parsedValue < (options.min ?? 1)
-        || (options.max !== undefined && parsedValue > options.max)
-    ) {
-        throw new CliUserError(errorKey, 2, {
-            option: options.optionName,
-            value,
-        });
-    }
-
-    return parsedValue;
 }
 
 export function parseDurationOption(
@@ -312,20 +277,4 @@ function readDurationUnitMs(unit: "s" | "m" | "h"): number {
         case "h":
             return 3_600_000;
     }
-}
-
-function parseEnumOption<T extends string>(
-    value: string | undefined,
-    allowedValues: readonly T[],
-    errorKey: string,
-): T | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    if (allowedValues.includes(value as T)) {
-        return value as T;
-    }
-
-    throw new CliUserError(errorKey, 2, { value });
 }

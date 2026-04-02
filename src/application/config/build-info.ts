@@ -21,7 +21,7 @@ export function formatCliVersionText(
     const unknownValue = translator.t("versionInfo.unknown");
 
     return [
-        `${translator.t("versionInfo.version")}: ${buildInfo.version}`,
+        `${translator.t("labels.version")}: ${buildInfo.version}`,
         `${translator.t("versionInfo.buildTime")}: ${formatBuildTime(
             buildInfo.buildTimestamp,
             unknownValue,

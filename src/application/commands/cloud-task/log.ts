@@ -47,7 +47,7 @@ export const cloudTaskLogCommand: CliCommandDefinition<CloudTaskLogInput> = {
         const format = parseCloudTaskFormat(input.format);
         const page = parsePositiveIntegerOption(
             input.page,
-            "errors.cloudTaskLog.invalidPage",
+            "errors.shared.invalidPositiveIntegerOption",
             {
                 min: 1,
                 optionName: "--page",

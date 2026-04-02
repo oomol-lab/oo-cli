@@ -64,7 +64,7 @@ export const authLoginCommand: CliCommandDefinition = {
 
         writeAuthBlock(context, {
             tone: "success",
-            summary: context.translator.t("auth.login.success", {
+            summary: context.translator.t("auth.account.loggedIn", {
                 endpoint: formatAuthStrong(context, account.endpoint),
                 name: formatAuthStrong(context, account.name),
             }),

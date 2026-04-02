@@ -28,7 +28,7 @@ export const authStatusCommand: CliCommandDefinition = {
             if (hasStaleId) {
                 writeAuthBlock(context, {
                     tone: "danger",
-                    summary: context.translator.t("auth.status.missing"),
+                    summary: context.translator.t("auth.account.activeAccountMissing"),
                     details: [
                         {
                             label: context.translator.t("auth.status.accountId"),
@@ -50,7 +50,7 @@ export const authStatusCommand: CliCommandDefinition = {
         const statusConfig = apiKeyStatusConfig[apiKeyStatus];
         writeAuthBlock(context, {
             tone: statusConfig.tone,
-            summary: context.translator.t("auth.status.loggedIn", {
+            summary: context.translator.t("auth.account.loggedIn", {
                 endpoint: formatAuthStrong(context, currentAccount.endpoint),
                 name: formatAuthStrong(context, currentAccount.name),
             }),
