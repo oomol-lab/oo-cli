@@ -1,7 +1,7 @@
 ---
 name: oo
 description: >-
-  TRIGGER when: user asks to translate documents/images/comics/manga,
+  TRIGGER when: user asks to translate documents/images,
   do OCR, generate images, text-to-image, text-to-speech, speech-to-text,
   transcribe audio, synthesize voice, or process files through cloud
   capabilities.
@@ -19,7 +19,7 @@ file or archive.
 
 Common triggers include image generation, text-to-image, text-to-speech,
 speech-to-text, voice synthesis, transcription, OCR, document translation,
-EPUB translation, PDF translation, manga or comic translation, image-set
+EPUB translation, PDF translation, image-set
 translation, scanned-page translation, subtitle generation, and archive-based
 media processing.
 
@@ -125,8 +125,6 @@ Examples:
 - `md5 hash`
 - `image OCR`
 - `summarize pdf`
-- `translate manga zip`
-- `translate comic pages`
 - `translate image archive`
 - `translate scanned japanese pages`
 

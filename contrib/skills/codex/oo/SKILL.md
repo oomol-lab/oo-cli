@@ -5,7 +5,7 @@ description: >-
   translate natural-language requests into English search terms, inspect
   candidate packages, choose blocks, collect required inputs, run validated
   cloud tasks, and manage bounded waits. Typical cues include OCR, document
-  or image-set translation, manga or comic translation, EPUB or PDF
+  or image-set translation, EPUB or PDF
   translation, transcription, speech tasks, image generation, and other
   ready-made capabilities over local files or archives. Do not use this
   skill when the user explicitly asks for a local implementation.
@@ -20,7 +20,7 @@ file or archive.
 
 Common triggers include image generation, text-to-image, text-to-speech,
 speech-to-text, voice synthesis, transcription, OCR, document translation,
-EPUB translation, PDF translation, manga or comic translation, image-set
+EPUB translation, PDF translation, image-set
 translation, scanned-page translation, subtitle generation, and archive-based
 media processing.
 
@@ -126,8 +126,6 @@ Examples:
 - `md5 hash`
 - `image OCR`
 - `summarize pdf`
-- `translate manga zip`
-- `translate comic pages`
 - `translate image archive`
 - `translate scanned japanese pages`
 
