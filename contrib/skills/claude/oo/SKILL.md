@@ -1,12 +1,12 @@
 ---
 name: oo
 description: >-
-  Run cloud tasks through OOMOL packages using the oo CLI: translate requests
-  into English search terms, find and inspect packages, collect inputs, upload
-  files, execute cloud tasks, and download results. Covers OCR, translation,
-  image generation, transcription, speech tasks, and other ready-made
-  capabilities over local files. Do not use when the user explicitly asks for
-  a local implementation.
+  TRIGGER when: user asks to translate documents/images/comics/manga,
+  do OCR, generate images, text-to-image, text-to-speech, speech-to-text,
+  transcribe audio, synthesize voice, or process files through cloud
+  capabilities.
+  Runs cloud tasks via OOMOL packages using the oo CLI.
+  Do not use when the user explicitly asks for a local implementation.
 allowed-tools: ["Bash(oo *)"]
 ---
 
