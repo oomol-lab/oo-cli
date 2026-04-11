@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createCliSnapshot,
+    createConnectorActionFixture,
     readLatestLogContent,
     toRequest,
     writeAuthFile,
@@ -15,9 +16,10 @@ import {
     renderConnectorActionSchemaCache,
     resolveConnectorActionSchemaPath,
 } from "./schema-cache.ts";
-
-const connectorActionColor = "#59F78D";
-const connectorServiceColor = "#CAA8FA";
+import {
+    connectorSearchActionColor,
+    connectorSearchServiceColor,
+} from "./search.ts";
 
 describe("connectorCommand CLI", () => {
     test("supports connector search with text output and writes schema caches", async () => {
@@ -236,7 +238,7 @@ describe("connectorCommand CLI", () => {
                 stripAnsi: true,
             })).toMatchSnapshot();
             expect(result.stdout).toContain(
-                `${colors.hex(connectorServiceColor)("gmail")}.${colors.hex(connectorActionColor)("send_mail")}`,
+                `${colors.hex(connectorSearchServiceColor)("gmail")}.${colors.hex(connectorSearchActionColor)("send_mail")}`,
             );
             expect(result.stdout).toContain(`Authenticated: ${colors.green("yes")}`);
         }
@@ -371,6 +373,69 @@ describe("connectorCommand CLI", () => {
                     to: "foo@bar.com",
                 },
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("trims connector action names before cache lookup and request", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            const schemaPath = await seedConnectorActionSchema(
+                sandbox,
+                createConnectorActionFixture(),
+            );
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    " send_mail ",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    messageId: "message-1",
+                },
+                meta: {
+                    executionId: "exec-1",
+                },
+            });
+            expect(schemaPath).toBe(
+                resolveConnectorActionSchemaPath(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
+                    "gmail",
+                    "send_mail",
+                ),
+            );
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -669,10 +734,27 @@ describe("connectorCommand CLI", () => {
             expect(content).toContain("\"responseMessage\":\"Invalid id value\"");
             expect(content).toContain("\"errorCode\":\"invalid_input\"");
             expect(content).toContain("\"executionId\":\"exec-1\"");
-            expect(content).toContain("\"responseBody\":\"{\\\"errorCode\\\":\\\"invalid_input\\\"");
+            expect(content).not.toContain("\"responseBody\":");
         }
         finally {
             await sandbox.cleanup();
         }
     });
 });
+
+async function seedConnectorActionSchema(
+    sandbox: {
+        env: Record<string, string | undefined>;
+    },
+    action = createConnectorActionFixture(),
+): Promise<string> {
+    const schemaPath = resolveConnectorActionSchemaPath(
+        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
+        action.service,
+        action.name,
+    );
+
+    await Bun.write(schemaPath, renderConnectorActionSchemaCache(action));
+
+    return schemaPath;
+}

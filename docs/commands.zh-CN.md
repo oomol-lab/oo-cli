@@ -126,8 +126,8 @@
   `authenticated`、`schemaPath`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
   描述、认证状态和 schema cache 路径。
-- 说明：命令会为每条结果在持久化 CLI 配置根目录下的 `connector-actions/`
-  中写入一个 schema cache 文件，该目录与 `data/` 平级。
+- 说明：命令会在本地缓存已发现的 action schema，并在输出中返回对应的缓存
+  路径。
 
 ### `oo connector run <serviceName>`
 
@@ -141,8 +141,8 @@
 - 输出：非 dry-run 的 JSON 输出会保持稳定结构
   `{ data, meta: { executionId } }`。
 - 输出：dry-run 的 JSON 输出返回 `{ dryRun, ok, schemaPath }`。
-- 说明：如果本地 schema cache 缺失或无效，命令会先拉取 action 元数据，重写
-  schema cache，再继续做 payload 校验。
+- 说明：如果本地 schema cache 不可用或无法使用，命令会自动刷新后再继续校验
+  和运行。
 
 ## Codex Skill
 

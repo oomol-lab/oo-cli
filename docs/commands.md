@@ -137,8 +137,8 @@ Search connector actions with free-form text.
   `description`, `authenticated`, and `schemaPath`.
 - Output: text output prints one block per action with the service/action
   label, optional description, authenticated state, and schema cache path.
-- Notes: the command writes one schema cache file per result under the
-  persisted CLI configuration root in `connector-actions/`, alongside `data/`.
+- Notes: the command caches discovered action schemas locally and reports the
+  cache path for each result.
 
 ### `oo connector run <serviceName>`
 
@@ -152,8 +152,8 @@ Validate input data and run one connector action synchronously.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.
 - Output: dry-run JSON output returns `{ dryRun, ok, schemaPath }`.
-- Notes: when the local schema cache is missing or invalid, the command fetches
-  action metadata, rewrites the schema cache, and then validates the payload.
+- Notes: when local schema cache is unavailable or unusable, the command
+  refreshes it automatically before validating and running.
 
 ## Codex Skills
 

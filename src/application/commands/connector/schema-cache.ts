@@ -3,18 +3,10 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { ConnectorActionDefinition } from "./shared.ts";
 import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { getConnectorActionMetadata } from "./shared.ts";
+import { connectorActionDefinitionSchema, getConnectorActionMetadata } from "./shared.ts";
 
 const connectorActionSchemaCacheDirectoryName = "connector-actions";
-const connectorActionSchemaCacheEntrySchema = z.object({
-    description: z.string().optional().default(""),
-    inputSchema: z.unknown(),
-    name: z.string().min(1),
-    outputSchema: z.unknown(),
-    service: z.string().min(1),
-});
 
 export interface ConnectorActionSchemaReference
     extends ConnectorActionDefinition {
@@ -86,7 +78,8 @@ export function resolveConnectorActionSchemaPath(
     return join(
         dirname(settingsFilePath),
         connectorActionSchemaCacheDirectoryName,
-        `${encodeURIComponent(serviceName)}.${encodeURIComponent(actionName)}.json`,
+        encodeURIComponent(serviceName),
+        `${encodeURIComponent(actionName)}.json`,
     );
 }
 
@@ -111,7 +104,7 @@ async function tryReadConnectorActionSchemaCache(
     }
 
     try {
-        return connectorActionSchemaCacheEntrySchema.parse(
+        return connectorActionDefinitionSchema.parse(
             JSON.parse(content) as unknown,
         );
     }

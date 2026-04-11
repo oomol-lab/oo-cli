@@ -8,7 +8,7 @@ exports[`connectorCommand CLI supports connector search with text output and wri
 "gmail.send_mail
 Send a Gmail message.
 Authenticated: yes
-Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail.send_mail.json
+Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json
 "
 ,
 }
@@ -19,7 +19,7 @@ exports[`connectorCommand CLI supports connector search with json output and omi
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"[{"authenticated":false,"description":"Send a Gmail message.","name":"send_mail","schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail.send_mail.json","service":"gmail"}]
+"[{"authenticated":false,"description":"Send a Gmail message.","name":"send_mail","schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json","service":"gmail"}]
 "
 ,
 }
@@ -33,7 +33,7 @@ exports[`connectorCommand CLI renders connector search output with field-specifi
 "gmail.send_mail
 Send a Gmail message.
 Authenticated: yes
-Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail.send_mail.json
+Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json
 "
 ,
 }
@@ -117,7 +117,7 @@ exports[`connectorCommand CLI loads connector action metadata and supports dry-r
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"{"dryRun":true,"ok":true,"schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail.send_mail.json"}
+"{"dryRun":true,"ok":true,"schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json"}
 "
 ,
 }

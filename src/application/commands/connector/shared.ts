@@ -5,7 +5,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { withRequestTarget } from "../../logging/log-fields.ts";
 import { requestText } from "../shared/request.ts";
 
-const connectorActionDefinitionSchema = z.object({
+export const connectorActionDefinitionSchema = z.object({
     description: z.string().optional().default(""),
     inputSchema: z.unknown(),
     name: z.string().min(1),
@@ -323,8 +323,9 @@ export async function runConnectorAction(
                     errorCode: failureResponse?.errorCode,
                     executionId: failureResponse?.meta?.executionId,
                     method: "POST",
-                    responseBody: truncateConnectorResponseBodyForLogs(rawResponse),
-                    responseMessage: failureResponse?.message,
+                    responseMessage: sanitizeConnectorFailureMessage(
+                        failureResponse?.message,
+                    ),
                     serviceName: options.serviceName,
                     status: response.status,
                 },
@@ -417,14 +418,19 @@ function parseConnectorFailureResponse(
     }
 }
 
-function truncateConnectorResponseBodyForLogs(
-    responseBody: string,
-): string {
-    const maxLength = 1000;
-
-    if (responseBody.length <= maxLength) {
-        return responseBody;
+function sanitizeConnectorFailureMessage(
+    message: string | undefined,
+): string | undefined {
+    if (message === undefined) {
+        return undefined;
     }
 
-    return `${responseBody.slice(0, maxLength)}...`;
+    const singleLineMessage = message.replaceAll("\r", " ").replaceAll("\n", " ");
+    const maxLength = 200;
+
+    if (singleLineMessage.length <= maxLength) {
+        return singleLineMessage;
+    }
+
+    return `${singleLineMessage.slice(0, maxLength)}...`;
 }

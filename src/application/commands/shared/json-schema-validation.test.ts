@@ -6,7 +6,7 @@ import {
 } from "./json-schema-validation.ts";
 
 describe("json schema validation", () => {
-    test("strips $schema declarations before compiling", () => {
+    test("strips the root $schema declaration before compiling", () => {
         const schema = {
             $schema: "https://json-schema.org/draft/2020-12/schema",
             properties: {
@@ -27,9 +27,10 @@ describe("json schema validation", () => {
             },
             "en",
         )).toEqual([]);
+        expect(schema.$schema).toBe("https://json-schema.org/draft/2020-12/schema");
     });
 
-    test("does not mutate the original schema while stripping $schema", () => {
+    test("compiles schemas with nested $schema declarations without mutating the input", () => {
         const schema = {
             properties: {
                 payload: {

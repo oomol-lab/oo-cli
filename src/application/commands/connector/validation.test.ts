@@ -12,16 +12,7 @@ describe("validateConnectorActionInput", () => {
                 {
                     to: "foo@bar.com",
                 },
-                {
-                    properties: {
-                        to: {
-                            format: "email",
-                            type: "string",
-                        },
-                    },
-                    required: ["to"],
-                    type: "object",
-                },
+                createEmailSchema(),
                 englishTranslator,
             )).not.toThrow();
     });
@@ -32,16 +23,7 @@ describe("validateConnectorActionInput", () => {
                 {
                     to: "not-an-email",
                 },
-                {
-                    properties: {
-                        to: {
-                            format: "email",
-                            type: "string",
-                        },
-                    },
-                    required: ["to"],
-                    type: "object",
-                },
+                createEmailSchema(),
                 englishTranslator,
             )).toThrow("errors.connectorRun.invalidPayload");
     });
@@ -59,3 +41,16 @@ describe("validateConnectorActionInput", () => {
             )).toThrow("errors.connectorRun.invalidActionSchema");
     });
 });
+
+function createEmailSchema(): Record<string, unknown> {
+    return {
+        properties: {
+            to: {
+                format: "email",
+                type: "string",
+            },
+        },
+        required: ["to"],
+        type: "object",
+    };
+}

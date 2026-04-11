@@ -75,7 +75,9 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        if (input.action === undefined || input.action.trim() === "") {
+        const actionName = input.action?.trim();
+
+        if (actionName === undefined || actionName === "") {
             throw new CliUserError("errors.connectorRun.actionRequired", 2);
         }
 
@@ -88,7 +90,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         );
         const actionReference = await ensureConnectorActionSchemaReference(
             {
-                actionName: input.action,
+                actionName,
                 apiKey: account.apiKey,
                 endpoint: account.endpoint,
                 serviceName: input.serviceName,
@@ -120,7 +122,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 
         const response = await runConnectorAction(
             {
-                actionName: input.action,
+                actionName,
                 apiKey: account.apiKey,
                 endpoint: account.endpoint,
                 inputData,

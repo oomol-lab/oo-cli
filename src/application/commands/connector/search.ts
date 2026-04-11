@@ -14,8 +14,8 @@ import {
     searchConnectorActions,
 } from "./shared.ts";
 
-const connectorSearchActionColor = "#59F78D";
-const connectorSearchServiceColor = "#CAA8FA";
+export const connectorSearchActionColor = "#59F78D";
+export const connectorSearchServiceColor = "#CAA8FA";
 
 type ConnectorSearchTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
 

@@ -6,7 +6,10 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
-import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
+import {
+    createConnectorActionFixture,
+    createTemporaryDirectory,
+} from "../../../../__tests__/helpers.ts";
 import {
     ensureConnectorActionSchemaReference,
     persistConnectorActionSchemaCache,
@@ -20,7 +23,19 @@ describe("connector schema cache", () => {
             join("/tmp", "oo", "settings.toml"),
             "gmail",
             "send_mail",
-        )).toBe(join("/tmp", "oo", "connector-actions", "gmail.send_mail.json"));
+        )).toBe(join("/tmp", "oo", "connector-actions", "gmail", "send_mail.json"));
+    });
+
+    test("resolveConnectorActionSchemaPath keeps service and action names unambiguous", () => {
+        expect(resolveConnectorActionSchemaPath(
+            join("/tmp", "oo", "settings.toml"),
+            "foo.bar",
+            "baz",
+        )).not.toBe(resolveConnectorActionSchemaPath(
+            join("/tmp", "oo", "settings.toml"),
+            "foo",
+            "bar.baz",
+        ));
     });
 
     test("persistConnectorActionSchemaCache writes the cache file to the connector-actions directory", async () => {
@@ -28,35 +43,15 @@ describe("connector schema cache", () => {
 
         try {
             const schemaPath = await persistConnectorActionSchemaCache(
-                {
-                    description: "Send a Gmail message.",
-                    inputSchema: {
-                        type: "object",
-                    },
-                    name: "send_mail",
-                    outputSchema: {
-                        type: "object",
-                    },
-                    service: "gmail",
-                },
+                createConnectorActionFixture(),
                 createCacheContext(rootPath),
             );
 
             expect(schemaPath).toBe(
-                join(rootPath, "connector-actions", "gmail.send_mail.json"),
+                join(rootPath, "connector-actions", "gmail", "send_mail.json"),
             );
             await expect(Bun.file(schemaPath).text()).resolves.toBe(
-                renderConnectorActionSchemaCache({
-                    description: "Send a Gmail message.",
-                    inputSchema: {
-                        type: "object",
-                    },
-                    name: "send_mail",
-                    outputSchema: {
-                        type: "object",
-                    },
-                    service: "gmail",
-                }),
+                renderConnectorActionSchemaCache(createConnectorActionFixture()),
             );
         }
         finally {
@@ -76,17 +71,9 @@ describe("connector schema cache", () => {
 
             await Bun.write(
                 schemaPath,
-                renderConnectorActionSchemaCache({
+                renderConnectorActionSchemaCache(createConnectorActionFixture({
                     description: "Cached schema.",
-                    inputSchema: {
-                        type: "object",
-                    },
-                    name: "send_mail",
-                    outputSchema: {
-                        type: "object",
-                    },
-                    service: "gmail",
-                }),
+                })),
             );
 
             let fetchCount = 0;

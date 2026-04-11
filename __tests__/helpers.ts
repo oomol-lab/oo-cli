@@ -477,6 +477,38 @@ export function readAuthLoginUrlPrefix(endpoint: string): string {
     return `https://api.${endpoint}/v1/auth/redirect?`;
 }
 
+export interface ConnectorActionFixtureOverrides {
+    description?: string;
+    inputSchema?: Record<string, unknown>;
+    name?: string;
+    outputSchema?: Record<string, unknown>;
+    service?: string;
+}
+
+export interface ConnectorActionFixture {
+    description: string;
+    inputSchema: Record<string, unknown>;
+    name: string;
+    outputSchema: Record<string, unknown>;
+    service: string;
+}
+
+export function createConnectorActionFixture(
+    overrides: ConnectorActionFixtureOverrides = {},
+): ConnectorActionFixture {
+    return {
+        description: overrides.description ?? "Send a Gmail message.",
+        inputSchema: overrides.inputSchema ?? {
+            type: "object",
+        },
+        name: overrides.name ?? "send_mail",
+        outputSchema: overrides.outputSchema ?? {
+            type: "object",
+        },
+        service: overrides.service ?? "gmail",
+    };
+}
+
 export function toRequest(input: string | URL | Request, init?: RequestInit): Request {
     if (input instanceof Request) {
         return new Request(input, init);
