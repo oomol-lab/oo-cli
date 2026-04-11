@@ -29,6 +29,7 @@ Commands:
   auth                Manage CLI authentication
   check-update        Check for CLI updates
   cloud-task          Manage cloud tasks
+  connector           Manage connector actions
   file                Manage temporary file transfers
   login               Log in with a browser flow (alias for auth login)
   logout              Log out the current account (alias for auth logout)
@@ -57,6 +58,7 @@ Commands:
   auth                管理 CLI 认证
   check-update        检查 CLI 更新
   cloud-task          管理云任务
+  connector           管理 connector action
   file                管理临时文件传输
   login               通过浏览器登录（auth login 的别名）
   logout              登出当前账号（auth logout 的别名）

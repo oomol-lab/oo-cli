@@ -1,0 +1,135 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`connectorCommand CLI supports connector search with text output and writes schema caches 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"gmail.send_mail
+Send a Gmail message.
+Authenticated: yes
+Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail.send_mail.json
+"
+,
+}
+`;
+
+exports[`connectorCommand CLI supports connector search with json output and omits schemas 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"[{"authenticated":false,"description":"Send a Gmail message.","name":"send_mail","schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail.send_mail.json","service":"gmail"}]
+"
+,
+}
+`;
+
+exports[`connectorCommand CLI renders connector search output with field-specific colors 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"gmail.send_mail
+Send a Gmail message.
+Authenticated: yes
+Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail.send_mail.json
+"
+,
+}
+`;
+
+exports[`connectorCommand CLI validates the connector search format option 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"Invalid format: yaml. Use json.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`connectorCommand CLI renders connector search help when text argument is omitted 1`] = `
+{
+  "expectedHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Search connector actions and cache their schemas locally.
+
+Arguments:
+  text                   Search text
+
+Options:
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --keywords <keywords>  Specify comma-separated keywords to refine the
+                         connector action search
+  -h, --help             Show help for command
+
+Global Options:
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
+"
+,
+  },
+  "result": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Search connector actions and cache their schemas locally.
+
+Arguments:
+  text                   Search text
+
+Options:
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --keywords <keywords>  Specify comma-separated keywords to refine the
+                         connector action search
+  -h, --help             Show help for command
+
+Global Options:
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
+"
+,
+  },
+}
+`;
+
+exports[`connectorCommand CLI supports connector run with cached schema and json output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"{"data":{"messageId":"message-1"},"meta":{"executionId":"exec-1"}}
+"
+,
+}
+`;
+
+exports[`connectorCommand CLI loads connector action metadata and supports dry-run when the schema cache is missing 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"{"dryRun":true,"ok":true,"schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail.send_mail.json"}
+"
+,
+}
+`;
+
+exports[`connectorCommand CLI validates connector run payloads before sending the action request 1`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"The connector action input payload is invalid: data/to must match format "email"
+"
+,
+  "stdout": "",
+}
+`;

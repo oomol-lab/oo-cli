@@ -121,6 +121,40 @@ Check whether a newer CLI release is available.
 - Notes: when the registry is temporarily unavailable, the CLI prints a
   retry-later message instead of exiting with an error.
 
+## Connector
+
+### `oo connector search <text>`
+
+Search connector actions with free-form text.
+
+- Arguments: `<text>` is the semantic search text.
+- Options: `--keywords <keywords>` sends a comma-separated keyword list after
+  trimming empty and duplicate entries.
+- Options: `--format=json` and `--json` print a JSON array of matching action
+  entries.
+- Output: every match is enriched with `authenticated` and `schemaPath`.
+- Output: JSON entries include the stable CLI fields `service`, `name`,
+  `description`, `authenticated`, and `schemaPath`.
+- Output: text output prints one block per action with the service/action
+  label, optional description, authenticated state, and schema cache path.
+- Notes: the command writes one schema cache file per result under the
+  persisted CLI configuration root in `connector-actions/`, alongside `data/`.
+
+### `oo connector run <serviceName>`
+
+Validate input data and run one connector action synchronously.
+
+- Arguments: `<serviceName>` is the service name.
+- Options: `-a, --action <action>` selects the action name and is required.
+- Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
+- Options: `--dry-run` validates the payload without executing the action.
+- Options: `--format=json` and `--json` print a JSON object.
+- Output: non-dry-run JSON output mirrors the stable response shape
+  `{ data, meta: { executionId } }`.
+- Output: dry-run JSON output returns `{ dryRun, ok, schemaPath }`.
+- Notes: when the local schema cache is missing or invalid, the command fetches
+  action metadata, rewrites the schema cache, and then validates the payload.
+
 ## Codex Skills
 
 ### `oo skills list`
