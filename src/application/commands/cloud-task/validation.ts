@@ -1,17 +1,15 @@
-import type { ErrorObject, ValidateFunction } from "ajv";
-
 import type { Translator } from "../../contracts/translator.ts";
 import type { PackageInfoResponse } from "../package/shared.ts";
-import Ajv from "ajv";
-import addFormats from "ajv-formats";
-import ajvEN from "ajv-i18n/localize/en/index.js";
-import ajvZH from "ajv-i18n/localize/zh/index.js";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isPackageInfoInputHandleOptional } from "../package/shared.ts";
 import { patchHandleSchema } from "../shared/handle-schema.ts";
+import {
+    compileJsonSchema,
+    formatJsonSchemaErrors,
+    validateCompiledJsonSchema,
+} from "../shared/json-schema-validation.ts";
 import { isPlainObject, readWidgetName } from "../shared/schema-utils.ts";
 
-const ajv = createAjv();
 const oomolStoragePathPrefix = "/oomol-driver/oomol-storage/";
 type ValidationTranslator = Pick<Translator, "locale" | "t">;
 
@@ -149,23 +147,6 @@ export function validateCloudTaskInputValues(
     }
 }
 
-function createAjv(): Ajv {
-    const instance = new Ajv({
-        addUsedSchema: false,
-        allErrors: true,
-        strict: false,
-        verbose: true,
-    });
-
-    addFormats(instance);
-    instance.addFormat("hex-color", {
-        type: "string",
-        validate: value => isHexColorString(value),
-    });
-
-    return instance;
-}
-
 function validateHandleValue(
     value: unknown,
     def: PackageInfoResponse["blocks"][number]["inputHandle"][string],
@@ -195,7 +176,7 @@ function validateHandleValue(
         return normalizedSchema.error;
     }
 
-    const [validator, compileError] = compile(normalizedSchema.schema);
+    const [validator, compileError] = compileJsonSchema(normalizedSchema.schema);
 
     if (compileError !== undefined) {
         return {
@@ -233,12 +214,16 @@ function validateHandleValue(
         };
     }
 
-    const validationErrors = validate(validator, value, translator.locale);
+    const validationErrors = validateCompiledJsonSchema(
+        validator,
+        value,
+        translator.locale,
+    );
 
     if (validationErrors && validationErrors.length > 0) {
         return {
             code: "validation",
-            message: ajv.errorsText(validationErrors),
+            message: formatJsonSchemaErrors(validationErrors),
         };
     }
 
@@ -300,44 +285,6 @@ function normalizeHandleSchema(
     return {
         schema: patchHandleSchema(normalizedSchema, ext),
     };
-}
-
-function compile(
-    schema?: unknown,
-): [ValidateFunction | undefined, Error | undefined] {
-    if (schema === undefined) {
-        return [undefined, undefined];
-    }
-
-    try {
-        return [ajv.compile(schema as object | boolean), undefined];
-    }
-    catch (error) {
-        return [undefined, error as Error];
-    }
-}
-
-function validate(
-    validator: ValidateFunction | undefined,
-    data: unknown,
-    locale?: string,
-): ErrorObject[] | null | undefined {
-    if (validator === undefined) {
-        return [];
-    }
-
-    if (validator(data)) {
-        return [];
-    }
-
-    if (locale?.startsWith("zh")) {
-        ajvZH(validator.errors);
-    }
-    else {
-        ajvEN(validator.errors);
-    }
-
-    return validator.errors;
 }
 
 function typeOfSchema(schema: unknown): WidgetType {
@@ -424,29 +371,6 @@ function inferPrimitiveType(value: unknown): PrimitiveType {
     }
 
     return typeof value;
-}
-
-function isHexColorString(value: string): boolean {
-    if (!value.startsWith("#")) {
-        return false;
-    }
-
-    if (value.length !== 7 && value.length !== 9) {
-        return false;
-    }
-
-    for (let index = 1; index < value.length; index += 1) {
-        const charCode = value.charCodeAt(index);
-        const isDigit = charCode >= 48 && charCode <= 57;
-        const isUpperHex = charCode >= 65 && charCode <= 70;
-        const isLowerHex = charCode >= 97 && charCode <= 102;
-
-        if (!isDigit && !isUpperHex && !isLowerHex) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 function isOomolStoragePath(value: string): boolean {

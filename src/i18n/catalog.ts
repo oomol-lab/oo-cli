@@ -47,6 +47,15 @@ export const enMessages = {
         "Wait for a cloud task to finish by polling its result.",
     "commands.cloudTask.wait.summary": "Wait for cloud task completion",
     "commands.cloudTask.summary": "Manage cloud tasks",
+    "commands.connector.description":
+        "Search connector actions and run authenticated connector operations.",
+    "commands.connector.summary": "Manage connector actions",
+    "commands.connector.search.description":
+        "Search connector actions and cache their schemas locally.",
+    "commands.connector.search.summary": "Search connector actions",
+    "commands.connector.run.description":
+        "Validate input data and run one connector action synchronously.",
+    "commands.connector.run.summary": "Run a connector action",
     "commands.completion.description":
         "Output a shell completion script for a supported shell.",
     "commands.completion.summary": "Generate shell completion scripts",
@@ -214,6 +223,48 @@ export const enMessages = {
         "The handle {handle} is not defined by block {blockId}.",
     "errors.cloudTaskRun.unsupportedContentMediaType":
         "The handle {handle} uses unsupported contentMediaType {contentMediaType}.",
+    "errors.connectorAuthenticated.invalidResponse":
+        "The authenticated connector services response body is unsupported.",
+    "errors.connectorAuthenticated.requestError":
+        "The authenticated connector services request failed: {message}",
+    "errors.connectorAuthenticated.requestFailed":
+        "The authenticated connector services request returned HTTP {status}.",
+    "errors.connectorMetadata.invalidResponse":
+        "The connector action metadata response body is unsupported.",
+    "errors.connectorMetadata.requestError":
+        "The connector action metadata request failed: {message}",
+    "errors.connectorMetadata.requestFailed":
+        "The connector action metadata request returned HTTP {status}.",
+    "errors.connectorRun.actionRequired":
+        "The --action option is required.",
+    "errors.connectorRun.dataFilePathRequired":
+        "The @data file path cannot be empty.",
+    "errors.connectorRun.dataReadFailed":
+        "Failed to read input data from {path}: {message}",
+    "errors.connectorRun.invalidActionSchema":
+        "The connector action input schema is invalid: {message}",
+    "errors.connectorRun.invalidDataJson":
+        "The --data value is not valid JSON: {message}",
+    "errors.connectorRun.invalidPayload":
+        "The connector action input payload is invalid: {message}",
+    "errors.connectorRun.invalidResponse":
+        "The connector action run response body is unsupported.",
+    "errors.connectorRun.requestError":
+        "The connector action run request failed: {message}",
+    "errors.connectorRun.requestFailed":
+        "The connector action run request returned HTTP {status}.",
+    "errors.connectorRun.requestFailedWithMessage":
+        "The connector action run request returned HTTP {status}: {message}",
+    "errors.connectorSchema.readFailed":
+        "Failed to read the connector action schema cache at {path}: {message}",
+    "errors.connectorSchema.writeFailed":
+        "Failed to write the connector action schema cache at {path}: {message}",
+    "errors.connectorSearch.invalidResponse":
+        "The connector action search response body is unsupported.",
+    "errors.connectorSearch.requestError":
+        "The connector action search request failed: {message}",
+    "errors.connectorSearch.requestFailed":
+        "The connector action search request returned HTTP {status}.",
     "errors.completion.invalidShell":
         "Unsupported shell: {value}. Use bash, zsh, or fish.",
     "errors.checkUpdate.failed": "Failed to check for CLI updates.",
@@ -355,7 +406,10 @@ export const enMessages = {
         "{appName} is {companyName}'s CLI toolkit. Everything can be done in the CLI.",
     "help.usage": "Usage:",
     "options.blockId": "Specify the target block id",
+    "options.action": "Specify the target action name",
     "options.blockName": "Alias for --block-id",
+    "options.connectorKeywords":
+        "Specify comma-separated keywords to refine the connector action search",
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
     "options.debug": "Print the current log file path when the CLI exits",
@@ -445,6 +499,7 @@ export const enMessages = {
     "arguments.outDir": "Output directory",
     "arguments.packageName": "Package name",
     "arguments.packageSpecifier": "Package specifier",
+    "arguments.serviceName": "Service name",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
     "arguments.skillConfigKey": "Skill configuration key",
@@ -474,6 +529,15 @@ export const enMessages = {
     "cloudTask.status.scheduling": "scheduling",
     "cloudTask.status.success": "success",
     "cloudTask.status.queued": "queued",
+    "connector.search.text.authenticated": "Authenticated",
+    "connector.search.text.authenticated.no": "no",
+    "connector.search.text.authenticated.yes": "yes",
+    "connector.search.text.noResults":
+        "No matching connector actions were found.",
+    "connector.search.text.schemaPath": "Schema path",
+    "connector.run.text.dryRunPassed": "Validation passed.",
+    "connector.run.text.executionId": "Execution ID",
+    "connector.run.text.resultData": "Result data",
     "file.cleanup.success":
         "Deleted {deletedCount} expired upload records.",
     "file.download.savedTo": "Saved to: {path}",
@@ -543,6 +607,17 @@ export const zhMessages = {
     "commands.cloudTask.wait.description": "通过轮询任务结果等待云任务结束。",
     "commands.cloudTask.wait.summary": "等待云任务完成",
     "commands.cloudTask.summary": "管理云任务",
+    "commands.connector.description":
+        "搜索 connector action，并运行已认证的 connector 操作。",
+    "commands.connector.summary": "管理 connector action",
+    "commands.connector.search.description":
+        "搜索 connector action，并将 schema 缓存到本地。",
+    "commands.connector.search.summary":
+        "搜索 connector action",
+    "commands.connector.run.description":
+        "校验输入数据，并同步运行一个 connector action。",
+    "commands.connector.run.summary":
+        "运行 connector action",
     "commands.completion.description": "输出受支持 shell 的补全脚本。",
     "commands.completion.summary": "生成 shell 补全脚本",
     "commands.config.description": "读取并更新持久化的用户配置。",
@@ -687,6 +762,48 @@ export const zhMessages = {
         "Block {blockId} 未定义 handle {handle}。",
     "errors.cloudTaskRun.unsupportedContentMediaType":
         "Handle {handle} 使用了暂不支持的 contentMediaType {contentMediaType}。",
+    "errors.connectorAuthenticated.invalidResponse":
+        "已认证 connector 服务列表返回了不受支持的响应内容。",
+    "errors.connectorAuthenticated.requestError":
+        "获取已认证 connector 服务列表失败：{message}",
+    "errors.connectorAuthenticated.requestFailed":
+        "获取已认证 connector 服务列表返回了 HTTP {status}。",
+    "errors.connectorMetadata.invalidResponse":
+        "connector action 元数据返回了不受支持的响应内容。",
+    "errors.connectorMetadata.requestError":
+        "获取 connector action 元数据失败：{message}",
+    "errors.connectorMetadata.requestFailed":
+        "获取 connector action 元数据返回了 HTTP {status}。",
+    "errors.connectorRun.actionRequired":
+        "--action 选项为必填。",
+    "errors.connectorRun.dataFilePathRequired":
+        "@data 文件路径不能为空。",
+    "errors.connectorRun.dataReadFailed":
+        "读取 {path} 中的输入数据失败：{message}",
+    "errors.connectorRun.invalidActionSchema":
+        "connector action 的输入 schema 无效：{message}",
+    "errors.connectorRun.invalidDataJson":
+        "--data 的值不是合法 JSON：{message}",
+    "errors.connectorRun.invalidPayload":
+        "connector action 的输入 payload 无效：{message}",
+    "errors.connectorRun.invalidResponse":
+        "connector action 运行返回了不受支持的响应内容。",
+    "errors.connectorRun.requestError":
+        "运行 connector action 失败：{message}",
+    "errors.connectorRun.requestFailed":
+        "运行 connector action 返回了 HTTP {status}。",
+    "errors.connectorRun.requestFailedWithMessage":
+        "运行 connector action 返回了 HTTP {status}：{message}",
+    "errors.connectorSchema.readFailed":
+        "读取 {path} 的 connector action schema cache 失败：{message}",
+    "errors.connectorSchema.writeFailed":
+        "写入 {path} 的 connector action schema cache 失败：{message}",
+    "errors.connectorSearch.invalidResponse":
+        "connector action 搜索返回了不受支持的响应内容。",
+    "errors.connectorSearch.requestError":
+        "connector action 搜索请求失败：{message}",
+    "errors.connectorSearch.requestFailed":
+        "connector action 搜索请求返回了 HTTP {status}。",
     "errors.completion.invalidShell":
         "不支持的 shell：{value}。请使用 bash、zsh 或 fish。",
     "errors.checkUpdate.failed": "检查 CLI 更新失败。",
@@ -823,7 +940,10 @@ export const zhMessages = {
         "{appName} 是 {companyName} 的 CLI 工具集，一切均可在 CLI 中完成",
     "help.usage": "用法：",
     "options.blockId": "指定目标 block id",
+    "options.action": "指定目标 action 名称",
     "options.blockName": "--block-id 的别名",
+    "options.connectorKeywords":
+        "指定用于细化 connector action 搜索的逗号分隔关键词",
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
@@ -912,6 +1032,7 @@ export const zhMessages = {
     "arguments.outDir": "输出目录",
     "arguments.packageName": "包名",
     "arguments.packageSpecifier": "包标识",
+    "arguments.serviceName": "服务名",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",
     "arguments.skillConfigKey": "skill 配置键",
@@ -940,6 +1061,14 @@ export const zhMessages = {
     "cloudTask.status.scheduling": "调度中",
     "cloudTask.status.success": "成功",
     "cloudTask.status.queued": "排队中",
+    "connector.search.text.authenticated": "已认证",
+    "connector.search.text.authenticated.no": "否",
+    "connector.search.text.authenticated.yes": "是",
+    "connector.search.text.noResults": "未找到匹配的 connector action。",
+    "connector.search.text.schemaPath": "Schema 路径",
+    "connector.run.text.dryRunPassed": "校验通过。",
+    "connector.run.text.executionId": "执行 ID",
+    "connector.run.text.resultData": "结果数据",
     "file.cleanup.success": "已删除 {deletedCount} 条过期上传记录。",
     "file.download.savedTo": "已保存到：{path}",
     "file.list.noResults": "未找到任何上传记录。",

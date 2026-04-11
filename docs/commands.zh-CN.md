@@ -111,6 +111,39 @@
   registry 拉取最新版本信息。
 - 说明：如果注册表暂时不可用，CLI 会输出稍后重试的提示，而不是直接报错退出。
 
+## Connector
+
+### `oo connector search <text>`
+
+使用自由文本搜索 connector action。
+
+- 参数：`<text>` 为语义搜索文本。
+- 选项：`--keywords <keywords>` 接收逗号分隔的关键词列表，去掉空项和重复项
+  后发送。
+- 选项：`--format=json` 和 `--json` 会输出匹配 action 条目的 JSON 数组。
+- 输出：每条结果都会附加 `authenticated` 和 `schemaPath`。
+- 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
+  `authenticated`、`schemaPath`。
+- 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
+  描述、认证状态和 schema cache 路径。
+- 说明：命令会在本地缓存已发现的 action schema，并在输出中返回对应的缓存
+  路径。
+
+### `oo connector run <serviceName>`
+
+校验输入数据，并同步运行一个 connector action。
+
+- 参数：`<serviceName>` 为服务名。
+- 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
+- 选项：`-d, --data <data>` 支持直接传入 JSON，或使用 `@路径` 读取 JSON 文件。
+- 选项：`--dry-run` 只做 payload 校验，不真正执行 action。
+- 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
+- 输出：非 dry-run 的 JSON 输出会保持稳定结构
+  `{ data, meta: { executionId } }`。
+- 输出：dry-run 的 JSON 输出返回 `{ dryRun, ok, schemaPath }`。
+- 说明：如果本地 schema cache 不可用或无法使用，命令会自动刷新后再继续校验
+  和运行。
+
 ## Codex Skill
 
 ### `oo skills list`

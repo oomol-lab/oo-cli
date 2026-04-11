@@ -1,14 +1,15 @@
-import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
-import { isPlainObject } from "../shared/schema-utils.ts";
+import {
+    readJsonInputValue,
+    requireJsonObjectInput,
+} from "../shared/json-input.ts";
 import {
     createCloudTaskTasksUrl,
     parseCloudTaskCreateResponse,
@@ -24,6 +25,12 @@ interface CloudTaskRunInput {
     format?: string;
     packageSpecifier: string;
 }
+
+const cloudTaskRunDataErrorKeys = {
+    dataFilePathRequired: "errors.cloudTaskRun.dataFilePathRequired",
+    dataReadFailed: "errors.cloudTaskRun.dataReadFailed",
+    invalidDataJson: "errors.cloudTaskRun.invalidDataJson",
+} as const;
 
 export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
     name: "run",
@@ -80,8 +87,15 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
             requireSemver: true,
             requireVersion: true,
         });
-        const rawInputValues = await readInputValuesSource(input.data, context);
-        const inputValues = parseInputValues(rawInputValues);
+        const inputValues = requireJsonObjectInput(
+            await readJsonInputValue(
+                input.data,
+                context,
+                cloudTaskRunDataErrorKeys,
+                {},
+            ),
+            "errors.cloudTaskRun.invalidPayloadShape",
+        );
         const packageInfo = await loadPackageInfo(
             packageSpecifier,
             account,
@@ -141,59 +155,3 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
         );
     },
 };
-
-async function readInputValuesSource(
-    value: string | undefined,
-    context: Pick<CliExecutionContext, "cwd">,
-): Promise<string> {
-    if (value === undefined || value.trim() === "") {
-        return "{}";
-    }
-
-    if (!value.startsWith("@")) {
-        return value;
-    }
-
-    const relativePath = value.slice(1);
-
-    if (relativePath.trim() === "") {
-        throw new CliUserError("errors.cloudTaskRun.dataFilePathRequired", 2);
-    }
-
-    const resolvedPath = resolve(context.cwd, relativePath);
-
-    try {
-        return await readFile(resolvedPath, "utf8");
-    }
-    catch (error) {
-        throw new CliUserError("errors.cloudTaskRun.dataReadFailed", 1, {
-            message: error instanceof Error ? error.message : String(error),
-            path: resolvedPath,
-        });
-    }
-}
-
-function parseInputValues(
-    rawInputValues: string,
-): Record<string, unknown> {
-    const normalizedInput = rawInputValues.charCodeAt(0) === 0xFEFF
-        ? rawInputValues.slice(1)
-        : rawInputValues;
-
-    let parsedValue: unknown;
-
-    try {
-        parsedValue = JSON.parse(normalizedInput) as unknown;
-    }
-    catch (error) {
-        throw new CliUserError("errors.cloudTaskRun.invalidDataJson", 2, {
-            message: error instanceof Error ? error.message : String(error),
-        });
-    }
-
-    if (!isPlainObject(parsedValue)) {
-        throw new CliUserError("errors.cloudTaskRun.invalidPayloadShape", 2);
-    }
-
-    return parsedValue;
-}

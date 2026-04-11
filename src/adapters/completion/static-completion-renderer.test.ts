@@ -13,6 +13,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("auth");
         expect(output).toContain("completion");
         expect(output).toContain("config");
+        expect(output).toContain("connector");
         expect(output).toContain("login");
         expect(output).toContain("logout");
         expect(output).toContain("packages");
@@ -27,6 +28,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain(`#compdef ${APP_NAME}`);
         expect(output).toContain("auth switch");
         expect(output).toContain("config set");
+        expect(output).toContain("connector run");
         expect(output).toContain("packages search");
         expect(output).toContain(`compdef _${APP_NAME} ${APP_NAME}`);
     });
@@ -40,6 +42,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("__fish_seen_subcommand_from auth");
         expect(output).toContain("completion");
         expect(output).toContain("config");
+        expect(output).toContain("connector");
         expect(output).toContain("login");
         expect(output).toContain("logout");
         expect(output).toContain("__fish_seen_subcommand_from packages");

@@ -477,6 +477,38 @@ export function readAuthLoginUrlPrefix(endpoint: string): string {
     return `https://api.${endpoint}/v1/auth/redirect?`;
 }
 
+export interface ConnectorActionFixtureOverrides {
+    description?: string;
+    inputSchema?: Record<string, unknown>;
+    name?: string;
+    outputSchema?: Record<string, unknown>;
+    service?: string;
+}
+
+export interface ConnectorActionFixture {
+    description: string;
+    inputSchema: Record<string, unknown>;
+    name: string;
+    outputSchema: Record<string, unknown>;
+    service: string;
+}
+
+export function createConnectorActionFixture(
+    overrides: ConnectorActionFixtureOverrides = {},
+): ConnectorActionFixture {
+    return {
+        description: overrides.description ?? "Send a Gmail message.",
+        inputSchema: overrides.inputSchema ?? {
+            type: "object",
+        },
+        name: overrides.name ?? "send_mail",
+        outputSchema: overrides.outputSchema ?? {
+            type: "object",
+        },
+        service: overrides.service ?? "gmail",
+    };
+}
+
 export function toRequest(input: string | URL | Request, init?: RequestInit): Request {
     if (input instanceof Request) {
         return new Request(input, init);
@@ -544,6 +576,11 @@ function normalizeSnapshotText(
             replacement.value,
             replacement.placeholder,
         );
+        normalized = replaceSnapshotValue(
+            normalized,
+            JSON.stringify(replacement.value).slice(1, -1),
+            replacement.placeholder,
+        );
 
         const portableValue = replacement.value
             .split("\\")
@@ -555,10 +592,15 @@ function normalizeSnapshotText(
                 portableValue,
                 replacement.placeholder,
             );
+            normalized = replaceSnapshotValue(
+                normalized,
+                JSON.stringify(portableValue).slice(1, -1),
+                replacement.placeholder,
+            );
         }
     }
 
-    return normalized.split("\\").join("/");
+    return normalizeBackslashRunsToSlash(normalized);
 }
 
 function replaceSnapshotValue(
@@ -567,6 +609,31 @@ function replaceSnapshotValue(
     replacementValue: string,
 ): string {
     return value.split(searchValue).join(replacementValue);
+}
+
+function normalizeBackslashRunsToSlash(
+    value: string,
+): string {
+    let normalized = "";
+    let index = 0;
+
+    while (index < value.length) {
+        const char = value[index];
+
+        if (char !== "\\") {
+            normalized += char;
+            index += 1;
+            continue;
+        }
+
+        normalized += "/";
+
+        while (value[index] === "\\") {
+            index += 1;
+        }
+    }
+
+    return normalized;
 }
 
 function resolveSnapshotReplacements(
