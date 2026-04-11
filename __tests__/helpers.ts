@@ -576,6 +576,11 @@ function normalizeSnapshotText(
             replacement.value,
             replacement.placeholder,
         );
+        normalized = replaceSnapshotValue(
+            normalized,
+            JSON.stringify(replacement.value).slice(1, -1),
+            replacement.placeholder,
+        );
 
         const portableValue = replacement.value
             .split("\\")
@@ -587,10 +592,15 @@ function normalizeSnapshotText(
                 portableValue,
                 replacement.placeholder,
             );
+            normalized = replaceSnapshotValue(
+                normalized,
+                JSON.stringify(portableValue).slice(1, -1),
+                replacement.placeholder,
+            );
         }
     }
 
-    return normalized.split("\\").join("/");
+    return normalizeBackslashRunsToSlash(normalized);
 }
 
 function replaceSnapshotValue(
@@ -599,6 +609,31 @@ function replaceSnapshotValue(
     replacementValue: string,
 ): string {
     return value.split(searchValue).join(replacementValue);
+}
+
+function normalizeBackslashRunsToSlash(
+    value: string,
+): string {
+    let normalized = "";
+    let index = 0;
+
+    while (index < value.length) {
+        const char = value[index];
+
+        if (char !== "\\") {
+            normalized += char;
+            index += 1;
+            continue;
+        }
+
+        normalized += "/";
+
+        while (value[index] === "\\") {
+            index += 1;
+        }
+    }
+
+    return normalized;
 }
 
 function resolveSnapshotReplacements(
