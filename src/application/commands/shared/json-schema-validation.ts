@@ -75,13 +75,25 @@ function createAjv(): Ajv {
 function stripSchemaDialectDeclaration(
     value: unknown,
 ): unknown {
+    if (Array.isArray(value)) {
+        return value.map(item => stripSchemaDialectDeclaration(item));
+    }
+
     if (!isPlainObject(value)) {
         return value;
     }
 
-    const { $schema: _schemaDialect, ...schemaWithoutDialect } = value;
+    const entries: [string, unknown][] = [];
 
-    return schemaWithoutDialect;
+    for (const [key, entryValue] of Object.entries(value)) {
+        if (key === "$schema") {
+            continue;
+        }
+
+        entries.push([key, stripSchemaDialectDeclaration(entryValue)]);
+    }
+
+    return Object.fromEntries(entries);
 }
 
 function isHexColorString(value: string): boolean {
