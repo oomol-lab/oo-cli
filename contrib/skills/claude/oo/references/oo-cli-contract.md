@@ -1,10 +1,10 @@
 # oo CLI Contract
 
 This reference captures the concrete `oo-cli` contract that the skill may rely
-on. Use it when you need exact command syntax, JSON expectations, auth behavior,
-or known stop conditions.
+on. Use it when you need exact command syntax, JSON expectations, auth
+behavior, timeout rules, or known stop conditions.
 
-## Entrypoints
+## Entrypoint
 
 Canonical entrypoint:
 
@@ -12,11 +12,16 @@ Canonical entrypoint:
 oo ...
 ```
 
+Skill policy:
+
+- Do not probe for `oo` with `which`, `command -v`, version checks, or similar
+  existence prechecks. Run the intended `oo` command directly.
+
 ## Authentication
 
-- `packages search`, `packages info`, `file upload`, `cloud-task run`,
-  `cloud-task result`, and `cloud-task wait` all require a current
-  authenticated account.
+- `search`, `packages search`, `packages info`, `connector search`,
+  `connector run`, `file upload`, `cloud-task run`, `cloud-task result`, and
+  `cloud-task wait` all require a current authenticated account.
 - Do not run `auth status` as a routine precheck.
 - If a remote command fails and auth might be the cause, use:
 
@@ -41,6 +46,67 @@ oo auth login
 - Tell the user their current account has insufficient credit or is overdue.
 - Direct them to recharge before retrying at
   https://console.oomol.com/billing/recharge.
+
+## `oo search`
+
+Canonical form:
+
+```bash
+oo search "<text>" --json
+```
+
+Facts:
+
+- `oo search` performs one mixed discovery pass over package intent search and
+  connector action search.
+- `--json` returns a raw array, not an object wrapper.
+- The array mixes `package` and `connector` entries and uses `kind` as the
+  discriminator.
+- Package entries include stable fields such as `packageId`, `displayName`,
+  `description`, and `blocks`.
+- Connector entries include stable fields such as `service`, `name`,
+  `description`, `authenticated`, and `schemaPath`.
+- `--keywords` is optional and refines the connector side while keeping the
+  same free-form text query.
+- Use this command first when the task could be solved by either a package or
+  a connector action.
+- `schemaPath` points to a local cache file that contains the action metadata,
+  including `service`, `name`, `description`, `inputSchema`, and
+  `outputSchema`. Read that file locally when you need exact connector input
+  or output semantics.
+
+Representative JSON example:
+
+```json
+[
+  {
+    "blocks": [
+      {
+        "description": "",
+        "name": "main",
+        "title": "Generate QR Code"
+      }
+    ],
+    "description": "Generate a QR code image.",
+    "displayName": "QR Tools",
+    "kind": "package",
+    "packageId": "@oomol/qr-tools@1.2.3"
+  },
+  {
+    "authenticated": true,
+    "description": "Send an email through Gmail.",
+    "kind": "connector",
+    "name": "send_mail",
+    "schemaPath": "<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json",
+    "service": "gmail"
+  }
+]
+```
+
+Stop condition:
+
+- If the array is empty, stop and tell the user that `oo` does not currently
+  have a matching capability.
 
 ## `packages search`
 
@@ -83,7 +149,7 @@ missing, sparse, or added over time.
 Stop condition:
 
 - If the array is empty, stop and tell the user that `oo` does not currently
-  have a matching capability.
+  have a matching package.
 
 ## `packages info`
 
@@ -168,6 +234,53 @@ File-oriented practical implication:
   file, upload it first with `file upload --json` and use the returned
   `downloadUrl` as the submitted handle value.
 
+## `connector search`
+
+Canonical form:
+
+```bash
+oo connector search "<text>" --json
+```
+
+Facts:
+
+- `<text>` is the free-form connector search text.
+- `--json` returns a raw array of connector action definitions.
+- `--keywords` accepts a comma-separated list and is trimmed for empty and
+  duplicate entries by the CLI.
+- Search results are intentionally broader than package search and usually
+  need more pruning at the skill layer.
+- Use this command when you want to refine a connector candidate or inspect
+  connector-specific fields directly.
+- `schemaPath` is the local cache file you should read when you need the
+  exact `inputSchema` or `outputSchema` before constructing a payload.
+
+Representative JSON example:
+
+```json
+[
+  {
+    "authenticated": false,
+    "description": "Send a Gmail message.",
+    "name": "send_mail",
+    "schemaPath": "<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json",
+    "service": "gmail"
+  }
+]
+```
+
+Representative cache file shape:
+
+```json
+{
+  "description": "Send a Gmail message.",
+  "inputSchema": {},
+  "name": "send_mail",
+  "outputSchema": {},
+  "service": "gmail"
+}
+```
+
 ## `file upload`
 
 Canonical form:
@@ -188,53 +301,76 @@ Facts:
 
 Practical implication:
 
-- Use this command when a selected `cloud-task run` input can safely accept a
-  URI string but the user currently has a local file.
-- If the user already provides a remote URL that satisfies the same URI input,
-  reuse it instead of re-uploading the file.
+- Use this command when a selected input can safely accept a URI string but
+  the user currently has a local file.
+- If the user already provides a remote URL that satisfies the same URI
+  input, reuse it instead of re-uploading the file.
 - Submit the returned `downloadUrl` in `--data`.
 - Do not treat this command as a way to pass raw bytes or bypass unsupported
   `contentMediaType` validation.
 
-## `file download`
+## `connector run`
 
 Canonical form:
 
 ```bash
-oo file download "<url>" [outDir] [--name "<name>"] [--ext "<ext>"]
+oo connector run "<serviceName>" \
+  --action "<actionName>" \
+  --data '<json object>' \
+  --json
 ```
 
 Facts:
 
-- `<url>` must use the `http` or `https` scheme.
-- `[outDir]` is optional. When omitted, the CLI uses the configured
-  `file.download.out_dir` value if present, otherwise `~/Downloads`.
-- `[outDir]` and `file.download.out_dir` may start with `~`, which expands to the
-  current user's home directory.
-- Missing directories are created automatically.
-- `--name <name>` overrides only the saved base name. The value must be
-  non-empty, must not be `.` or `..`, and must not contain path separators.
-- `--ext <ext>` overrides only the saved extension. The value may be written
-  with or without a leading `.`, but it must be non-empty, must not be `.`
-  or `..`, and must not contain path separators.
-- When `--name` or `--ext` is omitted, the CLI infers the saved file name from
-  the final response metadata and URL.
-- This command does not support `--json` or `--format=json`.
-- If the destination path already exists as a file, the command fails.
-- If the destination filename collides with an existing file, the CLI renames
-  the saved file non-destructively.
-- Successful saves print one localized human-readable line on stdout that
-  includes the absolute saved path.
-- When automating a user-facing artifact download, pass `--name` if the inferred
-  file name would otherwise be opaque, such as a UUID, hash, task ID, or a
-  generic `download` label. Keep the inferred extension unless the caller has a
-  proven better extension.
+- `serviceName` identifies the connector service.
+- `--action` is required and selects the connector action name.
+- `--data` must be a JSON object string or `@path/to/file.json`.
+- If `--data` is omitted, the CLI uses `{}`.
+- `--dry-run` validates the payload without executing the action.
+- `--json` returns a stable JSON object for both dry-run and execution.
+- The command refreshes schema metadata automatically when the cache is
+  missing or unusable.
+- Use the action's cached `inputSchema` and normal JSON Schema required-field
+  semantics before submitting data.
+- In execution responses, the execution id is nested under
+  `meta.executionId`; do not expect a top-level `executionId` field.
 
-Failure cases:
+Expected execution JSON:
 
-- invalid URL
-- non-directory `outDir`
-- non-success HTTP response
+```json
+{
+  "data": {},
+  "meta": {
+    "executionId": "execution-id"
+  }
+}
+```
+
+Expected dry-run JSON:
+
+```json
+{
+  "dryRun": true,
+  "ok": true,
+  "schemaPath": "<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json"
+}
+```
+
+Hard validation limits:
+
+- Unknown input handles are rejected.
+- Missing required values are rejected.
+- Type mismatches are rejected.
+- `--data` must decode to a plain JSON object.
+- If an input schema contains `contentMediaType` and the value is not
+  `oomol/secret`, current local validation rejects it.
+
+Practical implication:
+
+- If a handle is URI-compatible, a previously uploaded file's `downloadUrl`
+  may be submitted as the JSON value.
+- Stop instead of pretending that raw file bytes, local paths, or unsupported
+  special-media handles can be submitted safely through normal JSON payloads.
 
 ## `cloud-task run`
 
@@ -277,8 +413,8 @@ Hard validation limits:
 
 Practical implication:
 
-- If a handle is URI-compatible, a previously uploaded file's `downloadUrl` may
-  be submitted as the JSON value.
+- If a handle is URI-compatible, a previously uploaded file's `downloadUrl`
+  may be submitted as the JSON value.
 - Stop instead of pretending that raw file bytes, local paths, or unsupported
   special-media handles can be submitted safely through normal JSON payloads.
 
@@ -317,12 +453,12 @@ Possible JSON shapes:
 In-progress statuses include `queued`, `scheduling`, `scheduled`, and
 `running`. Treat any of them as not terminal yet.
 
-Use this command after a non-zero `cloud-task wait` exit to distinguish timeout,
-failure, and a late success.
+Use this command after a non-zero `cloud-task wait` exit to distinguish
+timeout, failure, and a late success.
 
 If the result snapshot contains HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
-treat the failure as insufficient credit or overdue billing and stop instead of
-retrying.
+treat the failure as insufficient credit or overdue billing and stop instead
+of retrying.
 
 Result URL implication:
 
@@ -355,25 +491,72 @@ Skill policy:
 - Prefer bounded wait windows over a single long wait.
 - Do not treat timeout as task failure.
 - Never re-create a task just because a wait window ended.
-- If the wait output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop and
-  send the user to https://console.oomol.com/billing/recharge.
+- If the wait output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop
+  and send the user to https://console.oomol.com/billing/recharge.
+
+## `file download`
+
+Canonical form:
+
+```bash
+oo file download "<url>" [outDir] [--name "<name>"] [--ext "<ext>"]
+```
+
+Facts:
+
+- `<url>` must use the `http` or `https` scheme.
+- `[outDir]` is optional. When omitted, the CLI uses the configured
+  `file.download.out_dir` value if present, otherwise `~/Downloads`.
+- `[outDir]` and `file.download.out_dir` may start with `~`, which expands to
+  the current user's home directory.
+- Missing directories are created automatically.
+- `--name <name>` overrides only the saved base name. The value must be
+  non-empty, must not be `.` or `..`, and must not contain path separators.
+- `--ext <ext>` overrides only the saved extension. The value may be written
+  with or without a leading `.`, but it must be non-empty, must not be `.`
+  or `..`, and must not contain path separators.
+- When `--name` or `--ext` is omitted, the CLI infers the saved file name
+  from the final response metadata and URL.
+- This command does not support `--json` or `--format=json`.
+- If the destination path already exists as a file, the command fails.
+- If the destination filename collides with an existing file, the CLI
+  renames the saved file non-destructively.
+- Successful saves print one localized human-readable line on stdout that
+  includes the absolute saved path.
+- When automating a user-facing artifact download, pass `--name` if the
+  inferred file name would otherwise be opaque, such as a UUID, hash, task
+  ID, or a generic `download` label. Keep the inferred extension unless the
+  caller has a proven better extension.
+
+Failure cases:
+
+- invalid URL
+- non-directory `outDir`
+- non-success HTTP response
 
 ## Command selection summary
 
 Use this order:
 
 1. Convert the user request into `2` to `6` English keywords.
-2. Run `packages search --json`.
-3. Run `packages info --json` for the serious candidates.
-4. Choose one primary package and optionally one fallback.
-5. Ask focused follow-up questions only for missing required inputs.
-6. Upload local files with `file upload --json` when a selected handle needs a
-   URI value.
-7. Run `cloud-task run --json`.
-8. Share `taskID` immediately.
-9. Use bounded `cloud-task wait` windows when appropriate.
-10. After a non-zero wait exit, run `cloud-task result --json` and stop on
+2. Run `oo search --json`.
+3. Keep at most `2` serious candidates total across packages and connectors.
+   Default to one primary candidate. Keep a second candidate only when it is
+   a materially different fallback. The usual two-item shortlist is one
+   connector and one package; if both are equally strong, keep the connector
+   first.
+4. Inspect package candidates with `packages info --json`.
+5. For connector candidates, read the cached schema file at `schemaPath`,
+   then use `connector search --json` or `connector run` as needed.
+6. Ask focused follow-up questions only for missing required inputs.
+7. Upload local files with `file upload --json` when a selected handle needs
+   a URI.
+8. Run `cloud-task run --json` for package-backed candidates.
+9. Run `connector run --json` for connector-backed candidates.
+10. Share `taskID` or `meta.executionId` immediately.
+11. Use bounded `cloud-task wait` windows only for package-backed tasks.
+12. After a non-zero wait exit, run `cloud-task result --json` and stop on
     billing signals such as HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`.
-11. If a successful task yields a remote artifact URL and a local copy would
-    help the user, materialize it with `oo file download` and add `--name` when
-    the inferred saved file name would be opaque.
+13. If a successful package task yields a remote artifact URL and a local
+    copy would help the user, materialize it with `oo file download` and add
+    `--name` when the inferred saved file name would be opaque.
