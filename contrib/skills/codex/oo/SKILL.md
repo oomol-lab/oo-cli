@@ -1,37 +1,36 @@
 ---
 name: oo
 description: >-
-  Use the oo CLI to complete practical tasks through OOMOL packages:
-  translate natural-language requests into English search terms, inspect
-  candidate packages, choose blocks, collect required inputs, run validated
-  cloud tasks, and manage bounded waits. Typical cues include OCR, document
-  or image-set translation, EPUB or PDF
-  translation, transcription, speech tasks, image generation, and other
-  ready-made capabilities over local files or archives. Do not use this
-  skill when the user explicitly asks for a local implementation.
+  Use the oo CLI to complete practical tasks through mixed OOMOL discovery:
+  translate natural-language requests into English search terms, search
+  packages and connector actions together, keep at most 0 to 2 serious
+  candidates total, prefer connector actions when they are as good as a
+  package, and run either validated cloud tasks or authenticated connector
+  actions. Do not use this skill when the user explicitly asks for a local
+  implementation.
 ---
 
 # oo
 
 Use this skill when the user wants to complete a practical task through the
 `oo` CLI, such as generating an artifact, transforming content, translating a
-document or image set, extracting text, or running a cloud block over a local
-file or archive.
+document or image set, extracting text, or running a cloud block or connector
+action over a local file or archive.
 
 Common triggers include image generation, text-to-image, text-to-speech,
 speech-to-text, voice synthesis, transcription, OCR, document translation,
-EPUB translation, PDF translation, image-set
-translation, scanned-page translation, subtitle generation, and archive-based
-media processing.
+EPUB translation, PDF translation, image-set translation, scanned-page
+translation, subtitle generation, archive-based media processing, and
+authenticated connector actions such as Gmail or other linked services.
 
-If the request is to use a ready-made capability over a local file or archive,
-stay on the `oo` path first. Do not switch to ad hoc local Python, OCR, or
-shell processing before you have at least tried `oo packages search ... --json` and
-inspected plausible packages with `oo packages info ... --json`.
+If the request fits a ready-made capability over a local file or archive, stay
+on the `oo` path first. Do not switch to ad hoc local Python, OCR, or shell
+processing before you have tried `oo search ... --json` and inspected plausible
+mixed results.
 
-Do not use this skill for ordinary local coding, shell scripting, glue code,
-or for requests that explicitly ask for a local implementation instead of
-using `oo`.
+Do not use this skill for ordinary local coding, shell scripting, glue code, or
+for requests that explicitly ask for a local implementation instead of using
+`oo`.
 
 Read [references/oo-cli-contract.md](references/oo-cli-contract.md) when you
 need exact command syntax, JSON shapes, auth behavior, timeout rules, or known
@@ -47,63 +46,66 @@ https://console.oomol.com/billing/recharge before continuing.
 Before doing anything substantial:
 
 - Prefer `oo ...`.
-- Do not probe for `oo` with `which`, `command -v`, or similar prechecks. Run
-  the intended `oo` command directly.
+- Never probe for `oo` with `which`, `command -v`, version checks, or similar
+  existence prechecks. Run the intended `oo` command directly as the first
+  step.
 - Do not run `oo auth status` as a routine precheck.
-- If a remote `oo` command fails and auth may be the cause, run
-  `oo auth status` to inspect the current account state.
-- Treat auth as usable only when the status output shows a valid active
-  account.
+- If a remote `oo` command fails and auth may be the cause, run `oo auth
+  status` to inspect the current account state.
+- Treat auth as usable only when the status output shows a valid active account.
 - If auth status says logged out, missing, invalid, or request failed, stop and
   ask the user to repair authentication before retrying.
 
 ## Non-negotiable rules
 
 - Always use `--json` with:
-    - `packages search`
-    - `packages info`
-    - `cloud-task run`
-    - `file upload`
+  - `search`
+  - `packages search`
+  - `packages info`
+  - `connector search`
+  - `connector run`
+  - `cloud-task run`
+  - `file upload`
 - Never add `--json` to `cloud-task wait`.
 - Never add `--json` to `oo file download`. It does not support structured
   output, so read the saved path from the human-readable success line.
-- If the request clearly fits this skill, the mere availability of local tools
-  such as `python`, `unzip`, `ffmpeg`, `sips`, or OCR binaries is not a reason
-  to leave the skill. Local tools may inspect inputs, but the first
-  substantive capability lookup must still happen through `oo`.
-- Never invent package IDs, versions, block IDs, handle names, defaults, or
-  task results.
-- If a remote command fails with an auth-related error or unclear account
-  state, inspect with `oo auth status` before retrying.
-- If any command output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop
-  immediately. Treat it as a billing problem, not an auth problem, and tell the
-  user to recharge at https://console.oomol.com/billing/recharge before any
-  retry.
+- Use `oo search` as the first substantive lookup. It searches packages and
+  connector actions together, so the pruning must happen inside this skill.
+- Keep at most `0` to `2` serious candidates total after ranking the mixed
+  search results. Default to one primary candidate. Keep a second candidate
+  only when it is a materially different fallback rather than a noisy
+  duplicate. If both a package and a connector are credible, the usual
+  shortlist shape is one connector plus one package, but never exceed `2`
+  total. Connector results are often noisier than package results, so filter
+  them aggressively.
+- Rank mixed results with this rubric, in order:
+  - directness of the action or block relative to the user's goal
+  - whether the service or output target is explicitly named or strongly implied
+  - whether the candidate is already authenticated and ready to run
+  - how many required inputs and follow-up questions it adds
+  - how closely the expected output matches the user's desired outcome
+- If a package and a connector are both strong matches, keep the connector
+  first. Connector is free and lower-friction, so it should win ties.
+- If `oo search` returns no suitable candidates, stop and tell the user that
+  `oo` does not currently have a matching capability.
 - `cloud-task run` must use `PACKAGE_NAME@SEMVER`.
 - `cloud-task run` must include a real `--block-id`.
-- If `packages search` returns zero packages, stop and tell the user that `oo` does not
-  currently have a matching capability.
-- Ask follow-up questions only when required inputs are missing or too risky to
-  infer.
-- Stop when the selected block depends on an input shape that `oo-cli` cannot
-  safely submit.
+- For connector-backed tasks, use `oo connector run` instead of `cloud-task
+  run`.
+- Never invent package IDs, versions, block IDs, connector names, action
+  names, defaults, or task results.
+- Stop when the selected block or connector action depends on an input shape
+  that `oo-cli` cannot safely submit.
 - Never pass raw file bytes, multipart payloads, or a local filesystem path to
   `cloud-task run --data`.
 - When a handle expects a URI-compatible file value, upload the local file
   first and submit the returned `downloadUrl`.
-- If a final task result exposes a remote artifact URL and you want a local
-  copy, prefer `oo file download <url> [outDir]` over `curl` or ad hoc download
-  code.
-- When downloading a user-facing artifact with `oo file download`, pass
-  `--name "<descriptive base name>"` unless the response metadata already proves
-  a clear human-readable filename. Preserve the inferred extension unless the
-  user explicitly needs a different one.
 - Omit `[outDir]` unless the user asked for a specific destination. When it is
-  omitted, `oo file download` uses `file.download.out_dir` or `~/Downloads`, creates
-  missing directories, avoids overwrite by renaming, and prints the absolute
-  saved path.
-- Remote artifact downloads should follow `oo file download` policy rather than
-  the old workspace-only convention.
+  omitted, `oo file download` uses `file.download.out_dir` or `~/Downloads`,
+  creates missing directories, avoids overwrite by renaming, and prints the
+  absolute saved path.
+- Remote artifact downloads should follow `oo file download` policy rather
+  than the old workspace-only convention.
 
 ## Workflow
 
@@ -124,37 +126,40 @@ Examples:
 
 - `generate qr code`
 - `md5 hash`
-- `image OCR`
+- `image ocr`
 - `summarize pdf`
 - `translate image archive`
 - `translate scanned japanese pages`
 
 Combine the keywords into one concise English search query.
 
-### 2. Search for candidate packages
+### 2. Search the mixed pool first
 
 Run:
 
 ```bash
-oo packages search "<english query>" --json
+oo search "<english query>" --json
 ```
+
+If helpful, add `--keywords` to refine connector matches without changing the
+overall intent query.
 
 Then:
 
-- Rank packages only from the returned JSON array.
-- Some search items may be sparse, so rank using whatever package and block
-  fields are present.
-- Prefer semantic matches between the user goal and the package or block text.
-- Keep one primary candidate.
-- Keep one fallback candidate only if it is genuinely plausible.
-- Do not use `--only-package-id` for this step because it removes useful block
-  hints.
+- Read packages and connector actions together from the returned JSON array.
+- Treat the array as the raw discovery pool; do not expose more than `2`
+  serious candidates total.
+- Prefer the strongest connector candidate when a connector and a package both
+  fit the request well.
+- Use package results when they are clearly the better execution path or when a
+  connector remains too ambiguous after refinement.
+- Do not demote a connector only because it is currently unauthenticated if
+  linking that service is the only missing step and the connector is otherwise
+  the best fit for the user's goal.
 
-If the result is empty, stop.
+### 3. Inspect only the serious candidates
 
-### 3. Inspect package details and choose a block
-
-For each serious candidate, inspect it with one of these forms:
+For package candidates, inspect them with one of these forms:
 
 ```bash
 oo packages info "<packageName>@<version>" --json
@@ -164,46 +169,47 @@ oo packages info "<packageName>@<version>" --json
 oo packages info "<packageName>" --json
 ```
 
-Then choose the best block using only returned metadata.
+If `oo search` did not include a usable version, inspect the package by name
+first and use the resolved `packageVersion` for any later `cloud-task run`.
 
-Prefer a block that:
+For connector candidates, use the result's `service` and `name` fields as the
+execution handle. Read the cached schema JSON at `schemaPath` before building
+any connector payload, and use that file's exact `inputSchema` and
+`outputSchema` to confirm the action fit and required fields. If you need a
+more focused connector lookup, use:
 
-- directly matches the requested action
-- requires fewer mandatory inputs
-- has clearer input semantics
-- produces output closer to the user's goal
+```bash
+oo connector search "<english query>" --json
+```
 
-Use `blocks[].blockName` as the block identifier for execution. Do not use the
-human-facing block title as `--block-id`.
-
-If `packages search` does not provide a version, inspect the package by name first and use
-the resolved `packageVersion` for any later `cloud-task run`.
-
-If a candidate does not expose a usable package name, do not select it.
-
-If the primary candidate fails inspection and the fallback is still credible,
-switch to the fallback.
+Use that only to refine a connector decision, not to widen the candidate set.
 
 ### 4. Build the input payload
 
-Use only fields from the selected block's `inputHandle`.
+Use only fields that the selected package block or connector action input
+schema actually exposes.
 
 Rules:
 
 - JSON keys in `--data` must exactly match input handle names.
-- Treat a handle as optional only when the metadata proves it:
-    - a non-null `value` already exists
-    - `nullable` is `true` and `value` is `null`
-    - `schema.default` exists
+- For package-backed runs, treat a handle as optional only when the metadata
+  proves it:
+  - a non-null `value` already exists
+  - `nullable` is `true` and `value` is `null`
+  - `schema.default` exists
+- For connector-backed runs, inspect the cached `inputSchema` from `schemaPath`
+  and follow normal JSON Schema required-field semantics instead of package
+  handle rules.
 - If the user request implies a concrete value for a handle, provide it
   explicitly instead of inheriting a package default or sample value.
-- Treat package-provided `value` and `schema.default` as evidence that omission
-  may pass local validation, not as evidence that the value is correct for the
-  current task.
+- Treat package-provided `value` and `schema.default` as evidence that
+  omission may pass local validation, not as evidence that the value is correct
+  for the current task.
 - If a handle is technically optional but the task would be underspecified
   without a user-specific value, ask a follow-up question.
-- Do not submit fields outside `inputHandle`.
-- Do not guess secrets, credentials, local file paths, filenames, or opaque IDs.
+- Do not submit fields outside the selected block or action input.
+- Do not guess secrets, credentials, local file paths, filenames, opaque IDs,
+  or connector scopes.
 - Do not force raw user prose into a handle whose schema does not fit.
 
 For file-like inputs, distinguish between URI-safe values and unsupported
@@ -217,13 +223,10 @@ oo file upload "<filePath>" --json
 ```
 
 - Read `downloadUrl` from the JSON response and place that URL into the
-  matching handle value for `cloud-task run --data`.
-- Treat file widgets as URI-oriented inputs, because current CLI validation
-  patches them to string values with `format: "uri"`.
-- If the schema already declares a URI-shaped string, you may use an existing
-  user-provided remote URL instead of uploading a local file.
-- Do not upload a file unless the selected handle can safely accept a URI
-  string.
+  matching handle value for `cloud-task run --data` or connector `--data`.
+- If the schema contains `contentMediaType` and it is not `oomol/secret`, stop
+  instead of pretending file, image, or other special payloads can be
+  submitted safely as normal JSON values.
 
 If a required value is missing or ambiguous, ask a focused follow-up question.
 
@@ -233,34 +236,9 @@ A good follow-up question:
 - offers `2` to `4` concrete options when possible
 - includes one recommended option with a brief reason
 
-### 5. Stop on unsupported input shapes
+### 5. Execute the chosen path
 
-Stop instead of forcing execution when any of the following is true:
-
-- a required input is still missing
-- the input schema implies a value shape that cannot be safely represented with
-  `cloud-task run --data`
-- the block depends on environment data that cannot be safely constructed
-- both primary and fallback candidates fail
-
-Pay special attention to `schema.contentMediaType`.
-
-If `contentMediaType` exists and is not `oomol/secret`, stop. The current
-`oo-cli` local validation rejects non-secret content media types, so do not
-pretend file, image, or other special payloads can be passed safely as normal
-JSON values.
-
-Do not confuse the URI-safe path with the unsupported path:
-
-- A handle that can be validated as a URI string may be satisfied by
-  `oo file upload ... --json` plus the returned `downloadUrl`.
-- A handle that still exposes a non-secret `contentMediaType` is not safely
-  supported through `cloud-task run --data`, even if the user wants to provide
-  a local file.
-
-### 6. Run the task once required inputs are ready
-
-When the payload is ready, run the task directly:
+For package-backed candidates, run the task directly:
 
 ```bash
 oo cloud-task run "<packageName>@<version>" \
@@ -275,17 +253,20 @@ for it.
 
 Read `taskID` from the JSON response.
 
-Immediately report:
+For connector-backed candidates, run the action directly:
 
-- selected package ID and version
-- selected block ID
-- submitted key inputs
-- task ID
-- fallback candidate, if one exists
+```bash
+oo connector run "<serviceName>" \
+  --action "<actionName>" \
+  --data '<json object>' \
+  --json
+```
 
-Do not hide the task ID behind a long wait.
+Use `--dry-run` first when you want validation without execution.
 
-### 7. Handle long-running tasks safely
+Read `meta.executionId` and `data` from the JSON response.
+
+### 6. Handle long-running package tasks safely
 
 Do not default to an open-ended wait.
 
@@ -303,9 +284,10 @@ oo cloud-task wait "<taskId>" --timeout "<window>"
 
 Rules:
 
-- Wait immediately only if the task looks short or the user explicitly wants to
-  wait now.
-- Do not default to `6h` or longer in one call unless the user explicitly asks.
+- Wait immediately only if the task looks short or the user explicitly wants
+  to wait now.
+- Do not default to `6h` or longer in one call unless the user explicitly
+  asks.
 - Remember that a single `wait` call cannot exceed `24h`.
 - If `wait` times out, treat that as "still running", not as failure.
 - After any non-zero `wait` exit, immediately check:
@@ -327,11 +309,11 @@ https://console.oomol.com/billing/recharge before any retry.
 If the user wants to continue, run another bounded wait window instead of
 re-creating the task.
 
-### 8. Materialize remote result artifacts safely
+### 7. Materialize remote result artifacts safely
 
-If the final task result exposes a remote artifact URL and pulling it back to
-local would clearly help the user, prefer `oo file download <url>` after the task
-has succeeded.
+If the final package task result exposes a remote artifact URL and pulling it
+back to local would clearly help the user, prefer `oo file download <url>`
+after the task has succeeded.
 
 Rules:
 
@@ -342,25 +324,26 @@ Rules:
   `file.download.out_dir` value if present, otherwise `~/Downloads`.
 - If the inferred saved filename would be opaque to the user, such as a UUID,
   hash, task ID, or generic `download`, choose a concise descriptive base name
-  and pass it with `--name`. Omit `--name` only when the server metadata already
-  yields a clear name the user can recognize.
-- Let `oo file download` create missing directories, avoid overwrite by renaming,
-  and print the absolute saved path.
+  and pass it with `--name`. Omit `--name` only when the server metadata
+  already yields a clear name the user can recognize.
+- Let `oo file download` create missing directories, avoid overwrite by
+  renaming, and print the absolute saved path.
 - Do not reimplement the download with `curl`, ad hoc scripts, or manual file
   writes when `oo file download` can handle the URL.
 - When reporting success, include the absolute saved path printed by
   `oo file download`.
 
-### 9. Report outcomes clearly
+### 8. Report outcomes clearly
 
 On success:
 
-- state the final task status first
+- state the final status first
 - summarize the useful result
-- include package, version, block ID, and task ID
+- include package, version, block ID, and task ID for package-backed runs
+- include service, action, and `meta.executionId` for connector-backed runs
 - if you downloaded a remote artifact, include the absolute saved path
 
-On still-running tasks:
+On still-running package tasks:
 
 - state that the task was created successfully
 - state that it is still running
@@ -369,8 +352,9 @@ On still-running tasks:
 
 On failure:
 
-- report whether the failure came from no package match, missing input,
-  unsupported input shape, task failure, or environment or auth limitations
+- report whether the failure came from no match, missing input, unsupported
+  input shape, task failure, connector validation failure, or environment or
+  auth limitations
 
 If the failure output includes HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
 classify it as insufficient credit or overdue billing and direct the user to
@@ -379,7 +363,9 @@ https://console.oomol.com/billing/recharge before retrying anything.
 ## Response style
 
 - Be decisive.
-- Prefer the most specific block over a generic block.
+- Prefer the most specific block or connector action over a generic one.
+- Prefer connector actions when they are equally good as a package, because
+  they are free and lower-friction.
 - Prefer recoverable progress over fragile one-shot waiting.
-- Never claim a capability that was not proven by `packages search`, `packages info`, or
-  command output.
+- Never claim a capability that was not proven by `oo search`, `packages info`,
+  `connector search`, `cloud-task run`, `connector run`, or command output.
