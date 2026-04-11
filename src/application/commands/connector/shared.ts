@@ -65,30 +65,6 @@ export const connectorFormatValues = ["json"] as const;
 export type ConnectorActionDefinition = z.output<typeof connectorActionDefinitionSchema>;
 export type ConnectorActionRunResponse = z.output<typeof connectorActionRunResponseSchema>;
 
-export function parseConnectorSearchKeywords(
-    value: string | undefined,
-): string[] {
-    if (value === undefined) {
-        return [];
-    }
-
-    const keywords: string[] = [];
-    const seen = new Set<string>();
-
-    for (const segment of value.split(",")) {
-        const keyword = segment.trim();
-
-        if (keyword === "" || seen.has(keyword)) {
-            continue;
-        }
-
-        seen.add(keyword);
-        keywords.push(keyword);
-    }
-
-    return keywords;
-}
-
 export async function searchConnectorActions(
     options: {
         apiKey: string;

@@ -20,25 +20,26 @@ exports[`config CLI persists the configured locale and allows explicit override 
 "oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
 
 Options:
-  -V, --version       Show the current version
-  --debug             Print the current log file path when the CLI exits
-  --lang <lang>       Specify the display language
-  -h, --help          Show help for command
+  -V, --version            Show the current version
+  --debug                  Print the current log file path when the CLI exits
+  --lang <lang>            Specify the display language
+  -h, --help               Show help for command
 
 Commands:
-  auth                Manage CLI authentication
-  check-update        Check for CLI updates
-  cloud-task          Manage cloud tasks
-  connector           Manage connector actions
-  file                Manage temporary file transfers
-  login               Log in with a browser flow (alias for auth login)
-  logout              Log out the current account (alias for auth logout)
-  completion <shell>  Generate shell completion scripts
-  config              Manage persisted configuration
-  skills              Manage Codex skills
-  log                 Manage persisted debug logs
-  packages            Package utilities
-  help [command]      Show help for a command
+  auth                     Manage CLI authentication
+  check-update             Check for CLI updates
+  cloud-task               Manage cloud tasks
+  connector                Manage connector actions
+  file                     Manage temporary file transfers
+  login                    Log in with a browser flow (alias for auth login)
+  logout                   Log out the current account (alias for auth logout)
+  completion <shell>       Generate shell completion scripts
+  config                   Manage persisted configuration
+  skills                   Manage Codex skills
+  log                      Manage persisted debug logs
+  search [options] <text>  Search packages and connector actions
+  packages                 Package utilities
+  help [command]           Show help for a command
 "
 ,
   },
@@ -49,25 +50,26 @@ Commands:
 "oo 是 OOMOL 的 CLI 工具集，一切均可在 CLI 中完成
 
 选项：
-  -V, --version       显示当前版本
-  --debug             在 CLI 退出时打印当前日志文件路径
-  --lang <lang>       指定显示语言
-  -h, --help          显示命令帮助
+  -V, --version            显示当前版本
+  --debug                  在 CLI 退出时打印当前日志文件路径
+  --lang <lang>            指定显示语言
+  -h, --help               显示命令帮助
 
 命令：
-  auth                管理 CLI 认证
-  check-update        检查 CLI 更新
-  cloud-task          管理云任务
-  connector           管理 connector action
-  file                管理临时文件传输
-  login               通过浏览器登录（auth login 的别名）
-  logout              登出当前账号（auth logout 的别名）
-  completion <shell>  生成 shell 补全脚本
-  config              管理持久化配置
-  skills              管理 Codex skill
-  log                 管理持久化 debug 日志
-  packages            包相关工具
-  help [command]      显示命令帮助
+  auth                     管理 CLI 认证
+  check-update             检查 CLI 更新
+  cloud-task               管理云任务
+  connector                管理 connector action
+  file                     管理临时文件传输
+  login                    通过浏览器登录（auth login 的别名）
+  logout                   登出当前账号（auth logout 的别名）
+  completion <shell>       生成 shell 补全脚本
+  config                   管理持久化配置
+  skills                   管理 Codex skill
+  log                      管理持久化 debug 日志
+  search [options] <text>  搜索 package 与 connector action
+  packages                 包相关工具
+  help [command]           显示命令帮助
 "
 ,
   },

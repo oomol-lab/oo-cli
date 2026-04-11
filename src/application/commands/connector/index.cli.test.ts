@@ -19,7 +19,7 @@ import {
 import {
     connectorSearchActionColor,
     connectorSearchServiceColor,
-} from "./search.ts";
+} from "./search-provider.ts";
 
 describe("connectorCommand CLI", () => {
     test("supports connector search with text output and writes schema caches", async () => {

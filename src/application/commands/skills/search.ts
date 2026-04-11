@@ -7,6 +7,7 @@ import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
+import { parseCommaSeparatedKeywords } from "../shared/keywords.ts";
 import { requestText } from "../shared/request.ts";
 
 const searchFormatValues = ["json"] as const;
@@ -76,7 +77,7 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
         const requestUrl = createSkillsSearchRequestUrl(
             account.endpoint,
             input.text,
-            parseSkillSearchKeywords(input.keywords),
+            parseCommaSeparatedKeywords(input.keywords),
         );
         const response = parseSkillsSearchResponse(
             await requestSkillsSearch(requestUrl, account.apiKey, context),
@@ -115,28 +116,6 @@ function createSkillsSearchRequestUrl(
     requestUrl.searchParams.set("size", String(skillSearchResultLimit));
 
     return requestUrl;
-}
-
-function parseSkillSearchKeywords(value: string | undefined): string[] {
-    if (value === undefined) {
-        return [];
-    }
-
-    const keywords: string[] = [];
-    const seen = new Set<string>();
-
-    for (const segment of value.split(",")) {
-        const keyword = segment.trim();
-
-        if (keyword === "" || seen.has(keyword)) {
-            continue;
-        }
-
-        seen.add(keyword);
-        keywords.push(keyword);
-    }
-
-    return keywords;
 }
 
 async function requestSkillsSearch(
