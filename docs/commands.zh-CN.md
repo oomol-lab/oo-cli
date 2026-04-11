@@ -144,6 +144,26 @@
 - 说明：如果本地 schema cache 不可用或无法使用，命令会自动刷新后再继续校验
   和运行。
 
+## Search
+
+### `oo search <text>`
+
+使用一个自由文本查询同时搜索 package 与 connector action。
+
+- 参数：`<text>` 会同时发送到两个搜索来源。
+- 选项：`--keywords <keywords>` 会在搜索 connector action 时发送一个逗号分隔
+  的关键词列表，并移除空项与重复项。
+- 选项：`--format=json` 和 `--json` 会输出一个混合 `package` 与
+  `connector` 条目的 JSON 数组，并使用 `kind` 作为区分字段。
+- 输出：package JSON 条目包含稳定 CLI 字段 `kind`、`packageId`、
+  `displayName`、`description` 和 `blocks`。
+- 输出：connector JSON 条目包含稳定 CLI 字段 `kind`、`service`、
+  `name`、`description`、`authenticated` 和 `schemaPath`。
+- 输出：文本输出会为每个结果打印一个块，并额外包含一行 `类型` 字段，而不
+  再输出来源分组标题。
+- 说明：connector 命中结果仍会在本地缓存 schema，并在文本与 JSON 输出中
+  报告其缓存路径。
+
 ## Codex Skill
 
 ### `oo skills list`

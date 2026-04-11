@@ -108,6 +108,10 @@ export const enMessages = {
         "Show transformed package metadata for an explicit package specifier.",
     "commands.package.info.summary": "Show package metadata",
     "commands.package.summary": "Package utilities",
+    "commands.mixedSearch.description":
+        "Search packages and connector actions with one free-form query.",
+    "commands.mixedSearch.summary":
+        "Search packages and connector actions",
     "commands.search.description":
         "Search packages with free-form text against the intent search API.",
     "commands.search.summary": "Search packages by intent",
@@ -535,6 +539,11 @@ export const enMessages = {
     "connector.search.text.noResults":
         "No matching connector actions were found.",
     "connector.search.text.schemaPath": "Schema path",
+    "mixedSearch.text.kind": "Kind",
+    "mixedSearch.text.kind.connector": "connector",
+    "mixedSearch.text.kind.package": "package",
+    "mixedSearch.text.noResults":
+        "No matching packages or connector actions were found.",
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.run.text.executionId": "Execution ID",
     "connector.run.text.resultData": "Result data",
@@ -657,6 +666,10 @@ export const zhMessages = {
     "commands.package.info.description": "按显式包标识显示转换后的包元数据。",
     "commands.package.info.summary": "显示包元数据",
     "commands.package.summary": "包相关工具",
+    "commands.mixedSearch.description":
+        "使用一个自由文本查询同时搜索 package 与 connector action。",
+    "commands.mixedSearch.summary":
+        "搜索 package 与 connector action",
     "commands.search.description": "使用自由文本通过意图搜索 API 搜索包。",
     "commands.search.summary": "按意图搜索包",
     "commands.skills.description": "管理 Codex skill 及其配置。",
@@ -1066,6 +1079,10 @@ export const zhMessages = {
     "connector.search.text.authenticated.yes": "是",
     "connector.search.text.noResults": "未找到匹配的 connector action。",
     "connector.search.text.schemaPath": "Schema 路径",
+    "mixedSearch.text.kind": "类型",
+    "mixedSearch.text.kind.connector": "connector",
+    "mixedSearch.text.kind.package": "包",
+    "mixedSearch.text.noResults": "未找到匹配的包或 connector action。",
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.run.text.executionId": "执行 ID",
     "connector.run.text.resultData": "结果数据",

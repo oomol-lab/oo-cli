@@ -1,58 +1,16 @@
-import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import type { AuthAccount } from "../../schemas/auth.ts";
-import type { TerminalColors } from "../../terminal-colors.ts";
 import { z } from "zod";
-import { resolveRequestLanguage } from "../../../i18n/locale.ts";
-import { CliUserError } from "../../contracts/cli.ts";
-import {
-    withAccountIdentity,
-    withPath,
-} from "../../logging/log-fields.ts";
-import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
-import { requestText } from "../shared/request.ts";
+import {
+    formatPackageSearchResultsAsText,
+    loadPackageSearchResponse,
+    readPackageSearchIds,
+} from "./search-provider.ts";
 
-const MAX_SEARCH_TEXT_LENGTH = 200;
-const SEARCH_CACHE_ID = "search.intent-response";
-const SEARCH_CACHE_MAX_ENTRIES = 100;
-const SEARCH_CACHE_TTL_MS = 30_000;
 const searchFormatValues = ["json"] as const;
-const searchDisplayNameColor = "#59F78D";
-const searchBlockTitleColor = "#CAA8FA";
-
-const searchBlockSchema = z.object({
-    description: z.string().optional().default(""),
-    name: z.string().optional().default(""),
-    title: z.string().optional().default(""),
-}).passthrough();
-
-const searchPackageSchema = z.object({
-    blocks: z.array(searchBlockSchema).optional().default([]),
-    description: z.string().optional().default(""),
-    displayName: z.string().optional().default(""),
-    name: z.string().optional().default(""),
-    version: z.string().optional().default(""),
-}).passthrough();
-
-const searchJsonResponseSchema = z.object({
-    packages: z.array(z.unknown()).optional().default([]),
-}).passthrough();
-
-const searchResponseSchema = z.object({
-    packages: z.array(searchPackageSchema).optional().default([]),
-}).passthrough();
-
-interface ParsedSearchResponse {
-    json: SearchJsonResponse;
-    text: SearchResponse;
-}
-
-type SearchJsonResponse = z.output<typeof searchJsonResponseSchema>;
-type SearchResponse = z.output<typeof searchResponseSchema>;
-type SearchTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
 
 interface SearchInput {
     text: string;
@@ -88,25 +46,17 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const account = await requireCurrentAccount(context);
-        const query = truncateSearchText(input.text);
-        const requestUrl = new URL(
-            `https://search.${account.endpoint}/v1/packages/-/intent-search`,
-        );
-
-        requestUrl.searchParams.set("q", query);
-        requestUrl.searchParams.set(
-            "lang",
-            resolveRequestLanguage(context.translator.locale),
-        );
-
-        const response = await loadSearchResponse(
-            requestUrl,
-            account,
+        const response = await loadPackageSearchResponse(
+            {
+                account,
+                locale: context.translator.locale,
+                text: input.text,
+            },
             context,
         );
 
         if (input.onlyPackageId === true) {
-            const packageIds = readSearchPackageIds(response.text);
+            const packageIds = readPackageSearchIds(response.packages);
 
             if (input.format === "json") {
                 writeJsonOutput(context.stdout, packageIds);
@@ -122,11 +72,14 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
         }
 
         if (input.format === "json") {
-            writeJsonOutput(context.stdout, response.json.packages);
+            writeJsonOutput(context.stdout, response.rawPackages);
             return;
         }
 
-        const output = formatSearchResponseAsText(response.text, context);
+        const output = formatPackageSearchResultsAsText(
+            response.packages,
+            context,
+        );
 
         context.stdout.write(
             output === ""
@@ -135,252 +88,3 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
         );
     },
 };
-
-function truncateSearchText(text: string): string {
-    const characters = Array.from(text);
-
-    if (characters.length <= MAX_SEARCH_TEXT_LENGTH) {
-        return text;
-    }
-
-    return characters.slice(0, MAX_SEARCH_TEXT_LENGTH).join("");
-}
-
-async function requestSearch(
-    requestUrl: URL,
-    apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
-): Promise<string> {
-    return await requestText({
-        context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.search.requestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.search.requestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
-            start: {
-                queryLength: requestUrl.searchParams.get("q")?.length ?? 0,
-                requestLanguage: requestUrl.searchParams.get("lang") ?? "",
-            },
-        },
-        init: {
-            headers: {
-                Authorization: apiKey,
-            },
-        },
-        requestLabel: "Search",
-        requestUrl,
-    });
-}
-
-async function loadSearchResponse(
-    requestUrl: URL,
-    account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">,
-    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger">,
-): Promise<ParsedSearchResponse> {
-    const searchCache = context.cacheStore.getCache<string>({
-        id: SEARCH_CACHE_ID,
-        defaultTtlMs: SEARCH_CACHE_TTL_MS,
-        maxEntries: SEARCH_CACHE_MAX_ENTRIES,
-    });
-    const cacheKey = JSON.stringify({
-        accountId: account.id,
-        endpoint: account.endpoint,
-        requestUrl: requestUrl.toString(),
-    });
-    const logFields = {
-        ...withAccountIdentity(account.id, account.endpoint),
-        ...withPath(requestUrl.pathname),
-    };
-
-    const cached = tryReadSearchCache(searchCache, cacheKey, logFields, context);
-
-    if (cached !== undefined) {
-        return cached;
-    }
-
-    const rawResponse = await requestSearch(requestUrl, account.apiKey, context);
-    const response = parseSearchResponse(rawResponse);
-
-    searchCache.set(cacheKey, rawResponse);
-    context.logger.debug(
-        {
-            ...logFields,
-            packageCount: response.text.packages.length,
-        },
-        "Search response cached.",
-    );
-
-    return response;
-}
-
-function tryReadSearchCache(
-    cache: { delete: (key: string) => void; get: (key: string) => string | null },
-    cacheKey: string,
-    logFields: Record<string, unknown>,
-    context: Pick<CliExecutionContext, "logger">,
-): ParsedSearchResponse | undefined {
-    const cachedResponse = cache.get(cacheKey);
-
-    if (cachedResponse === null) {
-        context.logger.debug(logFields, "Search response cache miss.");
-        return undefined;
-    }
-
-    context.logger.debug(logFields, "Search response cache hit.");
-
-    try {
-        return parseSearchResponse(cachedResponse);
-    }
-    catch (error) {
-        if (
-            !(error instanceof CliUserError)
-            || error.key !== "errors.search.invalidResponse"
-        ) {
-            throw error;
-        }
-
-        cache.delete(cacheKey);
-        context.logger.warn(
-            logFields,
-            "Search response cache entry was invalidated after a parse failure.",
-        );
-
-        return undefined;
-    }
-}
-
-function parseSearchResponse(rawResponse: string): ParsedSearchResponse {
-    try {
-        const parsed = JSON.parse(rawResponse) as unknown;
-
-        return {
-            json: searchJsonResponseSchema.parse(parsed),
-            text: searchResponseSchema.parse(parsed),
-        };
-    }
-    catch {
-        throw new CliUserError("errors.search.invalidResponse", 1);
-    }
-}
-
-function formatSearchResponseAsText(
-    response: SearchResponse,
-    context: SearchTextContext,
-): string {
-    const colors = createWriterColors(context.stdout);
-
-    return response.packages
-        .map(pkg => formatSearchPackage(pkg, context, colors))
-        .join("\n\n");
-}
-
-function readSearchPackageIds(response: SearchResponse): string[] {
-    return response.packages
-        .map(pkg => readPackageId(pkg))
-        .filter(id => id !== "");
-}
-
-function formatSearchPackage(
-    pkg: SearchResponse["packages"][number],
-    context: SearchTextContext,
-    colors: TerminalColors,
-): string {
-    const lines = [readPackageLabel(pkg, context, colors)];
-
-    if (pkg.description !== "") {
-        lines.push(pkg.description);
-    }
-
-    if (pkg.blocks.length > 0) {
-        lines.push(context.translator.t("labels.blocks"));
-
-        for (const block of pkg.blocks) {
-            lines.push(...formatSearchBlock(block, context, colors));
-        }
-    }
-
-    return lines.join("\n");
-}
-
-function formatSearchBlock(
-    block: SearchResponse["packages"][number]["blocks"][number],
-    context: SearchTextContext,
-    colors: TerminalColors,
-): string[] {
-    const label = readBlockLabel(block, context, colors);
-
-    if (block.description === "") {
-        return [label];
-    }
-
-    return [label, `  ${block.description}`];
-}
-
-function readPackageLabel(
-    pkg: SearchResponse["packages"][number],
-    context: SearchTextContext,
-    colors: TerminalColors,
-): string {
-    const packageId = readPackageId(pkg);
-
-    if (pkg.displayName !== "") {
-        const displayName = colors.hex(searchDisplayNameColor)(pkg.displayName);
-
-        if (packageId !== "" && pkg.displayName !== packageId) {
-            return `${displayName} (${packageId})`;
-        }
-
-        return displayName;
-    }
-
-    if (packageId !== "") {
-        return packageId;
-    }
-
-    return context.translator.t("search.text.unnamedPackage");
-}
-
-function readPackageId(pkg: SearchResponse["packages"][number]): string {
-    if (pkg.name === "") {
-        return "";
-    }
-
-    if (pkg.version === "") {
-        return pkg.name;
-    }
-
-    return `${pkg.name}@${pkg.version}`;
-}
-
-function readBlockLabel(
-    block: SearchResponse["packages"][number]["blocks"][number],
-    context: SearchTextContext,
-    colors: TerminalColors,
-): string {
-    if (block.title !== "") {
-        const title = colors.hex(searchBlockTitleColor)(block.title);
-
-        if (block.name !== "" && block.title !== block.name) {
-            return `- ${title} (${block.name})`;
-        }
-
-        return `- ${title}`;
-    }
-
-    if (block.name !== "") {
-        return `- ${block.name}`;
-    }
-
-    return `- ${context.translator.t("search.text.unnamedBlock")}`;
-}

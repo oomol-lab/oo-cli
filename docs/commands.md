@@ -155,6 +155,26 @@ Validate input data and run one connector action synchronously.
 - Notes: when local schema cache is unavailable or unusable, the command
   refreshes it automatically before validating and running.
 
+## Search
+
+### `oo search <text>`
+
+Search packages and connector actions with one free-form query.
+
+- Arguments: `<text>` is the search text sent to both discovery sources.
+- Options: `--keywords <keywords>` sends a comma-separated keyword list after
+  trimming empty and duplicate entries when searching connector actions.
+- Options: `--format=json` and `--json` print one JSON array that mixes
+  `package` and `connector` items and uses `kind` as the discriminator.
+- Output: package JSON entries include the stable CLI fields `kind`,
+  `packageId`, `displayName`, `description`, and `blocks`.
+- Output: connector JSON entries include the stable CLI fields `kind`,
+  `service`, `name`, `description`, `authenticated`, and `schemaPath`.
+- Output: text output prints one block per result and includes a `Kind` line
+  for each block instead of source section headers.
+- Notes: connector matches still cache their schemas locally and report the
+  cache path in text and JSON output.
+
 ## Codex Skills
 
 ### `oo skills list`

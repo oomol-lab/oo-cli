@@ -7,24 +7,9 @@ import { toRequest } from "../../../../__tests__/helpers.ts";
 import {
     getConnectorActionMetadata,
     listAuthenticatedConnectorServices,
-    parseConnectorSearchKeywords,
     runConnectorAction,
     searchConnectorActions,
 } from "./shared.ts";
-
-describe("parseConnectorSearchKeywords", () => {
-    test("trims empty values and removes duplicates", () => {
-        expect(parseConnectorSearchKeywords(" gmail, email ,,gmail, inbox ")).toEqual([
-            "gmail",
-            "email",
-            "inbox",
-        ]);
-    });
-
-    test("returns an empty list when the option is omitted", () => {
-        expect(parseConnectorSearchKeywords(undefined)).toEqual([]);
-    });
-});
 
 describe("connector shared requests", () => {
     test("searchConnectorActions sends the expected request and parses actions", async () => {

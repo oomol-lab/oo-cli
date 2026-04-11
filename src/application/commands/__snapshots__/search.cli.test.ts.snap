@@ -1,0 +1,115 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`mixedSearchCommand CLI supports mixed search with text output and groups results by source 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Mail Tools (@oomol/mail-tools@1.2.3)
+Email automation package.
+Kind: package
+Blocks:
+- Send Email (send-email)
+  Send templated emails.
+
+gmail.send_mail
+Send a Gmail message.
+Kind: connector
+Authenticated: yes
+Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json
+"
+,
+}
+`;
+
+exports[`mixedSearchCommand CLI supports mixed search with json output 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"[{"blocks":[{"description":"","name":"","title":"Send Email"}],"description":"Email automation package.","displayName":"Mail Tools","kind":"package","packageId":"@oomol/mail-tools@1.2.3"},{"authenticated":false,"description":"Send a Gmail message.","kind":"connector","name":"send_mail","schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json","service":"gmail"}]
+"
+,
+}
+`;
+
+exports[`mixedSearchCommand CLI renders kind lines after descriptions with field-specific colors 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Mail Tools (@oomol/mail-tools@1.2.3)
+Email automation package.
+Kind: package
+
+gmail.send_mail
+Send a Gmail message.
+Kind: connector
+Authenticated: no
+Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json
+"
+,
+}
+`;
+
+exports[`mixedSearchCommand CLI renders mixed search no-results output when both providers are empty 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"No matching packages or connector actions were found.
+"
+,
+}
+`;
+
+exports[`mixedSearchCommand CLI renders mixed search help when text argument is omitted 1`] = `
+{
+  "expectedHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Search packages and connector actions with one free-form query.
+
+Arguments:
+  text                   Search text
+
+Options:
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --keywords <keywords>  Specify comma-separated keywords to refine the
+                         connector action search
+  -h, --help             Show help for command
+
+Global Options:
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
+"
+,
+  },
+  "result": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Search packages and connector actions with one free-form query.
+
+Arguments:
+  text                   Search text
+
+Options:
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --keywords <keywords>  Specify comma-separated keywords to refine the
+                         connector action search
+  -h, --help             Show help for command
+
+Global Options:
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
+"
+,
+  },
+}
+`;
