@@ -2,12 +2,13 @@
 name: oo
 description: >-
   Use the oo CLI to complete practical tasks through mixed OOMOL discovery:
-  translate natural-language requests into English search terms, search
-  packages and connector actions together, keep at most 0 to 2 serious
-  candidates total, prefer connector actions when they are as good as a
-  package, and run either validated cloud tasks or authenticated connector
-  actions. Do not use this skill when the user explicitly asks for a local
-  implementation.
+  run the intended oo command directly without probing whether the binary
+  exists, translate natural-language requests into English search terms,
+  search packages and connector actions together, keep at most 0 to 2
+  serious candidates total, prefer connector actions when they are as good
+  as a package, and run either validated cloud tasks or authenticated
+  connector actions. Do not use this skill when the user explicitly asks
+  for a local implementation.
 ---
 
 # oo
@@ -183,6 +184,19 @@ oo connector search "<english query>" --json
 ```
 
 Use that only to refine a connector decision, not to widen the candidate set.
+
+When you are ready to execute a connector-backed candidate, use this exact
+shape:
+
+```bash
+oo connector run "<serviceName>" \
+  --action "<actionName>" \
+  --data '<json object>' \
+  --json
+```
+
+`serviceName` is the only positional argument. Never pass `actionName` as a
+second positional argument after the service name.
 
 ### 4. Build the input payload
 

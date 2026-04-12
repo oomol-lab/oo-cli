@@ -17,6 +17,34 @@ Skill policy:
 - Do not probe for `oo` with `which`, `command -v`, version checks, or similar
   existence prechecks. Run the intended `oo` command directly.
 
+## Quick command shapes
+
+Use these forms when you only need the stable command contract:
+
+```bash
+oo search "<text>" --json
+```
+
+```bash
+oo connector run "<serviceName>" \
+  --action "<actionName>" \
+  --data '<json object>' \
+  --json
+```
+
+```bash
+oo cloud-task run "<packageName>@<version>" \
+  --block-id "<blockName>" \
+  --data '<json object>' \
+  --json
+```
+
+Connector note:
+
+- `serviceName` is the only positional argument for `connector run`.
+- Pass the connector action name with `--action`, never as a second positional
+  argument.
+
 ## Authentication
 
 - `search`, `packages search`, `packages info`, `connector search`,
