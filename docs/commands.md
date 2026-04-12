@@ -310,6 +310,9 @@ published skills into the local Codex skills directory.
 - Notes: when a bundled skill is already installed, every `oo` startup checks
   whether the recorded metadata `version` matches the current CLI version and
   silently refreshes the installed files when needed.
+- Notes: when the recorded bundled skill metadata `version` is exactly
+  `0.0.0-development`, `oo` treats that installation as a local developer copy
+  and skips startup synchronization without overwriting it.
 
 ### `oo skills update [skills...]`
 

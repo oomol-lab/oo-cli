@@ -18,6 +18,7 @@ import {
     removePath,
 } from "./bundled-skill-filesystem.ts";
 import {
+    bundledSkillDevelopmentVersion,
     canUninstallManagedBundledSkillInstallation,
     renderBundledSkillFileContent,
     resolveBundledSkillImplicitInvocation,
@@ -203,6 +204,20 @@ export async function maybeSynchronizeInstalledBundledSkills(
                             skillName,
                         },
                         "Bundled skill synchronization skipped because the existing directory is not managed by OOMOL.",
+                    );
+                    continue;
+                }
+
+                if (installedSkillMetadata.version === bundledSkillDevelopmentVersion) {
+                    context.logger.info(
+                        {
+                            agentName,
+                            installedVersion: installedSkillMetadata.version,
+                            path: skillDirectoryPath,
+                            skillName,
+                            version: context.version,
+                        },
+                        "Bundled skill synchronization skipped because the managed skill uses a development version.",
                     );
                     continue;
                 }

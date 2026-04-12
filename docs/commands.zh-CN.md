@@ -280,6 +280,9 @@ Codex skills 目录。
 - 说明：如果某个 bundled skill 已经安装，`oo` 每次启动都会检查其记录版本
   是否与当前 CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。
   不一致时会静默刷新已安装的文件。
+- 说明：如果某个 bundled skill 的元数据 `version` 恰好是
+  `0.0.0-development`，`oo` 会将其视为本地开发者副本，并在启动同步时跳过
+  覆盖。
 
 ### `oo skills update [skills...]`
 

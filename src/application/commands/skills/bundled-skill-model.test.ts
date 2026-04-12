@@ -3,6 +3,7 @@ import type { AppSettings } from "../../schemas/settings.ts";
 import { describe, expect, test } from "bun:test";
 
 import {
+    bundledSkillDevelopmentVersion,
     canUninstallManagedBundledSkillInstallation,
     isBundledSkillInstallationCurrentState,
     parseBundledSkillMetadataContent,
@@ -73,6 +74,11 @@ describe("bundled skill model", () => {
     });
 
     test("parses bundled skill metadata content", () => {
+        expect(parseBundledSkillMetadataContent(
+            `{"version":"${bundledSkillDevelopmentVersion}"}\n`,
+        )).toEqual({
+            version: bundledSkillDevelopmentVersion,
+        });
         expect(parseBundledSkillMetadataContent("{\"version\":\" 1.2.3 \"}\n")).toEqual({
             version: "1.2.3",
         });

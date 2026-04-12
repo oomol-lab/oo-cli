@@ -11,6 +11,9 @@ import {
 import { APP_NAME } from "../../config/app-config.ts";
 import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
 import {
+    bundledSkillDevelopmentVersion,
+} from "./bundled-skill-model.ts";
+import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
     resolveClaudeHomeDirectory,
@@ -141,6 +144,50 @@ describe("skills CLI", () => {
             expect(content).not.toContain(
                 `"msg":"Bundled skill installed during first-run bootstrap."`,
             );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not synchronize a managed bundled skill that uses the development metadata version", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const skillFilePath = join(skillDirectoryPath, "SKILL.md");
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(
+                metadataFilePath,
+                renderSkillMetadataJson({
+                    version: bundledSkillDevelopmentVersion,
+                }),
+            );
+            await Bun.write(ownershipFilePath, "# OOMOL\n");
+            await Bun.write(skillFilePath, "stale\n");
+
+            const result = await sandbox.run(["--help"], {
+                version: "9.9.9",
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({
+                    version: bundledSkillDevelopmentVersion,
+                }),
+            );
+            expect(await readFile(skillFilePath, "utf8")).toBe("stale\n");
+            expect(content).toContain(
+                `"msg":"Bundled skill synchronization skipped because the managed skill uses a development version."`,
+            );
+            expect(content).toContain(
+                `"installedVersion":"${bundledSkillDevelopmentVersion}"`,
+            );
+            expect(content).not.toContain(`"msg":"Bundled skill synchronized."`);
         }
         finally {
             await sandbox.cleanup();

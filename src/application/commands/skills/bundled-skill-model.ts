@@ -14,6 +14,8 @@ export interface BundledSkillMetadata {
     version: string;
 }
 
+export const bundledSkillDevelopmentVersion = "0.0.0-development";
+
 export type BundledSkillInstallConflict = "nameConflict" | "storageConflict";
 
 export type BundledSkillManagedSynchronizationAction

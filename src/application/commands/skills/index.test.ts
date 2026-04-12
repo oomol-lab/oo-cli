@@ -18,6 +18,7 @@ import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
+import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
@@ -152,6 +153,60 @@ describe("skills commands", () => {
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("explicit bundled skill install overwrites a managed development-version installation", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+        );
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const skillFilePath = join(skillDirectoryPath, "SKILL.md");
+        const resultVersion = "9.9.9";
+        const expectedSkillContent = await Bun.file(
+            getBundledSkillSourcePath("oo", "SKILL.md"),
+        ).text();
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(
+                metadataFilePath,
+                renderSkillMetadataJson({
+                    version: bundledSkillDevelopmentVersion,
+                }),
+            );
+            await Bun.write(skillFilePath, "stale\n");
+
+            const result = await sandbox.run(["skills", "install", "oo"], {
+                version: resultVersion,
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Installed skill oo to ${skillDirectoryPath}.\n`,
+            );
+            expect(result.stderr).toBe("");
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({ version: resultVersion }),
+            );
+            expect(await readFile(skillFilePath, "utf8")).toBe(
+                expectedSkillContent,
             );
         }
         finally {
