@@ -1,12 +1,12 @@
 ---
 name: oo
 description: >-
-  TRIGGER when: user asks to translate documents/images, do OCR,
+  user asks to translate documents/images, do OCR,
   generate images, text-to-image, text-to-speech, speech-to-text,
   transcribe audio, synthesize voice, send email via Gmail, or use other
   OAuth-linked connector services, or process files through cloud
   capabilities. Runs mixed discovery over OOMOL packages and connector
-  actions via the oo CLI, keeps at most 0-2 serious candidates total, and
+  actions, keeps at most 0-2 serious candidates total, and
   prefers connector actions over packages on ties (connectors are free
   and lower-friction).
   Do not use when the user explicitly asks for a local implementation.

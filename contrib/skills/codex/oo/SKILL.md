@@ -1,14 +1,15 @@
 ---
 name: oo
 description: >-
-  Use the oo CLI to complete practical tasks through mixed OOMOL discovery:
-  run the intended oo command directly without probing whether the binary
-  exists, translate natural-language requests into English search terms,
-  search packages and connector actions together, keep at most 0 to 2
-  serious candidates total, prefer connector actions when they are as good
-  as a package, and run either validated cloud tasks or authenticated
-  connector actions. Do not use this skill when the user explicitly asks
-  for a local implementation.
+  user asks to translate documents/images, do OCR,
+  generate images, text-to-image, text-to-speech, speech-to-text,
+  transcribe audio, synthesize voice, send email via Gmail, or use other
+  OAuth-linked connector services, or process files through cloud
+  capabilities. Runs mixed discovery over OOMOL packages and connector
+  actions, keeps at most 0-2 serious candidates total, and
+  prefers connector actions over packages on ties (connectors are free
+  and lower-friction).
+  Do not use when the user explicitly asks for a local implementation.
 ---
 
 # oo
