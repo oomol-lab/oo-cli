@@ -73,8 +73,7 @@ List persisted configuration values that are currently set.
 Read one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`,
-  `skills.oo-find-skills.implicit_invocation`.
+  `lang`, `file.download.out_dir`.
 
 ### `oo config path`
 
@@ -85,25 +84,19 @@ Print the path to the persisted configuration file.
 Persist one configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`,
-  `skills.oo-find-skills.implicit_invocation`.
+  `lang`, `file.download.out_dir`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
 - Value rules: for `file.download.out_dir`, use any non-empty path string. Relative
   paths resolve from the current working directory when `oo file download` runs. A
   leading `~` expands to the current user's home directory.
-- Value rules: for `skills.oo.implicit_invocation`, supported values are
-  `true` and `false`.
-- Value rules: for `skills.oo-find-skills.implicit_invocation`, supported
-  values are `true` and `false`.
 
 ### `oo config unset <key>`
 
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `skills.oo.implicit_invocation`,
-  `skills.oo-find-skills.implicit_invocation`.
+  `lang`, `file.download.out_dir`.
 
 ## Updates
 
@@ -208,35 +201,6 @@ Search published skills with free-form text.
   optional description, and source package reference when available.
 - Notes: every invocation requests at most `5` results.
 
-### `oo skills config get <skill> [key]`
-
-Read skill configuration values.
-
-- Arguments: `<skill>` is the skill name.
-- Arguments: `[key]` is optional and selects one configuration key of the
-  chosen skill.
-- Output: when `[key]` is provided, the command prints the effective value for
-  that key followed by a newline.
-- Output: when `[key]` is omitted, the command prints one `key=value` line for
-  every known key of the selected skill.
-- Notes: valid skill names and key sets depend on the CLI version.
-- Notes: effective values include bundled defaults when no explicit persisted
-  value exists yet.
-
-### `oo skills config set <skill> <key> <value>`
-
-Persist one skill configuration value.
-
-- Arguments: `<skill>` is the skill name.
-- Arguments: `<key>` is the configuration key for the selected skill.
-- Arguments: `<value>` is the value for the selected skill configuration key.
-- Value rules: accepted values depend on `<skill>` and `<key>`.
-- Notes: when the target managed skill is already installed, the command
-  synchronizes the managed files immediately.
-- Notes: when the target managed skill is not installed, the command still
-  persists the setting and applies it on the next install or startup
-  synchronization.
-
 ### `oo skills install [packageName]`
 
 Install bundled skills into supported local skill directories, or install
@@ -287,10 +251,6 @@ published skills into the local Codex skills directory.
 - Metadata: published skills write a hidden `.oo-metadata.json` file whose
   `version` field matches the package version and whose `packageName` field
   records the source package.
-- Metadata: the Codex copy of bundled `oo` and `oo-find-skills` writes
-  `agents/openai.yaml` using the persisted skill-specific
-  `implicit_invocation` value when configured; otherwise the bundled default is
-  used.
 - Notes: all registry requests for published skills send the active account's
   `Authorization` header.
 - Notes: when a package publishes multiple skills and the command runs outside

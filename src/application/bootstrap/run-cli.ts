@@ -222,7 +222,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 context,
                 {
                     installMissing: shouldInstallMissingBundledSkills,
-                    settings,
                 },
             );
         }

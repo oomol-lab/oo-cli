@@ -103,10 +103,10 @@ describe("skills commands", () => {
                 ).toBe(await Bun.file(file.sourcePath).text());
             }
             expect(await readFile(ooOwnershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: true",
+                "allow_implicit_invocation: false",
             );
             expect(await readFile(findSkillsOwnershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: true",
+                "allow_implicit_invocation: false",
             );
             expect(await readFile(ooMetadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
@@ -247,54 +247,6 @@ describe("skills commands", () => {
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("installs the bundled skill with the persisted implicit invocation policy", async () => {
-        const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
-        const ooOwnershipFilePath = join(ooSkillDirectoryPath, "agents", "openai.yaml");
-        const findSkillsOwnershipFilePath = join(
-            findSkillsDirectoryPath,
-            "agents",
-            "openai.yaml",
-        );
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-
-        try {
-            await mkdir(codexHomeDirectory, { recursive: true });
-            await Bun.write(
-                storePaths.settingsFilePath,
-                [
-                    "[skills.oo]",
-                    "implicit_invocation = false",
-                    "",
-                    "[skills.oo-find-skills]",
-                    "implicit_invocation = false",
-                    "",
-                ].join("\n"),
-            );
-
-            const result = await sandbox.run(["skills", "install"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(await readFile(ooOwnershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: false",
-            );
-            expect(await readFile(findSkillsOwnershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: false",
             );
         }
         finally {
@@ -1186,8 +1138,14 @@ describe("skills commands", () => {
                                     "Use `oo::self::chat` for the remote workflow.",
                                     "",
                                 ].join("\n"),
-                                "package/package/skills/chatgpt/agents/openai.yaml":
-                                    "agent\n",
+                                "package/package/skills/chatgpt/agents/openai.yaml": [
+                                    "interface:",
+                                    "  display_name: ChatGPT",
+                                    "",
+                                    "policy:",
+                                    "  allow_implicit_invocation: true",
+                                    "",
+                                ].join("\n"),
                             }));
                         }
 
@@ -1219,6 +1177,16 @@ describe("skills commands", () => {
                     guidance,
                     "",
                     "Use `oo::openai::chat` for the remote workflow.",
+                    "",
+                ].join("\n"),
+            );
+            expect(await readFile(join(skillDirectoryPath, "agents", "openai.yaml"), "utf8")).toBe(
+                [
+                    "interface:",
+                    "  display_name: ChatGPT",
+                    "",
+                    "policy:",
+                    "  allow_implicit_invocation: true",
                     "",
                 ].join("\n"),
             );

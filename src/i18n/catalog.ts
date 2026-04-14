@@ -116,20 +116,8 @@ export const enMessages = {
         "Search packages with free-form text against the intent search API.",
     "commands.search.summary": "Search packages by intent",
     "commands.skills.description":
-        "Manage Codex skills and their configuration.",
+        "Manage Codex skills.",
     "commands.skills.summary": "Manage Codex skills",
-    "commands.skills.config.description":
-        "Manage skill configuration.",
-    "commands.skills.config.summary":
-        "Manage skill configuration",
-    "commands.skills.config.get.description":
-        "Read one skill configuration value or list all known values for a skill.",
-    "commands.skills.config.get.summary":
-        "Read skill configuration",
-    "commands.skills.config.set.description":
-        "Persist one skill configuration value and synchronize the installed managed skill when present.",
-    "commands.skills.config.set.summary":
-        "Set a skill configuration value",
     "commands.skills.search.description":
         "Search published skills against the skills search API.",
     "commands.skills.search.summary":
@@ -281,16 +269,10 @@ export const enMessages = {
         "Invalid lang value: {value}. Use en or zh.",
     "errors.config.invalidFileDownloadOutDirValue":
         "Invalid file.download.out_dir value: {value}. Use a non-empty path.",
-    "errors.config.invalidSkillImplicitInvocationValue":
-        "Invalid skills.{skill}.implicit_invocation value: {value}. Use true or false.",
     "errors.skills.invalidName":
         "Unsupported skill: {value}. Use {choices}.",
     "errors.skills.invalidPath":
         "Skill name {name} resolves outside the local Codex skills directory.",
-    "errors.skills.config.invalidKey":
-        "Invalid config key for skill {skill}: {value}. Use {choices}.",
-    "errors.skills.config.invalidAllowImplicitInvocationValue":
-        "Invalid allow-implicit-invocation value for skill {skill}: {value}. Use true or false.",
     "errors.fileDownload.downloadFailed":
         "Failed to download the file at {path}: {message}",
     "errors.fileDownload.invalidExt":
@@ -449,8 +431,6 @@ export const enMessages = {
     "options.version": "Show the current version",
     "skills.install.allSelected":
         "Installing all {count} skills.",
-    "skills.config.set.success":
-        "Set skill {name} {key} to {value}.",
     "skills.list.noResults":
         "No oo-managed skills were found.",
     "skills.list.source": "Source",
@@ -510,7 +490,6 @@ export const enMessages = {
     "arguments.serviceName": "Service name",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
-    "arguments.skillConfigKey": "Skill configuration key",
     "arguments.taskId": "Task id",
     "arguments.text": "Search text",
     "arguments.url": "URL",
@@ -676,20 +655,8 @@ export const zhMessages = {
         "搜索 package 与 connector action",
     "commands.search.description": "使用自由文本通过意图搜索 API 搜索包。",
     "commands.search.summary": "按意图搜索包",
-    "commands.skills.description": "管理 Codex skill 及其配置。",
+    "commands.skills.description": "管理 Codex skill。",
     "commands.skills.summary": "管理 Codex skill",
-    "commands.skills.config.description":
-        "管理 skill 配置。",
-    "commands.skills.config.summary":
-        "管理 skill 配置",
-    "commands.skills.config.get.description":
-        "读取一个 skill 配置值，或列出该 skill 的全部已知配置值。",
-    "commands.skills.config.get.summary":
-        "读取 skill 配置",
-    "commands.skills.config.set.description":
-        "持久化一个 skill 配置值，并在本地存在受管安装时同步对应文件。",
-    "commands.skills.config.set.summary":
-        "设置一个 skill 配置值",
     "commands.skills.search.description":
         "使用自由文本通过 skills search API 搜索已发布的 skill。",
     "commands.skills.search.summary":
@@ -833,16 +800,10 @@ export const zhMessages = {
         "无效的 lang 值：{value}。请使用 en 或 zh。",
     "errors.config.invalidFileDownloadOutDirValue":
         "无效的 file.download.out_dir 值：{value}。请使用非空路径。",
-    "errors.config.invalidSkillImplicitInvocationValue":
-        "无效的 skills.{skill}.implicit_invocation 值：{value}。请使用 true 或 false。",
     "errors.skills.invalidName":
         "不支持的 skill：{value}。请使用 {choices}。",
     "errors.skills.invalidPath":
         "skill 名称 {name} 解析到了本地 Codex skills 目录之外。",
-    "errors.skills.config.invalidKey":
-        "skill {skill} 的配置键无效：{value}。请使用 {choices}。",
-    "errors.skills.config.invalidAllowImplicitInvocationValue":
-        "skill {skill} 的 allow-implicit-invocation 值无效：{value}。请使用 true 或 false。",
     "errors.fileDownload.downloadFailed":
         "下载文件到 {path} 失败：{message}",
     "errors.fileDownload.invalidExt":
@@ -995,8 +956,6 @@ export const zhMessages = {
     "options.version": "显示当前版本",
     "skills.install.allSelected":
         "将安装全部 {count} 个 skill。",
-    "skills.config.set.success":
-        "已将 skill {name} 的 {key} 设置为 {value}。",
     "skills.list.noResults":
         "未找到由 oo 管理的 skill。",
     "skills.list.source": "来源",
@@ -1056,7 +1015,6 @@ export const zhMessages = {
     "arguments.serviceName": "服务名",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",
-    "arguments.skillConfigKey": "skill 配置键",
     "arguments.taskId": "任务 ID",
     "arguments.text": "搜索文本",
     "arguments.url": "URL",

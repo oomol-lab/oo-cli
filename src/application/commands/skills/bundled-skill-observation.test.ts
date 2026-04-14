@@ -10,7 +10,6 @@ import {
     isBundledSkillInstallationCurrent,
     isBundledSkillInstallationCurrentFromMetadata,
     isManagedBundledSkillInstallation,
-    readInstalledBundledSkillImplicitInvocation,
     readInstalledBundledSkillMetadata,
     readInstalledBundledSkillVersion,
     requireBundledSkillHomeDirectory,
@@ -73,29 +72,13 @@ describe("bundled skill observation", () => {
         }
     });
 
-    test("reads implicit invocation from the ownership file and managed state from metadata", async () => {
+    test("reads managed state from metadata", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
         const skillDirectoryPath = join(rootDirectory, "skills", "oo");
         const metadataFilePath = join(skillDirectoryPath, ".oo-metadata.json");
-        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
 
         try {
-            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-
-            expect(await readInstalledBundledSkillImplicitInvocation(skillDirectoryPath)).toBeUndefined();
-            expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeFalse();
-
-            await Bun.write(
-                ownershipFilePath,
-                [
-                    "# OOMOL",
-                    "policy:",
-                    "  allow_implicit_invocation: false",
-                    "",
-                ].join("\n"),
-            );
-
-            expect(await readInstalledBundledSkillImplicitInvocation(skillDirectoryPath)).toBeFalse();
+            await mkdir(skillDirectoryPath, { recursive: true });
             expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeFalse();
 
             await Bun.write(metadataFilePath, "not json");
@@ -104,19 +87,6 @@ describe("bundled skill observation", () => {
             await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
                 version: "1.2.3",
             });
-            expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeTrue();
-
-            await Bun.write(
-                ownershipFilePath,
-                [
-                    "interface:",
-                    "  display_name: oo",
-                    "  short_description: Custom skill",
-                    "",
-                ].join("\n"),
-            );
-
-            expect(await readInstalledBundledSkillImplicitInvocation(skillDirectoryPath)).toBeUndefined();
             expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeTrue();
         }
         finally {
@@ -131,10 +101,7 @@ describe("bundled skill observation", () => {
 
         try {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-            await Bun.write(
-                ownershipFilePath,
-                "policy:\n  allow_implicit_invocation: true\n",
-            );
+            await Bun.write(ownershipFilePath, "policy:\n  allow_implicit_invocation: false\n");
 
             expect(
                 await isBundledSkillInstallationCurrent(
@@ -266,12 +233,6 @@ describe("bundled skill observation", () => {
                     "claude",
                 ),
             ).toBeTrue();
-            expect(
-                await readInstalledBundledSkillImplicitInvocation(
-                    skillDirectoryPath,
-                    "claude",
-                ),
-            ).toBeUndefined();
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });
