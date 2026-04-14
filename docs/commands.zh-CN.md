@@ -141,6 +141,8 @@
 - 输出：非 dry-run 的 JSON 输出会保持稳定结构
   `{ data, meta: { executionId } }`。
 - 输出：dry-run 的 JSON 输出返回 `{ dryRun, ok, schemaPath }`。
+- 错误：stderr 会打印 HTTP 状态；如果失败响应包含服务端 `message` 或
+  `errorCode`，也会一并输出。
 - 说明：如果本地 schema cache 不可用或无法使用，命令会自动刷新后再继续校验
   和运行。
 

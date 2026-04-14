@@ -152,6 +152,8 @@ Validate input data and run one connector action synchronously.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.
 - Output: dry-run JSON output returns `{ dryRun, ok, schemaPath }`.
+- Errors: stderr prints the HTTP status and includes the server `message`
+  and `errorCode` when the failure response provides them.
 - Notes: when local schema cache is unavailable or unusable, the command
   refreshes it automatically before validating and running.
 

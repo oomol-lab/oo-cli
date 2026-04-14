@@ -64,6 +64,7 @@ export const connectorFormatValues = ["json"] as const;
 
 export type ConnectorActionDefinition = z.output<typeof connectorActionDefinitionSchema>;
 export type ConnectorActionRunResponse = z.output<typeof connectorActionRunResponseSchema>;
+type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResponseSchema>;
 
 export async function searchConnectorActions(
     options: {
@@ -308,20 +309,10 @@ export async function runConnectorAction(
                 "Connector action run request returned a non-success status.",
             );
 
-            if (failureResponse?.message) {
-                throw new CliUserError(
-                    "errors.connectorRun.requestFailedWithMessage",
-                    1,
-                    {
-                        message: failureResponse.message,
-                        status: response.status,
-                    },
-                );
-            }
-
-            throw new CliUserError("errors.connectorRun.requestFailed", 1, {
-                status: response.status,
-            });
+            throw createConnectorRunRequestFailedError(
+                response.status,
+                failureResponse,
+            );
         }
 
         context.logger.debug(
@@ -383,7 +374,7 @@ function createConnectorActionRequestUrl(
 
 function parseConnectorFailureResponse(
     rawResponse: string,
-): z.output<typeof connectorActionFailureResponseSchema> | undefined {
+): ConnectorActionFailureResponse | undefined {
     try {
         return connectorActionFailureResponseSchema.parse(
             JSON.parse(rawResponse) as unknown,
@@ -409,4 +400,50 @@ function sanitizeConnectorFailureMessage(
     }
 
     return `${singleLineMessage.slice(0, maxLength)}...`;
+}
+
+function createConnectorRunRequestFailedError(
+    status: number,
+    failureResponse: ConnectorActionFailureResponse | undefined,
+): CliUserError {
+    const responseMessage = failureResponse?.message;
+    const errorCode = failureResponse?.errorCode;
+
+    if (responseMessage !== undefined && responseMessage !== "") {
+        if (errorCode !== undefined && errorCode !== "") {
+            return new CliUserError(
+                "errors.connectorRun.requestFailedWithMessageAndCode",
+                1,
+                {
+                    errorCode,
+                    message: responseMessage,
+                    status,
+                },
+            );
+        }
+
+        return new CliUserError(
+            "errors.connectorRun.requestFailedWithMessage",
+            1,
+            {
+                message: responseMessage,
+                status,
+            },
+        );
+    }
+
+    if (errorCode !== undefined && errorCode !== "") {
+        return new CliUserError(
+            "errors.connectorRun.requestFailedWithCode",
+            1,
+            {
+                errorCode,
+                status,
+            },
+        );
+    }
+
+    return new CliUserError("errors.connectorRun.requestFailed", 1, {
+        status,
+    });
 }

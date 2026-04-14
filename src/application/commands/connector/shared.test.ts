@@ -3,7 +3,7 @@ import type { Fetcher } from "../../contracts/cli.ts";
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
-import { toRequest } from "../../../../__tests__/helpers.ts";
+import { expectCliUserError, toRequest } from "../../../../__tests__/helpers.ts";
 import {
     getConnectorActionMetadata,
     listAuthenticatedConnectorServices,
@@ -169,6 +169,34 @@ describe("connector shared requests", () => {
             input: {
                 to: "foo@bar.com",
             },
+        });
+    });
+
+    test("runConnectorAction surfaces errorCode when the failure response omits a message", async () => {
+        const error = await expectCliUserError(runConnectorAction(
+            {
+                actionName: "send_mail",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                inputData: {
+                    to: "foo@bar.com",
+                },
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    errorCode: "invalid_input",
+                    success: false,
+                }), {
+                    status: 400,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorRun.requestFailedWithCode");
+        expect(error.params).toEqual({
+            errorCode: "invalid_input",
+            status: 400,
         });
     });
 });

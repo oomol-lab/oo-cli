@@ -10,8 +10,8 @@ import type { AuthFile } from "../src/application/schemas/auth.ts";
 import type { AppSettings } from "../src/application/schemas/settings.ts";
 import { Buffer } from "node:buffer";
 import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
-
 import { tmpdir } from "node:os";
+
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { Database } from "bun:sqlite";
@@ -25,6 +25,7 @@ import {
     executeCli as executeCliInvocation,
 } from "../src/application/bootstrap/run-cli.ts";
 import { APP_NAME } from "../src/application/config/app-config.ts";
+import { CliUserError } from "../src/application/contracts/cli.ts";
 import { defaultSettings, renderSettingsFile } from "../src/application/schemas/settings.ts";
 import { createTerminalColors } from "../src/application/terminal-colors.ts";
 
@@ -515,6 +516,23 @@ export function toRequest(input: string | URL | Request, init?: RequestInit): Re
     }
 
     return new Request(String(input), init);
+}
+
+export async function expectCliUserError(
+    operation: Promise<unknown>,
+): Promise<CliUserError> {
+    try {
+        await operation;
+    }
+    catch (error) {
+        if (error instanceof CliUserError) {
+            return error;
+        }
+
+        throw error;
+    }
+
+    throw new Error("Expected a CliUserError to be thrown.");
 }
 
 async function waitForLoginUrl(

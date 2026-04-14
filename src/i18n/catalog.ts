@@ -257,8 +257,12 @@ export const enMessages = {
         "The connector action run request failed: {message}",
     "errors.connectorRun.requestFailed":
         "The connector action run request returned HTTP {status}.",
+    "errors.connectorRun.requestFailedWithCode":
+        "The connector action run request returned HTTP {status} (errorCode: {errorCode}).",
     "errors.connectorRun.requestFailedWithMessage":
         "The connector action run request returned HTTP {status}: {message}",
+    "errors.connectorRun.requestFailedWithMessageAndCode":
+        "The connector action run request returned HTTP {status} (errorCode: {errorCode}): {message}",
     "errors.connectorSchema.readFailed":
         "Failed to read the connector action schema cache at {path}: {message}",
     "errors.connectorSchema.writeFailed":
@@ -805,8 +809,12 @@ export const zhMessages = {
         "运行 connector action 失败：{message}",
     "errors.connectorRun.requestFailed":
         "运行 connector action 返回了 HTTP {status}。",
+    "errors.connectorRun.requestFailedWithCode":
+        "运行 connector action 返回了 HTTP {status}（errorCode: {errorCode}）。",
     "errors.connectorRun.requestFailedWithMessage":
         "运行 connector action 返回了 HTTP {status}：{message}",
+    "errors.connectorRun.requestFailedWithMessageAndCode":
+        "运行 connector action 返回了 HTTP {status}（errorCode: {errorCode}）：{message}",
     "errors.connectorSchema.readFailed":
         "读取 {path} 的 connector action schema cache 失败：{message}",
     "errors.connectorSchema.writeFailed":

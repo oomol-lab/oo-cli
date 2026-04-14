@@ -726,7 +726,7 @@ describe("connectorCommand CLI", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toContain(
-                "The connector action run request returned HTTP 400: Invalid id value",
+                "The connector action run request returned HTTP 400 (errorCode: invalid_input): Invalid id value",
             );
             expect(content).toContain(
                 "\"msg\":\"Connector action run request returned a non-success status.\"",

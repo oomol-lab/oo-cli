@@ -3,7 +3,7 @@ import type {
     FileDownloadSessionStore,
 } from "../../../../contracts/file-download-session-store.ts";
 
-import { CliUserError } from "../../../../contracts/cli.ts";
+export { expectCliUserError } from "../../../../../../__tests__/helpers.ts";
 
 export interface DownloadSessionStoreSpy {
     readonly deletedSessionCutoffs: number[];
@@ -76,23 +76,6 @@ export function createDownloadSessionStoreSpy(
             currentSession = session;
         },
     };
-}
-
-export async function expectCliUserError(
-    operation: Promise<unknown>,
-): Promise<CliUserError> {
-    try {
-        await operation;
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            return error;
-        }
-
-        throw error;
-    }
-
-    throw new Error("Expected a CliUserError to be thrown.");
 }
 
 export function setResponseUrl(response: Response, url: string): Response {
