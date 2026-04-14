@@ -1,5 +1,10 @@
+import { chmod, mkdir, readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 
+import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
+import { getBundledSkillFiles } from "../../src/application/commands/skills/embedded-assets.ts";
 import {
     buildCompileCommandArgs,
     buildCompileDefineArgs,
@@ -252,7 +257,7 @@ describe("npm-packages", () => {
             "--minify",
             "--no-compile-autoload-dotenv",
             "--no-compile-autoload-bunfig",
-            "--asset-naming=[name].[ext]",
+            "--asset-naming=[name]-[hash].[ext]",
             "--target=bun-darwin-arm64",
             "--define",
             "BUILD_VERSION=\"1.2.3\"",
@@ -264,6 +269,93 @@ describe("npm-packages", () => {
             "--outfile",
             "dist/bin/oo",
         ]);
+    });
+
+    test("compiled binary installs bundled skills to stable file paths", async () => {
+        const rootDirectoryPath = process.cwd();
+        const temporaryDirectoryPath = await createTemporaryDirectory(
+            "oo-compiled-bundled-skills",
+        );
+        const currentTarget = resolveCurrentPlatformTarget();
+        const executablePath = join(
+            temporaryDirectoryPath,
+            currentTarget.executableFileName,
+        );
+        const codexHomeDirectoryPath = join(temporaryDirectoryPath, "codex-home");
+        const configHomeDirectoryPath = join(temporaryDirectoryPath, "config-home");
+        const homeDirectoryPath = join(temporaryDirectoryPath, "home");
+
+        try {
+            const compileResult = Bun.spawnSync(
+                buildCompileCommandArgs(
+                    currentTarget,
+                    {
+                        buildTimestamp: 1_742_867_323_456,
+                        gitCommit: "1234567890abcdef",
+                        version: "1.2.3",
+                    },
+                    executablePath,
+                ),
+                {
+                    cwd: rootDirectoryPath,
+                    stderr: "pipe",
+                    stdin: "ignore",
+                    stdout: "pipe",
+                },
+            );
+
+            if (compileResult.exitCode !== 0) {
+                throw new Error(decodeSpawnOutput(compileResult.stderr));
+            }
+
+            if (process.platform !== "win32") {
+                await chmod(executablePath, 0o755);
+            }
+
+            await Promise.all([
+                mkdir(codexHomeDirectoryPath, { recursive: true }),
+                mkdir(configHomeDirectoryPath, { recursive: true }),
+                mkdir(homeDirectoryPath, { recursive: true }),
+            ]);
+
+            const installResult = Bun.spawnSync(
+                [executablePath, "skills", "add"],
+                {
+                    cwd: rootDirectoryPath,
+                    env: {
+                        ...process.env,
+                        CODEX_HOME: codexHomeDirectoryPath,
+                        HOME: homeDirectoryPath,
+                        XDG_CONFIG_HOME: configHomeDirectoryPath,
+                    },
+                    stderr: "pipe",
+                    stdin: "ignore",
+                    stdout: "pipe",
+                },
+            );
+
+            if (installResult.exitCode !== 0) {
+                throw new Error(decodeSpawnOutput(installResult.stderr));
+            }
+
+            const installedSkillDirectoryPath = join(
+                codexHomeDirectoryPath,
+                "skills",
+                "oo-find-skills",
+            );
+
+            for (const file of getBundledSkillFiles("oo-find-skills", "codex")) {
+                expect(
+                    await readFile(
+                        join(installedSkillDirectoryPath, file.relativePath),
+                        "utf8",
+                    ),
+                ).toBe(await Bun.file(file.sourcePath).text());
+            }
+        }
+        finally {
+            await rm(temporaryDirectoryPath, { force: true, recursive: true });
+        }
     });
 
     test("rejects unsupported build targets", () => {
@@ -342,4 +434,18 @@ function getRequiredTarget(targetId: string) {
     }
 
     return matchedTarget;
+}
+
+function decodeSpawnOutput(
+    output: ArrayBufferView | SharedArrayBuffer | ArrayBuffer,
+): string {
+    if (ArrayBuffer.isView(output)) {
+        return new TextDecoder().decode(
+            new Uint8Array(output.buffer, output.byteOffset, output.byteLength),
+        );
+    }
+
+    return new TextDecoder().decode(
+        new Uint8Array(output as ArrayBufferLike),
+    );
 }

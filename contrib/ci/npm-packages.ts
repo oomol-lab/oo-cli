@@ -80,6 +80,7 @@ const explicitExtraOrder = [
 ] as const;
 
 const platformTargets = platformTargetsData as PlatformTarget[];
+const compileAssetNamingPattern = "[name]-[hash].[ext]";
 
 export function getPlatformTargets(): readonly PlatformTarget[] {
     return [...platformTargets];
@@ -370,6 +371,7 @@ export function buildCompileCommandArgs(
     buildMetadata: CompileBuildMetadata,
     outputPath: string,
 ): string[] {
+    // Keep embedded asset filenames unique across bundled skills.
     return [
         "bun",
         "build",
@@ -380,7 +382,7 @@ export function buildCompileCommandArgs(
         "--minify",
         "--no-compile-autoload-dotenv",
         "--no-compile-autoload-bunfig",
-        "--asset-naming=[name].[ext]",
+        `--asset-naming=${compileAssetNamingPattern}`,
         `--target=${target.bunTarget}`,
         ...buildCompileDefineArgs(buildMetadata),
         "./index.ts",
