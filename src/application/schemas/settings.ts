@@ -8,8 +8,6 @@ import {
 
 export const localeSchema = z.enum(supportedLocaleValues);
 export const shellSchema = z.enum(supportedShellValues);
-export const booleanConfigValueChoices = ["true", "false"] as const;
-export const booleanConfigValueSchema = z.enum(booleanConfigValueChoices);
 export const fileDownloadOutDirConfigValueSchema = z.string().trim().min(1);
 
 const fileDownloadSettingsShape = {
@@ -27,40 +25,17 @@ const fileSettingsSchema = z.object({
     download: fileDownloadSettingsSchema.optional(),
 }).strict();
 
-const ooSkillSettingsShape = {
-    implicit_invocation: z.boolean().optional(),
-};
-
-const skillImplicitInvocationReadSchema = z.object(ooSkillSettingsShape);
-const skillImplicitInvocationSchema = z.object(ooSkillSettingsShape).strict();
-
-const skillsSettingsReadSchema = z.object({
-    "oo-find-skills": skillImplicitInvocationReadSchema.optional(),
-    "oo": skillImplicitInvocationReadSchema.optional(),
-});
-
-const skillsSettingsSchema = z.object({
-    "oo-find-skills": skillImplicitInvocationSchema.optional(),
-    "oo": skillImplicitInvocationSchema.optional(),
-}).strict();
-
-export const defaultBundledSkillImplicitInvocation = true;
-
 export const settingsFileReadSchema = z.object({
     file: fileSettingsReadSchema.optional(),
     lang: localeSchema.optional(),
-    skills: skillsSettingsReadSchema.optional(),
 });
 
 export const settingsFileSchema = z.object({
     file: fileSettingsSchema.optional(),
     lang: localeSchema.optional(),
-    skills: skillsSettingsSchema.optional(),
 }).strict();
 
 export type AppSettings = z.output<typeof settingsFileSchema>;
-export type BooleanConfigValue = z.output<typeof booleanConfigValueSchema>;
-export type BundledSkillSettingsKey = keyof NonNullable<AppSettings["skills"]>;
 export const defaultFileDownloadOutDir = "~/Downloads";
 
 export const defaultSettings: AppSettings = {};
@@ -81,13 +56,6 @@ const defaultSettingsCommentBlocks = [
         "# [file.download]",
         `# out_dir = "${defaultFileDownloadOutDir}"`,
     ],
-    ...["oo", "oo-find-skills"].map(skillName => [
-        `# skills.${skillName}.implicit_invocation controls whether Codex may invoke the bundled ${skillName} skill without an explicit mention.`,
-        "# Supported values: true, false.",
-        `# Default: ${stringifyBooleanConfigValue(defaultBundledSkillImplicitInvocation)}.`,
-        `# [skills.${skillName}]`,
-        "# implicit_invocation = false",
-    ]),
 ] as const;
 
 export function renderSettingsFile(settings: AppSettings): string {
@@ -108,22 +76,6 @@ export function renderSettingsFile(settings: AppSettings): string {
         };
     }
 
-    const persistedSkillSettings: Record<string, unknown> = {};
-
-    for (const skillName of Object.keys(parsedSettings.skills ?? {})) {
-        const skillSettings = parsedSettings.skills?.[skillName as BundledSkillSettingsKey];
-
-        if (skillSettings?.implicit_invocation !== undefined) {
-            persistedSkillSettings[skillName] = {
-                implicit_invocation: skillSettings.implicit_invocation,
-            };
-        }
-    }
-
-    if (Object.keys(persistedSkillSettings).length > 0) {
-        persistedSettings.skills = persistedSkillSettings;
-    }
-
     const serializedSettings = stringifyToml(persistedSettings).trimEnd();
 
     if (serializedSettings !== "") {
@@ -131,14 +83,6 @@ export function renderSettingsFile(settings: AppSettings): string {
     }
 
     return `${lines.join("\n")}\n`;
-}
-
-export function parseBooleanConfigValue(value: BooleanConfigValue): boolean {
-    return value === "true";
-}
-
-export function stringifyBooleanConfigValue(value: boolean): BooleanConfigValue {
-    return value ? "true" : "false";
 }
 
 export function collectUnknownSettingsFileKeyPaths(
@@ -178,52 +122,6 @@ export function unsetFileDownloadOutDir(
     }
 
     return deleteNestedProperty(settings, ["file", "download", "out_dir"]);
-}
-
-export function getConfiguredSkillImplicitInvocation(
-    settings: AppSettings,
-    skillName: BundledSkillSettingsKey,
-): boolean | undefined {
-    return settings.skills?.[skillName]?.implicit_invocation;
-}
-
-export function getSkillImplicitInvocation(
-    settings: AppSettings,
-    skillName: BundledSkillSettingsKey,
-): boolean {
-    return getConfiguredSkillImplicitInvocation(settings, skillName)
-        ?? defaultBundledSkillImplicitInvocation;
-}
-
-export function setSkillImplicitInvocation(
-    settings: AppSettings,
-    skillName: BundledSkillSettingsKey,
-    value: boolean,
-): AppSettings {
-    return {
-        ...settings,
-        skills: {
-            ...settings.skills,
-            [skillName]: {
-                ...settings.skills?.[skillName],
-                implicit_invocation: value,
-            },
-        },
-    };
-}
-
-export function unsetSkillImplicitInvocation(
-    settings: AppSettings,
-    skillName: BundledSkillSettingsKey,
-): AppSettings {
-    if (settings.skills?.[skillName]?.implicit_invocation === undefined) {
-        return settings;
-    }
-
-    return deleteNestedProperty(
-        settings,
-        ["skills", skillName, "implicit_invocation"],
-    );
 }
 
 // Shallow-clones each level of a nested object along the given path,

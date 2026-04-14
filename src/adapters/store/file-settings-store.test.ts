@@ -56,74 +56,6 @@ describe("FileSettingsStore", () => {
         });
     });
 
-    test("writes and reads persisted oo skill settings", async () => {
-        const root = await createTemporaryDirectory("store-skill-write");
-        const store = new FileSettingsStore({
-            appName: APP_NAME,
-            env: {
-                HOME: root,
-                XDG_CONFIG_HOME: root,
-            },
-            platform: "linux",
-        });
-
-        await store.write({
-            skills: {
-                oo: {
-                    implicit_invocation: false,
-                },
-            },
-        });
-
-        expect(await readFile(store.getFilePath(), "utf8")).toBe(
-            createExpectedSettingsFileContent([
-                "[skills.oo]",
-                "implicit_invocation = false",
-            ]),
-        );
-        expect(await store.read()).toEqual({
-            skills: {
-                oo: {
-                    implicit_invocation: false,
-                },
-            },
-        });
-    });
-
-    test("writes and reads persisted oo-find-skills settings", async () => {
-        const root = await createTemporaryDirectory("store-find-skills-write");
-        const store = new FileSettingsStore({
-            appName: APP_NAME,
-            env: {
-                HOME: root,
-                XDG_CONFIG_HOME: root,
-            },
-            platform: "linux",
-        });
-
-        await store.write({
-            skills: {
-                "oo-find-skills": {
-                    implicit_invocation: false,
-                },
-            },
-        });
-
-        expect(await readFile(store.getFilePath(), "utf8")).toBe(
-            createExpectedSettingsFileContent([
-                "[skills.oo-find-skills]",
-                "implicit_invocation = false",
-            ]),
-        );
-        expect(await store.read()).toEqual({
-            skills: {
-                "oo-find-skills": {
-                    implicit_invocation: false,
-                },
-            },
-        });
-    });
-
     test("writes and reads the persisted file download output directory", async () => {
         const root = await createTemporaryDirectory("store-file-download-write");
         const store = new FileSettingsStore({
@@ -201,7 +133,6 @@ describe("FileSettingsStore", () => {
                 "",
                 "[skills.oo]",
                 "implicit_invocation = false",
-                "extra = true",
                 "",
             ].join("\n"),
             "utf8",
@@ -209,14 +140,6 @@ describe("FileSettingsStore", () => {
 
         await expect(store.read()).resolves.toEqual({
             lang: "zh",
-            skills: {
-                "oo-find-skills": {
-                    implicit_invocation: false,
-                },
-                "oo": {
-                    implicit_invocation: false,
-                },
-            },
         });
 
         const logs = logCapture.read();
@@ -227,7 +150,7 @@ describe("FileSettingsStore", () => {
         );
         expect(logs).toContain(`"unknownKeyCount":2`);
         expect(logs).toContain(
-            `"unknownKeyPaths":["skills.oo.extra","updateNotifier"]`,
+            `"unknownKeyPaths":["skills","updateNotifier"]`,
         );
 
         logCapture.close();

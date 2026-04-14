@@ -1,22 +1,15 @@
 import type { ZodType } from "zod";
 import type { SupportedLocale } from "../../contracts/cli.ts";
-import type { AppSettings, BundledSkillSettingsKey } from "../../schemas/settings.ts";
+import type { AppSettings } from "../../schemas/settings.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
-    booleanConfigValueChoices,
-    booleanConfigValueSchema,
     fileDownloadOutDirConfigValueSchema,
     getConfiguredFileDownloadOutDir,
-    getConfiguredSkillImplicitInvocation,
     localeSchema,
-    parseBooleanConfigValue,
     setFileDownloadOutDir,
-    setSkillImplicitInvocation,
-    stringifyBooleanConfigValue,
     unsetFileDownloadOutDir,
-    unsetSkillImplicitInvocation,
 } from "../../schemas/settings.ts";
 
 interface ConfigDefinition<TValue extends string> {
@@ -36,56 +29,7 @@ function createValueErrorFactory(translationKey: string) {
     };
 }
 
-export const ooSkillImplicitInvocationConfigKey
-    = "skills.oo.implicit_invocation" as const;
-export const ooFindSkillsImplicitInvocationConfigKey
-    = "skills.oo-find-skills.implicit_invocation" as const;
 export const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
-
-const skillImplicitInvocationConfigKeys: ReadonlySet<string> = new Set([
-    ooSkillImplicitInvocationConfigKey,
-    ooFindSkillsImplicitInvocationConfigKey,
-]);
-
-export function isSkillImplicitInvocationConfigKey(key: string): boolean {
-    return skillImplicitInvocationConfigKeys.has(key);
-}
-
-function createSkillImplicitInvocationConfigDefinition(
-    skillName: BundledSkillSettingsKey,
-): ConfigDefinition<"false" | "true"> {
-    return {
-        createInvalidValueError(rawValue: unknown): CliUserError {
-            return new CliUserError(
-                "errors.config.invalidSkillImplicitInvocationValue",
-                2,
-                {
-                    skill: skillName,
-                    value: String(rawValue ?? ""),
-                },
-            );
-        },
-        getValue(settings: AppSettings): "false" | "true" | undefined {
-            const configuredValue = getConfiguredSkillImplicitInvocation(settings, skillName);
-
-            return configuredValue === undefined
-                ? undefined
-                : stringifyBooleanConfigValue(configuredValue);
-        },
-        setValue(settings: AppSettings, value: "false" | "true"): AppSettings {
-            return setSkillImplicitInvocation(
-                settings,
-                skillName,
-                parseBooleanConfigValue(value),
-            );
-        },
-        unsetValue(settings: AppSettings): AppSettings {
-            return unsetSkillImplicitInvocation(settings, skillName);
-        },
-        valueChoices: booleanConfigValueChoices,
-        valueSchema: booleanConfigValueSchema,
-    };
-}
 
 export const configDefinitions = {
     lang: {
@@ -123,10 +67,6 @@ export const configDefinitions = {
         valueChoices: [],
         valueSchema: fileDownloadOutDirConfigValueSchema,
     } satisfies ConfigDefinition<string>,
-    [ooSkillImplicitInvocationConfigKey]:
-        createSkillImplicitInvocationConfigDefinition("oo"),
-    [ooFindSkillsImplicitInvocationConfigKey]:
-        createSkillImplicitInvocationConfigDefinition("oo-find-skills"),
 } as const;
 
 export type ConfigKey = keyof typeof configDefinitions;

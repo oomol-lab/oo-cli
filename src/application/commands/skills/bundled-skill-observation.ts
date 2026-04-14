@@ -8,12 +8,10 @@ import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
     isBundledSkillInstallationCurrentState,
     parseBundledSkillMetadataContent,
-    readImplicitInvocationValue,
 } from "./bundled-skill-model.ts";
 import {
     resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
-    resolveBundledSkillOwnershipFileRelativePath,
 } from "./bundled-skill-paths.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
@@ -68,35 +66,6 @@ export async function fileExists(path: string): Promise<boolean> {
     catch (error) {
         if (isNodeNotFoundError(error)) {
             return false;
-        }
-
-        throw error;
-    }
-}
-
-export async function readInstalledBundledSkillImplicitInvocation(
-    skillDirectoryPath: string,
-    agentName: BundledSkillAgentName = "codex",
-): Promise<boolean | undefined> {
-    const ownershipFileRelativePath = resolveBundledSkillOwnershipFileRelativePath(
-        agentName,
-    );
-
-    if (ownershipFileRelativePath === undefined) {
-        return undefined;
-    }
-
-    try {
-        const content = await readFile(
-            join(skillDirectoryPath, ownershipFileRelativePath),
-            "utf8",
-        );
-
-        return readImplicitInvocationValue(content);
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return undefined;
         }
 
         throw error;

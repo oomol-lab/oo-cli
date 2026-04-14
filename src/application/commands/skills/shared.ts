@@ -1,5 +1,4 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
-import type { AppSettings } from "../../schemas/settings.ts";
 
 import type { BundledSkillPublicationResult } from "./bundled-skill-filesystem.ts";
 import type {
@@ -11,7 +10,6 @@ import {
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
-import { defaultSettings } from "../../schemas/settings.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     publishBundledSkillInstallation,
@@ -20,8 +18,6 @@ import {
 import {
     bundledSkillDevelopmentVersion,
     canUninstallManagedBundledSkillInstallation,
-    renderBundledSkillFileContent,
-    resolveBundledSkillImplicitInvocation,
     resolveBundledSkillInstallConflict,
     resolveBundledSkillManagedSynchronizationAction,
 } from "./bundled-skill-model.ts";
@@ -29,7 +25,6 @@ import {
     directoryExists,
     isBundledSkillInstallationCurrentFromMetadata,
     isManagedBundledSkillInstallation,
-    readInstalledBundledSkillImplicitInvocation,
     readInstalledBundledSkillMetadata,
     requireCodexHomeDirectory,
     writeInstalledBundledSkillMetadata,
@@ -63,7 +58,6 @@ export async function installBundledSkill(
     skillName: BundledSkillName,
     context: CliExecutionContext,
 ): Promise<void> {
-    const settings = await context.settingsStore.read();
     const installations = await resolveAvailableBundledSkillHostInstallations(
         context,
         skillName,
@@ -85,7 +79,6 @@ export async function installBundledSkill(
         const publishedInstallation = await writeBundledSkillInstallation({
             agentName: installation.agentName,
             homeDirectory: installation.homeDirectory,
-            settings,
             settingsFilePath: context.settingsStore.getFilePath(),
             skillName,
             version: context.version,
@@ -116,10 +109,8 @@ export async function maybeSynchronizeInstalledBundledSkills(
     context: Pick<CliExecutionContext, "env" | "logger" | "settingsStore" | "version">,
     options: {
         installMissing?: boolean;
-        settings?: AppSettings;
     } = {},
 ): Promise<void> {
-    const settings = options.settings ?? defaultSettings;
     const settingsFilePath = context.settingsStore.getFilePath();
 
     for (const agentName of availableBundledSkillAgentNames) {
@@ -173,7 +164,6 @@ export async function maybeSynchronizeInstalledBundledSkills(
                     const installation = await writeBundledSkillInstallation({
                         agentName,
                         homeDirectory,
-                        settings,
                         settingsFilePath,
                         skillName,
                         version: context.version,
@@ -230,20 +220,8 @@ export async function maybeSynchronizeInstalledBundledSkills(
                         context.version,
                         agentName,
                     );
-                const desiredImplicitInvocation = agentName === "codex"
-                    ? resolveBundledSkillImplicitInvocation(skillName, settings)
-                    : undefined;
-                const installedImplicitInvocation
-                    = desiredImplicitInvocation !== undefined && isCurrentInstallation
-                        ? await readInstalledBundledSkillImplicitInvocation(
-                                skillDirectoryPath,
-                                agentName,
-                            )
-                        : undefined;
                 const managedSynchronizationAction
                     = resolveBundledSkillManagedSynchronizationAction({
-                        desiredImplicitInvocation,
-                        installedImplicitInvocation,
                         isCurrentInstallation,
                     });
 
@@ -265,7 +243,6 @@ export async function maybeSynchronizeInstalledBundledSkills(
                         const installation = await writeBundledSkillInstallation({
                             agentName,
                             homeDirectory,
-                            settings,
                             settingsFilePath,
                             skillName,
                             version: context.version,
@@ -282,29 +259,6 @@ export async function maybeSynchronizeInstalledBundledSkills(
                                 version: context.version,
                             },
                             "Bundled skill synchronized.",
-                        );
-                        continue;
-                    }
-                    case "sync-policy": {
-                        const installation = await writeBundledSkillInstallation({
-                            agentName,
-                            homeDirectory,
-                            settings,
-                            settingsFilePath,
-                            skillName,
-                            version: context.version,
-                        });
-                        context.logger.info(
-                            {
-                                agentName,
-                                canonicalPath: canonicalSkillDirectoryPath,
-                                implicitInvocation: desiredImplicitInvocation,
-                                installMode: installation.mode,
-                                path: installation.path,
-                                skillName,
-                                version: context.version,
-                            },
-                            "Bundled skill policy synchronized.",
                         );
                         continue;
                     }
@@ -436,7 +390,6 @@ export async function uninstallManagedSkill(
 async function writeBundledSkillInstallation(options: {
     agentName: BundledSkillAgentName;
     homeDirectory: string;
-    settings: AppSettings;
     settingsFilePath: string;
     skillName: BundledSkillName;
     version: string;
@@ -449,7 +402,6 @@ async function writeBundledSkillInstallation(options: {
 async function writeBundledSkillCanonicalInstallation(options: {
     agentName: BundledSkillAgentName;
     homeDirectory: string;
-    settings: AppSettings;
     settingsFilePath: string;
     skillName: BundledSkillName;
     version: string;
@@ -477,16 +429,7 @@ async function writeBundledSkillCanonicalInstallation(options: {
         );
 
         await mkdir(dirname(destinationPath), { recursive: true });
-        await Bun.write(
-            destinationPath,
-            await renderBundledSkillFileContent(
-                options.skillName,
-                file.relativePath,
-                await Bun.file(file.sourcePath).text(),
-                options.settings,
-                options.agentName,
-            ),
-        );
+        await Bun.write(destinationPath, Bun.file(file.sourcePath));
     }
 
     await writeInstalledBundledSkillMetadata(

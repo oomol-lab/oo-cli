@@ -1,5 +1,3 @@
-import type { AppSettings } from "../../schemas/settings.ts";
-
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -7,72 +5,11 @@ import {
     canUninstallManagedBundledSkillInstallation,
     isBundledSkillInstallationCurrentState,
     parseBundledSkillMetadataContent,
-    readImplicitInvocationValue,
-    renderBundledSkillFileContent,
     resolveBundledSkillInstallConflict,
     resolveBundledSkillManagedSynchronizationAction,
-    writeImplicitInvocationValue,
 } from "./bundled-skill-model.ts";
 
 describe("bundled skill model", () => {
-    test("renders the ownership policy file with the configured implicit invocation value", () => {
-        const settings: AppSettings = {
-            skills: {
-                "oo-find-skills": {
-                    implicit_invocation: false,
-                },
-                "oo": {
-                    implicit_invocation: false,
-                },
-            },
-        };
-        const content = [
-            "policy:",
-            "  allow_implicit_invocation: true",
-            "",
-        ].join("\n");
-
-        expect(
-            renderBundledSkillFileContent(
-                "oo",
-                "agents/openai.yaml",
-                content,
-                settings,
-            ),
-        ).toContain("allow_implicit_invocation: false");
-        expect(
-            renderBundledSkillFileContent("oo", "SKILL.md", "skill\n", settings),
-        ).toBe("skill\n");
-        expect(
-            renderBundledSkillFileContent(
-                "oo-find-skills",
-                "agents/openai.yaml",
-                content,
-                settings,
-            ),
-        ).toContain("allow_implicit_invocation: false");
-    });
-
-    test("reads and writes the implicit invocation value while preserving CRLF formatting", () => {
-        const content = [
-            "policy:",
-            "  allow_implicit_invocation: true",
-            "",
-        ].join("\r\n");
-
-        expect(readImplicitInvocationValue(content)).toBeTrue();
-        expect(writeImplicitInvocationValue(content, false)).toBe(
-            [
-                "policy:",
-                "  allow_implicit_invocation: false",
-                "",
-            ].join("\r\n"),
-        );
-        expect(writeImplicitInvocationValue("allow_implicit_invocation: true\n", false)).toBe(
-            "allow_implicit_invocation: false\n",
-        );
-    });
-
     test("parses bundled skill metadata content", () => {
         expect(parseBundledSkillMetadataContent(
             `{"version":"${bundledSkillDevelopmentVersion}"}\n`,
@@ -87,12 +24,6 @@ describe("bundled skill model", () => {
         expect(parseBundledSkillMetadataContent("[]")).toBeUndefined();
         expect(parseBundledSkillMetadataContent("{}")).toBeUndefined();
         expect(parseBundledSkillMetadataContent("{\"version\":1}")).toBeUndefined();
-    });
-
-    test("throws when the ownership policy file does not define implicit invocation", () => {
-        expect(() => writeImplicitInvocationValue("policy:\n", false)).toThrow(
-            "Missing allow_implicit_invocation in bundled skill policy file.",
-        );
     });
 
     test("resolves install conflicts with the installed path taking priority over canonical storage", () => {
@@ -118,20 +49,11 @@ describe("bundled skill model", () => {
 
     test("resolves synchronization actions for managed installations", () => {
         expect(resolveBundledSkillManagedSynchronizationAction({
-            desiredImplicitInvocation: true,
-            installedImplicitInvocation: true,
             isCurrentInstallation: false,
         })).toBe("sync-installation");
         expect(resolveBundledSkillManagedSynchronizationAction({
-            desiredImplicitInvocation: true,
-            installedImplicitInvocation: true,
             isCurrentInstallation: true,
         })).toBe("skip-current");
-        expect(resolveBundledSkillManagedSynchronizationAction({
-            desiredImplicitInvocation: false,
-            installedImplicitInvocation: true,
-            isCurrentInstallation: true,
-        })).toBe("sync-policy");
     });
 
     test("evaluates current-state and uninstall decisions from precomputed facts", () => {

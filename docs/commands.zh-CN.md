@@ -66,8 +66,7 @@
 读取一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`、
-  `skills.oo-find-skills.implicit_invocation`。
+  `lang`、`file.download.out_dir`。
 
 ### `oo config path`
 
@@ -78,25 +77,19 @@
 写入一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`、
-  `skills.oo-find-skills.implicit_invocation`。
+  `lang`、`file.download.out_dir`。
 - 参数：`<value>` 为对应配置值。
 - 取值规则：当 `<key>` 为 `lang` 时，支持的值为 `en` 和 `zh`。
 - 取值规则：当 `<key>` 为 `file.download.out_dir` 时，支持任意非空路径字符串。
   相对路径会在执行 `oo file download` 时相对于当前工作目录解析；如果以 `~`
   开头，则会展开为当前用户的 home 目录。
-- 取值规则：当 `<key>` 为 `skills.oo.implicit_invocation` 时，支持的
-  值为 `true` 和 `false`。
-- 取值规则：当 `<key>` 为 `skills.oo-find-skills.implicit_invocation` 时，
-  支持的值为 `true` 和 `false`。
 
 ### `oo config unset <key>`
 
 删除一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`skills.oo.implicit_invocation`、
-  `skills.oo-find-skills.implicit_invocation`。
+  `lang`、`file.download.out_dir`。
 
 ## 更新
 
@@ -194,30 +187,6 @@
   在可用时显示来源包标识。
 - 说明：每次调用最多请求 `5` 条结果。
 
-### `oo skills config get <skill> [key]`
-
-读取 skill 配置值。
-
-- 参数：`<skill>` 为 skill 名称。
-- 参数：`[key]` 可选，用于指定所选 skill 的某个配置键。
-- 输出：提供 `[key]` 时，命令会输出该键的有效值，并以换行结尾。
-- 输出：省略 `[key]` 时，命令会为所选 skill 的每个已知配置键输出一行
-  `key=value`。
-- 说明：可用的 skill 名称和配置键集合会随 CLI 版本变化。
-- 说明：有效值会包含内置默认值，即使当前还没有显式持久化该配置。
-
-### `oo skills config set <skill> <key> <value>`
-
-持久化一个 skill 配置值。
-
-- 参数：`<skill>` 为 skill 名称。
-- 参数：`<key>` 为所选 skill 的配置键。
-- 参数：`<value>` 为所选 skill 配置键对应的值。
-- 取值规则：可接受的值取决于 `<skill>` 和 `<key>`。
-- 说明：当目标受管 skill 已经安装时，命令会立即同步对应受管文件。
-- 说明：当目标受管 skill 尚未安装时，命令仍会写入设置，并在下次安装或启
-  动同步时生效。
-
 ### `oo skills install [packageName]`
 
 将内置 skill 安装到受支持的本地 skill 目录，或将已发布 skill 安装到本地
@@ -260,9 +229,6 @@ Codex skills 目录。
 - 元数据：已发布 skill 也会写入一个隐藏的 `.oo-metadata.json` 文件，
   其中 `version` 字段记录 package 版本，`packageName` 字段记录来源
   package。
-- 元数据：当存在持久化的 `implicit_invocation` 配置时，内置 `oo`
-  和 `oo-find-skills` 的 Codex 副本会在 `agents/openai.yaml` 中使用各自的
-  配置值；否则使用内置默认值。
 - 说明：安装已发布 skill 时，所有 registry 请求都会携带当前激活账号的
   `Authorization` header。
 - 说明：如果 package 下有多个 skill，且当前不是交互终端，则必须提供

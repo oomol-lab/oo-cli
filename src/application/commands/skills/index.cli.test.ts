@@ -9,7 +9,6 @@ import {
     readLatestLogContent,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
-import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
 import {
     bundledSkillDevelopmentVersion,
 } from "./bundled-skill-model.ts";
@@ -90,7 +89,7 @@ describe("skills CLI", () => {
                 isFile: expect.any(Function),
             });
             expect(await readFile(ownershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: true",
+                "allow_implicit_invocation: false",
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
@@ -266,53 +265,6 @@ describe("skills CLI", () => {
                 ].join("\n"),
             );
             expect(result.stderr).toBe("");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("synchronizes the managed bundled skill policy from persisted settings", async () => {
-        const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
-        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
-        const settingsFilePath = join(
-            sandbox.env.XDG_CONFIG_HOME!,
-            APP_NAME,
-            "settings.toml",
-        );
-
-        try {
-            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-            await Bun.write(
-                metadataFilePath,
-                renderSkillMetadataJson({ version: "9.9.9" }),
-            );
-            await Bun.write(
-                ownershipFilePath,
-                await Bun.file(
-                    getBundledSkillSourcePath("oo", "agents/openai.yaml"),
-                ).text(),
-            );
-            await Bun.write(
-                settingsFilePath,
-                [
-                    "[skills.oo]",
-                    "implicit_invocation = false",
-                    "",
-                ].join("\n"),
-            );
-
-            const result = await sandbox.run(["--help"], {
-                version: "9.9.9",
-            });
-
-            expect(createCliSnapshot(result)).toMatchSnapshot();
-            expect(await readFile(ownershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: false",
-            );
         }
         finally {
             await sandbox.cleanup();

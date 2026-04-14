@@ -1,6 +1,5 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import { skillsConfigCommand } from "./config/index.ts";
 import { skillsInstallCommand } from "./install.ts";
 import { skillsListCommand } from "./list.ts";
 import { skillsSearchCommand } from "./search.ts";
@@ -14,7 +13,6 @@ export const skillsCommand: CliCommandDefinition = {
     children: [
         skillsSearchCommand,
         skillsListCommand,
-        skillsConfigCommand,
         skillsInstallCommand,
         skillsUpdateCommand,
         skillsUninstallCommand,

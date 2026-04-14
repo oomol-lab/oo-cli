@@ -4,14 +4,12 @@ import type { AppSettings } from "../../schemas/settings.ts";
 import type { ConfigKey } from "./shared.ts";
 import { z } from "zod";
 import { writeLine } from "../shared/output.ts";
-import { maybeSynchronizeInstalledBundledSkills } from "../skills/shared.ts";
 import {
     configDefinitions,
     configKeyChoices,
     configKeySchema,
     createInvalidConfigKeyError,
     isConfigKey,
-    isSkillImplicitInvocationConfigKey,
 } from "./shared.ts";
 
 interface ResolvedConfigSetInput {
@@ -74,15 +72,9 @@ export const configSetCommand: CliCommandDefinition<ResolvedConfigSetInput> = {
         return definition.createInvalidValueError(rawInput.value);
     },
     handler: async (input, context) => {
-        const nextSettings = await context.settingsStore.update(
+        await context.settingsStore.update(
             settings => input.definition.setValue(settings, input.value),
         );
-
-        if (isSkillImplicitInvocationConfigKey(input.key)) {
-            await maybeSynchronizeInstalledBundledSkills(context, {
-                settings: nextSettings,
-            });
-        }
 
         context.logger.info(
             {

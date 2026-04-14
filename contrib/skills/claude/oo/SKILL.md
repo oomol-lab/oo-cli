@@ -1,5 +1,6 @@
 ---
 name: oo
+disable-model-invocation: true
 description: >-
   user asks to translate documents/images, do OCR,
   generate images, text-to-image, text-to-speech, speech-to-text,

@@ -3,13 +3,11 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import type { ConfigKeyInput } from "./shared.ts";
 import { z } from "zod";
 import { writeLine } from "../shared/output.ts";
-import { maybeSynchronizeInstalledBundledSkills } from "../skills/shared.ts";
 import {
     configDefinitions,
     configKeyChoices,
     configKeySchema,
     createInvalidConfigKeyError,
-    isSkillImplicitInvocationConfigKey,
 } from "./shared.ts";
 
 export const configUnsetCommand: CliCommandDefinition<ConfigKeyInput> = {
@@ -29,15 +27,9 @@ export const configUnsetCommand: CliCommandDefinition<ConfigKeyInput> = {
     }),
     mapInputError: (_, rawInput) => createInvalidConfigKeyError(rawInput),
     handler: async (input, context) => {
-        const nextSettings = await context.settingsStore.update(settings =>
+        await context.settingsStore.update(settings =>
             configDefinitions[input.key].unsetValue(settings),
         );
-
-        if (isSkillImplicitInvocationConfigKey(input.key)) {
-            await maybeSynchronizeInstalledBundledSkills(context, {
-                settings: nextSettings,
-            });
-        }
 
         context.logger.info(
             {

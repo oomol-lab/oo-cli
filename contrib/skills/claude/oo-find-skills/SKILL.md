@@ -1,5 +1,6 @@
 ---
 name: oo-find-skills
+disable-model-invocation: true
 description: >-
   Search the published OOMOL skill catalog, compare candidate skills, and
   install chosen results using the oo CLI. Do not use for generic skill

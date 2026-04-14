@@ -144,64 +144,6 @@ exports[`config CLI supports config path list get set and unset 1`] = `
 }
 `;
 
-exports[`config CLI supports bundled skill implicit invocation config keys 1`] = `
-{
-  "findGet": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"false
-"
-,
-  },
-  "findSet": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"Set skills.oo-find-skills.implicit_invocation to false.
-"
-,
-  },
-  "get": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"false
-"
-,
-  },
-  "getAfterUnset": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": "",
-  },
-  "list": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"skills.oo.implicit_invocation=false
-"
-,
-  },
-  "set": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"Set skills.oo.implicit_invocation to false.
-"
-,
-  },
-  "unset": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"Removed skills.oo.implicit_invocation.
-"
-,
-  },
-}
-`;
-
 exports[`config CLI supports the file download output directory config key 1`] = `
 {
   "get": {
@@ -241,50 +183,6 @@ exports[`config CLI supports the file download output directory config key 1`] =
 "
 ,
   },
-}
-`;
-
-exports[`config CLI config set immediately synchronizes the installed managed skill policy 1`] = `
-{
-  "exitCode": 0,
-  "stderr": "",
-  "stdout": 
-"Set skills.oo.implicit_invocation to false.
-"
-,
-}
-`;
-
-exports[`config CLI config set immediately synchronizes the installed oo-find-skills policy 1`] = `
-{
-  "exitCode": 0,
-  "stderr": "",
-  "stdout": 
-"Set skills.oo-find-skills.implicit_invocation to false.
-"
-,
-}
-`;
-
-exports[`config CLI config unset immediately restores the installed managed skill policy default 1`] = `
-{
-  "exitCode": 0,
-  "stderr": "",
-  "stdout": 
-"Removed skills.oo.implicit_invocation.
-"
-,
-}
-`;
-
-exports[`config CLI config unset immediately restores the installed oo-find-skills policy default 1`] = `
-{
-  "exitCode": 0,
-  "stderr": "",
-  "stdout": 
-"Removed skills.oo-find-skills.implicit_invocation.
-"
-,
 }
 `;
 
@@ -395,14 +293,6 @@ exports[`config CLI returns usage errors for invalid config inputs 1`] = `
     "exitCode": 2,
     "stderr": 
 "Invalid config key: update-notifier.
-"
-,
-    "stdout": "",
-  },
-  "invalidSkillPolicyValue": {
-    "exitCode": 2,
-    "stderr": 
-"Invalid skills.oo-find-skills.implicit_invocation value: maybe. Use true or false.
 "
 ,
     "stdout": "",
