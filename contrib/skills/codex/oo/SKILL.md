@@ -34,9 +34,9 @@ Do not use this skill for ordinary local coding, shell scripting, glue code, or
 for requests that explicitly ask for a local implementation instead of using
 `oo`.
 
-Read [references/oo-cli-contract.md](references/oo-cli-contract.md) when you
-need exact command syntax, JSON shapes, auth behavior, timeout rules, or known
-stop conditions.
+Read [references/oo-cli-contract.md](references/oo-cli-contract.md) for exact
+command syntax, JSON shapes, auth behavior, timeout rules, and stable contract
+details. Keep this file focused on workflow and decision guardrails.
 
 If any `oo` command output shows HTTP `402` or includes the string
 `OOMOL_INSUFFICIENT_CREDIT`, stop immediately. Tell the user their current
@@ -60,17 +60,9 @@ Before doing anything substantial:
 
 ## Non-negotiable rules
 
-- Always use `--json` with:
-  - `search`
-  - `packages search`
-  - `packages info`
-  - `connector search`
-  - `connector run`
-  - `cloud-task run`
-  - `file upload`
-- Never add `--json` to `cloud-task wait`.
-- Never add `--json` to `oo file download`. It does not support structured
-  output, so read the saved path from the human-readable success line.
+- Follow the structured-output contract in the reference file. Use `--json`
+  only on commands that support it, and do not invent JSON mode for text-only
+  commands.
 - Use `oo search` as the first substantive lookup. It searches packages and
   connector actions together, so the pruning must happen inside this skill.
 - Keep at most `0` to `2` serious candidates total after ranking the mixed
@@ -90,317 +82,81 @@ Before doing anything substantial:
   first. Connector is free and lower-friction, so it should win ties.
 - If `oo search` returns no suitable candidates, stop and tell the user that
   `oo` does not currently have a matching capability.
-- `cloud-task run` must use `PACKAGE_NAME@SEMVER`.
-- `cloud-task run` must include a real `--block-id`.
+- For package-backed tasks, use an explicit `PACKAGE_NAME@SEMVER` and a real
+  `--block-id`.
 - For connector-backed tasks, use `oo connector run` instead of `cloud-task
   run`.
 - Never invent package IDs, versions, block IDs, connector names, action
   names, defaults, or task results.
 - Stop when the selected block or connector action depends on an input shape
   that `oo-cli` cannot safely submit.
-- Never pass raw file bytes, multipart payloads, or a local filesystem path to
-  `cloud-task run --data`.
-- When a handle expects a URI-compatible file value, upload the local file
-  first and submit the returned `downloadUrl`.
-- Omit `[outDir]` unless the user asked for a specific destination. When it is
-  omitted, `oo file download` uses `file.download.out_dir` or `~/Downloads`,
-  creates missing directories, avoids overwrite by renaming, and prints the
-  absolute saved path.
-- Remote artifact downloads should follow `oo file download` policy rather
-  than the old workspace-only convention.
+
+When a task needs a file-like value, follow the upload/download contract in
+the reference file instead of inventing a local-path or raw-bytes workaround.
 
 ## Workflow
 
-### 1. Normalize the request into English search terms
+### 1. Normalize the request
 
-Convert the user request into:
-
-- one short internal intent statement
-- `2` to `6` English keywords or short phrases
-
-Rules:
-
-- Keywords must always be in English, regardless of the user's language.
-- Prefer action + object + constraint.
-- Avoid filler words.
-
-Examples:
-
-- `generate qr code`
-- `md5 hash`
-- `image ocr`
-- `summarize pdf`
-- `translate image archive`
-- `translate scanned japanese pages`
-
-Combine the keywords into one concise English search query.
+Convert the user request into a short English intent and a small set of English
+search terms. Keep the query concise and action-oriented.
 
 ### 2. Search the mixed pool first
 
-Run:
-
-```bash
-oo search "<english query>" --json
-```
-
-If helpful, add `--keywords` to refine connector matches without changing the
-overall intent query.
-
-Then:
-
-- Read packages and connector actions together from the returned JSON array.
-- Treat the array as the raw discovery pool; do not expose more than `2`
-  serious candidates total.
-- Prefer the strongest connector candidate when a connector and a package both
-  fit the request well.
-- Use package results when they are clearly the better execution path or when a
-  connector remains too ambiguous after refinement.
-- Do not demote a connector only because it is currently unauthenticated if
-  linking that service is the only missing step and the connector is otherwise
-  the best fit for the user's goal.
+Use `oo search` first, then prune the mixed package and connector results down
+to at most `2` serious candidates. Keep only candidates that are directly
+usable, clearly relevant, and not redundant.
 
 ### 3. Inspect only the serious candidates
 
-For package candidates, inspect them with one of these forms:
+Inspect only the shortlisted candidates. For package paths, resolve the package
+metadata first. For connector paths, inspect the cached schema before building
+any payload. If the connector signal is still ambiguous, use `oo connector
+search` only as a refinement step, not as a way to expand the candidate set.
 
-```bash
-oo packages info "<packageName>@<version>" --json
-```
+### 4. Build the payload carefully
 
-```bash
-oo packages info "<packageName>" --json
-```
-
-If `oo search` did not include a usable version, inspect the package by name
-first and use the resolved `packageVersion` for any later `cloud-task run`.
-
-For connector candidates, use the result's `service` and `name` fields as the
-execution handle. Read the cached schema JSON at `schemaPath` before building
-any connector payload, and use that file's exact `inputSchema` and
-`outputSchema` to confirm the action fit and required fields. If you need a
-more focused connector lookup, use:
-
-```bash
-oo connector search "<english query>" --json
-```
-
-Use that only to refine a connector decision, not to widen the candidate set.
-
-When you are ready to execute a connector-backed candidate, use this exact
-shape:
-
-```bash
-oo connector run "<serviceName>" \
-  --action "<actionName>" \
-  --data '<json object>' \
-  --json
-```
-
-`serviceName` is the only positional argument. Never pass `actionName` as a
-second positional argument after the service name.
-
-### 4. Build the input payload
-
-Use only fields that the selected package block or connector action input
-schema actually exposes.
-
-Rules:
-
-- JSON keys in `--data` must exactly match input handle names.
-- For package-backed runs, treat a handle as optional only when the metadata
-  proves it:
-  - a non-null `value` already exists
-  - `nullable` is `true` and `value` is `null`
-  - `schema.default` exists
-- For connector-backed runs, inspect the cached `inputSchema` from `schemaPath`
-  and follow normal JSON Schema required-field semantics instead of package
-  handle rules.
-- If the user request implies a concrete value for a handle, provide it
-  explicitly instead of inheriting a package default or sample value.
-- Treat package-provided `value` and `schema.default` as evidence that
-  omission may pass local validation, not as evidence that the value is correct
-  for the current task.
-- If a handle is technically optional but the task would be underspecified
-  without a user-specific value, ask a follow-up question.
-- Do not submit fields outside the selected block or action input.
-- Do not guess secrets, credentials, local file paths, filenames, opaque IDs,
-  or connector scopes.
-- Do not force raw user prose into a handle whose schema does not fit.
-
-For file-like inputs, distinguish between URI-safe values and unsupported
-special-media values:
-
-- If the schema or patched widget semantics clearly expect a URI string, ask
-  the user for a local file path when needed, then upload it first:
-
-```bash
-oo file upload "<filePath>" --json
-```
-
-- Read `downloadUrl` from the JSON response and place that URL into the
-  matching handle value for `cloud-task run --data` or connector `--data`.
-- If the schema contains `contentMediaType` and it is not `oomol/secret`, stop
-  instead of pretending file, image, or other special payloads can be
-  submitted safely as normal JSON values.
-
-If a required value is missing or ambiguous, ask a focused follow-up question.
-
-A good follow-up question:
-
-- identifies the missing handle
-- offers `2` to `4` concrete options when possible
-- includes one recommended option with a brief reason
+Use only fields the selected block or action actually exposes. Prefer concrete
+user-provided values over defaults or samples. Treat optionality, URI-safe file
+values, uploaded file handling, and unsupported special-media cases exactly as
+described in the contract reference. If the task is underspecified, ask a
+focused follow-up question instead of guessing.
 
 ### 5. Execute the chosen path
 
-For package-backed candidates, run the task directly:
+Run the selected package or connector path directly after the payload is ready.
+Use the contract reference for the exact command form. For connector failures,
+inspect `errorCode` first and handle the known re-authorization branches before
+falling back to broader auth troubleshooting.
 
-```bash
-oo cloud-task run "<packageName>@<version>" \
-  --block-id "<blockId>" \
-  --data '<json object>' \
-  --json
-```
-
-`cloud-task run` already performs local input validation before task creation,
-so do not add a separate validation-only step unless the user explicitly asks
-for it.
-
-Read `taskID` from the JSON response.
-
-For connector-backed candidates, run the action directly:
-
-```bash
-oo connector run "<serviceName>" \
-  --action "<actionName>" \
-  --data '<json object>' \
-  --json
-```
-
-Use `--dry-run` first when you want validation without execution.
-
-Read `meta.executionId` and `data` from the JSON response.
-
-If `oo connector run` fails with an HTTP request error, inspect `errorCode`
-before giving generic auth guidance:
-
-- if `errorCode` is `scope_missing`, tell the user the connector was
-  authorized without the required scope and they need to re-authorize it
-- if `errorCode` is `credential_expired`, tell the user the connector
-  authorization has expired and they need to re-authorize it
-- if `errorCode` is `app_not_ready`, tell the user the connector has not been
-  authorized yet and they need to authorize it before retrying
-- for either case, guide the user to open
-  `https://console.oomol.dev/app-connections?provider=${service_name}` and
-  replace `${service_name}` with the selected connector `serviceName`
-- only fall back to broader auth troubleshooting when the HTTP request error
-  does not expose one of the known connector re-authorization codes above
+- if `errorCode` is `scope_missing`, explain that the connector authorization
+  is missing the required scope and must be re-authorized
+- if `errorCode` is `credential_expired`, explain that the connector
+  authorization has expired and must be re-authorized
+- if `errorCode` is `app_not_ready`, explain that the connector has not been
+  authorized yet and must be authorized before retrying
+- for those re-authorization cases, guide the user to
+  `https://console.oomol.dev/app-connections?provider=${service_name}` with
+  `${service_name}` replaced by the selected connector service
 
 ### 6. Handle long-running package tasks safely
 
-Do not default to an open-ended wait.
-
-Use bounded waiting windows:
-
-- short tasks: `2m` to `10m`
-- medium tasks: `15m` to `30m`
-- long or unknown tasks: `30m` to `60m`
-
-Use:
-
-```bash
-oo cloud-task wait "<taskId>" --timeout "<window>"
-```
-
-Rules:
-
-- Wait immediately only if the task looks short or the user explicitly wants
-  to wait now.
-- Do not default to `6h` or longer in one call unless the user explicitly
-  asks.
-- Remember that a single `wait` call cannot exceed `24h`.
-- If `wait` times out, treat that as "still running", not as failure.
-- After any non-zero `wait` exit, immediately check:
-
-```bash
-oo cloud-task result "<taskId>" --json
-```
-
-Use the result snapshot to distinguish:
-
-- still running
-- failed
-- succeeded after the wait command exited
-
-If the wait output or result snapshot shows HTTP `402` or
-`OOMOL_INSUFFICIENT_CREDIT`, stop immediately and direct the user to
-https://console.oomol.com/billing/recharge before any retry.
-
-If the user wants to continue, run another bounded wait window instead of
-re-creating the task.
+Use bounded waits instead of an open-ended wait. If a wait exits non-zero,
+check the result snapshot before deciding whether the task is still running,
+failed, or finished late. Do not recreate the task just to continue waiting.
 
 ### 7. Materialize remote result artifacts safely
 
-If the final package task result exposes a remote artifact URL and pulling it
-back to local would clearly help the user, prefer `oo file download <url>`
-after the task has succeeded.
-
-Rules:
-
-- Use `[outDir]` only when the user asked for a specific destination.
-- Never add `--json` to `oo file download`. Successful output is a localized
-  human-readable line on stdout, not a JSON object.
-- When `[outDir]` is omitted, `oo file download` uses the configured
-  `file.download.out_dir` value if present, otherwise `~/Downloads`.
-- If the inferred saved filename would be opaque to the user, such as a UUID,
-  hash, task ID, or generic `download`, choose a concise descriptive base name
-  and pass it with `--name`. Omit `--name` only when the server metadata
-  already yields a clear name the user can recognize.
-- Let `oo file download` create missing directories, avoid overwrite by
-  renaming, and print the absolute saved path.
-- Do not reimplement the download with `curl`, ad hoc scripts, or manual file
-  writes when `oo file download` can handle the URL.
-- When reporting success, include the absolute saved path printed by
-  `oo file download`.
+If a successful task exposes a remote artifact and a local copy would help the
+user, download it with the `oo file download` contract from the reference
+document. Prefer a clear local name when the default filename would be opaque.
 
 ### 8. Report outcomes clearly
 
-On success:
-
-- state the final status first
-- summarize the useful result
-- include package, version, block ID, and task ID for package-backed runs
-- include service, action, and `meta.executionId` for connector-backed runs
-- if you downloaded a remote artifact, include the absolute saved path
-
-On still-running package tasks:
-
-- state that the task was created successfully
-- state that it is still running
-- include the task ID
-- offer the next sensible action: wait again or check a result snapshot
-
-On failure:
-
-- report whether the failure came from no match, missing input, unsupported
-  input shape, task failure, connector validation failure, or environment or
-  auth limitations
-- if `connector run` failed with an HTTP request error and `errorCode` is
-  `scope_missing`, explain that the existing authorization is missing the
-  required scope and the user must re-authorize the connector
-- if `connector run` failed with an HTTP request error and `errorCode` is
-  `credential_expired`, explain that the existing authorization has expired
-  and the user must re-authorize the connector
-- if `connector run` failed with an HTTP request error and `errorCode` is
-  `app_not_ready`, explain that the connector has not been authorized yet and
-  the user must authorize it before retrying
-- for either connector re-authorization case, point the user to
-  `https://console.oomol.dev/app-connections?provider=${service_name}` with
-  `${service_name}` replaced by the selected connector `serviceName`
-
-If the failure output includes HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
-classify it as insufficient credit or overdue billing and direct the user to
-https://console.oomol.com/billing/recharge before retrying anything.
+On success, lead with the final status and summarize the useful result. On a
+still-running package task, say that it was created successfully, include the
+task identifier, and offer the next sensible action. On failure, classify the
+problem precisely and keep the explanation tied to the actual execution path.
 
 ## Response style
 
