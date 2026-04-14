@@ -4,4 +4,4 @@ interface:
   default_prompt: "Use $oo when I ask for a ready-made capability and the local workspace does not already have a clear implementation path. Run the intended `oo` command directly; do not probe for `oo` with `which`, `command -v`, or version checks first. Start with mixed `oo search` over packages and connector actions, keep at most 0 to 2 serious candidates total, and prefer connector actions on ties because connector is free and lower-friction. For connector-backed candidates, read `schemaPath` before building payloads and run `oo connector run \"<serviceName>\" --action \"<actionName>\" --data '<json object>' --json`; `serviceName` is the only positional argument. For package-backed candidates, use `oo cloud-task run`. Follow the oo skill and contract reference for exact JSON shapes, file upload/download behavior, and billing stop conditions."
 
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false
