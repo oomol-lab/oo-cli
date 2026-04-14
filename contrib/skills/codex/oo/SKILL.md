@@ -281,6 +281,21 @@ Use `--dry-run` first when you want validation without execution.
 
 Read `meta.executionId` and `data` from the JSON response.
 
+If `oo connector run` fails with an HTTP request error, inspect `errorCode`
+before giving generic auth guidance:
+
+- if `errorCode` is `scope_missing`, tell the user the connector was
+  authorized without the required scope and they need to re-authorize it
+- if `errorCode` is `credential_expired`, tell the user the connector
+  authorization has expired and they need to re-authorize it
+- if `errorCode` is `app_not_ready`, tell the user the connector has not been
+  authorized yet and they need to authorize it before retrying
+- for either case, guide the user to open
+  `https://console.oomol.dev/app-connections?provider=${service_name}` and
+  replace `${service_name}` with the selected connector `serviceName`
+- only fall back to broader auth troubleshooting when the HTTP request error
+  does not expose one of the known connector re-authorization codes above
+
 ### 6. Handle long-running package tasks safely
 
 Do not default to an open-ended wait.
@@ -370,6 +385,18 @@ On failure:
 - report whether the failure came from no match, missing input, unsupported
   input shape, task failure, connector validation failure, or environment or
   auth limitations
+- if `connector run` failed with an HTTP request error and `errorCode` is
+  `scope_missing`, explain that the existing authorization is missing the
+  required scope and the user must re-authorize the connector
+- if `connector run` failed with an HTTP request error and `errorCode` is
+  `credential_expired`, explain that the existing authorization has expired
+  and the user must re-authorize the connector
+- if `connector run` failed with an HTTP request error and `errorCode` is
+  `app_not_ready`, explain that the connector has not been authorized yet and
+  the user must authorize it before retrying
+- for either connector re-authorization case, point the user to
+  `https://console.oomol.dev/app-connections?provider=${service_name}` with
+  `${service_name}` replaced by the selected connector `serviceName`
 
 If the failure output includes HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
 classify it as insufficient credit or overdue billing and direct the user to

@@ -340,6 +340,22 @@ Use `--dry-run` first when you want validation without execution.
 Read `meta.executionId` and `data` from the JSON response. Note that the
 execution id is nested under `meta.executionId`, not at the top level.
 
+If `connector run` fails with an HTTP error, check the `errorCode` field:
+
+- `scope_missing`: the user's authorization is missing required scopes for
+  this action. Ask the user to re-authorize the service at
+  `https://console.oomol.dev/app-connections?provider=<serviceName>`.
+- `credential_expired`: the user's authorization has expired. Ask the user
+  to re-authorize the service at
+  `https://console.oomol.dev/app-connections?provider=<serviceName>`.
+- `app_not_ready`: the user has not yet authorized this service. Ask the
+  user to authorize it at
+  `https://console.oomol.dev/app-connections?provider=<serviceName>`.
+
+Replace `<serviceName>` with the actual service name used in the
+`connector run` command. Only fall back to broader auth troubleshooting
+when the HTTP error does not expose one of these known error codes.
+
 Immediately report:
 
 - selected package ID and version, block ID, and task ID for package-backed
