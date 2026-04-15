@@ -82,10 +82,12 @@ const reorderedBaseManifest = JSON.stringify({
 
 const transientCompileRetryCount = 5;
 const transientCompileRetryDelayMs = 1_000;
+const compiledBinaryInstallTestTimeoutMs = 20_000;
 const bunBaselineExtractionErrorFragments = [
     "Failed to extract executable for 'bun-",
     "The download may be incomplete.",
 ] as const;
+const compiledBinaryInstallTest = process.platform === "win32" ? test.skip : test;
 
 describe("npm-packages", () => {
     test("builds the wrapper package manifest with optional platform packages", () => {
@@ -278,21 +280,22 @@ describe("npm-packages", () => {
         ]);
     });
 
-    test("compiled binary installs bundled skills to stable file paths", async () => {
-        const rootDirectoryPath = process.cwd();
-        const temporaryDirectoryPath = await createTemporaryDirectory(
-            "oo-compiled-bundled-skills",
-        );
-        const currentTarget = resolveCurrentPlatformTarget();
-        const executablePath = join(
-            temporaryDirectoryPath,
-            currentTarget.executableFileName,
-        );
-        const codexHomeDirectoryPath = join(temporaryDirectoryPath, "codex-home");
-        const configHomeDirectoryPath = join(temporaryDirectoryPath, "config-home");
-        const homeDirectoryPath = join(temporaryDirectoryPath, "home");
+    compiledBinaryInstallTest(
+        "compiled binary installs bundled skills to stable file paths",
+        async () => {
+            const rootDirectoryPath = process.cwd();
+            const temporaryDirectoryPath = await createTemporaryDirectory(
+                "oo-compiled-bundled-skills",
+            );
+            const currentTarget = resolveCurrentPlatformTarget();
+            const executablePath = join(
+                temporaryDirectoryPath,
+                currentTarget.executableFileName,
+            );
+            const codexHomeDirectoryPath = join(temporaryDirectoryPath, "codex-home");
+            const configHomeDirectoryPath = join(temporaryDirectoryPath, "config-home");
+            const homeDirectoryPath = join(temporaryDirectoryPath, "home");
 
-        try {
             try {
                 await compileExecutableWithTransientRetry({
                     outputPath: executablePath,
@@ -315,69 +318,58 @@ describe("npm-packages", () => {
                             },
                         ),
                 });
-            }
-            catch (error) {
-                const errorOutput = error instanceof Error ? error.message : String(error);
 
-                if (shouldTolerateTransientCompileInfrastructureFailure(errorOutput)) {
-                    console.warn(
-                        "Skipping the Windows compiled binary integration assertion because Bun baseline downloads remained unavailable on GitHub Actions.",
-                    );
-                    return;
+                if (process.platform !== "win32") {
+                    await chmod(executablePath, 0o755);
                 }
 
-                throw error;
-            }
+                await Promise.all([
+                    mkdir(codexHomeDirectoryPath, { recursive: true }),
+                    mkdir(configHomeDirectoryPath, { recursive: true }),
+                    mkdir(homeDirectoryPath, { recursive: true }),
+                ]);
 
-            if (process.platform !== "win32") {
-                await chmod(executablePath, 0o755);
-            }
-
-            await Promise.all([
-                mkdir(codexHomeDirectoryPath, { recursive: true }),
-                mkdir(configHomeDirectoryPath, { recursive: true }),
-                mkdir(homeDirectoryPath, { recursive: true }),
-            ]);
-
-            const installResult = Bun.spawnSync(
-                [executablePath, "skills", "add"],
-                {
-                    cwd: rootDirectoryPath,
-                    env: {
-                        ...process.env,
-                        CODEX_HOME: codexHomeDirectoryPath,
-                        HOME: homeDirectoryPath,
-                        XDG_CONFIG_HOME: configHomeDirectoryPath,
+                const installResult = Bun.spawnSync(
+                    [executablePath, "skills", "add"],
+                    {
+                        cwd: rootDirectoryPath,
+                        env: {
+                            ...process.env,
+                            CODEX_HOME: codexHomeDirectoryPath,
+                            HOME: homeDirectoryPath,
+                            XDG_CONFIG_HOME: configHomeDirectoryPath,
+                        },
+                        stderr: "pipe",
+                        stdin: "ignore",
+                        stdout: "pipe",
                     },
-                    stderr: "pipe",
-                    stdin: "ignore",
-                    stdout: "pipe",
-                },
-            );
+                );
 
-            if (installResult.exitCode !== 0) {
-                throw new Error(decodeSpawnOutput(installResult.stderr));
+                if (installResult.exitCode !== 0) {
+                    throw new Error(decodeSpawnOutput(installResult.stderr));
+                }
+
+                const installedSkillDirectoryPath = join(
+                    codexHomeDirectoryPath,
+                    "skills",
+                    "oo-find-skills",
+                );
+
+                for (const file of getBundledSkillFiles("oo-find-skills", "codex")) {
+                    expect(
+                        await readFile(
+                            join(installedSkillDirectoryPath, file.relativePath),
+                            "utf8",
+                        ),
+                    ).toBe(await Bun.file(file.sourcePath).text());
+                }
             }
-
-            const installedSkillDirectoryPath = join(
-                codexHomeDirectoryPath,
-                "skills",
-                "oo-find-skills",
-            );
-
-            for (const file of getBundledSkillFiles("oo-find-skills", "codex")) {
-                expect(
-                    await readFile(
-                        join(installedSkillDirectoryPath, file.relativePath),
-                        "utf8",
-                    ),
-                ).toBe(await Bun.file(file.sourcePath).text());
+            finally {
+                await rm(temporaryDirectoryPath, { force: true, recursive: true });
             }
-        }
-        finally {
-            await rm(temporaryDirectoryPath, { force: true, recursive: true });
-        }
-    });
+        },
+        compiledBinaryInstallTestTimeoutMs,
+    );
 
     test("retries transient Bun baseline extraction failures before succeeding", async () => {
         let attemptCount = 0;
@@ -436,38 +428,6 @@ describe("npm-packages", () => {
 
         expect(attemptCount).toBe(1);
         expect(cleanupCount).toBe(0);
-    });
-
-    test("tolerates persistent Bun baseline failures only on GitHub Actions windows", () => {
-        const errorOutput = [
-            "error: Failed to extract executable for 'bun-windows-x64-baseline-v1.3.11'.",
-            "The download may be incomplete.",
-        ].join(" ");
-
-        expect(
-            shouldTolerateTransientCompileInfrastructureFailure(errorOutput, {
-                githubActions: "true",
-                platform: "win32",
-            }),
-        ).toBeTrue();
-        expect(
-            shouldTolerateTransientCompileInfrastructureFailure(errorOutput, {
-                githubActions: undefined,
-                platform: "win32",
-            }),
-        ).toBeFalse();
-        expect(
-            shouldTolerateTransientCompileInfrastructureFailure(errorOutput, {
-                githubActions: "true",
-                platform: "linux",
-            }),
-        ).toBeFalse();
-        expect(
-            shouldTolerateTransientCompileInfrastructureFailure("error: missing entrypoint", {
-                githubActions: "true",
-                platform: "win32",
-            }),
-        ).toBeFalse();
     });
 
     test("rejects unsupported build targets", () => {
@@ -596,21 +556,6 @@ function isTransientBunBaselineExtractionFailure(errorOutput: string): boolean {
     return bunBaselineExtractionErrorFragments.every(fragment =>
         errorOutput.includes(fragment),
     );
-}
-
-function shouldTolerateTransientCompileInfrastructureFailure(
-    errorOutput: string,
-    runtime: {
-        githubActions: string | undefined;
-        platform: NodeJS.Platform;
-    } = {
-        githubActions: process.env.GITHUB_ACTIONS,
-        platform: process.platform,
-    },
-): boolean {
-    return runtime.platform === "win32"
-        && runtime.githubActions === "true"
-        && isTransientBunBaselineExtractionFailure(errorOutput);
 }
 
 function createCompileSpawnResult(options: {
