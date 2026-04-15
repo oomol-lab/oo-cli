@@ -1,12 +1,22 @@
 import ooFindSkillsClaudeCliContractPath from "../../../../contrib/skills/claude/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsClaudeSkillPath from "../../../../contrib/skills/claude/oo-find-skills/SKILL.md" with { type: "file" };
-import ooClaudeCliContractPath from "../../../../contrib/skills/claude/oo/references/oo-cli-contract.md" with { type: "file" };
+import ooClaudeAuthAndBillingReferencePath from "../../../../contrib/skills/claude/oo/references/auth-and-billing.md" with { type: "file" };
+import ooClaudeConnectorExecutionReferencePath from "../../../../contrib/skills/claude/oo/references/connector-execution.md" with { type: "file" };
+import ooClaudeFileTransferReferencePath from "../../../../contrib/skills/claude/oo/references/file-transfer.md" with { type: "file" };
+import ooClaudePackageExecutionReferencePath from "../../../../contrib/skills/claude/oo/references/package-execution.md" with { type: "file" };
+import ooClaudeSearchAndSelectionReferencePath from "../../../../contrib/skills/claude/oo/references/search-and-selection.md" with { type: "file" };
+import ooClaudeTaskLifecycleReferencePath from "../../../../contrib/skills/claude/oo/references/task-lifecycle.md" with { type: "file" };
 import ooClaudeSkillPath from "../../../../contrib/skills/claude/oo/SKILL.md" with { type: "file" };
 import ooFindSkillsOpenAIAgentPath from "../../../../contrib/skills/codex/oo-find-skills/agents/openai.yaml" with { type: "file" };
 import ooFindSkillsCliContractPath from "../../../../contrib/skills/codex/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsSkillPath from "../../../../contrib/skills/codex/oo-find-skills/SKILL.md" with { type: "file" };
 import ooOpenAIAgentPath from "../../../../contrib/skills/codex/oo/agents/openai.yaml" with { type: "file" };
-import ooCliContractPath from "../../../../contrib/skills/codex/oo/references/oo-cli-contract.md" with { type: "file" };
+import ooAuthAndBillingReferencePath from "../../../../contrib/skills/codex/oo/references/auth-and-billing.md" with { type: "file" };
+import ooConnectorExecutionReferencePath from "../../../../contrib/skills/codex/oo/references/connector-execution.md" with { type: "file" };
+import ooFileTransferReferencePath from "../../../../contrib/skills/codex/oo/references/file-transfer.md" with { type: "file" };
+import ooPackageExecutionReferencePath from "../../../../contrib/skills/codex/oo/references/package-execution.md" with { type: "file" };
+import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/codex/oo/references/search-and-selection.md" with { type: "file" };
+import ooTaskLifecycleReferencePath from "../../../../contrib/skills/codex/oo/references/task-lifecycle.md" with { type: "file" };
 import ooSkillPath from "../../../../contrib/skills/codex/oo/SKILL.md" with { type: "file" };
 
 export const availableBundledSkillAgentNames = ["codex", "claude"] as const;
@@ -43,8 +53,28 @@ const bundledSkillRegistry = {
                     sourcePath: ooOpenAIAgentPath,
                 },
                 {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooCliContractPath,
+                    relativePath: "references/auth-and-billing.md",
+                    sourcePath: ooAuthAndBillingReferencePath,
+                },
+                {
+                    relativePath: "references/search-and-selection.md",
+                    sourcePath: ooSearchAndSelectionReferencePath,
+                },
+                {
+                    relativePath: "references/package-execution.md",
+                    sourcePath: ooPackageExecutionReferencePath,
+                },
+                {
+                    relativePath: "references/connector-execution.md",
+                    sourcePath: ooConnectorExecutionReferencePath,
+                },
+                {
+                    relativePath: "references/file-transfer.md",
+                    sourcePath: ooFileTransferReferencePath,
+                },
+                {
+                    relativePath: "references/task-lifecycle.md",
+                    sourcePath: ooTaskLifecycleReferencePath,
                 },
             ],
         },
@@ -55,8 +85,28 @@ const bundledSkillRegistry = {
                     sourcePath: ooClaudeSkillPath,
                 },
                 {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooClaudeCliContractPath,
+                    relativePath: "references/auth-and-billing.md",
+                    sourcePath: ooClaudeAuthAndBillingReferencePath,
+                },
+                {
+                    relativePath: "references/search-and-selection.md",
+                    sourcePath: ooClaudeSearchAndSelectionReferencePath,
+                },
+                {
+                    relativePath: "references/package-execution.md",
+                    sourcePath: ooClaudePackageExecutionReferencePath,
+                },
+                {
+                    relativePath: "references/connector-execution.md",
+                    sourcePath: ooClaudeConnectorExecutionReferencePath,
+                },
+                {
+                    relativePath: "references/file-transfer.md",
+                    sourcePath: ooClaudeFileTransferReferencePath,
+                },
+                {
+                    relativePath: "references/task-lifecycle.md",
+                    sourcePath: ooClaudeTaskLifecycleReferencePath,
                 },
             ],
         },
