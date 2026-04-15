@@ -80,6 +80,13 @@ const reorderedBaseManifest = JSON.stringify({
     module: "index.ts",
 });
 
+const transientCompileRetryCount = 3;
+const transientCompileRetryDelayMs = 250;
+const bunBaselineExtractionErrorFragments = [
+    "Failed to extract executable for 'bun-",
+    "The download may be incomplete.",
+] as const;
+
 describe("npm-packages", () => {
     test("builds the wrapper package manifest with optional platform packages", () => {
         const wrapperManifestContent = buildWrapperPackageManifest(baseManifest, "1.2.3");
@@ -286,27 +293,27 @@ describe("npm-packages", () => {
         const homeDirectoryPath = join(temporaryDirectoryPath, "home");
 
         try {
-            const compileResult = Bun.spawnSync(
-                buildCompileCommandArgs(
-                    currentTarget,
-                    {
-                        buildTimestamp: 1_742_867_323_456,
-                        gitCommit: "1234567890abcdef",
-                        version: "1.2.3",
-                    },
-                    executablePath,
-                ),
-                {
-                    cwd: rootDirectoryPath,
-                    stderr: "pipe",
-                    stdin: "ignore",
-                    stdout: "pipe",
-                },
-            );
-
-            if (compileResult.exitCode !== 0) {
-                throw new Error(decodeSpawnOutput(compileResult.stderr));
-            }
+            await compileExecutableWithTransientRetry({
+                outputPath: executablePath,
+                runCompile: () =>
+                    Bun.spawnSync(
+                        buildCompileCommandArgs(
+                            currentTarget,
+                            {
+                                buildTimestamp: 1_742_867_323_456,
+                                gitCommit: "1234567890abcdef",
+                                version: "1.2.3",
+                            },
+                            executablePath,
+                        ),
+                        {
+                            cwd: rootDirectoryPath,
+                            stderr: "pipe",
+                            stdin: "ignore",
+                            stdout: "pipe",
+                        },
+                    ),
+            });
 
             if (process.platform !== "win32") {
                 await chmod(executablePath, 0o755);
@@ -356,6 +363,65 @@ describe("npm-packages", () => {
         finally {
             await rm(temporaryDirectoryPath, { force: true, recursive: true });
         }
+    });
+
+    test("retries transient Bun baseline extraction failures before succeeding", async () => {
+        let attemptCount = 0;
+        let cleanupCount = 0;
+        let sleepCount = 0;
+
+        await compileExecutableWithTransientRetry({
+            outputPath: "ignored-output",
+            runCompile: () => {
+                attemptCount += 1;
+
+                if (attemptCount < transientCompileRetryCount) {
+                    return createCompileSpawnResult({
+                        errorOutput: [
+                            "error: Failed to extract executable for 'bun-windows-x64-baseline-v1.3.11'.",
+                            "The download may be incomplete.",
+                        ].join(" "),
+                    });
+                }
+
+                return createCompileSpawnResult({});
+            },
+            removeOutput: async () => {
+                cleanupCount += 1;
+            },
+            sleep: async () => {
+                sleepCount += 1;
+            },
+        });
+
+        expect(attemptCount).toBe(transientCompileRetryCount);
+        expect(cleanupCount).toBe(transientCompileRetryCount - 1);
+        expect(sleepCount).toBe(transientCompileRetryCount - 1);
+    });
+
+    test("does not retry non-transient compile failures", async () => {
+        let attemptCount = 0;
+        let cleanupCount = 0;
+
+        await expect(
+            compileExecutableWithTransientRetry({
+                outputPath: "ignored-output",
+                runCompile: () => {
+                    attemptCount += 1;
+
+                    return createCompileSpawnResult({
+                        errorOutput: "error: Could not resolve './missing-entry.ts'.",
+                    });
+                },
+                removeOutput: async () => {
+                    cleanupCount += 1;
+                },
+                sleep: async () => undefined,
+            }),
+        ).rejects.toThrow("Could not resolve './missing-entry.ts'.");
+
+        expect(attemptCount).toBe(1);
+        expect(cleanupCount).toBe(0);
     });
 
     test("rejects unsupported build targets", () => {
@@ -448,4 +514,55 @@ function decodeSpawnOutput(
     return new TextDecoder().decode(
         new Uint8Array(output as ArrayBufferLike),
     );
+}
+
+async function compileExecutableWithTransientRetry(options: {
+    outputPath: string;
+    runCompile: () => CompileSpawnResult;
+    removeOutput?: (outputPath: string) => Promise<void>;
+    sleep?: (delayMs: number) => Promise<unknown>;
+}): Promise<void> {
+    const removeOutput = options.removeOutput ?? (outputPath => rm(outputPath, { force: true }));
+    const sleep = options.sleep ?? (delayMs => Bun.sleep(delayMs));
+
+    for (let attempt = 1; attempt <= transientCompileRetryCount; attempt += 1) {
+        const compileResult = options.runCompile();
+
+        if (compileResult.exitCode === 0) {
+            return;
+        }
+
+        const errorOutput = decodeSpawnOutput(compileResult.stderr);
+
+        if (
+            !isTransientBunBaselineExtractionFailure(errorOutput)
+            || attempt === transientCompileRetryCount
+        ) {
+            throw new Error(errorOutput);
+        }
+
+        await removeOutput(options.outputPath);
+        await sleep(transientCompileRetryDelayMs);
+    }
+}
+
+function isTransientBunBaselineExtractionFailure(errorOutput: string): boolean {
+    return bunBaselineExtractionErrorFragments.every(fragment =>
+        errorOutput.includes(fragment),
+    );
+}
+
+function createCompileSpawnResult(options: {
+    errorOutput?: string;
+    exitCode?: number;
+}): CompileSpawnResult {
+    return {
+        exitCode: options.exitCode ?? (options.errorOutput === undefined ? 0 : 1),
+        stderr: new TextEncoder().encode(options.errorOutput ?? ""),
+    };
+}
+
+interface CompileSpawnResult {
+    exitCode: number;
+    stderr: ArrayBufferView | SharedArrayBuffer | ArrayBuffer;
 }
