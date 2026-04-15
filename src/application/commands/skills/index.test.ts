@@ -930,9 +930,8 @@ describe("skills commands", () => {
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
             );
-            expect(await readFile(canonicalOwnershipPath, "utf8")).toContain("OOMOL");
-            expect(await readFile(canonicalOwnershipPath, "utf8")).not.toContain(
-                "Custom skill",
+            expect(await readFile(canonicalOwnershipPath, "utf8")).toBe(
+                expectedOwnershipContent,
             );
         }
         finally {

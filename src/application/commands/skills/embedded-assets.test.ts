@@ -14,11 +14,21 @@ describe("embedded skill assets", () => {
         expect(getBundledSkillFiles("oo", "codex").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "agents/openai.yaml",
-            "references/oo-cli-contract.md",
+            "references/auth-and-billing.md",
+            "references/search-and-selection.md",
+            "references/package-execution.md",
+            "references/connector-execution.md",
+            "references/file-transfer.md",
+            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "claude").map(file => file.relativePath)).toEqual([
             "SKILL.md",
-            "references/oo-cli-contract.md",
+            "references/auth-and-billing.md",
+            "references/search-and-selection.md",
+            "references/package-execution.md",
+            "references/connector-execution.md",
+            "references/file-transfer.md",
+            "references/task-lifecycle.md",
         ]);
         expect(
             getBundledSkillFiles("oo-find-skills", "codex").map(
