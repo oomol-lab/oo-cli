@@ -19,8 +19,8 @@ Project overview: [README.md](../README.md)
   macOS: `~/Library/Logs/oo`
   Linux: `${XDG_STATE_HOME:-~/.local/state}/oo/logs`
   Windows: `%LOCALAPPDATA%\\oo\\Logs`
-- The debug logs include request lifecycles for remote APIs, browser-login
-  callback events, explicit update checks, persisted settings/auth store
+- The debug logs include request lifecycles for remote APIs, device-login
+  polling events, explicit update checks, persisted settings/auth store
   changes, and sqlite cache activity.
 - Error-oriented log entries also include a `category` field so user-facing
   failures, system failures, and recoverable cache issues can be filtered
@@ -33,10 +33,10 @@ Project overview: [README.md](../README.md)
 
 ### `oo auth login`
 
-Start a browser login flow and save the authenticated account.
+Start a device login flow and save the authenticated account.
 
-- Notes: the CLI prints a login URL and waits for the browser callback to
-  finish.
+- Notes: the CLI prints the verification URL and user code, then polls until
+  the device login is verified or times out.
 
 ### `oo auth logout`
 

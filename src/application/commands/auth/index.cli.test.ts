@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -20,9 +19,8 @@ import { createTerminalColors } from "../../terminal-colors.ts";
 const loginUrlColor = "#c09ff5";
 
 describe("auth CLI", () => {
-    test("writes auth login callback logs without persisting api keys", async () => {
+    test("writes auth device login logs without persisting secrets", async () => {
         const sandbox = await createCliSandbox();
-        const encodedApiKey = Buffer.from("secret-1", "utf8").toString("base64");
 
         try {
             const result = await runPrintedAuthLogin(sandbox, "secret-1");
@@ -30,18 +28,19 @@ describe("auth CLI", () => {
 
             expect(createAuthLoginSnapshot(result)).toMatchSnapshot();
             expect(content).toContain(
-                `"msg":"Auth login callback server is listening."`,
-            );
-            expect(content).toContain(`"msg":"Auth login callback received."`);
-            expect(content).toContain(
-                `"msg":"Auth login callback completed successfully."`,
+                `"msg":"Auth device login request started."`,
             );
             expect(content).toContain(
-                `"msg":"Auth account persisted after browser login."`,
+                `"msg":"Auth device login request completed."`,
             );
-            expect(content).toContain(`"hasApiKey":true`);
+            expect(content).toContain(
+                `"msg":"Auth device login completed successfully."`,
+            );
+            expect(content).toContain(
+                `"msg":"Auth account persisted after device login."`,
+            );
             expect(content).not.toContain("secret-1");
-            expect(content).not.toContain(encodedApiKey);
+            expect(content).not.toContain("M0KO41");
         }
         finally {
             await sandbox.cleanup();
@@ -205,6 +204,7 @@ describe("auth CLI", () => {
             expect(login.stdout).toContain(
                 colors.hex(loginUrlColor)(plainLoginUrl!),
             );
+            expect(login.stdout).toContain(colors.bold("M0KO41"));
             expect(login.stdout).toContain(colors.green("✓"));
             expect(login.stdout).toContain(colors.bold("oomol.com"));
             expect(login.stdout).toContain(colors.bold("Alice"));

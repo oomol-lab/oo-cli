@@ -8,7 +8,6 @@ import type { FileUploadRecordStore } from "../src/application/contracts/file-up
 import type { SettingsStore } from "../src/application/contracts/settings-store.ts";
 import type { AuthFile } from "../src/application/schemas/auth.ts";
 import type { AppSettings } from "../src/application/schemas/settings.ts";
-import { Buffer } from "node:buffer";
 import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
@@ -111,6 +110,7 @@ export interface AuthAccountFixture {
 export interface PrintedAuthLoginOptions {
     accountEndpoint?: string;
     argv?: readonly string[];
+    verificationUrl?: string;
     stdoutHasColors?: boolean;
 }
 
@@ -371,31 +371,48 @@ export async function runPrintedAuthLogin(
     apiKeyValue: string,
     options: PrintedAuthLoginOptions = {},
 ): Promise<CliRunResult> {
-    const stdout = createTextBuffer({
-        hasColors: options.stdoutHasColors,
-    });
-    const stderr = createTextBuffer();
-    const execution = executeCliInvocation({
-        argv: options.argv ?? ["auth", "login"],
-        cwd: sandbox.cwd,
-        env: sandbox.env,
-        stdout: stdout.writer,
-        stderr: stderr.writer,
-        systemLocale: "en-US",
-    });
-    const loginUrl = await waitForLoginUrl(stdout);
+    const accountEndpoint = options.accountEndpoint ?? defaultAuthEndpoint;
+    const verificationUrl = options.verificationUrl
+        ?? `https://${accountEndpoint}/login/device`;
 
-    await completeLoginCallback(
-        loginUrl,
-        apiKeyValue,
-        options.accountEndpoint ?? defaultAuthEndpoint,
-    );
+    return await sandbox.run(options.argv ?? ["auth", "login"], {
+        fetcher: async (input, init) => {
+            const request = toRequest(input, init);
+            const requestUrl = new URL(request.url);
 
-    return {
-        exitCode: await execution,
-        stdout: stdout.read(),
-        stderr: stderr.read(),
-    };
+            if (
+                request.method === "POST"
+                && requestUrl.host === `api.${accountEndpoint}`
+                && requestUrl.pathname === "/v1/auth/device_login/code"
+            ) {
+                return new Response(JSON.stringify({
+                    code: "M0KO41",
+                    expires_in: 1800,
+                    status: "waiting",
+                    verify_code_url: verificationUrl,
+                }));
+            }
+
+            if (
+                request.method === "GET"
+                && requestUrl.host === `api.${accountEndpoint}`
+                && requestUrl.pathname === "/v1/auth/device_login/result"
+            ) {
+                return new Response(JSON.stringify({
+                    api_key: apiKeyValue,
+                    endpoint: accountEndpoint,
+                    id: "user-1",
+                    name: "Alice",
+                    status: "verified",
+                }));
+            }
+
+            throw new Error(`Unexpected auth login request: ${request.method} ${requestUrl}`);
+        },
+        stdout: {
+            hasColors: options.stdoutHasColors,
+        },
+    });
 }
 
 export async function readLatestLogContent(sandbox: CliSandbox): Promise<string> {
@@ -475,7 +492,7 @@ export function expectCliSnapshot(
 }
 
 export function readAuthLoginUrlPrefix(endpoint: string): string {
-    return `https://api.${endpoint}/v1/auth/redirect?`;
+    return `https://${endpoint}/login/device`;
 }
 
 export interface ConnectorActionFixtureOverrides {
@@ -535,24 +552,6 @@ export async function expectCliUserError(
     throw new Error("Expected a CliUserError to be thrown.");
 }
 
-async function waitForLoginUrl(
-    stdout: ReturnType<typeof createTextBuffer>,
-): Promise<string> {
-    const deadline = Date.now() + 1000;
-
-    while (Date.now() < deadline) {
-        const loginUrl = findLoginUrl(stdout.read());
-
-        if (loginUrl !== undefined) {
-            return loginUrl;
-        }
-
-        await Bun.sleep(10);
-    }
-
-    throw new Error("Timed out waiting for the printed login URL.");
-}
-
 export function findLoginUrl(output: string): string | undefined {
     const plainOutput = createTerminalColors(true).strip(output);
 
@@ -565,7 +564,7 @@ export function findLoginUrl(output: string): string | undefined {
 
         const candidate = line.slice(urlStart).trim();
 
-        if (candidate.includes("/v1/auth/redirect?")) {
+        if (candidate !== "") {
             return candidate;
         }
     }
@@ -706,33 +705,6 @@ function createSandboxSnapshotReplacements(
             value: sandbox.env.XDG_STATE_HOME,
         },
     ];
-}
-
-async function completeLoginCallback(
-    loginUrlValue: string,
-    apiKeyValue: string,
-    endpoint: string,
-): Promise<void> {
-    const loginUrl = new URL(loginUrlValue);
-
-    expect(loginUrl.searchParams.get("cli_login")).toBe("true");
-
-    const redirectUrl = loginUrl.searchParams.get("redirect");
-
-    expect(redirectUrl).toBeTruthy();
-
-    const callbackUrl = new URL(redirectUrl!);
-    const requestUrl = new URL(callbackUrl.toString());
-    const encodedApiKey = Buffer.from(apiKeyValue, "utf8").toString("base64");
-
-    requestUrl.searchParams.set("apiKey", encodedApiKey);
-    requestUrl.searchParams.set("name", "Alice");
-    requestUrl.searchParams.set("endpoint", endpoint);
-    requestUrl.searchParams.set("id", "user-1");
-
-    const response = await fetch(requestUrl);
-
-    expect(response.status).toBe(200);
 }
 
 interface ResolvedSnapshotReplacement {

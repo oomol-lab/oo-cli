@@ -17,7 +17,7 @@
   macOS：`~/Library/Logs/oo`
   Linux：`${XDG_STATE_HOME:-~/.local/state}/oo/logs`
   Windows：`%LOCALAPPDATA%\\oo\\Logs`
-- Debug 日志会覆盖远端 API 请求生命周期、浏览器登录回调事件、显式更新检查，
+- Debug 日志会覆盖远端 API 请求生命周期、device login 轮询事件、显式更新检查，
   以及 settings/auth 持久化状态变化和 sqlite cache 活动。
 - 偏错误类的日志还会带上 `category` 字段，便于快速筛选用户错误、系统错误和可
   恢复的 cache 问题。
@@ -28,9 +28,9 @@
 
 ### `oo auth login`
 
-启动浏览器登录流程，并保存登录成功后的账号。
+启动 device login 流程，并保存登录成功后的账号。
 
-- 说明：CLI 会打印登录地址，并等待浏览器回调完成。
+- 说明：CLI 会打印验证地址和用户 code，然后轮询直到 device login 验证成功或超时。
 
 ### `oo auth logout`
 

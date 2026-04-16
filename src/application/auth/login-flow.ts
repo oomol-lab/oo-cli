@@ -1,266 +1,284 @@
-import type { ServerResponse } from "node:http";
 import type { Logger } from "pino";
-import type { Translator } from "../contracts/translator.ts";
-import type { AuthAccount } from "../schemas/auth.ts";
-import { Buffer } from "node:buffer";
-import { createServer } from "node:http";
 
+import type { Fetcher } from "../contracts/cli.ts";
+import type { AuthAccount } from "../schemas/auth.ts";
+import { z } from "zod";
 import { CliUserError } from "../contracts/cli.ts";
 import {
     withAccountIdentity,
-    withPath,
+    withRequestTarget,
 } from "../logging/log-fields.ts";
 
-const loginCallbackPath = "/v1/login/callback";
-const loginTimeoutMs = 5 * 60 * 1000;
+const deviceLoginPollIntervalMs = 2_000;
+
+const deviceLoginCodeResponseSchema = z.object({
+    code: z.string().min(1),
+    expires_in: z.number().int().positive(),
+    status: z.literal("waiting"),
+    verify_code_url: z.string().url(),
+}).passthrough();
+
+const deviceLoginWaitingResponseSchema = z.object({
+    status: z.literal("waiting"),
+}).passthrough();
+
+const deviceLoginVerifiedResponseSchema = z.object({
+    api_key: z.string().min(1),
+    endpoint: z.string().min(1),
+    id: z.string().min(1),
+    name: z.string().min(1),
+    status: z.literal("verified"),
+}).passthrough();
+
+const deviceLoginResultResponseSchema = z.union([
+    deviceLoginWaitingResponseSchema,
+    deviceLoginVerifiedResponseSchema,
+]);
+
+type DeviceLoginCodeResponse = z.output<typeof deviceLoginCodeResponseSchema>;
+type DeviceLoginResultResponse = z.output<typeof deviceLoginResultResponseSchema>;
 
 export interface AuthLoginSession {
-    redirectUrl: string;
+    code: string;
+    expiresInSeconds: number;
+    verificationUrl: string;
     waitForAccount: () => Promise<AuthAccount>;
 }
 
-export async function startAuthLoginSession(
-    options: {
-        logger: Logger;
-        translator: Translator;
-    },
-): Promise<AuthLoginSession> {
-    return await new Promise((resolve, reject) => {
-        const server = createServer();
-        let resolveAccount: (account: AuthAccount) => void = () => {};
-        let rejectAccount: (error: unknown) => void = () => {};
-        const state = { settled: false };
-        const accountPromise = new Promise<AuthAccount>((innerResolve, innerReject) => {
-            resolveAccount = innerResolve;
-            rejectAccount = innerReject;
-        });
-        const timer = setTimeout(() => {
-            if (state.settled) {
-                return;
-            }
-
-            state.settled = true;
-            options.logger.warn(
-                {
-                    timeoutMs: loginTimeoutMs,
-                },
-                "Auth login callback timed out.",
-            );
-            rejectAccount(new CliUserError("errors.auth.loginTimeout", 1));
-            void closeServer(server).catch(() => undefined);
-        }, loginTimeoutMs);
-
-        server.on("request", (request, response) => {
-            void handleRequest({
-                rejectAccount,
-                requestUrl: request.url ?? "",
-                resolveAccount,
-                response,
-                server,
-                state,
-                logger: options.logger,
-                translator: options.translator,
-            });
-        });
-
-        server.once("error", (error) => {
-            clearTimeout(timer);
-            options.logger.error(
-                {
-                    err: error,
-                },
-                "Auth login callback server failed.",
-            );
-            reject(error);
-        });
-
-        server.listen(0, "127.0.0.1", () => {
-            const address = server.address();
-
-            if (!address || typeof address === "string") {
-                clearTimeout(timer);
-                reject(new Error("Failed to resolve the auth callback address."));
-                return;
-            }
-
-            options.logger.debug(
-                {
-                    port: address.port,
-                },
-                "Auth login callback server is listening.",
-            );
-
-            resolve({
-                redirectUrl: `http://127.0.0.1:${address.port}${loginCallbackPath}`,
-                async waitForAccount(): Promise<AuthAccount> {
-                    try {
-                        return await accountPromise;
-                    }
-                    finally {
-                        clearTimeout(timer);
-                    }
-                },
-            });
-        });
-    });
-}
-
-interface HandleRequestOptions {
-    rejectAccount: (error: unknown) => void;
-    requestUrl: string;
-    resolveAccount: (account: AuthAccount) => void;
-    response: ServerResponse;
-    server: ReturnType<typeof createServer>;
-    state: { settled: boolean };
+interface StartAuthLoginSessionOptions {
+    endpoint: string;
+    fetcher: Fetcher;
     logger: Logger;
-    translator: Translator;
+    now?: () => number;
+    sleep?: (ms: number) => Promise<void>;
+    pollIntervalMs?: number;
 }
 
-async function handleRequest(options: HandleRequestOptions): Promise<void> {
-    const url = new URL(options.requestUrl, "http://127.0.0.1");
-    const apiKey = url.searchParams.get("apiKey");
-    const endpoint = url.searchParams.get("endpoint");
-    const id = url.searchParams.get("id");
-    const name = url.searchParams.get("name");
+export async function startAuthLoginSession(
+    options: StartAuthLoginSessionOptions,
+): Promise<AuthLoginSession> {
+    const now = options.now ?? Date.now;
+    const sleep = options.sleep ?? Bun.sleep;
+    const pollIntervalMs = options.pollIntervalMs ?? deviceLoginPollIntervalMs;
+    const state = Bun.randomUUIDv7();
+    const codeResponse = await requestDeviceLoginCode(state, options);
+    const expiresAt = now() + (codeResponse.expires_in * 1000);
+
+    options.logger.info(
+        {
+            expiresInSeconds: codeResponse.expires_in,
+        },
+        "Auth device login code created.",
+    );
+
+    return {
+        code: codeResponse.code,
+        expiresInSeconds: codeResponse.expires_in,
+        verificationUrl: codeResponse.verify_code_url,
+        waitForAccount: async () => await waitForVerifiedAccount(
+            state,
+            expiresAt,
+            options,
+            { now, sleep, pollIntervalMs },
+        ),
+    };
+}
+
+async function waitForVerifiedAccount(
+    state: string,
+    expiresAt: number,
+    options: Pick<StartAuthLoginSessionOptions, "endpoint" | "fetcher" | "logger">,
+    resolved: {
+        now: () => number;
+        pollIntervalMs: number;
+        sleep: (ms: number) => Promise<void>;
+    },
+): Promise<AuthAccount> {
+    while (resolved.now() < expiresAt) {
+        const result = await requestDeviceLoginResult(state, options);
+
+        if (result.status === "verified") {
+            options.logger.info(
+                {
+                    ...withAccountIdentity(result.id, result.endpoint),
+                    name: result.name,
+                },
+                "Auth device login completed successfully.",
+            );
+
+            return {
+                apiKey: result.api_key,
+                endpoint: result.endpoint,
+                id: result.id,
+                name: result.name,
+            };
+        }
+
+        const remainingMs = expiresAt - resolved.now();
+
+        if (remainingMs <= 0) {
+            break;
+        }
+
+        await resolved.sleep(Math.min(resolved.pollIntervalMs, remainingMs));
+    }
+
+    options.logger.warn(
+        {
+            timeoutMs: expiresAt - resolved.now(),
+        },
+        "Auth device login timed out.",
+    );
+    throw new CliUserError("errors.auth.loginTimeout", 1);
+}
+
+async function requestDeviceLoginCode(
+    state: string,
+    options: StartAuthLoginSessionOptions,
+): Promise<DeviceLoginCodeResponse> {
+    const rawResponse = await requestDeviceLogin(
+        createDeviceLoginCodeUrl(options.endpoint),
+        options,
+        {
+            body: JSON.stringify({
+                stat: state,
+            }),
+            kind: "code",
+            method: "POST",
+        },
+    );
+
+    return parseDeviceLoginResponse(
+        rawResponse,
+        deviceLoginCodeResponseSchema,
+    );
+}
+
+async function requestDeviceLoginResult(
+    state: string,
+    options: StartAuthLoginSessionOptions,
+): Promise<DeviceLoginResultResponse> {
+    const requestUrl = createDeviceLoginResultUrl(options.endpoint, state);
+    const rawResponse = await requestDeviceLogin(
+        requestUrl,
+        options,
+        {
+            kind: "result",
+            method: "GET",
+        },
+    );
+
+    return parseDeviceLoginResponse(
+        rawResponse,
+        deviceLoginResultResponseSchema,
+    );
+}
+
+async function requestDeviceLogin(
+    requestUrl: URL,
+    options: Pick<StartAuthLoginSessionOptions, "fetcher" | "logger">,
+    requestOptions: {
+        body?: string;
+        kind: "code" | "result";
+        method: "GET" | "POST";
+    },
+): Promise<string> {
+    const requestStartedAt = Date.now();
 
     options.logger.debug(
         {
-            hasApiKey: apiKey !== null,
-            hasEndpoint: endpoint !== null,
-            hasId: id !== null,
-            hasName: name !== null,
-            ...withPath(url.pathname),
-            settled: options.state.settled,
+            bodyLength: requestOptions.body?.length ?? 0,
+            hasBody: requestOptions.body !== undefined,
+            kind: requestOptions.kind,
+            method: requestOptions.method,
+            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
         },
-        "Auth login callback received.",
+        "Auth device login request started.",
     );
-
-    if (url.pathname !== loginCallbackPath) {
-        options.logger.warn(
-            {
-                ...withPath(url.pathname),
-            },
-            "Auth login callback used an unexpected path.",
-        );
-        writeHttpResponse(
-            options.response,
-            404,
-            options.translator.t("auth.login.callbackNotFound"),
-        );
-        return;
-    }
-
-    if (options.state.settled) {
-        options.logger.warn(
-            {
-                ...withPath(url.pathname),
-            },
-            "Auth login callback was received after the session had already settled.",
-        );
-        writeHttpResponse(
-            options.response,
-            409,
-            options.translator.t("auth.login.callbackAlreadyUsed"),
-        );
-        return;
-    }
-
-    if (
-        !apiKey
-        || !endpoint
-        || !id
-        || !name
-    ) {
-        options.logger.warn(
-            {
-                hasApiKey: apiKey !== null,
-                hasEndpoint: endpoint !== null,
-                hasId: id !== null,
-                hasName: name !== null,
-            },
-            "Auth login callback was missing required fields.",
-        );
-        writeHttpResponse(
-            options.response,
-            400,
-            options.translator.t("auth.login.callbackInvalid"),
-        );
-        return;
-    }
-
-    let decodedApiKey = "";
 
     try {
-        decodedApiKey = decodeApiKey(apiKey);
+        const response = await options.fetcher(requestUrl, {
+            body: requestOptions.body,
+            headers: requestOptions.body === undefined
+                ? undefined
+                : {
+                        "Content-Type": "application/json",
+                    },
+            method: requestOptions.method,
+        });
+        const durationMs = Date.now() - requestStartedAt;
+
+        if (!response.ok) {
+            options.logger.warn(
+                {
+                    durationMs,
+                    kind: requestOptions.kind,
+                    method: requestOptions.method,
+                    status: response.status,
+                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                },
+                "Auth device login request returned a non-success status.",
+            );
+            throw new CliUserError("errors.auth.loginRequestFailed", 1, {
+                status: response.status,
+            });
+        }
+
+        options.logger.debug(
+            {
+                durationMs,
+                kind: requestOptions.kind,
+                method: requestOptions.method,
+                status: response.status,
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+            },
+            "Auth device login request completed.",
+        );
+
+        return await response.text();
     }
-    catch {
+    catch (error) {
+        if (error instanceof CliUserError) {
+            throw error;
+        }
+
         options.logger.warn(
             {
-                ...withAccountIdentity(id, endpoint),
-                name,
+                durationMs: Date.now() - requestStartedAt,
+                err: error,
+                kind: requestOptions.kind,
+                method: requestOptions.method,
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
             },
-            "Auth login callback contained an invalid api key payload.",
+            "Auth device login request failed unexpectedly.",
         );
-        writeHttpResponse(
-            options.response,
-            400,
-            options.translator.t("auth.login.callbackInvalid"),
-        );
-        return;
-    }
-
-    options.state.settled = true;
-    writeHttpResponse(
-        options.response,
-        200,
-        options.translator.t("auth.login.callbackSuccess"),
-    );
-    options.logger.info(
-        {
-            ...withAccountIdentity(id, endpoint),
-            name,
-        },
-        "Auth login callback completed successfully.",
-    );
-    options.resolveAccount({
-        apiKey: decodedApiKey,
-        endpoint,
-        id,
-        name,
-    });
-    await closeServer(options.server);
-}
-
-function decodeApiKey(encodedApiKey: string): string {
-    const apiKey = Buffer.from(encodedApiKey, "base64").toString("utf8");
-
-    if (apiKey === "") {
-        throw new Error("The decoded auth api key is empty.");
-    }
-
-    return apiKey;
-}
-
-function writeHttpResponse(
-    response: ServerResponse,
-    statusCode: number,
-    body: string,
-): void {
-    response.writeHead(statusCode, {
-        "Content-Type": "text/plain; charset=utf-8",
-    });
-    response.end(body);
-}
-
-async function closeServer(server: ReturnType<typeof createServer>): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
-        server.close((error) => {
-            if (error) {
-                reject(error);
-                return;
-            }
-
-            resolve();
+        throw new CliUserError("errors.auth.loginRequestError", 1, {
+            message: error instanceof Error ? error.message : String(error),
         });
-    });
+    }
+}
+
+function parseDeviceLoginResponse<TValue>(
+    rawResponse: string,
+    schema: z.ZodType<TValue>,
+): TValue {
+    try {
+        return schema.parse(JSON.parse(rawResponse) as unknown);
+    }
+    catch {
+        throw new CliUserError("errors.auth.loginInvalidResponse", 1);
+    }
+}
+
+function createDeviceLoginCodeUrl(endpoint: string): URL {
+    return new URL(`https://api.${endpoint}/v1/auth/device_login/code`);
+}
+
+function createDeviceLoginResultUrl(endpoint: string, state: string): URL {
+    const requestUrl = new URL(
+        `https://api.${endpoint}/v1/auth/device_login/result`,
+    );
+
+    requestUrl.searchParams.set("stat", state);
+    return requestUrl;
 }

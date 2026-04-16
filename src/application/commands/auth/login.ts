@@ -24,28 +24,34 @@ export const authLoginCommand: CliCommandDefinition = {
     handler: async (_, context) => {
         const authEndpoint = readAuthEndpoint(context.env);
         const session = await startAuthLoginSession({
+            endpoint: authEndpoint,
+            fetcher: context.fetcher,
             logger: context.logger,
-            translator: context.translator,
         });
-        const loginUrl = createAuthLoginUrl(authEndpoint, session.redirectUrl);
         const colors = createWriterColors(context.stdout);
 
         context.logger.debug(
             {
                 authEndpoint,
-                redirectUrl: session.redirectUrl,
+                expiresInSeconds: session.expiresInSeconds,
             },
-            "Auth login URL prepared.",
+            "Auth device login session prepared.",
         );
         writeLine(
             context.stdout,
             context.translator.t("auth.login.openManually", {
-                url: colors.hex(loginUrlColor)(loginUrl.toString()),
+                url: colors.hex(loginUrlColor)(session.verificationUrl),
             }),
         );
         writeLine(
             context.stdout,
-            context.translator.t("auth.login.waitingForBrowser"),
+            context.translator.t("auth.login.code", {
+                code: colors.bold(session.code),
+            }),
+        );
+        writeLine(
+            context.stdout,
+            context.translator.t("auth.login.waiting"),
         );
 
         const account = await session.waitForAccount();
@@ -59,7 +65,7 @@ export const authLoginCommand: CliCommandDefinition = {
                 endpoint: account.endpoint,
                 name: account.name,
             },
-            "Auth account persisted after browser login.",
+            "Auth account persisted after device login.",
         );
 
         writeAuthBlock(context, {
@@ -77,19 +83,6 @@ export const authLoginCommand: CliCommandDefinition = {
         });
     },
 };
-
-function createAuthLoginUrl(
-    authEndpoint: string,
-    redirectUrl: string,
-): URL {
-    const loginUrl = new URL(
-        `https://api.${authEndpoint}/v1/auth/redirect`,
-    );
-
-    loginUrl.searchParams.set("redirect", redirectUrl);
-    loginUrl.searchParams.set("cli_login", "true");
-    return loginUrl;
-}
 
 function readAuthEndpoint(
     env: CliExecutionContext["env"],

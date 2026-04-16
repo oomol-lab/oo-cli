@@ -41,7 +41,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration
@@ -74,7 +74,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration
@@ -118,7 +118,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration
@@ -151,7 +151,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration
@@ -207,7 +207,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration

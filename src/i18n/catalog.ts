@@ -2,15 +2,12 @@ import { APP_NAME } from "../application/config/app-config.ts";
 
 export const enMessages = {
     "app.description": `${APP_NAME} is OOMOL's CLI toolkit. Everything can be done in the CLI.`,
-    "auth.login.callbackAlreadyUsed": "This login callback has already been used.",
-    "auth.login.callbackInvalid": "The login callback payload is invalid.",
-    "auth.login.callbackNotFound": "The requested login callback endpoint was not found.",
-    "auth.login.callbackSuccess": "Login completed. You can close this tab now.",
+    "auth.login.code": "Enter this code to continue: {code}",
     "auth.login.openManually": "Open this URL in your browser to continue: {url}",
     "auth.account.activeAccountMissing":
         "The active account is missing from the auth store.",
     "auth.account.loggedIn": "Logged in to {endpoint} account {name}",
-    "auth.login.waitingForBrowser": "Waiting for the browser login to complete...",
+    "auth.login.waiting": "Waiting for the device login to complete...",
     "auth.logout.success": "Logged out the current account.",
     "auth.status.accountId": "Account ID",
     "auth.status.activeAccount": "Active account",
@@ -21,8 +18,8 @@ export const enMessages = {
     "auth.status.loggedOut": "Not logged in to any OOMOL account.",
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
     "commands.auth.description": "Manage CLI authentication accounts.",
-    "commands.auth.login.description": "Log in with an OOMOL account in the browser.",
-    "commands.auth.login.summary": "Log in with a browser flow",
+    "commands.auth.login.description": "Log in with an OOMOL account using device login.",
+    "commands.auth.login.summary": "Log in with device login",
     "commands.auth.logout.description": "Remove the current account from persisted auth data.",
     "commands.auth.logout.summary": "Log out the current account",
     "commands.auth.status.description": "Show the current auth account and validate its API key.",
@@ -96,8 +93,8 @@ export const enMessages = {
         "Print one previous persisted debug log file by index.",
     "commands.log.print.summary": "Print a previous debug log",
     "commands.login.description":
-        "Log in with an OOMOL account in the browser. Alias for auth login.",
-    "commands.login.summary": "Log in with a browser flow (alias for auth login)",
+        "Log in with an OOMOL account using device login. Alias for auth login.",
+    "commands.login.summary": "Log in with device login (alias for auth login)",
     "commands.logout.description":
         "Remove the current account from persisted auth data. Alias for auth logout.",
     "commands.logout.summary":
@@ -147,8 +144,14 @@ export const enMessages = {
     "errors.commander.suggestion": "Did you mean {value}?",
     "errors.commander.unknownCommand": "Unknown command: {value}.",
     "errors.commander.unknownOption": "Unknown option: {value}.",
+    "errors.auth.loginInvalidResponse":
+        "The device login service returned an unsupported response body.",
+    "errors.auth.loginRequestError":
+        "The device login request failed: {message}",
+    "errors.auth.loginRequestFailed":
+        "The device login request returned HTTP {status}.",
     "errors.auth.loginTimeout":
-        "Timed out waiting for the browser login callback.",
+        "Timed out waiting for the device login to complete.",
     "errors.auth.noSavedAccounts":
         "There are no auth accounts to switch to.",
     "errors.auth.required":
@@ -558,14 +561,11 @@ export const enMessages = {
 
 export const zhMessages = {
     "app.description": `${APP_NAME} 是 OOMOL 的 CLI 工具集，一切均可在 CLI 中完成`,
-    "auth.login.callbackAlreadyUsed": "这个登录回调已经被使用过。",
-    "auth.login.callbackInvalid": "登录回调携带的数据无效。",
-    "auth.login.callbackNotFound": "未找到请求的登录回调地址。",
-    "auth.login.callbackSuccess": "登录完成，现在可以关闭这个页面。",
+    "auth.login.code": "请输入这个 code 继续登录：{code}",
     "auth.login.openManually": "请在浏览器中打开这个 URL 继续登录：{url}",
     "auth.account.activeAccountMissing": "当前激活账号不存在于认证数据中。",
     "auth.account.loggedIn": "已登录 {endpoint} 账号 {name}",
-    "auth.login.waitingForBrowser": "正在等待浏览器完成登录...",
+    "auth.login.waiting": "正在等待 device login 完成...",
     "auth.logout.success": "已登出当前账号。",
     "auth.status.accountId": "账号 ID",
     "auth.status.activeAccount": "当前激活账号",
@@ -576,8 +576,8 @@ export const zhMessages = {
     "auth.status.loggedOut": "当前没有登录任何 OOMOL 账号。",
     "auth.switch.success": "已将 {endpoint} 的当前激活账号切换为 {name}",
     "commands.auth.description": "管理 CLI 的认证账号。",
-    "commands.auth.login.description": "在浏览器中登录 OOMOL 账号。",
-    "commands.auth.login.summary": "通过浏览器登录",
+    "commands.auth.login.description": "通过 device login 登录 OOMOL 账号。",
+    "commands.auth.login.summary": "通过 device login 登录",
     "commands.auth.logout.description": "从持久化认证数据中移除当前账号。",
     "commands.auth.logout.summary": "登出当前账号",
     "commands.auth.status.description": "显示当前认证账号并校验其 API key。",
@@ -641,8 +641,8 @@ export const zhMessages = {
     "commands.log.path.summary": "显示日志目录路径",
     "commands.log.print.description": "按序号打印某一份更早的持久化 debug 日志文件内容。",
     "commands.log.print.summary": "输出某一份更早的 debug 日志",
-    "commands.login.description": "在浏览器中登录 OOMOL 账号。是 auth login 的别名。",
-    "commands.login.summary": "通过浏览器登录（auth login 的别名）",
+    "commands.login.description": "通过 device login 登录 OOMOL 账号。是 auth login 的别名。",
+    "commands.login.summary": "通过 device login 登录（auth login 的别名）",
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
     "commands.logout.summary": "登出当前账号（auth logout 的别名）",
     "commands.package.description": "查看包注册表元数据及相关资源。",
@@ -684,7 +684,10 @@ export const zhMessages = {
     "errors.commander.suggestion": "你是想输入 {value} 吗？",
     "errors.commander.unknownCommand": "未知命令：{value}。",
     "errors.commander.unknownOption": "未知选项：{value}。",
-    "errors.auth.loginTimeout": "等待浏览器登录回调超时。",
+    "errors.auth.loginInvalidResponse": "device login 服务返回了不受支持的响应内容。",
+    "errors.auth.loginRequestError": "device login 请求失败：{message}",
+    "errors.auth.loginRequestFailed": "device login 请求返回了 HTTP {status}。",
+    "errors.auth.loginTimeout": "等待 device login 完成超时。",
     "errors.auth.noSavedAccounts": "没有可切换的认证账号。",
     "errors.auth.required":
         "使用此命令前请先登录。",
