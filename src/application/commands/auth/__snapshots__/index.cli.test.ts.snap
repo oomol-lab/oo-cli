@@ -1,12 +1,13 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`auth CLI writes auth login callback logs without persisting api keys 1`] = `
+exports[`auth CLI writes auth device login logs without persisting secrets 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
   "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Waiting for the browser login to complete...
+Enter this code to continue: M0KO41
+Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
 "
@@ -33,7 +34,7 @@ exports[`auth CLI renders alias descriptions in login and logout help 1`] = `
     "exitCode": 0,
     "stderr": "",
     "stdout": 
-"Log in with an OOMOL account in the browser. Alias for auth login.
+"Log in with an OOMOL account using device login. Alias for auth login.
 
 Options:
   -h, --help     Show help for command
@@ -71,7 +72,8 @@ exports[`auth CLI supports auth login and updates the existing account without d
     "stderr": "",
     "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Waiting for the browser login to complete...
+Enter this code to continue: M0KO41
+Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
 "
@@ -82,7 +84,8 @@ Waiting for the browser login to complete...
     "stderr": "",
     "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Waiting for the browser login to complete...
+Enter this code to continue: M0KO41
+Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
 "
@@ -97,7 +100,8 @@ exports[`auth CLI supports auth login with a custom OOMOL_ENDPOINT 1`] = `
   "stderr": "",
   "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Waiting for the browser login to complete...
+Enter this code to continue: M0KO41
+Waiting for the device login to complete...
 ✓ Logged in to staging.oomol.test account Alice
   - Active account: true
 "
@@ -111,7 +115,8 @@ exports[`auth CLI supports login as an alias for auth login 1`] = `
   "stderr": "",
   "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Waiting for the browser login to complete...
+Enter this code to continue: M0KO41
+Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
 "
@@ -125,7 +130,8 @@ exports[`auth CLI renders the auth login url and success block with color stylin
   "stderr": "",
   "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Waiting for the browser login to complete...
+Enter this code to continue: M0KO41
+Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
 "
@@ -219,3 +225,4 @@ exports[`auth CLI renders the auth switch success block with gh-style emphasis w
 ,
 }
 `;
+

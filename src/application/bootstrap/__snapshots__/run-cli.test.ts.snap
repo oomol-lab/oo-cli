@@ -45,7 +45,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration
@@ -78,7 +78,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration
@@ -114,7 +114,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration
@@ -148,7 +148,7 @@ exports[`runCli bootstrap renders help in English and Chinese 1`] = `
   cloud-task               管理云任务
   connector                管理 connector action
   file                     管理临时文件传输
-  login                    通过浏览器登录（auth login 的别名）
+  login                    通过 device login 登录（auth login 的别名）
   logout                   登出当前账号（auth logout 的别名）
   completion <shell>       生成 shell 补全脚本
   config                   管理持久化配置
@@ -178,7 +178,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration
@@ -212,7 +212,7 @@ Commands:
   cloud-task               Manage cloud tasks
   connector                Manage connector actions
   file                     Manage temporary file transfers
-  login                    Log in with a browser flow (alias for auth login)
+  login                    Log in with device login (alias for auth login)
   logout                   Log out the current account (alias for auth logout)
   completion <shell>       Generate shell completion scripts
   config                   Manage persisted configuration
