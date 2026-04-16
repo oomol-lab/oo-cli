@@ -91,7 +91,7 @@ export async function runCli(argv: string[]): Promise<number> {
         cwd: process.cwd(),
         env: process.env,
         fetcher: fetch,
-        stdin: process.stdin,
+        stdin: createLazyStdin(),
         stdout: process.stdout,
         stderr: process.stderr,
         systemLocale: getSystemLocale(),
@@ -503,6 +503,48 @@ function closeCleanupResources(
     }
 
     return nextExitCode;
+}
+
+function createLazyStdin(): InteractiveInput {
+    // Defer access to process.stdin until a command actually needs interactive
+    // input.  Eagerly evaluating process.stdin causes the runtime to initialise
+    // a TTY handle and save the terminal state.  On exit it restores that state,
+    // which can race with a downstream process (e.g. `fx`) that has already
+    // switched the terminal to raw mode, breaking its keyboard input.
+    return createLazyInput(() => process.stdin);
+}
+
+// Exported for testing. Creates a lazy proxy around an InteractiveInput source
+// that defers the factory call until one of the proxy's properties or methods
+// is first accessed.
+export function createLazyInput(factory: () => InteractiveInput): InteractiveInput {
+    let resolved: InteractiveInput | undefined;
+
+    function source(): InteractiveInput {
+        resolved ??= factory();
+        return resolved;
+    }
+
+    return {
+        get isTTY() {
+            return source().isTTY;
+        },
+        setRawMode(value: boolean) {
+            source().setRawMode?.(value);
+        },
+        resume() {
+            source().resume?.();
+        },
+        pause() {
+            source().pause?.();
+        },
+        on(event: "data", listener: (chunk: string | Uint8Array) => void) {
+            source().on(event, listener);
+        },
+        off(event: "data", listener: (chunk: string | Uint8Array) => void) {
+            source().off(event, listener);
+        },
+    };
 }
 
 function createDetachedStdin(): InteractiveInput {
