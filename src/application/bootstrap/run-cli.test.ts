@@ -22,7 +22,7 @@ import { resolveCodexHomeDirectory } from "../commands/skills/bundled-skill-path
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
-import { executeCli } from "./run-cli.ts";
+import { createLazyInput, executeCli } from "./run-cli.ts";
 
 describe("runCli bootstrap", () => {
     test("keeps the cli command name aligned with package metadata", () => {
@@ -614,3 +614,57 @@ function createFailingSettingsStore(error: Error): SettingsStore {
         },
     };
 }
+
+describe("createLazyInput", () => {
+    test("does not call the factory until a property is accessed", () => {
+        let called = false;
+        const inner = createInteractiveInput();
+
+        createLazyInput(() => {
+            called = true;
+            return inner;
+        });
+
+        expect(called).toBe(false);
+    });
+
+    test("calls the factory on first property access and caches the result", () => {
+        let callCount = 0;
+        const inner = createInteractiveInput();
+        const lazy = createLazyInput(() => {
+            callCount += 1;
+            return inner;
+        });
+
+        void lazy.isTTY;
+        void lazy.isTTY;
+
+        expect(callCount).toBe(1);
+    });
+
+    test("delegates isTTY to the underlying input", () => {
+        const inner = createInteractiveInput();
+        const lazy = createLazyInput(() => inner);
+
+        expect(lazy.isTTY).toBe(true);
+    });
+
+    test("delegates on and off to the underlying input", () => {
+        const inner = createInteractiveInput();
+        const lazy = createLazyInput(() => inner);
+        const received: Array<string | Uint8Array> = [];
+        const listener = (chunk: string | Uint8Array): void => {
+            received.push(chunk);
+        };
+
+        lazy.on("data", listener);
+        inner.feed("hello");
+
+        expect(received.length).toBe(1);
+
+        lazy.off("data", listener);
+        inner.feed("world");
+
+        expect(received.length).toBe(1);
+    });
+});
