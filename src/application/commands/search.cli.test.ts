@@ -83,7 +83,7 @@ describe("mixedSearchCommand CLI", () => {
             expect(requests.map(request => request.url).sort()).toEqual([
                 "https://connector.oomol.com/v1/apps/authenticated?service=gmail",
                 "https://search.oomol.com/v1/connector-actions?q=send+mail&keywords=gmail%2Cemail",
-                "https://search.oomol.com/v1/packages/-/intent-search?q=send+mail&lang=en&excludeScopes=connector",
+                "https://search.oomol.com/v1/packages/-/intent-search?q=send+mail&lang=en&excludeScopes=connector&excludePackages=llm",
             ]);
             expect(logContent).toContain(`"path":"/v1/packages/-/intent-search"`);
         }
