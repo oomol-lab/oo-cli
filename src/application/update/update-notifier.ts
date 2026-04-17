@@ -8,26 +8,6 @@ import { createWriterColors } from "../terminal-colors.ts";
 
 const defaultRegistryUrl = "https://registry.npmjs.org/";
 const updateRequestTimeoutMs = 2000;
-const updateRequestMaxAttempts = 2;
-
-interface LatestReleaseRequestSuccess {
-    latestVersion: string;
-    status: "success";
-}
-
-interface LatestReleaseRequestRetryableFailure {
-    status: "retryable-failure";
-}
-
-interface LatestReleaseRequestTerminalFailure {
-    status: "terminal-failure";
-}
-
-type LatestReleaseRequestAttemptResult
-    = LatestReleaseRequestSuccess
-        | LatestReleaseRequestRetryableFailure
-        | LatestReleaseRequestTerminalFailure;
-
 export type CliUpdateCheckResult
     = | {
         status: "failed";
@@ -218,51 +198,6 @@ async function fetchLatestReleaseVersion(options: {
     logger: CliExecutionContext["logger"];
     packageName: string;
 }): Promise<string | null> {
-    for (let attempt = 1; attempt <= updateRequestMaxAttempts; attempt += 1) {
-        const result = await fetchLatestReleaseVersionAttempt({
-            attempt,
-            currentVersion: options.currentVersion,
-            env: options.env,
-            fetcher: options.fetcher,
-            logger: options.logger,
-            maxAttempts: updateRequestMaxAttempts,
-            packageName: options.packageName,
-        });
-
-        switch (result.status) {
-            case "success":
-                return result.latestVersion;
-            case "terminal-failure":
-                return null;
-            case "retryable-failure":
-                if (attempt >= updateRequestMaxAttempts) {
-                    return null;
-                }
-
-                options.logger.debug(
-                    {
-                        attempt,
-                        maxAttempts: updateRequestMaxAttempts,
-                        packageName: options.packageName,
-                    },
-                    "CLI update latest-release request retry scheduled.",
-                );
-                break;
-        }
-    }
-
-    return null;
-}
-
-async function fetchLatestReleaseVersionAttempt(options: {
-    attempt: number;
-    currentVersion: string;
-    env: Record<string, string | undefined>;
-    fetcher: Fetcher;
-    logger: CliExecutionContext["logger"];
-    maxAttempts: number;
-    packageName: string;
-}): Promise<LatestReleaseRequestAttemptResult> {
     const requestUrl = resolveRegistryPackageMetadataUrl(
         options.env,
         options.packageName,
@@ -271,8 +206,6 @@ async function fetchLatestReleaseVersionAttempt(options: {
 
     options.logger.debug(
         {
-            attempt: options.attempt,
-            maxAttempts: options.maxAttempts,
             packageName: options.packageName,
             requestUrl,
             timeoutMs: updateRequestTimeoutMs,
@@ -295,49 +228,39 @@ async function fetchLatestReleaseVersionAttempt(options: {
     if (!response) {
         options.logger.warn(
             {
-                attempt: options.attempt,
                 durationMs: Date.now() - requestStartedAt,
-                maxAttempts: options.maxAttempts,
                 packageName: options.packageName,
                 requestUrl,
                 timeoutMs: updateRequestTimeoutMs,
             },
             "CLI update latest-release request timed out or failed.",
         );
-        return {
-            status: "retryable-failure",
-        };
+        return null;
     }
 
     if (!response.ok) {
         options.logger.warn(
             {
-                attempt: options.attempt,
                 durationMs: Date.now() - requestStartedAt,
-                maxAttempts: options.maxAttempts,
                 packageName: options.packageName,
                 requestUrl,
                 status: response.status,
             },
             "CLI update latest-release request returned a non-success status.",
         );
-        return {
-            status: "terminal-failure",
-        };
+        return null;
     }
 
     const latestVersion = await extractLatestVersionFromPayload(response);
 
     if (latestVersion === null) {
-        return { status: "terminal-failure" };
+        return null;
     }
 
     options.logger.debug(
         {
-            attempt: options.attempt,
             durationMs: Date.now() - requestStartedAt,
             latestVersion,
-            maxAttempts: options.maxAttempts,
             packageName: options.packageName,
             requestUrl,
             status: response.status,
@@ -345,10 +268,7 @@ async function fetchLatestReleaseVersionAttempt(options: {
         "CLI update latest-release request completed.",
     );
 
-    return {
-        latestVersion,
-        status: "success",
-    };
+    return latestVersion;
 }
 
 async function extractLatestVersionFromPayload(

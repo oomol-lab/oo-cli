@@ -12,6 +12,7 @@ import { createTranslator } from "../../i18n/translator.ts";
 import { defaultAuthFile } from "../schemas/auth.ts";
 import { defaultSettings } from "../schemas/settings.ts";
 import { compareSemver } from "../semver.ts";
+import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
 import {
     checkForCliUpdate,
@@ -185,14 +186,14 @@ describe("update notifier", () => {
                 reason: "latest-version-unavailable",
                 status: "failed",
             });
-            expect(fetchCount).toBe(2);
+            expect(fetchCount).toBe(3);
         }
         finally {
             notifier.close();
         }
     });
 
-    test("returns latest-version-unavailable for a non-2xx registry response", async () => {
+    test("returns latest-version-unavailable after retrying a retryable registry response", async () => {
         let fetchCount = 0;
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => {
@@ -211,7 +212,7 @@ describe("update notifier", () => {
                 reason: "latest-version-unavailable",
                 status: "failed",
             });
-            expect(fetchCount).toBe(1);
+            expect(fetchCount).toBe(3);
         }
         finally {
             notifier.close();
@@ -332,7 +333,7 @@ describe("update notifier", () => {
             fetcher: async () => {
                 fetchCount += 1;
 
-                if (fetchCount <= 2) {
+                if (fetchCount <= 3) {
                     throw new Error("temporary network failure");
                 }
 
@@ -356,7 +357,7 @@ describe("update notifier", () => {
                 latestVersion: "1.2.0",
                 status: "update-available",
             });
-            expect(fetchCount).toBe(3);
+            expect(fetchCount).toBe(4);
         }
         finally {
             notifier.close();
@@ -428,7 +429,11 @@ function createUpdateNotifierHarness(options: {
         currentLogFilePath: "",
         cwd: "",
         env: {},
-        fetcher: options.fetcher,
+        fetcher: createRetryingFetcher({
+            fetcher: options.fetcher,
+            logger: logCapture.logger,
+            sleep: async () => {},
+        }),
         fileDownloadSessionStore: createNoopFileDownloadSessionStore(),
         fileUploadStore: createNoopFileUploadStore(),
         logger: logCapture.logger,

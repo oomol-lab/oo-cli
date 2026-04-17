@@ -74,11 +74,14 @@ describe("checkUpdateCommand CLI", () => {
         }
     });
 
-    test("retries once before printing a retry-later message", async () => {
+    test("retries twice before printing a retry-later message", async () => {
         const sandbox = await createCliSandbox();
+        const originalSleep = Bun.sleep;
         let fetchCount = 0;
 
         try {
+            Bun.sleep = (() => Promise.resolve()) as typeof Bun.sleep;
+
             const fetcher = async () => {
                 fetchCount += 1;
                 throw new Error("temporary network failure");
@@ -102,49 +105,46 @@ describe("checkUpdateCommand CLI", () => {
                 firstResult: createCliSnapshot(firstResult),
                 secondResult: createCliSnapshot(secondResult),
             }).toMatchSnapshot();
-            expect(fetchCount).toBe(4);
+            expect(fetchCount).toBe(6);
         }
         finally {
+            Bun.sleep = originalSleep;
             await sandbox.cleanup();
         }
     });
 
     test("does not cache failed update checks between check-update invocations", async () => {
         const sandbox = await createCliSandbox();
+        const originalSleep = Bun.sleep;
         let fetchCount = 0;
 
         try {
+            Bun.sleep = (() => Promise.resolve()) as typeof Bun.sleep;
+
+            const fetcher = async () => {
+                fetchCount += 1;
+
+                if (fetchCount <= 3) {
+                    throw new Error("temporary network failure");
+                }
+
+                return new Response(JSON.stringify({
+                    "dist-tags": {
+                        latest: "1.2.0",
+                    },
+                }));
+            };
             const firstResult = await sandbox.run(
                 ["check-update"],
                 {
-                    fetcher: async () => {
-                        fetchCount += 1;
-
-                        if (fetchCount <= 2) {
-                            throw new Error("temporary network failure");
-                        }
-
-                        return new Response(JSON.stringify({
-                            "dist-tags": {
-                                latest: "1.2.0",
-                            },
-                        }));
-                    },
+                    fetcher,
                     version: "1.0.0",
                 },
             );
             const secondResult = await sandbox.run(
                 ["check-update"],
                 {
-                    fetcher: async () => {
-                        fetchCount += 1;
-
-                        return new Response(JSON.stringify({
-                            "dist-tags": {
-                                latest: "1.2.0",
-                            },
-                        }));
-                    },
+                    fetcher,
                     version: "1.0.0",
                 },
             );
@@ -155,9 +155,10 @@ describe("checkUpdateCommand CLI", () => {
                 firstResult: createCliSnapshot(firstResult),
                 secondResult: createCliSnapshot(secondResult),
             }).toMatchSnapshot();
-            expect(fetchCount).toBe(3);
+            expect(fetchCount).toBe(4);
         }
         finally {
+            Bun.sleep = originalSleep;
             await sandbox.cleanup();
         }
     });

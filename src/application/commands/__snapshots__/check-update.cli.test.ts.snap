@@ -28,7 +28,7 @@ exports[`checkUpdateCommand CLI does not automatically check for updates after u
 }
 `;
 
-exports[`checkUpdateCommand CLI retries once before printing a retry-later message 1`] = `
+exports[`checkUpdateCommand CLI retries twice before printing a retry-later message 1`] = `
 {
   "firstResult": {
     "exitCode": 0,

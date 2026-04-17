@@ -40,6 +40,7 @@ import {
 import { CliUserError } from "../contracts/cli.ts";
 import { logCategory } from "../logging/log-categories.ts";
 import { withCategory, withErrorKey } from "../logging/log-fields.ts";
+import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
 
 export interface CliInvocation {
     argv: readonly string[];
@@ -200,13 +201,17 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             "CLI first-run detection completed.",
         );
 
+        const fetcher = createRetryingFetcher({
+            fetcher: invocation.fetcher ?? fetch,
+            logger,
+        });
         const context = createCliExecutionContext({
             authStore: initializedStores.authStore,
             buildInfo,
             cacheStore,
             catalog,
             completionRenderer,
-            fetcher: invocation.fetcher ?? fetch,
+            fetcher,
             fileDownloadSessionStore,
             fileUploadStore,
             invocation,

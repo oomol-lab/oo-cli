@@ -283,65 +283,49 @@ async function uploadFilePart(
     partNumber: number,
     context: Pick<CliExecutionContext, "fetcher" | "logger">,
 ): Promise<void> {
-    const maxAttempts = 3;
+    const requestUrl = new URL(presignedUrl);
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-        const requestUrl = new URL(presignedUrl);
-
-        try {
-            await performLoggedRequest({
-                context,
-                createRequestFailedError: status => new CliUserError(
-                    "errors.fileUpload.requestFailed",
-                    1,
-                    {
-                        status,
-                    },
-                ),
-                createUnexpectedError: error => new CliUserError(
-                    "errors.fileUpload.requestError",
-                    1,
-                    {
-                        message: error instanceof Error ? error.message : String(error),
-                    },
-                ),
-                fields: {
-                    common: {
-                        attempt,
-                        partNumber,
-                    },
-                    error: {
-                        method: "PUT",
-                    },
-                    response: {
-                        method: "PUT",
-                    },
-                    start: {
-                        bodyBytes: partData.size,
-                        method: "PUT",
-                    },
-                },
-                init: {
-                    body: partData,
-                    headers: {
-                        "Content-Type": "application/octet-stream",
-                    },
-                    method: "PUT",
-                },
-                requestLabel: "File upload part",
-                requestUrl,
-            });
-            return;
-        }
-        catch (error) {
-            if (error instanceof CliUserError && attempt < maxAttempts) {
-                await delayRetry(attempt);
-                continue;
-            }
-
-            throw error;
-        }
-    }
+    await performLoggedRequest({
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.fileUpload.requestFailed",
+            1,
+            {
+                status,
+            },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.fileUpload.requestError",
+            1,
+            {
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ),
+        fields: {
+            common: {
+                partNumber,
+            },
+            error: {
+                method: "PUT",
+            },
+            response: {
+                method: "PUT",
+            },
+            start: {
+                bodyBytes: partData.size,
+                method: "PUT",
+            },
+        },
+        init: {
+            body: partData,
+            headers: {
+                "Content-Type": "application/octet-stream",
+            },
+            method: "PUT",
+        },
+        requestLabel: "File upload part",
+        requestUrl,
+    });
 }
 
 function splitFileNameAndExtension(fileName: string): [string, string] {
@@ -355,10 +339,4 @@ function splitFileNameAndExtension(fileName: string): [string, string] {
         fileName.slice(0, lastDotIndex),
         fileName.slice(lastDotIndex),
     ];
-}
-
-function delayRetry(attempt: number): Promise<void> {
-    const delayMs = Math.min(30_000, 2 ** (attempt - 1) * 1_000);
-
-    return Bun.sleep(delayMs);
 }
