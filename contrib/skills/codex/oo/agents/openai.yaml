@@ -1,7 +1,7 @@
 interface:
   display_name: oo
-  short_description: Route ready-made cloud and connector tasks through oo
-  default_prompt: "Use $oo when I ask to solve OCR, translation, transcription, image generation, subtitle generation, or authenticated connector work through an existing oo capability instead of a local implementation. Read the specific oo reference file before the corresponding command, especially search-and-selection before the first `oo search`. The first search must use one quoted free-form query string plus `--json`, not multiple positional keywords, and alternative searches should not run in parallel before inspecting the first result set. For artifact transfer, use only `oo file upload` or `oo file download`; do not probe or download with `curl`, `wget`, or other ad hoc tools."
+  short_description: Map hosted tasks to the right oo capability
+  default_prompt: "Use $oo when the user wants an existing hosted oo capability or a short read-transform-write workflow across existing oo connectors. Optimize for one-pass success: express a single-step task as one concise English goal, or a multi-step task as a short chain of subgoals, and search only for the current unresolved external step. Expand evidence gradually, ask at most one focused follow-up when a required value is truly missing, and keep every claim grounded in actual oo metadata, schema files, and command output. Remote capability execution must stay inside oo; only explicit artifact URLs are downloadable, while browse links and console pages are metadata."
 
 policy:
   allow_implicit_invocation: false

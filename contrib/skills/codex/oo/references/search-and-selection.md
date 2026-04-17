@@ -3,6 +3,63 @@
 Read this file before the first `oo search` call and whenever choosing between a
 package path and a connector path.
 
+## Goal
+
+Find the most direct documented `oo` capability with as little search churn as
+possible.
+
+## Start with one English goal sentence for the current external step
+
+Turn the user request into one short English sentence that describes the
+desired outcome for the current search step.
+
+For short multi-step workflows, do not force the whole workflow into one search
+query. Break the task into a short ordered chain of subgoals and search the
+current unresolved external step first.
+
+Guidance:
+
+- Prefer `action + object + key constraint or target service`.
+- Keep the first search intent outcome-oriented rather than implementation-led.
+- Preserve useful constraint words such as language pair, file type, output
+  format, or target service.
+- Avoid meta words such as `oo`, `CLI`, `search`, or `skill` unless the user
+  actually asked about them.
+
+Examples:
+
+- `extract text from a scanned Chinese PDF`
+- `translate a Japanese menu photo into English`
+- `send an email through Gmail with a PDF attachment`
+- `find a Google Drive file by name and download it`
+- `collect Gmail messages from yesterday`
+- `create a Notion page from prepared content`
+
+## Repair a weak first query
+
+Revise the first query when the result set shows that the query was too broad,
+too implementation-led, or missing a decisive constraint.
+
+Common repair moves:
+
+- Add the missing medium or file type.
+- Add the missing language pair, target service, or output format.
+- Replace implementation guesses with the user's actual desired outcome.
+- Remove filler words that do not narrow the capability choice.
+
+Examples:
+
+- Too broad: `translate image`
+  Better: `translate text in a Japanese image to English`
+- Too vague: `gmail`
+  Better: `send an email through Gmail`
+- Too implementation-led: `ocr pdf then markdown`
+  Better: `extract text from a scanned PDF and save it as Markdown`
+- Missing output target: `find Drive file`
+  Better: `find a Google Drive file by name and download it`
+- Missing format constraint: `translate contract PDF`
+  Better: `translate a scanned German contract PDF into English and return a DOCX`
+
 ## Mixed discovery entrypoint
 
 Canonical form:
@@ -54,28 +111,23 @@ Representative JSON example:
 ]
 ```
 
-## Shortlisting rules
+## How to rank the first result set
 
-- Do not run `oo search` until this file has been read.
-- Use `oo search` as the first substantive lookup.
-- The first search call must use exactly one quoted free-form query string plus
+- Use `oo search` as the default first substantive lookup.
+- The first search call should use one quoted free-form query string plus
   `--json`.
-- If extra refinement is needed, use `--keywords` or a later follow-up search
-  after inspecting the first result set.
-- Do not pass normalized keywords as extra positional arguments.
-- Do not launch multiple alternative `oo search` commands in parallel before
-  reading and pruning the first result set.
-- Keep at most `0` to `2` serious candidates total after ranking the mixed
-  results.
-- Default to one primary candidate. Keep a second candidate only when it is a
-  materially different fallback rather than a noisy duplicate.
-- The usual two-item shortlist is one connector plus one package. Never exceed
-  `2` total.
-- If a package and a connector are both strong matches, keep the connector
-  first. Connector is free and lower-friction, so it wins ties.
-- If the returned array is empty or contains no suitable candidates, tell the
-  user that `oo` does not currently have a matching capability and **end the
-  response**.
+- For short multi-step workflows, the query should describe the current
+  external step, not the whole chain.
+- Inspect the first result set before trying alternative searches.
+- Revise the query only when the first result set clearly missed a decisive
+  constraint or pulled the search toward the wrong capability family.
+- Usually keep one primary candidate and at most one materially different
+  fallback.
+- If a package and a connector are equally direct, prefer the authenticated
+  connector as a tie-breaker because it is usually lower friction and cheaper.
+- If the returned array is empty or no candidate clearly fits, explain that the
+  current `oo` catalog does not expose a good match and stop the current `oo`
+  path.
 
 Rank mixed results in this order:
 
@@ -85,13 +137,18 @@ Rank mixed results in this order:
 4. How many required inputs and follow-up questions it adds
 5. How closely the expected output matches the user's desired outcome
 
-## Refinement rules
+## Refinement moves
 
 - Inspect only the shortlisted candidates.
 - For package-backed candidates, inspect with `oo packages info` before
   execution.
 - For connector-backed candidates, read the cached schema file at `schemaPath`
   before building any payload.
+- If extra refinement is needed, use `--keywords` or a later follow-up search
+  after inspecting the first result set.
+- Do not pass normalized keywords as extra positional arguments.
+- Use `--keywords` when the first search captured the general task but missed an
+  important service, format, or language constraint.
 - If connector signal is still ambiguous after shortlisting, refine with:
 
 ```bash
@@ -99,4 +156,4 @@ oo connector search "<text>" --json
 ```
 
 - Use `oo connector search` only to refine a chosen connector path, not to
-  expand the candidate set again.
+  restart broad discovery from scratch.

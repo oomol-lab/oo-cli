@@ -2,7 +2,12 @@
 
 Read this file only after `oo cloud-task run` returns a `taskID`.
 
-## Wait with bounded windows
+## Goal
+
+Make progress without recreating work: wait in bounded windows, inspect the
+latest result snapshot, and only materialize artifacts after success.
+
+## Wait with a bounded window first
 
 Canonical form:
 
@@ -23,9 +28,9 @@ Facts:
 - Timeout also exits non-zero.
 - While the task is still running, the CLI prints periodic status snapshots.
 
-Policy:
+## Waiting policy
 
-- Prefer bounded wait windows over a single long wait.
+- Prefer a short bounded wait window first instead of a single long wait.
 - Do not treat timeout as task failure.
 - Never re-create a task just because a wait window ended.
 - If wait output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop and send
@@ -63,7 +68,7 @@ Possible JSON shapes:
 }
 ```
 
-Rules:
+## Interpret the latest state
 
 - In-progress statuses include `queued`, `scheduling`, `scheduled`, and
   `running`. Treat any of them as non-terminal.
@@ -71,6 +76,8 @@ Rules:
   failure, and a late success.
 - If the result snapshot contains HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
   treat it as a billing problem and stop instead of retrying.
-- If a successful result includes `resultURL` and a local copy would help the
-  user, read [file-transfer.md](file-transfer.md) and use only
-  `oo file download` for that artifact.
+- If the task succeeded and `resultURL` is present, read
+  [file-transfer.md](file-transfer.md) before downloading the artifact.
+- If the task succeeded and `resultURL` is missing or `null`, do not invent a
+  download URL from `resultData` or logs. Report the success using the returned
+  structured result instead.

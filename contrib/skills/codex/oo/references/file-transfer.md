@@ -3,10 +3,22 @@
 Read this file only when a selected input needs a file-like value or when a
 remote result artifact should be saved locally.
 
-Once this file is in play, `oo file upload` and `oo file download` are the only
-approved transfer mechanisms for the corresponding step.
+## Goal
 
-## Upload a local file for URI-compatible inputs
+Move files into or out of the selected `oo` path without inventing alternate
+transfer workflows.
+
+## Default transfer rules
+
+- Upload only when the selected `oo` input expects a URI-like value and the
+  user currently has a local file.
+- Download only when the current `oo` path exposes an explicit artifact URL.
+- Reuse an existing suitable remote URL instead of uploading the same content
+  again.
+- For transfers within this skill, use `oo file upload` and `oo file download`
+  rather than ad hoc downloaders or uploaders.
+
+## Upload a local file for a URI-compatible input
 
 Canonical form:
 
@@ -22,7 +34,6 @@ Facts:
   `fileSize`, `id`, `status`, and `uploadedAt`.
 - The uploaded file expires after one day.
 - Files larger than `512 MiB` are rejected.
-- Successful uploads persist a local sqlite record.
 
 Use this command when:
 
@@ -35,9 +46,8 @@ Rules:
 - Submit the returned `downloadUrl` in `--data`.
 - Do not treat file upload as a way to pass raw bytes or bypass unsupported
   `contentMediaType` validation.
-- Do not substitute `curl`, `wget`, Python HTTP code, or any ad hoc uploader.
 
-## Materialize a remote artifact locally
+## Download a remote artifact locally
 
 Canonical form:
 
@@ -55,15 +65,15 @@ Facts:
 - Successful saves print one localized human-readable line on stdout that
   includes the absolute saved path.
 
-Eligibility rules:
+## What counts as a downloadable artifact
 
 - Use `oo file download` only for explicit download artifacts exposed by the
   current `oo` execution path.
 - For package tasks (`oo cloud-task`): the artifact is the `resultURL` field
   returned by `oo cloud-task result --json`. See
   [task-lifecycle.md](task-lifecycle.md). When `resultURL` is `null` or
-  absent, there is no downloadable artifact — do not synthesize one from
-  `resultData` or log URLs.
+  absent, there is no downloadable artifact. Do not synthesize one from
+  `resultData` or logs.
 - For connector actions (`oo connector run`): the artifact is whatever the
   action's `outputSchema` documents as a download URL, for example
   `transitUrl` on `googledrive.download_file`. Treat browse metadata such as
@@ -74,7 +84,7 @@ Eligibility rules:
   [connector-execution.md](connector-execution.md) for the storage-connector
   decision tree.
 
-Naming rules:
+## Naming guidance
 
 - Pass `--name "<descriptive base name>"` when the inferred filename would be
   opaque, such as a UUID, hash, task id, or generic `download` label.
@@ -82,7 +92,7 @@ Naming rules:
   one.
 - Omit `[outDir]` unless the user asked for a specific destination.
 
-Execution rules:
+## Execution rules
 
 - Use `oo file download` as the only downloader for remote artifacts produced by
   `oo`.
