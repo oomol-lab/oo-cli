@@ -17,6 +17,7 @@ const MAX_SEARCH_TEXT_LENGTH = 200;
 const SEARCH_CACHE_ID = "search.intent-response";
 const SEARCH_CACHE_MAX_ENTRIES = 100;
 const SEARCH_CACHE_TTL_MS = 30_000;
+const PACKAGE_SEARCH_EXCLUDED_SCOPE = "connector";
 const searchDisplayNameColor = "#59F78D";
 const searchBlockTitleColor = "#CAA8FA";
 
@@ -149,6 +150,7 @@ function createPackageSearchRequestUrl(
 
     requestUrl.searchParams.set("q", truncatePackageSearchText(text));
     requestUrl.searchParams.set("lang", resolveRequestLanguage(locale));
+    requestUrl.searchParams.set("excludeScopes", PACKAGE_SEARCH_EXCLUDED_SCOPE);
 
     return requestUrl;
 }

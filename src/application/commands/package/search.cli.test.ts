@@ -172,7 +172,7 @@ describe("packageSearchCommand CLI", () => {
             expectCliSnapshot(result);
             expect(requests).toHaveLength(1);
             expect(requests[0]?.url).toBe(
-                "https://search.oomol.com/v1/packages/-/intent-search?q=image+processing&lang=en",
+                "https://search.oomol.com/v1/packages/-/intent-search?q=image+processing&lang=en&excludeScopes=connector",
             );
             expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
         }
@@ -224,6 +224,9 @@ describe("packageSearchCommand CLI", () => {
             expect(
                 new URL(requests[0]!.url).searchParams.get("lang"),
             ).toBe("zh-CN");
+            expect(
+                new URL(requests[0]!.url).searchParams.get("excludeScopes"),
+            ).toBe("connector");
         }
         finally {
             await sandbox.cleanup();
