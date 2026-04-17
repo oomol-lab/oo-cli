@@ -102,7 +102,7 @@ Inspect `errorCode` before broader troubleshooting:
 For those cases, guide the user to:
 
 ```text
-https://console.oomol.dev/app-connections?provider=${serviceName}
+https://console.oomol.com/app-connections?provider=${serviceName}
 ```
 
 Replace `${serviceName}` with the selected connector service.
