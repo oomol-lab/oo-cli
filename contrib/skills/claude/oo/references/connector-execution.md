@@ -96,7 +96,7 @@ Inspect `errorCode` before broader troubleshooting:
   required scope and must be re-authorized
 - `credential_expired`: explain that the connector authorization has expired
   and must be re-authorized
-- `app_not_ready`: explain that the connector has not been authorized yet and
+- `app_not_ready` / `app_not_found`: explain that the connector has not been authorized yet and
   must be authorized before retrying
 
 For those cases, guide the user to:
