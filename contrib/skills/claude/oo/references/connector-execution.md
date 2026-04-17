@@ -40,12 +40,13 @@ Facts:
 - `--action` is required and selects the connector action name.
 - `--data` must be a JSON object string or `@path/to/file.json`.
 - If `--data` is omitted, the CLI uses `{}`.
-- `--dry-run` validates the payload without executing the action.
-- `--json` returns a stable JSON object for both dry-run and execution.
+- `--json` returns a stable JSON object for execution output.
 - The command refreshes schema metadata automatically when the cache is missing
   or unusable.
 - Use the action's cached `inputSchema` and normal JSON Schema required-field
   semantics before submitting data.
+- Once the payload is ready, execute the action directly instead of stopping at
+  a validation-only preflight.
 - In execution responses, the execution id is nested under
   `meta.executionId`, not a top-level field.
 
@@ -57,16 +58,6 @@ Expected execution JSON:
   "meta": {
     "executionId": "execution-id"
   }
-}
-```
-
-Expected dry-run JSON:
-
-```json
-{
-  "dryRun": true,
-  "ok": true,
-  "schemaPath": "<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json"
 }
 ```
 
