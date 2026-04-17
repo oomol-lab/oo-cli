@@ -63,6 +63,9 @@ step.
 5. Build the payload carefully.
    - Use only fields the selected block or action actually exposes.
    - Prefer concrete user-provided values over defaults or samples.
+   - For connector-backed storage tasks, treat browse metadata as metadata only.
+   - Do not treat fields such as `webViewLink`, edit URLs, folder URLs, or
+     console URLs as downloadable artifacts.
    - Ask one focused follow-up question when a required input is missing or too
      risky to infer.
 6. Execute the selected path.
@@ -75,6 +78,10 @@ step.
    - If a successful result exposes a remote artifact and a local copy would
      help the user, follow
      [references/file-transfer.md](references/file-transfer.md).
+   - Only pass an explicit download artifact into `oo file download`, such as a
+     package task's `resultURL` or a connector action's documented download URL
+     (for example `transitUrl` on `googledrive.download_file`).
+   - A browser or view link is not a remote artifact.
    - Do not probe or download the same artifact with `curl`, `wget`, Python, or
      any ad hoc downloader before or alongside `oo file download`.
 8. Report the outcome clearly.

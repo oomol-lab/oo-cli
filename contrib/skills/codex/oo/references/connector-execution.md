@@ -83,10 +83,35 @@ Practical implication:
 
 - If a handle is URI-compatible, a previously uploaded file's `downloadUrl`
   may be submitted as the JSON value.
+- Interpret connector output fields by their documented meaning, not by URL
+  shape alone.
+- Treat browse metadata such as `webViewLink`, edit URLs, folder URLs, or
+  console URLs as non-downloadable unless the schema or action description says
+  they return file content.
+- For authenticated storage connectors, if the user wants a local copy of a
+  private file, prefer a dedicated action whose `description` identifies it as
+  a download or export action and whose `outputSchema` exposes a download URL
+  field before `oo file download`.
 - Stop instead of pretending that raw file bytes, local paths, or unsupported
   special-media handles can be submitted safely through normal JSON payloads.
 - If a selected input needs file upload semantics, read
   [file-transfer.md](file-transfer.md) before executing.
+
+## Storage-style connectors
+
+When the connector manages user files (for example Google Drive, Dropbox,
+OneDrive), split the task into two steps:
+
+1. Locate the target with a `find_*` or `list_*` action. The output is
+   metadata. Fields such as `webViewLink`, edit URLs, or folder URLs cannot be
+   downloaded with `oo file download`.
+2. Materialize the file with a separate action whose `description` identifies
+   it as a download or export action and whose `outputSchema` exposes a
+   download URL field (for example `transitUrl` on
+   `googledrive.download_file`). Submit that URL to `oo file download`.
+
+Do not collapse these steps by feeding a step-1 browse link directly into
+`oo file download`.
 
 ## Re-authorization branches
 

@@ -55,6 +55,25 @@ Facts:
 - Successful saves print one localized human-readable line on stdout that
   includes the absolute saved path.
 
+Eligibility rules:
+
+- Use `oo file download` only for explicit download artifacts exposed by the
+  current `oo` execution path.
+- For package tasks (`oo cloud-task`): the artifact is the `resultURL` field
+  returned by `oo cloud-task result --json`. See
+  [task-lifecycle.md](task-lifecycle.md). When `resultURL` is `null` or
+  absent, there is no downloadable artifact — do not synthesize one from
+  `resultData` or log URLs.
+- For connector actions (`oo connector run`): the artifact is whatever the
+  action's `outputSchema` documents as a download URL, for example
+  `transitUrl` on `googledrive.download_file`. Treat browse metadata such as
+  `webViewLink`, edit URLs, folder URLs, or console pages as non-downloadable.
+  If only metadata came back, run a connector action whose `description`
+  identifies it as a download or export action and whose `outputSchema`
+  exposes a download URL field first — see
+  [connector-execution.md](connector-execution.md) for the storage-connector
+  decision tree.
+
 Naming rules:
 
 - Pass `--name "<descriptive base name>"` when the inferred filename would be
