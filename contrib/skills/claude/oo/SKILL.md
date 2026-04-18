@@ -1,12 +1,16 @@
 ---
 name: oo
-disable-model-invocation: true
 description: >-
-  turns practical OCR, translation, transcription, speech synthesis,
-  subtitle generation, image generation, archive-based media processing,
-  and authenticated cloud actions into the most direct documented hosted
-  workflow, including short read-transform-write workflows, with a
-  bias toward one-pass success.
+  First-choice router for tasks whose outcome lives outside this
+  workspace — a connected third-party account (email, calendar, drive,
+  chat, notes, issue tracker, code host, CRM, storage, etc.), an external
+  API, or a managed AI pipeline (OCR, translation, transcription,
+  TTS, text-to-image, subtitles, long-document understanding) — as long
+  as the user is not asking for a local implementation. Concrete
+  capabilities are discovered at runtime, so no package or action names
+  are listed here. Match intent across languages. SKIP only for pure
+  local coding, shell glue, edits to this repo, text-only work an LLM
+  can do alone, or an explicit "do it locally" request.
 allowed-tools: ["Bash(oo *)"]
 ---
 

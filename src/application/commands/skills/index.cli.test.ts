@@ -66,7 +66,6 @@ describe("skills CLI", () => {
             join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
             "oo-find-skills",
         );
-        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const findSkillsMetadataFilePath = resolveBundledSkillMetadataFilePath(
             findSkillsDirectoryPath,
@@ -85,12 +84,11 @@ describe("skills CLI", () => {
             expect(await realpath(skillDirectoryPath)).toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
-            await expect(stat(join(skillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
-                isFile: expect.any(Function),
-            });
-            expect(await readFile(ownershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: false",
-            );
+            for (const file of getBundledSkillFiles("oo")) {
+                expect(
+                    await readFile(join(skillDirectoryPath, file.relativePath), "utf8"),
+                ).toBe(await Bun.file(file.sourcePath).text());
+            }
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
             );

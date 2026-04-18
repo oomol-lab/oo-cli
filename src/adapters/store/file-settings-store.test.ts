@@ -132,7 +132,7 @@ describe("FileSettingsStore", () => {
                 "implicit_invocation = false",
                 "",
                 "[skills.oo]",
-                "implicit_invocation = false",
+                "implicit_invocation = true",
                 "",
             ].join("\n"),
             "utf8",

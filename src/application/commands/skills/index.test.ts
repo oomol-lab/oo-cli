@@ -57,13 +57,7 @@ describe("skills commands", () => {
             storePaths.settingsFilePath,
             "oo-find-skills",
         );
-        const ooOwnershipFilePath = join(ooSkillDirectoryPath, "agents", "openai.yaml");
         const ooMetadataFilePath = resolveBundledSkillMetadataFilePath(ooSkillDirectoryPath);
-        const findSkillsOwnershipFilePath = join(
-            findSkillsDirectoryPath,
-            "agents",
-            "openai.yaml",
-        );
         const findSkillsMetadataFilePath = resolveBundledSkillMetadataFilePath(
             findSkillsDirectoryPath,
         );
@@ -102,12 +96,6 @@ describe("skills commands", () => {
                     await readFile(join(findSkillsDirectoryPath, file.relativePath), "utf8"),
                 ).toBe(await Bun.file(file.sourcePath).text());
             }
-            expect(await readFile(ooOwnershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: false",
-            );
-            expect(await readFile(findSkillsOwnershipFilePath, "utf8")).toContain(
-                "allow_implicit_invocation: false",
-            );
             expect(await readFile(ooMetadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
             );

@@ -4,4 +4,4 @@ interface:
   default_prompt: "Use $oo when the user wants an existing hosted oo capability or a short read-transform-write workflow across existing oo connectors. Optimize for one-pass success: express a single-step task as one concise English goal, or a multi-step task as a short chain of subgoals, and search only for the current unresolved external step. Expand evidence gradually, ask at most one focused follow-up when a required value is truly missing, and keep every claim grounded in actual oo metadata, schema files, and command output. Remote capability execution must stay inside oo; only explicit artifact URLs are downloadable, while browse links and console pages are metadata."
 
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true
