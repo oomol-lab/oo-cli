@@ -19,7 +19,7 @@ import {
 
 type DownloadPlanContext = Pick<
     CliExecutionContext,
-    "fetcher" | "fileDownloadSessionStore" | "logger"
+    "fetcher" | "fileDownloadSessionStore" | "logger" | "translator"
 >;
 
 export async function resolveDownloadPlan(

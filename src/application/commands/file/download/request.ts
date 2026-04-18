@@ -4,7 +4,7 @@ import type { FileDownloadSessionRecord } from "../../../contracts/file-download
 import { CliUserError } from "../../../contracts/cli.ts";
 import { performLoggedRequest } from "../../shared/request.ts";
 
-type DownloadRequestContext = Pick<CliExecutionContext, "fetcher" | "logger">;
+type DownloadRequestContext = Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
 
 export async function requestFreshDownload(
     requestUrl: URL,

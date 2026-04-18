@@ -62,7 +62,7 @@ export async function loadPackageSearchResponse(
         locale: SupportedLocale;
         text: string;
     },
-    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger" | "translator">,
 ): Promise<ParsedPackageSearchResponse> {
     const requestUrl = createPackageSearchRequestUrl(
         options.account.endpoint,
@@ -170,7 +170,7 @@ function truncatePackageSearchText(text: string): string {
 async function requestPackageSearch(
     requestUrl: URL,
     apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<string> {
     return await requestText({
         context,
@@ -207,7 +207,7 @@ async function requestPackageSearch(
 async function loadPackageSearchResponseFromUrl(
     requestUrl: URL,
     account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">,
-    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger" | "translator">,
 ): Promise<ParsedPackageSearchResponse> {
     const searchCache = context.cacheStore.getCache<string>({
         id: SEARCH_CACHE_ID,

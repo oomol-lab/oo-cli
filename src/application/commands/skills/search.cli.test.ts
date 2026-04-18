@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createCliSnapshot,
+    createFailedToOpenSocketError,
     toRequest,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
@@ -241,6 +242,32 @@ describe("skills search CLI", () => {
                 result: createCliSnapshot(result),
             }).toMatchSnapshot();
             expect(result).toEqual(expectedHelp);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("adds a sandbox hint when the skills search request cannot open a socket", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "search", "text generation"],
+                {
+                    fetcher: async () => {
+                        throw createFailedToOpenSocketError("network down");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "The skills search request failed: network down\nCurrent environment may be running in a network-restricted sandbox. Try requesting elevated permissions.\n",
+            );
         }
         finally {
             await sandbox.cleanup();

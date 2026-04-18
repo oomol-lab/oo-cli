@@ -27,6 +27,7 @@ export const authLoginCommand: CliCommandDefinition = {
             endpoint: authEndpoint,
             fetcher: context.fetcher,
             logger: context.logger,
+            translator: context.translator,
         });
         const colors = createWriterColors(context.stdout);
 

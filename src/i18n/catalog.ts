@@ -13,6 +13,8 @@ export const enMessages = {
     "auth.status.activeAccount": "Active account",
     "auth.status.apiKeyInvalid": "Invalid",
     "auth.status.apiKeyRequestFailed": "Request failed",
+    "auth.status.apiKeyRequestFailedSandbox":
+        "Request failed (network-restricted sandbox, try requesting elevated permissions)",
     "auth.status.apiKeyStatus": "API key status",
     "auth.status.apiKeyValid": "Valid",
     "auth.status.loggedOut": "Not logged in to any OOMOL account.",
@@ -168,6 +170,8 @@ export const enMessages = {
         "Invalid format: {value}. Use json.",
     "errors.shared.invalidPositiveIntegerOption":
         "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
+    "errors.shared.networkRestrictedSandboxHint":
+        "Current environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
     "errors.cloudTask.invalidResponse":
         "The cloud task service returned an unsupported response body.",
     "errors.cloudTask.requestError":
@@ -571,6 +575,8 @@ export const zhMessages = {
     "auth.status.activeAccount": "当前激活账号",
     "auth.status.apiKeyInvalid": "无效",
     "auth.status.apiKeyRequestFailed": "请求失败",
+    "auth.status.apiKeyRequestFailedSandbox":
+        "请求失败（网络受限沙箱，请尝试提权）",
     "auth.status.apiKeyStatus": "API key 状态",
     "auth.status.apiKeyValid": "有效",
     "auth.status.loggedOut": "当前没有登录任何 OOMOL 账号。",
@@ -699,6 +705,8 @@ export const zhMessages = {
         "无效的 format：{value}。请使用 json。",
     "errors.shared.invalidPositiveIntegerOption":
         "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
+    "errors.shared.networkRestrictedSandboxHint":
+        "当前环境可能在网络受限的沙箱中，请尝试提权。",
     "errors.cloudTask.invalidResponse":
         "云任务服务返回了不受支持的响应内容。",
     "errors.cloudTask.requestError":

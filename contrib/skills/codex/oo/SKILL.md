@@ -20,6 +20,14 @@ build a local workaround.
 
 Read only the reference file needed for the current step.
 
+## Runtime note
+
+- The substantive `oo` commands used by this skill rely on outbound network
+  access.
+- If one of those commands fails because the environment cannot establish
+  outbound network connections in a sandboxed environment, request elevated
+  permissions and retry the same `oo` command before changing strategy.
+
 ## When to use this skill
 
 - When the user wants a hosted capability `oo` likely already exposes: OCR,

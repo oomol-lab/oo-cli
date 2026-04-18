@@ -10,6 +10,7 @@ import {
     createCache,
     createCacheStore,
 } from "../../../../__tests__/helpers.ts";
+import { createTranslator } from "../../../i18n/translator.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "./shared.ts";
 
 const packageInfoAccount = {
@@ -379,6 +380,7 @@ function createPackageInfoContext(
         logger: pino({
             enabled: false,
         }),
+        translator: createTranslator("en"),
     };
 }
 

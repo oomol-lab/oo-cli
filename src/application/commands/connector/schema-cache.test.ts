@@ -10,6 +10,7 @@ import {
     createConnectorActionFixture,
     createTemporaryDirectory,
 } from "../../../../__tests__/helpers.ts";
+import { createTranslator } from "../../../i18n/translator.ts";
 import {
     ensureConnectorActionSchemaReference,
     persistConnectorActionSchemaCache,
@@ -195,5 +196,6 @@ function createCacheContext(
                 updater(emptySettings),
             write: async (value: AppSettings) => value,
         },
+        translator: createTranslator("en"),
     };
 }

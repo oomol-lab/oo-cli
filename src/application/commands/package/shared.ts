@@ -174,7 +174,7 @@ export async function loadPackageInfo(
     packageSpecifier: ParsedPackageSpecifier,
     account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">,
     requestLanguage: RequestLanguage,
-    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger" | "translator">,
 ): Promise<PackageInfoResponse> {
     const packageInfoCache = context.cacheStore.getCache<string>({
         id: PACKAGE_INFO_CACHE_ID,
@@ -353,7 +353,7 @@ function createPackageInfoRequestUrl(
 async function requestPackageInfo(
     requestUrl: URL,
     apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<string> {
     const pathSegments = requestUrl.pathname.split("/");
     const packageName = decodeURIComponent(pathSegments.at(-2) ?? "");

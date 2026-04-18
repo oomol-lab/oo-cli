@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { createLogCapture } from "../../../../__tests__/helpers.ts";
+import {
+    createConnectionRefusedError,
+    createFailedToOpenSocketError,
+    createLogCapture,
+} from "../../../../__tests__/helpers.ts";
+import { createTranslator } from "../../../i18n/translator.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { executeCliRequest } from "./request.ts";
 
@@ -16,6 +21,7 @@ describe("executeCliRequest", () => {
                         status: 200,
                     }),
                     logger: logCapture.logger,
+                    translator: createTranslator("en"),
                 },
                 createRequestError: error => new CliUserError(
                     "errors.shared.requestError",
@@ -62,6 +68,7 @@ describe("executeCliRequest", () => {
                         status: 416,
                     }),
                     logger: logCapture.logger,
+                    translator: createTranslator("en"),
                 },
                 createRequestError: error => new CliUserError(
                     "errors.shared.requestError",
@@ -98,6 +105,7 @@ describe("executeCliRequest", () => {
                         status: 404,
                     }),
                     logger: logCapture.logger,
+                    translator: createTranslator("en"),
                 },
                 createRequestError: error => new CliUserError(
                     "errors.shared.requestError",
@@ -137,6 +145,7 @@ describe("executeCliRequest", () => {
                         throw new Error("network down");
                     },
                     logger: logCapture.logger,
+                    translator: createTranslator("en"),
                 },
                 createRequestError: error => new CliUserError(
                     "errors.shared.requestError",
@@ -164,6 +173,88 @@ describe("executeCliRequest", () => {
             expect(logCapture.read()).toContain(
                 "\"msg\":\"Shared request failed unexpectedly.\"",
             );
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("adds a sandbox network hint when the fetcher cannot open a socket", async () => {
+        const logCapture = createLogCapture();
+
+        try {
+            await expect(executeCliRequest({
+                context: {
+                    fetcher: async () => {
+                        throw createFailedToOpenSocketError("network down");
+                    },
+                    logger: logCapture.logger,
+                    translator: createTranslator("zh"),
+                },
+                createRequestError: error => new CliUserError(
+                    "errors.shared.requestError",
+                    1,
+                    {
+                        message: error instanceof Error ? error.message : String(error),
+                    },
+                ),
+                createRequestFailedError: status => new CliUserError(
+                    "errors.shared.requestFailed",
+                    1,
+                    {
+                        status,
+                    },
+                ),
+                label: "Shared",
+                requestUrl: new URL("https://example.com/items/1"),
+            })).rejects.toMatchObject({
+                key: "errors.shared.requestError",
+                params: {
+                    message:
+                        "network down\n当前环境可能在网络受限的沙箱中，请尝试提权。",
+                },
+            });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("adds a sandbox network hint when the fetcher connection is refused", async () => {
+        const logCapture = createLogCapture();
+
+        try {
+            await expect(executeCliRequest({
+                context: {
+                    fetcher: async () => {
+                        throw createConnectionRefusedError("connection refused");
+                    },
+                    logger: logCapture.logger,
+                    translator: createTranslator("zh"),
+                },
+                createRequestError: error => new CliUserError(
+                    "errors.shared.requestError",
+                    1,
+                    {
+                        message: error instanceof Error ? error.message : String(error),
+                    },
+                ),
+                createRequestFailedError: status => new CliUserError(
+                    "errors.shared.requestFailed",
+                    1,
+                    {
+                        status,
+                    },
+                ),
+                label: "Shared",
+                requestUrl: new URL("https://example.com/items/1"),
+            })).rejects.toMatchObject({
+                key: "errors.shared.requestError",
+                params: {
+                    message:
+                        "connection refused\n当前环境可能在网络受限的沙箱中，请尝试提权。",
+                },
+            });
         }
         finally {
             logCapture.close();

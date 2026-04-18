@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    createFailedToOpenSocketError,
     createLogCapture,
     toRequest,
 } from "../../../__tests__/helpers.ts";
+import { createTranslator } from "../../i18n/translator.ts";
 import { startAuthLoginSession } from "./login-flow.ts";
 
 describe("startAuthLoginSession", () => {
@@ -56,6 +58,7 @@ describe("startAuthLoginSession", () => {
                 },
                 logger: logCapture.logger,
                 sleep: async () => {},
+                translator: createTranslator("en"),
             });
 
             const account = await session.waitForAccount();
@@ -106,6 +109,7 @@ describe("startAuthLoginSession", () => {
                     verify_code_url: "https://oomol.com/login/device",
                 })),
                 logger: logCapture.logger,
+                translator: createTranslator("en"),
             })).rejects.toMatchObject({
                 key: "errors.auth.loginInvalidResponse",
             });
@@ -155,10 +159,35 @@ describe("startAuthLoginSession", () => {
                 sleep: async (ms) => {
                     nowMs += ms;
                 },
+                translator: createTranslator("en"),
             });
 
             await expect(session.waitForAccount()).rejects.toMatchObject({
                 key: "errors.auth.loginTimeout",
+            });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("appends the sandbox hint when the device login fetcher cannot open a socket", async () => {
+        const logCapture = createLogCapture();
+
+        try {
+            await expect(startAuthLoginSession({
+                endpoint: "oomol.com",
+                fetcher: async () => {
+                    throw createFailedToOpenSocketError("network down");
+                },
+                logger: logCapture.logger,
+                translator: createTranslator("zh"),
+            })).rejects.toMatchObject({
+                key: "errors.auth.loginRequestError",
+                params: {
+                    message:
+                        "network down\n当前环境可能在网络受限的沙箱中，请尝试提权。",
+                },
             });
         }
         finally {
