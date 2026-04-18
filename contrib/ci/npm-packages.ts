@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 
 import platformTargetsData from "../npm/platform-targets.json";
+import { createGitHubReleaseBundle } from "./release-bundle.ts";
+import { ensureReleaseVersion } from "./release-version.ts";
 
 interface PackageManifest {
     author?: string;
@@ -222,9 +224,23 @@ export async function buildNpmReleasePackages(options: {
     );
     tarballPaths.push(packPackage(wrapperDir, outDir));
 
+    const releaseBundlePath = await createGitHubReleaseBundle({
+        outDir,
+        releaseVersion,
+        stagingDir,
+        targets: selectedTargets.map(target => ({
+            executableFileName: target.executableFileName,
+            id: target.id,
+        })),
+    });
+
     writeFileSync(
         join(outDir, "npm-publish-order.txt"),
         `${tarballPaths.join("\n")}\n`,
+    );
+    writeFileSync(
+        join(outDir, "github-release-assets.txt"),
+        `${[...tarballPaths, releaseBundlePath].join("\n")}\n`,
     );
 
     return tarballPaths;
@@ -244,12 +260,6 @@ export function resolvePackageVersion(
     ensureReleaseVersion(resolvedVersion);
 
     return resolvedVersion;
-}
-
-function ensureReleaseVersion(releaseVersion: string): void {
-    if (releaseVersion.trim() === "") {
-        throw new Error("RELEASE_VERSION is required.");
-    }
 }
 
 export function selectPlatformTargets(targetIds: readonly string[] | undefined): readonly PlatformTarget[] {

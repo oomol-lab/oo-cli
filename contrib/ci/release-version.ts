@@ -1,5 +1,11 @@
 export type VersionBump = "patch" | "minor" | "major";
 
+export function ensureReleaseVersion(releaseVersion: string): void {
+    if (releaseVersion.trim() === "") {
+        throw new Error("RELEASE_VERSION is required.");
+    }
+}
+
 export interface ReleaseVersionResult {
     version: string;
     tagName: string;
