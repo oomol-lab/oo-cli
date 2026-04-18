@@ -121,7 +121,7 @@ function createSkillsSearchRequestUrl(
 async function requestSkillsSearch(
     requestUrl: URL,
     apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<string> {
     const keywordCount = requestUrl.searchParams.getAll("keywords").length;
 

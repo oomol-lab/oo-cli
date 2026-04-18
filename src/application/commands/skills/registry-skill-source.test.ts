@@ -6,6 +6,7 @@ import pino from "pino";
 import {
     toRequest,
 } from "../../../../__tests__/helpers.ts";
+import { createTranslator } from "../../../i18n/translator.ts";
 import {
     createRegistryPackageInfoRequestUrl,
     createRegistryPackageTarballRequestUrl,
@@ -122,11 +123,12 @@ describe("registry skill source", () => {
 
 function createRegistrySkillSourceContext(options: {
     fetcher: Fetcher;
-}): Pick<CliExecutionContext, "fetcher" | "logger"> {
+}): Pick<CliExecutionContext, "fetcher" | "logger" | "translator"> {
     return {
         fetcher: options.fetcher,
         logger: pino({
             enabled: false,
         }),
+        translator: createTranslator("en"),
     };
 }

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     createLogCapture,
 } from "../../../../../__tests__/helpers.ts";
+import { createTranslator } from "../../../../i18n/translator.ts";
 import {
     createDownloadSessionRecordFixture,
     expectCliUserError,
@@ -29,6 +30,7 @@ describe("requestFreshDownload", () => {
                     return response;
                 },
                 logger: logCapture.logger,
+                translator: createTranslator("en"),
             });
 
             expect(result).toBe(response);
@@ -50,6 +52,7 @@ describe("requestFreshDownload", () => {
                         status: 404,
                     }),
                     logger: logCapture.logger,
+                    translator: createTranslator("en"),
                 },
             ));
 
@@ -74,6 +77,7 @@ describe("requestFreshDownload", () => {
                         throw new Error("Connection dropped.");
                     },
                     logger: logCapture.logger,
+                    translator: createTranslator("en"),
                 },
             ));
 
@@ -111,6 +115,7 @@ describe("requestResumeDownload", () => {
                         });
                     },
                     logger: logCapture.logger,
+                    translator: createTranslator("en"),
                 },
                 7,
                 session,
@@ -145,6 +150,7 @@ describe("requestResumeDownload", () => {
                         });
                     },
                     logger: logCapture.logger,
+                    translator: createTranslator("en"),
                 },
                 10,
                 session,

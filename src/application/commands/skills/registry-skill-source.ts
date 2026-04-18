@@ -56,7 +56,7 @@ export function createRegistryPackageTarballRequestUrl(
 export async function loadRegistryPackageSkillInfo(
     packageName: string,
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<RegistryPackageSkillInfo> {
     const requestUrl = createRegistryPackageInfoRequestUrl(
         account.endpoint,
@@ -97,7 +97,7 @@ export async function downloadRegistryPackageTarball(
     packageName: string,
     packageVersion: string,
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<Uint8Array<ArrayBuffer>> {
     const requestUrl = createRegistryPackageTarballRequestUrl(
         account.endpoint,

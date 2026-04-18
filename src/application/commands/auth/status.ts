@@ -1,6 +1,7 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
 import type { AuthAccount } from "../../schemas/auth.ts";
+import { isNetworkRestrictedSandboxError } from "../shared/request.ts";
 import {
     emptyAuthCommandInputSchema,
     formatAuthStrong,
@@ -11,8 +12,14 @@ import {
 const apiKeyStatusConfig = {
     invalid: { tone: "danger", translationKey: "auth.status.apiKeyInvalid" },
     request_failed: { tone: "warning", translationKey: "auth.status.apiKeyRequestFailed" },
+    request_failed_sandbox: {
+        tone: "warning",
+        translationKey: "auth.status.apiKeyRequestFailedSandbox",
+    },
     valid: { tone: "success", translationKey: "auth.status.apiKeyValid" },
 } as const;
+
+type ApiKeyStatus = keyof typeof apiKeyStatusConfig;
 
 export const authStatusCommand: CliCommandDefinition = {
     name: "status",
@@ -71,7 +78,7 @@ export const authStatusCommand: CliCommandDefinition = {
 async function readApiKeyStatus(
     account: AuthAccount,
     context: Pick<CliExecutionContext, "fetcher" | "logger">,
-): Promise<"invalid" | "request_failed" | "valid"> {
+): Promise<ApiKeyStatus> {
     const requestStartedAt = Date.now();
     const requestUrl = `https://api.${account.endpoint}/v1/users/profile`;
 
@@ -114,6 +121,9 @@ async function readApiKeyStatus(
             },
             "Auth status request failed unexpectedly.",
         );
+        if (isNetworkRestrictedSandboxError(error)) {
+            return "request_failed_sandbox";
+        }
         return "request_failed";
     }
 }

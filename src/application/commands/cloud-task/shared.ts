@@ -170,7 +170,7 @@ export function createCloudTaskTaskUrl(
 export async function requestCloudTask(
     requestUrl: URL,
     apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
     options: {
         body?: string;
         method?: string;

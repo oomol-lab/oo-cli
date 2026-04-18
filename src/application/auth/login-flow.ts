@@ -1,8 +1,9 @@
 import type { Logger } from "pino";
 
-import type { Fetcher } from "../contracts/cli.ts";
+import type { CliExecutionContext, Fetcher } from "../contracts/cli.ts";
 import type { AuthAccount } from "../schemas/auth.ts";
 import { z } from "zod";
+import { getUnexpectedRequestErrorMessage } from "../commands/shared/request.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import {
     withAccountIdentity,
@@ -49,6 +50,7 @@ interface StartAuthLoginSessionOptions {
     endpoint: string;
     fetcher: Fetcher;
     logger: Logger;
+    translator: Pick<CliExecutionContext["translator"], "t">;
     now?: () => number;
     sleep?: (ms: number) => Promise<void>;
     pollIntervalMs?: number;
@@ -87,7 +89,10 @@ export async function startAuthLoginSession(
 async function waitForVerifiedAccount(
     state: string,
     expiresAt: number,
-    options: Pick<StartAuthLoginSessionOptions, "endpoint" | "fetcher" | "logger">,
+    options: Pick<
+        StartAuthLoginSessionOptions,
+        "endpoint" | "fetcher" | "logger" | "translator"
+    >,
     resolved: {
         now: () => number;
         pollIntervalMs: number;
@@ -176,7 +181,10 @@ async function requestDeviceLoginResult(
 
 async function requestDeviceLogin(
     requestUrl: URL,
-    options: Pick<StartAuthLoginSessionOptions, "fetcher" | "logger">,
+    options: Pick<
+        StartAuthLoginSessionOptions,
+        "fetcher" | "logger" | "translator"
+    >,
     requestOptions: {
         body?: string;
         kind: "code" | "result";
@@ -252,8 +260,9 @@ async function requestDeviceLogin(
             },
             "Auth device login request failed unexpectedly.",
         );
+
         throw new CliUserError("errors.auth.loginRequestError", 1, {
-            message: error instanceof Error ? error.message : String(error),
+            message: getUnexpectedRequestErrorMessage(error, options.translator),
         });
     }
 }

@@ -3,7 +3,7 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withRequestTarget } from "../../logging/log-fields.ts";
-import { requestText } from "../shared/request.ts";
+import { getUnexpectedRequestErrorMessage, requestText } from "../shared/request.ts";
 
 export const connectorActionDefinitionSchema = z.object({
     description: z.string().optional().default(""),
@@ -73,7 +73,7 @@ export async function searchConnectorActions(
         keywords: readonly string[];
         text: string;
     },
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorActionDefinition[]> {
     const requestUrl = new URL(
         `https://search.${options.endpoint}/v1/connector-actions`,
@@ -132,7 +132,7 @@ export async function listAuthenticatedConnectorServices(
         endpoint: string;
         services: readonly string[];
     },
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<Set<string>> {
     if (options.services.length === 0) {
         return new Set<string>();
@@ -195,7 +195,7 @@ export async function getConnectorActionMetadata(
         endpoint: string;
         serviceName: string;
     },
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorActionDefinition> {
     const requestUrl = createConnectorActionRequestUrl(
         options.endpoint,
@@ -251,7 +251,7 @@ export async function runConnectorAction(
         inputData: unknown;
         serviceName: string;
     },
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorActionRunResponse> {
     const requestUrl = createConnectorActionRequestUrl(
         options.endpoint,
@@ -345,7 +345,7 @@ export async function runConnectorAction(
         );
 
         throw new CliUserError("errors.connectorRun.requestError", 1, {
-            message: error instanceof Error ? error.message : String(error),
+            message: getUnexpectedRequestErrorMessage(error, context.translator),
         });
     }
 

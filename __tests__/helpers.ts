@@ -23,6 +23,10 @@ import { resolveStorePaths } from "../src/adapters/store/store-path.ts";
 import {
     executeCli as executeCliInvocation,
 } from "../src/application/bootstrap/run-cli.ts";
+import {
+    connectionRefusedErrorCode,
+    failedToOpenSocketErrorCode,
+} from "../src/application/commands/shared/request.ts";
 import { APP_NAME } from "../src/application/config/app-config.ts";
 import { CliUserError } from "../src/application/contracts/cli.ts";
 import { defaultSettings, renderSettingsFile } from "../src/application/schemas/settings.ts";
@@ -771,6 +775,26 @@ export function createCacheStore<Value>(
         },
         close() {},
     };
+}
+
+export function createFailedToOpenSocketError(
+    message: string,
+): Error & { code: typeof failedToOpenSocketErrorCode } {
+    const error = new Error(message) as Error & { code: typeof failedToOpenSocketErrorCode };
+
+    error.code = failedToOpenSocketErrorCode;
+
+    return error;
+}
+
+export function createConnectionRefusedError(
+    message: string,
+): Error & { code: typeof connectionRefusedErrorCode } {
+    const error = new Error(message) as Error & { code: typeof connectionRefusedErrorCode };
+
+    error.code = connectionRefusedErrorCode;
+
+    return error;
 }
 
 export function createCache<Value>(handlers: {

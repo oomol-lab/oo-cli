@@ -6,6 +6,8 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createCliSnapshot,
+    createConnectionRefusedError,
+    createFailedToOpenSocketError,
     defaultAuthEndpoint,
     findLoginUrl,
     readAuthLoginUrlPrefix,
@@ -355,6 +357,92 @@ describe("auth CLI", () => {
             expect(invalidRequests[0]?.url).toBe("https://api.oomol.com/v1/users/profile");
             expect(invalidRequests[0]?.headers.get("Authorization")).toBe("secret-1");
             expect(await readFile(authFilePath, "utf8")).toContain("api_key = \"secret-1\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports a sandbox hint when auth status cannot open a socket", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(
+                ["auth", "status"],
+                {
+                    fetcher: async () => {
+                        throw createFailedToOpenSocketError("network down");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Request failed (network-restricted sandbox, try requesting elevated permissions)",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports a sandbox hint when auth status connection is refused", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await Bun.write(
+                authFilePath,
+                [
+                    "id = \"user-1\"",
+                    "",
+                    "[[auth]]",
+                    "id = \"user-1\"",
+                    "name = \"Alice\"",
+                    "api_key = \"secret-1\"",
+                    "endpoint = \"oomol.com\"",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(
+                ["auth", "status"],
+                {
+                    fetcher: async () => {
+                        throw createConnectionRefusedError("connection refused");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Request failed (network-restricted sandbox, try requesting elevated permissions)",
+            );
         }
         finally {
             await sandbox.cleanup();

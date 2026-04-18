@@ -20,7 +20,7 @@ export async function ensureConnectorActionSchemaReference(
         endpoint: string;
         serviceName: string;
     },
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "settingsStore">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "settingsStore" | "translator">,
 ): Promise<ConnectorActionSchemaReference> {
     const schemaPath = resolveConnectorActionSchemaPath(
         context.settingsStore.getFilePath(),

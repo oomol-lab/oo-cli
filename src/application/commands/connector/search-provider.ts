@@ -29,7 +29,7 @@ export async function loadConnectorSearchResults(
         keywords: readonly string[];
         text: string;
     },
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "settingsStore">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "settingsStore" | "translator">,
 ): Promise<ConnectorSearchResult[]> {
     const actions = await searchConnectorActions(options, context);
 

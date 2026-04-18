@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { createLogCapture } from "../../../../__tests__/helpers.ts";
+import { createTranslator } from "../../../i18n/translator.ts";
 import { uploadFileParts } from "./shared.ts";
 
 describe("uploadFileParts", () => {
@@ -29,6 +30,7 @@ describe("uploadFileParts", () => {
                         throw new Error("network down");
                     },
                     logger: logCapture.logger,
+                    translator: createTranslator("en"),
                 },
             )).rejects.toMatchObject({
                 key: "errors.fileUpload.requestError",

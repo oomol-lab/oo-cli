@@ -109,7 +109,7 @@ export async function initFileUpload(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
     fileName: string,
     fileSize: number,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<InitFileUploadResponse> {
     const [baseName, extension] = splitFileNameAndExtension(fileName);
     const requestUrl = createFileUploadRequestUrl(account.endpoint, "init");
@@ -147,7 +147,7 @@ export async function initFileUpload(
 export async function uploadFileParts(
     file: SliceableBlob,
     session: InitFileUploadResponse,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<void> {
     for (let partNumber = 1; partNumber <= session.totalParts; partNumber += 1) {
         const presignedUrl = session.presignedUrls[String(partNumber)];
@@ -171,7 +171,7 @@ export async function uploadFileParts(
 export async function resolveUploadedFileUrl(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
     uploadId: string,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<FinalFileUploadResponse> {
     const requestUrl = createFileUploadRequestUrl(
         account.endpoint,
@@ -222,7 +222,7 @@ function createFileUploadRequestUrl(
 async function requestFileUpload(
     requestUrl: URL,
     apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
     options: {
         body?: string;
         method?: string;
@@ -281,7 +281,7 @@ async function uploadFilePart(
     presignedUrl: string,
     partData: Blob,
     partNumber: number,
-    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<void> {
     const requestUrl = new URL(presignedUrl);
 

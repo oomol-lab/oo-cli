@@ -3,7 +3,12 @@ import type { Fetcher } from "../../contracts/cli.ts";
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
-import { expectCliUserError, toRequest } from "../../../../__tests__/helpers.ts";
+import {
+    createFailedToOpenSocketError,
+    expectCliUserError,
+    toRequest,
+} from "../../../../__tests__/helpers.ts";
+import { createTranslator } from "../../../i18n/translator.ts";
 import {
     getConnectorActionMetadata,
     listAuthenticatedConnectorServices,
@@ -199,6 +204,29 @@ describe("connector shared requests", () => {
             status: 400,
         });
     });
+
+    test("runConnectorAction appends the sandbox hint when the fetcher cannot open a socket", async () => {
+        const error = await expectCliUserError(runConnectorAction(
+            {
+                actionName: "send_mail",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                inputData: {},
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async () => {
+                    throw createFailedToOpenSocketError("network down");
+                },
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorRun.requestError");
+        expect(error.params).toEqual({
+            message:
+                "network down\nCurrent environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
+        });
+    });
 });
 
 function createRequestContext(options: {
@@ -209,5 +237,6 @@ function createRequestContext(options: {
         logger: pino({
             enabled: false,
         }),
+        translator: createTranslator("en"),
     };
 }
