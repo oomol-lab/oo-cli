@@ -94,5 +94,5 @@ jobs:
 
       - name: Create GitHub Release
         run: |
-          mapfile -t release_assets < dist/npm-publish-order.txt
+          mapfile -t release_assets < dist/github-release-assets.txt
           bun run contrib/ci/release-workflow.ts create-github-release "${release_assets[@]}"

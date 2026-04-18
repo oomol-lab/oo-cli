@@ -43,7 +43,10 @@ describe("release-workflow", () => {
                 releaseTag: "v1.2.3",
                 previousTag: "v1.2.2",
                 target: "abc123",
-                assets: ["dist/oo-1.2.3.tgz"],
+                assets: [
+                    "dist/oo-1.2.3.tgz",
+                    "dist/oo-binaries.tgz",
+                ],
             }),
         ).toEqual([
             "gh",
@@ -51,6 +54,7 @@ describe("release-workflow", () => {
             "create",
             "v1.2.3",
             "dist/oo-1.2.3.tgz",
+            "dist/oo-binaries.tgz",
             "--target",
             "abc123",
             "--title",
@@ -68,7 +72,10 @@ describe("release-workflow", () => {
                 releaseTag: "v1.2.3",
                 previousTag: "",
                 target: "abc123",
-                assets: ["dist/oo-1.2.3.tgz"],
+                assets: [
+                    "dist/oo-1.2.3.tgz",
+                    "dist/oo-binaries.tgz",
+                ],
             }),
         ).toEqual([
             "gh",
@@ -76,6 +83,7 @@ describe("release-workflow", () => {
             "create",
             "v1.2.3",
             "dist/oo-1.2.3.tgz",
+            "dist/oo-binaries.tgz",
             "--target",
             "abc123",
             "--title",
