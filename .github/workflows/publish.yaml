@@ -96,3 +96,15 @@ jobs:
         run: |
           mapfile -t release_assets < dist/github-release-assets.txt
           bun run contrib/ci/release-workflow.ts create-github-release "${release_assets[@]}"
+
+  upload-release-binaries-to-oss:
+    needs:
+      - compute-version
+      - publish
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/upload-release-binaries-to-oss.yaml
+    with:
+      version: ${{ needs.compute-version.outputs.version }}
+    secrets: inherit
