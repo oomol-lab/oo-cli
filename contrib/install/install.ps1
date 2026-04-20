@@ -169,20 +169,14 @@ function Main {
     }
 }
 
-function Test-IsDotSourced {
-    if ($MyInvocation.InvocationName -eq ".") {
-        return $true
-    }
+$isDotSourced = $MyInvocation.InvocationName -eq "."
 
+if (-not $isDotSourced) {
     $invocationLine = $MyInvocation.Line
-
-    if ([string]::IsNullOrWhiteSpace($invocationLine)) {
-        return $false
-    }
-
-    return $invocationLine.TrimStart().StartsWith(". ")
+    $isDotSourced = -not [string]::IsNullOrWhiteSpace($invocationLine) -and `
+        $invocationLine.TrimStart().StartsWith(". ")
 }
 
-if (-not (Test-IsDotSourced)) {
+if (-not $isDotSourced) {
     Main -Arguments $InstallArguments
 }

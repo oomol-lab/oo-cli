@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, win32 } from "node:path";
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { createTemporaryDirectory, decodeSpawnOutput, useTemporaryDirectoryCleanup } from "../../__tests__/helpers.ts";
+import { createTemporaryDirectory, useTemporaryDirectoryCleanup } from "../../__tests__/helpers.ts";
 
 const installScriptPath = join(import.meta.dir, "install.cmd");
 const windowsCmdTest = process.platform === "win32" ? test : test.skip;
@@ -41,6 +41,7 @@ describe("install.cmd", () => {
             const rootDirectory = await createTemporaryDirectory("oo-install-cmd");
             const binDirectory = win32.join(rootDirectory, "bin");
             const downloadDirectory = win32.join(rootDirectory, "downloads");
+            const downloadedBinaryPath = win32.join(downloadDirectory, "oo-1.2.3-win32-x64.exe");
             const latestJsonUrl = "https://example.test/release/apps/oo-cli/latest.json";
             const binaryUrl = "https://example.test/release/apps/oo-cli/1.2.3/win32-x64/oo.exe";
 
@@ -84,21 +85,20 @@ describe("install.cmd", () => {
                 "utf8",
             );
             await chmod(win32.join(binDirectory, "curl.cmd"), 0o755);
-
-            const command = [
-                `set "PATH=${escapeCmdValue(`${binDirectory};%PATH%`)}"`,
-                "set \"OO_INSTALL_DOWNLOAD_BASE_URL=https://example.test/release/apps/oo-cli\"",
-                `set "OO_INSTALL_DOWNLOAD_DIR=${escapeCmdValue(downloadDirectory)}"`,
-                "set \"OO_INSTALL_PLATFORM=win32-x64\"",
-                "set \"OO_INSTALL_SKIP_RUN_INSTALL=1\"",
-                `call "${toWindowsPath(installScriptPath)}"`,
-                `if exist "${escapeCmdValue(win32.join(downloadDirectory, "oo-1.2.3-win32-x64.exe"))}" (echo EXISTS) else (echo MISSING)`,
-            ].join(" && ");
+            const commandPath = `${binDirectory};${process.env.Path ?? process.env.PATH ?? ""}`;
 
             const result = Bun.spawnSync(
-                ["cmd.exe", "/d", "/s", "/c", command],
+                ["cmd.exe", "/d", "/c", toWindowsPath(installScriptPath)],
                 {
-                    env: process.env,
+                    env: {
+                        ...process.env,
+                        OO_INSTALL_DOWNLOAD_BASE_URL: "https://example.test/release/apps/oo-cli",
+                        OO_INSTALL_DOWNLOAD_DIR: downloadDirectory,
+                        OO_INSTALL_PLATFORM: "win32-x64",
+                        OO_INSTALL_SKIP_RUN_INSTALL: "1",
+                        PATH: commandPath,
+                        Path: commandPath,
+                    },
                     stderr: "pipe",
                     stdin: "ignore",
                     stdout: "pipe",
@@ -106,14 +106,10 @@ describe("install.cmd", () => {
             );
 
             expect(result.exitCode).toBe(0);
-            expect(decodeSpawnOutput(result.stdout)).toContain("MISSING");
+            expect(await Bun.file(downloadedBinaryPath).exists()).toBeFalse();
         },
     );
 });
-
-function escapeCmdValue(value: string): string {
-    return value.replaceAll("\"", "\"\"");
-}
 
 function toWindowsPath(path: string): string {
     return path.replaceAll("/", "\\");
