@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { Database } from "bun:sqlite";
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import pino from "pino";
 import {
     downloadResumeSessionsTableName,
@@ -246,6 +246,28 @@ export async function waitForOutputText(
 
 export async function createTemporaryDirectory(prefix: string): Promise<string> {
     return mkdtemp(join(tmpdir(), `${prefix}-`));
+}
+
+export function useTemporaryDirectoryCleanup(): { track: (directory: string) => void } {
+    const tracked: string[] = [];
+
+    afterEach(async () => {
+        await Promise.all(
+            tracked.splice(0).map(directory =>
+                rm(directory, { force: true, recursive: true }),
+            ),
+        );
+    });
+
+    return {
+        track(directory: string): void {
+            tracked.push(directory);
+        },
+    };
+}
+
+export function decodeSpawnOutput(output: Uint8Array): string {
+    return new TextDecoder().decode(output);
 }
 
 export function createLogCapture(): LogCapture {
