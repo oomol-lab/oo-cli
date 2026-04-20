@@ -1,7 +1,6 @@
-import type { ReleaseVersionResult } from "./release-version.ts";
-import { appendFile } from "node:fs/promises";
-
 import process from "node:process";
+
+import { writeGitHubOutputText } from "./github-actions.ts";
 import {
     computeReleaseVersion,
     formatGitHubOutput,
@@ -30,19 +29,6 @@ export function listGitTags(): string[] {
         .filter(tag => tag !== "");
 }
 
-export async function writeGitHubOutput(result: ReleaseVersionResult): Promise<void> {
-    const githubOutputPath = process.env.GITHUB_OUTPUT;
-    const formattedOutput = formatGitHubOutput(result);
-
-    if (githubOutputPath === undefined || githubOutputPath === "") {
-        process.stdout.write(JSON.stringify(result, null, 2));
-        process.stdout.write("\n");
-        return;
-    }
-
-    await appendFile(githubOutputPath, formattedOutput, "utf8");
-}
-
 export async function main(): Promise<void> {
     const tags = listGitTags();
     const releaseVersion = computeReleaseVersion({
@@ -50,8 +36,15 @@ export async function main(): Promise<void> {
         versionBump: readVersionBump(process.env.VERSION_BUMP),
         tags,
     });
+    const formattedOutput = formatGitHubOutput(releaseVersion);
 
-    await writeGitHubOutput(releaseVersion);
+    if (process.env.GITHUB_OUTPUT === undefined || process.env.GITHUB_OUTPUT === "") {
+        process.stdout.write(JSON.stringify(releaseVersion, null, 2));
+        process.stdout.write("\n");
+        return;
+    }
+
+    await writeGitHubOutputText(formattedOutput);
 }
 
 if (import.meta.main) {

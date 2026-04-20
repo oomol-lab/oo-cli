@@ -1,9 +1,10 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
+import { writeReleaseBundleBinaryFixture } from "./__tests__/helpers.ts";
 import {
     buildReleaseBundleManifest,
     createGitHubReleaseBundle,
@@ -97,21 +98,3 @@ describe("release bundle", () => {
         expect(() => buildReleaseBundleManifest("")).toThrow("RELEASE_VERSION is required.");
     });
 });
-
-async function writeReleaseBundleBinaryFixture(
-    stagingDirectoryPath: string,
-    targetId: string,
-    executableFileName: string,
-): Promise<void> {
-    const outputPath = join(
-        stagingDirectoryPath,
-        targetId,
-        "bin",
-        executableFileName,
-    );
-
-    await mkdir(join(stagingDirectoryPath, targetId, "bin"), {
-        recursive: true,
-    });
-    await writeFile(outputPath, `${targetId}\n`);
-}

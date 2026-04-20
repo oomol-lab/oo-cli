@@ -1,0 +1,153 @@
+name: Upload Release Binaries To OSS
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version to upload. Accepts values like 1.2.3 or v1.2.3.
+        required: true
+        type: string
+    secrets:
+      ACCESS_REPO:
+        required: false
+    outputs:
+      oss_uri:
+        description: OSS directory that stores the uploaded release bundle
+        value: ${{ jobs.upload_release_binaries.outputs.oss_uri }}
+      release_tag:
+        description: Git tag used to download the GitHub release asset
+        value: ${{ jobs.upload_release_binaries.outputs.release_tag }}
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version to upload. Accepts values like 1.2.3 or v1.2.3.
+        required: true
+        type: string
+
+env:
+  RELEASE_ARCHIVE_NAME: oo-binaries.tgz
+  RELEASE_ARCHIVE_PATH: dist/oo-binaries.tgz
+  RELEASE_EXTRACT_DIR: dist/oo-binaries
+  RELEASE_UPLOAD_DIR: dist/oo-binaries-upload
+  RELEASE_SOURCE_REPOSITORY: oomol-lab/oo-cli
+  OSS_BUCKET: oomol-static-cn-prod
+  OSS_ENDPOINT: https://oss-cn-hangzhou.aliyuncs.com
+  OSS_PREFIX: release/apps/oo-cli
+  OSS_REGION: cn-hangzhou
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: upload-release-binaries-to-oss-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  upload_release_binaries:
+    runs-on: ubuntu-latest
+    outputs:
+      oss_uri: ${{ steps.prepare.outputs.oss_uri }}
+      release_tag: ${{ steps.prepare.outputs.release_tag }}
+
+    env:
+      GH_TOKEN: ${{ secrets.ACCESS_REPO || github.token }}
+
+    steps:
+      - name: Resolve workflow source
+        id: workflow_source
+        env:
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+
+          workflow_repository="${WORKFLOW_REF%%/.github/workflows/*}"
+          workflow_ref="${WORKFLOW_REF##*@}"
+
+          [ -n "${workflow_repository}" ] || {
+            echo "workflow repository could not be resolved" >&2
+            exit 1
+          }
+          [ -n "${workflow_ref}" ] || {
+            echo "workflow ref could not be resolved" >&2
+            exit 1
+          }
+
+          echo "repository=${workflow_repository}" >> "${GITHUB_OUTPUT}"
+          echo "ref=${workflow_ref}" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout workflow source
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: ${{ steps.workflow_source.outputs.repository }}
+          ref: ${{ steps.workflow_source.outputs.ref }}
+          token: ${{ secrets.ACCESS_REPO || github.token }}
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Configure Alibaba Cloud CLI
+        id: aliyun_credentials
+        uses: aliyun/configure-aliyun-credentials-action@v1.1.0
+        with:
+          role-to-assume: ${{ vars.ALIYUN_INTERNAL_ROLE }}
+          oidc-provider-arn: ${{ vars.ALIYUN_OIDC_PROVIDER }}
+          role-session-name: github-action-session
+          role-session-expiration: 1800
+          audience: https://github.com/oomol
+
+      - name: Setup rclone
+        env:
+          ALICLOUD_ACCESS_KEY_ID: ${{ steps.aliyun_credentials.outputs.aliyun-access-key-id }}
+          ALICLOUD_ACCESS_KEY_SECRET: ${{ steps.aliyun_credentials.outputs.aliyun-access-key-secret }}
+          ALICLOUD_SECURITY_TOKEN: ${{ steps.aliyun_credentials.outputs.aliyun-security-token }}
+        run: |
+          set -euo pipefail
+
+          if ! command -v rclone >/dev/null 2>&1; then
+            curl -fsSL https://rclone.org/install.sh | sudo bash
+          fi
+
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [oss]
+          type = s3
+          provider = Alibaba
+          access_key_id = ${ALICLOUD_ACCESS_KEY_ID}
+          secret_access_key = ${ALICLOUD_ACCESS_KEY_SECRET}
+          endpoint = ${OSS_ENDPOINT}
+          region = ${OSS_REGION}
+          session_token = ${ALICLOUD_SECURITY_TOKEN}
+          EOF
+
+      - name: Prepare release bundle upload
+        id: prepare
+        run: |
+          set -euo pipefail
+
+          bun run contrib/ci/upload-release-binaries-to-oss.ts prepare-upload \
+            --version "${{ inputs.version }}" \
+            --archive-name "${RELEASE_ARCHIVE_NAME}" \
+            --archive-path "${RELEASE_ARCHIVE_PATH}" \
+            --extract-dir "${RELEASE_EXTRACT_DIR}" \
+            --source-repository "${RELEASE_SOURCE_REPOSITORY}" \
+            --upload-dir "${RELEASE_UPLOAD_DIR}" \
+            --oss-bucket "${OSS_BUCKET}" \
+            --oss-prefix "${OSS_PREFIX}"
+
+      - name: Upload release bundle to OSS
+        run: |
+          set -euo pipefail
+
+          rclone copy \
+            "${{ steps.prepare.outputs.upload_root }}" \
+            "${{ steps.prepare.outputs.oss_uri }}" \
+            --progress \
+            --retries 5 \
+            --retries-sleep 10s \
+            --low-level-retries 10
+
+          echo "Uploaded ${RELEASE_ARCHIVE_NAME} for ${{ steps.prepare.outputs.release_version }} to ${{ steps.prepare.outputs.oss_uri }}"
