@@ -1,0 +1,38 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`install CLI renders install help in English and Chinese 1`] = `
+{
+  "chineseHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"将当前运行中的 oo 二进制安装到用户级 bin 目录。
+
+选项：
+  -h, --help     显示命令帮助
+
+全局选项：
+  -V, --version  显示当前版本
+  --debug        在 CLI 退出时打印当前日志文件路径
+  --lang <lang>  指定显示语言
+"
+,
+  },
+  "englishHelp": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Install the current oo binary into the user-level bin directory.
+
+Options:
+  -h, --help     Show help for command
+
+Global Options:
+  -V, --version  Show the current version
+  --debug        Print the current log file path when the CLI exits
+  --lang <lang>  Specify the display language
+"
+,
+  },
+}
+`;

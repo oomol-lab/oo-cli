@@ -50,8 +50,9 @@ function buildCompletionNodes(
         commands: readonly CliCommandDefinition[],
         argumentChoices: readonly (readonly string[])[] = [],
     ): void => {
+        const visibleCommands = commands.filter(command => command.hidden !== true);
         const pathKey = path.join(" ");
-        const childCommands = commands.map(command => ({
+        const childCommands = visibleCommands.map(command => ({
             name: command.name,
             summary: translator.t(command.summaryKey),
         }));
@@ -79,7 +80,7 @@ function buildCompletionNodes(
             argumentChoices,
         });
 
-        for (const command of commands) {
+        for (const command of visibleCommands) {
             visit(
                 [...path, command.name],
                 command.children ?? [],

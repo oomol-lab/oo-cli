@@ -14,6 +14,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("completion");
         expect(output).toContain("config");
         expect(output).toContain("connector");
+        expect(output).not.toContain(`"|install")`);
         expect(output).toContain("login");
         expect(output).toContain("logout");
         expect(output).toContain("packages");
@@ -30,6 +31,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("auth switch");
         expect(output).toContain("config set");
         expect(output).toContain("connector run");
+        expect(output).not.toContain(`"|install")`);
         expect(output).toContain("packages search");
         expect(output).toContain("search");
         expect(output).toContain(`compdef _${APP_NAME} ${APP_NAME}`);
@@ -45,6 +47,9 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("completion");
         expect(output).toContain("config");
         expect(output).toContain("connector");
+        expect(output).not.toContain(
+            `complete -c ${APP_NAME} -n '__fish_use_subcommand' -a 'install'`,
+        );
         expect(output).toContain("login");
         expect(output).toContain("logout");
         expect(output).toContain("__fish_seen_subcommand_from packages");

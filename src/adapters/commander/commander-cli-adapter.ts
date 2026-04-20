@@ -102,7 +102,9 @@ export class CommanderCliAdapter {
         definition: CliCommandDefinition,
         context: CliExecutionContext,
     ): void {
-        const command = parent.command(definition.name);
+        const command = parent.command(definition.name, {
+            hidden: definition.hidden === true,
+        });
         configureCommand(command, definition, context.translator);
 
         for (const child of definition.children ?? []) {
