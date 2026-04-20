@@ -1,10 +1,10 @@
-import type { CliRunResult } from "../../../__tests__/helpers.ts";
+import type { CliRunResult } from "../../__tests__/helpers.ts";
 import { chmod, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
-import { createTemporaryDirectory, useTemporaryDirectoryCleanup } from "../../../__tests__/helpers.ts";
+import { createTemporaryDirectory, useTemporaryDirectoryCleanup } from "../../__tests__/helpers.ts";
 
 const installScriptPath = join(import.meta.dir, "install.sh");
 const { track: trackDirectory } = useTemporaryDirectoryCleanup();

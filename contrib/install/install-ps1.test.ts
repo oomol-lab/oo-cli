@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join, win32 } from "node:path";
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { createTemporaryDirectory, decodeSpawnOutput, useTemporaryDirectoryCleanup } from "../../../__tests__/helpers.ts";
+import { createTemporaryDirectory, decodeSpawnOutput, useTemporaryDirectoryCleanup } from "../../__tests__/helpers.ts";
 
 const installScriptPath = join(import.meta.dir, "install.ps1");
 const powerShellCommand = resolvePowerShellCommand();

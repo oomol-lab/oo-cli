@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, win32 } from "node:path";
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { createTemporaryDirectory, decodeSpawnOutput, useTemporaryDirectoryCleanup } from "../../../__tests__/helpers.ts";
+import { createTemporaryDirectory, decodeSpawnOutput, useTemporaryDirectoryCleanup } from "../../__tests__/helpers.ts";
 
 const installScriptPath = join(import.meta.dir, "install.cmd");
 const windowsCmdTest = process.platform === "win32" ? test : test.skip;
