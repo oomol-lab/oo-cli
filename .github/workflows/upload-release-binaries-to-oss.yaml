@@ -7,9 +7,6 @@ on:
         description: Release version to upload. Accepts values like 1.2.3 or v1.2.3.
         required: true
         type: string
-    secrets:
-      ACCESS_REPO:
-        required: false
     outputs:
       oss_uri:
         description: OSS parent directory that stores latest.json and version directories
@@ -51,7 +48,7 @@ jobs:
       release_tag: ${{ steps.prepare.outputs.release_tag }}
 
     env:
-      GH_TOKEN: ${{ secrets.ACCESS_REPO || github.token }}
+      GH_TOKEN: ${{ github.token }}
 
     steps:
       - name: Resolve workflow source
@@ -81,7 +78,7 @@ jobs:
         with:
           repository: ${{ steps.workflow_source.outputs.repository }}
           ref: ${{ steps.workflow_source.outputs.ref }}
-          token: ${{ secrets.ACCESS_REPO || github.token }}
+          token: ${{ github.token }}
           persist-credentials: false
 
       - name: Setup Bun
