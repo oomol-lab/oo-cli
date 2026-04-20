@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
 import { writeReleaseBundleBinaryFixture } from "./__tests__/helpers.ts";
-import { createGitHubReleaseBundle } from "./release-bundle.ts";
+import { createGitHubReleaseBundle, releaseBundleLatestFileName } from "./release-bundle.ts";
 import {
     buildOssUri,
     buildReleaseDownloadCommand,
@@ -88,19 +88,19 @@ describe("upload-release-binaries-to-oss", () => {
             });
 
             expect(result).toEqual({
-                ossUri: "oss:oomol-static-cn-prod/release/apps/oo-cli/1.2.3",
+                ossUri: "oss:oomol-static-cn-prod/release/apps/oo-cli",
                 releaseTag: "v1.2.3",
                 releaseVersion: "1.2.3",
-                uploadRoot: join(uploadDirectoryPath, "1.2.3"),
+                uploadRoot: uploadDirectoryPath,
             });
             expect(
-                await readFile(join(result.uploadRoot, "manifest.json"), "utf8"),
+                await readFile(join(result.uploadRoot, releaseBundleLatestFileName), "utf8"),
             ).toBe("{\n  \"version\": \"1.2.3\"\n}\n");
             expect(
-                await readFile(join(result.uploadRoot, "darwin-arm64", "oo"), "utf8"),
+                await readFile(join(result.uploadRoot, releaseVersion, "darwin-arm64", "oo"), "utf8"),
             ).toBe("darwin-arm64\n");
             expect(
-                await readFile(join(result.uploadRoot, "linux-x64", "oo"), "utf8"),
+                await readFile(join(result.uploadRoot, releaseVersion, "linux-x64", "oo"), "utf8"),
             ).toBe("linux-x64-gnu\n");
         }
         finally {
@@ -108,7 +108,7 @@ describe("upload-release-binaries-to-oss", () => {
         }
     });
 
-    test("rejects release bundles whose manifest version does not match", async () => {
+    test("rejects release bundles whose latest version does not match", async () => {
         const rootDirectoryPath = await createTemporaryDirectory("oo-release-upload-mismatch");
         const archivePath = join(rootDirectoryPath, "dist", "oo-binaries.tgz");
 
@@ -118,7 +118,7 @@ describe("upload-release-binaries-to-oss", () => {
                 archivePath,
                 await new Bun.Archive({
                     "1.2.3/darwin-arm64/oo": "darwin-arm64\n",
-                    "manifest.json": "{\n  \"version\": \"9.9.9\"\n}\n",
+                    [releaseBundleLatestFileName]: "{\n  \"version\": \"9.9.9\"\n}\n",
                 }, {
                     compress: "gzip",
                 }).bytes(),
@@ -134,7 +134,7 @@ describe("upload-release-binaries-to-oss", () => {
                     version: "1.2.3",
                 }),
             ).rejects.toThrow(
-                "release manifest version 9.9.9 does not match 1.2.3",
+                "release latest version 9.9.9 does not match 1.2.3",
             );
         }
         finally {
@@ -145,20 +145,16 @@ describe("upload-release-binaries-to-oss", () => {
     test("formats OSS outputs for GitHub Actions", () => {
         expect(
             formatGitHubOutput({
-                ossUri: buildOssUri(
-                    "oomol-static-cn-prod",
-                    "release/apps/oo-cli",
-                    "1.2.3",
-                ),
+                ossUri: buildOssUri("oomol-static-cn-prod", "release/apps/oo-cli"),
                 releaseTag: "v1.2.3",
                 releaseVersion: "1.2.3",
-                uploadRoot: "/tmp/upload/1.2.3",
+                uploadRoot: "/tmp/upload",
             }),
         ).toBe(
-            "oss_uri=oss:oomol-static-cn-prod/release/apps/oo-cli/1.2.3\n"
+            "oss_uri=oss:oomol-static-cn-prod/release/apps/oo-cli\n"
             + "release_tag=v1.2.3\n"
             + "release_version=1.2.3\n"
-            + "upload_root=/tmp/upload/1.2.3\n",
+            + "upload_root=/tmp/upload\n",
         );
     });
 });

@@ -9,6 +9,7 @@ interface ReleaseBundleTarget {
 }
 
 export const releaseBundleFileName = "oo-binaries.tgz";
+export const releaseBundleLatestFileName = "latest.json";
 
 const releaseTargetDirectoryById = {
     "darwin-arm64": "darwin-arm64",
@@ -21,7 +22,7 @@ const releaseTargetDirectoryById = {
     "win32-x64": "win32-x64",
 } as const satisfies Record<string, string>;
 
-export function buildReleaseBundleManifest(releaseVersion: string): string {
+export function buildReleaseBundleLatestMetadata(releaseVersion: string): string {
     ensureReleaseVersion(releaseVersion);
 
     return `${JSON.stringify({ version: releaseVersion }, null, 2)}\n`;
@@ -80,7 +81,7 @@ async function buildReleaseBundleArchiveEntries(options: {
     );
 
     return {
-        "manifest.json": buildReleaseBundleManifest(options.releaseVersion),
+        [releaseBundleLatestFileName]: buildReleaseBundleLatestMetadata(options.releaseVersion),
         ...Object.fromEntries(targetEntries),
     };
 }

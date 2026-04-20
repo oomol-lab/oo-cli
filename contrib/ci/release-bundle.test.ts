@@ -6,9 +6,10 @@ import { describe, expect, test } from "bun:test";
 import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
 import { writeReleaseBundleBinaryFixture } from "./__tests__/helpers.ts";
 import {
-    buildReleaseBundleManifest,
+    buildReleaseBundleLatestMetadata,
     createGitHubReleaseBundle,
     releaseBundleFileName,
+    releaseBundleLatestFileName,
     resolveReleaseBundleTargetDirectory,
 } from "./release-bundle.ts";
 
@@ -56,8 +57,8 @@ describe("release bundle", () => {
             await archive.extract(extractDirectoryPath);
 
             expect(
-                await readFile(join(extractDirectoryPath, "manifest.json"), "utf8"),
-            ).toBe(buildReleaseBundleManifest(releaseVersion));
+                await readFile(join(extractDirectoryPath, releaseBundleLatestFileName), "utf8"),
+            ).toBe(buildReleaseBundleLatestMetadata(releaseVersion));
 
             for (const target of targets) {
                 expect(
@@ -95,6 +96,6 @@ describe("release bundle", () => {
     });
 
     test("rejects an empty release version", () => {
-        expect(() => buildReleaseBundleManifest("")).toThrow("RELEASE_VERSION is required.");
+        expect(() => buildReleaseBundleLatestMetadata("")).toThrow("RELEASE_VERSION is required.");
     });
 });

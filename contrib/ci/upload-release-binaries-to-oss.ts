@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 
 import { writeGitHubOutputText } from "./github-actions.ts";
+import { releaseBundleLatestFileName } from "./release-bundle.ts";
 import { normalizeExpectedVersion } from "./release-version.ts";
 
 interface NormalizedReleaseVersion {
@@ -56,10 +57,10 @@ export function buildReleaseDownloadCommand(input: ReleaseDownloadCommandInput):
     ];
 }
 
-export function buildOssUri(bucket: string, prefix: string, releaseVersion: string): string {
+export function buildOssUri(bucket: string, prefix: string): string {
     const prefixSegments = splitOssPathSegments(prefix);
 
-    return `oss:${[bucket, ...prefixSegments, releaseVersion].join("/")}`;
+    return `oss:${[bucket, ...prefixSegments].join("/")}`;
 }
 
 export function formatGitHubOutput(result: PrepareReleaseBundleUploadResult): string {
@@ -89,30 +90,28 @@ export async function prepareReleaseBundleUpload(
     const archive = new Bun.Archive(await Bun.file(options.archivePath).bytes());
     await archive.extract(options.extractDir);
 
-    const manifestPath = join(options.extractDir, "manifest.json");
-    const manifestVersion = await readReleaseManifestVersion(manifestPath);
+    const latestFilePath = join(options.extractDir, releaseBundleLatestFileName);
+    const latestVersion = await readReleaseBundleLatestVersion(latestFilePath);
 
-    if (manifestVersion !== normalizedVersion.releaseVersion) {
+    if (latestVersion !== normalizedVersion.releaseVersion) {
         throw new Error(
-            `release manifest version ${manifestVersion} does not match ${
+            `release latest version ${latestVersion} does not match ${
                 normalizedVersion.releaseVersion}`,
         );
     }
 
     const versionRoot = join(options.extractDir, normalizedVersion.releaseVersion);
-    const uploadRoot = join(options.uploadDir, normalizedVersion.releaseVersion);
-    await rename(versionRoot, uploadRoot);
-    await rename(manifestPath, join(uploadRoot, "manifest.json"));
+    const uploadVersionRoot = join(options.uploadDir, normalizedVersion.releaseVersion);
+    await Promise.all([
+        rename(versionRoot, uploadVersionRoot),
+        rename(latestFilePath, join(options.uploadDir, releaseBundleLatestFileName)),
+    ]);
 
     return {
-        ossUri: buildOssUri(
-            options.ossBucket,
-            options.ossPrefix,
-            normalizedVersion.releaseVersion,
-        ),
+        ossUri: buildOssUri(options.ossBucket, options.ossPrefix),
         releaseTag: normalizedVersion.releaseTag,
         releaseVersion: normalizedVersion.releaseVersion,
-        uploadRoot,
+        uploadRoot: options.uploadDir,
     };
 }
 
@@ -129,13 +128,13 @@ async function downloadReleaseArchive(input: ReleaseDownloadCommandInput): Promi
     }
 }
 
-async function readReleaseManifestVersion(manifestPath: string): Promise<string> {
-    const manifest = await Bun.file(manifestPath).json() as { version?: unknown };
-    if (typeof manifest.version !== "string" || manifest.version === "") {
-        throw new Error("release manifest version is missing");
+async function readReleaseBundleLatestVersion(latestFilePath: string): Promise<string> {
+    const latestMetadata = await Bun.file(latestFilePath).json() as { version?: unknown };
+    if (typeof latestMetadata.version !== "string" || latestMetadata.version === "") {
+        throw new Error("release latest version is missing");
     }
 
-    return manifest.version;
+    return latestMetadata.version;
 }
 
 function splitOssPathSegments(value: string): string[] {
