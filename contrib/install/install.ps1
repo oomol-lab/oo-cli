@@ -163,6 +163,20 @@ function Main {
     }
 }
 
-if ($MyInvocation.InvocationName -ne ".") {
+function Test-IsDotSourced {
+    if ($MyInvocation.InvocationName -eq ".") {
+        return $true
+    }
+
+    $invocationLine = $MyInvocation.Line
+
+    if ([string]::IsNullOrWhiteSpace($invocationLine)) {
+        return $false
+    }
+
+    return $invocationLine.TrimStart().StartsWith(". ")
+}
+
+if (-not (Test-IsDotSourced)) {
     Main -Arguments $InstallArguments
 }

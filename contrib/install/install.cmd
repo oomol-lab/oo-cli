@@ -19,17 +19,17 @@ if errorlevel 1 (
     exit /b 1
 )
 
-call :get_latest_version VERSION
-if errorlevel 1 exit /b 1
-
-call :resolve_platform PLATFORM
-if errorlevel 1 exit /b 1
-
 if not exist "%DOWNLOAD_DIR%" mkdir "%DOWNLOAD_DIR%"
 if errorlevel 1 (
     call :fail "Failed to create download directory: %DOWNLOAD_DIR%"
     exit /b 1
 )
+
+call :get_latest_version VERSION
+if errorlevel 1 exit /b 1
+
+call :resolve_platform PLATFORM
+if errorlevel 1 exit /b 1
 
 set "BINARY_URL=%DOWNLOAD_BASE_URL%/%VERSION%/%PLATFORM%/oo.exe"
 set "DOWNLOADED_BINARY_PATH=%DOWNLOAD_DIR%\oo-%VERSION%-%PLATFORM%.exe"
