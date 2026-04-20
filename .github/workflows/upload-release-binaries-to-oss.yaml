@@ -97,7 +97,7 @@ jobs:
           oidc-provider-arn: ${{ vars.ALIYUN_OIDC_PROVIDER }}
           role-session-name: github-action-session
           role-session-expiration: 1800
-          audience: https://github.com/oomol
+          audience: https://github.com/oomol-lab
 
       - name: Setup rclone
         env:
