@@ -67,9 +67,9 @@ function Resolve-Platform {
 
     Assert-Windows
 
-    $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-        .ToString()
-        .ToLowerInvariant()
+    $architecture = (
+        [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+    ).ToString().ToLowerInvariant()
 
     switch ($architecture) {
         "arm64" {
@@ -115,10 +115,6 @@ function Invoke-InstallCommand {
         [string[]]$Arguments = @()
     )
 
-    if ($env:OO_INSTALL_SKIP_RUN_INSTALL -eq "1") {
-        return
-    }
-
     & $BinaryPath install @Arguments
 }
 
@@ -141,6 +137,8 @@ function Main {
         [string[]]$Arguments = @()
     )
 
+    [int]$installExitCode = 0
+
     if ([string]::IsNullOrWhiteSpace($script:DownloadDirectory)) {
         $script:DownloadDirectory = Resolve-DefaultDownloadDirectory
     }
@@ -156,10 +154,18 @@ function Main {
 
     try {
         Invoke-WebRequest -Uri $binaryUrl -OutFile $script:DownloadedBinaryPath
-        Invoke-InstallCommand -BinaryPath $script:DownloadedBinaryPath -Arguments $Arguments
+
+        if ($env:OO_INSTALL_SKIP_RUN_INSTALL -ne "1") {
+            Invoke-InstallCommand -BinaryPath $script:DownloadedBinaryPath -Arguments $Arguments
+            $installExitCode = $LASTEXITCODE
+        }
     }
     finally {
         Remove-DownloadedBinary
+    }
+
+    if ($installExitCode -ne 0) {
+        exit $installExitCode
     }
 }
 

@@ -126,9 +126,10 @@ if "!AFTER!"=="!CONTENT!" (
     endlocal & exit /b 1
 )
 
-for /f "tokens=1 delims=\"" %%v in ("!AFTER!") do (
+for /f "tokens=1 delims=,}" %%v in ("!AFTER!") do (
     set "VERSION_VALUE=%%v"
 )
+set "VERSION_VALUE=!VERSION_VALUE:\"=!"
 
 if not defined VERSION_VALUE (
     endlocal & exit /b 1

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join, win32 } from "node:path";
 
 import { beforeAll, describe, expect, test } from "bun:test";
@@ -135,6 +135,47 @@ describe("install.ps1", () => {
             expect(lines).toContain("https://example.test/release/apps/oo-cli/latest.json");
             expect(lines).toContain("https://example.test/release/apps/oo-cli/1.2.3/win32-x64/oo.exe");
             expect(lines.at(-1)).toBe("False");
+        },
+    );
+
+    windowsPowerShellTest(
+        "propagates the installer process exit code",
+        async () => {
+            const rootDirectory = await createTemporaryDirectory("oo-install-ps1-exit");
+            const stubInstallerPath = win32.join(rootDirectory, "stub-installer.cmd");
+
+            trackDirectory(rootDirectory);
+            await writeFile(
+                stubInstallerPath,
+                [
+                    "@echo off",
+                    "exit /b 7",
+                ].join("\r\n"),
+                "utf8",
+            );
+
+            const command = [
+                `. '${escapePowerShellString(installScriptPath)}'`,
+                `Invoke-InstallCommand -BinaryPath '${escapePowerShellString(stubInstallerPath)}'`,
+                "exit $LASTEXITCODE",
+            ].join("; ");
+            const result = Bun.spawnSync(
+                [
+                    powerShellCommand!,
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-Command",
+                    command,
+                ],
+                {
+                    env: process.env,
+                    stderr: "pipe",
+                    stdin: "ignore",
+                    stdout: "pipe",
+                },
+            );
+
+            expect(result.exitCode).toBe(7);
         },
     );
 });
