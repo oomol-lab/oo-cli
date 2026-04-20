@@ -93,7 +93,7 @@ jobs:
         id: aliyun_credentials
         uses: aliyun/configure-aliyun-credentials-action@v1.1.0
         with:
-          role-to-assume: ${{ vars.ALIYUN_INTERNAL_ROLE }}
+          role-to-assume: ${{ vars.ALIYUN_OOMOL_CLI_ROLE }}
           oidc-provider-arn: ${{ vars.ALIYUN_OIDC_PROVIDER }}
           role-session-name: github-action-session
           role-session-expiration: 1800
