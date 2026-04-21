@@ -12,7 +12,6 @@ import type { FileDownloadSessionStore } from "../contracts/file-download-sessio
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 import type { LogCategory } from "../logging/log-categories.ts";
-import { readdir } from "node:fs/promises";
 import process from "node:process";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { SqliteCacheStore } from "../../adapters/cache/sqlite-cache.ts";
@@ -31,7 +30,6 @@ import {
 } from "../../i18n/locale.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import { createCliCatalog } from "../commands/catalog.ts";
-import { maybeSynchronizeInstalledBundledSkills } from "../commands/skills/shared.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import {
     formatCliVersionText,
@@ -41,8 +39,6 @@ import { CliUserError } from "../contracts/cli.ts";
 import { logCategory } from "../logging/log-categories.ts";
 import { withCategory, withErrorKey } from "../logging/log-fields.ts";
 import { initializeCurrentVersionProcessLock } from "../self-update/core.ts";
-import { isFileMissingError } from "../shared/fs-errors.ts";
-import { pathExists } from "../shared/fs-utils.ts";
 import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
 
 export interface CliInvocation {
@@ -113,7 +109,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         env: invocation.env,
         platform: process.platform,
     });
-    const firstRunDetection = await detectFirstRun(storePaths);
     const bootstrapTranslator = createTranslator(
         resolvePreferredLocale({
             cliFlag: parsedCliLanguage,
@@ -181,13 +176,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         const packageName = invocation.packageName ?? packageManifest.name;
         const buildInfo = resolveCliBuildInfo(packageManifest.version);
         const version = invocation.version ?? buildInfo.version;
-        const primaryCommandName = resolvePrimaryCommandName(invocation.argv);
-        const shouldSynchronizeBundledSkills
-            = !isDevelopmentCliVersion(version);
-        const shouldInstallMissingBundledSkills
-            = shouldSynchronizeBundledSkills
-                && firstRunDetection.isFirstRun
-                && primaryCommandName !== "skills";
 
         logger.debug(
             {
@@ -196,18 +184,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 version,
             },
             "CLI invocation started.",
-        );
-        logger.debug(
-            {
-                hasAuthFile: firstRunDetection.hasAuthFile,
-                hasLogFiles: firstRunDetection.hasLogFiles,
-                hasSettingsFile: firstRunDetection.hasSettingsFile,
-                isFirstRun: firstRunDetection.isFirstRun,
-                primaryCommandName: primaryCommandName ?? "",
-                shouldSynchronizeBundledSkills,
-                shouldInstallMissingBundledSkills,
-            },
-            "CLI first-run detection completed.",
         );
 
         currentVersionLockResource = await initializeCurrentVersionProcessLock({
@@ -242,14 +218,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             translator,
             version,
         });
-        if (shouldSynchronizeBundledSkills) {
-            await maybeSynchronizeInstalledBundledSkills(
-                context,
-                {
-                    installMissing: shouldInstallMissingBundledSkills,
-                },
-            );
-        }
 
         const adapter = new CommanderCliAdapter();
 
@@ -380,67 +348,6 @@ function createCliExecutionContext(
 
 function hasCliDebugFlag(argv: readonly string[]): boolean {
     return argv.includes("--debug");
-}
-
-function resolvePrimaryCommandName(argv: readonly string[]): string | undefined {
-    for (let index = 0; index < argv.length; index += 1) {
-        const token = argv[index];
-
-        if (token === "--lang") {
-            index += 1;
-            continue;
-        }
-
-        if (token?.startsWith("-")) {
-            continue;
-        }
-
-        return token;
-    }
-
-    return undefined;
-}
-
-function isDevelopmentCliVersion(version: string): boolean {
-    return packageManifest.version.endsWith("-development")
-        && version === packageManifest.version;
-}
-
-async function detectFirstRun(storePaths: {
-    authFilePath: string;
-    logDirectoryPath: string;
-    settingsFilePath: string;
-}): Promise<{
-    hasAuthFile: boolean;
-    hasLogFiles: boolean;
-    hasSettingsFile: boolean;
-    isFirstRun: boolean;
-}> {
-    const [hasSettingsFile, hasAuthFile, hasLogFiles] = await Promise.all([
-        pathExists(storePaths.settingsFilePath),
-        pathExists(storePaths.authFilePath),
-        directoryHasEntries(storePaths.logDirectoryPath),
-    ]);
-
-    return {
-        hasAuthFile,
-        hasLogFiles,
-        hasSettingsFile,
-        isFirstRun: !hasSettingsFile && !hasAuthFile && !hasLogFiles,
-    };
-}
-
-async function directoryHasEntries(path: string): Promise<boolean> {
-    try {
-        return (await readdir(path)).length > 0;
-    }
-    catch (error) {
-        if (isFileMissingError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
 }
 
 function resolveCliErrorLogCategory(error: CliUserError): LogCategory {

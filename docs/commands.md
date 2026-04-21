@@ -320,15 +320,6 @@ published skills into the local Codex skills directory.
   only when its `.oo-metadata.json` file can be parsed and contains a
   non-empty `version`. Otherwise `oo` treats it as a different skill and will
   not overwrite it.
-- Notes: on the first `oo` run, when there is no existing config, auth, or log
-  data yet, `oo` silently installs missing bundled managed skills
-  automatically into every supported host whose home directory already exists.
-- Notes: when a bundled skill is already installed, every `oo` startup checks
-  whether the recorded metadata `version` matches the current CLI version and
-  silently refreshes the installed files when needed.
-- Notes: when the recorded bundled skill metadata `version` is exactly
-  `0.0.0-development`, `oo` treats that installation as a local developer copy
-  and skips startup synchronization without overwriting it.
 
 ### `oo skills update [skills...]`
 
@@ -339,8 +330,8 @@ Update installed oo-managed Codex skills.
 - Arguments: when one or more skill names are provided, only those named skills
   are checked and updated.
 - Bundled skills: bundled skills such as `oo` and `oo-find-skills` are
-  excluded from this command because the CLI synchronizes them automatically
-  during startup when needed.
+  excluded from this command. Refresh them with `oo skills add`, or let a
+  successful `oo install` or `oo update` refresh them automatically.
 - Published skills: registry-backed skills derive their package identity from
   `.oo-metadata.json`, then fetch package info without an explicit version to
   determine the latest available package version.

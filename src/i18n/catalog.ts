@@ -362,7 +362,7 @@ export const enMessages = {
     "errors.skills.install.skillNotFound":
         "Skill {name} was not found in package {packageName}.",
     "errors.skills.update.bundledUnsupported":
-        "Bundled skill {name} is synchronized automatically and cannot be updated with skills update.",
+        "Bundled skill {name} is managed by oo and cannot be updated with skills update. Use oo skills add {name} instead.",
     "errors.skills.update.packageNameMissing":
         "Managed skill {name} cannot be updated because its package metadata is missing.",
     "errors.skills.nameConflict":
@@ -955,7 +955,7 @@ export const zhMessages = {
     "errors.skills.install.skillNotFound":
         "在包 {packageName} 中未找到 skill {name}。",
     "errors.skills.update.bundledUnsupported":
-        "内置 skill {name} 会自动同步，不能通过 skills update 更新。",
+        "内置 skill {name} 由 oo 管理，不能通过 skills update 更新。请改用 oo skills add {name}。",
     "errors.skills.update.packageNameMissing":
         "由 oo 管理的 skill {name} 缺少 package 元数据，无法更新。",
     "errors.skills.nameConflict":
