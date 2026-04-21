@@ -142,6 +142,75 @@ describe("performSelfUpdateOperation", () => {
             logCapture.close();
         }
     });
+
+    test("attempts to uninstall a legacy package-manager install after activation", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-legacy");
+        const env = {
+            ...createSelfUpdateEnv(rootDirectory),
+            OO_INSTALL_PACKAGE_MANAGER: "pnpm",
+        };
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+            paths,
+            "1.2.3",
+        );
+        const logCapture = createLogCapture();
+        const invokedCommands: Array<{
+            commandArguments: readonly string[];
+            commandPath: string;
+        }> = [];
+
+        trackDirectory(rootDirectory);
+        await mkdir(paths.versionsDirectory, { recursive: true });
+        await writeManagedVersion(targetVersionPath);
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "1.0.0",
+                forceReinstall: false,
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: process.execPath,
+                    fetcher: async () => {
+                        throw new Error("binary download should not be called");
+                    },
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                    resolveCommandPath: commandName => `/mock/bin/${commandName}`,
+                    runCommand: async (options) => {
+                        invokedCommands.push({
+                            commandArguments: options.commandArguments,
+                            commandPath: options.commandPath,
+                        });
+
+                        return {
+                            exitCode: 0,
+                            signalCode: null,
+                            stderr: "",
+                            stdout: "",
+                        };
+                    },
+                },
+                targetVersion: "1.2.3",
+            });
+
+            expect(result.status).toBe("installed");
+            expect(invokedCommands).toEqual([
+                {
+                    commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
+                    commandPath: "/mock/bin/pnpm",
+                },
+            ]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
 });
 
 function createSelfUpdateEnv(rootDirectory: string): Record<string, string | undefined> {

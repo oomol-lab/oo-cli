@@ -1,6 +1,7 @@
 import type { Logger } from "pino";
 
 import type { Fetcher } from "../contracts/cli.ts";
+import type { LegacyPackageManagerCleanupRuntime } from "./legacy-installation.ts";
 import { chmod, copyFile, lstat, mkdir, readdir, readlink, realpath, rename, rm, stat, symlink } from "node:fs/promises";
 import { basename, delimiter, dirname, isAbsolute, join, normalize, resolve as resolvePath } from "node:path";
 import process from "node:process";
@@ -12,6 +13,7 @@ import {
     fetchLatestCliReleaseVersion,
     parseLatestCliReleaseVersion,
 } from "../update/release-metadata.ts";
+import { attemptLegacyPackageManagerUninstall } from "./legacy-installation.ts";
 import {
     acquireProcessLifetimeVersionLock,
     acquireVersionLock,
@@ -28,12 +30,9 @@ import {
 } from "./paths.ts";
 import { detectSelfUpdateReleasePlatform } from "./platform.ts";
 
-export interface SelfUpdateRuntime {
+export interface SelfUpdateRuntime extends LegacyPackageManagerCleanupRuntime {
     arch: string;
-    env: Record<string, string | undefined>;
-    execPath: string;
     fetcher: Fetcher;
-    logger: Logger;
     now?: () => number;
     platform: NodeJS.Platform;
     processId: number;
@@ -147,6 +146,7 @@ export async function performSelfUpdateOperation(options: {
             platform: options.runtime.platform,
             targetVersion: options.targetVersion,
         });
+        await attemptLegacyPackageManagerUninstall(options.runtime);
 
         return {
             executableDirectory: paths.executableDirectory,

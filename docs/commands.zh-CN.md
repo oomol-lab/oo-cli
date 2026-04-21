@@ -105,6 +105,8 @@
   托管版本。
 - 说明：如果可执行目录没有出现在 `PATH` 中，install 还会额外打印 setup note，
   告知用户应当把哪个目录加入 `PATH`。
+- 说明：install 成功后，如果当前命令运行自一个旧的全局 package-manager
+  `@oomol-lab/oo-cli` 安装，CLI 会尽力将其移除；清理失败不会改变命令结果。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
@@ -118,6 +120,8 @@
 - 输出：当最新发布版本与当前版本字符串不相等时，CLI 会打印版本变更结果。
 - 说明：`oo update` 总是会修复或重新 materialize 目标版本，不额外暴露
   `--force`。
+- 说明：update 成功后，如果当前命令运行自一个旧的全局 package-manager
+  `@oomol-lab/oo-cli` 安装，CLI 会尽力将其移除；清理失败不会改变命令结果。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 - 说明：update 判断“是否已是最新版本”时使用精确字符串相等，而不是 semver

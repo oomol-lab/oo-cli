@@ -114,6 +114,9 @@ Install one managed `oo` release into the local self-managed runtime.
   managed version before reporting success.
 - Notes: when the executable directory is not on `PATH`, install also prints a
   setup note that tells the user which directory to add.
+- Notes: after a successful install, the CLI best-effort removes a legacy
+  global `@oomol-lab/oo-cli` package-manager install when the current command
+  is running from one; cleanup failures do not change the command result.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 
@@ -129,6 +132,9 @@ Update the managed `oo` install to the latest published release.
   string, the CLI prints the version change result.
 - Notes: `oo update` always repairs or re-materializes the target version and
   does not expose a separate `--force` flag.
+- Notes: after a successful update, the CLI best-effort removes a legacy global
+  `@oomol-lab/oo-cli` package-manager install when the current command is
+  running from one; cleanup failures do not change the command result.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 - Notes: update uses string equality instead of semver ordering to decide
