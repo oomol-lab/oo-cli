@@ -56,6 +56,7 @@ export interface CliInvocation {
     fileDownloadSessionStore?: FileDownloadSessionStore;
     fileUploadStore?: FileUploadRecordStore;
     packageName?: string;
+    selfUpdateRuntime?: CliExecutionContext["selfUpdateRuntime"];
     stdin?: InteractiveInput;
     stdout: Writer;
     stderr: Writer;
@@ -360,6 +361,7 @@ function createCliExecutionContext(
         logger: options.logger,
         packageName: options.packageName,
         settingsStore: options.settingsStore,
+        selfUpdateRuntime: options.invocation.selfUpdateRuntime,
         stdout: options.invocation.stdout,
         stderr: options.invocation.stderr,
         translator: options.translator,

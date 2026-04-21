@@ -79,6 +79,7 @@ export const updateCommand: CliCommandDefinition = {
                     logger: context.logger,
                     platform: process.platform,
                     processId: process.pid,
+                    ...context.selfUpdateRuntime,
                 },
                 targetVersion: latestVersion,
             });

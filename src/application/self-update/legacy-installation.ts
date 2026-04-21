@@ -1,4 +1,9 @@
 import type { Logger } from "pino";
+import type {
+    LegacyPackageManagerCommandRunOptions,
+    LegacyPackageManagerCommandRunResult,
+    SelfUpdateRuntimeOverrides,
+} from "../contracts/self-update.ts";
 import { detectInstallationMethodFromExecPath } from "./installation.ts";
 
 const legacyCliPackageName = "@oomol-lab/oo-cli";
@@ -19,29 +24,11 @@ const legacyPackageManagerConfigurations = {
     },
 } as const;
 
-export interface LegacyPackageManagerCommandRunOptions {
-    commandArguments: readonly string[];
-    commandPath: string;
-    env: Record<string, string | undefined>;
-    timeoutMs: number;
-}
-
-export interface LegacyPackageManagerCommandRunResult {
-    exitCode: number;
-    signalCode: NodeJS.Signals | null;
-    stderr: string;
-    stdout: string;
-}
-
-export interface LegacyPackageManagerCleanupRuntime {
+export interface LegacyPackageManagerCleanupRuntime extends SelfUpdateRuntimeOverrides {
     env: Record<string, string | undefined>;
     execPath: string;
     logger: Logger;
     platform: NodeJS.Platform;
-    resolveCommandPath?: (commandName: string) => string | null;
-    runCommand?: (
-        options: LegacyPackageManagerCommandRunOptions,
-    ) => Promise<LegacyPackageManagerCommandRunResult>;
 }
 
 export async function attemptLegacyPackageManagerUninstall(

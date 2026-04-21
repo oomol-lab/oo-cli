@@ -1,4 +1,5 @@
 import type {
+    CliRunOptions,
     CliRunResult,
     CliSnapshotContext,
 } from "../../../__tests__/helpers.ts";
@@ -287,6 +288,7 @@ describe("self-update commands", () => {
 
     test("upgrade uses the same update path and repairs a same-version package-manager install", async () => {
         const sandbox = await createCliSandbox();
+        const legacyCleanup = createLegacyPackageManagerCleanupRuntime();
         const releasePlatform = await detectSelfUpdateReleasePlatform({
             arch: process.arch,
             platform: process.platform,
@@ -323,11 +325,19 @@ describe("self-update commands", () => {
 
                     throw new Error(`Unexpected request: ${url}`);
                 },
+                selfUpdateRuntime: legacyCleanup.runtime,
                 version: "1.2.3",
             });
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(binaryRequestCount).toBe(1);
+            expect(legacyCleanup.commands).toEqual([
+                {
+                    commandArguments: ["uninstall", "-g", "@oomol-lab/oo-cli"],
+                    commandPath: "/mock/bin/npm",
+                    timeoutMs: 10_000,
+                },
+            ]);
             await expect(Bun.file(paths.executablePath).exists()).resolves.toBeTrue();
         }
         finally {
@@ -403,4 +413,38 @@ function createSelfUpdateInstallSnapshot(
         ],
         sandbox,
     });
+}
+
+interface CapturedLegacyPackageManagerCommand {
+    commandArguments: readonly string[];
+    commandPath: string;
+    timeoutMs: number;
+}
+
+function createLegacyPackageManagerCleanupRuntime(): {
+    commands: CapturedLegacyPackageManagerCommand[];
+    runtime: NonNullable<CliRunOptions["selfUpdateRuntime"]>;
+} {
+    const commands: CapturedLegacyPackageManagerCommand[] = [];
+
+    return {
+        commands,
+        runtime: {
+            resolveCommandPath: commandName => `/mock/bin/${commandName}`,
+            runCommand: async (options) => {
+                commands.push({
+                    commandArguments: options.commandArguments,
+                    commandPath: options.commandPath,
+                    timeoutMs: options.timeoutMs,
+                });
+
+                return {
+                    exitCode: 0,
+                    signalCode: null,
+                    stderr: "",
+                    stdout: "",
+                };
+            },
+        },
+    };
 }
