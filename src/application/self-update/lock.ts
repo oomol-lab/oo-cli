@@ -352,12 +352,7 @@ function isVersionLockActive(
         return true;
     }
 
-    const normalizedCommandLine = commandLine.toLowerCase();
-    const normalizedExecPath = lockData.execPath.toLowerCase();
-    const executableName = basename(lockData.execPath).toLowerCase();
-
-    return normalizedCommandLine.includes(normalizedExecPath)
-        || normalizedCommandLine.includes(executableName);
+    return commandLineReferencesExecutable(commandLine, lockData.execPath);
 }
 
 function isProcessAlive(pid: number): boolean {
@@ -405,6 +400,74 @@ function readProcessCommandLine(
     catch {
         return null;
     }
+}
+
+function commandLineReferencesExecutable(
+    commandLine: string,
+    execPath: string,
+): boolean {
+    const normalizedCommandLine = commandLine.toLowerCase();
+    const normalizedExecPath = execPath.toLowerCase();
+
+    if (normalizedCommandLine.includes(normalizedExecPath)) {
+        return true;
+    }
+
+    const executableName = basename(normalizedExecPath);
+
+    return readCommandLineTokens(normalizedCommandLine)
+        .some(token => basename(stripWrappingQuotes(token)) === executableName);
+}
+
+function readCommandLineTokens(commandLine: string): string[] {
+    const tokens: string[] = [];
+    let currentToken = "";
+    let quoteCharacter: "\"" | "'" | undefined;
+
+    for (const character of commandLine) {
+        if (quoteCharacter !== undefined) {
+            if (character === quoteCharacter) {
+                quoteCharacter = undefined;
+                continue;
+            }
+
+            currentToken += character;
+            continue;
+        }
+
+        if (character === "\"" || character === "'") {
+            quoteCharacter = character;
+            continue;
+        }
+
+        if (character === " " || character === "\t") {
+            if (currentToken !== "") {
+                tokens.push(currentToken);
+                currentToken = "";
+            }
+            continue;
+        }
+
+        currentToken += character;
+    }
+
+    if (currentToken !== "") {
+        tokens.push(currentToken);
+    }
+
+    return tokens;
+}
+
+function stripWrappingQuotes(value: string): string {
+    if (
+        value.length >= 2
+        && ((value.startsWith("\"") && value.endsWith("\""))
+            || (value.startsWith("'") && value.endsWith("'")))
+    ) {
+        return value.slice(1, -1);
+    }
+
+    return value;
 }
 
 async function readDirectoryEntries(path: string): Promise<string[]> {

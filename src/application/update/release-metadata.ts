@@ -22,14 +22,16 @@ export async function fetchLatestCliReleaseVersion(options: {
     fetcher: Fetcher;
     logger: Logger;
     parseVersion?: (payload: unknown) => string | null;
+    timeoutMs?: number;
 }): Promise<string | null> {
     const parseVersion = options.parseVersion ?? parseLatestCliReleaseVersion;
+    const timeoutMs = options.timeoutMs ?? cliReleaseRequestTimeoutMs;
     const requestStartedAt = Date.now();
 
     options.logger.debug(
         {
             requestUrl: cliLatestReleaseMetadataUrl,
-            timeoutMs: cliReleaseRequestTimeoutMs,
+            timeoutMs,
         },
         "CLI update latest-release request started.",
     );
@@ -43,7 +45,7 @@ export async function fetchLatestCliReleaseVersion(options: {
                 "user-agent": `${APP_NAME}/${options.currentVersion}`,
             },
         },
-        cliReleaseRequestTimeoutMs,
+        timeoutMs,
     );
 
     if (!response) {
@@ -51,7 +53,7 @@ export async function fetchLatestCliReleaseVersion(options: {
             {
                 durationMs: Date.now() - requestStartedAt,
                 requestUrl: cliLatestReleaseMetadataUrl,
-                timeoutMs: cliReleaseRequestTimeoutMs,
+                timeoutMs,
             },
             "CLI update latest-release request timed out or failed.",
         );

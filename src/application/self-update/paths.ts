@@ -1,11 +1,12 @@
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { posix, win32 } from "node:path";
 import { resolveHomeDirectory } from "../path/home-directory.ts";
 
 export interface SelfUpdatePaths {
     executableDirectory: string;
     executablePath: string;
     locksDirectory: string;
+    platform: NodeJS.Platform;
     stagingDirectory: string;
     versionsDirectory: string;
 }
@@ -16,8 +17,9 @@ export function resolveSelfUpdatePaths(options: {
     platform: NodeJS.Platform;
 }): SelfUpdatePaths {
     const homeDirectory = resolveHomeDirectory(options.env, options.homeDirectory);
-    const executableDirectory = join(homeDirectory, ".local", "bin");
-    const executablePath = join(
+    const pathModule = readPathModule(options.platform);
+    const executableDirectory = pathModule.join(homeDirectory, ".local", "bin");
+    const executablePath = pathModule.join(
         executableDirectory,
         options.platform === "win32" ? "oo.exe" : "oo",
     );
@@ -27,19 +29,20 @@ export function resolveSelfUpdatePaths(options: {
             return {
                 executableDirectory,
                 executablePath,
-                locksDirectory: join(
+                locksDirectory: pathModule.join(
                     options.env.TMPDIR ?? tmpdir(),
                     "oo",
                     "locks",
                 ),
-                stagingDirectory: join(
+                platform: options.platform,
+                stagingDirectory: pathModule.join(
                     homeDirectory,
                     "Library",
                     "Caches",
                     "oo",
                     "staging",
                 ),
-                versionsDirectory: join(
+                versionsDirectory: pathModule.join(
                     homeDirectory,
                     "Library",
                     "Application Support",
@@ -49,74 +52,83 @@ export function resolveSelfUpdatePaths(options: {
             };
         case "win32": {
             const appDataDirectory = options.env.APPDATA
-                ?? join(homeDirectory, "AppData", "Roaming");
+                ?? pathModule.join(homeDirectory, "AppData", "Roaming");
             const tempDirectory = resolveWindowsTempDirectory(
                 options.env,
                 homeDirectory,
+                pathModule,
             );
 
             return {
                 executableDirectory,
                 executablePath,
-                locksDirectory: join(tempDirectory, "oo", "locks"),
-                stagingDirectory: join(tempDirectory, "oo", "staging"),
-                versionsDirectory: join(appDataDirectory, "oo", "versions"),
+                locksDirectory: pathModule.join(tempDirectory, "oo", "locks"),
+                platform: options.platform,
+                stagingDirectory: pathModule.join(tempDirectory, "oo", "staging"),
+                versionsDirectory: pathModule.join(appDataDirectory, "oo", "versions"),
             };
         }
         default: {
             const dataDirectory = options.env.XDG_DATA_HOME
-                ?? join(homeDirectory, ".local", "share");
+                ?? pathModule.join(homeDirectory, ".local", "share");
             const cacheDirectory = options.env.XDG_CACHE_HOME
-                ?? join(homeDirectory, ".cache");
+                ?? pathModule.join(homeDirectory, ".cache");
             const lockRootDirectory = options.env.XDG_RUNTIME_DIR
                 ?? options.env.XDG_STATE_HOME
-                ?? join(homeDirectory, ".local", "state");
+                ?? pathModule.join(homeDirectory, ".local", "state");
 
             return {
                 executableDirectory,
                 executablePath,
-                locksDirectory: join(lockRootDirectory, "oo", "locks"),
-                stagingDirectory: join(cacheDirectory, "oo", "staging"),
-                versionsDirectory: join(dataDirectory, "oo", "versions"),
+                locksDirectory: pathModule.join(lockRootDirectory, "oo", "locks"),
+                platform: options.platform,
+                stagingDirectory: pathModule.join(cacheDirectory, "oo", "staging"),
+                versionsDirectory: pathModule.join(dataDirectory, "oo", "versions"),
             };
         }
     }
 }
 
 export function resolveSelfUpdateLockFilePath(
-    paths: Pick<SelfUpdatePaths, "locksDirectory">,
+    paths: Pick<SelfUpdatePaths, "locksDirectory" | "platform">,
     version: string,
 ): string {
-    return join(paths.locksDirectory, `${version}.lock`);
+    return readPathModule(paths.platform).join(
+        paths.locksDirectory,
+        `${version}.lock`,
+    );
 }
 
 export function resolveSelfUpdateVersionFilePath(
-    paths: Pick<SelfUpdatePaths, "versionsDirectory">,
+    paths: Pick<SelfUpdatePaths, "platform" | "versionsDirectory">,
     version: string,
 ): string {
-    return join(paths.versionsDirectory, version);
+    return readPathModule(paths.platform).join(
+        paths.versionsDirectory,
+        version,
+    );
 }
 
 export function resolveSelfUpdateVersionTempFilePath(options: {
-    paths: Pick<SelfUpdatePaths, "versionsDirectory">;
+    paths: Pick<SelfUpdatePaths, "platform" | "versionsDirectory">;
     processId: number;
     timestamp: number;
     version: string;
 }): string {
-    return join(
+    return readPathModule(options.paths.platform).join(
         options.paths.versionsDirectory,
         `${options.version}.tmp.${options.processId}.${options.timestamp}`,
     );
 }
 
 export function resolveSelfUpdateStagingBinaryPath(options: {
-    paths: Pick<SelfUpdatePaths, "stagingDirectory">;
+    paths: Pick<SelfUpdatePaths, "platform" | "stagingDirectory">;
     platform: NodeJS.Platform;
     processId: number;
     timestamp: number;
     version: string;
 }): string {
-    return join(
+    return readPathModule(options.paths.platform).join(
         options.paths.stagingDirectory,
         `${options.version}.tmp.${options.processId}.${options.timestamp}`,
         options.platform === "win32" ? "oo.exe" : "oo",
@@ -125,15 +137,23 @@ export function resolveSelfUpdateStagingBinaryPath(options: {
 
 export function resolveSelfUpdateStagingDirectory(
     stagingBinaryPath: string,
+    platform: NodeJS.Platform,
 ): string {
-    return dirname(stagingBinaryPath);
+    return readPathModule(platform).dirname(stagingBinaryPath);
 }
 
 function resolveWindowsTempDirectory(
     env: Record<string, string | undefined>,
     homeDirectory: string,
+    pathModule: typeof posix | typeof win32,
 ): string {
     return env.TEMP
         ?? env.TMP
-        ?? join(homeDirectory, "AppData", "Local", "Temp");
+        ?? pathModule.join(homeDirectory, "AppData", "Local", "Temp");
+}
+
+function readPathModule(
+    platform: NodeJS.Platform,
+): typeof posix | typeof win32 {
+    return platform === "win32" ? win32 : posix;
 }

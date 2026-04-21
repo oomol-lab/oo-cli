@@ -1,9 +1,10 @@
-import { join } from "node:path";
+import { posix, win32 } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
     resolveSelfUpdateLockFilePath,
     resolveSelfUpdatePaths,
     resolveSelfUpdateStagingBinaryPath,
+    resolveSelfUpdateStagingDirectory,
     resolveSelfUpdateVersionFilePath,
 } from "./paths.ts";
 
@@ -20,11 +21,12 @@ describe("resolveSelfUpdatePaths", () => {
         });
 
         expect(paths).toEqual({
-            executableDirectory: join("/tmp/home", ".local", "bin"),
-            executablePath: join("/tmp/home", ".local", "bin", "oo"),
-            locksDirectory: join("/tmp/runtime", "oo", "locks"),
-            stagingDirectory: join("/tmp/cache", "oo", "staging"),
-            versionsDirectory: join("/tmp/data", "oo", "versions"),
+            executableDirectory: posix.join("/tmp/home", ".local", "bin"),
+            executablePath: posix.join("/tmp/home", ".local", "bin", "oo"),
+            locksDirectory: posix.join("/tmp/runtime", "oo", "locks"),
+            platform: "linux",
+            stagingDirectory: posix.join("/tmp/cache", "oo", "staging"),
+            versionsDirectory: posix.join("/tmp/data", "oo", "versions"),
         });
     });
 
@@ -38,11 +40,12 @@ describe("resolveSelfUpdatePaths", () => {
         });
 
         expect(paths).toEqual({
-            executableDirectory: join("/tmp/home", ".local", "bin"),
-            executablePath: join("/tmp/home", ".local", "bin", "oo"),
-            locksDirectory: join("/tmp/macos", "oo", "locks"),
-            stagingDirectory: join("/tmp/home", "Library", "Caches", "oo", "staging"),
-            versionsDirectory: join(
+            executableDirectory: posix.join("/tmp/home", ".local", "bin"),
+            executablePath: posix.join("/tmp/home", ".local", "bin", "oo"),
+            locksDirectory: posix.join("/tmp/macos", "oo", "locks"),
+            platform: "darwin",
+            stagingDirectory: posix.join("/tmp/home", "Library", "Caches", "oo", "staging"),
+            versionsDirectory: posix.join(
                 "/tmp/home",
                 "Library",
                 "Application Support",
@@ -64,11 +67,12 @@ describe("resolveSelfUpdatePaths", () => {
         });
 
         expect(paths).toEqual({
-            executableDirectory: join("C:\\Users\\Kevin", ".local", "bin"),
-            executablePath: join("C:\\Users\\Kevin", ".local", "bin", "oo.exe"),
-            locksDirectory: join("C:\\Temp", "oo", "locks"),
-            stagingDirectory: join("C:\\Temp", "oo", "staging"),
-            versionsDirectory: join(
+            executableDirectory: win32.join("C:\\Users\\Kevin", ".local", "bin"),
+            executablePath: win32.join("C:\\Users\\Kevin", ".local", "bin", "oo.exe"),
+            locksDirectory: win32.join("C:\\Temp", "oo", "locks"),
+            platform: "win32",
+            stagingDirectory: win32.join("C:\\Temp", "oo", "staging"),
+            versionsDirectory: win32.join(
                 "C:\\Users\\Kevin\\AppData\\Roaming",
                 "oo",
                 "versions",
@@ -85,10 +89,10 @@ describe("resolveSelfUpdatePaths", () => {
         });
 
         expect(resolveSelfUpdateLockFilePath(paths, "1.2.3")).toBe(
-            join(paths.locksDirectory, "1.2.3.lock"),
+            posix.join(paths.locksDirectory, "1.2.3.lock"),
         );
         expect(resolveSelfUpdateVersionFilePath(paths, "1.2.3")).toBe(
-            join(paths.versionsDirectory, "1.2.3"),
+            posix.join(paths.versionsDirectory, "1.2.3"),
         );
         expect(resolveSelfUpdateStagingBinaryPath({
             paths,
@@ -97,7 +101,39 @@ describe("resolveSelfUpdatePaths", () => {
             timestamp: 456,
             version: "1.2.3",
         })).toBe(
-            join(paths.stagingDirectory, "1.2.3.tmp.123.456", "oo"),
+            posix.join(paths.stagingDirectory, "1.2.3.tmp.123.456", "oo"),
+        );
+    });
+
+    test("builds Windows helper paths with Windows separators", () => {
+        const paths = resolveSelfUpdatePaths({
+            env: {
+                APPDATA: "C:\\Users\\Kevin\\AppData\\Roaming",
+                HOME: "C:\\Users\\Kevin",
+                TEMP: "C:\\Temp",
+                USERPROFILE: "C:\\Users\\Kevin",
+            },
+            platform: "win32",
+        });
+        const stagingBinaryPath = resolveSelfUpdateStagingBinaryPath({
+            paths,
+            platform: "win32",
+            processId: 123,
+            timestamp: 456,
+            version: "1.2.3",
+        });
+
+        expect(resolveSelfUpdateLockFilePath(paths, "1.2.3")).toBe(
+            win32.join(paths.locksDirectory, "1.2.3.lock"),
+        );
+        expect(resolveSelfUpdateVersionFilePath(paths, "1.2.3")).toBe(
+            win32.join(paths.versionsDirectory, "1.2.3"),
+        );
+        expect(stagingBinaryPath).toBe(
+            win32.join(paths.stagingDirectory, "1.2.3.tmp.123.456", "oo.exe"),
+        );
+        expect(resolveSelfUpdateStagingDirectory(stagingBinaryPath, "win32")).toBe(
+            win32.dirname(stagingBinaryPath),
         );
     });
 });

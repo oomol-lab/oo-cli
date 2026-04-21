@@ -385,6 +385,12 @@ export const enMessages = {
         "Failed to download the target CLI release: {message}",
     "errors.selfUpdate.downloadFailed":
         "The CLI download request returned HTTP {status}.",
+    "errors.selfUpdate.downloadStalled":
+        "The download stopped making progress after several retries. Please try again later.",
+    "errors.selfUpdate.downloadTimedOut":
+        "Timed out while downloading the target CLI release.",
+    "errors.selfUpdate.invalidTargetVersion":
+        "Invalid target CLI version: {version}. Use a semver version.",
     "errors.selfUpdate.latestVersionUnavailable":
         "Failed to resolve the latest CLI release version.",
     "errors.selfUpdate.unsupportedPlatform":
@@ -480,6 +486,10 @@ export const enMessages = {
     "selfUpdate.progress.verify.complete": "Verified installation.",
     "selfUpdate.progress.cleanup.start": "Cleaning up old artifacts...",
     "selfUpdate.progress.cleanup.complete": "Cleaned up old artifacts.",
+    "selfUpdate.lockBusy":
+        "Another update is already in progress. Please try again later.",
+    "selfUpdate.lockBusyWithPid":
+        "Another update is already in progress (PID {ownerPid}). Please try again later.",
     "selfUpdate.unsupportedDevelopmentVersion":
         "Current version {version} does not support managed install or update.",
     "selfUpdate.update.success":
@@ -964,6 +974,12 @@ export const zhMessages = {
         "下载目标 CLI 版本失败：{message}",
     "errors.selfUpdate.downloadFailed":
         "CLI 下载请求返回了 HTTP {status}。",
+    "errors.selfUpdate.downloadStalled":
+        "下载长时间没有进度，自动重试后仍未完成，请稍后再试。",
+    "errors.selfUpdate.downloadTimedOut":
+        "下载目标 CLI 版本超时。",
+    "errors.selfUpdate.invalidTargetVersion":
+        "无效的目标 CLI 版本：{version}。请使用 semver 版本号。",
     "errors.selfUpdate.latestVersionUnavailable":
         "解析最新 CLI 版本失败。",
     "errors.selfUpdate.unsupportedPlatform":
@@ -1057,6 +1073,10 @@ export const zhMessages = {
     "selfUpdate.progress.verify.complete": "已校验安装结果。",
     "selfUpdate.progress.cleanup.start": "正在清理旧产物...",
     "selfUpdate.progress.cleanup.complete": "已清理旧产物。",
+    "selfUpdate.lockBusy":
+        "另一个更新已在进行中，请稍后再试。",
+    "selfUpdate.lockBusyWithPid":
+        "另一个更新已在进行中（PID {ownerPid}），请稍后再试。",
     "selfUpdate.unsupportedDevelopmentVersion":
         "当前版本 {version} 暂不支持托管 install 或 update。",
     "selfUpdate.update.success":

@@ -1,4 +1,3 @@
-import type { PathLike } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import type { CliExecutionContext } from "../../../contracts/cli.ts";
 import type { DownloadProgressReporter } from "./progress.ts";
@@ -8,7 +7,8 @@ import { link, lstat, open, rm, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { CliUserError } from "../../../contracts/cli.ts";
-import { createDownloadFailedError, isErrorCode } from "./errors.ts";
+import { pathExists, writeChunk } from "../../../shared/fs-utils.ts";
+import { createDownloadFailedError } from "./errors.ts";
 
 export async function deleteDownloadSessionArtifacts(
     session: ExistingDownloadSession,
@@ -30,7 +30,7 @@ export async function resolveAvailableFileName(
         const candidateFileName = buildFileName(candidateBaseName, extension);
         const candidatePath = join(directoryPath, candidateFileName);
 
-        if (!(await pathExists(candidatePath))) {
+        if (!(await pathExists(candidatePath, lstat))) {
             return candidateFileName;
         }
     }
@@ -51,7 +51,7 @@ export async function resolveTemporaryDownloadFileName(
             continue;
         }
 
-        if (!(await pathExists(join(directoryPath, temporaryFileName)))) {
+        if (!(await pathExists(join(directoryPath, temporaryFileName), lstat))) {
             return temporaryFileName;
         }
     }
@@ -168,19 +168,6 @@ export async function finalizeDownloadedFile(
     }
 }
 
-async function writeChunk(
-    fileHandle: FileHandle,
-    chunk: Uint8Array,
-): Promise<void> {
-    let offset = 0;
-
-    while (offset < chunk.byteLength) {
-        const writeResult = await fileHandle.write(chunk.subarray(offset));
-
-        offset += writeResult.bytesWritten;
-    }
-}
-
 function buildFileName(baseName: string, extension?: string): string {
     return extension === undefined || extension === ""
         ? baseName
@@ -189,18 +176,4 @@ function buildFileName(baseName: string, extension?: string): string {
 
 function appendNumericSuffix(value: string, index: number): string {
     return index === 0 ? value : `${value}_${index}`;
-}
-
-async function pathExists(path: PathLike): Promise<boolean> {
-    try {
-        await lstat(path);
-        return true;
-    }
-    catch (error) {
-        if (isErrorCode(error, "ENOENT")) {
-            return false;
-        }
-
-        throw error;
-    }
 }

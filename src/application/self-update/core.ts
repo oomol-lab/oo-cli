@@ -1,18 +1,19 @@
 import type { Logger } from "pino";
-
-import type { Fetcher } from "../contracts/cli.ts";
+import type { CliExecutionContext, Fetcher } from "../contracts/cli.ts";
 import type { LegacyPackageManagerCleanupRuntime } from "./legacy-installation.ts";
 import type { SelfUpdateProgressEvent } from "./progress.ts";
-import { chmod, copyFile, lstat, mkdir, readdir, readlink, realpath, rename, rm, stat, symlink } from "node:fs/promises";
+import { chmod, copyFile, lstat, mkdir, open, readdir, readlink, realpath, rename, rm, stat, symlink } from "node:fs/promises";
 import { basename, delimiter, dirname, isAbsolute, join, normalize, resolve as resolvePath } from "node:path";
 import process from "node:process";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
+import { isSemver } from "../semver.ts";
 import { isFileMissingError } from "../shared/fs-errors.ts";
+import { pathExists, writeChunk } from "../shared/fs-utils.ts";
 import {
     buildCliBinaryDownloadUrl,
     fetchLatestCliReleaseVersion,
-    parseLatestCliReleaseVersion,
+    parseLatestCliSemverReleaseVersion,
 } from "../update/release-metadata.ts";
 import { attemptLegacyPackageManagerUninstall } from "./legacy-installation.ts";
 import {
@@ -33,6 +34,9 @@ import { detectSelfUpdateReleasePlatform } from "./platform.ts";
 
 export interface SelfUpdateRuntime extends LegacyPackageManagerCleanupRuntime {
     arch: string;
+    downloadStallMaxRetries?: number;
+    downloadStallTimeoutMs?: number;
+    downloadTimeoutMs?: number;
     fetcher: Fetcher;
     now?: () => number;
     platform: NodeJS.Platform;
@@ -41,6 +45,10 @@ export interface SelfUpdateRuntime extends LegacyPackageManagerCleanupRuntime {
 }
 
 export const selfUpdateDevelopmentVersion = "0.0.0-development";
+export const selfUpdateBinaryDownloadTimeoutMs = 300_000;
+export const selfUpdateBinaryDownloadStallMaxRetries = 3;
+export const selfUpdateBinaryDownloadStallTimeoutMs = 60_000;
+export const selfUpdateReleaseRequestTimeoutMs = 10_000;
 
 export interface SelfUpdateOperationResult {
     executableDirectory: string;
@@ -71,7 +79,8 @@ export async function resolveLatestSelfUpdateVersion(options: {
         currentVersion: options.currentVersion,
         fetcher: options.fetcher,
         logger: options.logger,
-        parseVersion: parseLatestCliReleaseVersion,
+        parseVersion: parseLatestCliSemverReleaseVersion,
+        timeoutMs: selfUpdateReleaseRequestTimeoutMs,
     });
 
     if (latestVersion === null) {
@@ -88,6 +97,8 @@ export async function performSelfUpdateOperation(options: {
     runtime: SelfUpdateRuntime;
     targetVersion: string;
 }): Promise<SelfUpdateOperationOutcome> {
+    validateSelfUpdateTargetVersionOrThrow(options.targetVersion);
+
     const paths = resolveSelfUpdatePaths({
         env: options.runtime.env,
         platform: options.runtime.platform,
@@ -243,12 +254,17 @@ export async function initializeCurrentVersionProcessLock(options: {
     }
 }
 
-export function renderSelfUpdateLockBusyMessage(ownerPid?: number): string {
-    if (ownerPid === undefined) {
-        return "Another update is already in progress. Please try again later.";
+export function renderSelfUpdateLockBusyMessage(options: {
+    ownerPid?: number;
+    translator: Pick<CliExecutionContext["translator"], "t">;
+}): string {
+    if (options.ownerPid === undefined) {
+        return options.translator.t("selfUpdate.lockBusy");
     }
 
-    return `Another update is already in progress (PID ${ownerPid}). Please try again later.`;
+    return options.translator.t("selfUpdate.lockBusyWithPid", {
+        ownerPid: options.ownerPid,
+    });
 }
 
 async function detectReleasePlatformOrThrow(
@@ -315,7 +331,10 @@ async function materializeTargetVersion(options: {
         timestamp,
         version: options.targetVersion,
     });
-    const stagingDirectory = resolveSelfUpdateStagingDirectory(stagingBinaryPath);
+    const stagingDirectory = resolveSelfUpdateStagingDirectory(
+        stagingBinaryPath,
+        options.runtime.platform,
+    );
     const versionTempPath = resolveSelfUpdateVersionTempFilePath({
         paths: options.paths,
         processId: options.runtime.processId,
@@ -334,14 +353,19 @@ async function materializeTargetVersion(options: {
     await mkdir(stagingDirectory, { recursive: true });
 
     try {
-        const response = await fetchBinaryResponse({
+        await fetchBinaryResponse({
             currentVersion: options.currentVersion,
             fetcher: options.runtime.fetcher,
             logger: options.runtime.logger,
+            maxStallRetries: options.runtime.downloadStallMaxRetries
+                ?? selfUpdateBinaryDownloadStallMaxRetries,
+            outputPath: stagingBinaryPath,
+            stallTimeoutMs: options.runtime.downloadStallTimeoutMs
+                ?? selfUpdateBinaryDownloadStallTimeoutMs,
+            timeoutMs: options.runtime.downloadTimeoutMs
+                ?? selfUpdateBinaryDownloadTimeoutMs,
             url: binaryUrl,
         });
-
-        await Bun.write(stagingBinaryPath, response);
 
         if (options.runtime.platform !== "win32") {
             await chmod(stagingBinaryPath, 0o755);
@@ -353,8 +377,13 @@ async function materializeTargetVersion(options: {
             await chmod(versionTempPath, 0o755);
         }
 
-        await removePathBestEffort(targetVersionPath);
-        await rename(versionTempPath, targetVersionPath);
+        await replaceTargetVersionFile({
+            platform: options.runtime.platform,
+            processId: options.runtime.processId,
+            targetVersionPath,
+            temporaryVersionPath: versionTempPath,
+            timestamp,
+        });
     }
     finally {
         await removePathBestEffort(stagingDirectory);
@@ -366,8 +395,65 @@ async function fetchBinaryResponse(options: {
     currentVersion: string;
     fetcher: Fetcher;
     logger: Logger;
+    maxStallRetries: number;
+    outputPath: string;
+    stallTimeoutMs: number;
+    timeoutMs: number;
     url: string;
-}): Promise<Response> {
+}): Promise<void> {
+    for (let attempt = 0; attempt <= options.maxStallRetries; attempt += 1) {
+        try {
+            await downloadBinaryResponseOnce(options);
+            return;
+        }
+        catch (error) {
+            if (!(error instanceof BinaryDownloadStalledError)) {
+                throw error;
+            }
+
+            if (attempt === options.maxStallRetries) {
+                options.logger.warn(
+                    {
+                        requestUrl: options.url,
+                        stallTimeoutMs: options.stallTimeoutMs,
+                        totalAttempts: attempt + 1,
+                    },
+                    "CLI self-update binary download stalled repeatedly.",
+                );
+                throw new CliUserError("errors.selfUpdate.downloadStalled", 1, {
+                    retries: options.maxStallRetries,
+                    timeoutSeconds: Math.ceil(options.stallTimeoutMs / 1000),
+                });
+            }
+
+            options.logger.warn(
+                {
+                    requestUrl: options.url,
+                    retryAttempt: attempt + 1,
+                    stallTimeoutMs: options.stallTimeoutMs,
+                },
+                "CLI self-update binary download stalled and will be retried.",
+            );
+        }
+    }
+}
+
+async function downloadBinaryResponseOnce(options: {
+    currentVersion: string;
+    fetcher: Fetcher;
+    logger: Logger;
+    outputPath: string;
+    stallTimeoutMs: number;
+    timeoutMs: number;
+    url: string;
+}): Promise<void> {
+    const abortController = new AbortController();
+    let abortReason: "stall" | "timeout" | undefined;
+    const timeoutId = setTimeout(() => {
+        abortReason = "timeout";
+        abortController.abort();
+    }, options.timeoutMs);
+    timeoutId.unref?.();
     let response: Response;
 
     try {
@@ -376,9 +462,20 @@ async function fetchBinaryResponse(options: {
                 "accept": "application/octet-stream",
                 "user-agent": `${APP_NAME}/${options.currentVersion}`,
             },
+            signal: abortController.signal,
         });
     }
     catch (error) {
+        if (abortReason === "timeout") {
+            options.logger.warn(
+                {
+                    requestUrl: options.url,
+                    timeoutMs: options.timeoutMs,
+                },
+                "CLI self-update binary download timed out.",
+            );
+            throw new CliUserError("errors.selfUpdate.downloadTimedOut", 1);
+        }
         options.logger.warn(
             {
                 err: error,
@@ -404,7 +501,135 @@ async function fetchBinaryResponse(options: {
         });
     }
 
-    return response;
+    try {
+        await writeBinaryResponseToFile({
+            abortController,
+            outputPath: options.outputPath,
+            response,
+            stallTimeoutMs: options.stallTimeoutMs,
+            updateAbortReason: (reason) => {
+                abortReason = reason;
+            },
+        });
+    }
+    catch (error) {
+        if (abortReason === "timeout") {
+            options.logger.warn(
+                {
+                    requestUrl: options.url,
+                    timeoutMs: options.timeoutMs,
+                },
+                "CLI self-update binary download timed out.",
+            );
+            throw new CliUserError("errors.selfUpdate.downloadTimedOut", 1);
+        }
+
+        if (abortReason === "stall") {
+            throw new BinaryDownloadStalledError();
+        }
+
+        throw new CliUserError("errors.selfUpdate.downloadError", 1, {
+            message: error instanceof Error ? error.message : String(error),
+        });
+    }
+    finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+async function writeBinaryResponseToFile(options: {
+    abortController: AbortController;
+    outputPath: string;
+    response: Response;
+    stallTimeoutMs: number;
+    updateAbortReason: (reason: "stall" | "timeout") => void;
+}): Promise<void> {
+    const reader = options.response.body?.getReader();
+    const fileHandle = await open(options.outputPath, "w");
+    let stallTimeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const resetStallTimeout = (): void => {
+        if (stallTimeoutId !== undefined) {
+            clearTimeout(stallTimeoutId);
+        }
+
+        stallTimeoutId = setTimeout(() => {
+            options.updateAbortReason("stall");
+            options.abortController.abort();
+        }, options.stallTimeoutMs);
+        stallTimeoutId.unref?.();
+    };
+
+    try {
+        if (reader === undefined) {
+            return;
+        }
+
+        resetStallTimeout();
+
+        while (true) {
+            const chunk = await reader.read();
+
+            if (chunk.done) {
+                break;
+            }
+
+            if (chunk.value.byteLength === 0) {
+                continue;
+            }
+
+            resetStallTimeout();
+            await writeChunk(fileHandle, chunk.value);
+        }
+    }
+    finally {
+        if (stallTimeoutId !== undefined) {
+            clearTimeout(stallTimeoutId);
+        }
+
+        reader?.releaseLock();
+        await fileHandle.close().catch(() => undefined);
+    }
+}
+
+async function replaceTargetVersionFile(options: {
+    platform: NodeJS.Platform;
+    processId: number;
+    targetVersionPath: string;
+    temporaryVersionPath: string;
+    timestamp: number;
+}): Promise<void> {
+    if (options.platform !== "win32") {
+        await rename(options.temporaryVersionPath, options.targetVersionPath);
+        return;
+    }
+
+    const backupPath
+        = `${options.targetVersionPath}.old.${options.processId}.${options.timestamp}`;
+
+    try {
+        await rename(options.temporaryVersionPath, options.targetVersionPath);
+        return;
+    }
+    catch {}
+
+    let backupCreated = false;
+
+    try {
+        await rename(options.targetVersionPath, backupPath);
+        backupCreated = true;
+        await rename(options.temporaryVersionPath, options.targetVersionPath);
+    }
+    catch (error) {
+        if (backupCreated) {
+            await rename(backupPath, options.targetVersionPath).catch(() => {});
+        }
+        throw error;
+    }
+
+    if (backupCreated) {
+        await removePathBestEffort(backupPath);
+    }
 }
 
 async function activateTargetVersion(options: {
@@ -746,20 +971,6 @@ function normalizePathForComparison(
         : resolvedValue;
 }
 
-async function pathExists(path: string): Promise<boolean> {
-    try {
-        await stat(path);
-        return true;
-    }
-    catch (error) {
-        if (isFileMissingError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
-}
-
 async function readDirectoryEntries(path: string): Promise<string[]> {
     try {
         return await readdir(path);
@@ -778,4 +989,21 @@ async function removePathBestEffort(path: string): Promise<void> {
         force: true,
         recursive: true,
     }).catch(() => {});
+}
+
+function validateSelfUpdateTargetVersionOrThrow(version: string): void {
+    if (isSemver(version)) {
+        return;
+    }
+
+    throw new CliUserError("errors.selfUpdate.invalidTargetVersion", 2, {
+        version,
+    });
+}
+
+class BinaryDownloadStalledError extends Error {
+    constructor() {
+        super("Binary download stalled.");
+        this.name = "BinaryDownloadStalledError";
+    }
 }

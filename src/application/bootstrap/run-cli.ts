@@ -12,7 +12,7 @@ import type { FileDownloadSessionStore } from "../contracts/file-download-sessio
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 import type { LogCategory } from "../logging/log-categories.ts";
-import { readdir, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import process from "node:process";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { SqliteCacheStore } from "../../adapters/cache/sqlite-cache.ts";
@@ -42,6 +42,7 @@ import { logCategory } from "../logging/log-categories.ts";
 import { withCategory, withErrorKey } from "../logging/log-fields.ts";
 import { initializeCurrentVersionProcessLock } from "../self-update/core.ts";
 import { isFileMissingError } from "../shared/fs-errors.ts";
+import { pathExists } from "../shared/fs-utils.ts";
 import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
 
 export interface CliInvocation {
@@ -422,20 +423,6 @@ async function detectFirstRun(storePaths: {
         hasSettingsFile,
         isFirstRun: !hasSettingsFile && !hasAuthFile && !hasLogFiles,
     };
-}
-
-async function pathExists(path: string): Promise<boolean> {
-    try {
-        await stat(path);
-        return true;
-    }
-    catch (error) {
-        if (isFileMissingError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
 }
 
 async function directoryHasEntries(path: string): Promise<boolean> {

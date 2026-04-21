@@ -104,16 +104,16 @@ Remove one persisted configuration value.
 
 Install one managed `oo` release into the local self-managed runtime.
 
-- Arguments: `[version]` is optional. When omitted, `oo` resolves the target
-  version from the published `latest.json` metadata.
-- Options: `--force` forces a reinstall even when the target version already
-  exists in the managed versions directory.
+- Arguments: `[version]` is optional. When omitted, `oo` installs the latest
+  published release.
+- Options: `--force` forces a reinstall even when the requested version is
+  already installed.
 - Output: on success, the CLI prints the installed version and the final
   executable path.
 - Output: when `stderr` is an interactive TTY, the CLI also renders colored
   progress stages to `stderr` while the install is running.
-- Notes: install verifies that the final entrypoint exists and targets a valid
-  managed version before reporting success.
+- Notes: install verifies that the installed `oo` command is usable before
+  reporting success.
 - Notes: when the executable directory is not on `PATH`, install also prints a
   setup note that tells the user which directory to add.
 - Notes: after a successful install, the CLI best-effort removes a legacy
@@ -127,22 +127,19 @@ Install one managed `oo` release into the local self-managed runtime.
 Update the managed `oo` install to the latest published release.
 
 - Arguments: none.
-- Output: when the latest published version is exactly equal to the current
-  version string, the CLI prints the up-to-date message after repairing the
-  managed entrypoint if needed.
-- Output: when the latest published version differs from the current version
-  string, the CLI prints the version change result.
+- Output: when the current version is already the latest published release, the
+  CLI prints the up-to-date message.
+- Output: when a newer published release is available, the CLI prints the
+  version change result.
 - Output: when `stderr` is an interactive TTY, the CLI also renders colored
   progress stages to `stderr` while the update is running.
-- Notes: `oo update` always repairs or re-materializes the target version and
+- Notes: `oo update` ensures the managed install is current and usable, and
   does not expose a separate `--force` flag.
 - Notes: after a successful update, the CLI best-effort removes a legacy global
   `@oomol-lab/oo-cli` package-manager install when the current command is
   running from one; cleanup failures do not change the command result.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
-- Notes: update uses string equality instead of semver ordering to decide
-  whether the current version is already up to date.
 
 ### `oo upgrade`
 

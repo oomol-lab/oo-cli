@@ -73,4 +73,32 @@ describe("self-update version locks", () => {
             status: "busy",
         });
     });
+
+    test("does not treat basename substring matches as an active lock owner", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-lock-substring");
+        const lockFilePath = join(rootDirectory, "1.2.3.lock");
+
+        trackDirectory(rootDirectory);
+        await mkdir(rootDirectory, { recursive: true });
+        await writeFile(
+            lockFilePath,
+            `${JSON.stringify({
+                acquiredAt: new Date().toISOString(),
+                execPath: "/tmp/b",
+                pid: process.pid,
+                version: "1.2.3",
+            })}\n`,
+        );
+
+        const result = await acquireVersionLock({
+            execPath: process.execPath,
+            lockFilePath,
+            platform: process.platform,
+            processId: process.pid + 1,
+            sleep: async () => {},
+            version: "1.2.3",
+        });
+
+        expect(result.status).toBe("acquired");
+    });
 });

@@ -154,6 +154,25 @@ describe("self-update commands", () => {
         }
     });
 
+    test("install rejects an invalid explicit version before touching self-update paths", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["install", "../not-a-version"], {
+                version: "1.0.0",
+            });
+
+            expect(createCliSnapshot(result)).toEqual({
+                exitCode: 2,
+                stderr: "Invalid target CLI version: ../not-a-version. Use a semver version.\n",
+                stdout: "",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("update prints the development-version guard and exits successfully", async () => {
         const sandbox = await createCliSandbox();
 

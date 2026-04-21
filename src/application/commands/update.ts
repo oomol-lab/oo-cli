@@ -68,7 +68,10 @@ export const updateCommand: CliCommandDefinition = {
                 progressReporter?.abort();
                 writeLine(
                     context.stdout,
-                    renderSelfUpdateLockBusyMessage(result.ownerPid),
+                    renderSelfUpdateLockBusyMessage({
+                        ownerPid: result.ownerPid,
+                        translator: context.translator,
+                    }),
                 );
                 return;
             }

@@ -2,12 +2,14 @@ import type { CliCommandDefinition } from "../contracts/cli.ts";
 
 import process from "node:process";
 import { z } from "zod";
+import { CliUserError } from "../contracts/cli.ts";
 import {
     performSelfUpdateOperation,
     renderSelfUpdateLockBusyMessage,
     resolveLatestSelfUpdateVersion,
     selfUpdateDevelopmentVersion,
 } from "../self-update/core.ts";
+import { isSemver } from "../semver.ts";
 import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
 import { writeLine } from "./shared/output.ts";
 
@@ -46,6 +48,12 @@ export const installCommand: CliCommandDefinition<
                 }),
             );
             return;
+        }
+
+        if (input.version !== undefined && !isSemver(input.version)) {
+            throw new CliUserError("errors.selfUpdate.invalidTargetVersion", 2, {
+                version: input.version,
+            });
         }
 
         const progressReporter = context.stderr.isTTY === true
@@ -94,7 +102,10 @@ export const installCommand: CliCommandDefinition<
                 progressReporter?.abort();
                 writeLine(
                     context.stdout,
-                    renderSelfUpdateLockBusyMessage(result.ownerPid),
+                    renderSelfUpdateLockBusyMessage({
+                        ownerPid: result.ownerPid,
+                        translator: context.translator,
+                    }),
                 );
                 return;
             }
