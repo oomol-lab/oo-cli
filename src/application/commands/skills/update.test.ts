@@ -413,7 +413,13 @@ describe("skills update command", () => {
             isTTY: true,
         });
         const stderr = createTextBuffer();
-        let releaseTarball: (() => void) | undefined;
+        let releaseTarball = () => {};
+        let execution: Promise<number> | undefined;
+        const tarballGate = new Promise<void>((resolve) => {
+            // Build the gate before starting the CLI so releasing it cannot race
+            // the tarball request setting its resolver.
+            releaseTarball = resolve;
+        });
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -426,7 +432,7 @@ describe("skills update command", () => {
                 version: "0.0.3",
             });
 
-            const execution = executeCli({
+            execution = executeCli({
                 argv: ["skills", "update", "chatgpt"],
                 cwd: sandbox.cwd,
                 env: sandbox.env,
@@ -448,9 +454,7 @@ describe("skills update command", () => {
                     }
 
                     if (request.url.endsWith("/openai/-/meta/openai-0.0.4.tgz")) {
-                        await new Promise<void>((resolve) => {
-                            releaseTarball = resolve;
-                        });
+                        await tarballGate;
 
                         return new Response(await createRegistrySkillArchiveBytes({
                             "package/package/skills/chatgpt/SKILL.md": "# ChatGPT fresh\n",
@@ -468,7 +472,7 @@ describe("skills update command", () => {
             await waitForOutputText(stdout, "Updating installed skills");
             await waitForOutputText(stdout, "chatgpt");
 
-            releaseTarball?.();
+            releaseTarball();
 
             const exitCode = await execution;
             const plainOutput = stripVTControlCharacters(stdout.read());
@@ -480,6 +484,13 @@ describe("skills update command", () => {
             expect(plainOutput).toContain("updated");
         }
         finally {
+            releaseTarball();
+            if (execution !== undefined) {
+                await Promise.race([
+                    execution.then(() => undefined, () => undefined),
+                    Bun.sleep(1000),
+                ]);
+            }
             await sandbox.cleanup();
         }
     });
