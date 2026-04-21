@@ -87,9 +87,6 @@ export const enMessages = {
         "Upload a file and store the signed download URL locally.",
     "commands.file.upload.summary": "Upload a file",
     "commands.help.summary": "Show help for a command",
-    "commands.install.description":
-        `Install the current ${APP_NAME} binary into the user-level bin directory.`,
-    "commands.install.summary": `Install the current ${APP_NAME} binary`,
     "commands.log.description": "Inspect persisted CLI debug logs.",
     "commands.log.summary": "Manage persisted debug logs",
     "commands.log.path.description": "Print the current persisted log directory path.",
@@ -139,21 +136,6 @@ export const enMessages = {
     "commands.skills.uninstall.summary": "Remove a managed skill",
     "config.set.success": "Set {key} to {value}.",
     "config.unset.success": "Removed {key}.",
-    "install.progress.installing": `Installing ${APP_NAME}...`,
-    "install.setupNotes.path.bash":
-        "Native installation exists but {path} is not in your PATH. Run:\n\necho 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc && source ~/.bashrc",
-    "install.setupNotes.path.fish":
-        "Native installation exists but {path} is not in your PATH. Run:\n\nfish_add_path $HOME/.local/bin",
-    "install.setupNotes.path.unknown":
-        "Native installation exists but {path} is not in your PATH. Add it to your shell config file, then restart your terminal.",
-    "install.setupNotes.path.win32":
-        "Native installation exists but {path} is not in your PATH. Add it by opening: System Properties -> Environment Variables -> Edit User PATH -> New -> Add the path above. Then restart your terminal.",
-    "install.setupNotes.path.zsh":
-        "Native installation exists but {path} is not in your PATH. Run:\n\necho 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.zshrc && source ~/.zshrc",
-    "install.setupNotes.title": "Setup notes:",
-    "install.success.location": "Location: {path}",
-    "install.success.next": `Next: Run ${APP_NAME} --help to get started`,
-    "install.success.title": `${APP_NAME} successfully installed!`,
     "errors.commander.excessArguments": "Too many arguments were provided.",
     "errors.commander.invalidArgument": "Invalid argument: {value}.",
     "errors.commander.missingArgument": "Missing required argument: {value}.",
@@ -184,17 +166,6 @@ export const enMessages = {
         "Failed to read the auth file at {path}.",
     "errors.authStore.writeFailed":
         "Failed to write the auth file at {path}.",
-    "errors.install.failed": "Installation failed\n{reason}",
-    "errors.install.invalidSource":
-        "Cannot self-install from the current runtime: executable path is not a stable local binary.",
-    "errors.install.mkdirFailed":
-        "Failed to create the install directory at {path}: {message}",
-    "errors.install.rollbackFailed":
-        "Failed to write the install entry at {path}, and the previous installation could not be restored: {message}",
-    "errors.install.verifyFailed":
-        "Installed binary verification failed at {path}: {message}",
-    "errors.install.writeFailed":
-        "Failed to write the install entry at {path}: {message}",
     "errors.shared.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.shared.invalidPositiveIntegerOption":
@@ -670,9 +641,6 @@ export const zhMessages = {
     "commands.file.upload.description": "上传文件，并在本地保存带签名的下载地址。",
     "commands.file.upload.summary": "上传文件",
     "commands.help.summary": "显示命令帮助",
-    "commands.install.description":
-        `将当前运行中的 ${APP_NAME} 二进制安装到用户级 bin 目录。`,
-    "commands.install.summary": `安装当前 ${APP_NAME} 二进制`,
     "commands.log.description": "查看持久化的 CLI debug 日志。",
     "commands.log.summary": "管理持久化 debug 日志",
     "commands.log.path.description": "打印当前持久化日志目录路径。",
@@ -713,21 +681,6 @@ export const zhMessages = {
     "commands.skills.uninstall.summary": "移除一个受管理的 skill",
     "config.set.success": "已将 {key} 设置为 {value}。",
     "config.unset.success": "已移除 {key}。",
-    "install.progress.installing": `正在安装 ${APP_NAME}...`,
-    "install.setupNotes.path.bash":
-        "检测到原生安装已存在，但 {path} 不在你的 PATH 中。请运行：\n\necho 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc && source ~/.bashrc",
-    "install.setupNotes.path.fish":
-        "检测到原生安装已存在，但 {path} 不在你的 PATH 中。请运行：\n\nfish_add_path $HOME/.local/bin",
-    "install.setupNotes.path.unknown":
-        "检测到原生安装已存在，但 {path} 不在你的 PATH 中。请将它加入 shell 配置文件，然后重启终端。",
-    "install.setupNotes.path.win32":
-        "检测到原生安装已存在，但 {path} 不在你的 PATH 中。请打开 System Properties -> Environment Variables -> Edit User PATH -> New，添加上面的路径，然后重启终端。",
-    "install.setupNotes.path.zsh":
-        "检测到原生安装已存在，但 {path} 不在你的 PATH 中。请运行：\n\necho 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.zshrc && source ~/.zshrc",
-    "install.setupNotes.title": "配置提示：",
-    "install.success.location": "位置：{path}",
-    "install.success.next": `下一步：运行 ${APP_NAME} --help 开始使用`,
-    "install.success.title": `${APP_NAME} 安装成功！`,
     "errors.commander.excessArguments": "提供了过多的参数。",
     "errors.commander.invalidArgument": "参数无效：{value}。",
     "errors.commander.missingArgument": "缺少必填参数：{value}。",
@@ -748,17 +701,6 @@ export const zhMessages = {
     "errors.authStore.invalidSchema": "认证文件 {path} 的结构不受支持。",
     "errors.authStore.readFailed": "读取认证文件 {path} 失败。",
     "errors.authStore.writeFailed": "写入认证文件 {path} 失败。",
-    "errors.install.failed": "安装失败\n{reason}",
-    "errors.install.invalidSource":
-        "无法从当前运行时执行自安装：可执行路径不是稳定的本地二进制。",
-    "errors.install.mkdirFailed":
-        "无法创建安装目录 {path}：{message}",
-    "errors.install.rollbackFailed":
-        "无法写入安装入口 {path}，并且无法恢复之前的安装：{message}",
-    "errors.install.verifyFailed":
-        "已安装二进制在 {path} 的校验失败：{message}",
-    "errors.install.writeFailed":
-        "无法写入安装入口 {path}：{message}",
     "errors.shared.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.shared.invalidPositiveIntegerOption":
