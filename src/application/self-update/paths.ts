@@ -152,7 +152,7 @@ function resolveWindowsTempDirectory(
         ?? pathModule.join(homeDirectory, "AppData", "Local", "Temp");
 }
 
-function readPathModule(
+export function readPathModule(
     platform: NodeJS.Platform,
 ): typeof posix | typeof win32 {
     return platform === "win32" ? win32 : posix;

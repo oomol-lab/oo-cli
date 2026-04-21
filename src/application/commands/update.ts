@@ -8,6 +8,7 @@ import {
     resolveLatestSelfUpdateVersion,
     selfUpdateDevelopmentVersion,
 } from "../self-update/core.ts";
+import { detectInstallationMethodFromExecPath } from "../self-update/installation.ts";
 import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
 import { writeLine } from "./shared/output.ts";
 
@@ -48,6 +49,24 @@ export const updateCommand: CliCommandDefinition = {
                 version: latestVersion,
             });
 
+            if (
+                latestVersion === context.version
+                && detectInstallationMethodFromExecPath({
+                    env: context.env,
+                    execPath: context.execPath,
+                    platform: process.platform,
+                }).method === "native"
+            ) {
+                progressReporter?.finish();
+                writeLine(
+                    context.stdout,
+                    context.translator.t("checkUpdate.upToDate", {
+                        version: context.version,
+                    }),
+                );
+                return;
+            }
+
             const result = await performSelfUpdateOperation({
                 currentVersion: context.version,
                 forceReinstall: true,
@@ -55,7 +74,7 @@ export const updateCommand: CliCommandDefinition = {
                 runtime: {
                     arch: process.arch,
                     env: context.env,
-                    execPath: process.execPath,
+                    execPath: context.execPath,
                     fetcher: context.fetcher,
                     logger: context.logger,
                     platform: process.platform,

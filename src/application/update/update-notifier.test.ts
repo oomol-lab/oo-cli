@@ -422,6 +422,7 @@ function createUpdateNotifierHarness(options: {
             render: () => "",
         },
         currentLogFilePath: "",
+        execPath: process.execPath,
         cwd: "",
         env: {},
         fetcher: createRetryingFetcher({

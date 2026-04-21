@@ -51,6 +51,7 @@ export interface CliInvocation {
     cacheStore?: CacheStore;
     cwd: string;
     env: Record<string, string | undefined>;
+    execPath?: string;
     fetcher?: Fetcher;
     fileDownloadSessionStore?: FileDownloadSessionStore;
     fileUploadStore?: FileUploadRecordStore;
@@ -133,6 +134,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         logDirectoryPath: storePaths.logDirectoryPath,
     });
     const { logger, logFilePath } = loggerHandle;
+    const currentExecPath = invocation.execPath ?? process.execPath;
 
     logger.info(
         {
@@ -211,7 +213,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             currentVersion: version,
             runtime: {
                 env: invocation.env,
-                execPath: process.execPath,
+                execPath: currentExecPath,
                 logger,
                 platform: process.platform,
                 processId: process.pid,
@@ -348,6 +350,7 @@ function createCliExecutionContext(
         authStore: options.authStore,
         cacheStore: options.cacheStore,
         currentLogFilePath: options.logFilePath,
+        execPath: options.invocation.execPath ?? process.execPath,
         fetcher: options.fetcher,
         cwd: options.invocation.cwd,
         env: options.invocation.env,

@@ -281,6 +281,7 @@ function createWaitContext(options: {
             authStore: createAuthStore(activeAuthFile),
             cacheStore: createCacheStore(),
             currentLogFilePath: "",
+            execPath: process.execPath,
             fetcher: options.fetcher,
             cwd: process.cwd(),
             env: {},

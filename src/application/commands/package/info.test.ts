@@ -164,6 +164,7 @@ function createPackageInfoContext(options: {
         authStore: createAuthStore(activeAuthFile),
         cacheStore: options.cacheStore,
         currentLogFilePath: "",
+        execPath: process.execPath,
         fetcher: options.fetcher,
         cwd: process.cwd(),
         env: {},

@@ -48,7 +48,7 @@ exports[`self-update commands update prints the development-version guard and ex
 }
 `;
 
-exports[`self-update commands upgrade uses the same update path and repairs a same-version install 1`] = `
+exports[`self-update commands upgrade uses the same update path and repairs a same-version package-manager install 1`] = `
 {
   "exitCode": 0,
   "stderr": "",

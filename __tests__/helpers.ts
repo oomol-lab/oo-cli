@@ -47,6 +47,7 @@ export interface TextBufferOptions {
 }
 
 export interface CliRunOptions {
+    execPath?: string;
     fetcher?: Fetcher;
     packageName?: string;
     stderr?: TextBufferOptions;
@@ -327,6 +328,7 @@ export async function createCliSandbox(
                 argv,
                 cwd,
                 env,
+                execPath: options.execPath,
                 fetcher: options.fetcher,
                 packageName: options.packageName,
                 stdin: options.stdin,

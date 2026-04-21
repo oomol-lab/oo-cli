@@ -96,6 +96,7 @@ export interface CliExecutionContext {
     fileDownloadSessionStore: FileDownloadSessionStore;
     fileUploadStore: FileUploadRecordStore;
     currentLogFilePath: string;
+    execPath: string;
     fetcher: Fetcher;
     cwd: string;
     env: Record<string, string | undefined>;

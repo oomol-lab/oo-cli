@@ -89,7 +89,7 @@ export const installCommand: CliCommandDefinition<
                 runtime: {
                     arch: process.arch,
                     env: context.env,
-                    execPath: process.execPath,
+                    execPath: context.execPath,
                     fetcher: context.fetcher,
                     logger: context.logger,
                     platform: process.platform,
