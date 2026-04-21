@@ -6,12 +6,12 @@ exports[`checkUpdateCommand CLI writes update-check lifecycle logs when check-up
   "stderr": "",
   "stdout": 
 "
-╭──────────────────────────────────────────────────────╮
-│                                                      │
-│            Update available 1.0.0 → 1.2.0            │
-│  Run pnpm add -g @oomol-lab/oo-cli@latest to update  │
-│                                                      │
-╰──────────────────────────────────────────────────────╯
+╭──────────────────────────────────╮
+│                                  │
+│  Update available 1.0.0 → 1.2.0  │
+│     Run oo update to update      │
+│                                  │
+╰──────────────────────────────────╯
 "
 ,
 }
@@ -64,31 +64,31 @@ exports[`checkUpdateCommand CLI does not cache failed update checks between chec
     "stderr": "",
     "stdout": 
 "
-╭─────────────────────────────────────────────────────────╮
-│                                                         │
-│             Update available 1.0.0 → 1.2.0              │
-│  Run npm install -g @oomol-lab/oo-cli@latest to update  │
-│                                                         │
-╰─────────────────────────────────────────────────────────╯
+╭──────────────────────────────────╮
+│                                  │
+│  Update available 1.0.0 → 1.2.0  │
+│     Run oo update to update      │
+│                                  │
+╰──────────────────────────────────╯
 "
 ,
   },
 }
 `;
 
-exports[`checkUpdateCommand CLI fetches the latest registry version on every check-update invocation 1`] = `
+exports[`checkUpdateCommand CLI fetches the latest release version on every check-update invocation 1`] = `
 {
   "firstResult": {
     "exitCode": 0,
     "stderr": "",
     "stdout": 
 "
-╭─────────────────────────────────────────────────────────╮
-│                                                         │
-│             Update available 1.0.0 → 1.2.0              │
-│  Run npm install -g @oomol-lab/oo-cli@latest to update  │
-│                                                         │
-╰─────────────────────────────────────────────────────────╯
+╭──────────────────────────────────╮
+│                                  │
+│  Update available 1.0.0 → 1.2.0  │
+│     Run oo update to update      │
+│                                  │
+╰──────────────────────────────────╯
 "
 ,
   },
@@ -97,12 +97,12 @@ exports[`checkUpdateCommand CLI fetches the latest registry version on every che
     "stderr": "",
     "stdout": 
 "
-╭─────────────────────────────────────────────────────────╮
-│                                                         │
-│             Update available 1.0.0 → 1.3.0              │
-│  Run npm install -g @oomol-lab/oo-cli@latest to update  │
-│                                                         │
-╰─────────────────────────────────────────────────────────╯
+╭──────────────────────────────────╮
+│                                  │
+│  Update available 1.0.0 → 1.3.0  │
+│     Run oo update to update      │
+│                                  │
+╰──────────────────────────────────╯
 "
 ,
   },

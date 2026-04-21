@@ -4,8 +4,8 @@ import { z } from "zod";
 import { CliUserError } from "../contracts/cli.ts";
 import {
     checkForCliUpdate,
+    cliUpdateCommand,
     renderCliUpdateNotice,
-    resolvePackageManagerUpgradeCommand,
 } from "../update/update-notifier.ts";
 
 export const checkUpdateCommand: CliCommandDefinition = {
@@ -47,10 +47,7 @@ export const checkUpdateCommand: CliCommandDefinition = {
                     renderCliUpdateNotice({
                         context,
                         latestVersion: result.latestVersion,
-                        updateCommand: resolvePackageManagerUpgradeCommand(
-                            context.env,
-                            context.packageName,
-                        ),
+                        updateCommand: cliUpdateCommand,
                         writer: context.stdout,
                     }),
                 );

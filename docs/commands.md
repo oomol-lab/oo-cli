@@ -105,13 +105,13 @@ Remove one persisted configuration value.
 Check whether a newer CLI release is available.
 
 - Notes: when a newer release is found, the CLI prints the recommended upgrade
-  command for the current package manager.
+  command `oo update`.
 - Notes: when the current release is already the latest one, the CLI prints a
   confirmation message.
 - Notes: transient request failures are retried once before the CLI gives up.
 - Notes: successful and failed checks are not cached, so every invocation
-  fetches the latest release information from the registry.
-- Notes: when the registry is temporarily unavailable, the CLI prints a
+  fetches the latest release metadata from the published update endpoint.
+- Notes: when the update endpoint is temporarily unavailable, the CLI prints a
   retry-later message instead of exiting with an error.
 
 ## Connector
