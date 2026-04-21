@@ -2,6 +2,7 @@ import type { Logger } from "pino";
 
 import type { Fetcher } from "../contracts/cli.ts";
 import type { LegacyPackageManagerCleanupRuntime } from "./legacy-installation.ts";
+import type { SelfUpdateProgressEvent } from "./progress.ts";
 import { chmod, copyFile, lstat, mkdir, readdir, readlink, realpath, rename, rm, stat, symlink } from "node:fs/promises";
 import { basename, delimiter, dirname, isAbsolute, join, normalize, resolve as resolvePath } from "node:path";
 import process from "node:process";
@@ -83,6 +84,7 @@ export async function resolveLatestSelfUpdateVersion(options: {
 export async function performSelfUpdateOperation(options: {
     currentVersion: string;
     forceReinstall: boolean;
+    reportStage?: (event: SelfUpdateProgressEvent) => void;
     runtime: SelfUpdateRuntime;
     targetVersion: string;
 }): Promise<SelfUpdateOperationOutcome> {
@@ -92,6 +94,10 @@ export async function performSelfUpdateOperation(options: {
     });
     const releasePlatform = await detectReleasePlatformOrThrow(options.runtime);
 
+    options.reportStage?.({
+        stage: "prepare",
+        version: options.targetVersion,
+    });
     await ensureSelfUpdateDirectories(paths);
     await cleanupStaleVersionLocks({
         locksDirectory: paths.locksDirectory,
@@ -121,8 +127,13 @@ export async function performSelfUpdateOperation(options: {
             forceReinstall: options.forceReinstall,
             paths,
             releasePlatform,
+            reportStage: options.reportStage,
             runtime: options.runtime,
             targetVersion: options.targetVersion,
+        });
+        options.reportStage?.({
+            stage: "activate",
+            version: options.targetVersion,
         });
         await activateTargetVersion({
             paths,
@@ -136,9 +147,14 @@ export async function performSelfUpdateOperation(options: {
             env: options.runtime.env,
             paths,
             platform: options.runtime.platform,
+            reportStage: options.reportStage,
             targetVersion: options.targetVersion,
         });
 
+        options.reportStage?.({
+            stage: "cleanup",
+            version: options.targetVersion,
+        });
         await cleanupSelfUpdateArtifacts({
             currentVersion: options.currentVersion,
             logger: options.runtime.logger,
@@ -271,6 +287,7 @@ async function materializeTargetVersion(options: {
     forceReinstall: boolean;
     paths: ReturnType<typeof resolveSelfUpdatePaths>;
     releasePlatform: string;
+    reportStage?: (event: SelfUpdateProgressEvent) => void;
     runtime: SelfUpdateRuntime;
     targetVersion: string;
 }): Promise<void> {
@@ -283,6 +300,10 @@ async function materializeTargetVersion(options: {
         !options.forceReinstall
         && await pathExists(targetVersionPath)
     ) {
+        options.reportStage?.({
+            stage: "reuse",
+            version: options.targetVersion,
+        });
         return;
     }
 
@@ -306,6 +327,10 @@ async function materializeTargetVersion(options: {
         version: options.targetVersion,
     });
 
+    options.reportStage?.({
+        stage: "download",
+        version: options.targetVersion,
+    });
     await mkdir(stagingDirectory, { recursive: true });
 
     try {
@@ -471,6 +496,7 @@ async function verifyInstalledEntrypoint(options: {
     env: Record<string, string | undefined>;
     paths: ReturnType<typeof resolveSelfUpdatePaths>;
     platform: NodeJS.Platform;
+    reportStage?: (event: SelfUpdateProgressEvent) => void;
     targetVersion: string;
 }): Promise<boolean> {
     const targetVersionPath = resolveSelfUpdateVersionFilePath(
@@ -478,6 +504,10 @@ async function verifyInstalledEntrypoint(options: {
         options.targetVersion,
     );
 
+    options.reportStage?.({
+        stage: "verify",
+        version: options.targetVersion,
+    });
     if (options.platform !== "win32") {
         let executableMetadata: Awaited<ReturnType<typeof lstat>>;
 

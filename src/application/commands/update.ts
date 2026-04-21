@@ -8,6 +8,7 @@ import {
     resolveLatestSelfUpdateVersion,
     selfUpdateDevelopmentVersion,
 } from "../self-update/core.ts";
+import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
 import { writeLine } from "./shared/output.ts";
 
 export const updateCommand: CliCommandDefinition = {
@@ -27,50 +28,74 @@ export const updateCommand: CliCommandDefinition = {
             return;
         }
 
-        const latestVersion = await resolveLatestSelfUpdateVersion({
-            currentVersion: context.version,
-            fetcher: context.fetcher,
-            logger: context.logger,
-        });
-        const result = await performSelfUpdateOperation({
-            currentVersion: context.version,
-            forceReinstall: true,
-            runtime: {
-                arch: process.arch,
-                env: context.env,
-                execPath: process.execPath,
+        const progressReporter = context.stderr.isTTY === true
+            ? new SelfUpdateProgressReporter(
+                    context.stderr,
+                    "update",
+                    context.translator,
+                )
+            : undefined;
+
+        try {
+            progressReporter?.setStage("resolve");
+
+            const latestVersion = await resolveLatestSelfUpdateVersion({
+                currentVersion: context.version,
                 fetcher: context.fetcher,
                 logger: context.logger,
-                platform: process.platform,
-                processId: process.pid,
-            },
-            targetVersion: latestVersion,
-        });
+            });
+            progressReporter?.setStage("resolve", {
+                version: latestVersion,
+            });
 
-        if (result.status === "busy") {
+            const result = await performSelfUpdateOperation({
+                currentVersion: context.version,
+                forceReinstall: true,
+                reportStage: progressReporter?.createReportStage(),
+                runtime: {
+                    arch: process.arch,
+                    env: context.env,
+                    execPath: process.execPath,
+                    fetcher: context.fetcher,
+                    logger: context.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                },
+                targetVersion: latestVersion,
+            });
+
+            if (result.status === "busy") {
+                progressReporter?.abort();
+                writeLine(
+                    context.stdout,
+                    renderSelfUpdateLockBusyMessage(result.ownerPid),
+                );
+                return;
+            }
+
+            progressReporter?.finish();
+
+            if (latestVersion === context.version) {
+                writeLine(
+                    context.stdout,
+                    context.translator.t("checkUpdate.upToDate", {
+                        version: context.version,
+                    }),
+                );
+                return;
+            }
+
             writeLine(
                 context.stdout,
-                renderSelfUpdateLockBusyMessage(result.ownerPid),
-            );
-            return;
-        }
-
-        if (latestVersion === context.version) {
-            writeLine(
-                context.stdout,
-                context.translator.t("checkUpdate.upToDate", {
-                    version: context.version,
+                context.translator.t("selfUpdate.update.success", {
+                    currentVersion: context.version,
+                    version: latestVersion,
                 }),
             );
-            return;
         }
-
-        writeLine(
-            context.stdout,
-            context.translator.t("selfUpdate.update.success", {
-                currentVersion: context.version,
-                version: latestVersion,
-            }),
-        );
+        catch (error) {
+            progressReporter?.abort();
+            throw error;
+        }
     },
 };

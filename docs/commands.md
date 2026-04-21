@@ -110,6 +110,8 @@ Install one managed `oo` release into the local self-managed runtime.
   exists in the managed versions directory.
 - Output: on success, the CLI prints the installed version and the final
   executable path.
+- Output: when `stderr` is an interactive TTY, the CLI also renders colored
+  progress stages to `stderr` while the install is running.
 - Notes: install verifies that the final entrypoint exists and targets a valid
   managed version before reporting success.
 - Notes: when the executable directory is not on `PATH`, install also prints a
@@ -130,6 +132,8 @@ Update the managed `oo` install to the latest published release.
   managed entrypoint if needed.
 - Output: when the latest published version differs from the current version
   string, the CLI prints the version change result.
+- Output: when `stderr` is an interactive TTY, the CLI also renders colored
+  progress stages to `stderr` while the update is running.
 - Notes: `oo update` always repairs or re-materializes the target version and
   does not expose a separate `--force` flag.
 - Notes: after a successful update, the CLI best-effort removes a legacy global

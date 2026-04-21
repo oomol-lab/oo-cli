@@ -8,6 +8,7 @@ import {
     resolveLatestSelfUpdateVersion,
     selfUpdateDevelopmentVersion,
 } from "../self-update/core.ts";
+import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
 import { writeLine } from "./shared/output.ts";
 
 const installCommandInputSchema = z.object({
@@ -47,55 +48,84 @@ export const installCommand: CliCommandDefinition<
             return;
         }
 
-        const targetVersion = input.version
-            ?? await resolveLatestSelfUpdateVersion({
+        const progressReporter = context.stderr.isTTY === true
+            ? new SelfUpdateProgressReporter(
+                    context.stderr,
+                    "install",
+                    context.translator,
+                )
+            : undefined;
+
+        try {
+            if (input.version === undefined) {
+                progressReporter?.setStage("resolve");
+            }
+
+            const targetVersion = input.version
+                ?? await resolveLatestSelfUpdateVersion({
+                    currentVersion: context.version,
+                    fetcher: context.fetcher,
+                    logger: context.logger,
+                });
+
+            if (input.version === undefined) {
+                progressReporter?.setStage("resolve", {
+                    version: targetVersion,
+                });
+            }
+
+            const result = await performSelfUpdateOperation({
                 currentVersion: context.version,
-                fetcher: context.fetcher,
-                logger: context.logger,
+                forceReinstall: input.force,
+                reportStage: progressReporter?.createReportStage(),
+                runtime: {
+                    arch: process.arch,
+                    env: context.env,
+                    execPath: process.execPath,
+                    fetcher: context.fetcher,
+                    logger: context.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                },
+                targetVersion,
             });
-        const result = await performSelfUpdateOperation({
-            currentVersion: context.version,
-            forceReinstall: input.force,
-            runtime: {
-                arch: process.arch,
-                env: context.env,
-                execPath: process.execPath,
-                fetcher: context.fetcher,
-                logger: context.logger,
-                platform: process.platform,
-                processId: process.pid,
-            },
-            targetVersion,
-        });
 
-        if (result.status === "busy") {
+            if (result.status === "busy") {
+                progressReporter?.abort();
+                writeLine(
+                    context.stdout,
+                    renderSelfUpdateLockBusyMessage(result.ownerPid),
+                );
+                return;
+            }
+
+            progressReporter?.finish();
+
             writeLine(
                 context.stdout,
-                renderSelfUpdateLockBusyMessage(result.ownerPid),
-            );
-            return;
-        }
-
-        writeLine(
-            context.stdout,
-            context.translator.t("selfUpdate.install.success", {
-                version: result.targetVersion,
-            }),
-        );
-        writeLine(
-            context.stdout,
-            context.translator.t("selfUpdate.install.executable", {
-                path: result.executablePath,
-            }),
-        );
-
-        if (!result.pathConfigured) {
-            writeLine(
-                context.stdout,
-                context.translator.t("selfUpdate.install.pathNote", {
-                    path: result.executableDirectory,
+                context.translator.t("selfUpdate.install.success", {
+                    version: result.targetVersion,
                 }),
             );
+            writeLine(
+                context.stdout,
+                context.translator.t("selfUpdate.install.executable", {
+                    path: result.executablePath,
+                }),
+            );
+
+            if (!result.pathConfigured) {
+                writeLine(
+                    context.stdout,
+                    context.translator.t("selfUpdate.install.pathNote", {
+                        path: result.executableDirectory,
+                    }),
+                );
+            }
+        }
+        catch (error) {
+            progressReporter?.abort();
+            throw error;
         }
     },
 };

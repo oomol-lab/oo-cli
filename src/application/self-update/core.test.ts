@@ -1,3 +1,4 @@
+import type { SelfUpdateProgressEvent } from "./progress.ts";
 import { chmod, mkdir, readlink, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import process from "node:process";
@@ -204,6 +205,126 @@ describe("performSelfUpdateOperation", () => {
                 {
                     commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
                     commandPath: "/mock/bin/pnpm",
+                },
+            ]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("reports sequential stages for a downloaded self-update", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-progress");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const logCapture = createLogCapture();
+        const reportedStages: SelfUpdateProgressEvent[] = [];
+
+        trackDirectory(rootDirectory);
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "1.0.0",
+                forceReinstall: true,
+                reportStage: event => reportedStages.push(event),
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: process.execPath,
+                    fetcher: async () => new Response("binary"),
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                },
+                targetVersion: "2.0.0",
+            });
+
+            expect(result.status).toBe("installed");
+            expect(reportedStages).toEqual([
+                {
+                    stage: "prepare",
+                    version: "2.0.0",
+                },
+                {
+                    stage: "download",
+                    version: "2.0.0",
+                },
+                {
+                    stage: "activate",
+                    version: "2.0.0",
+                },
+                {
+                    stage: "verify",
+                    version: "2.0.0",
+                },
+                {
+                    stage: "cleanup",
+                    version: "2.0.0",
+                },
+            ]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("reports reuse when a target version is already materialized", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-reuse");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+            paths,
+            "2.0.0",
+        );
+        const logCapture = createLogCapture();
+        const reportedStages: SelfUpdateProgressEvent[] = [];
+
+        trackDirectory(rootDirectory);
+        await mkdir(paths.versionsDirectory, { recursive: true });
+        await writeManagedVersion(targetVersionPath);
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "1.0.0",
+                forceReinstall: false,
+                reportStage: event => reportedStages.push(event),
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: process.execPath,
+                    fetcher: async () => {
+                        throw new Error("binary download should not be called");
+                    },
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                },
+                targetVersion: "2.0.0",
+            });
+
+            expect(result.status).toBe("installed");
+            expect(reportedStages).toEqual([
+                {
+                    stage: "prepare",
+                    version: "2.0.0",
+                },
+                {
+                    stage: "reuse",
+                    version: "2.0.0",
+                },
+                {
+                    stage: "activate",
+                    version: "2.0.0",
+                },
+                {
+                    stage: "verify",
+                    version: "2.0.0",
+                },
+                {
+                    stage: "cleanup",
+                    version: "2.0.0",
                 },
             ]);
         }

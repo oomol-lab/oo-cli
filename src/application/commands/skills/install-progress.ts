@@ -2,7 +2,7 @@ import type { CliExecutionContext, Writer } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 
 import { createWriterColors } from "../../terminal-colors.ts";
-import { TerminalProgressRenderer } from "./progress-renderer.ts";
+import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
 
 export class SkillsInstallProgressReporter extends TerminalProgressRenderer {
     private activeLines: string[] = [];

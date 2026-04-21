@@ -104,6 +104,56 @@ describe("self-update commands", () => {
         }
     });
 
+    test("install renders interactive progress to stderr when stderr is a tty", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+
+        try {
+            const result = await sandbox.run(["install"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        return new Response(JSON.stringify({
+                            version: "1.2.3",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                stderr: {
+                    hasColors: true,
+                    isTTY: true,
+                },
+                version: "1.0.0",
+            });
+            const snapshot = createCliSnapshot(result, {
+                sandbox,
+                stripAnsi: true,
+            });
+
+            expect(snapshot.stdout).toContain("Installed oo 1.2.3.");
+            expect(snapshot.stderr).toContain("Installing oo");
+            expect(snapshot.stderr).toContain("Resolving latest release...");
+            expect(snapshot.stderr).toContain("Resolved latest release 1.2.3.");
+            expect(snapshot.stderr).toContain("Prepared managed install.");
+            expect(snapshot.stderr).toContain("Downloaded oo 1.2.3.");
+            expect(snapshot.stderr).toContain("Activated executable.");
+            expect(snapshot.stderr).toContain("Verified installation.");
+            expect(snapshot.stderr).toContain("Cleaned up old artifacts.");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("update prints the development-version guard and exits successfully", async () => {
         const sandbox = await createCliSandbox();
 
@@ -159,6 +209,55 @@ describe("self-update commands", () => {
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             await expect(Bun.file(paths.executablePath).exists()).resolves.toBeTrue();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("update renders interactive progress to stderr when stderr is a tty", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+
+        try {
+            const result = await sandbox.run(["update"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        return new Response(JSON.stringify({
+                            version: "2.0.0",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                stderr: {
+                    hasColors: true,
+                    isTTY: true,
+                },
+                version: "1.0.0",
+            });
+            const snapshot = createCliSnapshot(result, {
+                stripAnsi: true,
+            });
+
+            expect(snapshot.stdout).toContain("Updated oo from 1.0.0 to 2.0.0.");
+            expect(snapshot.stderr).toContain("Updating oo");
+            expect(snapshot.stderr).toContain("Resolving latest release...");
+            expect(snapshot.stderr).toContain("Resolved latest release 2.0.0.");
+            expect(snapshot.stderr).toContain("Prepared managed install.");
+            expect(snapshot.stderr).toContain("Downloaded oo 2.0.0.");
+            expect(snapshot.stderr).toContain("Activated executable.");
+            expect(snapshot.stderr).toContain("Verified installation.");
+            expect(snapshot.stderr).toContain("Cleaned up old artifacts.");
         }
         finally {
             await sandbox.cleanup();
