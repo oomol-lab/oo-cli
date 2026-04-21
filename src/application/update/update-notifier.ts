@@ -1,15 +1,16 @@
 import type { CliExecutionContext, Fetcher, Writer } from "../contracts/cli.ts";
 
 import type { TerminalColors } from "../terminal-colors.ts";
-import { z } from "zod";
 import { APP_NAME } from "../config/app-config.ts";
 import { measureDisplayWidth } from "../display-width.ts";
 import { compareSemver, isSemver as isValidSemver } from "../semver.ts";
 import { createWriterColors } from "../terminal-colors.ts";
+import {
+    fetchLatestCliReleaseVersion,
+    parseLatestCliSemverReleaseVersion,
+} from "./release-metadata.ts";
 
-const cliLatestReleaseMetadataUrl = "https://static.oomol.com/release/apps/oo-cli/latest.json";
 export const cliUpdateCommand = `${APP_NAME} update`;
-const updateRequestTimeoutMs = 2000;
 export type CliUpdateCheckResult
     = | {
         status: "failed";
@@ -179,119 +180,10 @@ async function fetchLatestReleaseVersion(options: {
     fetcher: Fetcher;
     logger: CliExecutionContext["logger"];
 }): Promise<string | null> {
-    const requestStartedAt = Date.now();
-
-    options.logger.debug(
-        {
-            requestUrl: cliLatestReleaseMetadataUrl,
-            timeoutMs: updateRequestTimeoutMs,
-        },
-        "CLI update latest-release request started.",
-    );
-
-    const response = await fetchWithTimeout(
-        options.fetcher,
-        cliLatestReleaseMetadataUrl,
-        {
-            headers: {
-                "accept": "application/json",
-                "user-agent": `${APP_NAME}/${options.currentVersion}`,
-            },
-        },
-        updateRequestTimeoutMs,
-    );
-
-    if (!response) {
-        options.logger.warn(
-            {
-                durationMs: Date.now() - requestStartedAt,
-                requestUrl: cliLatestReleaseMetadataUrl,
-                timeoutMs: updateRequestTimeoutMs,
-            },
-            "CLI update latest-release request timed out or failed.",
-        );
-        return null;
-    }
-
-    if (!response.ok) {
-        options.logger.warn(
-            {
-                durationMs: Date.now() - requestStartedAt,
-                requestUrl: cliLatestReleaseMetadataUrl,
-                status: response.status,
-            },
-            "CLI update latest-release request returned a non-success status.",
-        );
-        return null;
-    }
-
-    const latestVersion = await extractLatestVersionFromPayload(response);
-
-    if (latestVersion === null) {
-        options.logger.warn(
-            {
-                durationMs: Date.now() - requestStartedAt,
-                requestUrl: cliLatestReleaseMetadataUrl,
-                status: response.status,
-            },
-            "CLI update latest-release response did not include a valid version.",
-        );
-        return null;
-    }
-
-    options.logger.debug(
-        {
-            durationMs: Date.now() - requestStartedAt,
-            latestVersion,
-            requestUrl: cliLatestReleaseMetadataUrl,
-            status: response.status,
-        },
-        "CLI update latest-release request completed.",
-    );
-
-    return latestVersion;
-}
-
-const latestReleaseMetadataSchema = z.object({
-    version: z.string().min(1).refine(isValidSemver),
-});
-
-async function extractLatestVersionFromPayload(
-    response: Response,
-): Promise<string | null> {
-    let payload: unknown;
-
-    try {
-        payload = await response.json();
-    }
-    catch {
-        return null;
-    }
-
-    const result = latestReleaseMetadataSchema.safeParse(payload);
-
-    return result.success ? result.data.version : null;
-}
-
-async function fetchWithTimeout(
-    fetcher: Fetcher,
-    input: string,
-    init: RequestInit,
-    timeoutMs: number,
-): Promise<Response | null> {
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
-
-    try {
-        return await fetcher(input, {
-            ...init,
-            signal: abortController.signal,
-        });
-    }
-    catch {
-        return null;
-    }
-    finally {
-        clearTimeout(timeoutId);
-    }
+    return fetchLatestCliReleaseVersion({
+        currentVersion: options.currentVersion,
+        fetcher: options.fetcher,
+        logger: options.logger,
+        parseVersion: parseLatestCliSemverReleaseVersion,
+    });
 }

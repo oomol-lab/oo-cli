@@ -4,7 +4,7 @@ import {
     createTextBuffer,
     waitForOutputText,
 } from "../../../../__tests__/helpers.ts";
-import { TerminalProgressRenderer } from "./progress-renderer.ts";
+import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
 
 describe("terminal progress renderer", () => {
     test("uses shared terminal control sequences to redraw output and restore the cursor", () => {

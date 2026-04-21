@@ -100,6 +100,51 @@ Remove one persisted configuration value.
 
 ## Updates
 
+### `oo install [version]`
+
+Install one managed `oo` release into the local self-managed runtime.
+
+- Arguments: `[version]` is optional. When omitted, `oo` installs the latest
+  published release.
+- Options: `--force` forces a reinstall even when the requested version is
+  already installed.
+- Output: on success, the CLI prints the installed version and the final
+  executable path.
+- Output: when `stderr` is an interactive TTY, the CLI also renders colored
+  progress stages to `stderr` while the install is running.
+- Notes: install verifies that the installed `oo` command is usable before
+  reporting success.
+- Notes: when the executable directory is not on `PATH`, install also prints a
+  setup note that tells the user which directory to add.
+- Notes: after a successful install, the CLI best-effort removes a legacy
+  global `@oomol-lab/oo-cli` package-manager install when the current command
+  is running from one; cleanup failures do not change the command result.
+- Notes: when the current version is `0.0.0-development`, the CLI prints the
+  managed install/update unsupported message and exits successfully.
+
+### `oo update`
+
+Update the managed `oo` install to the latest published release.
+
+- Arguments: none.
+- Output: when the current version is already the latest published release, the
+  CLI prints the up-to-date message.
+- Output: when a newer published release is available, the CLI prints the
+  version change result.
+- Output: when `stderr` is an interactive TTY, the CLI also renders colored
+  progress stages to `stderr` while the update is running.
+- Notes: `oo update` ensures the managed install is current and usable, and
+  does not expose a separate `--force` flag.
+- Notes: after a successful update, the CLI best-effort removes a legacy global
+  `@oomol-lab/oo-cli` package-manager install when the current command is
+  running from one; cleanup failures do not change the command result.
+- Notes: when the current version is `0.0.0-development`, the CLI prints the
+  managed install/update unsupported message and exits successfully.
+
+### `oo upgrade`
+
+Alias for `oo update`.
+
 ### `oo check-update`
 
 Check whether a newer CLI release is available.

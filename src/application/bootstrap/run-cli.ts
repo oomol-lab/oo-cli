@@ -12,7 +12,7 @@ import type { FileDownloadSessionStore } from "../contracts/file-download-sessio
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 import type { LogCategory } from "../logging/log-categories.ts";
-import { readdir, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import process from "node:process";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { SqliteCacheStore } from "../../adapters/cache/sqlite-cache.ts";
@@ -40,6 +40,9 @@ import {
 import { CliUserError } from "../contracts/cli.ts";
 import { logCategory } from "../logging/log-categories.ts";
 import { withCategory, withErrorKey } from "../logging/log-fields.ts";
+import { initializeCurrentVersionProcessLock } from "../self-update/core.ts";
+import { isFileMissingError } from "../shared/fs-errors.ts";
+import { pathExists } from "../shared/fs-utils.ts";
 import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
 
 export interface CliInvocation {
@@ -121,6 +124,9 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     let cacheStore: CacheStore | undefined;
     let fileDownloadSessionStore: FileDownloadSessionStore | undefined;
     let fileUploadStore: FileUploadRecordStore | undefined;
+    let currentVersionLockResource:
+        | Awaited<ReturnType<typeof initializeCurrentVersionProcessLock>>
+        | undefined;
     const loggerHandle = createCliLogger({
         appName: APP_NAME,
         env: invocation.env,
@@ -201,6 +207,17 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             "CLI first-run detection completed.",
         );
 
+        currentVersionLockResource = await initializeCurrentVersionProcessLock({
+            currentVersion: version,
+            runtime: {
+                env: invocation.env,
+                execPath: process.execPath,
+                logger,
+                platform: process.platform,
+                processId: process.pid,
+            },
+        });
+
         const fetcher = createRetryingFetcher({
             fetcher: invocation.fetcher ?? fetch,
             logger,
@@ -264,8 +281,13 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         exitCode = writeBootstrapError(error, translator, invocation.stderr);
     }
     finally {
-        exitCode = closeCleanupResources(
-            [cacheStore, fileUploadStore, fileDownloadSessionStore],
+        exitCode = await closeCleanupResources(
+            [
+                cacheStore,
+                fileUploadStore,
+                fileDownloadSessionStore,
+                currentVersionLockResource,
+            ],
             exitCode,
             logger,
             invocation.stderr,
@@ -403,35 +425,17 @@ async function detectFirstRun(storePaths: {
     };
 }
 
-async function pathExists(path: string): Promise<boolean> {
-    try {
-        await stat(path);
-        return true;
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
-}
-
 async function directoryHasEntries(path: string): Promise<boolean> {
     try {
         return (await readdir(path)).length > 0;
     }
     catch (error) {
-        if (isNodeNotFoundError(error)) {
+        if (isFileMissingError(error)) {
             return false;
         }
 
         throw error;
     }
-}
-
-function isNodeNotFoundError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 function resolveCliErrorLogCategory(error: CliUserError): LogCategory {
@@ -470,16 +474,16 @@ function writeBootstrapError(
 }
 
 interface ClosableResource {
-    close: () => void;
+    close: () => void | Promise<void>;
 }
 
-function closeCleanupResources(
+async function closeCleanupResources(
     resources: Array<ClosableResource | undefined>,
     exitCode: number,
     logger: Logger,
     stderr: Writer,
     translator: ReturnType<typeof createTranslator>,
-): number {
+): Promise<number> {
     let nextExitCode = exitCode;
 
     for (const resource of resources) {
@@ -488,7 +492,7 @@ function closeCleanupResources(
         }
 
         try {
-            resource.close();
+            await resource.close();
         }
         catch (error) {
             logger.error(

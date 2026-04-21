@@ -333,10 +333,9 @@ function collectRawInput<TInput>(
     optionValues: OptionValues,
 ): Record<string, unknown> {
     const rawInput: Record<string, unknown> = {};
-    const positionalArguments = actionArguments.slice(
-        0,
-        definition.arguments?.length ?? 0,
-    );
+    const positionalArguments = actionArguments
+        .slice(0, -1)
+        .slice(0, definition.arguments?.length ?? 0);
 
     for (const [index, argument] of (definition.arguments ?? []).entries()) {
         rawInput[argument.name] = positionalArguments[index];
