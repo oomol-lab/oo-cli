@@ -285,15 +285,6 @@ Codex skills 目录。
 - 说明：只有当 bundled skill 的 `.oo-metadata.json` 可以被解析，且其中包
   含非空的 `version` 时，`oo` 才会认为这是自己管理的内置 skill；否则会视
   为其他 skill，并拒绝覆盖。
-- 说明：如果这是 `oo` 的首次运行，且当前还没有已有的 config、auth、log
-  数据，那么只要受支持宿主的根目录已经存在，`oo` 就会在这些宿主中静默自
-  动安装缺失的 bundled 受管 skills。
-- 说明：如果某个 bundled skill 已经安装，`oo` 每次启动都会检查其记录版本
-  是否与当前 CLI 版本一致；这里的版本来自元数据文件中的 `version` 字段。
-  不一致时会静默刷新已安装的文件。
-- 说明：如果某个 bundled skill 的元数据 `version` 恰好是
-  `0.0.0-development`，`oo` 会将其视为本地开发者副本，并在启动同步时跳过
-  覆盖。
 
 ### `oo skills update [skills...]`
 
@@ -302,7 +293,8 @@ Codex skills 目录。
 - 参数：省略时，会检查所有已安装且由 oo 管理的已发布 skill。
 - 参数：提供一个或多个 skill 名称时，只会检查并更新这些指定 skill。
 - 内置 skill：bundled `oo`、`oo-find-skills` 等内置 skill 不在此命令处理
-  范围内，因为 CLI 启动时会在需要时自动同步它们。
+  范围内。请使用 `oo skills add` 刷新，或让成功的 `oo install` / `oo update`
+  自动刷新它们。
 - 已发布 skill：registry skill 会从 `.oo-metadata.json` 读取所属包名，再通过
   不带显式版本的 package info 请求判断最新可用版本。
 - 更新顺序：命令会先刷新 canonical 目录

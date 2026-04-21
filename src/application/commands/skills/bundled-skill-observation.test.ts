@@ -7,16 +7,12 @@ import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
 import {
     directoryExists,
     fileExists,
-    isBundledSkillInstallationCurrent,
-    isBundledSkillInstallationCurrentFromMetadata,
     isManagedBundledSkillInstallation,
     readInstalledBundledSkillMetadata,
-    readInstalledBundledSkillVersion,
     requireBundledSkillHomeDirectory,
     requireCodexHomeDirectory,
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
-import { getBundledSkillFiles } from "./embedded-assets.ts";
 
 describe("bundled skill observation", () => {
     test("reports directory and file existence from stat-backed wrappers", async () => {
@@ -41,7 +37,7 @@ describe("bundled skill observation", () => {
         }
     });
 
-    test("reads bundled skill metadata and versions while treating missing or invalid files as undefined", async () => {
+    test("reads bundled skill metadata while treating missing or invalid files as undefined", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
         const skillDirectoryPath = join(rootDirectory, "skills", "oo");
         const metadataFilePath = join(skillDirectoryPath, ".oo-metadata.json");
@@ -50,11 +46,9 @@ describe("bundled skill observation", () => {
             await mkdir(skillDirectoryPath, { recursive: true });
 
             expect(await readInstalledBundledSkillMetadata(skillDirectoryPath)).toBeUndefined();
-            expect(await readInstalledBundledSkillVersion(skillDirectoryPath)).toBeUndefined();
 
             await Bun.write(metadataFilePath, "not json");
             expect(await readInstalledBundledSkillMetadata(skillDirectoryPath)).toBeUndefined();
-            expect(await readInstalledBundledSkillVersion(skillDirectoryPath)).toBeUndefined();
 
             await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
                 version: "1.2.3",
@@ -62,7 +56,6 @@ describe("bundled skill observation", () => {
             expect(await readInstalledBundledSkillMetadata(skillDirectoryPath)).toEqual({
                 version: "1.2.3",
             });
-            expect(await readInstalledBundledSkillVersion(skillDirectoryPath)).toBe("1.2.3");
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 "{\n  \"version\": \"1.2.3\"\n}\n",
             );
@@ -88,151 +81,6 @@ describe("bundled skill observation", () => {
                 version: "1.2.3",
             });
             expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeTrue();
-        }
-        finally {
-            await rm(rootDirectory, { force: true, recursive: true });
-        }
-    });
-
-    test("evaluates current installations using the existing observation order and file facts", async () => {
-        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
-        const skillDirectoryPath = join(rootDirectory, "skills", "oo");
-        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
-
-        try {
-            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-            await Bun.write(ownershipFilePath, "policy:\n  allow_implicit_invocation: false\n");
-
-            expect(
-                await isBundledSkillInstallationCurrent(
-                    "oo",
-                    skillDirectoryPath,
-                    "1.2.3",
-                ),
-            ).toBeFalse();
-
-            await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
-                version: "0.0.1",
-            });
-            expect(
-                await isBundledSkillInstallationCurrent(
-                    "oo",
-                    skillDirectoryPath,
-                    "1.2.3",
-                ),
-            ).toBeFalse();
-
-            await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
-                version: "1.2.3",
-            });
-            expect(
-                await isBundledSkillInstallationCurrent(
-                    "oo",
-                    skillDirectoryPath,
-                    "1.2.3",
-                ),
-            ).toBeFalse();
-
-            for (const file of getBundledSkillFiles("oo")) {
-                const filePath = join(skillDirectoryPath, file.relativePath);
-
-                await mkdir(join(filePath, ".."), { recursive: true });
-                await Bun.write(filePath, await Bun.file(file.sourcePath).text());
-            }
-
-            expect(
-                await isBundledSkillInstallationCurrent(
-                    "oo",
-                    skillDirectoryPath,
-                    "1.2.3",
-                ),
-            ).toBeTrue();
-        }
-        finally {
-            await rm(rootDirectory, { force: true, recursive: true });
-        }
-    });
-
-    test("evaluates current installations from preloaded metadata", async () => {
-        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
-        const skillDirectoryPath = join(rootDirectory, "skills", "oo");
-
-        try {
-            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
-
-            expect(
-                await isBundledSkillInstallationCurrentFromMetadata(
-                    "oo",
-                    skillDirectoryPath,
-                    undefined,
-                    "1.2.3",
-                ),
-            ).toBeFalse();
-
-            expect(
-                await isBundledSkillInstallationCurrentFromMetadata(
-                    "oo",
-                    skillDirectoryPath,
-                    { version: "1.2.3" },
-                    "1.2.3",
-                ),
-            ).toBeFalse();
-
-            for (const file of getBundledSkillFiles("oo")) {
-                const filePath = join(skillDirectoryPath, file.relativePath);
-
-                await mkdir(join(filePath, ".."), { recursive: true });
-                await Bun.write(filePath, await Bun.file(file.sourcePath).text());
-            }
-
-            expect(
-                await isBundledSkillInstallationCurrentFromMetadata(
-                    "oo",
-                    skillDirectoryPath,
-                    { version: "1.2.3" },
-                    "1.2.3",
-                ),
-            ).toBeTrue();
-        }
-        finally {
-            await rm(rootDirectory, { force: true, recursive: true });
-        }
-    });
-
-    test("evaluates current Claude installations without an ownership file", async () => {
-        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
-        const skillDirectoryPath = join(rootDirectory, "skills", "oo");
-
-        try {
-            await mkdir(skillDirectoryPath, { recursive: true });
-            await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
-                version: "1.2.3",
-            });
-
-            expect(
-                await isBundledSkillInstallationCurrent(
-                    "oo",
-                    skillDirectoryPath,
-                    "1.2.3",
-                    "claude",
-                ),
-            ).toBeFalse();
-
-            for (const file of getBundledSkillFiles("oo", "claude")) {
-                const filePath = join(skillDirectoryPath, file.relativePath);
-
-                await mkdir(join(filePath, ".."), { recursive: true });
-                await Bun.write(filePath, await Bun.file(file.sourcePath).text());
-            }
-
-            expect(
-                await isBundledSkillInstallationCurrent(
-                    "oo",
-                    skillDirectoryPath,
-                    "1.2.3",
-                    "claude",
-                ),
-            ).toBeTrue();
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });

@@ -1,19 +1,16 @@
 import type { BundledSkillMetadata } from "./bundled-skill-model.ts";
-import type { BundledSkillAgentName, BundledSkillName } from "./embedded-assets.ts";
+import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
 import { readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
-    isBundledSkillInstallationCurrentState,
     parseBundledSkillMetadataContent,
 } from "./bundled-skill-model.ts";
 import {
     resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
 } from "./bundled-skill-paths.ts";
-import { getBundledSkillFiles } from "./embedded-assets.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 export async function requireBundledSkillHomeDirectory(
@@ -78,14 +75,6 @@ export async function isManagedBundledSkillInstallation(
     return (await readInstalledBundledSkillMetadata(skillDirectoryPath)) !== undefined;
 }
 
-export async function readInstalledBundledSkillVersion(
-    skillDirectoryPath: string,
-): Promise<string | undefined> {
-    const metadata = await readInstalledBundledSkillMetadata(skillDirectoryPath);
-
-    return metadata?.version;
-}
-
 export async function readInstalledBundledSkillMetadata(
     skillDirectoryPath: string,
 ): Promise<BundledSkillMetadata | undefined> {
@@ -114,52 +103,4 @@ export async function writeInstalledBundledSkillMetadata(
         resolveBundledSkillMetadataFilePath(skillDirectoryPath),
         renderSkillMetadataJson(metadata),
     );
-}
-
-export async function isBundledSkillInstallationCurrent(
-    skillName: BundledSkillName,
-    skillDirectoryPath: string,
-    version: string,
-    agentName: BundledSkillAgentName = "codex",
-): Promise<boolean> {
-    const metadata = await readInstalledBundledSkillMetadata(skillDirectoryPath);
-
-    return isBundledSkillInstallationCurrentFromMetadata(
-        skillName,
-        skillDirectoryPath,
-        metadata,
-        version,
-        agentName,
-    );
-}
-
-export async function isBundledSkillInstallationCurrentFromMetadata(
-    skillName: BundledSkillName,
-    skillDirectoryPath: string,
-    metadata: BundledSkillMetadata | undefined,
-    version: string,
-    agentName: BundledSkillAgentName = "codex",
-): Promise<boolean> {
-    const managedInstallation = metadata !== undefined;
-    const installedVersion = metadata?.version;
-    let hasAllBundledFiles = false;
-
-    if (installedVersion === version) {
-        hasAllBundledFiles = true;
-
-        for (const file of getBundledSkillFiles(skillName, agentName)) {
-            if (!(await fileExists(join(skillDirectoryPath, file.relativePath)))) {
-                hasAllBundledFiles = false;
-                break;
-            }
-        }
-    }
-
-    return isBundledSkillInstallationCurrentState({
-        hasAllBundledFiles,
-        hasMetadataFile: managedInstallation,
-        installedVersion,
-        isManagedInstallation: managedInstallation,
-        version,
-    });
 }
