@@ -41,6 +41,7 @@ describe("self-update commands", () => {
             platform: process.platform,
         });
         let latestRequestCount = 0;
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
 
         try {
             const result = await sandbox.run(["install"], {
@@ -60,6 +61,7 @@ describe("self-update commands", () => {
 
                     throw new Error(`Unexpected request: ${url}`);
                 },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
                 version: "1.0.0",
             });
 
@@ -78,6 +80,7 @@ describe("self-update commands", () => {
             platform: process.platform,
         });
         let latestRequestCount = 0;
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
 
         try {
             const result = await sandbox.run(["install", "2.0.0"], {
@@ -95,11 +98,67 @@ describe("self-update commands", () => {
 
                     throw new Error(`Unexpected request: ${url}`);
                 },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
                 version: "1.0.0",
             });
 
             expect(createSelfUpdateInstallSnapshot(result, sandbox)).toMatchSnapshot();
             expect(latestRequestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("install silently refreshes bundled skills with the managed executable", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const paths = resolveSelfUpdatePaths({
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime({
+            exitCode: 1,
+            signalCode: null,
+            stderr: "bundled skill stderr",
+            stdout: "bundled skill stdout",
+        });
+
+        try {
+            const result = await sandbox.run(["install", "2.0.0"], {
+                execPath: paths.executablePath,
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        throw new Error("latest.json should not be requested");
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.0.0",
+            });
+
+            expect(createSelfUpdateInstallSnapshot(result, sandbox)).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: `Installed oo 2.0.0.\nExecutable: <EXECUTABLE_PATH>\nAdd <HOME>/.local/bin to PATH to run oo in new shells.\n`,
+            });
+            expect(selfUpdateRuntime.commands).toEqual([
+                {
+                    commandArguments: ["skills", "add"],
+                    commandPath: paths.executablePath,
+                    timeoutMs: 10_000,
+                },
+            ]);
         }
         finally {
             await sandbox.cleanup();
@@ -112,6 +171,7 @@ describe("self-update commands", () => {
             arch: process.arch,
             platform: process.platform,
         });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
 
         try {
             const result = await sandbox.run(["install"], {
@@ -134,6 +194,7 @@ describe("self-update commands", () => {
                     hasColors: true,
                     isTTY: true,
                 },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
                 version: "1.0.0",
             });
             const snapshot = createCliSnapshot(result, {
@@ -184,6 +245,63 @@ describe("self-update commands", () => {
             });
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("update silently refreshes bundled skills with the managed executable", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const paths = resolveSelfUpdatePaths({
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime({
+            exitCode: 0,
+            signalCode: null,
+            stderr: "bundled skill stderr",
+            stdout: "bundled skill stdout",
+        });
+
+        try {
+            const result = await sandbox.run(["update"], {
+                execPath: paths.executablePath,
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        return new Response(JSON.stringify({
+                            version: "2.0.0",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.0.0",
+            });
+
+            expect(createCliSnapshot(result)).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: "Updated oo from 1.0.0 to 2.0.0.\n",
+            });
+            expect(selfUpdateRuntime.commands).toEqual([
+                {
+                    commandArguments: ["skills", "add"],
+                    commandPath: paths.executablePath,
+                    timeoutMs: 10_000,
+                },
+            ]);
         }
         finally {
             await sandbox.cleanup();
@@ -247,6 +365,7 @@ describe("self-update commands", () => {
             platform: process.platform,
         });
         let binaryRequestCount = 0;
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
 
         try {
             const result = await sandbox.run(["update"], {
@@ -271,6 +390,7 @@ describe("self-update commands", () => {
 
                     throw new Error(`Unexpected request: ${url}`);
                 },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
                 version: "1.2.3",
             });
 
@@ -288,7 +408,7 @@ describe("self-update commands", () => {
 
     test("upgrade uses the same update path and repairs a same-version package-manager install", async () => {
         const sandbox = await createCliSandbox();
-        const legacyCleanup = createLegacyPackageManagerCleanupRuntime();
+        const legacyCleanup = createCapturedSelfUpdateRuntime();
         const releasePlatform = await detectSelfUpdateReleasePlatform({
             arch: process.arch,
             platform: process.platform,
@@ -333,6 +453,11 @@ describe("self-update commands", () => {
             expect(binaryRequestCount).toBe(1);
             expect(legacyCleanup.commands).toEqual([
                 {
+                    commandArguments: ["skills", "add"],
+                    commandPath: paths.executablePath,
+                    timeoutMs: 10_000,
+                },
+                {
                     commandArguments: ["uninstall", "-g", "@oomol-lab/oo-cli"],
                     commandPath: "/mock/bin/npm",
                     timeoutMs: 10_000,
@@ -351,6 +476,7 @@ describe("self-update commands", () => {
             arch: process.arch,
             platform: process.platform,
         });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
 
         try {
             const result = await sandbox.run(["update"], {
@@ -373,6 +499,7 @@ describe("self-update commands", () => {
                     hasColors: true,
                     isTTY: true,
                 },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
                 version: "1.0.0",
             });
             const snapshot = createCliSnapshot(result, {
@@ -415,17 +542,29 @@ function createSelfUpdateInstallSnapshot(
     });
 }
 
-interface CapturedLegacyPackageManagerCommand {
+interface CapturedSelfUpdateCommand {
     commandArguments: readonly string[];
     commandPath: string;
     timeoutMs: number;
 }
 
-function createLegacyPackageManagerCleanupRuntime(): {
-    commands: CapturedLegacyPackageManagerCommand[];
+function createCapturedSelfUpdateRuntime(commandResult?: {
+    exitCode?: number;
+    signalCode?: NodeJS.Signals | null;
+    stderr?: string;
+    stdout?: string;
+}): {
+    commands: CapturedSelfUpdateCommand[];
     runtime: NonNullable<CliRunOptions["selfUpdateRuntime"]>;
 } {
-    const commands: CapturedLegacyPackageManagerCommand[] = [];
+    const commands: CapturedSelfUpdateCommand[] = [];
+    const result = {
+        exitCode: 0,
+        signalCode: null,
+        stderr: "",
+        stdout: "",
+        ...commandResult,
+    };
 
     return {
         commands,
@@ -438,12 +577,7 @@ function createLegacyPackageManagerCleanupRuntime(): {
                     timeoutMs: options.timeoutMs,
                 });
 
-                return {
-                    exitCode: 0,
-                    signalCode: null,
-                    stderr: "",
-                    stdout: "",
-                };
+                return result;
             },
         },
     };

@@ -15,6 +15,7 @@ import {
     fetchLatestCliReleaseVersion,
     parseLatestCliSemverReleaseVersion,
 } from "../update/release-metadata.ts";
+import { attemptBundledSkillRefreshAfterSelfUpdate } from "./bundled-skills.ts";
 import { attemptLegacyPackageManagerUninstall } from "./legacy-installation.ts";
 import {
     acquireProcessLifetimeVersionLock,
@@ -172,6 +173,10 @@ export async function performSelfUpdateOperation(options: {
             paths,
             platform: options.runtime.platform,
             targetVersion: options.targetVersion,
+        });
+        await attemptBundledSkillRefreshAfterSelfUpdate({
+            executablePath: paths.executablePath,
+            runtime: options.runtime,
         });
         await attemptLegacyPackageManagerUninstall(options.runtime);
 
