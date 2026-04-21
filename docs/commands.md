@@ -119,6 +119,9 @@ Install one managed `oo` release into the local self-managed runtime.
 - Notes: after a successful install, the CLI best-effort removes a legacy
   global `@oomol-lab/oo-cli` package-manager install when the current command
   is running from one; cleanup failures do not change the command result.
+- Notes: after a successful install workflow, the CLI silently runs
+  `oo skills add` with the managed executable so bundled skills refresh to the
+  installed CLI version.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 
@@ -141,6 +144,9 @@ Update the managed `oo` install to the latest published release.
 - Notes: after a successful update, the CLI best-effort removes a legacy global
   `@oomol-lab/oo-cli` package-manager install when the current command is
   running from one; cleanup failures do not change the command result.
+- Notes: after a successful update workflow, the CLI silently runs
+  `oo skills add` with the managed executable so bundled skills refresh to the
+  installed CLI version.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 

@@ -1,3 +1,4 @@
+import type { SelfUpdateCommandRunOptions } from "../contracts/self-update.ts";
 import type { SelfUpdateProgressEvent } from "./progress.ts";
 import { rmSync, symlinkSync } from "node:fs";
 import { chmod, mkdir, readlink, realpath, writeFile } from "node:fs/promises";
@@ -70,6 +71,7 @@ describe("performSelfUpdateOperation", () => {
                     logger: logCapture.logger,
                     platform: process.platform,
                     processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
                 },
                 targetVersion: "1.2.3",
             });
@@ -140,6 +142,7 @@ describe("performSelfUpdateOperation", () => {
                     logger: logCapture.logger,
                     platform: process.platform,
                     processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
                 },
                 targetVersion: "2.0.0",
             });
@@ -216,6 +219,7 @@ describe("performSelfUpdateOperation", () => {
                     logger: logCapture.logger,
                     platform: process.platform,
                     processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
                 },
                 targetVersion: "3.0.0",
             });
@@ -287,6 +291,10 @@ describe("performSelfUpdateOperation", () => {
             expect(result.status).toBe("installed");
             expect(invokedCommands).toEqual([
                 {
+                    commandArguments: ["skills", "add"],
+                    commandPath: paths.executablePath,
+                },
+                {
                     commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
                     commandPath: "/mock/bin/pnpm",
                 },
@@ -357,6 +365,7 @@ describe("performSelfUpdateOperation", () => {
                     logger: logCapture.logger,
                     platform: process.platform,
                     processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
                 },
                 targetVersion: "2.0.0",
             });
@@ -547,6 +556,7 @@ describe("performSelfUpdateOperation", () => {
                     logger: logCapture.logger,
                     platform: process.platform,
                     processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
                 },
                 targetVersion: "2.0.0",
             });
@@ -680,6 +690,7 @@ describe("performSelfUpdateOperation", () => {
                     logger: logCapture.logger,
                     platform: process.platform,
                     processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
                 },
                 targetVersion: "2.0.0",
             });
@@ -750,4 +761,27 @@ function trackAbortSignal(
     }, { once: true });
 
     return signal;
+}
+
+function createSuccessfulSelfUpdateCommandRunner(
+    invokedCommands?: Array<{
+        commandArguments: readonly string[];
+        commandPath: string;
+        timeoutMs: number;
+    }>,
+) {
+    return async (options: SelfUpdateCommandRunOptions) => {
+        invokedCommands?.push({
+            commandArguments: options.commandArguments,
+            commandPath: options.commandPath,
+            timeoutMs: options.timeoutMs,
+        });
+
+        return {
+            exitCode: 0,
+            signalCode: null,
+            stderr: "",
+            stdout: "",
+        };
+    };
 }

@@ -107,6 +107,8 @@
   告知用户应当把哪个目录加入 `PATH`。
 - 说明：install 成功后，如果当前命令运行自一个旧的全局 package-manager
   `@oomol-lab/oo-cli` 安装，CLI 会尽力将其移除；清理失败不会改变命令结果。
+- 说明：install 成功后，CLI 会使用托管的可执行文件静默执行一次
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
@@ -125,6 +127,8 @@
   `--force`。
 - 说明：update 成功后，如果当前命令运行自一个旧的全局 package-manager
   `@oomol-lab/oo-cli` 安装，CLI 会尽力将其移除；清理失败不会改变命令结果。
+- 说明：update 成功后，CLI 会使用托管的可执行文件静默执行一次
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
