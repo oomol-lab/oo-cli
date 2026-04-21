@@ -209,6 +209,6 @@ main() {
     run_install_command "$DOWNLOADED_BINARY_PATH" "$@"
 }
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+if [[ "${BASH_SOURCE[0]-$0}" == "$0" ]]; then
     main "$@"
 fi

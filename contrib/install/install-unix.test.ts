@@ -86,6 +86,28 @@ unixInstallDescribe("install.sh", () => {
         expect(await readdir(downloadDirectory)).toEqual([]);
     });
 
+    test("downloads the latest binary when executed from stdin", async () => {
+        const rootDirectory = await createInstallerSandbox();
+        const downloadDirectory = join(rootDirectory, "downloads");
+        const installLogPath = join(rootDirectory, "install.log");
+
+        const result = await runInstallerFromStdin(rootDirectory, {
+            OO_INSTALL_DOWNLOAD_BASE_URL: "https://example.test/release/apps/oo-cli",
+            OO_INSTALL_DOWNLOAD_DIR: downloadDirectory,
+            OO_INSTALL_PLATFORM: "linux-x64-musl",
+            TEST_BINARY_FIXTURE: join(rootDirectory, "fixtures", "oo"),
+            TEST_INSTALL_LOG: installLogPath,
+            TEST_LATEST_JSON: JSON.stringify({ version: "1.2.3" }),
+        }, ["stable", "--force"]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stderr).toBe("");
+        expect(await readFile(installLogPath, "utf8")).toBe(
+            "install stable --force\n",
+        );
+        expect(await readdir(downloadDirectory)).toEqual([]);
+    });
+
     test("fails when latest.json does not include a version", async () => {
         const rootDirectory = await createInstallerSandbox();
         const downloadDirectory = join(rootDirectory, "downloads");
@@ -193,6 +215,35 @@ async function runInstaller(
         sandboxDirectory,
         env,
     );
+}
+
+async function runInstallerFromStdin(
+    sandboxDirectory: string,
+    env: Record<string, string>,
+    args: string[] = [],
+): Promise<CliRunResult> {
+    const childProcess = Bun.spawn(["bash", "-s", "--", ...args], {
+        cwd: sandboxDirectory,
+        env: {
+            ...process.env,
+            ...env,
+            PATH: buildPath(env.PATH, sandboxDirectory),
+        },
+        stderr: "pipe",
+        stdin: Bun.file(installScriptPath),
+        stdout: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+        readStream(childProcess.stdout),
+        readStream(childProcess.stderr),
+    ]);
+    const exitCode = await childProcess.exited;
+
+    return {
+        exitCode,
+        stderr,
+        stdout,
+    };
 }
 
 async function runBashCommand(script: string): Promise<CliRunResult> {
