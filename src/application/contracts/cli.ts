@@ -65,7 +65,6 @@ export type CliCommandHandler<TInput> = {
 export interface CliCommandDefinition<TInput = unknown> {
     name: string;
     aliases?: readonly string[];
-    hidden?: boolean;
     summaryKey: string;
     descriptionKey?: string;
     arguments?: readonly CliArgumentDefinition[];
