@@ -449,11 +449,13 @@ async function downloadBinaryResponseOnce(options: {
 }): Promise<void> {
     const abortController = new AbortController();
     let abortReason: "stall" | "timeout" | undefined;
+    // These timers must stay referenced so mocked or in-memory downloads still
+    // transition to abort without relying on external I/O handles to keep the
+    // event loop alive.
     const timeoutId = setTimeout(() => {
         abortReason = "timeout";
         abortController.abort();
     }, options.timeoutMs);
-    timeoutId.unref?.();
     let response: Response;
 
     try {
@@ -557,7 +559,6 @@ async function writeBinaryResponseToFile(options: {
             options.updateAbortReason("stall");
             options.abortController.abort();
         }, options.stallTimeoutMs);
-        stallTimeoutId.unref?.();
     };
 
     try {
