@@ -51,19 +51,25 @@ function buildCompletionNodes(
         argumentChoices: readonly (readonly string[])[] = [],
     ): void => {
         const pathKey = path.join(" ");
+        const hiddenNames = new Set(
+            commands.filter(command => command.hidden === true).map(command => command.name),
+        );
         const childCommands = commands.map(command => ({
             name: command.name,
             summary: translator.t(command.summaryKey),
         }));
-        const visibleSubcommands = childCommands.length > 0
+        const visibleChildCommands = childCommands.filter(
+            command => !hiddenNames.has(command.name),
+        );
+        const visibleSubcommands = visibleChildCommands.length > 0
             ? [
-                    ...childCommands,
+                    ...visibleChildCommands,
                     {
                         name: "help",
                         summary: translator.t("commands.help.summary"),
                     },
                 ]
-            : childCommands;
+            : [];
 
         nodes.push({
             path,

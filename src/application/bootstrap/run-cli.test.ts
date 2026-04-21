@@ -223,6 +223,22 @@ describe("runCli bootstrap", () => {
         }
     });
 
+    test("hides install from root help while keeping direct install help available", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const rootHelp = await sandbox.run(["--help"]);
+            const installHelp = await sandbox.run(["install", "--help"]);
+
+            expect(rootHelp.stdout).not.toContain("install [options] [version]");
+            expect(installHelp.stdout).toContain("Install one oo-managed CLI release");
+            expect(installHelp.stdout).toContain("--force");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("renders branded colors in help when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
         const colors = createTerminalColors(true);
