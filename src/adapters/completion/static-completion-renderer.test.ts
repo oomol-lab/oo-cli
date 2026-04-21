@@ -49,7 +49,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("completion");
         expect(output).toContain("config");
         expect(output).toContain("connector");
-        expect(output).toContain(
+        expect(output).not.toContain(
             `complete -c ${APP_NAME} -n '__fish_use_subcommand' -a 'install'`,
         );
         expect(output).toContain("login");
