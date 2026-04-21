@@ -22,6 +22,7 @@ export const installCommand: CliCommandDefinition<
     z.infer<typeof installCommandInputSchema>
 > = {
     name: "install",
+    hidden: true,
     summaryKey: "commands.install.summary",
     descriptionKey: "commands.install.description",
     arguments: [
