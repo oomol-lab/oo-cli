@@ -1,3 +1,7 @@
+import type {
+    CliRunResult,
+    CliSnapshotContext,
+} from "../../../__tests__/helpers.ts";
 import { mkdir } from "node:fs/promises";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
@@ -57,7 +61,7 @@ describe("self-update commands", () => {
                 version: "1.0.0",
             });
 
-            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
+            expect(createSelfUpdateInstallSnapshot(result, sandbox)).toMatchSnapshot();
             expect(latestRequestCount).toBe(1);
         }
         finally {
@@ -92,7 +96,7 @@ describe("self-update commands", () => {
                 version: "1.0.0",
             });
 
-            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
+            expect(createSelfUpdateInstallSnapshot(result, sandbox)).toMatchSnapshot();
             expect(latestRequestCount).toBe(0);
         }
         finally {
@@ -161,3 +165,23 @@ describe("self-update commands", () => {
         }
     });
 });
+
+function createSelfUpdateInstallSnapshot(
+    result: CliRunResult,
+    sandbox: CliSnapshotContext,
+): CliRunResult {
+    const executablePath = resolveSelfUpdatePaths({
+        env: sandbox.env,
+        platform: process.platform,
+    }).executablePath;
+
+    return createCliSnapshot(result, {
+        replacements: [
+            {
+                placeholder: "<EXECUTABLE_PATH>",
+                value: executablePath,
+            },
+        ],
+        sandbox,
+    });
+}
