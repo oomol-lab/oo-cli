@@ -133,6 +133,9 @@ Update the managed `oo` install to the latest published release.
   version change result.
 - Output: when `stderr` is an interactive TTY, the CLI also renders colored
   progress stages to `stderr` while the update is running.
+- Notes: when the latest published release matches the current version and the
+  current `oo` command is a native install, update skips the managed reinstall
+  workflow and prints the up-to-date message immediately.
 - Notes: `oo update` ensures the managed install is current and usable, and
   does not expose a separate `--force` flag.
 - Notes: after a successful update, the CLI best-effort removes a legacy global

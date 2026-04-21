@@ -250,6 +250,7 @@ function createDownloadContext(options: {
             },
             catalog: emptyCatalog,
             currentLogFilePath: "",
+            execPath: process.execPath,
             cwd: options.cwd,
             env: {
                 HOME: options.cwd,

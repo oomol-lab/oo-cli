@@ -182,6 +182,7 @@ function createCommanderContext(
             },
         },
         currentLogFilePath: "",
+        execPath: process.execPath,
         cwd: "/tmp",
         env: {},
         fetcher: async () => new Response(""),

@@ -51,10 +51,12 @@ export interface CliInvocation {
     cacheStore?: CacheStore;
     cwd: string;
     env: Record<string, string | undefined>;
+    execPath?: string;
     fetcher?: Fetcher;
     fileDownloadSessionStore?: FileDownloadSessionStore;
     fileUploadStore?: FileUploadRecordStore;
     packageName?: string;
+    selfUpdateRuntime?: CliExecutionContext["selfUpdateRuntime"];
     stdin?: InteractiveInput;
     stdout: Writer;
     stderr: Writer;
@@ -133,6 +135,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         logDirectoryPath: storePaths.logDirectoryPath,
     });
     const { logger, logFilePath } = loggerHandle;
+    const currentExecPath = invocation.execPath ?? process.execPath;
 
     logger.info(
         {
@@ -211,7 +214,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             currentVersion: version,
             runtime: {
                 env: invocation.env,
-                execPath: process.execPath,
+                execPath: currentExecPath,
                 logger,
                 platform: process.platform,
                 processId: process.pid,
@@ -348,6 +351,7 @@ function createCliExecutionContext(
         authStore: options.authStore,
         cacheStore: options.cacheStore,
         currentLogFilePath: options.logFilePath,
+        execPath: options.invocation.execPath ?? process.execPath,
         fetcher: options.fetcher,
         cwd: options.invocation.cwd,
         env: options.invocation.env,
@@ -357,6 +361,7 @@ function createCliExecutionContext(
         logger: options.logger,
         packageName: options.packageName,
         settingsStore: options.settingsStore,
+        selfUpdateRuntime: options.invocation.selfUpdateRuntime,
         stdout: options.invocation.stdout,
         stderr: options.invocation.stderr,
         translator: options.translator,

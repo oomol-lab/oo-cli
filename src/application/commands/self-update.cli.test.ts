@@ -1,8 +1,10 @@
 import type {
+    CliRunOptions,
     CliRunResult,
     CliSnapshotContext,
 } from "../../../__tests__/helpers.ts";
 import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
 import {
@@ -188,8 +190,105 @@ describe("self-update commands", () => {
         }
     });
 
-    test("upgrade uses the same update path and repairs a same-version install", async () => {
+    test("update skips a same-version native install without downloading a binary", async () => {
         const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const paths = resolveSelfUpdatePaths({
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        let latestRequestCount = 0;
+        let binaryRequestCount = 0;
+
+        try {
+            const result = await sandbox.run(["update"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        latestRequestCount += 1;
+                        return new Response(JSON.stringify({
+                            version: "1.2.3",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        binaryRequestCount += 1;
+                        throw new Error("binary download should not be requested");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                execPath: paths.executablePath,
+                version: "1.2.3",
+            });
+
+            expect(createCliSnapshot(result)).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: "Already up to date at 1.2.3.\n",
+            });
+            expect(latestRequestCount).toBe(1);
+            expect(binaryRequestCount).toBe(0);
+            await expect(Bun.file(paths.executablePath).exists()).resolves.toBeFalse();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("update repairs a same-version install when the installation method is unknown", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        let binaryRequestCount = 0;
+
+        try {
+            const result = await sandbox.run(["update"], {
+                execPath: join(
+                    sandbox.cwd,
+                    "bin",
+                    process.platform === "win32" ? "oo.exe" : "oo",
+                ),
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        return new Response(JSON.stringify({
+                            version: "1.2.3",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        binaryRequestCount += 1;
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                version: "1.2.3",
+            });
+
+            expect(createCliSnapshot(result)).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: "Already up to date at 1.2.3.\n",
+            });
+            expect(binaryRequestCount).toBe(1);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("upgrade uses the same update path and repairs a same-version package-manager install", async () => {
+        const sandbox = await createCliSandbox();
+        const legacyCleanup = createLegacyPackageManagerCleanupRuntime();
         const releasePlatform = await detectSelfUpdateReleasePlatform({
             arch: process.arch,
             platform: process.platform,
@@ -202,12 +301,14 @@ describe("self-update commands", () => {
             paths,
             "1.2.3",
         );
+        let binaryRequestCount = 0;
 
         try {
             await mkdir(paths.versionsDirectory, { recursive: true });
             await Bun.write(currentVersionPath, "existing-binary");
 
             const result = await sandbox.run(["upgrade"], {
+                execPath: "/usr/local/lib/node_modules/@oomol-lab/oo-cli/bin/oo",
                 fetcher: async (input, init) => {
                     const url = toRequest(input, init).url;
 
@@ -218,15 +319,25 @@ describe("self-update commands", () => {
                     }
 
                     if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        binaryRequestCount += 1;
                         return new Response("binary");
                     }
 
                     throw new Error(`Unexpected request: ${url}`);
                 },
+                selfUpdateRuntime: legacyCleanup.runtime,
                 version: "1.2.3",
             });
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(binaryRequestCount).toBe(1);
+            expect(legacyCleanup.commands).toEqual([
+                {
+                    commandArguments: ["uninstall", "-g", "@oomol-lab/oo-cli"],
+                    commandPath: "/mock/bin/npm",
+                    timeoutMs: 10_000,
+                },
+            ]);
             await expect(Bun.file(paths.executablePath).exists()).resolves.toBeTrue();
         }
         finally {
@@ -302,4 +413,38 @@ function createSelfUpdateInstallSnapshot(
         ],
         sandbox,
     });
+}
+
+interface CapturedLegacyPackageManagerCommand {
+    commandArguments: readonly string[];
+    commandPath: string;
+    timeoutMs: number;
+}
+
+function createLegacyPackageManagerCleanupRuntime(): {
+    commands: CapturedLegacyPackageManagerCommand[];
+    runtime: NonNullable<CliRunOptions["selfUpdateRuntime"]>;
+} {
+    const commands: CapturedLegacyPackageManagerCommand[] = [];
+
+    return {
+        commands,
+        runtime: {
+            resolveCommandPath: commandName => `/mock/bin/${commandName}`,
+            runCommand: async (options) => {
+                commands.push({
+                    commandArguments: options.commandArguments,
+                    commandPath: options.commandPath,
+                    timeoutMs: options.timeoutMs,
+                });
+
+                return {
+                    exitCode: 0,
+                    signalCode: null,
+                    stderr: "",
+                    stdout: "",
+                };
+            },
+        },
+    };
 }

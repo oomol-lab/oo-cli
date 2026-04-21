@@ -173,6 +173,7 @@ function createSearchContext(options: {
             getFilePath: () => "",
         },
         currentLogFilePath: "",
+        execPath: process.execPath,
         fetcher: options.fetcher,
         cwd: process.cwd(),
         env: {},

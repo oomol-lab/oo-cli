@@ -233,10 +233,7 @@ describe("performSelfUpdateOperation", () => {
 
     test("attempts to uninstall a legacy package-manager install after activation", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-self-update-legacy");
-        const env = {
-            ...createSelfUpdateEnv(rootDirectory),
-            OO_INSTALL_PACKAGE_MANAGER: "pnpm",
-        };
+        const env = createSelfUpdateEnv(rootDirectory);
         const paths = resolveSelfUpdatePaths({
             env,
             platform: process.platform,
@@ -262,7 +259,7 @@ describe("performSelfUpdateOperation", () => {
                 runtime: {
                     arch: process.arch,
                     env,
-                    execPath: process.execPath,
+                    execPath: "/Users/demo/Library/pnpm/global/5/node_modules/@oomol-lab/oo-cli/bin/oo",
                     fetcher: async () => {
                         throw new Error("binary download should not be called");
                     },

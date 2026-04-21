@@ -84,6 +84,7 @@ function createAuthContext(authFile: AuthFile): CliExecutionContext {
         authStore: createAuthStore(authFile),
         cacheStore: createCacheStore(),
         currentLogFilePath: "",
+        execPath: process.execPath,
         fetcher: async () => new Response(null),
         cwd: process.cwd(),
         env: {},

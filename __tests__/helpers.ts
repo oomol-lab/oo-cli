@@ -47,8 +47,10 @@ export interface TextBufferOptions {
 }
 
 export interface CliRunOptions {
+    execPath?: string;
     fetcher?: Fetcher;
     packageName?: string;
+    selfUpdateRuntime?: CliInvocation["selfUpdateRuntime"];
     stderr?: TextBufferOptions;
     stdin?: InteractiveInput;
     stdout?: TextBufferOptions;
@@ -327,8 +329,10 @@ export async function createCliSandbox(
                 argv,
                 cwd,
                 env,
+                execPath: options.execPath,
                 fetcher: options.fetcher,
                 packageName: options.packageName,
+                selfUpdateRuntime: options.selfUpdateRuntime,
                 stdin: options.stdin,
                 stdout: stdout.writer,
                 stderr: stderr.writer,
