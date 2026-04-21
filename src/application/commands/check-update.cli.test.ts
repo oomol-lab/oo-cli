@@ -5,26 +5,18 @@ import {
     createCliSnapshot,
     readLatestLogContent,
 } from "../../../__tests__/helpers.ts";
-import packageManifest from "../../../package.json" with { type: "json" };
-
-const packageName = packageManifest.name;
 
 describe("checkUpdateCommand CLI", () => {
     test("writes update-check lifecycle logs when check-update finds a newer release", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            sandbox.env.npm_config_user_agent = "pnpm/10.0.0 node/v22.0.0";
-
             const result = await sandbox.run(
                 ["check-update"],
                 {
                     fetcher: async () => new Response(JSON.stringify({
-                        "dist-tags": {
-                            latest: "1.2.0",
-                        },
+                        version: "1.2.0",
                     })),
-                    packageName,
                     stdout: {
                         isTTY: true,
                     },
@@ -129,9 +121,7 @@ describe("checkUpdateCommand CLI", () => {
                 }
 
                 return new Response(JSON.stringify({
-                    "dist-tags": {
-                        latest: "1.2.0",
-                    },
+                    version: "1.2.0",
                 }));
             };
             const firstResult = await sandbox.run(
@@ -163,7 +153,7 @@ describe("checkUpdateCommand CLI", () => {
         }
     });
 
-    test("fetches the latest registry version on every check-update invocation", async () => {
+    test("fetches the latest release version on every check-update invocation", async () => {
         const sandbox = await createCliSandbox();
         let fetchCount = 0;
 
@@ -172,9 +162,7 @@ describe("checkUpdateCommand CLI", () => {
                 fetchCount += 1;
 
                 return new Response(JSON.stringify({
-                    "dist-tags": {
-                        latest: fetchCount === 1 ? "1.2.0" : "1.3.0",
-                    },
+                    version: fetchCount === 1 ? "1.2.0" : "1.3.0",
                 }));
             };
             const firstResult = await sandbox.run(

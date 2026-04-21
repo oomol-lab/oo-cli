@@ -1,12 +1,14 @@
 import type { CliExecutionContext, Fetcher, Writer } from "../contracts/cli.ts";
 
 import type { TerminalColors } from "../terminal-colors.ts";
+import { z } from "zod";
 import { APP_NAME } from "../config/app-config.ts";
 import { measureDisplayWidth } from "../display-width.ts";
 import { compareSemver, isSemver as isValidSemver } from "../semver.ts";
 import { createWriterColors } from "../terminal-colors.ts";
 
-const defaultRegistryUrl = "https://registry.npmjs.org/";
+const cliLatestReleaseMetadataUrl = "https://static.oomol.com/release/apps/oo-cli/latest.json";
+export const cliUpdateCommand = `${APP_NAME} update`;
 const updateRequestTimeoutMs = 2000;
 export type CliUpdateCheckResult
     = | {
@@ -45,16 +47,13 @@ export async function checkForCliUpdate(
         context.logger.debug(
             {
                 currentVersion: context.version,
-                packageName: context.packageName,
             },
             "CLI update check started.",
         );
         const latestVersion = await fetchLatestReleaseVersion({
             currentVersion: context.version,
-            env: context.env,
             fetcher: context.fetcher,
             logger: context.logger,
-            packageName: context.packageName,
         });
 
         if (latestVersion === null) {
@@ -175,39 +174,16 @@ function renderNoticeBodyLine(
     ].join("");
 }
 
-export function resolvePackageManagerUpgradeCommand(
-    env: Record<string, string | undefined>,
-    packageName: string,
-): string {
-    switch (resolvePreferredPackageManagerName(env)) {
-        case "bun":
-            return `bun install -g ${packageName}@latest`;
-        case "pnpm":
-            return `pnpm add -g ${packageName}@latest`;
-        case "yarn":
-            return `yarn global add ${packageName}@latest`;
-        default:
-            return `npm install -g ${packageName}@latest`;
-    }
-}
-
 async function fetchLatestReleaseVersion(options: {
     currentVersion: string;
-    env: Record<string, string | undefined>;
     fetcher: Fetcher;
     logger: CliExecutionContext["logger"];
-    packageName: string;
 }): Promise<string | null> {
-    const requestUrl = resolveRegistryPackageMetadataUrl(
-        options.env,
-        options.packageName,
-    );
     const requestStartedAt = Date.now();
 
     options.logger.debug(
         {
-            packageName: options.packageName,
-            requestUrl,
+            requestUrl: cliLatestReleaseMetadataUrl,
             timeoutMs: updateRequestTimeoutMs,
         },
         "CLI update latest-release request started.",
@@ -215,7 +191,7 @@ async function fetchLatestReleaseVersion(options: {
 
     const response = await fetchWithTimeout(
         options.fetcher,
-        requestUrl,
+        cliLatestReleaseMetadataUrl,
         {
             headers: {
                 "accept": "application/json",
@@ -229,8 +205,7 @@ async function fetchLatestReleaseVersion(options: {
         options.logger.warn(
             {
                 durationMs: Date.now() - requestStartedAt,
-                packageName: options.packageName,
-                requestUrl,
+                requestUrl: cliLatestReleaseMetadataUrl,
                 timeoutMs: updateRequestTimeoutMs,
             },
             "CLI update latest-release request timed out or failed.",
@@ -242,8 +217,7 @@ async function fetchLatestReleaseVersion(options: {
         options.logger.warn(
             {
                 durationMs: Date.now() - requestStartedAt,
-                packageName: options.packageName,
-                requestUrl,
+                requestUrl: cliLatestReleaseMetadataUrl,
                 status: response.status,
             },
             "CLI update latest-release request returned a non-success status.",
@@ -254,6 +228,14 @@ async function fetchLatestReleaseVersion(options: {
     const latestVersion = await extractLatestVersionFromPayload(response);
 
     if (latestVersion === null) {
+        options.logger.warn(
+            {
+                durationMs: Date.now() - requestStartedAt,
+                requestUrl: cliLatestReleaseMetadataUrl,
+                status: response.status,
+            },
+            "CLI update latest-release response did not include a valid version.",
+        );
         return null;
     }
 
@@ -261,8 +243,7 @@ async function fetchLatestReleaseVersion(options: {
         {
             durationMs: Date.now() - requestStartedAt,
             latestVersion,
-            packageName: options.packageName,
-            requestUrl,
+            requestUrl: cliLatestReleaseMetadataUrl,
             status: response.status,
         },
         "CLI update latest-release request completed.",
@@ -270,6 +251,10 @@ async function fetchLatestReleaseVersion(options: {
 
     return latestVersion;
 }
+
+const latestReleaseMetadataSchema = z.object({
+    version: z.string().min(1).refine(isValidSemver),
+});
 
 async function extractLatestVersionFromPayload(
     response: Response,
@@ -283,23 +268,9 @@ async function extractLatestVersionFromPayload(
         return null;
     }
 
-    if (!payload || typeof payload !== "object") {
-        return null;
-    }
+    const result = latestReleaseMetadataSchema.safeParse(payload);
 
-    const distTags = "dist-tags" in payload ? payload["dist-tags"] : undefined;
-
-    if (!distTags || typeof distTags !== "object") {
-        return null;
-    }
-
-    const latestVersion = "latest" in distTags ? distTags.latest : undefined;
-
-    if (typeof latestVersion !== "string" || latestVersion === "") {
-        return null;
-    }
-
-    return latestVersion;
+    return result.success ? result.data.version : null;
 }
 
 async function fetchWithTimeout(
@@ -322,62 +293,5 @@ async function fetchWithTimeout(
     }
     finally {
         clearTimeout(timeoutId);
-    }
-}
-
-function resolveRegistryPackageMetadataUrl(
-    env: Record<string, string | undefined>,
-    packageName: string,
-): string {
-    const configuredRegistryUrl = env.npm_config_registry;
-
-    try {
-        const registryUrl = new URL(
-            ensureTrailingSlash(configuredRegistryUrl ?? defaultRegistryUrl),
-        );
-
-        return new URL(encodeURIComponent(packageName), registryUrl).toString();
-    }
-    catch {
-        return new URL(encodeURIComponent(packageName), defaultRegistryUrl).toString();
-    }
-}
-
-function ensureTrailingSlash(value: string): string {
-    return value.endsWith("/") ? value : `${value}/`;
-}
-
-function resolvePreferredPackageManagerName(
-    env: Record<string, string | undefined>,
-): string {
-    return normalizePackageManagerName(env.OO_INSTALL_PACKAGE_MANAGER)
-        ?? normalizePackageManagerName(readPackageManagerName(env.npm_config_user_agent))
-        ?? "npm";
-}
-
-function readPackageManagerName(npmUserAgent: string | undefined): string | undefined {
-    if (!npmUserAgent) {
-        return undefined;
-    }
-
-    const firstToken = npmUserAgent.split(" ", 1)[0]!;
-    const slashIndex = firstToken.indexOf("/");
-
-    return slashIndex >= 0
-        ? firstToken.slice(0, slashIndex)
-        : firstToken;
-}
-
-function normalizePackageManagerName(value: string | undefined): string | undefined {
-    const normalized = value?.trim().toLowerCase();
-
-    switch (normalized) {
-        case "npm":
-        case "pnpm":
-        case "bun":
-        case "yarn":
-            return normalized;
-        default:
-            return undefined;
     }
 }

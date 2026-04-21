@@ -16,8 +16,8 @@ import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
 import {
     checkForCliUpdate,
+    cliUpdateCommand,
     renderCliUpdateNotice,
-    resolvePackageManagerUpgradeCommand,
 } from "./update-notifier.ts";
 
 const packageName = "@oomol-lab/oo-cli";
@@ -35,9 +35,7 @@ describe("update notifier", () => {
     test("accepts build metadata in the current version check", async () => {
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => new Response(JSON.stringify({
-                "dist-tags": {
-                    latest: "1.0.1",
-                },
+                version: "1.0.1",
             })),
         });
 
@@ -57,20 +55,8 @@ describe("update notifier", () => {
         }
     });
 
-    test("resolves package-manager-specific upgrade commands", () => {
-        expect(resolvePackageManagerUpgradeCommand({
-            OO_INSTALL_PACKAGE_MANAGER: "bun",
-            npm_config_user_agent: "pnpm/10.0.0 node/v22.0.0",
-        }, packageName)).toBe(`bun install -g ${packageName}@latest`);
-        expect(resolvePackageManagerUpgradeCommand({
-            npm_config_user_agent: "pnpm/10.0.0 node/v22.0.0",
-        }, packageName)).toBe(`pnpm add -g ${packageName}@latest`);
-        expect(resolvePackageManagerUpgradeCommand({
-            npm_config_user_agent: "bun/1.3.0 npm/? node/v22.0.0",
-        }, packageName)).toBe(`bun install -g ${packageName}@latest`);
-        expect(resolvePackageManagerUpgradeCommand({}, packageName)).toBe(
-            `npm install -g ${packageName}@latest`,
-        );
+    test("uses the built-in update command", () => {
+        expect(cliUpdateCommand).toBe("oo update");
     });
 
     test("returns an available update and renders the upgrade notice", async () => {
@@ -83,9 +69,7 @@ describe("update notifier", () => {
                 fetchCount += 1;
 
                 return new Response(JSON.stringify({
-                    "dist-tags": {
-                        latest: "1.2.0",
-                    },
+                    version: "1.2.0",
                 }));
             },
             stdout: stdout.writer,
@@ -96,10 +80,7 @@ describe("update notifier", () => {
             const notice = renderCliUpdateNotice({
                 context: notifier.context,
                 latestVersion: "1.2.0",
-                updateCommand: resolvePackageManagerUpgradeCommand(
-                    notifier.context.env,
-                    notifier.context.packageName,
-                ),
+                updateCommand: cliUpdateCommand,
                 writer: stdout.writer,
             });
             const strippedNotice = createTerminalColors(true).strip(notice);
@@ -110,9 +91,7 @@ describe("update notifier", () => {
             });
             expect(notice).toContain("\u001B[");
             expect(strippedNotice).toContain("Update available 1.0.0 → 1.2.0");
-            expect(strippedNotice).toContain(
-                `Run npm install -g ${packageName}@latest to update`,
-            );
+            expect(strippedNotice).toContain(`Run ${cliUpdateCommand} to update`);
             expect(strippedNotice).toContain("╭");
             expect(strippedNotice).toContain("╯");
             expect(fetchCount).toBe(1);
@@ -122,15 +101,13 @@ describe("update notifier", () => {
         }
     });
 
-    test("returns an available update when the registry response needs extra setup time", async () => {
+    test("returns an available update when the latest-release response needs extra setup time", async () => {
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => {
                 await Bun.sleep(1000);
 
                 return new Response(JSON.stringify({
-                    "dist-tags": {
-                        latest: "1.2.0",
-                    },
+                    version: "1.2.0",
                 }));
             },
         });
@@ -148,12 +125,10 @@ describe("update notifier", () => {
         }
     });
 
-    test("returns up-to-date when the current version matches the registry", async () => {
+    test("returns up-to-date when the current version matches the latest release", async () => {
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => new Response(JSON.stringify({
-                "dist-tags": {
-                    latest: "1.0.0",
-                },
+                version: "1.0.0",
             })),
         });
 
@@ -170,7 +145,7 @@ describe("update notifier", () => {
         }
     });
 
-    test("fails when the registry version cannot be resolved", async () => {
+    test("fails when the latest release version cannot be resolved", async () => {
         let fetchCount = 0;
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => {
@@ -193,7 +168,7 @@ describe("update notifier", () => {
         }
     });
 
-    test("returns latest-version-unavailable after retrying a retryable registry response", async () => {
+    test("returns latest-version-unavailable after retrying a retryable latest-release response", async () => {
         let fetchCount = 0;
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => {
@@ -219,7 +194,7 @@ describe("update notifier", () => {
         }
     });
 
-    test("returns latest-version-unavailable when registry JSON parsing fails", async () => {
+    test("returns latest-version-unavailable when latest-release JSON parsing fails", async () => {
         let fetchCount = 0;
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => {
@@ -243,7 +218,7 @@ describe("update notifier", () => {
         }
     });
 
-    test("returns latest-version-unavailable when dist-tags is missing", async () => {
+    test("returns latest-version-unavailable when version is missing", async () => {
         let fetchCount = 0;
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => {
@@ -269,14 +244,40 @@ describe("update notifier", () => {
         }
     });
 
-    test("returns latest-version-unavailable when latest is missing", async () => {
+    test("returns latest-version-unavailable when version is empty", async () => {
         let fetchCount = 0;
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => {
                 fetchCount += 1;
 
                 return new Response(JSON.stringify({
-                    "dist-tags": {},
+                    version: "",
+                }));
+            },
+        });
+
+        try {
+            const result = await checkForCliUpdate(notifier.context);
+
+            expect(result).toEqual({
+                reason: "latest-version-unavailable",
+                status: "failed",
+            });
+            expect(fetchCount).toBe(1);
+        }
+        finally {
+            notifier.close();
+        }
+    });
+
+    test("returns latest-version-unavailable when version is not valid semver", async () => {
+        let fetchCount = 0;
+        const notifier = createUpdateNotifierHarness({
+            fetcher: async () => {
+                fetchCount += 1;
+
+                return new Response(JSON.stringify({
+                    version: "latest",
                 }));
             },
         });
@@ -306,9 +307,7 @@ describe("update notifier", () => {
                 }
 
                 return new Response(JSON.stringify({
-                    "dist-tags": {
-                        latest: "1.2.0",
-                    },
+                    version: "1.2.0",
                 }));
             },
         });
@@ -338,9 +337,7 @@ describe("update notifier", () => {
                 }
 
                 return new Response(JSON.stringify({
-                    "dist-tags": {
-                        latest: "1.2.0",
-                    },
+                    version: "1.2.0",
                 }));
             },
         });
@@ -364,16 +361,14 @@ describe("update notifier", () => {
         }
     });
 
-    test("fetches the latest registry version for every update check", async () => {
+    test("fetches the latest release version for every update check", async () => {
         let fetchCount = 0;
         const notifier = createUpdateNotifierHarness({
             fetcher: async () => {
                 fetchCount += 1;
 
                 return new Response(JSON.stringify({
-                    "dist-tags": {
-                        latest: fetchCount === 1 ? "1.1.0" : "1.2.0",
-                    },
+                    version: fetchCount === 1 ? "1.1.0" : "1.2.0",
                 }));
             },
         });
