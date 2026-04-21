@@ -29,7 +29,16 @@ export async function writeChunk(
 
     while (offset < chunk.byteLength) {
         const writeResult = await fileHandle.write(chunk.subarray(offset));
+        const bytesWritten = writeResult.bytesWritten;
 
-        offset += writeResult.bytesWritten;
+        if (bytesWritten <= 0) {
+            const bytesRemaining = chunk.byteLength - offset;
+
+            throw new Error(
+                `File write made no progress: bytesRemaining=${bytesRemaining}, offset=${offset}.`,
+            );
+        }
+
+        offset += bytesWritten;
     }
 }

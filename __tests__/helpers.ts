@@ -819,6 +819,16 @@ export function createConnectionRefusedError(
     return error;
 }
 
+export function requireAbortSignal(init?: RequestInit): AbortSignal {
+    const signal = init?.signal;
+
+    if (signal === undefined || signal === null) {
+        throw new Error("Expected fetcher to receive an abort signal.");
+    }
+
+    return signal;
+}
+
 export function createCache<Value>(handlers: {
     delete: Cache<Value>["delete"];
     get: Cache<Value>["get"];

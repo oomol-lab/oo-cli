@@ -3,7 +3,7 @@ import type { CliExecutionContext, Fetcher } from "../contracts/cli.ts";
 import type { LegacyPackageManagerCleanupRuntime } from "./legacy-installation.ts";
 import type { SelfUpdateProgressEvent } from "./progress.ts";
 import { chmod, copyFile, lstat, mkdir, open, readdir, readlink, realpath, rename, rm, stat, symlink } from "node:fs/promises";
-import { basename, delimiter, dirname, isAbsolute, join, normalize, resolve as resolvePath } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, normalize, relative, resolve as resolvePath, sep } from "node:path";
 import process from "node:process";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
@@ -456,83 +456,86 @@ async function downloadBinaryResponseOnce(options: {
         abortReason = "timeout";
         abortController.abort();
     }, options.timeoutMs);
-    let response: Response;
 
     try {
-        response = await options.fetcher(options.url, {
-            headers: {
-                "accept": "application/octet-stream",
-                "user-agent": `${APP_NAME}/${options.currentVersion}`,
-            },
-            signal: abortController.signal,
-        });
-    }
-    catch (error) {
-        if (abortReason === "timeout") {
+        let response: Response;
+
+        try {
+            response = await options.fetcher(options.url, {
+                headers: {
+                    "accept": "application/octet-stream",
+                    "user-agent": `${APP_NAME}/${options.currentVersion}`,
+                },
+                signal: abortController.signal,
+            });
+        }
+        catch (error) {
+            if (abortReason === "timeout") {
+                options.logger.warn(
+                    {
+                        requestUrl: options.url,
+                        timeoutMs: options.timeoutMs,
+                    },
+                    "CLI self-update binary download timed out.",
+                );
+                throw new CliUserError("errors.selfUpdate.downloadTimedOut", 1);
+            }
+            options.logger.warn(
+                {
+                    err: error,
+                    requestUrl: options.url,
+                },
+                "CLI self-update binary download failed.",
+            );
+            throw new CliUserError("errors.selfUpdate.downloadError", 1, {
+                message: error instanceof Error ? error.message : String(error),
+            });
+        }
+
+        if (!response.ok) {
             options.logger.warn(
                 {
                     requestUrl: options.url,
-                    timeoutMs: options.timeoutMs,
+                    status: response.status,
                 },
-                "CLI self-update binary download timed out.",
+                "CLI self-update binary download returned a non-success status.",
             );
-            throw new CliUserError("errors.selfUpdate.downloadTimedOut", 1);
-        }
-        options.logger.warn(
-            {
-                err: error,
-                requestUrl: options.url,
-            },
-            "CLI self-update binary download failed.",
-        );
-        throw new CliUserError("errors.selfUpdate.downloadError", 1, {
-            message: error instanceof Error ? error.message : String(error),
-        });
-    }
-
-    if (!response.ok) {
-        options.logger.warn(
-            {
-                requestUrl: options.url,
+            throw new CliUserError("errors.selfUpdate.downloadFailed", 1, {
                 status: response.status,
-            },
-            "CLI self-update binary download returned a non-success status.",
-        );
-        throw new CliUserError("errors.selfUpdate.downloadFailed", 1, {
-            status: response.status,
-        });
-    }
+            });
+        }
 
-    try {
-        await writeBinaryResponseToFile({
-            abortController,
-            outputPath: options.outputPath,
-            response,
-            stallTimeoutMs: options.stallTimeoutMs,
-            updateAbortReason: (reason) => {
-                abortReason = reason;
-            },
-        });
-    }
-    catch (error) {
-        if (abortReason === "timeout") {
-            options.logger.warn(
-                {
-                    requestUrl: options.url,
-                    timeoutMs: options.timeoutMs,
+        try {
+            await writeBinaryResponseToFile({
+                abortController,
+                outputPath: options.outputPath,
+                response,
+                stallTimeoutMs: options.stallTimeoutMs,
+                updateAbortReason: (reason) => {
+                    abortReason = reason;
                 },
-                "CLI self-update binary download timed out.",
-            );
-            throw new CliUserError("errors.selfUpdate.downloadTimedOut", 1);
+            });
         }
+        catch (error) {
+            if (abortReason === "timeout") {
+                options.logger.warn(
+                    {
+                        requestUrl: options.url,
+                        timeoutMs: options.timeoutMs,
+                    },
+                    "CLI self-update binary download timed out.",
+                );
+                throw new CliUserError("errors.selfUpdate.downloadTimedOut", 1);
+            }
 
-        if (abortReason === "stall") {
-            throw new BinaryDownloadStalledError();
+            if (abortReason === "stall") {
+                throw new BinaryDownloadStalledError();
+            }
+
+            throw new CliUserError("errors.selfUpdate.downloadError", 1, {
+                message: error instanceof Error ? error.message : String(error),
+            });
         }
-
-        throw new CliUserError("errors.selfUpdate.downloadError", 1, {
-            message: error instanceof Error ? error.message : String(error),
-        });
     }
     finally {
         clearTimeout(timeoutId);
@@ -547,6 +550,11 @@ async function writeBinaryResponseToFile(options: {
     updateAbortReason: (reason: "stall" | "timeout") => void;
 }): Promise<void> {
     const reader = options.response.body?.getReader();
+
+    if (reader === undefined) {
+        throw new Error("Binary download response body is unavailable.");
+    }
+
     const fileHandle = await open(options.outputPath, "w");
     let stallTimeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -562,10 +570,6 @@ async function writeBinaryResponseToFile(options: {
     };
 
     try {
-        if (reader === undefined) {
-            return;
-        }
-
         resetStallTimeout();
 
         while (true) {
@@ -588,7 +592,7 @@ async function writeBinaryResponseToFile(options: {
             clearTimeout(stallTimeoutId);
         }
 
-        reader?.releaseLock();
+        reader.releaseLock();
         await fileHandle.close().catch(() => undefined);
     }
 }
@@ -885,13 +889,21 @@ async function readActivatedVersion(
         ).then(normalize),
         realpath(paths.versionsDirectory).then(normalize),
     ]);
-    const versionsDirectoryPath = join(resolvedVersionsDirectory, "");
+    const activatedVersionPath = relative(
+        resolvedVersionsDirectory,
+        resolvedLinkedTarget,
+    );
 
-    if (!resolvedLinkedTarget.startsWith(versionsDirectoryPath)) {
+    if (
+        activatedVersionPath === ""
+        || activatedVersionPath === ".."
+        || activatedVersionPath.startsWith(`..${sep}`)
+        || isAbsolute(activatedVersionPath)
+    ) {
         return undefined;
     }
 
-    return resolvedLinkedTarget.slice(versionsDirectoryPath.length);
+    return activatedVersionPath;
 }
 
 async function cleanupStagingDirectory(

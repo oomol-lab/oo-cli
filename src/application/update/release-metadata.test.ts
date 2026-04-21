@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createLogCapture } from "../../../__tests__/helpers.ts";
+import { createLogCapture, requireAbortSignal } from "../../../__tests__/helpers.ts";
 import { fetchLatestCliReleaseVersion } from "./release-metadata.ts";
 
 describe("release metadata", () => {
@@ -10,8 +10,18 @@ describe("release metadata", () => {
         try {
             const version = await fetchLatestCliReleaseVersion({
                 currentVersion: "1.0.0",
-                fetcher: async () => {
+                fetcher: async (_, init) => {
+                    const signal = requireAbortSignal(init);
+
+                    if (signal.aborted) {
+                        throw new Error("aborted");
+                    }
+
                     await Bun.sleep(20);
+
+                    if (signal.aborted) {
+                        throw new Error("aborted");
+                    }
 
                     return new Response(JSON.stringify({
                         version: "1.2.3",
@@ -34,10 +44,12 @@ describe("release metadata", () => {
         try {
             const version = await fetchLatestCliReleaseVersion({
                 currentVersion: "1.0.0",
-                fetcher: async (_, init) => await new Promise<Response>((_, reject) => {
-                    init?.signal?.addEventListener("abort", () => {
+                fetcher: (_, init) => new Promise<Response>((_, reject) => {
+                    const signal = requireAbortSignal(init);
+
+                    signal.addEventListener("abort", () => {
                         reject(new Error("aborted"));
-                    });
+                    }, { once: true });
                 }),
                 logger: logCapture.logger,
                 timeoutMs: 5,
