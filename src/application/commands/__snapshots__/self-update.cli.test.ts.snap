@@ -1,0 +1,60 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`self-update commands install prints the development-version guard and exits successfully 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Current version 0.0.0-development does not support managed install or update.
+"
+,
+}
+`;
+
+exports[`self-update commands install resolves latest.json when no explicit version is provided 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Installed oo 1.2.3.
+Executable: <HOME>/.local/bin/oo
+Add <HOME>/.local/bin to PATH to run oo in new shells.
+"
+,
+}
+`;
+
+exports[`self-update commands install with an explicit version skips latest.json 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Installed oo 2.0.0.
+Executable: <HOME>/.local/bin/oo
+Add <HOME>/.local/bin to PATH to run oo in new shells.
+"
+,
+}
+`;
+
+exports[`self-update commands update prints the development-version guard and exits successfully 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Current version 0.0.0-development does not support managed install or update.
+"
+,
+}
+`;
+
+exports[`self-update commands upgrade uses the same update path and repairs a same-version install 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Already up to date at 1.2.3.
+"
+,
+}
+`;

@@ -86,6 +86,9 @@ export const enMessages = {
     "commands.file.upload.description":
         "Upload a file and store the signed download URL locally.",
     "commands.file.upload.summary": "Upload a file",
+    "commands.install.description":
+        "Install one oo-managed CLI release into the local managed runtime.",
+    "commands.install.summary": "Install the CLI",
     "commands.help.summary": "Show help for a command",
     "commands.log.description": "Inspect persisted CLI debug logs.",
     "commands.log.summary": "Manage persisted debug logs",
@@ -378,6 +381,20 @@ export const enMessages = {
         "Failed to read the settings file at {path}.",
     "errors.store.writeFailed":
         "Failed to write the settings file at {path}.",
+    "errors.selfUpdate.downloadError":
+        "Failed to download the target CLI release: {message}",
+    "errors.selfUpdate.downloadFailed":
+        "The CLI download request returned HTTP {status}.",
+    "errors.selfUpdate.latestVersionUnavailable":
+        "Failed to resolve the latest CLI release version.",
+    "errors.selfUpdate.unsupportedPlatform":
+        "Self-update is not supported on {platform}/{arch}.",
+    "errors.selfUpdate.verifyEntrypointInvalid":
+        "The installed CLI entrypoint at {path} is invalid.",
+    "errors.selfUpdate.verifyEntrypointMissing":
+        "The installed CLI entrypoint at {path} is missing.",
+    "errors.selfUpdate.verifyTargetMissing":
+        "The installed CLI version file at {path} is missing.",
     "errors.unexpected": "Unexpected error: {message}",
     "errors.log.invalidIndex":
         "Invalid log index: {value}. Use an integer greater than or equal to 1.",
@@ -391,6 +408,9 @@ export const enMessages = {
         "Update available {currentVersion} → {latestVersion}",
     "update.available.command":
         "Run {command} to update",
+    "commands.update.description":
+        "Update the managed CLI install to the latest published release.",
+    "commands.update.summary": "Update the CLI",
     "help.arguments": "Arguments:",
     "help.commands": "Commands:",
     "help.extra.choices": "choices",
@@ -402,6 +422,8 @@ export const enMessages = {
     "help.appDescription.colored":
         "{appName} is {companyName}'s CLI toolkit. Everything can be done in the CLI.",
     "help.usage": "Usage:",
+    "arguments.install.version":
+        "Specify the target CLI version to install",
     "options.blockId": "Specify the target block id",
     "options.action": "Specify the target action name",
     "options.blockName": "Alias for --block-id",
@@ -413,6 +435,8 @@ export const enMessages = {
     "options.fileDownloadExt": "Specify the saved file extension",
     "options.fileDownloadName": "Specify the saved file name without the extension",
     "options.fileStatus": "Filter by upload status",
+    "options.force":
+        "Force reinstallation even when the target version already exists",
     "options.help": "Show help for command",
     "options.limit": "Specify the maximum number of items to return",
     "options.format": "Specify output format (use json for structured output)",
@@ -436,6 +460,14 @@ export const enMessages = {
     "options.yes": "Skip confirmation prompts",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
+    "selfUpdate.install.success": "Installed oo {version}.",
+    "selfUpdate.install.executable": "Executable: {path}",
+    "selfUpdate.install.pathNote":
+        "Add {path} to PATH to run oo in new shells.",
+    "selfUpdate.unsupportedDevelopmentVersion":
+        "Current version {version} does not support managed install or update.",
+    "selfUpdate.update.success":
+        "Updated oo from {currentVersion} to {version}.",
     "skills.install.allSelected":
         "Installing all {count} skills.",
     "skills.list.noResults":
@@ -640,6 +672,9 @@ export const zhMessages = {
     "commands.file.summary": "管理临时文件传输",
     "commands.file.upload.description": "上传文件，并在本地保存带签名的下载地址。",
     "commands.file.upload.summary": "上传文件",
+    "commands.install.description":
+        "把一个由 oo 管理的 CLI 版本安装到本地托管运行时中。",
+    "commands.install.summary": "安装 CLI",
     "commands.help.summary": "显示命令帮助",
     "commands.log.description": "查看持久化的 CLI debug 日志。",
     "commands.log.summary": "管理持久化 debug 日志",
@@ -909,6 +944,20 @@ export const zhMessages = {
     "errors.store.invalidSchema": "配置文件 {path} 的结构不受支持。",
     "errors.store.readFailed": "读取配置文件 {path} 失败。",
     "errors.store.writeFailed": "写入配置文件 {path} 失败。",
+    "errors.selfUpdate.downloadError":
+        "下载目标 CLI 版本失败：{message}",
+    "errors.selfUpdate.downloadFailed":
+        "CLI 下载请求返回了 HTTP {status}。",
+    "errors.selfUpdate.latestVersionUnavailable":
+        "解析最新 CLI 版本失败。",
+    "errors.selfUpdate.unsupportedPlatform":
+        "当前平台 {platform}/{arch} 暂不支持 self-update。",
+    "errors.selfUpdate.verifyEntrypointInvalid":
+        "已安装的 CLI 入口文件 {path} 无效。",
+    "errors.selfUpdate.verifyEntrypointMissing":
+        "已安装的 CLI 入口文件 {path} 不存在。",
+    "errors.selfUpdate.verifyTargetMissing":
+        "已安装的 CLI 版本文件 {path} 不存在。",
     "errors.unexpected": "发生了未预期错误：{message}",
     "errors.log.invalidIndex":
         "无效的日志序号：{value}。请使用大于等于 1 的整数。",
@@ -921,6 +970,9 @@ export const zhMessages = {
         "发现新版本 {currentVersion} → {latestVersion}",
     "update.available.command":
         "运行 {command} 进行升级",
+    "commands.update.description":
+        "把托管 CLI 安装更新到最新发布版本。",
+    "commands.update.summary": "更新 CLI",
     "help.arguments": "参数：",
     "help.commands": "命令：",
     "help.extra.choices": "可选值",
@@ -932,6 +984,8 @@ export const zhMessages = {
     "help.appDescription.colored":
         "{appName} 是 {companyName} 的 CLI 工具集，一切均可在 CLI 中完成",
     "help.usage": "用法：",
+    "arguments.install.version":
+        "指定要安装的目标 CLI 版本",
     "options.blockId": "指定目标 block id",
     "options.action": "指定目标 action 名称",
     "options.blockName": "--block-id 的别名",
@@ -943,6 +997,8 @@ export const zhMessages = {
     "options.fileDownloadExt": "指定保存文件的扩展名",
     "options.fileDownloadName": "指定不带扩展名的保存文件名",
     "options.fileStatus": "按上传状态过滤",
+    "options.force":
+        "即使目标版本已存在也强制重新安装",
     "options.help": "显示命令帮助",
     "options.limit": "指定最多返回多少条记录",
     "options.format": "指定输出格式（使用 json 返回结构化内容）",
@@ -965,6 +1021,14 @@ export const zhMessages = {
     "options.yes": "跳过确认提示",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
+    "selfUpdate.install.success": "已安装 oo {version}。",
+    "selfUpdate.install.executable": "可执行入口：{path}",
+    "selfUpdate.install.pathNote":
+        "请把 {path} 加入 PATH，新的 shell 才能直接运行 oo。",
+    "selfUpdate.unsupportedDevelopmentVersion":
+        "当前版本 {version} 暂不支持托管 install 或 update。",
+    "selfUpdate.update.success":
+        "已将 oo 从 {currentVersion} 更新到 {version}。",
     "skills.install.allSelected":
         "将安装全部 {count} 个 skill。",
     "skills.list.noResults":

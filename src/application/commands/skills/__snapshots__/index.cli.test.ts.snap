@@ -30,26 +30,30 @@ exports[`skills CLI silently installs the managed bundled skill on the first run
 "oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
 
 Options:
-  -V, --version            Show the current version
-  --debug                  Print the current log file path when the CLI exits
-  --lang <lang>            Specify the display language
-  -h, --help               Show help for command
+  -V, --version                Show the current version
+  --debug                      Print the current log file path when the CLI
+                               exits
+  --lang <lang>                Specify the display language
+  -h, --help                   Show help for command
 
 Commands:
-  auth                     Manage CLI authentication
-  check-update             Check for CLI updates
-  cloud-task               Manage cloud tasks
-  connector                Manage connector actions
-  file                     Manage temporary file transfers
-  login                    Log in with device login (alias for auth login)
-  logout                   Log out the current account (alias for auth logout)
-  completion <shell>       Generate shell completion scripts
-  config                   Manage persisted configuration
-  skills                   Manage Codex skills
-  log                      Manage persisted debug logs
-  search [options] <text>  Search packages and connector actions
-  packages                 Package utilities
-  help [command]           Show help for a command
+  auth                         Manage CLI authentication
+  check-update                 Check for CLI updates
+  cloud-task                   Manage cloud tasks
+  connector                    Manage connector actions
+  file                         Manage temporary file transfers
+  install [options] [version]  Install the CLI
+  login                        Log in with device login (alias for auth login)
+  logout                       Log out the current account (alias for auth
+                               logout)
+  completion <shell>           Generate shell completion scripts
+  config                       Manage persisted configuration
+  skills                       Manage Codex skills
+  log                          Manage persisted debug logs
+  search [options] <text>      Search packages and connector actions
+  packages                     Package utilities
+  update|upgrade               Update the CLI
+  help [command]               Show help for a command
 "
 ,
 }
@@ -63,26 +67,30 @@ exports[`skills CLI does not auto-install the managed bundled skill during local
 "oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
 
 Options:
-  -V, --version            Show the current version
-  --debug                  Print the current log file path when the CLI exits
-  --lang <lang>            Specify the display language
-  -h, --help               Show help for command
+  -V, --version                Show the current version
+  --debug                      Print the current log file path when the CLI
+                               exits
+  --lang <lang>                Specify the display language
+  -h, --help                   Show help for command
 
 Commands:
-  auth                     Manage CLI authentication
-  check-update             Check for CLI updates
-  cloud-task               Manage cloud tasks
-  connector                Manage connector actions
-  file                     Manage temporary file transfers
-  login                    Log in with device login (alias for auth login)
-  logout                   Log out the current account (alias for auth logout)
-  completion <shell>       Generate shell completion scripts
-  config                   Manage persisted configuration
-  skills                   Manage Codex skills
-  log                      Manage persisted debug logs
-  search [options] <text>  Search packages and connector actions
-  packages                 Package utilities
-  help [command]           Show help for a command
+  auth                         Manage CLI authentication
+  check-update                 Check for CLI updates
+  cloud-task                   Manage cloud tasks
+  connector                    Manage connector actions
+  file                         Manage temporary file transfers
+  install [options] [version]  Install the CLI
+  login                        Log in with device login (alias for auth login)
+  logout                       Log out the current account (alias for auth
+                               logout)
+  completion <shell>           Generate shell completion scripts
+  config                       Manage persisted configuration
+  skills                       Manage Codex skills
+  log                          Manage persisted debug logs
+  search [options] <text>      Search packages and connector actions
+  packages                     Package utilities
+  update|upgrade               Update the CLI
+  help [command]               Show help for a command
 "
 ,
 }
@@ -96,26 +104,30 @@ exports[`skills CLI does not synchronize a managed bundled skill that uses the d
 "oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
 
 Options:
-  -V, --version            Show the current version
-  --debug                  Print the current log file path when the CLI exits
-  --lang <lang>            Specify the display language
-  -h, --help               Show help for command
+  -V, --version                Show the current version
+  --debug                      Print the current log file path when the CLI
+                               exits
+  --lang <lang>                Specify the display language
+  -h, --help                   Show help for command
 
 Commands:
-  auth                     Manage CLI authentication
-  check-update             Check for CLI updates
-  cloud-task               Manage cloud tasks
-  connector                Manage connector actions
-  file                     Manage temporary file transfers
-  login                    Log in with device login (alias for auth login)
-  logout                   Log out the current account (alias for auth logout)
-  completion <shell>       Generate shell completion scripts
-  config                   Manage persisted configuration
-  skills                   Manage Codex skills
-  log                      Manage persisted debug logs
-  search [options] <text>  Search packages and connector actions
-  packages                 Package utilities
-  help [command]           Show help for a command
+  auth                         Manage CLI authentication
+  check-update                 Check for CLI updates
+  cloud-task                   Manage cloud tasks
+  connector                    Manage connector actions
+  file                         Manage temporary file transfers
+  install [options] [version]  Install the CLI
+  login                        Log in with device login (alias for auth login)
+  logout                       Log out the current account (alias for auth
+                               logout)
+  completion <shell>           Generate shell completion scripts
+  config                       Manage persisted configuration
+  skills                       Manage Codex skills
+  log                          Manage persisted debug logs
+  search [options] <text>      Search packages and connector actions
+  packages                     Package utilities
+  update|upgrade               Update the CLI
+  help [command]               Show help for a command
 "
 ,
 }
@@ -140,26 +152,30 @@ exports[`skills CLI silently installs bundled skills into Claude Code on the fir
 "oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
 
 Options:
-  -V, --version            Show the current version
-  --debug                  Print the current log file path when the CLI exits
-  --lang <lang>            Specify the display language
-  -h, --help               Show help for command
+  -V, --version                Show the current version
+  --debug                      Print the current log file path when the CLI
+                               exits
+  --lang <lang>                Specify the display language
+  -h, --help                   Show help for command
 
 Commands:
-  auth                     Manage CLI authentication
-  check-update             Check for CLI updates
-  cloud-task               Manage cloud tasks
-  connector                Manage connector actions
-  file                     Manage temporary file transfers
-  login                    Log in with device login (alias for auth login)
-  logout                   Log out the current account (alias for auth logout)
-  completion <shell>       Generate shell completion scripts
-  config                   Manage persisted configuration
-  skills                   Manage Codex skills
-  log                      Manage persisted debug logs
-  search [options] <text>  Search packages and connector actions
-  packages                 Package utilities
-  help [command]           Show help for a command
+  auth                         Manage CLI authentication
+  check-update                 Check for CLI updates
+  cloud-task                   Manage cloud tasks
+  connector                    Manage connector actions
+  file                         Manage temporary file transfers
+  install [options] [version]  Install the CLI
+  login                        Log in with device login (alias for auth login)
+  logout                       Log out the current account (alias for auth
+                               logout)
+  completion <shell>           Generate shell completion scripts
+  config                       Manage persisted configuration
+  skills                       Manage Codex skills
+  log                          Manage persisted debug logs
+  search [options] <text>      Search packages and connector actions
+  packages                     Package utilities
+  update|upgrade               Update the CLI
+  help [command]               Show help for a command
 "
 ,
 }

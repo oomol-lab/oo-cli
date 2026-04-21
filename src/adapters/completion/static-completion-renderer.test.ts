@@ -14,11 +14,12 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("completion");
         expect(output).toContain("config");
         expect(output).toContain("connector");
-        expect(output).not.toContain(`"|install")`);
+        expect(output).toContain(`"|install")`);
         expect(output).toContain("login");
         expect(output).toContain("logout");
         expect(output).toContain("packages");
         expect(output).toContain("search");
+        expect(output).toContain(`"|update")`);
         expect(output).toContain("--lang");
         expect(output).toContain("en zh");
     });
@@ -31,9 +32,10 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("auth switch");
         expect(output).toContain("config set");
         expect(output).toContain("connector run");
-        expect(output).not.toContain(`"|install")`);
+        expect(output).toContain(`"|install")`);
         expect(output).toContain("packages search");
         expect(output).toContain("search");
+        expect(output).toContain(`"|update")`);
         expect(output).toContain(`compdef _${APP_NAME} ${APP_NAME}`);
     });
 
@@ -47,13 +49,16 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("completion");
         expect(output).toContain("config");
         expect(output).toContain("connector");
-        expect(output).not.toContain(
+        expect(output).toContain(
             `complete -c ${APP_NAME} -n '__fish_use_subcommand' -a 'install'`,
         );
         expect(output).toContain("login");
         expect(output).toContain("logout");
         expect(output).toContain("__fish_seen_subcommand_from packages");
         expect(output).toContain("__fish_seen_subcommand_from search");
+        expect(output).toContain(
+            `complete -c ${APP_NAME} -n '__fish_use_subcommand' -a 'update'`,
+        );
         expect(output).toContain("en zh");
     });
 });

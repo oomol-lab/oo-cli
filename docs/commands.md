@@ -100,6 +100,44 @@ Remove one persisted configuration value.
 
 ## Updates
 
+### `oo install [version]`
+
+Install one managed `oo` release into the local self-managed runtime.
+
+- Arguments: `[version]` is optional. When omitted, `oo` resolves the target
+  version from the published `latest.json` metadata.
+- Options: `--force` forces a reinstall even when the target version already
+  exists in the managed versions directory.
+- Output: on success, the CLI prints the installed version and the final
+  executable path.
+- Notes: install verifies that the final entrypoint exists and targets a valid
+  managed version before reporting success.
+- Notes: when the executable directory is not on `PATH`, install also prints a
+  setup note that tells the user which directory to add.
+- Notes: when the current version is `0.0.0-development`, the CLI prints the
+  managed install/update unsupported message and exits successfully.
+
+### `oo update`
+
+Update the managed `oo` install to the latest published release.
+
+- Arguments: none.
+- Output: when the latest published version is exactly equal to the current
+  version string, the CLI prints the up-to-date message after repairing the
+  managed entrypoint if needed.
+- Output: when the latest published version differs from the current version
+  string, the CLI prints the version change result.
+- Notes: `oo update` always repairs or re-materializes the target version and
+  does not expose a separate `--force` flag.
+- Notes: when the current version is `0.0.0-development`, the CLI prints the
+  managed install/update unsupported message and exits successfully.
+- Notes: update uses string equality instead of semver ordering to decide
+  whether the current version is already up to date.
+
+### `oo upgrade`
+
+Alias for `oo update`.
+
 ### `oo check-update`
 
 Check whether a newer CLI release is available.

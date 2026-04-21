@@ -4,6 +4,7 @@ import type { ConnectorActionDefinition } from "./shared.ts";
 import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
+import { isFileMissingError } from "../../shared/fs-errors.ts";
 import { connectorActionDefinitionSchema, getConnectorActionMetadata } from "./shared.ts";
 
 const connectorActionSchemaCacheDirectoryName = "connector-actions";
@@ -93,7 +94,7 @@ async function tryReadConnectorActionSchemaCache(
         content = await readFile(schemaPath, "utf8");
     }
     catch (error) {
-        if (isNodeNotFoundError(error)) {
+        if (isFileMissingError(error)) {
             return undefined;
         }
 
@@ -134,10 +135,4 @@ async function writeConnectorActionSchemaCache(
             path: schemaPath,
         });
     }
-}
-
-function isNodeNotFoundError(
-    error: unknown,
-): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error && error.code === "ENOENT";
 }

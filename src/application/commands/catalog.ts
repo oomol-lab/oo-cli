@@ -8,12 +8,14 @@ import { completionCommand } from "./completion.ts";
 import { configCommand } from "./config/index.ts";
 import { connectorCommand } from "./connector/index.ts";
 import { fileCommand } from "./file/index.ts";
+import { installCommand } from "./install.ts";
 import { logCommand } from "./log/index.ts";
 import { loginCommand } from "./login.ts";
 import { logoutCommand } from "./logout.ts";
 import { packageCommand } from "./package/index.ts";
 import { mixedSearchCommand } from "./search.ts";
 import { skillsCommand } from "./skills/index.ts";
+import { updateCommand } from "./update.ts";
 
 const globalOptions = [
     {
@@ -42,6 +44,7 @@ export function createCliCatalog(): CliCatalog {
             cloudTaskCommand,
             connectorCommand,
             fileCommand,
+            installCommand,
             loginCommand,
             logoutCommand,
             completionCommand,
@@ -50,6 +53,7 @@ export function createCliCatalog(): CliCatalog {
             logCommand,
             mixedSearchCommand,
             packageCommand,
+            updateCommand,
         ],
     };
 }
