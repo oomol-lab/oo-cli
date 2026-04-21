@@ -108,3 +108,13 @@ jobs:
     with:
       version: ${{ needs.compute-version.outputs.version }}
     secrets: inherit
+
+  deploy-install-worker:
+    needs:
+      - compute-version
+      - publish
+      - upload-release-binaries-to-oss
+    uses: ./.github/workflows/deploy-install-worker.yaml
+    with:
+      tag: ${{ needs.compute-version.outputs.tag_name }}
+    secrets: inherit

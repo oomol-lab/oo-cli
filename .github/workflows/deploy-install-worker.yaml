@@ -1,0 +1,62 @@
+name: Deploy Install Worker
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Git tag whose install scripts should be published.
+        required: false
+        type: string
+    secrets:
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
+      CLOUDFLARE_API_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Git tag whose install scripts should be published.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-install-worker-${{ inputs.tag != '' && format('tag-{0}', inputs.tag) || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.sha }}
+
+      - name: Prepare install worker assets
+        run: |
+          set -euo pipefail
+
+          asset_directory="dist/install-worker-assets"
+
+          rm -rf "${asset_directory}"
+          mkdir -p "${asset_directory}"
+
+          cp contrib/install/install.cmd "${asset_directory}/install.cmd"
+          cp contrib/install/install.ps1 "${asset_directory}/install.ps1"
+          cp contrib/install/install.sh "${asset_directory}/install.sh"
+
+      - name: Deploy install worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          packageManager: npm
+          workingDirectory: contrib/cloudflare/oo-cli
+          wranglerVersion: "4"
