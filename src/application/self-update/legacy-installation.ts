@@ -111,7 +111,7 @@ async function resolveLegacyPackageManagersFromPath(
         });
 
         if (installation.method === "native" || installation.method === "unknown") {
-            break;
+            continue;
         }
 
         if (seenPackageManagers.has(installation.method)) {
