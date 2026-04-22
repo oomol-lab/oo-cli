@@ -1,20 +1,8 @@
 import { closeSync, openSync } from "node:fs";
 import process from "node:process";
 
-// Subcommands that genuinely consume fd 0 for interactive input. Everything
-// else is treated as non-interactive and has its fd 0 / fd 2 pointed at
-// /dev/null so Bun's exit-time `tcsetattr` cannot disturb the shared
-// terminal when the caller has piped us into another process. Keep this set
-// tight: adding an entry here gives up the downstream-pager fix for that
-// subcommand.
-const interactiveCommandNames: ReadonlySet<string> = new Set([
-    "skills",
-]);
-
 export interface DetachTtyProbe {
-    readonly argv: readonly string[];
     readonly platform: NodeJS.Platform;
-    readonly stderrIsTTY: boolean;
     readonly stdoutIsTTY: boolean;
 }
 
@@ -26,26 +14,18 @@ export interface DetachTtyProbe {
 // via *any* fd on the /dev/pts/* device clobbers the raw mode. We can't stop
 // the syscall, but we can point fd 0 and fd 2 at /dev/null so Bun's restore
 // hits a non-terminal descriptor and fails with ENOTTY.
+//
+// stdoutIsTTY being true is sufficient to opt out: interactive subcommands
+// (e.g. `skills install`) already require both stdin and stdout to be TTYs
+// and hard-error otherwise, so a stdout-is-TTY run is always the "running
+// interactively at the terminal" case where there is nothing downstream to
+// protect.
 export function shouldDetachTtyFds(probe: DetachTtyProbe): boolean {
     if (probe.platform === "win32") {
         return false;
     }
 
-    // Nothing to protect: either stream being a real TTY means the user is
-    // running oo interactively at the terminal, not piping its output.
-    if (probe.stdoutIsTTY && probe.stderrIsTTY) {
-        return false;
-    }
-
-    // If stdout is a TTY but stderr is not, the pipe is on stderr (unusual)
-    // and we leave the mitigation off to avoid surprises.
     if (probe.stdoutIsTTY) {
-        return false;
-    }
-
-    const firstArg = probe.argv[0];
-
-    if (firstArg !== undefined && interactiveCommandNames.has(firstArg)) {
         return false;
     }
 
@@ -117,9 +97,7 @@ async function loadLibcDup2(platform: NodeJS.Platform): Promise<Dup2 | undefined
 
 export async function detachNonInteractiveTtyFdsFromProcess(): Promise<void> {
     const probe: DetachTtyProbe = {
-        argv: process.argv.slice(2),
         platform: process.platform,
-        stderrIsTTY: process.stderr.isTTY === true,
         stdoutIsTTY: process.stdout.isTTY === true,
     };
 
@@ -134,7 +112,12 @@ export async function detachNonInteractiveTtyFdsFromProcess(): Promise<void> {
     }
 
     const io: DetachFdIo = {
-        openDevNullFd: () => openSync("/dev/null", "r"),
+        // Open /dev/null read-write ("r+") so the same descriptor is safe to
+        // dup onto either fd 0 (read) or fd 2 (write). Opening read-only and
+        // then reusing it for fd 2 would cause any stray `write(2, ...)`
+        // between our exit handler and process termination to fail with
+        // EBADF instead of being silently discarded.
+        openDevNullFd: () => openSync("/dev/null", "r+"),
         dup2,
         closeFd: closeSync,
     };
@@ -144,11 +127,15 @@ export async function detachNonInteractiveTtyFdsFromProcess(): Promise<void> {
     detachFdToDevNull(io, 0);
 
     // fd 2: detach at the last possible moment so CLI errors keep reaching
-    // the real terminal during normal execution. Node/Bun run `exit` event
-    // listeners right before runtime cleanup, so our dup2 happens just
-    // before Bun's exit-time `tcsetattr(2, ...)`, causing it to land on
-    // /dev/null (ENOTTY) instead of the shared /dev/pts device.
-    process.on("exit", () => {
-        detachFdToDevNull(io, 2);
-    });
+    // the real terminal during normal execution. Only relevant when stderr
+    // is a TTY — otherwise Bun never saved termios for fd 2 and won't
+    // restore it at exit. Node/Bun run `exit` event listeners right before
+    // runtime cleanup, so our dup2 happens just before Bun's exit-time
+    // `tcsetattr(2, ...)`, causing it to land on /dev/null (ENOTTY) instead
+    // of the shared /dev/pts device.
+    if (process.stderr.isTTY === true) {
+        process.on("exit", () => {
+            detachFdToDevNull(io, 2);
+        });
+    }
 }

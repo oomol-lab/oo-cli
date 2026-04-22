@@ -2,89 +2,37 @@ import { describe, expect, test } from "bun:test";
 import { detachFdToDevNull, shouldDetachTtyFds } from "./detach-stdin.ts";
 
 describe("shouldDetachTtyFds", () => {
-    test("skips on win32", () => {
+    test("skips on win32 (the mitigation targets POSIX /dev/pts behavior)", () => {
         expect(
             shouldDetachTtyFds({
-                argv: ["search", "foo", "--json"],
                 platform: "win32",
-                stderrIsTTY: true,
                 stdoutIsTTY: false,
             }),
         ).toBe(false);
     });
 
-    test("skips when stdout is a TTY (running interactively, no pipe to protect)", () => {
+    test("skips when stdout is a TTY (no downstream pager to protect)", () => {
         expect(
             shouldDetachTtyFds({
-                argv: ["search", "foo"],
                 platform: "linux",
-                stderrIsTTY: true,
                 stdoutIsTTY: true,
             }),
         ).toBe(false);
     });
 
-    test("skips when both stdout and stderr are TTY", () => {
+    test("detaches on linux when stdout is piped", () => {
         expect(
             shouldDetachTtyFds({
-                argv: ["search", "foo"],
                 platform: "linux",
-                stderrIsTTY: true,
-                stdoutIsTTY: true,
-            }),
-        ).toBe(false);
-    });
-
-    test("skips for skills subcommand (consumes stdin)", () => {
-        expect(
-            shouldDetachTtyFds({
-                argv: ["skills", "install", "my-package"],
-                platform: "linux",
-                stderrIsTTY: true,
-                stdoutIsTTY: false,
-            }),
-        ).toBe(false);
-    });
-
-    test("detaches for a plain piped --json invocation", () => {
-        expect(
-            shouldDetachTtyFds({
-                argv: ["connector", "search", "send mail", "--json"],
-                platform: "linux",
-                stderrIsTTY: true,
                 stdoutIsTTY: false,
             }),
         ).toBe(true);
     });
 
-    test("detaches when both stdout and stderr are pipes (full redirect)", () => {
+    test("detaches on darwin when stdout is piped", () => {
         expect(
             shouldDetachTtyFds({
-                argv: ["search", "foo"],
-                platform: "linux",
-                stderrIsTTY: false,
-                stdoutIsTTY: false,
-            }),
-        ).toBe(true);
-    });
-
-    test("detaches when argv is empty (help/version paths still safe)", () => {
-        expect(
-            shouldDetachTtyFds({
-                argv: [],
-                platform: "linux",
-                stderrIsTTY: true,
-                stdoutIsTTY: false,
-            }),
-        ).toBe(true);
-    });
-
-    test("detaches on darwin for non-interactive subcommands", () => {
-        expect(
-            shouldDetachTtyFds({
-                argv: ["search", "foo", "--json"],
                 platform: "darwin",
-                stderrIsTTY: true,
                 stdoutIsTTY: false,
             }),
         ).toBe(true);
