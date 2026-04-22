@@ -101,6 +101,7 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
+      # See: https://github.com/oven-sh/bun/pull/28339
       - name: Use workspace Bun cache for Win32 x64 baseline builds
         if: matrix.platform_name == 'Win32 x64'
         run: echo "BUN_INSTALL_CACHE_DIR=${{ github.workspace }}\\.bun-install\\cache" >> $env:GITHUB_ENV
