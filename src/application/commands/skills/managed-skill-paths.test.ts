@@ -32,7 +32,7 @@ describe("managed skill paths", () => {
                 "/tmp/config/settings.toml",
                 "chatgpt",
             ),
-        ).toBe(join("/tmp/config", "skills", "chatgpt"));
+        ).toBe(join("/tmp/config", "skills", "registry", "chatgpt"));
     });
 
     test("resolves the canonical skills root directory", () => {
@@ -40,7 +40,7 @@ describe("managed skill paths", () => {
             resolveManagedSkillCanonicalRootDirectoryPath(
                 "/tmp/config/settings.toml",
             ),
-        ).toBe(join("/tmp/config", "skills"));
+        ).toBe(join("/tmp/config", "skills", "registry"));
     });
 
     test("keeps contained managed skill paths and rejects escaping ones", () => {

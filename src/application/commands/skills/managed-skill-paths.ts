@@ -1,6 +1,7 @@
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
     bundledSkillMetadataFileName,
+    canonicalRegistrySkillsDirectoryName,
     codexSkillsDirectoryName,
 } from "./bundled-skill-paths.ts";
 
@@ -36,7 +37,11 @@ export function resolveManagedSkillDirectoryPath(
 export function resolveManagedSkillCanonicalRootDirectoryPath(
     settingsFilePath: string,
 ): string {
-    return join(dirname(settingsFilePath), codexSkillsDirectoryName);
+    return join(
+        dirname(settingsFilePath),
+        codexSkillsDirectoryName,
+        canonicalRegistrySkillsDirectoryName,
+    );
 }
 
 export function resolveManagedSkillCanonicalDirectoryPath(

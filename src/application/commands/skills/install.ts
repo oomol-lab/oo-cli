@@ -3,6 +3,7 @@ import type { BundledSkillName } from "./embedded-assets.ts";
 
 import { z } from "zod";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 import { installBundledSkill, isBundledSkillName } from "./shared.ts";
 
@@ -52,6 +53,8 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         yes: z.boolean().optional(),
     }),
     handler: async (input, context) => {
+        await migrateLegacyCanonicalSkillLayout(context);
+
         if (input.packageName === undefined) {
             for (const skillName of availableBundledSkillNames) {
                 await installBundledSkill(skillName, context);
