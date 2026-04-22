@@ -823,6 +823,13 @@ export function createConnectionRefusedError(
     return error;
 }
 
+export function joinPathEntries(
+    pathEntries: readonly string[],
+    platform: NodeJS.Platform,
+): string {
+    return pathEntries.join(platform === "win32" ? ";" : ":");
+}
+
 export function requireAbortSignal(init?: RequestInit): AbortSignal {
     const signal = init?.signal;
 

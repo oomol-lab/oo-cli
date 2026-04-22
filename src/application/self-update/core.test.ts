@@ -9,6 +9,7 @@ import {
     createLogCapture,
     createTemporaryDirectory,
     expectCliUserError,
+    joinPathEntries,
     requireAbortSignal,
     useTemporaryDirectoryCleanup,
 } from "../../../__tests__/helpers.ts";
@@ -297,6 +298,90 @@ describe("performSelfUpdateOperation", () => {
                 {
                     commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
                     commandPath: "/mock/bin/pnpm",
+                },
+            ]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("uses PATH fallback to uninstall legacy package-manager installs after activation", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-legacy-path");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+            paths,
+            "1.2.3",
+        );
+        const bunDirectory = join(rootDirectory, ".bun", "bin");
+        const bunExecutablePath = join(bunDirectory, basename(paths.executablePath));
+        const logCapture = createLogCapture();
+        const invokedCommands: Array<{
+            commandArguments: readonly string[];
+            commandPath: string;
+        }> = [];
+
+        trackDirectory(rootDirectory);
+        env.PATH = joinPathEntries(
+            [bunDirectory, paths.executableDirectory],
+            process.platform,
+        );
+        await Promise.all([
+            mkdir(paths.versionsDirectory, { recursive: true }),
+            writeManagedVersion(targetVersionPath),
+        ]);
+        await mkdir(bunDirectory, { recursive: true });
+        await writeFile(bunExecutablePath, "binary");
+
+        if (process.platform !== "win32") {
+            await chmod(bunExecutablePath, 0o755);
+        }
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "1.0.0",
+                forceReinstall: false,
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: join(rootDirectory, "downloads", basename(paths.executablePath)),
+                    fetcher: async () => {
+                        throw new Error("binary download should not be called");
+                    },
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                    resolveCommandPath: commandName => `/mock/bin/${commandName}`,
+                    runCommand: async (options) => {
+                        invokedCommands.push({
+                            commandArguments: options.commandArguments,
+                            commandPath: options.commandPath,
+                        });
+
+                        return {
+                            exitCode: 0,
+                            signalCode: null,
+                            stderr: "",
+                            stdout: "",
+                        };
+                    },
+                },
+                targetVersion: "1.2.3",
+            });
+
+            expect(result.status).toBe("installed");
+            expect(invokedCommands).toEqual([
+                {
+                    commandArguments: ["skills", "add"],
+                    commandPath: paths.executablePath,
+                },
+                {
+                    commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
+                    commandPath: "/mock/bin/bun",
                 },
             ]);
         }

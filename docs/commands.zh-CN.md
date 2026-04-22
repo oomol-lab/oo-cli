@@ -105,8 +105,9 @@
 - 说明：install 在报告成功前会校验已安装的 `oo` 命令可正常使用。
 - 说明：如果可执行目录没有出现在 `PATH` 中，install 还会额外打印 setup note，
   告知用户应当把哪个目录加入 `PATH`。
-- 说明：install 成功后，如果当前命令运行自一个旧的全局 package-manager
-  `@oomol-lab/oo-cli` 安装，CLI 会尽力将其移除；清理失败不会改变命令结果。
+- 说明：install 成功后，CLI 会尽力移除在 `PATH` 中排在托管可执行文件之前的
+  旧全局 package-manager `@oomol-lab/oo-cli` 安装；如果 `PATH` 中没有找到
+  `oo` 候选项，CLI 会回退到当前命令路径进行判断。清理失败不会改变命令结果。
 - 说明：install 成功后，CLI 会使用托管的可执行文件静默执行一次
   `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
@@ -125,8 +126,9 @@
   update 会直接跳过托管重装流程，并立即输出“已是最新版本”的消息。
 - 说明：`oo update` 会确保托管安装保持为当前可用状态，不额外暴露
   `--force`。
-- 说明：update 成功后，如果当前命令运行自一个旧的全局 package-manager
-  `@oomol-lab/oo-cli` 安装，CLI 会尽力将其移除；清理失败不会改变命令结果。
+- 说明：update 成功后，CLI 会尽力移除在 `PATH` 中排在托管可执行文件之前的
+  旧全局 package-manager `@oomol-lab/oo-cli` 安装；如果 `PATH` 中没有找到
+  `oo` 候选项，CLI 会回退到当前命令路径进行判断。清理失败不会改变命令结果。
 - 说明：update 成功后，CLI 会使用托管的可执行文件静默执行一次
   `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
