@@ -87,8 +87,10 @@ describe("embedded skill assets", () => {
 
                 expect(skillFiles.every(file => file.agentName === agentName)).toBeTrue();
                 expect(
-                    normalizePathForAssertion(skillFiles[0]!.sourcePath).includes(
-                        `/${sourceDirectory}/`,
+                    skillFiles.every(file =>
+                        normalizePathForAssertion(file.sourcePath).includes(
+                            `/${sourceDirectory}/`,
+                        ),
                     ),
                 ).toBeTrue();
             }

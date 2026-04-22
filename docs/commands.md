@@ -230,16 +230,20 @@ Search packages and connector actions with one free-form query.
 
 ### `oo skills list`
 
-List oo-managed skills from the local Codex skills directory.
+List oo-managed skills from supported local skill directories.
 
-- Ownership rule: the command scans `${CODEX_HOME:-~/.codex}/skills` and keeps
-  only child directories whose `.oo-metadata.json` can be parsed and contains
-  a non-empty `version`.
+- Ownership rule: the command scans each existing supported local skill root:
+  `${CODEX_HOME:-~/.codex}/skills`, `~/.claude/skills`, and
+  `${OPENCLAW_HOME:-~/.openclaw}/skills`. It keeps only child directories whose
+  `.oo-metadata.json` can be parsed and contains a non-empty `version`.
 - Output: text output prints a summary line and one block per skill.
-- Ordering: `oo` is always listed first when present; the remaining skills are
-  ordered by skill name.
-- Output: each skill block shows the skill name, source package or bundled
-  marker, and recorded version.
+- Ordering: blocks are grouped by host in `Codex`, `Claude Code`, `OpenClaw`
+  order. Within each host, `oo` is always listed first when present; the
+  remaining skills are ordered by skill name.
+- Output: each skill block shows the skill name, host, source package or
+  bundled marker, and recorded version.
+- Notes: when the same skill name is installed in multiple supported hosts,
+  each host installation is listed separately.
 
 ### `oo skills search <text>`
 

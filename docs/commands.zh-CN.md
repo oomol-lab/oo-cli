@@ -208,14 +208,19 @@
 
 ### `oo skills list`
 
-列出本地 Codex skills 目录中由 oo 管理的 skill。
+列出受支持的本地 skill 目录中由 oo 管理的 skill。
 
-- 所有权规则：命令会扫描 `${CODEX_HOME:-~/.codex}/skills`，只保留包含
-  可解析 `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
+- 所有权规则：命令会扫描每个已存在的受支持本地 skill 根目录：
+  `${CODEX_HOME:-~/.codex}/skills`、`~/.claude/skills`，以及
+  `${OPENCLAW_HOME:-~/.openclaw}/skills`。只保留包含可解析
+  `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
 - 输出：文本输出会先打印摘要行，再为每个 skill 打印一个块。
-- 排序：如果存在 `oo`，它总是排在最前面；其余 skill 按名称排序。
-- 输出：每个 skill 块会显示 skill 名称、来源 package 或内置标记、记录的版
-  本号。
+- 排序：输出会先按宿主分组，顺序为 `Codex`、`Claude Code`、`OpenClaw`。
+  在每个宿主内，如果存在 `oo`，它总是排在最前面；其余 skill 按名称排序。
+- 输出：每个 skill 块会显示 skill 名称、宿主、来源 package 或内置标记，以
+  及记录的版本号。
+- 说明：如果同名 skill 同时安装在多个受支持宿主中，每个宿主的安装都会分别
+  列出。
 
 ### `oo skills search <text>`
 
