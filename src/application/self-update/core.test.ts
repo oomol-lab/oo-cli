@@ -293,7 +293,7 @@ describe("performSelfUpdateOperation", () => {
             expect(invokedCommands).toEqual([
                 {
                     commandArguments: ["skills", "add"],
-                    commandPath: paths.executablePath,
+                    commandPath: targetVersionPath,
                 },
                 {
                     commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
@@ -377,7 +377,7 @@ describe("performSelfUpdateOperation", () => {
             expect(invokedCommands).toEqual([
                 {
                     commandArguments: ["skills", "add"],
-                    commandPath: paths.executablePath,
+                    commandPath: targetVersionPath,
                 },
                 {
                     commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
