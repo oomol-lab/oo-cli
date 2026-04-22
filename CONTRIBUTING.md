@@ -25,7 +25,8 @@ Useful commands:
 
 ```bash
 bun run build:current-platform
-bun run build:windows
+bun run build:windows-x64
+bun run build:windows-arm64
 bun run build:macos
 bun run build:linux
 bun run dev --help
@@ -42,7 +43,9 @@ locally.
 
 - `bun run build:current-platform`: stages only the package for the current
   machine into `dist/release-packages/`
-- `bun run build:windows`: stages only the Windows packages into
+- `bun run build:windows-x64`: stages only the Windows x64 package into
+  `dist/release-packages/`
+- `bun run build:windows-arm64`: stages only the Windows arm64 package into
   `dist/release-packages/`
 - `bun run build:macos`: stages only the macOS packages into
   `dist/release-packages/`
@@ -50,8 +53,8 @@ locally.
   `dist/release-packages/`
 - `BUILD_DIST_DIR=/tmp/oo-dist bun run build:linux`: writes staged packages to
   a custom output directory
-- `BUILD_VERSION=1.2.3 bun run build:macos`: overrides the version used in
-  generated package manifests without editing `package.json`
+- `BUILD_VERSION=1.2.3 bun run build:windows-arm64`: overrides the version used
+  in generated package manifests without editing `package.json`
 
 The platform-specific build scripts only write staged package directories.
 Release assembly remains an internal CI step that consumes those staged

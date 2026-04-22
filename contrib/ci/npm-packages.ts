@@ -44,7 +44,14 @@ interface CompileBuildMetadata {
     version: string;
 }
 
-export type BuildTargetPreset = "current-platform" | "linux" | "macos" | "windows";
+export const buildTargetPresets = [
+    "current-platform",
+    "linux",
+    "macos",
+    "windows",
+] as const;
+
+export type BuildTargetPreset = (typeof buildTargetPresets)[number];
 
 const wrapperFiles = [
     "bin/oo.cjs",
@@ -346,6 +353,27 @@ export function resolveBuildTargetIdsForPreset(
     return platformTargets
         .filter(target => target.os === platform)
         .map(target => target.id);
+}
+
+export function resolveBuildTargetIdsForSelection(
+    value: string | undefined,
+    runtime: RuntimeLike = process,
+): readonly string[] {
+    if (value === undefined) {
+        throw new Error("Build target selection is required.");
+    }
+
+    if (isBuildTargetPreset(value)) {
+        return resolveBuildTargetIdsForPreset(value, runtime);
+    }
+
+    selectPlatformTargets([value]);
+
+    return [value];
+}
+
+function isBuildTargetPreset(value: string): value is BuildTargetPreset {
+    return (buildTargetPresets as readonly string[]).includes(value);
 }
 
 function serializeManifest(packageManifest: Record<string, unknown>): string {
