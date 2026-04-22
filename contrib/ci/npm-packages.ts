@@ -1,5 +1,5 @@
-import { chmodSync, copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { chmodSync, copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 
 import platformTargetsData from "../npm/platform-targets.json";
@@ -44,6 +44,8 @@ interface CompileBuildMetadata {
     version: string;
 }
 
+export type BuildTargetPreset = "current-platform" | "linux" | "macos" | "windows";
+
 const wrapperFiles = [
     "bin/oo.cjs",
     "bin/postinstall.cjs",
@@ -83,6 +85,13 @@ const explicitExtraOrder = [
 
 const platformTargets = platformTargetsData as PlatformTarget[];
 const compileAssetNamingPattern = "[name]-[hash].[ext]";
+export const releasePackagesDirectoryName = "release-packages";
+const wrapperPackageDirectoryName = "wrapper";
+const buildTargetPresetPlatforms = {
+    linux: "linux",
+    macos: "darwin",
+    windows: "win32",
+} as const satisfies Record<Exclude<BuildTargetPreset, "current-platform">, NodeJS.Platform>;
 
 export function getPlatformTargets(): readonly PlatformTarget[] {
     return [...platformTargets];
@@ -160,74 +169,75 @@ export function buildPlatformPackageManifest(
     return serializeManifest(platformManifest);
 }
 
-export async function buildNpmReleasePackages(options: {
+export async function stagePlatformReleasePackages(options: {
+    outDir?: string;
+    packageManifestPath?: string;
+    rootDir?: string;
+    releaseVersion?: string;
+    targetIds?: readonly string[];
+}): Promise<void> {
+    const releaseBuildOptions = await resolveReleaseBuildOptions(options);
+    const selectedTargets = selectPlatformTargets(options.targetIds);
+    const compileBuildMetadata = resolveCompileBuildMetadata(
+        releaseBuildOptions.rootDir,
+        releaseBuildOptions.releaseVersion,
+    );
+
+    rmSync(releaseBuildOptions.stagingDir, { force: true, recursive: true });
+    mkdirSync(releaseBuildOptions.stagingDir, { recursive: true });
+
+    for (const target of selectedTargets) {
+        stagePlatformPackage({
+            packageManifestContent: releaseBuildOptions.packageManifestContent,
+            releaseVersion: releaseBuildOptions.releaseVersion,
+            rootDir: releaseBuildOptions.rootDir,
+            stagingDir: releaseBuildOptions.stagingDir,
+            target,
+            buildMetadata: compileBuildMetadata,
+        });
+    }
+}
+
+export async function assembleReleaseArtifacts(options: {
     outDir?: string;
     packageManifestPath?: string;
     rootDir?: string;
     releaseVersion?: string;
     targetIds?: readonly string[];
 }): Promise<readonly string[]> {
-    const rootDir = options.rootDir ?? process.cwd();
-    const packageManifestPath = options.packageManifestPath ?? join(rootDir, "package.json");
-    const outDir = options.outDir ?? join(rootDir, "dist");
-    const packageManifestContent = await Bun.file(packageManifestPath).text();
-    const releaseVersion = resolvePackageVersion(
-        packageManifestContent,
-        options.releaseVersion,
+    const releaseBuildOptions = await resolveReleaseBuildOptions(options);
+    const selectedTargets = resolveAssemblyTargets(
+        releaseBuildOptions.stagingDir,
+        options.targetIds,
     );
-    const selectedTargets = selectPlatformTargets(options.targetIds);
-    const stagingDir = join(outDir, ".packages");
     const tarballPaths: string[] = [];
-    const compileBuildMetadata = resolveCompileBuildMetadata(rootDir, releaseVersion);
 
-    rmSync(outDir, { force: true, recursive: true });
-    mkdirSync(stagingDir, { recursive: true });
+    clearReleaseOutputDirectory(
+        releaseBuildOptions.outDir,
+        releaseBuildOptions.stagingDir,
+    );
 
     for (const target of selectedTargets) {
-        const packageDir = join(stagingDir, target.id);
-        preparePackageDirectory(packageDir);
-        writeFileSync(
-            join(packageDir, "package.json"),
-            buildPlatformPackageManifest(
-                packageManifestContent,
-                releaseVersion,
-                target,
+        tarballPaths.push(
+            packPackage(
+                join(releaseBuildOptions.stagingDir, target.id),
+                releaseBuildOptions.outDir,
             ),
         );
-        copyReadme(rootDir, packageDir);
-        compilePlatformBinary(rootDir, packageDir, target, compileBuildMetadata);
-        tarballPaths.push(packPackage(packageDir, outDir));
     }
 
-    const wrapperDir = join(stagingDir, "wrapper");
-    preparePackageDirectory(wrapperDir);
-    writeFileSync(
-        join(wrapperDir, "package.json"),
-        buildWrapperPackageManifest(packageManifestContent, releaseVersion),
-    );
-    copyReadme(rootDir, wrapperDir);
-    copyFile(
-        join(rootDir, "contrib/npm/oo.cjs"),
-        join(wrapperDir, "bin/oo.cjs"),
-    );
-    copyFile(
-        join(rootDir, "contrib/npm/postinstall.cjs"),
-        join(wrapperDir, "bin/postinstall.cjs"),
-    );
-    copyFile(
-        join(rootDir, "contrib/npm/platform-runtime.cjs"),
-        join(wrapperDir, "bin/platform-runtime.cjs"),
-    );
-    copyFile(
-        join(rootDir, "contrib/npm/platform-targets.json"),
-        join(wrapperDir, "bin/platform-targets.json"),
-    );
-    tarballPaths.push(packPackage(wrapperDir, outDir));
+    const wrapperDir = stageWrapperPackage({
+        packageManifestContent: releaseBuildOptions.packageManifestContent,
+        releaseVersion: releaseBuildOptions.releaseVersion,
+        rootDir: releaseBuildOptions.rootDir,
+        stagingDir: releaseBuildOptions.stagingDir,
+    });
+    tarballPaths.push(packPackage(wrapperDir, releaseBuildOptions.outDir));
 
     const releaseBundlePath = await createGitHubReleaseBundle({
-        outDir,
-        releaseVersion,
-        stagingDir,
+        outDir: releaseBuildOptions.outDir,
+        releaseVersion: releaseBuildOptions.releaseVersion,
+        stagingDir: releaseBuildOptions.stagingDir,
         targets: selectedTargets.map(target => ({
             executableFileName: target.executableFileName,
             id: target.id,
@@ -235,11 +245,11 @@ export async function buildNpmReleasePackages(options: {
     });
 
     writeFileSync(
-        join(outDir, "npm-publish-order.txt"),
+        join(releaseBuildOptions.outDir, "npm-publish-order.txt"),
         `${tarballPaths.join("\n")}\n`,
     );
     writeFileSync(
-        join(outDir, "github-release-assets.txt"),
+        join(releaseBuildOptions.outDir, "github-release-assets.txt"),
         `${[...tarballPaths, releaseBundlePath].join("\n")}\n`,
     );
 
@@ -301,6 +311,32 @@ export function resolveCurrentPlatformTarget(
     return matchedTarget;
 }
 
+export function parseBuildTargetIds(rawTargetIds: string): readonly string[] | undefined {
+    if (rawTargetIds === "") {
+        return undefined;
+    }
+
+    return rawTargetIds
+        .split(",")
+        .map(targetId => targetId.trim())
+        .filter(targetId => targetId !== "");
+}
+
+export function resolveBuildTargetIdsForPreset(
+    preset: BuildTargetPreset,
+    runtime: RuntimeLike = process,
+): readonly string[] {
+    if (preset === "current-platform") {
+        return [resolveCurrentPlatformTarget(runtime).id];
+    }
+
+    const platform = buildTargetPresetPlatforms[preset];
+
+    return platformTargets
+        .filter(target => target.os === platform)
+        .map(target => target.id);
+}
+
 function serializeManifest(packageManifest: Record<string, unknown>): string {
     const orderedManifest = orderManifestFields(packageManifest);
 
@@ -336,6 +372,71 @@ function preparePackageDirectory(packageDir: string): void {
     mkdirSync(packageDir, { recursive: true });
 }
 
+function stagePlatformPackage(options: {
+    packageManifestContent: string;
+    releaseVersion: string;
+    rootDir: string;
+    stagingDir: string;
+    target: PlatformTarget;
+    buildMetadata: CompileBuildMetadata;
+}): void {
+    const packageDir = join(options.stagingDir, options.target.id);
+
+    preparePackageDirectory(packageDir);
+    writeFileSync(
+        join(packageDir, "package.json"),
+        buildPlatformPackageManifest(
+            options.packageManifestContent,
+            options.releaseVersion,
+            options.target,
+        ),
+    );
+    copyReadme(options.rootDir, packageDir);
+    compilePlatformBinary(
+        options.rootDir,
+        packageDir,
+        options.target,
+        options.buildMetadata,
+    );
+}
+
+function stageWrapperPackage(options: {
+    packageManifestContent: string;
+    releaseVersion: string;
+    rootDir: string;
+    stagingDir: string;
+}): string {
+    const wrapperDir = join(options.stagingDir, wrapperPackageDirectoryName);
+
+    preparePackageDirectory(wrapperDir);
+    writeFileSync(
+        join(wrapperDir, "package.json"),
+        buildWrapperPackageManifest(
+            options.packageManifestContent,
+            options.releaseVersion,
+        ),
+    );
+    copyReadme(options.rootDir, wrapperDir);
+    copyFile(
+        join(options.rootDir, "contrib/npm/oo.cjs"),
+        join(wrapperDir, "bin/oo.cjs"),
+    );
+    copyFile(
+        join(options.rootDir, "contrib/npm/postinstall.cjs"),
+        join(wrapperDir, "bin/postinstall.cjs"),
+    );
+    copyFile(
+        join(options.rootDir, "contrib/npm/platform-runtime.cjs"),
+        join(wrapperDir, "bin/platform-runtime.cjs"),
+    );
+    copyFile(
+        join(options.rootDir, "contrib/npm/platform-targets.json"),
+        join(wrapperDir, "bin/platform-targets.json"),
+    );
+
+    return wrapperDir;
+}
+
 function copyReadme(rootDir: string, packageDir: string): void {
     copyFile(join(rootDir, "README.md"), join(packageDir, "README.md"));
 }
@@ -343,6 +444,21 @@ function copyReadme(rootDir: string, packageDir: string): void {
 function copyFile(sourcePath: string, destinationPath: string): void {
     mkdirSync(dirname(destinationPath), { recursive: true });
     copyFileSync(sourcePath, destinationPath);
+}
+
+function clearReleaseOutputDirectory(outDir: string, stagingDir: string): void {
+    mkdirSync(outDir, { recursive: true });
+    const resolvedStagingDir = resolve(stagingDir);
+
+    for (const entry of readdirSync(outDir, { withFileTypes: true })) {
+        const entryPath = join(outDir, entry.name);
+
+        if (resolve(entryPath) === resolvedStagingDir) {
+            continue;
+        }
+
+        rmSync(entryPath, { force: true, recursive: true });
+    }
 }
 
 function compilePlatformBinary(
@@ -502,4 +618,81 @@ function formatRuntimeTarget(
     libc: string | undefined,
 ): string {
     return [runtime.platform, runtime.arch, libc].filter(Boolean).join(" ");
+}
+
+async function resolveReleaseBuildOptions(options: {
+    outDir?: string;
+    packageManifestPath?: string;
+    rootDir?: string;
+    releaseVersion?: string;
+}): Promise<{
+    outDir: string;
+    packageManifestContent: string;
+    releaseVersion: string;
+    rootDir: string;
+    stagingDir: string;
+}> {
+    const rootDir = options.rootDir ?? process.cwd();
+    const packageManifestPath = options.packageManifestPath ?? join(rootDir, "package.json");
+    const outDir = options.outDir ?? join(rootDir, "dist");
+    const packageManifestContent = await Bun.file(packageManifestPath).text();
+    const releaseVersion = resolvePackageVersion(
+        packageManifestContent,
+        options.releaseVersion,
+    );
+
+    return {
+        outDir,
+        packageManifestContent,
+        releaseVersion,
+        rootDir,
+        stagingDir: join(outDir, releasePackagesDirectoryName),
+    };
+}
+
+function resolveAssemblyTargets(
+    stagingDir: string,
+    targetIds: readonly string[] | undefined,
+): readonly PlatformTarget[] {
+    const stagedTargetIds = discoverStagedTargetIds(stagingDir);
+
+    if (!targetIds || targetIds.length === 0) {
+        return selectPlatformTargets(stagedTargetIds);
+    }
+
+    const stagedTargetIdSet = new Set(stagedTargetIds);
+    const selectedTargets = selectPlatformTargets(targetIds);
+
+    for (const target of selectedTargets) {
+        if (!stagedTargetIdSet.has(target.id)) {
+            throw new Error(`Missing staged package for target: ${target.id}`);
+        }
+    }
+
+    return selectedTargets;
+}
+
+function discoverStagedTargetIds(stagingDir: string): readonly string[] {
+    const stagedTargetNameSet = new Set(
+        readdirSync(stagingDir, { withFileTypes: true })
+            .filter(entry => entry.isDirectory())
+            .map(entry => entry.name)
+            .filter(entryName => entryName !== wrapperPackageDirectoryName),
+    );
+
+    if (stagedTargetNameSet.size === 0) {
+        throw new Error("No staged platform packages were found.");
+    }
+
+    const knownTargetIdSet = new Set(platformTargets.map(target => target.id));
+
+    for (const entryName of stagedTargetNameSet) {
+        if (!knownTargetIdSet.has(entryName)) {
+            throw new Error(`Unsupported staged package target: ${entryName}`);
+        }
+    }
+
+    return platformTargets
+        .filter(target => stagedTargetNameSet.has(target.id))
+        .map(target => target.id);
 }

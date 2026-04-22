@@ -5,16 +5,27 @@ import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
 import { getBundledSkillFiles } from "../../src/application/commands/skills/embedded-assets.ts";
+import { writeReleaseBundleBinaryFixture } from "./__tests__/helpers.ts";
 import {
+    assembleReleaseArtifacts,
     buildCompileCommandArgs,
     buildCompileDefineArgs,
     buildPlatformPackageManifest,
     buildWrapperPackageManifest,
     getPlatformTargets,
+    parseBuildTargetIds,
+    releasePackagesDirectoryName,
+    resolveBuildTargetIdsForPreset,
     resolveCurrentPlatformTarget,
     resolvePackageVersion,
     selectPlatformTargets,
 } from "./npm-packages.ts";
+import {
+    buildReleaseBundleLatestMetadata,
+    releaseBundleFileName,
+    releaseBundleLatestFileName,
+    resolveReleaseBundleTargetDirectory,
+} from "./release-bundle.ts";
 
 const baseManifest = JSON.stringify({
     name: "@oomol-lab/oo-cli",
@@ -228,6 +239,49 @@ describe("npm-packages", () => {
         );
     });
 
+    test("parses comma-separated build targets from the environment", () => {
+        expect(parseBuildTargetIds(" darwin-arm64, linux-x64-musl ,win32-x64 ")).toEqual([
+            "darwin-arm64",
+            "linux-x64-musl",
+            "win32-x64",
+        ]);
+        expect(parseBuildTargetIds("")).toBeUndefined();
+    });
+
+    test("resolves platform presets without depending on shell env syntax", () => {
+        expect(resolveBuildTargetIdsForPreset("windows")).toEqual(
+            getPlatformTargets()
+                .filter(target => target.os === "win32")
+                .map(target => target.id),
+        );
+        expect(resolveBuildTargetIdsForPreset("macos")).toEqual(
+            getPlatformTargets()
+                .filter(target => target.os === "darwin")
+                .map(target => target.id),
+        );
+        expect(resolveBuildTargetIdsForPreset("linux")).toEqual(
+            getPlatformTargets()
+                .filter(target => target.os === "linux")
+                .map(target => target.id),
+        );
+    });
+
+    test("resolves the current-platform preset from the runtime", () => {
+        expect(
+            resolveBuildTargetIdsForPreset("current-platform", {
+                arch: "x64",
+                platform: "linux",
+                report: {
+                    getReport: () => ({
+                        header: {
+                            glibcVersionRuntime: "2.39",
+                        },
+                    }),
+                },
+            }),
+        ).toEqual(["linux-x64-gnu"]);
+    });
+
     test("builds define arguments for compile-time metadata", () => {
         expect(
             buildCompileDefineArgs({
@@ -278,6 +332,113 @@ describe("npm-packages", () => {
             "--outfile",
             "dist/bin/oo",
         ]);
+    });
+
+    test("assembles staged platform packages into release artifacts", async () => {
+        const rootDirectoryPath = process.cwd();
+        const temporaryDirectoryPath = await createTemporaryDirectory(
+            "oo-assemble-release-artifacts",
+        );
+        const outDirectoryPath = join(temporaryDirectoryPath, "dist");
+        const extractDirectoryPath = join(temporaryDirectoryPath, "extract");
+        const stagingDirectoryPath = join(
+            outDirectoryPath,
+            releasePackagesDirectoryName,
+        );
+        const releaseVersion = "1.2.3";
+        const targetIds = ["darwin-arm64", "win32-x64"] as const;
+
+        try {
+            await Promise.all(
+                targetIds.map(targetId =>
+                    writeStagedPlatformPackageFixture({
+                        releaseVersion,
+                        stagingDirectoryPath,
+                        targetId,
+                    }),
+                ),
+            );
+
+            const tarballPaths = await assembleReleaseArtifacts({
+                outDir: outDirectoryPath,
+                releaseVersion,
+                rootDir: rootDirectoryPath,
+                targetIds,
+            });
+
+            expect(tarballPaths).toHaveLength(3);
+            expect(tarballPaths[0]).toContain("darwin-arm64");
+            expect(tarballPaths[1]).toContain("win32-x64");
+            expect(tarballPaths[2]).toContain("oo-cli-1.2.3.tgz");
+
+            expect(
+                await readFile(join(outDirectoryPath, "npm-publish-order.txt"), "utf8"),
+            ).toBe(`${tarballPaths.join("\n")}\n`);
+            expect(
+                await readFile(join(outDirectoryPath, "github-release-assets.txt"), "utf8"),
+            ).toBe(
+                `${[...tarballPaths, join(outDirectoryPath, releaseBundleFileName)].join("\n")}\n`,
+            );
+
+            const archive = new Bun.Archive(
+                await Bun.file(join(outDirectoryPath, releaseBundleFileName)).bytes(),
+            );
+            await archive.extract(extractDirectoryPath);
+
+            expect(
+                await readFile(join(extractDirectoryPath, releaseBundleLatestFileName), "utf8"),
+            ).toBe(buildReleaseBundleLatestMetadata(releaseVersion));
+
+            for (const targetId of targetIds) {
+                const target = getRequiredTarget(targetId);
+                expect(
+                    await readFile(
+                        join(
+                            extractDirectoryPath,
+                            releaseVersion,
+                            resolveReleaseBundleTargetDirectory(target.id),
+                            target.executableFileName,
+                        ),
+                        "utf8",
+                    ),
+                ).toBe(`${target.id}\n`);
+            }
+        }
+        finally {
+            await rm(temporaryDirectoryPath, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects release assembly when a requested target was not staged", async () => {
+        const rootDirectoryPath = process.cwd();
+        const temporaryDirectoryPath = await createTemporaryDirectory(
+            "oo-assemble-release-artifacts-missing-target",
+        );
+        const outDirectoryPath = join(temporaryDirectoryPath, "dist");
+        const stagingDirectoryPath = join(
+            outDirectoryPath,
+            releasePackagesDirectoryName,
+        );
+
+        try {
+            await writeStagedPlatformPackageFixture({
+                releaseVersion: "1.2.3",
+                stagingDirectoryPath,
+                targetId: "darwin-arm64",
+            });
+
+            await expect(
+                assembleReleaseArtifacts({
+                    outDir: outDirectoryPath,
+                    releaseVersion: "1.2.3",
+                    rootDir: rootDirectoryPath,
+                    targetIds: ["darwin-arm64", "win32-x64"],
+                }),
+            ).rejects.toThrow("Missing staged package for target: win32-x64");
+        }
+        finally {
+            await rm(temporaryDirectoryPath, { force: true, recursive: true });
+        }
     });
 
     compiledBinaryInstallTest(
@@ -556,6 +717,32 @@ function isTransientBunBaselineExtractionFailure(errorOutput: string): boolean {
     return bunBaselineExtractionErrorFragments.every(fragment =>
         errorOutput.includes(fragment),
     );
+}
+
+async function writeStagedPlatformPackageFixture(options: {
+    releaseVersion: string;
+    stagingDirectoryPath: string;
+    targetId: string;
+}): Promise<void> {
+    const target = getRequiredTarget(options.targetId);
+    const packageDirectoryPath = join(options.stagingDirectoryPath, target.id);
+
+    await mkdir(packageDirectoryPath, { recursive: true });
+    await Promise.all([
+        Bun.write(
+            join(packageDirectoryPath, "package.json"),
+            buildPlatformPackageManifest(
+                baseManifest,
+                options.releaseVersion,
+                target,
+            ),
+        ),
+        writeReleaseBundleBinaryFixture(
+            options.stagingDirectoryPath,
+            target.id,
+            target.executableFileName,
+        ),
+    ]);
 }
 
 function createCompileSpawnResult(options: {
