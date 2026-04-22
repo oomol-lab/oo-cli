@@ -111,6 +111,63 @@ describe("bundled skill publication", () => {
         }
     });
 
+    test("copies directly when publication mode disables symlinks", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const canonicalSkillDirectoryPath = join(
+            rootDirectory,
+            "config",
+            "skills",
+            "oo",
+        );
+        const installedSkillDirectoryPath = join(
+            rootDirectory,
+            ".openclaw",
+            "skills",
+            "oo",
+        );
+
+        try {
+            await mkdir(join(canonicalSkillDirectoryPath, "references"), {
+                recursive: true,
+            });
+            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "skill\n");
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "references", "guide.md"),
+                "guide\n",
+            );
+
+            const result = await publishBundledSkillInstallation(
+                {
+                    canonicalSkillDirectoryPath,
+                    installedSkillDirectoryPath,
+                    publicationMode: "copy",
+                },
+                {
+                    createDirectorySymlink: async () => {
+                        throw new Error("copy mode should skip symlink creation");
+                    },
+                },
+            );
+
+            expect(result).toEqual({
+                mode: "copy",
+                path: installedSkillDirectoryPath,
+            });
+            expect(await readFile(join(installedSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                "skill\n",
+            );
+            expect(await readFile(join(installedSkillDirectoryPath, "references", "guide.md"), "utf8")).toBe(
+                "guide\n",
+            );
+            expect(await realpath(installedSkillDirectoryPath)).not.toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
     test("returns false when symlink creation throws", async () => {
         const result = await createBundledSkillDirectorySymlink(
             "/tmp/canonical/skills/oo",

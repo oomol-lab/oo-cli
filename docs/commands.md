@@ -301,10 +301,13 @@ published skills into the local Codex skills directory.
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
-- Installation mode: `oo` publishes the target directory as a symlink to the
-  canonical directory when the current platform and environment allow it. When
-  symlink creation fails, `oo` falls back to copying the canonical files into
-  the Codex skills directory.
+- Installation mode: bundled Codex and Claude Code skills are published to the
+  target directory as a symlink to the canonical directory when the current
+  platform and environment allow it. When symlink creation fails, `oo` falls
+  back to copying the canonical files into the target skills directory.
+- Installation mode: bundled OpenClaw skills are copied into
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>` so the installed skill
+  stays inside OpenClaw's managed skills root.
 - Metadata: bundled skills write a hidden `.oo-metadata.json` file whose
   `version` field matches the current `oo` version.
 - Metadata: published skills write a hidden `.oo-metadata.json` file whose

@@ -16,6 +16,8 @@ export interface BundledSkillPublicationResult {
     path: string;
 }
 
+export type BundledSkillPublicationMode = "copy" | "symlink-or-copy";
+
 interface BundledSkillPublicationDependencies {
     createDirectorySymlink?: (
         targetPath: string,
@@ -68,21 +70,26 @@ export async function publishBundledSkillInstallation(
     options: {
         canonicalSkillDirectoryPath: string;
         installedSkillDirectoryPath: string;
+        publicationMode?: BundledSkillPublicationMode;
     },
     dependencies: BundledSkillPublicationDependencies = {},
 ): Promise<BundledSkillPublicationResult> {
-    const createDirectoryLink
-        = dependencies.createDirectorySymlink ?? createBundledSkillDirectorySymlink;
-    const symlinkCreated = await createDirectoryLink(
-        options.canonicalSkillDirectoryPath,
-        options.installedSkillDirectoryPath,
-    );
+    const publicationMode = options.publicationMode ?? "symlink-or-copy";
 
-    if (symlinkCreated) {
-        return {
-            mode: "symlink",
-            path: options.installedSkillDirectoryPath,
-        };
+    if (publicationMode === "symlink-or-copy") {
+        const createDirectoryLink
+            = dependencies.createDirectorySymlink ?? createBundledSkillDirectorySymlink;
+        const symlinkCreated = await createDirectoryLink(
+            options.canonicalSkillDirectoryPath,
+            options.installedSkillDirectoryPath,
+        );
+
+        if (symlinkCreated) {
+            return {
+                mode: "symlink",
+                path: options.installedSkillDirectoryPath,
+            };
+        }
     }
 
     await copyBundledSkillDirectory(

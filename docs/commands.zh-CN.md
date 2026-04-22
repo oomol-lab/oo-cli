@@ -269,9 +269,12 @@ Codex skills 目录。
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`。
 - 目标目录：已发布 skill 会发布到
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`。
-- 安装方式：`oo` 会优先将目标目录发布为指向 canonical 目录的软连接。
-  如果当前平台或环境下创建软连接失败，则会回退为把 canonical 目录内容复制
-  到 Codex skills 目录。
+- 安装方式：内置 Codex 和 Claude Code skill 会优先把目标目录发布为指向
+  canonical 目录的软连接。如果当前平台或环境下创建软连接失败，则会回退为把
+  canonical 目录内容复制到目标 skills 目录。
+- 安装方式：内置 OpenClaw skill 会直接复制到
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`，以确保安装后的 skill
+  保持在 OpenClaw 管理的 skills 根目录内。
 - 元数据：内置 skill 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
   `version` 字段记录当前 `oo` 版本。
 - 元数据：已发布 skill 也会写入一个隐藏的 `.oo-metadata.json` 文件，

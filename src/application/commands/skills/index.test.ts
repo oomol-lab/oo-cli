@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, stat } from "node:fs/promises";
 
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
@@ -404,9 +404,10 @@ describe("skills commands", () => {
             expect(result.stdout).toBe(
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
-            expect(await realpath(skillDirectoryPath)).toBe(
+            expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
             );
