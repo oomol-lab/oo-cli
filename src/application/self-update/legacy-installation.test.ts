@@ -86,7 +86,7 @@ describe("attemptLegacyPackageManagerUninstall", () => {
         }
     });
 
-    test("uninstalls package managers found on PATH before the managed executable", async () => {
+    test("uninstalls package managers found anywhere on PATH", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-legacy-path");
         const env = createLegacyCleanupEnv(rootDirectory);
         const paths = resolveSelfUpdatePaths({
@@ -100,13 +100,13 @@ describe("attemptLegacyPackageManagerUninstall", () => {
 
         trackDirectory(rootDirectory);
         env.PATH = joinPathEntries(
-            [bunDirectory, pnpmDirectory, paths.executableDirectory],
+            [bunDirectory, paths.executableDirectory, pnpmDirectory],
             process.platform,
         );
         await Promise.all([
             writeExecutable(join(bunDirectory, basename(paths.executablePath))),
-            writeExecutable(join(pnpmDirectory, basename(paths.executablePath))),
             writeExecutable(paths.executablePath),
+            writeExecutable(join(pnpmDirectory, basename(paths.executablePath))),
         ]);
 
         try {

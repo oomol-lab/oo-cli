@@ -117,10 +117,9 @@ Install one managed `oo` release into the local self-managed runtime.
 - Notes: when the executable directory is not on `PATH`, install also prints a
   setup note that tells the user which directory to add.
 - Notes: after a successful install, the CLI best-effort removes legacy global
-  `@oomol-lab/oo-cli` package-manager installs that appear on `PATH` before the
-  managed executable; when `PATH` yields no `oo` candidates, the CLI falls back
-  to the current command path. Cleanup failures do not change the command
-  result.
+  `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
+  when `PATH` yields no `oo` candidates, the CLI falls back to the current
+  command path. Cleanup failures do not change the command result.
 - Notes: after a successful install workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
   installed CLI version.
@@ -144,10 +143,9 @@ Update the managed `oo` install to the latest published release.
   still refreshes bundled skills for the active managed version before printing
   the up-to-date message.
 - Notes: after a successful update, the CLI best-effort removes legacy global
-  `@oomol-lab/oo-cli` package-manager installs that appear on `PATH` before the
-  managed executable; when `PATH` yields no `oo` candidates, the CLI falls back
-  to the current command path. Cleanup failures do not change the command
-  result.
+  `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
+  when `PATH` yields no `oo` candidates, the CLI falls back to the current
+  command path. Cleanup failures do not change the command result.
 - Notes: after a successful update workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
   installed CLI version.
