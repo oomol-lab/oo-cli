@@ -13,8 +13,28 @@ inspection, cloud task execution, and shell completion generation.
 
 ## Installation
 
+Choose the command for your platform:
+
+macOS / Linux (pick one):
+
 ```bash
-bun install -g @oomol-lab/oo-cli
+wget -qO - https://cli.oomol.com/install.sh | bash
+```
+
+```bash
+curl -fsSL https://cli.oomol.com/install.sh | bash
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://cli.oomol.com/install.ps1 | iex
+```
+
+Windows CMD:
+
+```bat
+curl -fsSL https://cli.oomol.com/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
 ## Quick Start

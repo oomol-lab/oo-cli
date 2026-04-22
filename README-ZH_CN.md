@@ -11,8 +11,28 @@
 
 ## 安装
 
+按你的平台选择对应命令：
+
+macOS / Linux（二选一）：
+
 ```bash
-bun install -g @oomol-lab/oo-cli
+wget -qO - https://cli.oomol.com/install.sh | bash
+```
+
+```bash
+curl -fsSL https://cli.oomol.com/install.sh | bash
+```
+
+Windows PowerShell：
+
+```powershell
+irm https://cli.oomol.com/install.ps1 | iex
+```
+
+Windows CMD：
+
+```bat
+curl -fsSL https://cli.oomol.com/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
 ## 快速开始
