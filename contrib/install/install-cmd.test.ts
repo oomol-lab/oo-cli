@@ -35,6 +35,11 @@ describe("install.cmd", () => {
         expect(scriptContent).toContain("win32-arm64");
     });
 
+    test("extracts the version field with cmd-compatible string substitutions", () => {
+        expect(scriptContent).toContain("set \"AFTER=!CONTENT:*\"version\":\"=!\"");
+        expect(scriptContent).toContain("set \"VERSION_VALUE=!VERSION_VALUE:\"=!\"");
+    });
+
     windowsCmdTest(
         "downloads the latest binary and removes the temporary executable when install is skipped",
         async () => {

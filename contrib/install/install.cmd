@@ -121,7 +121,7 @@ for /f "usebackq delims=" %%i in ("%~1") do (
 )
 
 set "CONTENT=!CONTENT: =!"
-set "AFTER=!CONTENT:*\"version\":\"=!"
+set "AFTER=!CONTENT:*"version":"=!"
 if "!AFTER!"=="!CONTENT!" (
     endlocal & exit /b 1
 )
@@ -129,7 +129,7 @@ if "!AFTER!"=="!CONTENT!" (
 for /f "tokens=1 delims=,}" %%v in ("!AFTER!") do (
     set "VERSION_VALUE=%%v"
 )
-set "VERSION_VALUE=!VERSION_VALUE:\"=!"
+set "VERSION_VALUE=!VERSION_VALUE:"=!"
 
 if not defined VERSION_VALUE (
     endlocal & exit /b 1
