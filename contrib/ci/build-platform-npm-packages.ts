@@ -6,15 +6,26 @@ import {
     stagePlatformReleasePackages,
 } from "./npm-packages.ts";
 
-const preset = parseBuildTargetPreset(process.argv[2]);
+export function resolveBuildReleaseVersionFromEnvironment(
+    environment: NodeJS.ProcessEnv,
+): string | undefined {
+    return environment.RELEASE_VERSION ?? environment.BUILD_VERSION;
+}
 
-await stagePlatformReleasePackages({
-    outDir: process.env.BUILD_DIST_DIR ?? "dist",
-    packageManifestPath: process.env.PACKAGE_JSON_PATH,
-    releaseVersion: process.env.BUILD_VERSION,
-    rootDir: process.cwd(),
-    targetIds: resolveBuildTargetIdsForPreset(preset),
-});
+export async function main(
+    args: readonly string[],
+    environment: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+    const preset = parseBuildTargetPreset(args[0]);
+
+    await stagePlatformReleasePackages({
+        outDir: environment.BUILD_DIST_DIR ?? "dist",
+        packageManifestPath: environment.PACKAGE_JSON_PATH,
+        releaseVersion: resolveBuildReleaseVersionFromEnvironment(environment),
+        rootDir: process.cwd(),
+        targetIds: resolveBuildTargetIdsForPreset(preset),
+    });
+}
 
 function parseBuildTargetPreset(value: string | undefined): BuildTargetPreset {
     switch (value) {
@@ -26,4 +37,8 @@ function parseBuildTargetPreset(value: string | undefined): BuildTargetPreset {
         default:
             throw new Error(`Unsupported build preset: ${value ?? ""}`);
     }
+}
+
+if (import.meta.main) {
+    await main(process.argv.slice(2));
 }
