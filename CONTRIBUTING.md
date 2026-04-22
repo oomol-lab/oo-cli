@@ -24,8 +24,10 @@ or auto-synchronize the bundled Codex skill into `${CODEX_HOME:-~/.codex}`.
 Useful commands:
 
 ```bash
-bun run build
 bun run build:current-platform
+bun run build:windows
+bun run build:macos
+bun run build:linux
 bun run dev --help
 bun run index.ts --help
 bun run lint:fix
@@ -38,20 +40,22 @@ bun run test
 Use the build scripts when you need to verify the npm distribution artifacts
 locally.
 
-- `bun run build`: builds the wrapper package plus every configured platform
-  package into `dist/`
-- `bun run build:current-platform`: builds the wrapper package plus only the
-  package for the current machine
-- `BUILD_DIST_DIR=/tmp/oo-dist bun run build`: writes tarballs to a custom
-  output directory
-- `BUILD_VERSION=1.2.3 bun run build`: overrides the version used in generated
-  package manifests without editing `package.json`
-- `BUILD_TARGETS=darwin-arm64,linux-x64-musl bun run build`: limits the build
-  to specific target ids
+- `bun run build:current-platform`: stages only the package for the current
+  machine into `dist/release-packages/`
+- `bun run build:windows`: stages only the Windows packages into
+  `dist/release-packages/`
+- `bun run build:macos`: stages only the macOS packages into
+  `dist/release-packages/`
+- `bun run build:linux`: stages only the Linux packages into
+  `dist/release-packages/`
+- `BUILD_DIST_DIR=/tmp/oo-dist bun run build:linux`: writes staged packages to
+  a custom output directory
+- `BUILD_VERSION=1.2.3 bun run build:macos`: overrides the version used in
+  generated package manifests without editing `package.json`
 
-Both build commands always emit the top-level wrapper package and write the
-publish order to `dist/npm-publish-order.txt` or the custom `BUILD_DIST_DIR`
-path.
+The platform-specific build scripts only write staged package directories.
+Release assembly remains an internal CI step that consumes those staged
+artifacts later in the publish workflow.
 
 ## Project Layout
 

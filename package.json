@@ -28,8 +28,10 @@
     "src/**/*.ts"
   ],
   "scripts": {
-    "build": "bun run contrib/ci/build-npm-packages.ts",
-    "build:current-platform": "bun run contrib/ci/build-current-platform-npm-packages.ts",
+    "build:current-platform": "bun run contrib/ci/build-platform-npm-packages.ts current-platform",
+    "build:windows": "bun run contrib/ci/build-platform-npm-packages.ts windows",
+    "build:macos": "bun run contrib/ci/build-platform-npm-packages.ts macos",
+    "build:linux": "bun run contrib/ci/build-platform-npm-packages.ts linux",
     "dev": "bun run index.ts",
     "test": "bun test",
     "lint": "eslint .",

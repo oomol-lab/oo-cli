@@ -53,8 +53,64 @@ jobs:
           VERSION_BUMP: ${{ inputs.version_bump }}
         run: bun run contrib/ci/compute-release-version.ts
 
-  publish:
+  build-platform-packages:
     needs: compute-version
+    name: Build ${{ matrix.platform_name }} packages
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform_name: Linux
+            runs_on: ubuntu-latest
+            artifact_name: release-packages-linux
+            build_script: build:linux
+          - platform_name: macOS
+            runs_on: macos-latest
+            artifact_name: release-packages-macos
+            build_script: build:macos
+          - platform_name: Windows
+            runs_on: windows-latest
+            artifact_name: release-packages-windows
+            build_script: build:windows
+    env:
+      RELEASE_VERSION: ${{ needs.compute-version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.3.0
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Stage platform packages
+        run: bun run "${{ matrix.build_script }}"
+
+      - name: Upload platform packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/release-packages/*
+          if-no-files-found: error
+
+  publish:
+    needs:
+      - compute-version
+      - build-platform-packages
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,8 +139,15 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      - name: Build npm packages
-        run: bun run contrib/ci/release-workflow.ts build-npm-packages
+      - name: Download platform packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-packages-*
+          path: dist/release-packages
+          merge-multiple: true
+
+      - name: Assemble release artifacts
+        run: bun run contrib/ci/release-workflow.ts assemble-release-artifacts
 
       - name: Publish to npm
         run: |

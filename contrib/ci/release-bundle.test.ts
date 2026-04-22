@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
 import { writeReleaseBundleBinaryFixture } from "./__tests__/helpers.ts";
+import { releasePackagesDirectoryName } from "./npm-packages.ts";
 import {
     buildReleaseBundleLatestMetadata,
     createGitHubReleaseBundle,
@@ -18,7 +19,7 @@ describe("release bundle", () => {
         const rootDirectoryPath = await createTemporaryDirectory("oo-release-bundle");
         const extractDirectoryPath = await createTemporaryDirectory("oo-release-bundle-extract");
         const outDirectoryPath = join(rootDirectoryPath, "dist");
-        const stagingDirectoryPath = join(rootDirectoryPath, ".packages");
+        const stagingDirectoryPath = join(rootDirectoryPath, releasePackagesDirectoryName);
         const releaseVersion = "1.2.3";
         const targets = [
             { id: "darwin-arm64", executableFileName: "oo" },

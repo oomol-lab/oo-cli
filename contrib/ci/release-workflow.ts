@@ -1,6 +1,9 @@
 import process from "node:process";
 
-import { buildNpmReleasePackages } from "./npm-packages.ts";
+import {
+    assembleReleaseArtifacts,
+    parseBuildTargetIds,
+} from "./npm-packages.ts";
 import { buildCreateReleaseCommand, preparePackageManifest } from "./release-steps.ts";
 
 async function runPrepareManifest(): Promise<void> {
@@ -32,13 +35,15 @@ async function runCreateGitHubRelease(assets: readonly string[]): Promise<void> 
     }
 }
 
-async function runBuildNpmPackages(): Promise<void> {
+async function runAssembleReleaseArtifacts(): Promise<void> {
     const releaseVersion = readRequiredEnv("RELEASE_VERSION");
     const outDir = process.env.RELEASE_DIST_DIR ?? "dist";
+    const targetIds = parseBuildTargetIds(process.env.BUILD_TARGETS ?? "");
 
-    await buildNpmReleasePackages({
+    await assembleReleaseArtifacts({
         outDir,
         releaseVersion,
+        targetIds,
     });
 }
 
@@ -58,8 +63,8 @@ export async function main(args: readonly string[]): Promise<void> {
         case "prepare-manifest":
             await runPrepareManifest();
             return;
-        case "build-npm-packages":
-            await runBuildNpmPackages();
+        case "assemble-release-artifacts":
+            await runAssembleReleaseArtifacts();
             return;
         case "create-github-release":
             await runCreateGitHubRelease(commandArgs);
