@@ -1,2 +1,2 @@
 @echo off
-bun run --silent dev -- %*
+bun run --silent .\index.ts -- %*
