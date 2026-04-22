@@ -1436,4 +1436,62 @@ describe("skills commands", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("migrates legacy canonical skill layout on install", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const configDirectoryPath = join(storePaths.settingsFilePath, "..");
+        const legacyCodexBundledPath = join(configDirectoryPath, "skills", "oo");
+        const legacyRegistryPath = join(configDirectoryPath, "skills", "chatgpt");
+        const legacyClaudeRoot = join(configDirectoryPath, "claude-skills");
+        const legacyOpenClawRoot = join(configDirectoryPath, "openclaw-skills");
+        const newOoCanonicalPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(legacyCodexBundledPath, { recursive: true });
+            await Bun.write(
+                resolveBundledSkillMetadataFilePath(legacyCodexBundledPath),
+                renderSkillMetadataJson({ version: "0.0.1" }),
+            );
+            await mkdir(legacyRegistryPath, { recursive: true });
+            await Bun.write(
+                join(legacyRegistryPath, ".oo-metadata.json"),
+                renderSkillMetadataJson({ packageName: "foo", version: "0.0.2" }),
+            );
+            await mkdir(join(legacyClaudeRoot, "oo"), { recursive: true });
+            await mkdir(join(legacyOpenClawRoot, "oo"), { recursive: true });
+
+            const result = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            await expect(stat(legacyClaudeRoot)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(legacyOpenClawRoot)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(legacyRegistryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            expect(await realpath(ooSkillDirectoryPath)).toBe(
+                await realpath(newOoCanonicalPath),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });

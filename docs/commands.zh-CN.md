@@ -261,13 +261,15 @@ Codex skills 目录。
   `-y`，命令会在 TTY 中打开交互选择页面。
 - 说明：在交互选择页面中，同一 package 下已安装的 skill 会默认保持勾选；
   如果用户取消这些勾选，命令完成时会移除对应已安装 skill。
-- canonical 目录：内置 Codex skill 会先释放到 `<config-dir>/skills/<skill-id>`，
-  其中 `<config-dir>` 是 `settings.toml` 所在目录。
-- canonical 目录：内置 Claude Code skill 会先释放到
-  `<config-dir>/claude-skills/<skill-id>`。
-- canonical 目录：内置 OpenClaw skill 会先释放到
-  `<config-dir>/openclaw-skills/<skill-id>`。
-- canonical 目录：已发布 skill 会先释放到 `<config-dir>/skills/<skill-id>`。
+- canonical 目录：内置 skill 会先释放到
+  `<config-dir>/skills/bundled/<agent>/<skill-id>`，其中 `<config-dir>` 是
+  `settings.toml` 所在目录，`<agent>` 为 `codex`、`claude` 或 `openclaw`。
+- canonical 目录：已发布 skill 会先释放到
+  `<config-dir>/skills/registry/<skill-id>`。
+- 迁移：升级后首次运行 `oo skills install` 时，命令会清理历史遗留的 canonical
+  目录（`claude-skills/`、`openclaw-skills/`，以及直接位于 `skills/` 下的旧
+  Codex 内置 / 已发布 skill 目录）。内置 skill 会自动以新布局重建；之前安装
+  的已发布 skill 需要通过 `oo skills install <packageName>` 重新安装。
 - 目标目录：内置 skill 会发布到所有已存在的受支持宿主目录，目前包括
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>` 和
   `~/.claude/skills/<skill-id>`，以及
@@ -311,7 +313,7 @@ Codex skills 目录。
 - 已发布 skill：registry skill 会从 `.oo-metadata.json` 读取所属包名，再通过
   不带显式版本的 package info 请求判断最新可用版本。
 - 更新顺序：命令会先刷新 canonical 目录
-  `<config-dir>/skills/<skill-id>`，再同步到
+  `<config-dir>/skills/registry/<skill-id>`，再同步到
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`。
 - 交互式终端：会显示实时进度。
 - 非交互式终端：每个处理过的 skill 输出一行状态信息。
@@ -325,11 +327,9 @@ Codex skills 目录。
 - 参数：省略 `[skill]` 时，命令会移除全部内置 skill。
 - 所有权规则：对内置 skill 来说，只有当某个受支持宿主中的安装目录包含可解
   析且带有非空 `version` 的 `.oo-metadata.json` 时，才允许从该宿主移除。
-- 会同时移除 canonical 目录：内置 Codex skill 会移除
-  `<config-dir>/skills/<skill>`，内置 Claude Code skill 会移除
-  `<config-dir>/claude-skills/<skill>`，内置 OpenClaw skill 会移除
-  `<config-dir>/openclaw-skills/<skill>`，已发布 skill 会移除
-  `<config-dir>/skills/<skill>`。
+- 会同时移除 canonical 目录：内置 skill 会移除
+  `<config-dir>/skills/bundled/<agent>/<skill>`（每个已安装宿主各一份），
+  已发布 skill 会移除 `<config-dir>/skills/registry/<skill>`。
 - 会同时移除目标目录：内置 skill 会从所有已存在的受支持宿主目录中移除，目
   前包括 `${CODEX_HOME:-~/.codex}/skills/<skill>` 和
   `~/.claude/skills/<skill>`，以及

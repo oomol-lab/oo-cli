@@ -288,15 +288,18 @@ published skills into the local Codex skills directory.
 - Notes: in the interactive picker, skills already installed from the same
   package start selected. Clearing such a selection removes that installed
   skill when the command completes.
-- Canonical directory: bundled Codex skills are materialized to
-  `<config-dir>/skills/<skill-id>`, where `<config-dir>` is the directory that
-  contains `settings.toml`.
-- Canonical directory: bundled Claude Code skills are materialized to
-  `<config-dir>/claude-skills/<skill-id>`.
-- Canonical directory: bundled OpenClaw skills are materialized to
-  `<config-dir>/openclaw-skills/<skill-id>`.
+- Canonical directory: bundled skills are materialized under
+  `<config-dir>/skills/bundled/<agent>/<skill-id>`, where `<config-dir>` is the
+  directory that contains `settings.toml` and `<agent>` is `codex`, `claude`,
+  or `openclaw`.
 - Canonical directory: published skills are materialized to
-  `<config-dir>/skills/<skill-id>`.
+  `<config-dir>/skills/registry/<skill-id>`.
+- Migration: on first run after upgrading, `oo skills install` removes legacy
+  canonical directories left over from earlier releases (`claude-skills/`,
+  `openclaw-skills/`, and any Codex-bundled or registry skill directory that
+  lived directly under `skills/`). Bundled skills are rebuilt automatically in
+  the new layout; previously-installed published skills must be reinstalled
+  with `oo skills install <packageName>`.
 - Target directory: bundled skills are published to each existing supported
   host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill-id>`,
   `~/.claude/skills/<skill-id>`, and
@@ -348,7 +351,7 @@ Update installed oo-managed Codex skills.
   `.oo-metadata.json`, then fetch package info without an explicit version to
   determine the latest available package version.
 - Update order: the command refreshes the canonical
-  `<config-dir>/skills/<skill-id>` copy before republishing to
+  `<config-dir>/skills/registry/<skill-id>` copy before republishing to
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
 - Interactive terminals: renders live progress while checking and updating
   skills.
@@ -364,11 +367,9 @@ oo-managed published skill from the local Codex skills directory.
 - Ownership rule: a bundled skill is removable from a supported host only when
   that host's installed directory has a `.oo-metadata.json` file that can be
   parsed and contains a non-empty `version`.
-- Canonical directory removed: bundled Codex skills remove
-  `<config-dir>/skills/<skill>`, bundled Claude Code skills remove
-  `<config-dir>/claude-skills/<skill>`, bundled OpenClaw skills remove
-  `<config-dir>/openclaw-skills/<skill>`, and published skills remove
-  `<config-dir>/skills/<skill>`.
+- Canonical directory removed: bundled skills remove
+  `<config-dir>/skills/bundled/<agent>/<skill>` for each installed agent, and
+  published skills remove `<config-dir>/skills/registry/<skill>`.
 - Target directory removed: bundled skills are removed from every existing
   supported host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill>`,
   `~/.claude/skills/<skill>`, and

@@ -7,8 +7,8 @@ const codexDirectoryName = ".codex";
 const claudeDirectoryName = ".claude";
 const openClawDirectoryName = ".openclaw";
 export const codexSkillsDirectoryName = "skills";
-const claudeBundledSkillsDirectoryName = "claude-skills";
-const openClawBundledSkillsDirectoryName = "openclaw-skills";
+export const canonicalBundledSkillsDirectoryName = "bundled";
+export const canonicalRegistrySkillsDirectoryName = "registry";
 
 export const bundledSkillMetadataFileName = ".oo-metadata.json";
 
@@ -67,14 +67,12 @@ export function resolveBundledSkillCanonicalRootDirectoryPath(
     settingsFilePath: string,
     agentName: BundledSkillAgentName = "codex",
 ): string {
-    switch (agentName) {
-        case "claude":
-            return join(dirname(settingsFilePath), claudeBundledSkillsDirectoryName);
-        case "codex":
-            return join(dirname(settingsFilePath), codexSkillsDirectoryName);
-        case "openclaw":
-            return join(dirname(settingsFilePath), openClawBundledSkillsDirectoryName);
-    }
+    return join(
+        dirname(settingsFilePath),
+        codexSkillsDirectoryName,
+        canonicalBundledSkillsDirectoryName,
+        agentName,
+    );
 }
 
 export function resolveBundledSkillCanonicalDirectoryPath(
