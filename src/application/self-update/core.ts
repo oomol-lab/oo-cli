@@ -175,7 +175,10 @@ export async function performSelfUpdateOperation(options: {
             targetVersion: options.targetVersion,
         });
         await attemptBundledSkillRefreshAfterSelfUpdate({
-            executablePath: paths.executablePath,
+            commandPath: resolveSelfUpdateVersionFilePath(
+                paths,
+                options.targetVersion,
+            ),
             runtime: options.runtime,
         });
         await attemptLegacyPackageManagerUninstall(options.runtime);

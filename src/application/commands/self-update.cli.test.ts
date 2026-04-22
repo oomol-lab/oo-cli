@@ -110,7 +110,7 @@ describe("self-update commands", () => {
         }
     });
 
-    test("install silently refreshes bundled skills with the managed executable", async () => {
+    test("install silently refreshes bundled skills with the target version executable", async () => {
         const sandbox = await createCliSandbox();
         const releasePlatform = await detectSelfUpdateReleasePlatform({
             arch: process.arch,
@@ -120,6 +120,10 @@ describe("self-update commands", () => {
             env: sandbox.env,
             platform: process.platform,
         });
+        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+            paths,
+            "2.0.0",
+        );
         const selfUpdateRuntime = createCapturedSelfUpdateRuntime({
             exitCode: 1,
             signalCode: null,
@@ -155,7 +159,7 @@ describe("self-update commands", () => {
             expect(selfUpdateRuntime.commands).toEqual([
                 {
                     commandArguments: ["skills", "add"],
-                    commandPath: paths.executablePath,
+                    commandPath: targetVersionPath,
                     timeoutMs: 10_000,
                 },
             ]);
@@ -251,7 +255,7 @@ describe("self-update commands", () => {
         }
     });
 
-    test("update silently refreshes bundled skills with the managed executable", async () => {
+    test("update silently refreshes bundled skills with the target version executable", async () => {
         const sandbox = await createCliSandbox();
         const releasePlatform = await detectSelfUpdateReleasePlatform({
             arch: process.arch,
@@ -261,6 +265,10 @@ describe("self-update commands", () => {
             env: sandbox.env,
             platform: process.platform,
         });
+        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+            paths,
+            "2.0.0",
+        );
         const selfUpdateRuntime = createCapturedSelfUpdateRuntime({
             exitCode: 0,
             signalCode: null,
@@ -298,7 +306,7 @@ describe("self-update commands", () => {
             expect(selfUpdateRuntime.commands).toEqual([
                 {
                     commandArguments: ["skills", "add"],
-                    commandPath: paths.executablePath,
+                    commandPath: targetVersionPath,
                     timeoutMs: 10_000,
                 },
             ]);
@@ -308,7 +316,7 @@ describe("self-update commands", () => {
         }
     });
 
-    test("update skips a same-version native install without downloading a binary", async () => {
+    test("update refreshes bundled skills for a same-version native install without downloading a binary", async () => {
         const sandbox = await createCliSandbox();
         const releasePlatform = await detectSelfUpdateReleasePlatform({
             arch: process.arch,
@@ -318,10 +326,18 @@ describe("self-update commands", () => {
             env: sandbox.env,
             platform: process.platform,
         });
+        const currentVersionPath = resolveSelfUpdateVersionFilePath(
+            paths,
+            "1.2.3",
+        );
         let latestRequestCount = 0;
         let binaryRequestCount = 0;
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
 
         try {
+            await mkdir(paths.versionsDirectory, { recursive: true });
+            await Bun.write(currentVersionPath, "existing-binary");
+
             const result = await sandbox.run(["update"], {
                 fetcher: async (input, init) => {
                     const url = toRequest(input, init).url;
@@ -341,6 +357,7 @@ describe("self-update commands", () => {
                     throw new Error(`Unexpected request: ${url}`);
                 },
                 execPath: paths.executablePath,
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
                 version: "1.2.3",
             });
 
@@ -351,7 +368,13 @@ describe("self-update commands", () => {
             });
             expect(latestRequestCount).toBe(1);
             expect(binaryRequestCount).toBe(0);
-            await expect(Bun.file(paths.executablePath).exists()).resolves.toBeFalse();
+            expect(selfUpdateRuntime.commands).toEqual([
+                {
+                    commandArguments: ["skills", "add"],
+                    commandPath: currentVersionPath,
+                    timeoutMs: 10_000,
+                },
+            ]);
         }
         finally {
             await sandbox.cleanup();
@@ -454,7 +477,7 @@ describe("self-update commands", () => {
             expect(legacyCleanup.commands).toEqual([
                 {
                     commandArguments: ["skills", "add"],
-                    commandPath: paths.executablePath,
+                    commandPath: currentVersionPath,
                     timeoutMs: 10_000,
                 },
                 {

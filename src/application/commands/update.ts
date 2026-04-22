@@ -3,6 +3,10 @@ import type { CliCommandDefinition } from "../contracts/cli.ts";
 import process from "node:process";
 import { z } from "zod";
 import {
+    attemptBundledSkillRefreshAfterSelfUpdate,
+    resolveBundledSkillRefreshCommandPath,
+} from "../self-update/bundled-skills.ts";
+import {
     performSelfUpdateOperation,
     renderSelfUpdateLockBusyMessage,
     resolveLatestSelfUpdateVersion,
@@ -57,6 +61,18 @@ export const updateCommand: CliCommandDefinition = {
                     platform: process.platform,
                 }).method === "native"
             ) {
+                await attemptBundledSkillRefreshAfterSelfUpdate({
+                    commandPath: await resolveBundledSkillRefreshCommandPath({
+                        env: context.env,
+                        platform: process.platform,
+                        version: context.version,
+                    }),
+                    runtime: {
+                        env: context.env,
+                        logger: context.logger,
+                        ...context.selfUpdateRuntime,
+                    },
+                });
                 progressReporter?.finish();
                 writeLine(
                     context.stdout,

@@ -138,11 +138,11 @@ Update the managed `oo` install to the latest published release.
   version change result.
 - Output: when `stderr` is an interactive TTY, the CLI also renders colored
   progress stages to `stderr` while the update is running.
-- Notes: when the latest published release matches the current version and the
-  current `oo` command is a native install, update skips the managed reinstall
-  workflow and prints the up-to-date message immediately.
 - Notes: `oo update` ensures the managed install is current and usable, and
   does not expose a separate `--force` flag.
+- Notes: when the latest published release matches the current version, update
+  still refreshes bundled skills for the active managed version before printing
+  the up-to-date message.
 - Notes: after a successful update, the CLI best-effort removes legacy global
   `@oomol-lab/oo-cli` package-manager installs that appear on `PATH` before the
   managed executable; when `PATH` yields no `oo` candidates, the CLI falls back
