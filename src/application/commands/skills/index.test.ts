@@ -24,6 +24,7 @@ import {
     resolveBundledSkillMetadataFilePath,
     resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
+    resolveOpenClawHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { getBundledSkillFiles } from "./embedded-assets.ts";
 import {
@@ -246,6 +247,7 @@ describe("skills commands", () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
 
         try {
             const result = await sandbox.run(["skills", "install"]);
@@ -253,7 +255,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `No supported bundled skill host is installed. Expected one of: ${codexHomeDirectory}, ${claudeHomeDirectory}.\n`,
+                `No supported bundled skill host is installed. Expected one of: ${codexHomeDirectory}, ${claudeHomeDirectory}, ${openClawHomeDirectory}.\n`,
             );
         }
         finally {
@@ -349,6 +351,50 @@ describe("skills commands", () => {
 
         try {
             await mkdir(claudeHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Installed skill oo to ${skillDirectoryPath}.\n`,
+            );
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({ version: "9.9.9" }),
+            );
+            await expect(
+                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
+            ).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs bundled skills into OpenClaw when only OpenClaw is installed", async () => {
+        const sandbox = await createCliSandbox();
+        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(openClawHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+            "openclaw",
+        );
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+
+        try {
+            await mkdir(openClawHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "install", "oo"], {
                 version: "9.9.9",
@@ -705,6 +751,32 @@ describe("skills commands", () => {
                 code: "ENOENT",
             });
             await expect(stat(claudeSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uninstalls bundled skills from OpenClaw when only OpenClaw exists", async () => {
+        const sandbox = await createCliSandbox();
+        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(openClawHomeDirectory, "skills", "oo");
+
+        try {
+            await mkdir(openClawHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "uninstall", "oo"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Removed skill oo from ${skillDirectoryPath}.\n`,
+            );
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }

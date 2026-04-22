@@ -5,8 +5,10 @@ import { resolveHomeDirectory } from "../../path/home-directory.ts";
 
 const codexDirectoryName = ".codex";
 const claudeDirectoryName = ".claude";
+const openClawDirectoryName = ".openclaw";
 export const codexSkillsDirectoryName = "skills";
 const claudeBundledSkillsDirectoryName = "claude-skills";
+const openClawBundledSkillsDirectoryName = "openclaw-skills";
 
 export const bundledSkillMetadataFileName = ".oo-metadata.json";
 const codexBundledSkillOwnershipFileRelativePath = "agents/openai.yaml";
@@ -29,6 +31,18 @@ export function resolveClaudeHomeDirectory(
     return join(resolveHomeDirectory(env), claudeDirectoryName);
 }
 
+export function resolveOpenClawHomeDirectory(
+    env: Record<string, string | undefined>,
+): string {
+    const explicitOpenClawHome = env.OPENCLAW_HOME?.trim();
+
+    if (explicitOpenClawHome) {
+        return explicitOpenClawHome;
+    }
+
+    return join(resolveHomeDirectory(env), openClawDirectoryName);
+}
+
 export function resolveBundledSkillHomeDirectory(
     env: Record<string, string | undefined>,
     agentName: BundledSkillAgentName,
@@ -38,6 +52,8 @@ export function resolveBundledSkillHomeDirectory(
             return resolveClaudeHomeDirectory(env);
         case "codex":
             return resolveCodexHomeDirectory(env);
+        case "openclaw":
+            return resolveOpenClawHomeDirectory(env);
     }
 }
 
@@ -57,6 +73,8 @@ export function resolveBundledSkillCanonicalRootDirectoryPath(
             return join(dirname(settingsFilePath), claudeBundledSkillsDirectoryName);
         case "codex":
             return join(dirname(settingsFilePath), codexSkillsDirectoryName);
+        case "openclaw":
+            return join(dirname(settingsFilePath), openClawBundledSkillsDirectoryName);
     }
 }
 
@@ -79,6 +97,8 @@ export function resolveBundledSkillOwnershipFileRelativePath(
             return undefined;
         case "codex":
             return codexBundledSkillOwnershipFileRelativePath;
+        case "openclaw":
+            return undefined;
     }
 }
 

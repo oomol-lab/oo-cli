@@ -18,8 +18,10 @@ import ooPackageExecutionReferencePath from "../../../../contrib/skills/codex/oo
 import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/codex/oo/references/search-and-selection.md" with { type: "file" };
 import ooTaskLifecycleReferencePath from "../../../../contrib/skills/codex/oo/references/task-lifecycle.md" with { type: "file" };
 import ooSkillPath from "../../../../contrib/skills/codex/oo/SKILL.md" with { type: "file" };
+import ooFindSkillsOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo-find-skills/SKILL.md" with { type: "file" };
+import ooOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo/SKILL.md" with { type: "file" };
 
-export const availableBundledSkillAgentNames = ["codex", "claude"] as const;
+export const availableBundledSkillAgentNames = ["codex", "claude", "openclaw"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
 
 export const availableBundledSkillNames = ["oo", "oo-find-skills"] as const;
@@ -110,6 +112,38 @@ const bundledSkillRegistry = {
                 },
             ],
         },
+        openclaw: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooOpenClawSkillPath,
+                },
+                {
+                    relativePath: "references/auth-and-billing.md",
+                    sourcePath: ooClaudeAuthAndBillingReferencePath,
+                },
+                {
+                    relativePath: "references/search-and-selection.md",
+                    sourcePath: ooClaudeSearchAndSelectionReferencePath,
+                },
+                {
+                    relativePath: "references/package-execution.md",
+                    sourcePath: ooClaudePackageExecutionReferencePath,
+                },
+                {
+                    relativePath: "references/connector-execution.md",
+                    sourcePath: ooClaudeConnectorExecutionReferencePath,
+                },
+                {
+                    relativePath: "references/file-transfer.md",
+                    sourcePath: ooClaudeFileTransferReferencePath,
+                },
+                {
+                    relativePath: "references/task-lifecycle.md",
+                    sourcePath: ooClaudeTaskLifecycleReferencePath,
+                },
+            ],
+        },
     },
     "oo-find-skills": {
         codex: {
@@ -133,6 +167,18 @@ const bundledSkillRegistry = {
                 {
                     relativePath: "SKILL.md",
                     sourcePath: ooFindSkillsClaudeSkillPath,
+                },
+                {
+                    relativePath: "references/oo-cli-contract.md",
+                    sourcePath: ooFindSkillsClaudeCliContractPath,
+                },
+            ],
+        },
+        openclaw: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooFindSkillsOpenClawSkillPath,
                 },
                 {
                     relativePath: "references/oo-cli-contract.md",

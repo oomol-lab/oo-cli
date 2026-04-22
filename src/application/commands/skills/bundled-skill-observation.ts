@@ -23,10 +23,10 @@ export async function requireBundledSkillHomeDirectory(
     );
 
     if (!(await directoryExists(homeDirectory))) {
+        const missingHostErrorKey = resolveBundledSkillHostMissingErrorKey(agentName);
+
         throw new CliUserError(
-            agentName === "claude"
-                ? "errors.skills.claudeNotInstalled"
-                : "errors.skills.codexNotInstalled",
+            missingHostErrorKey,
             1,
             {
                 path: homeDirectory,
@@ -41,6 +41,19 @@ export async function requireCodexHomeDirectory(
     context: Pick<{ env: Record<string, string | undefined> }, "env">,
 ): Promise<string> {
     return requireBundledSkillHomeDirectory(context, "codex");
+}
+
+function resolveBundledSkillHostMissingErrorKey(
+    agentName: BundledSkillAgentName,
+): "errors.skills.claudeNotInstalled" | "errors.skills.codexNotInstalled" | "errors.skills.openclawNotInstalled" {
+    switch (agentName) {
+        case "claude":
+            return "errors.skills.claudeNotInstalled";
+        case "codex":
+            return "errors.skills.codexNotInstalled";
+        case "openclaw":
+            return "errors.skills.openclawNotInstalled";
+    }
 }
 
 export async function directoryExists(path: string): Promise<boolean> {

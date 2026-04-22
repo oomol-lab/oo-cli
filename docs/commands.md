@@ -289,11 +289,14 @@ published skills into the local Codex skills directory.
   contains `settings.toml`.
 - Canonical directory: bundled Claude Code skills are materialized to
   `<config-dir>/claude-skills/<skill-id>`.
+- Canonical directory: bundled OpenClaw skills are materialized to
+  `<config-dir>/openclaw-skills/<skill-id>`.
 - Canonical directory: published skills are materialized to
   `<config-dir>/skills/<skill-id>`.
 - Target directory: bundled skills are published to each existing supported
-  host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill-id>` and
-  `~/.claude/skills/<skill-id>`.
+  host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill-id>`,
+  `~/.claude/skills/<skill-id>`, and
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`.
 - Target directory: published skills are published to
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
 - Path rule: published skill names are accepted only when their resolved
@@ -316,8 +319,8 @@ published skills into the local Codex skills directory.
   overwriting it in an interactive terminal.
 - Notes: in the interactive picker, conflicting skills are marked in the list;
   selecting one means it will be overwritten.
-- Notes: the command exits with an error when neither a supported Codex nor
-  Claude Code home directory exists.
+- Notes: the command exits with an error when none of the supported Codex,
+  Claude Code, or OpenClaw home directories exists.
 - Notes: an existing bundled skill installation is considered managed by `oo`
   only when its `.oo-metadata.json` file can be parsed and contains a
   non-empty `version`. Otherwise `oo` treats it as a different skill and will
@@ -356,12 +359,14 @@ oo-managed published skill from the local Codex skills directory.
   parsed and contains a non-empty `version`.
 - Canonical directory removed: bundled Codex skills remove
   `<config-dir>/skills/<skill>`, bundled Claude Code skills remove
-  `<config-dir>/claude-skills/<skill>`, and published skills remove
+  `<config-dir>/claude-skills/<skill>`, bundled OpenClaw skills remove
+  `<config-dir>/openclaw-skills/<skill>`, and published skills remove
   `<config-dir>/skills/<skill>`.
 - Target directory removed: bundled skills are removed from every existing
-  supported host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill>`
-  and `~/.claude/skills/<skill>`. Published skills are removed from
-  `${CODEX_HOME:-~/.codex}/skills/<skill>`.
+  supported host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill>`,
+  `~/.claude/skills/<skill>`, and
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`. Published skills are removed
+  from `${CODEX_HOME:-~/.codex}/skills/<skill>`.
 - Path rule: `[skill]` must resolve to child directories under those local
   `skills` roots. Names that escape those roots are rejected.
 - Notes: when the target directory is missing, or its `.oo-metadata.json` file

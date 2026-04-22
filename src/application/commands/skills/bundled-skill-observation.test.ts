@@ -136,4 +136,30 @@ describe("bundled skill observation", () => {
             await rm(rootDirectory, { force: true, recursive: true });
         }
     });
+
+    test("requires the resolved OpenClaw home directory to exist", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const openClawHomeDirectory = join(rootDirectory, ".openclaw");
+        const env = {
+            HOME: rootDirectory,
+        };
+
+        try {
+            await expect(
+                requireBundledSkillHomeDirectory({ env }, "openclaw"),
+            ).rejects.toMatchObject({
+                exitCode: 1,
+                key: "errors.skills.openclawNotInstalled",
+            });
+
+            await mkdir(openClawHomeDirectory, { recursive: true });
+
+            expect(await requireBundledSkillHomeDirectory({ env }, "openclaw")).toBe(
+                openClawHomeDirectory,
+            );
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
 });

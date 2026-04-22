@@ -339,6 +339,8 @@ export const enMessages = {
         "Codex is not installed. Expected the Codex home directory at {path}.",
     "errors.skills.claudeNotInstalled":
         "Claude Code is not installed. Expected the Claude home directory at {path}.",
+    "errors.skills.openclawNotInstalled":
+        "OpenClaw is not installed. Expected the OpenClaw home directory at {path}.",
     "errors.skills.noSupportedBundledSkillHosts":
         "No supported bundled skill host is installed. Expected one of: {paths}.",
     "errors.skills.install.confirmationRequired":
@@ -932,6 +934,8 @@ export const zhMessages = {
         "未检测到 Codex 安装。期望的 Codex 根目录为 {path}。",
     "errors.skills.claudeNotInstalled":
         "未检测到 Claude Code 安装。期望的 Claude 根目录为 {path}。",
+    "errors.skills.openclawNotInstalled":
+        "未检测到 OpenClaw 安装。期望的 OpenClaw 根目录为 {path}。",
     "errors.skills.noSupportedBundledSkillHosts":
         "未检测到已安装的受支持内置 skill 宿主。期望其中之一位于：{paths}。",
     "errors.skills.install.confirmationRequired":
