@@ -87,11 +87,22 @@ const platformTargets = platformTargetsData as PlatformTarget[];
 const compileAssetNamingPattern = "[name]-[hash].[ext]";
 export const releasePackagesDirectoryName = "release-packages";
 const wrapperPackageDirectoryName = "wrapper";
+const transientCompileRetryCount = 5;
+const transientCompileRetryDelayMs = 1_000;
+const bunBaselineExtractionErrorFragments = [
+    "Failed to extract executable for 'bun-",
+    "The download may be incomplete.",
+] as const;
 const buildTargetPresetPlatforms = {
     linux: "linux",
     macos: "darwin",
     windows: "win32",
 } as const satisfies Record<Exclude<BuildTargetPreset, "current-platform">, NodeJS.Platform>;
+
+export interface CompileSpawnResult {
+    exitCode: number;
+    stderr: ArrayBufferView | SharedArrayBuffer | ArrayBuffer;
+}
 
 export function getPlatformTargets(): readonly PlatformTarget[] {
     return [...platformTargets];
@@ -187,7 +198,7 @@ export async function stagePlatformReleasePackages(options: {
     mkdirSync(releaseBuildOptions.stagingDir, { recursive: true });
 
     for (const target of selectedTargets) {
-        stagePlatformPackage({
+        await stagePlatformPackage({
             packageManifestContent: releaseBuildOptions.packageManifestContent,
             releaseVersion: releaseBuildOptions.releaseVersion,
             rootDir: releaseBuildOptions.rootDir,
@@ -372,14 +383,14 @@ function preparePackageDirectory(packageDir: string): void {
     mkdirSync(packageDir, { recursive: true });
 }
 
-function stagePlatformPackage(options: {
+async function stagePlatformPackage(options: {
     packageManifestContent: string;
     releaseVersion: string;
     rootDir: string;
     stagingDir: string;
     target: PlatformTarget;
     buildMetadata: CompileBuildMetadata;
-}): void {
+}): Promise<void> {
     const packageDir = join(options.stagingDir, options.target.id);
 
     preparePackageDirectory(packageDir);
@@ -392,7 +403,7 @@ function stagePlatformPackage(options: {
         ),
     );
     copyReadme(options.rootDir, packageDir);
-    compilePlatformBinary(
+    await compilePlatformBinary(
         options.rootDir,
         packageDir,
         options.target,
@@ -461,34 +472,62 @@ function clearReleaseOutputDirectory(outDir: string, stagingDir: string): void {
     }
 }
 
-function compilePlatformBinary(
+async function compilePlatformBinary(
     rootDir: string,
     packageDir: string,
     target: PlatformTarget,
     buildMetadata: CompileBuildMetadata,
-): void {
+): Promise<void> {
     const outputPath = join(packageDir, "bin", target.executableFileName);
-    const buildResult = Bun.spawnSync(
-        buildCompileCommandArgs(target, buildMetadata, outputPath),
-        {
-            cwd: rootDir,
-            stderr: "pipe",
-            stdin: "ignore",
-            stdout: "pipe",
-        },
-    );
-
-    if (buildResult.exitCode !== 0) {
-        throw new Error(
-            [
-                `Failed to compile ${target.packageName}.`,
-                decodeOutput(buildResult.stderr),
-            ].join("\n"),
-        );
-    }
+    await compileExecutableWithTransientRetry({
+        outputPath,
+        runCompile: () =>
+            Bun.spawnSync(
+                buildCompileCommandArgs(target, buildMetadata, outputPath),
+                {
+                    cwd: rootDir,
+                    stderr: "pipe",
+                    stdin: "ignore",
+                    stdout: "pipe",
+                },
+            ),
+    });
 
     if (target.os !== "win32") {
         chmodSync(outputPath, 0o755);
+    }
+}
+
+export async function compileExecutableWithTransientRetry(options: {
+    outputPath: string;
+    removeOutput?: (outputPath: string) => void | Promise<void>;
+    retryCount?: number;
+    retryDelayMs?: number;
+    runCompile: () => CompileSpawnResult;
+    sleep?: (delayMs: number) => unknown | Promise<unknown>;
+}): Promise<void> {
+    const removeOutput = options.removeOutput ?? (outputPath => rmSync(outputPath, { force: true }));
+    const retryCount = options.retryCount ?? transientCompileRetryCount;
+    const retryDelayMs = options.retryDelayMs ?? transientCompileRetryDelayMs;
+    const sleep = options.sleep ?? Bun.sleep;
+
+    for (let attempt = 1; attempt <= retryCount; attempt += 1) {
+        const compileResult = options.runCompile();
+
+        if (compileResult.exitCode === 0) {
+            return;
+        }
+
+        const errorOutput = decodeOutput(compileResult.stderr);
+        if (
+            !isTransientBunBaselineExtractionFailure(errorOutput)
+            || attempt === retryCount
+        ) {
+            throw new Error(errorOutput);
+        }
+
+        await removeOutput(options.outputPath);
+        await sleep(retryDelayMs);
     }
 }
 
@@ -553,8 +592,20 @@ function packPackage(packageDir: string, outDir: string): string {
     return decodeOutput(packResult.stdout).trim();
 }
 
-function decodeOutput(output: Uint8Array): string {
-    return new TextDecoder().decode(output);
+export function decodeOutput(
+    output: ArrayBufferView | SharedArrayBuffer | ArrayBuffer,
+): string {
+    const bytes = ArrayBuffer.isView(output)
+        ? new Uint8Array(output.buffer, output.byteOffset, output.byteLength)
+        : new Uint8Array(output);
+
+    return new TextDecoder().decode(bytes);
+}
+
+function isTransientBunBaselineExtractionFailure(errorOutput: string): boolean {
+    return bunBaselineExtractionErrorFragments.every(fragment =>
+        errorOutput.includes(fragment),
+    );
 }
 
 function resolveCompileBuildMetadata(

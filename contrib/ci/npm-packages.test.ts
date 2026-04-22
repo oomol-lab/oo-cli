@@ -1,8 +1,9 @@
+import type { CompileSpawnResult } from "./npm-packages.ts";
 import { chmod, mkdir, readFile, rm } from "node:fs/promises";
+
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
-
 import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
 import { getBundledSkillFiles } from "../../src/application/commands/skills/embedded-assets.ts";
 import { writeReleaseBundleBinaryFixture } from "./__tests__/helpers.ts";
@@ -12,6 +13,9 @@ import {
     buildCompileDefineArgs,
     buildPlatformPackageManifest,
     buildWrapperPackageManifest,
+    compileExecutableWithTransientRetry,
+
+    decodeOutput,
     getPlatformTargets,
     parseBuildTargetIds,
     releasePackagesDirectoryName,
@@ -94,10 +98,6 @@ const reorderedBaseManifest = JSON.stringify({
 const transientCompileRetryCount = 5;
 const transientCompileRetryDelayMs = 1_000;
 const compiledBinaryInstallTestTimeoutMs = 20_000;
-const bunBaselineExtractionErrorFragments = [
-    "Failed to extract executable for 'bun-",
-    "The download may be incomplete.",
-] as const;
 const compiledBinaryInstallTest = process.platform === "win32" ? test.skip : test;
 
 describe("npm-packages", () => {
@@ -507,7 +507,7 @@ describe("npm-packages", () => {
                 );
 
                 if (installResult.exitCode !== 0) {
-                    throw new Error(decodeSpawnOutput(installResult.stderr));
+                    throw new Error(decodeOutput(installResult.stderr));
                 }
 
                 const installedSkillDirectoryPath = join(
@@ -545,7 +545,7 @@ describe("npm-packages", () => {
                 if (attemptCount < transientCompileRetryCount) {
                     return createCompileSpawnResult({
                         errorOutput: [
-                            "error: Failed to extract executable for 'bun-windows-x64-baseline-v1.3.11'.",
+                            "error: Failed to extract executable for 'bun-windows-aarch64-v1.3.13'.",
                             "The download may be incomplete.",
                         ].join(" "),
                     });
@@ -556,6 +556,8 @@ describe("npm-packages", () => {
             removeOutput: async () => {
                 cleanupCount += 1;
             },
+            retryCount: transientCompileRetryCount,
+            retryDelayMs: transientCompileRetryDelayMs,
             sleep: async () => {
                 sleepCount += 1;
             },
@@ -583,6 +585,8 @@ describe("npm-packages", () => {
                 removeOutput: async () => {
                     cleanupCount += 1;
                 },
+                retryCount: transientCompileRetryCount,
+                retryDelayMs: transientCompileRetryDelayMs,
                 sleep: async () => undefined,
             }),
         ).rejects.toThrow("Could not resolve './missing-entry.ts'.");
@@ -669,56 +673,6 @@ function getRequiredTarget(targetId: string) {
     return matchedTarget;
 }
 
-function decodeSpawnOutput(
-    output: ArrayBufferView | SharedArrayBuffer | ArrayBuffer,
-): string {
-    if (ArrayBuffer.isView(output)) {
-        return new TextDecoder().decode(
-            new Uint8Array(output.buffer, output.byteOffset, output.byteLength),
-        );
-    }
-
-    return new TextDecoder().decode(
-        new Uint8Array(output as ArrayBufferLike),
-    );
-}
-
-async function compileExecutableWithTransientRetry(options: {
-    outputPath: string;
-    runCompile: () => CompileSpawnResult;
-    removeOutput?: (outputPath: string) => Promise<void>;
-    sleep?: (delayMs: number) => Promise<unknown>;
-}): Promise<void> {
-    const removeOutput = options.removeOutput ?? (outputPath => rm(outputPath, { force: true }));
-    const sleep = options.sleep ?? (delayMs => Bun.sleep(delayMs));
-
-    for (let attempt = 1; attempt <= transientCompileRetryCount; attempt += 1) {
-        const compileResult = options.runCompile();
-
-        if (compileResult.exitCode === 0) {
-            return;
-        }
-
-        const errorOutput = decodeSpawnOutput(compileResult.stderr);
-
-        if (
-            !isTransientBunBaselineExtractionFailure(errorOutput)
-            || attempt === transientCompileRetryCount
-        ) {
-            throw new Error(errorOutput);
-        }
-
-        await removeOutput(options.outputPath);
-        await sleep(transientCompileRetryDelayMs);
-    }
-}
-
-function isTransientBunBaselineExtractionFailure(errorOutput: string): boolean {
-    return bunBaselineExtractionErrorFragments.every(fragment =>
-        errorOutput.includes(fragment),
-    );
-}
-
 async function writeStagedPlatformPackageFixture(options: {
     releaseVersion: string;
     stagingDirectoryPath: string;
@@ -753,9 +707,4 @@ function createCompileSpawnResult(options: {
         exitCode: options.exitCode ?? (options.errorOutput === undefined ? 0 : 1),
         stderr: new TextEncoder().encode(options.errorOutput ?? ""),
     };
-}
-
-interface CompileSpawnResult {
-    exitCode: number;
-    stderr: ArrayBufferView | SharedArrayBuffer | ArrayBuffer;
 }
