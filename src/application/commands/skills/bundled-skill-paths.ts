@@ -11,7 +11,6 @@ const claudeBundledSkillsDirectoryName = "claude-skills";
 const openClawBundledSkillsDirectoryName = "openclaw-skills";
 
 export const bundledSkillMetadataFileName = ".oo-metadata.json";
-const codexBundledSkillOwnershipFileRelativePath = "agents/openai.yaml";
 
 export function resolveCodexHomeDirectory(
     env: Record<string, string | undefined>,
@@ -87,19 +86,6 @@ export function resolveBundledSkillCanonicalDirectoryPath(
         resolveBundledSkillCanonicalRootDirectoryPath(settingsFilePath, agentName),
         skillName,
     );
-}
-
-export function resolveBundledSkillOwnershipFileRelativePath(
-    agentName: BundledSkillAgentName,
-): string | undefined {
-    switch (agentName) {
-        case "claude":
-            return undefined;
-        case "codex":
-            return codexBundledSkillOwnershipFileRelativePath;
-        case "openclaw":
-            return undefined;
-    }
 }
 
 export function resolveBundledSkillMetadataFilePath(
