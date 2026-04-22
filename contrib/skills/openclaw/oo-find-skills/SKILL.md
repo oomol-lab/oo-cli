@@ -87,16 +87,16 @@ available right now and stop. Do not present a menu.
 
 ### 4. Rank the installable results
 
-6. Rank the installable JSON items using only the fields in the response.
-7. Pick one primary skill and, only if credible, one fallback skill.
+- Rank the installable JSON items using only the fields in the response.
+- Pick one primary skill and, only if credible, one fallback skill.
 
 ### 5. Ask the user to choose
 
-8. Only when at least one installable result exists, ask the user to choose
-   between the available actions.
-   Do not stop at a plain existence summary when installable results exist.
-   Even if the user first asks whether a matching skill exists, this skill
-   should still continue into the chooser step after confirming the matches.
+- Only when at least one installable result exists, ask the user to choose
+  between the available actions.
+  Do not stop at a plain existence summary when installable results exist.
+  Even if the user first asks whether a matching skill exists, this skill
+  should still continue into the chooser step after confirming the matches.
 
 Interaction rules:
 

@@ -15,80 +15,38 @@ import {
 
 describe("bundled skill publication", () => {
     test("publishes the bundled skill through a symlink-compatible path", async () => {
-        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
-        const canonicalSkillDirectoryPath = join(
-            rootDirectory,
-            "config",
-            "skills",
-            "oo",
-        );
-        const installedSkillDirectoryPath = join(
-            rootDirectory,
-            ".codex",
-            "skills",
-            "oo",
-        );
+        const fixture = await createBundledSkillPublicationFixture();
 
         try {
-            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
-                recursive: true,
-            });
-            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "skill\n");
-            await Bun.write(
-                join(canonicalSkillDirectoryPath, "agents", "openai.yaml"),
-                "OOMOL\n",
-            );
-
             const result = await publishBundledSkillInstallation({
-                canonicalSkillDirectoryPath,
-                installedSkillDirectoryPath,
+                canonicalSkillDirectoryPath: fixture.canonicalSkillDirectoryPath,
+                installedSkillDirectoryPath: fixture.installedSkillDirectoryPath,
             });
 
             expect(result).toEqual({
                 mode: "symlink",
-                path: installedSkillDirectoryPath,
+                path: fixture.installedSkillDirectoryPath,
             });
-            expect(await readFile(join(installedSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+            expect(await readFile(join(fixture.installedSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 "skill\n",
             );
-            expect(await realpath(installedSkillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            expect(await realpath(fixture.installedSkillDirectoryPath)).toBe(
+                await realpath(fixture.canonicalSkillDirectoryPath),
             );
         }
         finally {
-            await rm(rootDirectory, { force: true, recursive: true });
+            await fixture.cleanup();
         }
     });
 
     test("falls back to copying when symlink creation fails", async () => {
-        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
-        const canonicalSkillDirectoryPath = join(
-            rootDirectory,
-            "config",
-            "skills",
-            "oo",
-        );
-        const installedSkillDirectoryPath = join(
-            rootDirectory,
-            ".codex",
-            "skills",
-            "oo",
-        );
+        const fixture = await createBundledSkillPublicationFixture();
 
         try {
-            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
-                recursive: true,
-            });
-            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "skill\n");
-            await Bun.write(
-                join(canonicalSkillDirectoryPath, "agents", "openai.yaml"),
-                "OOMOL\n",
-            );
-
             const result = await publishBundledSkillInstallation(
                 {
-                    canonicalSkillDirectoryPath,
-                    installedSkillDirectoryPath,
+                    canonicalSkillDirectoryPath: fixture.canonicalSkillDirectoryPath,
+                    installedSkillDirectoryPath: fixture.installedSkillDirectoryPath,
                 },
                 {
                     createDirectorySymlink: async () => false,
@@ -97,17 +55,17 @@ describe("bundled skill publication", () => {
 
             expect(result).toEqual({
                 mode: "copy",
-                path: installedSkillDirectoryPath,
+                path: fixture.installedSkillDirectoryPath,
             });
-            expect(await readFile(join(installedSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+            expect(await readFile(join(fixture.installedSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 "skill\n",
             );
-            expect(await realpath(installedSkillDirectoryPath)).not.toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            expect(await realpath(fixture.installedSkillDirectoryPath)).not.toBe(
+                await realpath(fixture.canonicalSkillDirectoryPath),
             );
         }
         finally {
-            await rm(rootDirectory, { force: true, recursive: true });
+            await fixture.cleanup();
         }
     });
 
@@ -199,50 +157,30 @@ describe("bundled skill publication", () => {
     });
 
     test("replaces an existing directory at the installed path before creating a symlink", async () => {
-        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
-        const canonicalSkillDirectoryPath = join(
-            rootDirectory,
-            "config",
-            "skills",
-            "oo",
-        );
-        const installedSkillDirectoryPath = join(
-            rootDirectory,
-            ".codex",
-            "skills",
-            "oo",
-        );
+        const fixture = await createBundledSkillPublicationFixture();
 
         try {
-            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
-                recursive: true,
-            });
-            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "skill\n");
-            await Bun.write(
-                join(canonicalSkillDirectoryPath, "agents", "openai.yaml"),
-                "OOMOL\n",
-            );
-            await mkdir(installedSkillDirectoryPath, { recursive: true });
-            await Bun.write(join(installedSkillDirectoryPath, "stale.txt"), "stale\n");
+            await mkdir(fixture.installedSkillDirectoryPath, { recursive: true });
+            await Bun.write(join(fixture.installedSkillDirectoryPath, "stale.txt"), "stale\n");
 
             const result = await publishBundledSkillInstallation({
-                canonicalSkillDirectoryPath,
-                installedSkillDirectoryPath,
+                canonicalSkillDirectoryPath: fixture.canonicalSkillDirectoryPath,
+                installedSkillDirectoryPath: fixture.installedSkillDirectoryPath,
             });
 
             expect(result).toEqual({
                 mode: "symlink",
-                path: installedSkillDirectoryPath,
+                path: fixture.installedSkillDirectoryPath,
             });
-            expect(await realpath(installedSkillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            expect(await realpath(fixture.installedSkillDirectoryPath)).toBe(
+                await realpath(fixture.canonicalSkillDirectoryPath),
             );
-            await expect(stat(join(installedSkillDirectoryPath, "stale.txt"))).rejects.toMatchObject({
+            await expect(stat(join(fixture.installedSkillDirectoryPath, "stale.txt"))).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }
         finally {
-            await rm(rootDirectory, { force: true, recursive: true });
+            await fixture.cleanup();
         }
     });
 
@@ -486,4 +424,41 @@ function registerPosixBundledSkillPublicationTests(
             });
         });
     });
+}
+
+async function createBundledSkillPublicationFixture(): Promise<{
+    canonicalSkillDirectoryPath: string;
+    cleanup: () => Promise<void>;
+    installedSkillDirectoryPath: string;
+}> {
+    const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+    const canonicalSkillDirectoryPath = join(
+        rootDirectory,
+        "config",
+        "skills",
+        "oo",
+    );
+    const installedSkillDirectoryPath = join(
+        rootDirectory,
+        ".codex",
+        "skills",
+        "oo",
+    );
+
+    await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+        recursive: true,
+    });
+    await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "skill\n");
+    await Bun.write(
+        join(canonicalSkillDirectoryPath, "agents", "openai.yaml"),
+        "OOMOL\n",
+    );
+
+    return {
+        canonicalSkillDirectoryPath,
+        cleanup: async () => {
+            await rm(rootDirectory, { force: true, recursive: true });
+        },
+        installedSkillDirectoryPath,
+    };
 }

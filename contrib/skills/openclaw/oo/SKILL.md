@@ -57,7 +57,7 @@ claim grounded in actual `oo` metadata, schema files, and command output.
    concrete user values over defaults, samples, and placeholders. Reuse a
    user-provided remote URL when it already satisfies the input. Ask one
    focused follow-up only when a required value is missing or risky to infer.
-6. Expand evidence gradually. For list, inbox, or browse style steps, start
+6. Expand evidence gradually. For list, inbox, or browse-style steps, start
    with the lightest output that reveals scale, identifiers, and the next
    decision; hydrate bodies only when the current step needs them.
 7. Execute the selected path. For package tasks, read

@@ -41,6 +41,33 @@ interface BundledSkillFile extends BundledSkillSourceFile {
     readonly skillName: BundledSkillName;
 }
 
+const ooClaudeCompatibleReferenceFiles = [
+    {
+        relativePath: "references/auth-and-billing.md",
+        sourcePath: ooClaudeAuthAndBillingReferencePath,
+    },
+    {
+        relativePath: "references/search-and-selection.md",
+        sourcePath: ooClaudeSearchAndSelectionReferencePath,
+    },
+    {
+        relativePath: "references/package-execution.md",
+        sourcePath: ooClaudePackageExecutionReferencePath,
+    },
+    {
+        relativePath: "references/connector-execution.md",
+        sourcePath: ooClaudeConnectorExecutionReferencePath,
+    },
+    {
+        relativePath: "references/file-transfer.md",
+        sourcePath: ooClaudeFileTransferReferencePath,
+    },
+    {
+        relativePath: "references/task-lifecycle.md",
+        sourcePath: ooClaudeTaskLifecycleReferencePath,
+    },
+] as const satisfies readonly BundledSkillSourceFile[];
+
 // Keep this registry aligned with contrib/skills/<agent>/<skill> so Bun embeds the files.
 const bundledSkillRegistry = {
     "oo": {
@@ -86,30 +113,7 @@ const bundledSkillRegistry = {
                     relativePath: "SKILL.md",
                     sourcePath: ooClaudeSkillPath,
                 },
-                {
-                    relativePath: "references/auth-and-billing.md",
-                    sourcePath: ooClaudeAuthAndBillingReferencePath,
-                },
-                {
-                    relativePath: "references/search-and-selection.md",
-                    sourcePath: ooClaudeSearchAndSelectionReferencePath,
-                },
-                {
-                    relativePath: "references/package-execution.md",
-                    sourcePath: ooClaudePackageExecutionReferencePath,
-                },
-                {
-                    relativePath: "references/connector-execution.md",
-                    sourcePath: ooClaudeConnectorExecutionReferencePath,
-                },
-                {
-                    relativePath: "references/file-transfer.md",
-                    sourcePath: ooClaudeFileTransferReferencePath,
-                },
-                {
-                    relativePath: "references/task-lifecycle.md",
-                    sourcePath: ooClaudeTaskLifecycleReferencePath,
-                },
+                ...ooClaudeCompatibleReferenceFiles,
             ],
         },
         openclaw: {
@@ -118,30 +122,7 @@ const bundledSkillRegistry = {
                     relativePath: "SKILL.md",
                     sourcePath: ooOpenClawSkillPath,
                 },
-                {
-                    relativePath: "references/auth-and-billing.md",
-                    sourcePath: ooClaudeAuthAndBillingReferencePath,
-                },
-                {
-                    relativePath: "references/search-and-selection.md",
-                    sourcePath: ooClaudeSearchAndSelectionReferencePath,
-                },
-                {
-                    relativePath: "references/package-execution.md",
-                    sourcePath: ooClaudePackageExecutionReferencePath,
-                },
-                {
-                    relativePath: "references/connector-execution.md",
-                    sourcePath: ooClaudeConnectorExecutionReferencePath,
-                },
-                {
-                    relativePath: "references/file-transfer.md",
-                    sourcePath: ooClaudeFileTransferReferencePath,
-                },
-                {
-                    relativePath: "references/task-lifecycle.md",
-                    sourcePath: ooClaudeTaskLifecycleReferencePath,
-                },
+                ...ooClaudeCompatibleReferenceFiles,
             ],
         },
     },
