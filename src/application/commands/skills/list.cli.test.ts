@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
-import { resolveCodexHomeDirectory } from "./bundled-skill-paths.ts";
+import { resolveCodexHomeDirectory, resolveOpenClawHomeDirectory } from "./bundled-skill-paths.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 const managedSkillNameColor = "#59F78D";
@@ -44,14 +44,48 @@ describe("skills list CLI", () => {
                     "✓ Found 3 oo-managed skills.",
                     "",
                     "oo",
+                    "  Host: Codex",
                     "  Source: bundled",
                     "  Version: 9.9.9",
                     "",
                     "alpha-skill",
+                    "  Host: Codex",
                     "  Source: @oomol/alpha",
                     "  Version: 1.2.3",
                     "",
                     "oo-find-skills",
+                    "  Host: Codex",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                ].join("\n"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists bundled OpenClaw installs when Codex is not installed", async () => {
+        const sandbox = await createCliSandbox();
+        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(openClawHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "list"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "✓ Found 1 oo-managed skills.",
+                    "",
+                    "oo",
+                    "  Host: OpenClaw",
                     "  Source: bundled",
                     "  Version: 9.9.9",
                     "",
@@ -107,6 +141,9 @@ describe("skills list CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toContain(
                 colors.bold(colors.hex(managedSkillNameColor)("alpha-skill")),
+            );
+            expect(result.stdout).toContain(
+                `${colors.dim("Host:")} ${colors.hex(managedSkillSourceColor)("Codex")}`,
             );
             expect(result.stdout).toContain(
                 `${colors.dim("Source:")} ${colors.hex(managedSkillSourceColor)("@oomol/alpha")}`,

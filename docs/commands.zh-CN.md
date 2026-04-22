@@ -208,14 +208,19 @@
 
 ### `oo skills list`
 
-列出本地 Codex skills 目录中由 oo 管理的 skill。
+列出受支持的本地 skill 目录中由 oo 管理的 skill。
 
-- 所有权规则：命令会扫描 `${CODEX_HOME:-~/.codex}/skills`，只保留包含
-  可解析 `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
+- 所有权规则：命令会扫描每个已存在的受支持本地 skill 根目录：
+  `${CODEX_HOME:-~/.codex}/skills`、`~/.claude/skills`，以及
+  `${OPENCLAW_HOME:-~/.openclaw}/skills`。只保留包含可解析
+  `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
 - 输出：文本输出会先打印摘要行，再为每个 skill 打印一个块。
-- 排序：如果存在 `oo`，它总是排在最前面；其余 skill 按名称排序。
-- 输出：每个 skill 块会显示 skill 名称、来源 package 或内置标记、记录的版
-  本号。
+- 排序：输出会先按宿主分组，顺序为 `Codex`、`Claude Code`、`OpenClaw`。
+  在每个宿主内，如果存在 `oo`，它总是排在最前面；其余 skill 按名称排序。
+- 输出：每个 skill 块会显示 skill 名称、宿主、来源 package 或内置标记，以
+  及记录的版本号。
+- 说明：如果同名 skill 同时安装在多个受支持宿主中，每个宿主的安装都会分别
+  列出。
 
 ### `oo skills search <text>`
 
@@ -260,15 +265,21 @@ Codex skills 目录。
   其中 `<config-dir>` 是 `settings.toml` 所在目录。
 - canonical 目录：内置 Claude Code skill 会先释放到
   `<config-dir>/claude-skills/<skill-id>`。
+- canonical 目录：内置 OpenClaw skill 会先释放到
+  `<config-dir>/openclaw-skills/<skill-id>`。
 - canonical 目录：已发布 skill 会先释放到 `<config-dir>/skills/<skill-id>`。
 - 目标目录：内置 skill 会发布到所有已存在的受支持宿主目录，目前包括
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>` 和
-  `~/.claude/skills/<skill-id>`。
+  `~/.claude/skills/<skill-id>`，以及
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`。
 - 目标目录：已发布 skill 会发布到
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`。
-- 安装方式：`oo` 会优先将目标目录发布为指向 canonical 目录的软连接。
-  如果当前平台或环境下创建软连接失败，则会回退为把 canonical 目录内容复制
-  到 Codex skills 目录。
+- 安装方式：内置 Codex 和 Claude Code skill 会优先把目标目录发布为指向
+  canonical 目录的软连接。如果当前平台或环境下创建软连接失败，则会回退为把
+  canonical 目录内容复制到目标 skills 目录。
+- 安装方式：内置 OpenClaw skill 会直接复制到
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`，以确保安装后的 skill
+  保持在 OpenClaw 管理的 skills 根目录内。
 - 元数据：内置 skill 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
   `version` 字段记录当前 `oo` 版本。
 - 元数据：已发布 skill 也会写入一个隐藏的 `.oo-metadata.json` 文件，
@@ -282,8 +293,8 @@ Codex skills 目录。
   端中要求用户输入 `yes` 或 `no` 决定是否覆盖。
 - 说明：在交互选择页面中，存在重名冲突的 skill 会在列表中显示状态标记；
   只要用户仍然选择该项，就会执行覆盖。
-- 说明：当 Codex 和 Claude Code 的受支持根目录都不存在时，命令会直接报错
-  退出。
+- 说明：当 Codex、Claude Code 和 OpenClaw 的受支持根目录都不存在时，命令
+  会直接报错退出。
 - 说明：只有当 bundled skill 的 `.oo-metadata.json` 可以被解析，且其中包
   含非空的 `version` 时，`oo` 才会认为这是自己管理的内置 skill；否则会视
   为其他 skill，并拒绝覆盖。
@@ -316,11 +327,13 @@ Codex skills 目录。
   析且带有非空 `version` 的 `.oo-metadata.json` 时，才允许从该宿主移除。
 - 会同时移除 canonical 目录：内置 Codex skill 会移除
   `<config-dir>/skills/<skill>`，内置 Claude Code skill 会移除
-  `<config-dir>/claude-skills/<skill>`，已发布 skill 会移除
+  `<config-dir>/claude-skills/<skill>`，内置 OpenClaw skill 会移除
+  `<config-dir>/openclaw-skills/<skill>`，已发布 skill 会移除
   `<config-dir>/skills/<skill>`。
 - 会同时移除目标目录：内置 skill 会从所有已存在的受支持宿主目录中移除，目
   前包括 `${CODEX_HOME:-~/.codex}/skills/<skill>` 和
-  `~/.claude/skills/<skill>`；已发布 skill 会从
+  `~/.claude/skills/<skill>`，以及
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`；已发布 skill 会从
   `${CODEX_HOME:-~/.codex}/skills/<skill>` 中移除。
 - 路径规则：`[skill]` 解析后必须仍然落在这些本地 `skills` 根目录的子目录中。
   任何会逃出这些根目录的名称都会被拒绝。

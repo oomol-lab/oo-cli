@@ -230,16 +230,20 @@ Search packages and connector actions with one free-form query.
 
 ### `oo skills list`
 
-List oo-managed skills from the local Codex skills directory.
+List oo-managed skills from supported local skill directories.
 
-- Ownership rule: the command scans `${CODEX_HOME:-~/.codex}/skills` and keeps
-  only child directories whose `.oo-metadata.json` can be parsed and contains
-  a non-empty `version`.
+- Ownership rule: the command scans each existing supported local skill root:
+  `${CODEX_HOME:-~/.codex}/skills`, `~/.claude/skills`, and
+  `${OPENCLAW_HOME:-~/.openclaw}/skills`. It keeps only child directories whose
+  `.oo-metadata.json` can be parsed and contains a non-empty `version`.
 - Output: text output prints a summary line and one block per skill.
-- Ordering: `oo` is always listed first when present; the remaining skills are
-  ordered by skill name.
-- Output: each skill block shows the skill name, source package or bundled
-  marker, and recorded version.
+- Ordering: blocks are grouped by host in `Codex`, `Claude Code`, `OpenClaw`
+  order. Within each host, `oo` is always listed first when present; the
+  remaining skills are ordered by skill name.
+- Output: each skill block shows the skill name, host, source package or
+  bundled marker, and recorded version.
+- Notes: when the same skill name is installed in multiple supported hosts,
+  each host installation is listed separately.
 
 ### `oo skills search <text>`
 
@@ -289,19 +293,25 @@ published skills into the local Codex skills directory.
   contains `settings.toml`.
 - Canonical directory: bundled Claude Code skills are materialized to
   `<config-dir>/claude-skills/<skill-id>`.
+- Canonical directory: bundled OpenClaw skills are materialized to
+  `<config-dir>/openclaw-skills/<skill-id>`.
 - Canonical directory: published skills are materialized to
   `<config-dir>/skills/<skill-id>`.
 - Target directory: bundled skills are published to each existing supported
-  host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill-id>` and
-  `~/.claude/skills/<skill-id>`.
+  host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill-id>`,
+  `~/.claude/skills/<skill-id>`, and
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`.
 - Target directory: published skills are published to
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
-- Installation mode: `oo` publishes the target directory as a symlink to the
-  canonical directory when the current platform and environment allow it. When
-  symlink creation fails, `oo` falls back to copying the canonical files into
-  the Codex skills directory.
+- Installation mode: bundled Codex and Claude Code skills are published to the
+  target directory as a symlink to the canonical directory when the current
+  platform and environment allow it. When symlink creation fails, `oo` falls
+  back to copying the canonical files into the target skills directory.
+- Installation mode: bundled OpenClaw skills are copied into
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>` so the installed skill
+  stays inside OpenClaw's managed skills root.
 - Metadata: bundled skills write a hidden `.oo-metadata.json` file whose
   `version` field matches the current `oo` version.
 - Metadata: published skills write a hidden `.oo-metadata.json` file whose
@@ -316,8 +326,8 @@ published skills into the local Codex skills directory.
   overwriting it in an interactive terminal.
 - Notes: in the interactive picker, conflicting skills are marked in the list;
   selecting one means it will be overwritten.
-- Notes: the command exits with an error when neither a supported Codex nor
-  Claude Code home directory exists.
+- Notes: the command exits with an error when none of the supported Codex,
+  Claude Code, or OpenClaw home directories exists.
 - Notes: an existing bundled skill installation is considered managed by `oo`
   only when its `.oo-metadata.json` file can be parsed and contains a
   non-empty `version`. Otherwise `oo` treats it as a different skill and will
@@ -356,12 +366,14 @@ oo-managed published skill from the local Codex skills directory.
   parsed and contains a non-empty `version`.
 - Canonical directory removed: bundled Codex skills remove
   `<config-dir>/skills/<skill>`, bundled Claude Code skills remove
-  `<config-dir>/claude-skills/<skill>`, and published skills remove
+  `<config-dir>/claude-skills/<skill>`, bundled OpenClaw skills remove
+  `<config-dir>/openclaw-skills/<skill>`, and published skills remove
   `<config-dir>/skills/<skill>`.
 - Target directory removed: bundled skills are removed from every existing
-  supported host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill>`
-  and `~/.claude/skills/<skill>`. Published skills are removed from
-  `${CODEX_HOME:-~/.codex}/skills/<skill>`.
+  supported host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill>`,
+  `~/.claude/skills/<skill>`, and
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`. Published skills are removed
+  from `${CODEX_HOME:-~/.codex}/skills/<skill>`.
 - Path rule: `[skill]` must resolve to child directories under those local
   `skills` roots. Names that escape those roots are rejected.
 - Notes: when the target directory is missing, or its `.oo-metadata.json` file

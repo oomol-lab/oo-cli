@@ -125,9 +125,9 @@ export const enMessages = {
     "commands.skills.search.summary":
         "Search published skills",
     "commands.skills.list.description":
-        "List oo-managed Codex skills from the local Codex skills directory.",
+        "List oo-managed skills from supported local skill directories.",
     "commands.skills.list.summary":
-        "List oo-managed Codex skills",
+        "List oo-managed skills",
     "commands.skills.install.description":
         "Install bundled skills into supported local skill directories, or install published skills into the local Codex skills directory.",
     "commands.skills.install.summary": "Install skills",
@@ -339,6 +339,8 @@ export const enMessages = {
         "Codex is not installed. Expected the Codex home directory at {path}.",
     "errors.skills.claudeNotInstalled":
         "Claude Code is not installed. Expected the Claude home directory at {path}.",
+    "errors.skills.openclawNotInstalled":
+        "OpenClaw is not installed. Expected the OpenClaw home directory at {path}.",
     "errors.skills.noSupportedBundledSkillHosts":
         "No supported bundled skill host is installed. Expected one of: {paths}.",
     "errors.skills.install.confirmationRequired":
@@ -498,6 +500,10 @@ export const enMessages = {
         "Installing all {count} skills.",
     "skills.list.noResults":
         "No oo-managed skills were found.",
+    "skills.list.host": "Host",
+    "skills.list.host.claude": "Claude Code",
+    "skills.list.host.codex": "Codex",
+    "skills.list.host.openclaw": "OpenClaw",
     "skills.list.source": "Source",
     "skills.list.source.bundled": "bundled",
     "skills.list.summary":
@@ -729,9 +735,9 @@ export const zhMessages = {
     "commands.skills.search.summary":
         "搜索已发布的 skill",
     "commands.skills.list.description":
-        "列出本地 Codex skills 目录中由 oo 管理的 Codex skill。",
+        "列出受支持的本地 skill 目录中由 oo 管理的 skill。",
     "commands.skills.list.summary":
-        "列出由 oo 管理的 Codex skill",
+        "列出由 oo 管理的 skill",
     "commands.skills.install.description":
         "将内置 skill 安装到受支持的本地 skill 目录，或将已发布 skill 安装到本地 Codex skills 目录。",
     "commands.skills.install.summary": "安装 skill",
@@ -932,6 +938,8 @@ export const zhMessages = {
         "未检测到 Codex 安装。期望的 Codex 根目录为 {path}。",
     "errors.skills.claudeNotInstalled":
         "未检测到 Claude Code 安装。期望的 Claude 根目录为 {path}。",
+    "errors.skills.openclawNotInstalled":
+        "未检测到 OpenClaw 安装。期望的 OpenClaw 根目录为 {path}。",
     "errors.skills.noSupportedBundledSkillHosts":
         "未检测到已安装的受支持内置 skill 宿主。期望其中之一位于：{paths}。",
     "errors.skills.install.confirmationRequired":
@@ -1085,6 +1093,10 @@ export const zhMessages = {
         "将安装全部 {count} 个 skill。",
     "skills.list.noResults":
         "未找到由 oo 管理的 skill。",
+    "skills.list.host": "宿主",
+    "skills.list.host.claude": "Claude Code",
+    "skills.list.host.codex": "Codex",
+    "skills.list.host.openclaw": "OpenClaw",
     "skills.list.source": "来源",
     "skills.list.source.bundled": "内置",
     "skills.list.summary":

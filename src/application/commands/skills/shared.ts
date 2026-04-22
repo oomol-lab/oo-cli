@@ -218,7 +218,10 @@ async function writeBundledSkillInstallation(options: {
 }): Promise<BundledSkillPublicationResult> {
     const installationPaths = await writeBundledSkillCanonicalInstallation(options);
 
-    return publishBundledSkillInstallation(installationPaths);
+    return publishBundledSkillInstallation({
+        ...installationPaths,
+        publicationMode: options.agentName === "openclaw" ? "copy" : "symlink-or-copy",
+    });
 }
 
 async function writeBundledSkillCanonicalInstallation(options: {

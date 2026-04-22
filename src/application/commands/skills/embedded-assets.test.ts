@@ -30,6 +30,15 @@ describe("embedded skill assets", () => {
             "references/file-transfer.md",
             "references/task-lifecycle.md",
         ]);
+        expect(getBundledSkillFiles("oo", "openclaw").map(file => file.relativePath)).toEqual([
+            "SKILL.md",
+            "references/auth-and-billing.md",
+            "references/search-and-selection.md",
+            "references/package-execution.md",
+            "references/connector-execution.md",
+            "references/file-transfer.md",
+            "references/task-lifecycle.md",
+        ]);
         expect(
             getBundledSkillFiles("oo-find-skills", "codex").map(
                 file => file.relativePath,
@@ -47,10 +56,18 @@ describe("embedded skill assets", () => {
             "SKILL.md",
             "references/oo-cli-contract.md",
         ]);
+        expect(
+            getBundledSkillFiles("oo-find-skills", "openclaw").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+            "references/oo-cli-contract.md",
+        ]);
     });
 
     test("maps bundled skills to contrib/skills/<agent>/<skill> source directories", () => {
-        expect([...availableBundledSkillAgentNames]).toEqual(["codex", "claude"]);
+        expect([...availableBundledSkillAgentNames]).toEqual(["codex", "claude", "openclaw"]);
 
         for (const skillName of availableBundledSkillNames) {
             expect(getBundledSkillAgentNames(skillName)).toEqual(
@@ -66,10 +83,12 @@ describe("embedded skill assets", () => {
                 expect(sourceDirectory).toBe(
                     `contrib/skills/${agentName}/${skillName}`,
                 );
+                const skillFiles = getBundledSkillFiles(skillName, agentName);
+
+                expect(skillFiles.every(file => file.agentName === agentName)).toBeTrue();
                 expect(
-                    getBundledSkillFiles(skillName, agentName).every(file =>
-                        file.agentName === agentName
-                        && normalizePathForAssertion(file.sourcePath).includes(
+                    skillFiles.every(file =>
+                        normalizePathForAssertion(file.sourcePath).includes(
                             `/${sourceDirectory}/`,
                         ),
                     ),
