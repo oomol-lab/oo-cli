@@ -18,6 +18,7 @@ import {
 } from "./bundled-skill-paths.ts";
 import {
     availableBundledSkillAgentNames,
+    availableBundledSkillNames,
 } from "./embedded-assets.ts";
 import { parseManagedSkillMetadataContent } from "./managed-skill-metadata.ts";
 import {
@@ -176,7 +177,7 @@ export async function listManagedSkillInstallations(
 
     return skills
         .filter(skill => skill !== undefined)
-        .sort((left, right) => compareManagedSkillNames(left.name, right.name));
+        .sort(compareManagedSkillListItems);
 }
 
 export function formatManagedSkillListAsText(
@@ -326,23 +327,43 @@ function hasSameManagedSkillIdentity(
         && (left.metadata?.version ?? "") === (right.metadata?.version ?? "");
 }
 
-function compareManagedSkillNames(left: string, right: string): number {
-    if (left === "oo" && right !== "oo") {
+function compareManagedSkillListItems(
+    left: Pick<ManagedSkillListItem, "metadata" | "name">,
+    right: Pick<ManagedSkillListItem, "metadata" | "name">,
+): number {
+    const leftBundledOrder = readBundledSkillNameOrder(left);
+    const rightBundledOrder = readBundledSkillNameOrder(right);
+
+    if (leftBundledOrder !== undefined && rightBundledOrder !== undefined) {
+        return leftBundledOrder - rightBundledOrder;
+    }
+
+    if (leftBundledOrder !== undefined) {
         return -1;
     }
 
-    if (left !== "oo" && right === "oo") {
+    if (rightBundledOrder !== undefined) {
         return 1;
     }
 
-    return left.localeCompare(right);
+    return left.name.localeCompare(right.name);
+}
+
+function readBundledSkillNameOrder(
+    skill: Pick<ManagedSkillListItem, "metadata" | "name">,
+): number | undefined {
+    if (skill.metadata?.packageName !== undefined || !isBundledSkillName(skill.name)) {
+        return undefined;
+    }
+
+    return availableBundledSkillNames.indexOf(skill.name);
 }
 
 function compareManagedSkillOutputListItems(
     left: ManagedSkillOutputListItem,
     right: ManagedSkillOutputListItem,
 ): number {
-    const nameDifference = compareManagedSkillNames(left.name, right.name);
+    const nameDifference = compareManagedSkillListItems(left, right);
 
     if (nameDifference !== 0) {
         return nameDifference;
@@ -372,5 +393,5 @@ function compareManagedSkillHostListItems(
         return hostOrderDifference;
     }
 
-    return compareManagedSkillNames(left.name, right.name);
+    return compareManagedSkillListItems(left, right);
 }
