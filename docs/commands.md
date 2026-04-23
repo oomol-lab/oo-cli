@@ -108,18 +108,26 @@ Install one managed `oo` release into the local self-managed runtime.
   published release.
 - Options: `--force` forces a reinstall even when the requested version is
   already installed.
+- Options: `--no-modify-path` skips automatic PATH configuration; install will
+  still print a setup note when the executable directory is not on `PATH`.
+- Environment: setting `OO_NO_MODIFY_PATH` to a truthy value (`1`, `true`,
+  `yes`, `on`, case-insensitive) is equivalent to `--no-modify-path`. The flag
+  and the env var combine with OR semantics: either one being set skips PATH
+  configuration.
 - Output: on success, the CLI prints the installed version and the final
   executable path.
 - Output: when `stderr` is an interactive TTY, the CLI also renders colored
   progress stages to `stderr` while the install is running.
 - Notes: install verifies that the installed `oo` command is usable before
   reporting success.
-- Notes: when the executable directory is not on `PATH`, install also prints a
-  setup note that tells the user which directory to add.
 - Notes: after a successful install, the CLI best-effort removes legacy global
   `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
   when `PATH` yields no `oo` candidates, the CLI falls back to the current
   command path. Cleanup failures do not change the command result.
+- Notes: when the executable directory is not on `PATH`, install attempts to
+  persist it for future shells. When automatic PATH configuration succeeds,
+  install tells the user to restart their shell; when it fails, install prints
+  a setup note that tells the user which directory to add.
 - Notes: after a successful install workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
   installed CLI version.
@@ -131,6 +139,12 @@ Install one managed `oo` release into the local self-managed runtime.
 Update the managed `oo` install to the latest published release.
 
 - Arguments: none.
+- Options: `--no-modify-path` skips automatic PATH configuration; update will
+  still print a setup note when the executable directory is not on `PATH`.
+- Environment: setting `OO_NO_MODIFY_PATH` to a truthy value (`1`, `true`,
+  `yes`, `on`, case-insensitive) is equivalent to `--no-modify-path`. The flag
+  and the env var combine with OR semantics: either one being set skips PATH
+  configuration.
 - Output: when the current version is already the latest published release, the
   CLI prints the up-to-date message.
 - Output: when a newer published release is available, the CLI prints the
@@ -146,6 +160,10 @@ Update the managed `oo` install to the latest published release.
   `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
   when `PATH` yields no `oo` candidates, the CLI falls back to the current
   command path. Cleanup failures do not change the command result.
+- Notes: when the executable directory is not on `PATH`, update attempts to
+  persist it for future shells. When automatic PATH configuration succeeds,
+  update tells the user to restart their shell; when it fails, update prints a
+  setup note that tells the user which directory to add.
 - Notes: after a successful update workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
   installed CLI version.

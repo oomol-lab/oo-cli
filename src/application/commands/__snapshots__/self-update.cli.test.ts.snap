@@ -18,7 +18,7 @@ exports[`self-update commands install resolves latest.json when no explicit vers
   "stdout": 
 "Installed oo 1.2.3.
 Executable: <EXECUTABLE_PATH>
-Add <HOME>/.local/bin to PATH to run oo in new shells.
+Added <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.
 "
 ,
 }
@@ -31,7 +31,7 @@ exports[`self-update commands install with an explicit version skips latest.json
   "stdout": 
 "Installed oo 2.0.0.
 Executable: <EXECUTABLE_PATH>
-Add <HOME>/.local/bin to PATH to run oo in new shells.
+Added <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.
 "
 ,
 }
@@ -54,6 +54,7 @@ exports[`self-update commands upgrade uses the same update path and repairs a sa
   "stderr": "",
   "stdout": 
 "Already up to date at 1.2.3.
+Added <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.
 "
 ,
 }
