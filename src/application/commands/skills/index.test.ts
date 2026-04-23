@@ -21,12 +21,16 @@ import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
 import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     resolveBundledSkillCanonicalDirectoryPath,
+    resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
     resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
     resolveOpenClawHomeDirectory,
 } from "./bundled-skill-paths.ts";
-import { getBundledSkillFiles } from "./embedded-assets.ts";
+import {
+    availableBundledSkillAgentNames,
+    getBundledSkillFiles,
+} from "./embedded-assets.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
@@ -245,9 +249,9 @@ describe("skills commands", () => {
 
     test("fails when no supported bundled skill host is installed", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
-        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
+        const expectedHomeDirectories = availableBundledSkillAgentNames
+            .map(agentName => resolveBundledSkillHomeDirectory(sandbox.env, agentName))
+            .join(", ");
 
         try {
             const result = await sandbox.run(["skills", "install"]);
@@ -255,7 +259,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `No supported bundled skill host is installed. Expected one of: ${codexHomeDirectory}, ${claudeHomeDirectory}, ${openClawHomeDirectory}.\n`,
+                `No supported bundled skill host is installed. Expected one of: ${expectedHomeDirectories}.\n`,
             );
         }
         finally {
