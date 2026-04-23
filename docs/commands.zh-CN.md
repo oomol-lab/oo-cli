@@ -216,8 +216,9 @@
   `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
 - 输出：文本输出会先打印摘要行，再为每个唯一的可见 skill 身份打印一个块。
   如果多个宿主中的安装具有相同 `name`、来源和版本，则会折叠到同一个块中。
-- 排序：如果存在 `oo`，它总是排在最前面；其余 skill 按名称排序。每个块内
-  的宿主名称按 `Codex`、`Claude Code`、`OpenClaw` 顺序显示。
+- 排序：bundled skills 会排在最前面；其中 `oo` 优先，其次
+  `oo-find-skills`；其余 skill 按名称排序。每个块内的宿主名称按 `Codex`、
+  `Claude Code`、`OpenClaw` 顺序显示。
 - 输出：每个 skill 块会显示 skill 名称、宿主、来源 package 或内置标记，以
   及记录的版本号。
 - 说明：如果折叠后的 skill 安装在多个受支持宿主中，`宿主` 字段会列出所有

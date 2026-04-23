@@ -239,8 +239,9 @@ List oo-managed skills from supported local skill directories.
 - Output: text output prints a summary line and one block per unique visible
   skill identity. Identical `name`/source/version installs across multiple
   hosts are folded into one block.
-- Ordering: `oo` is always listed first when present; the remaining skills are
-  ordered by skill name. Host names within a block follow `Codex`,
+- Ordering: bundled skills are listed first when present, with `oo` before
+  `oo-find-skills`; the remaining skills are ordered by skill name. Host names
+  within a block follow `Codex`,
   `Claude Code`, `OpenClaw` order.
 - Output: each skill block shows the skill name, host, source package or
   bundled marker, and recorded version.
