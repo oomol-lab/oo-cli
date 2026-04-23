@@ -6,6 +6,7 @@ import type { ManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { compareSemver } from "../../semver.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
@@ -43,6 +44,13 @@ interface ManagedSkillHostListItem extends ManagedSkillListItem {
     hostName: BundledSkillAgentName;
 }
 
+interface ManagedSkillOutputListItem {
+    hostNames: BundledSkillAgentName[];
+    metadata?: ManagedSkillMetadata;
+    name: string;
+    paths: string[];
+}
+
 type ManagedSkillListTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
 
 export const skillsListCommand: CliCommandDefinition<Record<string, never>> = {
@@ -51,13 +59,15 @@ export const skillsListCommand: CliCommandDefinition<Record<string, never>> = {
     descriptionKey: "commands.skills.list.description",
     inputSchema: z.object({}),
     handler: async (_, context) => {
-        const skills = await listManagedSkillInstallationsByHost(context.env);
+        const skills = groupManagedSkillInstallationsByIdentity(
+            await listManagedSkillInstallationsByHost(context.env),
+        );
 
         context.logger.info(
             {
                 count: skills.length,
-                paths: skills.map(skill => skill.path),
-                skillNames: skills.map(skill => `${skill.hostName}:${skill.name}`),
+                paths: skills.flatMap(skill => skill.paths),
+                skillNames: skills.map(skill => skill.name),
             },
             "Managed skills listed.",
         );
@@ -87,25 +97,49 @@ async function listManagedSkillInstallationsByHost(
                 : undefined;
         }),
     );
+    const existingHostDirectories = hostDirectories.filter(
+        hostDirectory => hostDirectory !== undefined,
+    );
     const skillsByHost = await Promise.all(
-        hostDirectories.flatMap((hostDirectory) => {
-            if (hostDirectory === undefined) {
-                return [];
-            }
-
-            return [
-                listManagedSkillInstallations(hostDirectory.skillsDirectoryPath)
-                    .then(skills => skills.map(skill => ({
-                        ...skill,
-                        hostName: hostDirectory.hostName,
-                    }) satisfies ManagedSkillHostListItem)),
-            ];
-        }),
+        existingHostDirectories.map(hostDirectory =>
+            listManagedSkillInstallations(hostDirectory.skillsDirectoryPath)
+                .then(skills => skills.map(skill => ({
+                    ...skill,
+                    hostName: hostDirectory.hostName,
+                }) satisfies ManagedSkillHostListItem)),
+        ),
     );
 
     return skillsByHost
         .flat()
         .sort(compareManagedSkillHostListItems);
+}
+
+function groupManagedSkillInstallationsByIdentity(
+    installations: readonly ManagedSkillHostListItem[],
+): ManagedSkillOutputListItem[] {
+    const groups: ManagedSkillOutputListItem[] = [];
+
+    for (const installation of installations) {
+        const group = groups.find(candidate =>
+            hasSameManagedSkillIdentity(candidate, installation),
+        );
+
+        if (group === undefined) {
+            groups.push({
+                hostNames: [installation.hostName],
+                metadata: installation.metadata,
+                name: installation.name,
+                paths: [installation.path],
+            });
+            continue;
+        }
+
+        group.hostNames.push(installation.hostName);
+        group.paths.push(installation.path);
+    }
+
+    return groups.sort(compareManagedSkillOutputListItems);
 }
 
 export async function listManagedSkillInstallations(
@@ -142,12 +176,12 @@ export async function listManagedSkillInstallations(
 
     return skills
         .filter(skill => skill !== undefined)
-        .sort(compareManagedSkillListItems);
+        .sort((left, right) => compareManagedSkillNames(left.name, right.name));
 }
 
 export function formatManagedSkillListAsText(
     inventory: {
-        skills: readonly ManagedSkillHostListItem[];
+        skills: readonly ManagedSkillOutputListItem[];
     },
     context: ManagedSkillListTextContext,
 ): string {
@@ -191,7 +225,7 @@ async function readSkillsDirectoryEntries(
 }
 
 function formatManagedSkillListItem(
-    skill: ManagedSkillHostListItem,
+    skill: ManagedSkillOutputListItem,
     context: ManagedSkillListTextContext,
     colors: TerminalColors,
 ): string {
@@ -200,7 +234,7 @@ function formatManagedSkillListItem(
         formatManagedSkillDetailLine(
             context.translator.t("skills.list.host"),
             colors.hex(managedSkillSourceColor)(
-                readManagedSkillHostLabel(skill.hostName, context),
+                readManagedSkillHostLabels(skill.hostNames, context),
             ),
             colors,
         ),
@@ -230,7 +264,7 @@ function formatManagedSkillDetailLine(
 }
 
 function readManagedSkillSource(
-    skill: ManagedSkillListItem,
+    skill: Pick<ManagedSkillListItem, "metadata" | "name">,
     context: Pick<CliExecutionContext, "translator">,
 ): string {
     if (skill.metadata?.packageName !== undefined) {
@@ -242,6 +276,29 @@ function readManagedSkillSource(
     }
 
     return context.translator.t("versionInfo.unknown");
+}
+
+function readManagedSkillSourceIdentity(
+    skill: Pick<ManagedSkillListItem, "metadata" | "name">,
+): string {
+    if (skill.metadata?.packageName !== undefined) {
+        return `package:${skill.metadata.packageName}`;
+    }
+
+    if (isBundledSkillName(skill.name)) {
+        return "bundled";
+    }
+
+    return "unknown";
+}
+
+function readManagedSkillHostLabels(
+    hostNames: readonly BundledSkillAgentName[],
+    context: Pick<CliExecutionContext, "translator">,
+): string {
+    return hostNames.map(hostName =>
+        readManagedSkillHostLabel(hostName, context),
+    ).join(", ");
 }
 
 function readManagedSkillHostLabel(
@@ -260,19 +317,48 @@ function readManagedSkillHostLabel(
     }
 }
 
-function compareManagedSkillListItems(
-    left: ManagedSkillListItem,
-    right: ManagedSkillListItem,
-): number {
-    if (left.name === "oo" && right.name !== "oo") {
+function hasSameManagedSkillIdentity(
+    left: Pick<ManagedSkillListItem, "metadata" | "name">,
+    right: Pick<ManagedSkillListItem, "metadata" | "name">,
+): boolean {
+    return left.name === right.name
+        && readManagedSkillSourceIdentity(left) === readManagedSkillSourceIdentity(right)
+        && (left.metadata?.version ?? "") === (right.metadata?.version ?? "");
+}
+
+function compareManagedSkillNames(left: string, right: string): number {
+    if (left === "oo" && right !== "oo") {
         return -1;
     }
 
-    if (left.name !== "oo" && right.name === "oo") {
+    if (left !== "oo" && right === "oo") {
         return 1;
     }
 
-    return left.name.localeCompare(right.name);
+    return left.localeCompare(right);
+}
+
+function compareManagedSkillOutputListItems(
+    left: ManagedSkillOutputListItem,
+    right: ManagedSkillOutputListItem,
+): number {
+    const nameDifference = compareManagedSkillNames(left.name, right.name);
+
+    if (nameDifference !== 0) {
+        return nameDifference;
+    }
+
+    const sourceDifference = readManagedSkillSourceIdentity(left)
+        .localeCompare(readManagedSkillSourceIdentity(right));
+
+    if (sourceDifference !== 0) {
+        return sourceDifference;
+    }
+
+    return compareSemver(
+        left.metadata?.version ?? "",
+        right.metadata?.version ?? "",
+    );
 }
 
 function compareManagedSkillHostListItems(
@@ -286,5 +372,5 @@ function compareManagedSkillHostListItems(
         return hostOrderDifference;
     }
 
-    return compareManagedSkillListItems(left, right);
+    return compareManagedSkillNames(left.name, right.name);
 }
