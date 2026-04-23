@@ -275,34 +275,34 @@ async function resolveAvailableBundledSkillHostInstallations(
     skillName: BundledSkillName,
 ): Promise<BundledSkillHostInstallation[]> {
     const settingsFilePath = context.settingsStore.getFilePath();
-    const installations: BundledSkillHostInstallation[] = [];
-
-    for (const agentName of availableBundledSkillAgentNames) {
-        const homeDirectory = resolveBundledSkillHomeDirectory(
-            context.env,
-            agentName,
-        );
-
-        if (!(await directoryExists(homeDirectory))) {
-            continue;
-        }
-
-        installations.push({
-            agentName,
-            canonicalSkillDirectoryPath: resolveBundledSkillCanonicalDirectoryPath(
-                settingsFilePath,
-                skillName,
+    const installations = await Promise.all(
+        availableBundledSkillAgentNames.map(async (agentName) => {
+            const homeDirectory = resolveBundledSkillHomeDirectory(
+                context.env,
                 agentName,
-            ),
-            homeDirectory,
-            installedSkillDirectoryPath: resolveBundledSkillDirectoryPath(
-                homeDirectory,
-                skillName,
-            ),
-        });
-    }
+            );
 
-    return installations;
+            if (!(await directoryExists(homeDirectory))) {
+                return undefined;
+            }
+
+            return {
+                agentName,
+                canonicalSkillDirectoryPath: resolveBundledSkillCanonicalDirectoryPath(
+                    settingsFilePath,
+                    skillName,
+                    agentName,
+                ),
+                homeDirectory,
+                installedSkillDirectoryPath: resolveBundledSkillDirectoryPath(
+                    homeDirectory,
+                    skillName,
+                ),
+            } satisfies BundledSkillHostInstallation;
+        }),
+    );
+
+    return installations.filter(installation => installation !== undefined);
 }
 
 async function validateBundledSkillInstallationTarget(
