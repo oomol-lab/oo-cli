@@ -3,9 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     availableBundledSkillAgentNames,
     availableBundledSkillNames,
-    getBundledSkillAgentNames,
     getBundledSkillFiles,
-    getBundledSkillSourceDirectory,
 } from "./embedded-assets.ts";
 
 describe("embedded skill assets", () => {
@@ -70,19 +68,8 @@ describe("embedded skill assets", () => {
         expect([...availableBundledSkillAgentNames]).toEqual(["codex", "claude", "openclaw"]);
 
         for (const skillName of availableBundledSkillNames) {
-            expect(getBundledSkillAgentNames(skillName)).toEqual(
-                [...availableBundledSkillAgentNames],
-            );
-
             for (const agentName of availableBundledSkillAgentNames) {
-                const sourceDirectory = getBundledSkillSourceDirectory(
-                    skillName,
-                    agentName,
-                );
-
-                expect(sourceDirectory).toBe(
-                    `contrib/skills/${agentName}/${skillName}`,
-                );
+                const sourceDirectory = `contrib/skills/${agentName}/${skillName}`;
                 const skillFiles = getBundledSkillFiles(skillName, agentName);
 
                 expect(skillFiles.every(file => file.agentName === agentName)).toBeTrue();

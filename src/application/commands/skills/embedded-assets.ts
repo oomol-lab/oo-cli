@@ -155,21 +155,6 @@ const bundledSkillRegistry = {
     Record<BundledSkillAgentName, BundledSkillDefinition>
 >;
 
-export function getBundledSkillAgentNames(
-    skillName: BundledSkillName,
-): readonly BundledSkillAgentName[] {
-    return Object.keys(
-        bundledSkillRegistry[skillName],
-    ) as BundledSkillAgentName[];
-}
-
-export function getBundledSkillSourceDirectory(
-    skillName: BundledSkillName,
-    agentName: BundledSkillAgentName = "codex",
-): string {
-    return `contrib/skills/${agentName}/${skillName}`;
-}
-
 export function getBundledSkillFiles(
     skillName: BundledSkillName,
     agentName: BundledSkillAgentName = "codex",
