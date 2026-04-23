@@ -5,7 +5,11 @@ import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
-import { resolveCodexHomeDirectory, resolveOpenClawHomeDirectory } from "./bundled-skill-paths.ts";
+import {
+    resolveClaudeHomeDirectory,
+    resolveCodexHomeDirectory,
+    resolveOpenClawHomeDirectory,
+} from "./bundled-skill-paths.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 const managedSkillNameColor = "#59F78D";
@@ -86,6 +90,44 @@ describe("skills list CLI", () => {
                     "",
                     "oo",
                     "  Host: OpenClaw",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                ].join("\n"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("groups identical skills installed across multiple hosts", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(claudeHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "list"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "✓ Found 2 oo-managed skills.",
+                    "",
+                    "oo",
+                    "  Host: Codex, Claude Code",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-find-skills",
+                    "  Host: Codex, Claude Code",
                     "  Source: bundled",
                     "  Version: 9.9.9",
                     "",

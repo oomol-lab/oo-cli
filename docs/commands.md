@@ -236,14 +236,16 @@ List oo-managed skills from supported local skill directories.
   `${CODEX_HOME:-~/.codex}/skills`, `~/.claude/skills`, and
   `${OPENCLAW_HOME:-~/.openclaw}/skills`. It keeps only child directories whose
   `.oo-metadata.json` can be parsed and contains a non-empty `version`.
-- Output: text output prints a summary line and one block per skill.
-- Ordering: blocks are grouped by host in `Codex`, `Claude Code`, `OpenClaw`
-  order. Within each host, `oo` is always listed first when present; the
-  remaining skills are ordered by skill name.
+- Output: text output prints a summary line and one block per unique visible
+  skill identity. Identical `name`/source/version installs across multiple
+  hosts are folded into one block.
+- Ordering: `oo` is always listed first when present; the remaining skills are
+  ordered by skill name. Host names within a block follow `Codex`,
+  `Claude Code`, `OpenClaw` order.
 - Output: each skill block shows the skill name, host, source package or
   bundled marker, and recorded version.
-- Notes: when the same skill name is installed in multiple supported hosts,
-  each host installation is listed separately.
+- Notes: when a folded skill is installed in multiple supported hosts, the
+  `Host` field lists all matching hosts.
 
 ### `oo skills search <text>`
 
