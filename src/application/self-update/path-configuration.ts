@@ -459,10 +459,7 @@ async function createShellProfileConfiguration(
 async function writeShellProfileConfiguration(
     configuration: ShellProfileConfiguration,
 ): Promise<void> {
-    const separator = configuration.content === ""
-        || configuration.content.endsWith("\n")
-        ? ""
-        : "\n";
+    const separator = createShellProfileSnippetSeparator(configuration.content);
 
     await mkdir(configuration.profileDirectory, {
         recursive: true,
@@ -471,6 +468,18 @@ async function writeShellProfileConfiguration(
         configuration.profilePath,
         `${configuration.content}${separator}${configuration.snippet}`,
     );
+}
+
+function createShellProfileSnippetSeparator(content: string): string {
+    if (content === "") {
+        return "";
+    }
+
+    if (content.endsWith("\n\n") || content.endsWith("\r\n\r\n")) {
+        return "";
+    }
+
+    return content.endsWith("\n") ? "\n" : "\n\n";
 }
 
 function createPosixPathSnippet(): string {

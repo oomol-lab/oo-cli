@@ -108,6 +108,49 @@ describe("ensureExecutableDirectoryOnPath", () => {
         }
     });
 
+    test("separates PATH setup from existing shell profile content with a blank line", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-existing-content");
+        const homeDirectory = toPortablePath(rootDirectory);
+        const executableDirectory = posix.join(homeDirectory, ".local", "bin");
+        const zshrcPath = posix.join(homeDirectory, ".zshrc");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
+        const logCapture = createLogCapture();
+        const env = {
+            HOME: homeDirectory,
+            PATH: "/usr/bin",
+            SHELL: "/bin/zsh",
+        };
+
+        trackDirectory(rootDirectory);
+        await Bun.write(zshrcPath, "# existing zshrc");
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env,
+                executableDirectory,
+                platform: "linux",
+                runtime: {
+                    env,
+                    logger: logCapture.logger,
+                    platform: "linux",
+                    resolveCommandPath: commandName =>
+                        commandName === "zsh" ? "/mock/bin/zsh" : null,
+                },
+            });
+
+            expect(result.target).toEqual([zshrcPath, zshenvPath]);
+            expect(await readFile(zshrcPath, "utf8")).toContain(
+                "# existing zshrc\n\n# Added by oo CLI\n",
+            );
+            expect(await readFile(zshenvPath, "utf8")).toStartWith(
+                "# Added by oo CLI\n",
+            );
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
     test("writes every installed Unix shell profile", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-path-multi-shell");
         const homeDirectory = toPortablePath(rootDirectory);
@@ -256,7 +299,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
 
             expect(result.target).toEqual([bashLoginPath, bashrcPath]);
             expect(await readFile(bashLoginPath, "utf8")).toContain(
-                "# existing bash login profile\n# Added by oo CLI\n",
+                "# existing bash login profile\n\n# Added by oo CLI\n",
             );
             expect(await readFile(bashrcPath, "utf8")).toContain(
                 "# Added by oo CLI\n",
@@ -299,7 +342,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
 
             expect(result.target).toEqual([bashrcPath, profilePath]);
             expect(await readFile(bashrcPath, "utf8")).toContain(
-                "# existing bashrc\n# Added by oo CLI\n",
+                "# existing bashrc\n\n# Added by oo CLI\n",
             );
             expect(await readFile(profilePath, "utf8")).toContain(
                 "# Added by oo CLI\n",
@@ -345,10 +388,10 @@ describe("ensureExecutableDirectoryOnPath", () => {
             expect(result.status).toBe("configured");
             expect(result.target).toEqual([bashrcPath, profilePath]);
             expect(await readFile(bashrcPath, "utf8")).toContain(
-                "# existing bashrc\n# Added by oo CLI\n",
+                "# existing bashrc\n\n# Added by oo CLI\n",
             );
             expect(await readFile(profilePath, "utf8")).toContain(
-                "# existing profile\n# Added by oo CLI\n",
+                "# existing profile\n\n# Added by oo CLI\n",
             );
             await expect(Bun.file(bashProfilePath).exists()).resolves.toBeFalse();
         }
