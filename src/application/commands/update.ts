@@ -7,22 +7,43 @@ import {
     resolveBundledSkillRefreshCommandPath,
 } from "../self-update/bundled-skills.ts";
 import {
+    ensureSelfUpdateExecutableDirectoryOnPath,
     performSelfUpdateOperation,
     renderSelfUpdateLockBusyMessage,
     resolveLatestSelfUpdateVersion,
     selfUpdateDevelopmentVersion,
 } from "../self-update/core.ts";
 import { detectInstallationMethodFromExecPath } from "../self-update/installation.ts";
+import { resolveSelfUpdateModifyPath } from "../self-update/modify-path-preference.ts";
+import { writeSelfUpdatePathNoteIfNeeded } from "./self-update-output.ts";
 import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
 import { writeLine } from "./shared/output.ts";
 
-export const updateCommand: CliCommandDefinition = {
+const updateCommandInputSchema = z.object({
+    modifyPath: z.boolean().default(true),
+});
+
+export const updateCommand: CliCommandDefinition<
+    z.infer<typeof updateCommandInputSchema>
+> = {
     name: "update",
     aliases: ["upgrade"],
     summaryKey: "commands.update.summary",
     descriptionKey: "commands.update.description",
-    inputSchema: z.object({}),
-    handler: async (_, context) => {
+    options: [
+        {
+            name: "modifyPath",
+            longFlag: "--no-modify-path",
+            descriptionKey: "options.noModifyPath",
+        },
+    ],
+    inputSchema: updateCommandInputSchema,
+    handler: async (input, context) => {
+        const effectiveModifyPath = resolveSelfUpdateModifyPath({
+            env: context.env,
+            modifyPathFlag: input.modifyPath,
+        });
+
         if (context.version === selfUpdateDevelopmentVersion) {
             writeLine(
                 context.stdout,
@@ -73,6 +94,16 @@ export const updateCommand: CliCommandDefinition = {
                         ...context.selfUpdateRuntime,
                     },
                 });
+                const { executableDirectory, pathConfiguration }
+                    = await ensureSelfUpdateExecutableDirectoryOnPath({
+                        modifyPath: effectiveModifyPath,
+                        runtime: {
+                            env: context.env,
+                            logger: context.logger,
+                            platform: process.platform,
+                            ...context.selfUpdateRuntime,
+                        },
+                    });
                 progressReporter?.finish();
                 writeLine(
                     context.stdout,
@@ -80,12 +111,19 @@ export const updateCommand: CliCommandDefinition = {
                         version: context.version,
                     }),
                 );
+                writeSelfUpdatePathNoteIfNeeded({
+                    executableDirectory,
+                    pathConfiguration,
+                    stdout: context.stdout,
+                    translator: context.translator,
+                });
                 return;
             }
 
             const result = await performSelfUpdateOperation({
                 currentVersion: context.version,
                 forceReinstall: true,
+                modifyPath: effectiveModifyPath,
                 reportStage: progressReporter?.createReportStage(),
                 runtime: {
                     arch: process.arch,
@@ -121,6 +159,12 @@ export const updateCommand: CliCommandDefinition = {
                         version: context.version,
                     }),
                 );
+                writeSelfUpdatePathNoteIfNeeded({
+                    executableDirectory: result.executableDirectory,
+                    pathConfiguration: result.pathConfiguration,
+                    stdout: context.stdout,
+                    translator: context.translator,
+                });
                 return;
             }
 
@@ -131,6 +175,12 @@ export const updateCommand: CliCommandDefinition = {
                     version: latestVersion,
                 }),
             );
+            writeSelfUpdatePathNoteIfNeeded({
+                executableDirectory: result.executableDirectory,
+                pathConfiguration: result.pathConfiguration,
+                stdout: context.stdout,
+                translator: context.translator,
+            });
         }
         catch (error) {
             progressReporter?.abort();

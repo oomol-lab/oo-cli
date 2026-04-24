@@ -110,6 +110,126 @@ describe("self-update commands", () => {
         }
     });
 
+    test("install does not touch PATH when OO_NO_MODIFY_PATH is set", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
+
+        sandbox.env.OO_NO_MODIFY_PATH = "1";
+
+        try {
+            const result = await sandbox.run(["install", "2.0.0"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        throw new Error("latest.json should not be requested");
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.0.0",
+            });
+
+            expect(createSelfUpdateInstallSnapshot(result, sandbox)).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: `Installed oo 2.0.0.\nExecutable: <EXECUTABLE_PATH>\nAdd <HOME>/.local/bin to PATH to run oo in new shells.\n`,
+            });
+            expect(selfUpdateRuntime.configurePathCallCount()).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("install does not touch PATH when --no-modify-path is passed", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
+
+        try {
+            const result = await sandbox.run(["install", "2.0.0", "--no-modify-path"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        throw new Error("latest.json should not be requested");
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.0.0",
+            });
+
+            expect(createSelfUpdateInstallSnapshot(result, sandbox)).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: `Installed oo 2.0.0.\nExecutable: <EXECUTABLE_PATH>\nAdd <HOME>/.local/bin to PATH to run oo in new shells.\n`,
+            });
+            expect(selfUpdateRuntime.configurePathCallCount()).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("install prints a setup note when automatic PATH configuration fails", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime(undefined, {
+            pathConfigured: false,
+        });
+
+        try {
+            const result = await sandbox.run(["install", "2.0.0"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        throw new Error("latest.json should not be requested");
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.0.0",
+            });
+
+            expect(createSelfUpdateInstallSnapshot(result, sandbox)).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: `Installed oo 2.0.0.\nExecutable: <EXECUTABLE_PATH>\nAdd <HOME>/.local/bin to PATH to run oo in new shells.\n`,
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("install silently refreshes bundled skills with the target version executable", async () => {
         const sandbox = await createCliSandbox();
         const releasePlatform = await detectSelfUpdateReleasePlatform({
@@ -154,7 +274,7 @@ describe("self-update commands", () => {
             expect(createSelfUpdateInstallSnapshot(result, sandbox)).toEqual({
                 exitCode: 0,
                 stderr: "",
-                stdout: `Installed oo 2.0.0.\nExecutable: <EXECUTABLE_PATH>\nAdd <HOME>/.local/bin to PATH to run oo in new shells.\n`,
+                stdout: `Installed oo 2.0.0.\nExecutable: <EXECUTABLE_PATH>\nAdded <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.\n`,
             });
             expect(selfUpdateRuntime.commands).toEqual([
                 {
@@ -298,10 +418,10 @@ describe("self-update commands", () => {
                 version: "1.0.0",
             });
 
-            expect(createCliSnapshot(result)).toEqual({
+            expect(createCliSnapshot(result, { sandbox })).toEqual({
                 exitCode: 0,
                 stderr: "",
-                stdout: "Updated oo from 1.0.0 to 2.0.0.\n",
+                stdout: "Updated oo from 1.0.0 to 2.0.0.\nAdded <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.\n",
             });
             expect(selfUpdateRuntime.commands).toEqual([
                 {
@@ -310,6 +430,132 @@ describe("self-update commands", () => {
                     timeoutMs: 10_000,
                 },
             ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("update does not touch PATH when OO_NO_MODIFY_PATH is set", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
+
+        sandbox.env.OO_NO_MODIFY_PATH = "yes";
+
+        try {
+            const result = await sandbox.run(["update"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        return new Response(JSON.stringify({
+                            version: "2.0.0",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.0.0",
+            });
+
+            expect(createCliSnapshot(result, { sandbox })).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: "Updated oo from 1.0.0 to 2.0.0.\nAdd <HOME>/.local/bin to PATH to run oo in new shells.\n",
+            });
+            expect(selfUpdateRuntime.configurePathCallCount()).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("update does not touch PATH when --no-modify-path is passed", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
+
+        try {
+            const result = await sandbox.run(["update", "--no-modify-path"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        return new Response(JSON.stringify({
+                            version: "2.0.0",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.0.0",
+            });
+
+            expect(createCliSnapshot(result, { sandbox })).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: "Updated oo from 1.0.0 to 2.0.0.\nAdd <HOME>/.local/bin to PATH to run oo in new shells.\n",
+            });
+            expect(selfUpdateRuntime.configurePathCallCount()).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("update prints a setup note when automatic PATH configuration fails", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime(undefined, {
+            pathConfigured: false,
+        });
+
+        try {
+            const result = await sandbox.run(["update"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        return new Response(JSON.stringify({
+                            version: "2.0.0",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.0.0",
+            });
+
+            expect(createCliSnapshot(result, { sandbox })).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: "Updated oo from 1.0.0 to 2.0.0.\nAdd <HOME>/.local/bin to PATH to run oo in new shells.\n",
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -361,10 +607,10 @@ describe("self-update commands", () => {
                 version: "1.2.3",
             });
 
-            expect(createCliSnapshot(result)).toEqual({
+            expect(createCliSnapshot(result, { sandbox })).toEqual({
                 exitCode: 0,
                 stderr: "",
-                stdout: "Already up to date at 1.2.3.\n",
+                stdout: "Already up to date at 1.2.3.\nAdded <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.\n",
             });
             expect(latestRequestCount).toBe(1);
             expect(binaryRequestCount).toBe(0);
@@ -417,10 +663,10 @@ describe("self-update commands", () => {
                 version: "1.2.3",
             });
 
-            expect(createCliSnapshot(result)).toEqual({
+            expect(createCliSnapshot(result, { sandbox })).toEqual({
                 exitCode: 0,
                 stderr: "",
-                stdout: "Already up to date at 1.2.3.\n",
+                stdout: "Already up to date at 1.2.3.\nAdded <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.\n",
             });
             expect(binaryRequestCount).toBe(1);
         }
@@ -472,7 +718,7 @@ describe("self-update commands", () => {
                 version: "1.2.3",
             });
 
-            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(binaryRequestCount).toBe(1);
             expect(legacyCleanup.commands).toEqual([
                 {
@@ -576,8 +822,12 @@ function createCapturedSelfUpdateRuntime(commandResult?: {
     signalCode?: NodeJS.Signals | null;
     stderr?: string;
     stdout?: string;
-}): {
+}, options: {
+    pathConfigurationTarget?: readonly string[];
+    pathConfigured?: boolean;
+} = {}): {
     commands: CapturedSelfUpdateCommand[];
+    configurePathCallCount: () => number;
     runtime: NonNullable<CliRunOptions["selfUpdateRuntime"]>;
 } {
     const commands: CapturedSelfUpdateCommand[] = [];
@@ -588,10 +838,21 @@ function createCapturedSelfUpdateRuntime(commandResult?: {
         stdout: "",
         ...commandResult,
     };
+    let configurePathCalls = 0;
 
     return {
         commands,
+        configurePathCallCount: () => configurePathCalls,
         runtime: {
+            configurePath: async () => {
+                configurePathCalls += 1;
+                return options.pathConfigured === false
+                    ? { status: "failed" }
+                    : {
+                            status: "configured",
+                            target: options.pathConfigurationTarget ?? ["shell profile"],
+                        };
+            },
             resolveCommandPath: commandName => `/mock/bin/${commandName}`,
             runCommand: async (options) => {
                 commands.push({

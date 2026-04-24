@@ -446,6 +446,8 @@ export const enMessages = {
     "options.force":
         "Force reinstallation even when the target version already exists",
     "options.help": "Show help for command",
+    "options.noModifyPath":
+        "Do not add the executable directory to PATH automatically",
     "options.limit": "Specify the maximum number of items to return",
     "options.format": "Specify output format (use json for structured output)",
     "options.json": "Alias for --format=json",
@@ -470,6 +472,14 @@ export const enMessages = {
     "options.version": "Show the current version",
     "selfUpdate.install.success": "Installed oo {version}.",
     "selfUpdate.install.executable": "Executable: {path}",
+    "selfUpdate.pathConfiguredNote":
+        "Added {path} to PATH. Restart your shell to reload PATH and use oo.",
+    "selfUpdate.pathPartiallyConfigured.updatedHeader":
+        "Updated PATH in:",
+    "selfUpdate.pathPartiallyConfigured.failedHeader":
+        "Could not update:",
+    "selfUpdate.pathPartiallyConfigured.restart":
+        "Restart your shell to reload PATH and use oo.",
     "selfUpdate.install.pathNote":
         "Add {path} to PATH to run oo in new shells.",
     "selfUpdate.progress.install.header": "Installing oo",
@@ -1040,6 +1050,8 @@ export const zhMessages = {
     "options.force":
         "即使目标版本已存在也强制重新安装",
     "options.help": "显示命令帮助",
+    "options.noModifyPath":
+        "不要自动将可执行目录加入 PATH",
     "options.limit": "指定最多返回多少条记录",
     "options.format": "指定输出格式（使用 json 返回结构化内容）",
     "options.json": "--format=json 的别名",
@@ -1063,6 +1075,14 @@ export const zhMessages = {
     "options.version": "显示当前版本",
     "selfUpdate.install.success": "已安装 oo {version}。",
     "selfUpdate.install.executable": "可执行入口：{path}",
+    "selfUpdate.pathConfiguredNote":
+        "已将 {path} 加入 PATH。请重启 shell 以重新加载 PATH 后使用 oo。",
+    "selfUpdate.pathPartiallyConfigured.updatedHeader":
+        "已为以下 profile 配置 PATH：",
+    "selfUpdate.pathPartiallyConfigured.failedHeader":
+        "以下 profile 写入失败：",
+    "selfUpdate.pathPartiallyConfigured.restart":
+        "请重启 shell 以重新加载 PATH 后使用 oo。",
     "selfUpdate.install.pathNote":
         "请把 {path} 加入 PATH，新的 shell 才能直接运行 oo。",
     "selfUpdate.progress.install.header": "正在安装 oo",

@@ -1,9 +1,10 @@
 import type { Logger } from "pino";
 import type { CliExecutionContext, Fetcher } from "../contracts/cli.ts";
+import type { SelfUpdatePathConfigurationResult } from "../contracts/self-update.ts";
 import type { LegacyPackageManagerCleanupRuntime } from "./legacy-installation.ts";
 import type { SelfUpdateProgressEvent } from "./progress.ts";
 import { chmod, copyFile, lstat, mkdir, open, readdir, readlink, realpath, rename, rm, stat, symlink } from "node:fs/promises";
-import { basename, delimiter, dirname, isAbsolute, join, normalize, relative, resolve as resolvePath, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize, relative, sep } from "node:path";
 import process from "node:process";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
@@ -23,6 +24,7 @@ import {
     cleanupStaleVersionLocks,
     listActiveVersionLocks,
 } from "./lock.ts";
+import { ensureExecutableDirectoryOnPath } from "./path-configuration.ts";
 import {
     resolveSelfUpdateLockFilePath,
     resolveSelfUpdatePaths,
@@ -54,7 +56,7 @@ export const selfUpdateReleaseRequestTimeoutMs = 10_000;
 export interface SelfUpdateOperationResult {
     executableDirectory: string;
     executablePath: string;
-    pathConfigured: boolean;
+    pathConfiguration: SelfUpdatePathConfigurationResult;
     releasePlatform: string;
     status: "installed";
     targetVersion: string;
@@ -94,6 +96,7 @@ export async function resolveLatestSelfUpdateVersion(options: {
 export async function performSelfUpdateOperation(options: {
     currentVersion: string;
     forceReinstall: boolean;
+    modifyPath?: boolean;
     reportStage?: (event: SelfUpdateProgressEvent) => void;
     runtime: SelfUpdateRuntime;
     targetVersion: string;
@@ -155,8 +158,7 @@ export async function performSelfUpdateOperation(options: {
             timestamp: (options.runtime.now ?? Date.now)(),
         });
 
-        const pathConfigured = await verifyInstalledEntrypoint({
-            env: options.runtime.env,
+        await verifyInstalledEntrypoint({
             paths,
             platform: options.runtime.platform,
             reportStage: options.reportStage,
@@ -182,11 +184,15 @@ export async function performSelfUpdateOperation(options: {
             runtime: options.runtime,
         });
         await attemptLegacyPackageManagerUninstall(options.runtime);
+        const { pathConfiguration } = await ensureSelfUpdateExecutableDirectoryOnPath({
+            modifyPath: options.modifyPath,
+            runtime: options.runtime,
+        });
 
         return {
             executableDirectory: paths.executableDirectory,
             executablePath: paths.executablePath,
-            pathConfigured,
+            pathConfiguration,
             releasePlatform,
             status: "installed",
             targetVersion: options.targetVersion,
@@ -195,6 +201,31 @@ export async function performSelfUpdateOperation(options: {
     finally {
         await lockResult.handle.close();
     }
+}
+
+export async function ensureSelfUpdateExecutableDirectoryOnPath(options: {
+    modifyPath?: boolean;
+    runtime: Pick<SelfUpdateRuntime, "configurePath" | "env" | "logger" | "platform" | "resolveCommandPath" | "runCommand">;
+}): Promise<{
+    executableDirectory: string;
+    pathConfiguration: SelfUpdatePathConfigurationResult;
+}> {
+    const paths = resolveSelfUpdatePaths({
+        env: options.runtime.env,
+        platform: options.runtime.platform,
+    });
+    const pathConfiguration = await ensureExecutableDirectoryOnPath({
+        env: options.runtime.env,
+        executableDirectory: paths.executableDirectory,
+        modifyPath: options.modifyPath,
+        platform: options.runtime.platform,
+        runtime: options.runtime,
+    });
+
+    return {
+        executableDirectory: paths.executableDirectory,
+        pathConfiguration,
+    };
 }
 
 export async function initializeCurrentVersionProcessLock(options: {
@@ -731,12 +762,11 @@ async function restoreWindowsExecutableBackup(options: {
 }
 
 async function verifyInstalledEntrypoint(options: {
-    env: Record<string, string | undefined>;
     paths: ReturnType<typeof resolveSelfUpdatePaths>;
     platform: NodeJS.Platform;
     reportStage?: (event: SelfUpdateProgressEvent) => void;
     targetVersion: string;
-}): Promise<boolean> {
+}): Promise<void> {
     const targetVersionPath = resolveSelfUpdateVersionFilePath(
         options.paths,
         options.targetVersion,
@@ -809,12 +839,6 @@ async function verifyInstalledEntrypoint(options: {
             });
         }
     }
-
-    return isExecutableDirectoryOnPath(
-        options.paths.executableDirectory,
-        options.env,
-        options.platform,
-    );
 }
 
 async function cleanupSelfUpdateArtifacts(options: {
@@ -951,45 +975,6 @@ async function cleanupWindowsExecutableBackups(
         },
         "CLI self-update executable-backup cleanup completed.",
     );
-}
-
-function isExecutableDirectoryOnPath(
-    executableDirectory: string,
-    env: Record<string, string | undefined>,
-    platform: NodeJS.Platform,
-): boolean {
-    const pathValue = platform === "win32"
-        ? env.Path ?? env.PATH
-        : env.PATH;
-
-    if (!pathValue) {
-        return false;
-    }
-
-    const normalizedExecutableDirectory = normalizePathForComparison(
-        executableDirectory,
-        platform,
-    );
-
-    return pathValue
-        .split(delimiter)
-        .some(segment =>
-            normalizePathForComparison(segment, platform)
-            === normalizedExecutableDirectory,
-        );
-}
-
-function normalizePathForComparison(
-    value: string,
-    platform: NodeJS.Platform,
-): string {
-    const resolvedValue = normalize(
-        isAbsolute(value) ? value : resolvePath(value),
-    );
-
-    return platform === "win32"
-        ? resolvedValue.toLowerCase()
-        : resolvedValue;
 }
 
 async function readDirectoryEntries(path: string): Promise<string[]> {
