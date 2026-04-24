@@ -352,6 +352,45 @@ describe("ensureExecutableDirectoryOnPath", () => {
         }
     });
 
+    test("deduplicates the .profile fallback for unknown shells", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-unknown-shell");
+        const homeDirectory = toPortablePath(rootDirectory);
+        const executableDirectory = posix.join(homeDirectory, ".local", "bin");
+        const bashrcPath = posix.join(homeDirectory, ".bashrc");
+        const profilePath = posix.join(homeDirectory, ".profile");
+        const logCapture = createLogCapture();
+        const env = {
+            HOME: homeDirectory,
+            PATH: "/usr/bin",
+            SHELL: "/usr/bin/xonsh",
+        };
+
+        trackDirectory(rootDirectory);
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env,
+                executableDirectory,
+                platform: "linux",
+                runtime: {
+                    env,
+                    logger: logCapture.logger,
+                    platform: "linux",
+                    resolveCommandPath: commandName =>
+                        commandName === "bash" ? "/mock/bin/bash" : null,
+                },
+            });
+
+            expect(result).toEqual({
+                status: "configured",
+                target: [bashrcPath, profilePath],
+            });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
     test("fresh macOS bash fallback creates both .bash_profile and .bashrc so nested bash also loads PATH", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-path-darwin-bash");
         const homeDirectory = toPortablePath(rootDirectory);

@@ -293,25 +293,26 @@ async function resolveShellProfileConfigurations(
         .map(({ installed, profileExists, shellNames, ...configuration }) =>
             configuration,
         );
+    const profileFallbackPath = pathModule.join(homeDirectory, ".profile");
+    const needsProfileFallback = selectedConfigurations.length === 0
+        || (shellName !== undefined && !knownUnixShellNames.has(shellName));
 
-    if (selectedConfigurations.length === 0) {
-        return [
-            await createShellProfileConfiguration(
-                pathModule.join(homeDirectory, ".profile"),
-                options.platform,
-                createPosixPathSnippet(),
-            ),
-        ];
+    if (!needsProfileFallback) {
+        return selectedConfigurations;
     }
 
-    if (shellName === undefined || knownUnixShellNames.has(shellName)) {
+    // bash candidates may already include ~/.profile as the login-shell
+    // fallback, so skip appending a duplicate entry for the same path.
+    if (selectedConfigurations.some(
+        configuration => configuration.profilePath === profileFallbackPath,
+    )) {
         return selectedConfigurations;
     }
 
     return [
         ...selectedConfigurations,
         await createShellProfileConfiguration(
-            pathModule.join(homeDirectory, ".profile"),
+            profileFallbackPath,
             options.platform,
             createPosixPathSnippet(),
         ),
