@@ -224,11 +224,12 @@ describe("ensureExecutableDirectoryOnPath", () => {
         }
     });
 
-    test("uses an existing bash profile before creating the platform-preferred fallback", async () => {
+    test("creates the bash interactive fallback when only a login profile exists", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-path-bash");
         const homeDirectory = toPortablePath(rootDirectory);
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
-        const bashProfilePath = posix.join(homeDirectory, ".bash_profile");
+        const bashLoginPath = posix.join(homeDirectory, ".bash_login");
+        const bashrcPath = posix.join(homeDirectory, ".bashrc");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -237,7 +238,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
         };
 
         trackDirectory(rootDirectory);
-        await Bun.write(bashProfilePath, "# existing bash profile\n");
+        await Bun.write(bashLoginPath, "# existing bash login profile\n");
 
         try {
             const result = await ensureExecutableDirectoryOnPath({
@@ -253,9 +254,55 @@ describe("ensureExecutableDirectoryOnPath", () => {
                 },
             });
 
-            expect(result.target).toEqual([bashProfilePath]);
-            expect(await readFile(bashProfilePath, "utf8")).toContain(
-                "# existing bash profile\n# Added by oo CLI\n",
+            expect(result.target).toEqual([bashLoginPath, bashrcPath]);
+            expect(await readFile(bashLoginPath, "utf8")).toContain(
+                "# existing bash login profile\n# Added by oo CLI\n",
+            );
+            expect(await readFile(bashrcPath, "utf8")).toContain(
+                "# Added by oo CLI\n",
+            );
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("creates the bash login fallback when only .bashrc exists", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-bashrc-only");
+        const homeDirectory = toPortablePath(rootDirectory);
+        const executableDirectory = posix.join(homeDirectory, ".local", "bin");
+        const bashrcPath = posix.join(homeDirectory, ".bashrc");
+        const profilePath = posix.join(homeDirectory, ".profile");
+        const logCapture = createLogCapture();
+        const env = {
+            HOME: homeDirectory,
+            PATH: "/usr/bin",
+            SHELL: "/bin/bash",
+        };
+
+        trackDirectory(rootDirectory);
+        await Bun.write(bashrcPath, "# existing bashrc\n");
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env,
+                executableDirectory,
+                platform: "linux",
+                runtime: {
+                    env,
+                    logger: logCapture.logger,
+                    platform: "linux",
+                    resolveCommandPath: commandName =>
+                        commandName === "bash" ? "/mock/bin/bash" : null,
+                },
+            });
+
+            expect(result.target).toEqual([bashrcPath, profilePath]);
+            expect(await readFile(bashrcPath, "utf8")).toContain(
+                "# existing bashrc\n# Added by oo CLI\n",
+            );
+            expect(await readFile(profilePath, "utf8")).toContain(
+                "# Added by oo CLI\n",
             );
         }
         finally {
@@ -521,9 +568,11 @@ describe("ensureExecutableDirectoryOnPath", () => {
             expect(result.target).toEqual([profilePath]);
             const profileContent = await readFile(profilePath, "utf8");
 
-            expect(profileContent).toContain("Join-Path $HOME '.local/bin'");
+            expect(profileContent).toContain("$pathEntry = Join-Path $HOME '.local/bin'");
+            expect(profileContent).toContain("[string]::IsNullOrEmpty($env:PATH)");
+            expect(profileContent).toContain("$env:PATH.Split([System.IO.Path]::PathSeparator)");
+            expect(profileContent).not.toContain("$env:Path");
             expect(profileContent).not.toContain("$ooCliBin");
-            expect(profileContent).not.toContain("[string]::IsNullOrEmpty");
         }
         finally {
             logCapture.close();

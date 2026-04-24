@@ -328,9 +328,11 @@ async function createBashProfileCandidates(
     // Writing to every rc file that exists matches what rustup/bun do — the
     // runtime duplicate guard in the snippet keeps PATH clean.
     const pathModule = readPathModule(options.platform);
+    const interactiveProfileName = ".bashrc";
+    const loginProfileNames = [".bash_profile", ".bash_login", ".profile"] as const;
     const profileNames = options.platform === "darwin"
-        ? [".bash_profile", ".bashrc", ".profile"]
-        : [".bashrc", ".bash_profile", ".profile"];
+        ? [".bash_profile", ".bash_login", ".bashrc", ".profile"]
+        : [".bashrc", ".bash_profile", ".bash_login", ".profile"];
     const [installed, ...contents] = await Promise.all([
         isShellCommandAvailable("bash", options.runtime),
         ...profileNames.map(name =>
@@ -338,6 +340,24 @@ async function createBashProfileCandidates(
         ),
     ]);
     const existing: ShellProfileCandidate[] = [];
+    const existingProfileNames = new Set<string>();
+    const createCandidate = (
+        profileName: string,
+        content: string,
+        profileExists: boolean,
+    ): ShellProfileCandidate => {
+        const profilePath = pathModule.join(homeDirectory, profileName);
+
+        return {
+            content,
+            installed,
+            profileDirectory: pathModule.dirname(profilePath),
+            profileExists,
+            profilePath,
+            shellNames: bashShellNames,
+            snippet: createPosixPathSnippet(),
+        };
+    };
 
     for (const [index, profileName] of profileNames.entries()) {
         const content = contents[index];
@@ -346,46 +366,40 @@ async function createBashProfileCandidates(
             continue;
         }
 
-        const profilePath = pathModule.join(homeDirectory, profileName);
-
-        existing.push({
-            content,
-            installed,
-            profileDirectory: pathModule.dirname(profilePath),
-            profileExists: true,
-            profilePath,
-            shellNames: bashShellNames,
-            snippet: createPosixPathSnippet(),
-        });
+        existingProfileNames.add(profileName);
+        existing.push(createCandidate(profileName, content, true));
     }
 
-    if (existing.length > 0) {
+    const hasInteractiveProfile = existingProfileNames.has(interactiveProfileName);
+    const hasLoginProfile = loginProfileNames.some(profileName =>
+        existingProfileNames.has(profileName),
+    );
+
+    if (hasInteractiveProfile && hasLoginProfile) {
         return existing;
     }
 
-    // No bash rc file exists — create a pair that together covers both
-    // login and non-login bash. Without this, a fresh container that only
-    // gets .bashrc would miss SSH login shells (which read .bash_profile /
-    // .bash_login / .profile instead).
+    // Fill in the missing side of bash startup so both login and non-login
+    // shells can see oo, even when the user already has one profile type.
     //   Linux: .bashrc (non-login) + .profile (login fallback)
     //   macOS: .bash_profile (login, Terminal default) + .bashrc (nested)
+    const fallbackLoginProfileName = options.platform === "darwin"
+        ? ".bash_profile"
+        : ".profile";
     const fallbackNames = options.platform === "darwin"
-        ? [".bash_profile", ".bashrc"]
-        : [".bashrc", ".profile"];
+        ? [
+                ...(hasLoginProfile ? [] : [fallbackLoginProfileName]),
+                ...(hasInteractiveProfile ? [] : [interactiveProfileName]),
+            ]
+        : [
+                ...(hasInteractiveProfile ? [] : [interactiveProfileName]),
+                ...(hasLoginProfile ? [] : [fallbackLoginProfileName]),
+            ];
 
-    return fallbackNames.map((profileName) => {
-        const profilePath = pathModule.join(homeDirectory, profileName);
-
-        return {
-            content: "",
-            installed,
-            profileDirectory: pathModule.dirname(profilePath),
-            profileExists: false,
-            profilePath,
-            shellNames: bashShellNames,
-            snippet: createPosixPathSnippet(),
-        };
-    });
+    return [
+        ...existing,
+        ...fallbackNames.map(profileName => createCandidate(profileName, "", false)),
+    ];
 }
 
 async function createShellProfileCandidate(
@@ -485,8 +499,12 @@ function createFishPathSnippet(): string {
 function createPowerShellProfilePathSnippet(): string {
     return [
         pathConfigurationSentinel,
-        `if (-not ($env:Path.Split([System.IO.Path]::PathSeparator) -contains (Join-Path $HOME '.local/bin'))) {`,
-        `    $env:Path = (Join-Path $HOME '.local/bin') + [System.IO.Path]::PathSeparator + $env:Path`,
+        "$pathEntry = Join-Path $HOME '.local/bin'",
+        "if ([string]::IsNullOrEmpty($env:PATH)) {",
+        "    $env:PATH = $pathEntry",
+        "}",
+        "elseif (-not ($env:PATH.Split([System.IO.Path]::PathSeparator) -contains $pathEntry)) {",
+        "    $env:PATH = $pathEntry + [System.IO.Path]::PathSeparator + $env:PATH",
         "}",
         "",
     ].join("\n");
