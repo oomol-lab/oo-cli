@@ -114,6 +114,9 @@
 - 说明：如果可执行目录没有出现在 `PATH` 中，install 会尝试为后续 shell
   持久化 PATH 配置；如果自动配置成功，install 会提示用户重启 shell；如果自动配置失败，
   install 会打印 setup note，告知用户应当把哪个目录加入 `PATH`。
+- 说明：当部分 shell profile 配置成功、另一部分失败时，install 会分别列出两组
+  ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
+  决定是否手动补全未配置的 profile。
 - 说明：install 成功后，CLI 会使用托管的可执行文件静默执行一次
   `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
@@ -143,6 +146,9 @@
 - 说明：如果可执行目录没有出现在 `PATH` 中，update 会尝试为后续 shell
   持久化 PATH 配置；如果自动配置成功，update 会提示用户重启 shell；如果自动配置失败，
   update 会打印 setup note，告知用户应当把哪个目录加入 `PATH`。
+- 说明：当部分 shell profile 配置成功、另一部分失败时，update 会分别列出两组
+  ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
+  决定是否手动补全未配置的 profile。
 - 说明：update 成功后，CLI 会使用托管的可执行文件静默执行一次
   `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /

@@ -474,6 +474,12 @@ export const enMessages = {
     "selfUpdate.install.executable": "Executable: {path}",
     "selfUpdate.pathConfiguredNote":
         "Added {path} to PATH. Restart your shell to reload PATH and use oo.",
+    "selfUpdate.pathPartiallyConfigured.updatedHeader":
+        "Updated PATH in:",
+    "selfUpdate.pathPartiallyConfigured.failedHeader":
+        "Could not update:",
+    "selfUpdate.pathPartiallyConfigured.restart":
+        "Restart your shell to reload PATH and use oo.",
     "selfUpdate.install.pathNote":
         "Add {path} to PATH to run oo in new shells.",
     "selfUpdate.progress.install.header": "Installing oo",
@@ -1071,6 +1077,12 @@ export const zhMessages = {
     "selfUpdate.install.executable": "可执行入口：{path}",
     "selfUpdate.pathConfiguredNote":
         "已将 {path} 加入 PATH。请重启 shell 以重新加载 PATH 后使用 oo。",
+    "selfUpdate.pathPartiallyConfigured.updatedHeader":
+        "已为以下 profile 配置 PATH：",
+    "selfUpdate.pathPartiallyConfigured.failedHeader":
+        "以下 profile 写入失败：",
+    "selfUpdate.pathPartiallyConfigured.restart":
+        "请重启 shell 以重新加载 PATH 后使用 oo。",
     "selfUpdate.install.pathNote":
         "请把 {path} 加入 PATH，新的 shell 才能直接运行 oo。",
     "selfUpdate.progress.install.header": "正在安装 oo",

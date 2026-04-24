@@ -54,6 +54,33 @@ describe("writeSelfUpdatePathNoteIfNeeded", () => {
         expect(stdout.read()).toContain("Restart your shell");
     });
 
+    test("prints a symmetric updated / failed listing on partial success", () => {
+        const stdout = createTextBuffer();
+
+        writeSelfUpdatePathNoteIfNeeded({
+            executableDirectory,
+            pathConfiguration: {
+                status: "partial-configured",
+                target: ["/home/demo/.zshrc", "/home/demo/.bashrc"],
+                failedTargets: ["/home/demo/.config/fish/conf.d/oo.fish"],
+            },
+            stdout: stdout.writer,
+            translator,
+        });
+
+        expect(stdout.read()).toBe(
+            [
+                "Updated PATH in:",
+                "  /home/demo/.zshrc",
+                "  /home/demo/.bashrc",
+                "Could not update:",
+                "  /home/demo/.config/fish/conf.d/oo.fish",
+                "Restart your shell to reload PATH and use oo.",
+                "",
+            ].join("\n"),
+        );
+    });
+
     test("prints the manual setup note on failure", () => {
         const stdout = createTextBuffer();
 

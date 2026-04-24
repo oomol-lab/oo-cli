@@ -35,6 +35,31 @@ export function writeSelfUpdatePathNoteIfNeeded(options: {
         return;
     }
 
+    if (options.pathConfiguration.status === "partial-configured") {
+        // Some profiles were updated, others failed. List both explicitly so
+        // the user can tell at a glance what worked and what didn't — no
+        // "success + failure" dissonance in a single sentence.
+        writeLine(
+            options.stdout,
+            options.translator.t("selfUpdate.pathPartiallyConfigured.updatedHeader"),
+        );
+        for (const target of options.pathConfiguration.target ?? []) {
+            writeLine(options.stdout, `  ${target}`);
+        }
+        writeLine(
+            options.stdout,
+            options.translator.t("selfUpdate.pathPartiallyConfigured.failedHeader"),
+        );
+        for (const target of options.pathConfiguration.failedTargets ?? []) {
+            writeLine(options.stdout, `  ${target}`);
+        }
+        writeLine(
+            options.stdout,
+            options.translator.t("selfUpdate.pathPartiallyConfigured.restart"),
+        );
+        return;
+    }
+
     // "failed" and "skipped" both fall back to the manual setup note.
     writeLine(
         options.stdout,

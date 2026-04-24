@@ -128,6 +128,10 @@ Install one managed `oo` release into the local self-managed runtime.
   persist it for future shells. When automatic PATH configuration succeeds,
   install tells the user to restart their shell; when it fails, install prints
   a setup note that tells the user which directory to add.
+- Notes: when some shell profiles were updated and others could not be,
+  install lists both — the profiles that were updated and the profiles that
+  could not be updated — followed by the restart-shell note. The user can
+  then decide whether to update the failed profiles manually.
 - Notes: after a successful install workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
   installed CLI version.
@@ -164,6 +168,10 @@ Update the managed `oo` install to the latest published release.
   persist it for future shells. When automatic PATH configuration succeeds,
   update tells the user to restart their shell; when it fails, update prints a
   setup note that tells the user which directory to add.
+- Notes: when some shell profiles were updated and others could not be,
+  update lists both — the profiles that were updated and the profiles that
+  could not be updated — followed by the restart-shell note. The user can
+  then decide whether to update the failed profiles manually.
 - Notes: after a successful update workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
   installed CLI version.

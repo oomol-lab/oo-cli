@@ -20,11 +20,24 @@ export interface SelfUpdatePathConfigurationOptions {
 }
 
 export interface SelfUpdatePathConfigurationResult {
-    status: "already-configured" | "configured" | "failed" | "skipped";
+    status:
+        | "already-configured"
+        | "configured"
+        | "failed"
+        | "partial-configured"
+        | "skipped";
     target?: readonly string[];
+    failedTargets?: readonly string[];
 }
 
 export interface SelfUpdateRuntimeOverrides {
+    /**
+     * Gates the Windows HKCU\Environment registry write. Must be true for the
+     * real user environment to be touched; defaults to false so test sandboxes
+     * never mutate the host registry by accident. Production wiring flips it
+     * to true at the CLI entry point.
+     */
+    allowWindowsRegistryWrite?: boolean;
     configurePath?: (
         options: SelfUpdatePathConfigurationOptions,
     ) => Promise<SelfUpdatePathConfigurationResult>;

@@ -93,6 +93,12 @@ export async function runCli(argv: string[]): Promise<number> {
         cwd: process.cwd(),
         env: process.env,
         fetcher: fetch,
+        // The real CLI entry is the only caller allowed to touch the Windows
+        // user registry. Tests and programmatic embedders go through
+        // executeCli directly and inherit the safer default (off).
+        selfUpdateRuntime: {
+            allowWindowsRegistryWrite: true,
+        },
         stdin: createLazyStdin(),
         stdout: process.stdout,
         stderr: process.stderr,

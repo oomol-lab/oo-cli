@@ -5,9 +5,8 @@ import type {
     SelfUpdateRuntimeOverrides,
 } from "../contracts/self-update.ts";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import process from "node:process";
 import { resolveHomeDirectory } from "../path/home-directory.ts";
-import { isFileMissingError } from "../shared/fs-errors.ts";
+import { isDirectoryReadError, isFileMissingError } from "../shared/fs-errors.ts";
 import {
     normalizeLoggedCommandOutput,
     runSelfUpdateCommand,
@@ -124,6 +123,7 @@ async function configureUnixShellProfile(
         const configurations = await resolveShellProfileConfigurations(options);
         const alreadyConfiguredTargets: string[] = [];
         const configuredTargets: string[] = [];
+        const failedTargets: string[] = [];
 
         for (const configuration of configurations) {
             if (configuration.content.includes(pathConfigurationSentinel)) {
@@ -143,6 +143,7 @@ async function configureUnixShellProfile(
                 );
             }
             catch (error) {
+                failedTargets.push(configuration.profilePath);
                 options.runtime.logger.warn(
                     {
                         err: error,
@@ -154,10 +155,25 @@ async function configureUnixShellProfile(
             }
         }
 
+        if (configuredTargets.length > 0 && failedTargets.length > 0) {
+            return {
+                status: "partial-configured",
+                target: configuredTargets,
+                failedTargets,
+            };
+        }
+
         if (configuredTargets.length > 0) {
             return {
                 status: "configured",
                 target: configuredTargets,
+            };
+        }
+
+        if (failedTargets.length > 0) {
+            return {
+                status: "failed",
+                failedTargets,
             };
         }
 
@@ -490,12 +506,12 @@ function createNushellPathSnippet(): string {
 async function configureWindowsUserPath(
     options: EnsureExecutableDirectoryOnPathOptions,
 ): Promise<SelfUpdatePathConfigurationResult> {
-    if (options.env !== process.env) {
+    if (options.runtime.allowWindowsRegistryWrite !== true) {
         options.runtime.logger.debug(
             {
                 executableDirectory: options.executableDirectory,
             },
-            "Windows user PATH configuration skipped for a non-process environment.",
+            "Windows user PATH configuration skipped because allowWindowsRegistryWrite is not set.",
         );
 
         return {
@@ -726,7 +742,10 @@ async function readTextFileIfExists(path: string): Promise<string | undefined> {
         return await readFile(path, "utf8");
     }
     catch (error) {
-        if (isFileMissingError(error)) {
+        // Treat "missing file" and "path is a directory" as "no prior content"
+        // — the subsequent writeFile will surface any write-time conflict so
+        // the caller can report a real failure instead of an earlier read one.
+        if (isFileMissingError(error) || isDirectoryReadError(error)) {
             return undefined;
         }
 

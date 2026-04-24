@@ -1,5 +1,5 @@
 import type { SelfUpdateCommandRunOptions } from "../contracts/self-update.ts";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { posix, win32 } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
@@ -505,6 +505,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
                 executableDirectory,
                 platform: "win32",
                 runtime: {
+                    allowWindowsRegistryWrite: true,
                     env: process.env,
                     logger: logCapture.logger,
                     platform: "win32",
@@ -546,6 +547,89 @@ describe("ensureExecutableDirectoryOnPath", () => {
             expect(commandText).not.toContain(
                 "[Environment]::SetEnvironmentVariable('Path'",
             );
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("returns partial-configured when some profiles succeed and others fail", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-partial");
+        const homeDirectory = toPortablePath(rootDirectory);
+        const executableDirectory = posix.join(homeDirectory, ".local", "bin");
+        const zshrcPath = posix.join(homeDirectory, ".zshrc");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
+        const logCapture = createLogCapture();
+        const env = {
+            HOME: homeDirectory,
+            PATH: "/usr/bin",
+            SHELL: "/bin/zsh",
+        };
+
+        trackDirectory(rootDirectory);
+        // Put a directory where .zshenv would be written so writeFile errors
+        // with EISDIR while .zshrc still succeeds.
+        await mkdir(zshenvPath, { recursive: true });
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env,
+                executableDirectory,
+                platform: "linux",
+                runtime: {
+                    env,
+                    logger: logCapture.logger,
+                    platform: "linux",
+                    resolveCommandPath: commandName =>
+                        commandName === "zsh" ? "/mock/bin/zsh" : null,
+                },
+            });
+
+            expect(result).toEqual({
+                status: "partial-configured",
+                target: [zshrcPath],
+                failedTargets: [zshenvPath],
+            });
+            await expect(Bun.file(zshrcPath).exists()).resolves.toBeTrue();
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("returns failed with failedTargets when every write fails", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-all-failed");
+        const homeDirectory = toPortablePath(rootDirectory);
+        const executableDirectory = posix.join(homeDirectory, ".local", "bin");
+        const zshrcPath = posix.join(homeDirectory, ".zshrc");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
+        const logCapture = createLogCapture();
+        const env = {
+            HOME: homeDirectory,
+            PATH: "/usr/bin",
+            SHELL: "/bin/zsh",
+        };
+
+        trackDirectory(rootDirectory);
+        await mkdir(zshrcPath, { recursive: true });
+        await mkdir(zshenvPath, { recursive: true });
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env,
+                executableDirectory,
+                platform: "linux",
+                runtime: {
+                    env,
+                    logger: logCapture.logger,
+                    platform: "linux",
+                    resolveCommandPath: commandName =>
+                        commandName === "zsh" ? "/mock/bin/zsh" : null,
+                },
+            });
+
+            expect(result.status).toBe("failed");
+            expect(result.failedTargets).toEqual([zshrcPath, zshenvPath]);
         }
         finally {
             logCapture.close();
@@ -623,8 +707,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
         }
     });
 
-    test("does not run Windows user PATH commands for sandboxed environments", async () => {
-        const rootDirectory = await createTemporaryDirectory("oo-path-win-sandbox");
+    test("skips Windows registry write when allowWindowsRegistryWrite is not set", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-win-no-flag");
         const executableDirectory = win32.join(rootDirectory, ".local", "bin");
         const logCapture = createLogCapture();
         const env = {
@@ -652,6 +736,54 @@ describe("ensureExecutableDirectoryOnPath", () => {
             expect(result).toEqual({
                 status: "failed",
             });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("runs the Windows registry write even when env is a cloned (non-identity) object", async () => {
+        // Regression for the old `options.env !== process.env` guard: a caller
+        // that innocently clones env (e.g. `{ ...process.env, DEBUG: "1" }`)
+        // must still be able to write the registry when explicitly allowed.
+        const rootDirectory = await createTemporaryDirectory("oo-path-win-cloned-env");
+        const executableDirectory = win32.join(rootDirectory, ".local", "bin");
+        const logCapture = createLogCapture();
+        const clonedEnv = { ...process.env };
+        const commands: SelfUpdateCommandRunOptions[] = [];
+
+        trackDirectory(rootDirectory);
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env: clonedEnv,
+                executableDirectory,
+                platform: "win32",
+                runtime: {
+                    allowWindowsRegistryWrite: true,
+                    env: clonedEnv,
+                    logger: logCapture.logger,
+                    platform: "win32",
+                    resolveCommandPath: commandName =>
+                        commandName === "powershell.exe"
+                            ? "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+                            : null,
+                    runCommand: async (runOptions) => {
+                        commands.push(runOptions);
+                        return {
+                            exitCode: 0,
+                            signalCode: null,
+                            stderr: "",
+                            stdout: "",
+                        };
+                    },
+                },
+            });
+
+            expect(clonedEnv).not.toBe(process.env);
+            expect(result.status).toBe("configured");
+            expect(commands).toHaveLength(1);
+            expect(commands[0]!.env.OO_SELF_UPDATE_PATH_ENTRY).toBe(executableDirectory);
         }
         finally {
             logCapture.close();
