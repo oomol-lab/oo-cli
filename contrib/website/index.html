@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="description"
+            content="oo is an open-source CLI that connects AI agents such as Claude Code and Codex to real-world services, packages, and cloud tasks."
+        />
+        <meta name="robots" content="index, follow" />
+        <meta name="application-name" content="oo" />
+        <meta name="theme-color" content="#06080c" />
+        <meta name="color-scheme" content="dark" />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="oo — Everything in the CLI" />
+        <meta
+            property="og:description"
+            content="oo is an open-source CLI that connects AI agents such as Claude Code and Codex to real-world services, packages, and cloud tasks."
+        />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="oo — Everything in the CLI" />
+        <meta
+            name="twitter:description"
+            content="oo is an open-source CLI that connects AI agents such as Claude Code and Codex to real-world services, packages, and cloud tasks."
+        />
+        <title>oo — Everything in the CLI</title>
+
+        <link
+            rel="icon"
+            type="image/svg+xml"
+            href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2306080c'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='monospace' font-size='30' font-weight='700' fill='%2300e5a0'%3Eoo%3C/text%3E%3C/svg%3E"
+        />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link rel="stylesheet" href="assets/styles/fonts.css" />
+
+        <link rel="stylesheet" href="assets/styles/main.css" />
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "SoftwareApplication",
+                "name": "oo",
+                "applicationCategory": "DeveloperApplication",
+                "operatingSystem": "macOS, Linux, Windows",
+                "description": "oo is an open-source CLI that connects AI agents such as Claude Code and Codex to real-world services, packages, and cloud tasks.",
+                "isAccessibleForFree": true,
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                },
+                "codeRepository": "https://github.com/oomol-lab/oo-cli"
+            }
+        </script>
+    </head>
+    <body>
+        <a class="skip-link" href="#main-content">Skip to content</a>
+
+        <!-- NAV -->
+        <nav aria-label="Primary">
+            <a href="#" class="nav-logo">oo<span>by OOMOL</span></a>
+            <ul class="nav-links">
+                <li><a href="#how" data-i18n="nav_how">How it works</a></li>
+                <li><a href="#examples" data-i18n="nav_examples">Examples</a></li>
+                <li>
+                    <a href="https://github.com/oomol-lab/oo-cli" target="_blank" rel="noopener noreferrer">GitHub</a>
+                </li>
+                <li>
+                    <button id="langToggle" class="lang-toggle" type="button" data-action="toggle-language">EN</button>
+                </li>
+            </ul>
+        </nav>
+
+        <main id="main-content">
+            <!-- HERO -->
+            <section class="hero">
+                <!-- LEFT -->
+                <div class="hero-left">
+                    <div class="hero-badge" data-i18n="hero_badge">v0.3.0 — Now available</div>
+                    <h1 class="hero-wordmark">
+                        <span class="oo-accent"
+                            ><span class="eye" id="eye1">o</span><span class="eye" id="eye2">o</span></span
+                        >
+                    </h1>
+                    <p class="hero-tagline" data-i18n-html="hero_tagline">
+                        为 <strong>Claude Code</strong>、<strong>Codex</strong> 等 AI Agent 注入超能力。
+                        连接真实世界，一切皆可在命令行中完成。
+                    </p>
+                    <div class="hero-actions">
+                        <a
+                            href="https://github.com/oomol-lab/oo-cli"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="btn-primary"
+                            >GitHub <span class="btn-arrow" aria-hidden="true">&rarr;</span></a
+                        >
+                    </div>
+                    <div class="install-slot">
+                        <div class="install-box">
+                            <div class="install-tabs">
+                                <button class="install-tab active" type="button" data-install-tab="unix">
+                                    macOS / Linux
+                                </button>
+                                <button class="install-tab" type="button" data-install-tab="ps">PowerShell</button>
+                                <button class="install-tab" type="button" data-install-tab="cmd">CMD</button>
+                                <span class="install-tab-indicator" id="installTabIndicator"></span>
+                            </div>
+                            <div class="install-viewport">
+                                <div class="install-track" id="installTrack">
+                                    <div class="install-cmd-row" id="tab-unix">
+                                        <span class="prompt">$</span>
+                                        <span class="cmd">curl -fsSL https://cli.oomol.com/install.sh | bash</span>
+                                        <button
+                                            class="copy-btn"
+                                            type="button"
+                                            data-copy-command="curl -fsSL https://cli.oomol.com/install.sh | bash"
+                                        >
+                                            copy
+                                        </button>
+                                    </div>
+                                    <div class="install-cmd-row" id="tab-ps">
+                                        <span class="prompt">PS&gt;</span>
+                                        <span class="cmd">irm https://cli.oomol.com/install.ps1 | iex</span>
+                                        <button
+                                            class="copy-btn"
+                                            type="button"
+                                            data-copy-command="irm https://cli.oomol.com/install.ps1 | iex"
+                                        >
+                                            copy
+                                        </button>
+                                    </div>
+                                    <div class="install-cmd-row" id="tab-cmd">
+                                        <span class="prompt">&gt;</span>
+                                        <span class="cmd"
+                                            >curl -fsSL https://cli.oomol.com/install.cmd -o install.cmd &amp;&amp;
+                                            install.cmd &amp;&amp; del install.cmd</span
+                                        >
+                                        <button
+                                            class="copy-btn"
+                                            type="button"
+                                            data-copy-command="curl -fsSL https://cli.oomol.com/install.cmd -o install.cmd &amp;&amp; install.cmd &amp;&amp; del install.cmd"
+                                        >
+                                            copy
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Terminal -->
+                <div class="hero-right">
+                    <div class="terminal-wrap">
+                        <div class="terminal">
+                            <div class="terminal-bar">
+                                <span class="t-dot red"></span>
+                                <span class="t-dot yellow"></span>
+                                <span class="t-dot green"></span>
+                                <span class="terminal-title" data-i18n="terminal_title">终端</span>
+                            </div>
+                            <div class="terminal-agent-tabs" role="tablist" aria-label="Terminal agent">
+                                <button
+                                    class="terminal-agent-tab active"
+                                    type="button"
+                                    role="tab"
+                                    aria-selected="true"
+                                    data-terminal-agent="claude"
+                                >
+                                    Claude Code
+                                </button>
+                                <button
+                                    class="terminal-agent-tab"
+                                    type="button"
+                                    role="tab"
+                                    aria-selected="false"
+                                    data-terminal-agent="codex"
+                                >
+                                    Codex
+                                </button>
+                                <span class="terminal-agent-tab-indicator" id="terminalAgentTabIndicator"></span>
+                            </div>
+                            <div class="terminal-body" id="terminal-output">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STATS -->
+            <section class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-num">
+                            <span class="stat-accent" data-catalog-stat="providerCount">0</span>
+                        </div>
+                        <div class="stat-label">AuthLink Services</div>
+                        <div class="stat-sub">Gmail · Notion · GitHub · Slack · ···</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num">
+                            <span class="stat-accent" data-catalog-stat="actionCount">0</span>
+                        </div>
+                        <div class="stat-label">Actions</div>
+                        <div class="stat-sub" data-i18n="stat_actions_sub">QR 码 · 文件处理 · 网络请求 · ···</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num">
+                            <span class="stat-accent" data-catalog-stat="blockCount">0</span>
+                        </div>
+                        <div class="stat-label">Cloud Functions</div>
+                        <div class="stat-sub" data-i18n="stat_cloud_sub">随时调用，无需本地环境</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HOW IT WORKS -->
+            <section class="how-section" id="how">
+                <div class="section-label">// HOW IT WORKS</div>
+                <h2 class="section-title" style="white-space: nowrap" data-i18n="how_title">
+                    三步，让 AI Agent 连接真实世界
+                </h2>
+
+                <div class="how-steps-outer">
+                    <div class="how-step-labels"><span>01</span><span>02</span><span>03</span></div>
+                    <div class="how-steps">
+                        <div class="how-step">
+                            <div class="how-step-header">
+                                <div class="how-step-icon">
+                                    <svg
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="color: var(--green)"
+                                    >
+                                        <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="how-step-title" data-i18n="how_s1_title">安装 oo</div>
+                            </div>
+                            <div class="how-step-desc" data-i18n="how_s1_desc">
+                                一条命令完成安装，自动注入 Skills 到 Claude Code 和 Codex 中，无需任何额外配置。
+                            </div>
+                        </div>
+                        <div class="how-step">
+                            <div class="how-step-header">
+                                <div class="how-step-icon">
+                                    <svg
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="color: var(--green)"
+                                    >
+                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                                    </svg>
+                                </div>
+                                <div class="how-step-title" data-i18n="how_s2_title">AuthLink 你的服务</div>
+                            </div>
+                            <div class="how-step-desc" data-i18n-html="how_s2_desc">
+                                通过
+                                <code style="color: var(--green); font-size: 12px">oo login</code> 授权你的账号，然后
+                                AuthLink Gmail、Notion、GitHub 等第三方服务。
+                            </div>
+                        </div>
+                        <div class="how-step">
+                            <div class="how-step-header">
+                                <div class="how-step-icon">
+                                    <svg
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        style="color: var(--green)"
+                                    >
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                    </svg>
+                                </div>
+                                <div class="how-step-title" data-i18n="how_s3_title">用自然语言发号施令</div>
+                            </div>
+                            <div class="how-step-desc" data-i18n-html="how_s3_desc">
+                                在任意 AI Agent 中，用
+                                <code style="color: var(--cyan); font-size: 12px">$oo</code> 前缀调用超能力，Agent
+                                自动选择合适的工具完成任务。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FEATURES / USE CASES -->
+            <section class="features-section" id="examples">
+                <div class="section-label">// EXAMPLES</div>
+                <h2 class="section-title" style="white-space: nowrap" data-i18n="feat_title">你能用 oo 做什么</h2>
+
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-tag" data-i18n="feat1_tag">Gmail + Notion</div>
+                        <div class="feature-title" data-i18n="feat1_title">邮件智能总结</div>
+                        <div class="feature-desc" data-i18n="feat1_desc">
+                            读取最近 3 封 Gmail 邮件，生成摘要并自动写入 Notion 数据库，全程无需打开浏览器。
+                        </div>
+                        <div class="feature-cmd">
+                            <span class="fc-prompt">/</span><span class="fc-oo">oo</span>
+                            <span data-i18n="feat1_cmd">总结最近 3 封 Gmail 邮件到 Notion</span>
+                        </div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-tag" data-i18n="feat2_tag">二维码生成</div>
+                        <div class="feature-title" data-i18n="feat2_title">即时生成二维码</div>
+                        <div class="feature-desc" data-i18n="feat2_desc">
+                            输入任意链接或文字，一秒生成标准二维码图片并保存到本地，可直接使用。
+                        </div>
+                        <div class="feature-cmd">
+                            <span class="fc-prompt">/</span><span class="fc-oo">oo</span>
+                            <span data-i18n="feat2_cmd">帮我生成一个二维码，内容是 https://oomol.com</span>
+                        </div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-tag" data-i18n="feat3_tag">Package 生态</div>
+                        <div class="feature-title" data-i18n="feat3_title">直接调用 Packages</div>
+                        <div class="feature-desc" data-i18n="feat3_desc">
+                            在 Agent 对话中，用自然语言直接调用 OOMOL Package 生态中的任意能力。
+                        </div>
+                        <div class="feature-cmd">
+                            <span class="fc-prompt">/</span><span class="fc-oo">oo</span>
+                            <span data-i18n="feat3_cmd">帮我压缩这些图片</span>
+                        </div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-tag" data-i18n="feat4_tag">GitHub</div>
+                        <div class="feature-title" data-i18n="feat4_title">查看 Issues 动态</div>
+                        <div class="feature-desc" data-i18n="feat4_desc">
+                            直接在 Agent 对话中查看、筛选、回复 GitHub Issues，无需切换浏览器。
+                        </div>
+                        <div class="feature-cmd">
+                            <span class="fc-prompt">/</span><span class="fc-oo">oo</span>
+                            <span data-i18n="feat4_cmd">帮我查看 oomol-lab/oo-cli 还有哪些 open issues</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AGENTS -->
+            <section class="agents-section">
+                <div class="agents-title">Compatible with</div>
+                <div class="agents-row">
+                    <div class="agent-pill"><span class="agent-dot"></span>Claude Code</div>
+                    <div class="agents-connector">×</div>
+                    <div class="agent-pill"><span class="agent-dot"></span>OpenAI Codex</div>
+                    <div class="agents-connector">×</div>
+                    <div class="agent-pill"><span class="agent-dot"></span>OpenClaw</div>
+                </div>
+            </section>
+
+            <!-- CTA -->
+            <section class="cta-section">
+                <h2 class="cta-title" data-i18n-html="cta_title">让 AI Agent<br />真正无所不能</h2>
+                <p class="cta-sub" data-i18n="cta_sub">开源免费，一行命令即可安装。</p>
+                <div class="cta-buttons">
+                    <a
+                        href="https://github.com/oomol-lab/oo-cli"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="btn-primary"
+                        >GitHub <span class="btn-arrow" aria-hidden="true">&rarr;</span></a
+                    >
+                </div>
+            </section>
+        </main>
+
+        <!-- FOOTER -->
+        <footer>
+            <div class="footer-logo">oo</div>
+            <ul class="footer-links">
+                <li>
+                    <a href="https://github.com/oomol-lab/oo-cli" target="_blank" rel="noopener noreferrer">GitHub</a>
+                </li>
+                <li>
+                    <a
+                        href="https://github.com/oomol-lab/oo-cli/blob/main/CONTRIBUTING.md"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >Contributing</a
+                    >
+                </li>
+                <li><a href="https://oomol.com" target="_blank" rel="noopener noreferrer">OOMOL</a></li>
+            </ul>
+            <div class="footer-copy">© 2026 OOMOL Lab</div>
+        </footer>
+
+        <!-- TWEAKS PANEL -->
+        <div id="tweaks-panel">
+            <h3>Tweaks</h3>
+            <div class="tweak-row">
+                <label>ACCENT COLOR</label>
+                <div class="tweak-swatch-row">
+                    <div
+                        class="tweak-swatch active"
+                        style="background: #00e5a0"
+                        data-accent="#00e5a0"
+                        data-accent-dim="#00b07a"
+                        title="Green"
+                    ></div>
+                    <div
+                        class="tweak-swatch"
+                        style="background: #22d3f0"
+                        data-accent="#22d3f0"
+                        data-accent-dim="#0ea5c8"
+                        title="Cyan"
+                    ></div>
+                    <div
+                        class="tweak-swatch"
+                        style="background: #a78bfa"
+                        data-accent="#a78bfa"
+                        data-accent-dim="#7c5ccc"
+                        title="Violet"
+                    ></div>
+                    <div
+                        class="tweak-swatch"
+                        style="background: #f59e42"
+                        data-accent="#f59e42"
+                        data-accent-dim="#c07020"
+                        title="Amber"
+                    ></div>
+                </div>
+            </div>
+            <div class="tweak-row">
+                <label>TERMINAL DEMO SPEED</label>
+                <input type="range" min="1" max="5" value="3" id="speed-slider" />
+            </div>
+            <div class="tweak-row">
+                <label>BACKGROUND GRID</label>
+                <select id="grid-select">
+                    <option value="grid">Grid</option>
+                    <option value="dots">Dots</option>
+                    <option value="none">None</option>
+                </select>
+            </div>
+        </div>
+
+        <script type="module" src="assets/scripts/main.js"></script>
+    </body>
+</html>
