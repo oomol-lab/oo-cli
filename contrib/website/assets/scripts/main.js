@@ -513,14 +513,24 @@ function readCatalogStatValue(stats, key) {
     }
 }
 
+const CATALOG_STAT_UNAVAILABLE_TEXT = "N/A";
+
+function setCatalogStatUnavailable(el) {
+    delete el.dataset.statTarget;
+    el.classList.remove("is-updating", "is-complete");
+    el.textContent = CATALOG_STAT_UNAVAILABLE_TEXT;
+}
+
 function updateCatalogStatNumbers(stats) {
     document.querySelectorAll("[data-catalog-stat]").forEach((el) => {
         if (!(el instanceof HTMLElement))
             return;
 
-        const value = readCatalogStatValue(stats, el.dataset.catalogStat);
-        if (value === undefined)
+        const value = stats === undefined ? undefined : readCatalogStatValue(stats, el.dataset.catalogStat);
+        if (value === undefined) {
+            setCatalogStatUnavailable(el);
             return;
+        }
 
         if (el.dataset.statTarget === String(value))
             return;
@@ -532,9 +542,6 @@ function updateCatalogStatNumbers(stats) {
 
 async function syncCatalogStats() {
     const stats = await fetchCatalogStats();
-    if (stats === undefined)
-        return;
-
     updateCatalogStatNumbers(stats);
 }
 
@@ -583,7 +590,7 @@ const terminalAgents = {
     },
 };
 let currentTerminalAgent = "claude";
-const terminalRunId = 0;
+let currentTerminalRunId = 0;
 let terminalStartTimer;
 
 function clearOldLines() {
@@ -615,8 +622,10 @@ function syncTerminalAgentTabs() {
 
 function startTerminalSequence(delay) {
     window.clearTimeout(terminalStartTimer);
+    currentTerminalRunId += 1;
+    const runId = currentTerminalRunId;
     terminalStartTimer = window.setTimeout(() => {
-        void runSequence(terminalRunId);
+        void runSequence(runId);
     }, delay);
 }
 
@@ -708,6 +717,8 @@ function setTerminalAgent(agentId) {
     syncTerminalAgentTabs();
     syncTerminalCommandPrefixes();
     syncFeatureCommandPrompts();
+    termOut.replaceChildren();
+    startTerminalSequence(300);
 }
 
 async function sleep(ms) {
@@ -716,7 +727,7 @@ async function sleep(ms) {
 
 async function sleepIfCurrent(runId, ms) {
     await sleep(ms);
-    return runId === terminalRunId;
+    return runId === currentTerminalRunId;
 }
 
 async function typeTerminalCommand(el, commandText, runId) {
@@ -725,7 +736,7 @@ async function typeTerminalCommand(el, commandText, runId) {
     const commandLength = formatTerminalCommand(commandText).length;
 
     for (let i = 0; i < commandLength; i++) {
-        if (runId !== terminalRunId)
+        if (runId !== currentTerminalRunId)
             return false;
 
         renderTerminalCommand(el, commandText, i + 1);
@@ -733,11 +744,11 @@ async function typeTerminalCommand(el, commandText, runId) {
     }
 
     el.dataset.terminalCommandComplete = "true";
-    return runId === terminalRunId;
+    return runId === currentTerminalRunId;
 }
 
 async function runSequence(runId) {
-    if (runId !== terminalRunId)
+    if (runId !== currentTerminalRunId)
         return;
 
     const seq = sequences[seqIndex % sequences.length];
