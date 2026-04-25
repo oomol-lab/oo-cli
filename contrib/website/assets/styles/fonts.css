@@ -1,0 +1,15 @@
+@font-face {
+    font-family: "Maple Mono";
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url("../fonts/maple-mono-variable.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Maple Mono";
+    font-style: italic;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url("../fonts/maple-mono-italic-variable.woff2") format("woff2");
+}
