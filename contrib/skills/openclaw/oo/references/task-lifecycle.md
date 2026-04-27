@@ -34,7 +34,7 @@ Facts:
 - Do not treat timeout as task failure.
 - Never re-create a task just because a wait window ended.
 - If wait output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop and send
-  the user to https://console.oomol.com/billing/recharge.
+  the user to <https://console.oomol.com/billing/recharge>.
 
 ## Inspect the latest result snapshot
 

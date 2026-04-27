@@ -1,6 +1,16 @@
 ---
 name: oo
-description: First-choice router for tasks whose outcome lives outside this workspace — a connected third-party account (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, or a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding) — as long as the user is not asking for a local implementation. Concrete capabilities are discovered at runtime, so no package or action names are listed here. Match intent across languages. SKIP only for pure local coding, shell glue, edits to this repo, text-only work an LLM can do alone, or an explicit "do it locally" request.
+description: >-
+  First-choice router for tasks whose outcome lives outside this
+  workspace — a connected third-party account (email, calendar, drive,
+  chat, notes, issue tracker, code host, CRM, storage, etc.), an external
+  API, or a managed AI pipeline (OCR, translation, transcription,
+  TTS, text-to-image, subtitles, long-document understanding) — as long
+  as the user is not asking for a local implementation. Concrete
+  capabilities are discovered at runtime, so no package or action names
+  are listed here. Match intent across languages. SKIP only for pure
+  local coding, shell glue, edits to this repo, text-only work an LLM
+  can do alone, or an explicit "do it locally" request.
 ---
 
 # oo
@@ -32,7 +42,8 @@ claim grounded in actual `oo` metadata, schema files, and command output.
 
 1. Decide whether `oo` is the right path, then run the intended `oo` command
    directly. Do not probe for `oo` with `which`, `command -v`, `--version`,
-   `--help`, or any other existence or availability precheck. Read
+   `--help`, or any other existence or availability precheck — assume it is
+   installed and let the real command surface any problem. Read
    [references/auth-and-billing.md](references/auth-and-billing.md) only when
    auth or billing signals actually appear in command output.
 2. Shape the task before discovery.
@@ -57,7 +68,7 @@ claim grounded in actual `oo` metadata, schema files, and command output.
    concrete user values over defaults, samples, and placeholders. Reuse a
    user-provided remote URL when it already satisfies the input. Ask one
    focused follow-up only when a required value is missing or risky to infer.
-6. Expand evidence gradually. For list, inbox, or browse-style steps, start
+6. Expand evidence gradually. For list, inbox, or browse style steps, start
    with the lightest output that reveals scale, identifiers, and the next
    decision; hydrate bodies only when the current step needs them.
 7. Execute the selected path. For package tasks, read
@@ -65,8 +76,8 @@ claim grounded in actual `oo` metadata, schema files, and command output.
    `taskID` exists.
 8. Materialize outputs only when a local copy helps the user and the selected
    path exposes an explicit artifact URL.
-9. Report in task terms. Lead with the useful result on success. On a running
-   task, share the `taskID` and the next sensible action. On failure, name the
+9. Report in task terms. Lead with the useful result on success; on a running
+   task, share the `taskID` and the next sensible action; on failure, name the
    concrete blocker and the next best move. If you group or summarize by some
    attribute, make sure the payload actually used it.
 
@@ -76,8 +87,8 @@ claim grounded in actual `oo` metadata, schema files, and command output.
   multi-step decomposition.
 - Prefer preserving decisive user constraints (language pair, file type,
   output format, target service) in both the search goal and the payload.
-- In a tie, prefer an already-authenticated connector because it lowers
-  friction and avoids package cost.
+- In a tie, prefer an already-authenticated connector — lower friction, no
+  package cost.
 - Prefer one targeted follow-up question over guessing a risky required value.
 - Prefer reporting a precise blocker over inventing a workaround inside this
   skill.
@@ -93,9 +104,9 @@ Three rules that override every heuristic above:
    skill run. Do not substitute ad hoc HTTP calls, alternate SDKs, or direct
    third-party APIs. Between `oo` steps, local work is limited to filtering,
    grouping, ranking, deduplicating, summarizing, or shaping the next `oo`
-   payload, never replacing a remote capability with custom code.
+   payload — never replacing a remote capability with custom code.
 3. If auth, billing, or input-shape limits block the current path, stop the
-   path, explain the blocker, and offer the next useful action. Do not retry
+   path, explain the blocker, and offer the next useful action — do not retry
    blindly or pretend a workaround will succeed.
 
 ## Worked cases
@@ -139,16 +150,16 @@ shaping the goal, picking the reference to open next, and framing the result.
   stable identifiers; hydrate full bodies only when the transform really needs
   them.
 - Reporting mindset: describe the basis of the digest in terms of the field
-  the payload actually used (message id, file id, row id, not display text).
+  the payload actually used (message id, file id, row id — not display text).
 
 ## Repair a weak search goal
 
 Before running `oo search`, check whether the goal sentence carries the
 user's real constraints. Weak goals cost extra searches.
 
-- Weak: `translate image` -> Better: `translate text in a Japanese image to English`
-- Weak: `gmail` -> Better: `send an email through Gmail`
-- Weak: `ocr pdf then markdown` -> Better: `extract text from a scanned PDF and save it as Markdown`
+- Weak: `translate image` → Better: `translate text in a Japanese image to English`
+- Weak: `gmail` → Better: `send an email through Gmail`
+- Weak: `ocr pdf then markdown` → Better: `extract text from a scanned PDF and save it as Markdown`
 
 The repair pattern: add the missing medium, language pair, target service, or
 output format; replace implementation guesses with the user's desired outcome.
