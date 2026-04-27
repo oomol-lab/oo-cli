@@ -1,7 +1,7 @@
 interface:
   display_name: oo Find Skills
-  short_description: Search OOMOL/oo skills for installation
-  default_prompt: "Use $oo-find-skills when I want to search the OOMOL or oo skill catalog, compare likely matches for my current need, and install the selected published skill or skills."
+  short_description: Find and install OOMOL/oo skills
+  default_prompt: "Use $oo-find-skills when the user asks to find, search for, discover, recommend, compare, choose, or install a published OOMOL/oo skill for a task, asks whether such a skill exists for a capability, or explicitly mentions the OOMOL/oo skill catalog. Do not use it for creating or editing local skills, generic skill design, or non-OOMOL skill catalogs."
 
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

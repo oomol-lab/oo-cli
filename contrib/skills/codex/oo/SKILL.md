@@ -18,6 +18,9 @@ description: >-
 Use `oo` to complete a hosted task through an existing `oo` capability, not to
 build a local workaround.
 
+If the user wants to find, compare, or install published OOMOL/oo skills, use
+`oo-find-skills` instead of this skill.
+
 Read only the reference file needed for the current step.
 
 ## Runtime note
