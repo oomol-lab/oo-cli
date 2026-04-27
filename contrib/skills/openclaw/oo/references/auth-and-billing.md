@@ -48,4 +48,4 @@ oo auth login
 - Treat that signal as a billing problem, not as a normal auth failure.
 - Explain that the current account has insufficient credit or is overdue.
 - Ask the user to recharge before retrying at
-  https://console.oomol.com/billing/recharge.
+  <https://console.oomol.com/billing/recharge>.
