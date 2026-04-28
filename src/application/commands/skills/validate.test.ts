@@ -36,9 +36,9 @@ describe("skills validate command", () => {
         }
     });
 
-    test("rejects unsupported frontmatter keys", async () => {
+    test("accepts unsupported frontmatter keys and loose field values", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
-        const skillDirectoryPath = join(rootDirectory, "invalid-skill");
+        const skillDirectoryPath = join(rootDirectory, "loose-skill");
 
         try {
             await mkdir(skillDirectoryPath, { recursive: true });
@@ -46,16 +46,68 @@ describe("skills validate command", () => {
                 join(skillDirectoryPath, "SKILL.md"),
                 [
                     "---",
-                    "name: invalid-skill",
-                    "description: Use this skill for an invalid workflow.",
+                    "name: Loose Skill Name",
+                    "description: Use this skill with <loose> wording.",
                     "compatibility: Requires the oo CLI.",
+                    "metadata:",
+                    "  title: Loose Skill",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({});
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("accepts missing metadata title", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "missing-title-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: missing-title-skill",
+                    "description: Use this skill for a workflow.",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({});
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects empty metadata title", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "empty-title-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: empty-title-skill",
+                    "description: Use this skill for a workflow.",
+                    "metadata:",
+                    "  title: \"\"",
                     "---",
                     "",
                 ].join("\n"),
             );
 
             await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
-                error: "Unsupported frontmatter key: compatibility.",
+                error: "Frontmatter metadata.title cannot be empty.",
             });
         }
         finally {
@@ -75,6 +127,8 @@ describe("skills validate command", () => {
                     "---",
                     "name: valid-skill",
                     "description: Use this skill for a valid workflow.",
+                    "metadata:",
+                    "  title: Valid Skill",
                     "---",
                     "",
                 ].join("\n"),

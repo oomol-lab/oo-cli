@@ -17,15 +17,8 @@ interface SkillValidationResult {
 
 interface ParsedFrontmatter {
     fields: Map<string, string | undefined>;
+    metadataFields: Map<string, string | undefined>;
 }
-
-const supportedFrontmatterKeys = [
-    "allowed-tools",
-    "description",
-    "license",
-    "metadata",
-    "name",
-] as const;
 
 export const skillsValidateCommand: CliCommandDefinition<SkillsValidateInput> = {
     name: "validate",
@@ -86,14 +79,6 @@ export async function validateSkillDirectory(
         };
     }
 
-    for (const key of frontmatter.fields.keys()) {
-        if (!supportedFrontmatterKeys.includes(key as typeof supportedFrontmatterKeys[number])) {
-            return {
-                error: `Unsupported frontmatter key: ${key}.`,
-            };
-        }
-    }
-
     const name = frontmatter.fields.get("name");
 
     if (name === undefined) {
@@ -126,6 +111,16 @@ export async function validateSkillDirectory(
         };
     }
 
+    const title = frontmatter.metadataFields.get("title");
+
+    const titleError = validateSkillTitleValue(title);
+
+    if (titleError !== undefined) {
+        return {
+            error: titleError,
+        };
+    }
+
     return {};
 }
 
@@ -150,6 +145,7 @@ function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
     }
 
     const fields = new Map<string, string | undefined>();
+    const metadataFields = new Map<string, string | undefined>();
     const frontmatterLines = lines.slice(1, endIndex);
     let currentBlockKey: string | undefined;
     let currentBlockLines: string[] = [];
@@ -195,9 +191,46 @@ function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
         fields.set(currentBlockKey, currentBlockLines.join(" ").trim());
     }
 
+    const metadataLines = readMetadataBlockLines(frontmatterLines);
+
+    for (const line of metadataLines) {
+        const field = readTopLevelFrontmatterField(line.trim());
+
+        if (field === undefined) {
+            continue;
+        }
+
+        if (metadataFields.has(field.key)) {
+            return `Duplicate metadata key: ${field.key}.`;
+        }
+
+        metadataFields.set(field.key, parseYamlScalar(field.value));
+    }
+
     return {
         fields,
+        metadataFields,
     };
+}
+
+function readMetadataBlockLines(frontmatterLines: readonly string[]): string[] {
+    const metadataLines: string[] = [];
+    let insideMetadata = false;
+
+    for (const line of frontmatterLines) {
+        const topLevelField = readTopLevelFrontmatterField(line);
+
+        if (topLevelField !== undefined) {
+            insideMetadata = topLevelField.key === "metadata";
+            continue;
+        }
+
+        if (insideMetadata && isIndentedLine(line)) {
+            metadataLines.push(line);
+        }
+    }
+
+    return metadataLines;
 }
 
 function readTopLevelFrontmatterField(
@@ -259,35 +292,8 @@ function validateSkillNameValue(name: string | undefined): string | undefined {
         return "Frontmatter name must be a string.";
     }
 
-    if (name.length > 64) {
-        return "Frontmatter name must be no longer than 64 characters.";
-    }
-
     if (name === "") {
         return "Frontmatter name cannot be empty.";
-    }
-
-    if (name.startsWith("-") || name.endsWith("-")) {
-        return "Frontmatter name cannot start or end with a hyphen.";
-    }
-
-    let previousWasHyphen = false;
-
-    for (const char of name) {
-        if (char === "-") {
-            if (previousWasHyphen) {
-                return "Frontmatter name cannot contain consecutive hyphens.";
-            }
-
-            previousWasHyphen = true;
-            continue;
-        }
-
-        previousWasHyphen = false;
-
-        if (!isLowercaseAsciiLetter(char) && !isAsciiDigit(char)) {
-            return "Frontmatter name must use lowercase hyphen-case with letters, digits, and hyphens only.";
-        }
     }
 
     return undefined;
@@ -300,21 +306,17 @@ function validateSkillDescriptionValue(
         return "Frontmatter description must be a string.";
     }
 
-    if (description.length > 1024) {
-        return "Frontmatter description must be no longer than 1024 characters.";
-    }
-
-    if (description.includes("<") || description.includes(">")) {
-        return "Frontmatter description cannot contain angle brackets.";
-    }
-
     return undefined;
 }
 
-function isLowercaseAsciiLetter(char: string): boolean {
-    return char >= "a" && char <= "z";
-}
+function validateSkillTitleValue(title: string | undefined): string | undefined {
+    if (title === undefined) {
+        return undefined;
+    }
 
-function isAsciiDigit(char: string): boolean {
-    return char >= "0" && char <= "9";
+    if (title === "") {
+        return "Frontmatter metadata.title cannot be empty.";
+    }
+
+    return undefined;
 }

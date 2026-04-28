@@ -336,13 +336,8 @@ Validate a local skill directory against the generic skill contract.
 - Validation: `SKILL.md` must start with YAML frontmatter delimited by `---`.
   The frontmatter must be a dictionary with string `name` and `description`
   fields.
-- Validation: supported frontmatter keys are `name`, `description`, `license`,
-  `allowed-tools`, and `metadata`.
-- Validation: `name` must be lowercase hyphen-case using letters, digits, and
-  hyphens only. It cannot start or end with a hyphen, contain consecutive
-  hyphens, or exceed 64 characters.
-- Validation: `description` must not contain angle brackets and cannot exceed
-  1024 characters.
+- Validation: nested `metadata.title` is optional, but when present it must be a
+  non-empty string.
 - Output: on success, the command prints a concise success message. On failure,
   it prints the validation error and exits non-zero.
 

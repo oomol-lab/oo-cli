@@ -297,11 +297,7 @@ skills。
 - 参数：`<path>` 是包含 `SKILL.md` 的 skill 目录。
 - 校验：`SKILL.md` 必须以 `---` 分隔的 YAML frontmatter 开头。frontmatter
   必须是字典，并包含字符串 `name` 和 `description` 字段。
-- 校验：支持的 frontmatter key 为 `name`、`description`、`license`、
-  `allowed-tools` 和 `metadata`。
-- 校验：`name` 必须是仅包含小写字母、数字和短横线的短横线格式。不能以短横线
-  开头或结尾，不能包含连续短横线，且不能超过 64 个字符。
-- 校验：`description` 不能包含尖括号，且不能超过 1024 个字符。
+- 校验：嵌套的 `metadata.title` 可以省略；如果提供，则必须是非空字符串。
 - 输出：成功时命令会打印简短成功消息。失败时打印校验错误并以非零状态退出。
 
 ### `oo skills search <text>`
