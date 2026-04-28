@@ -45,7 +45,7 @@ Commands:
   logout                    Log out the current account (alias for auth logout)
   completion <shell>        Generate shell completion scripts
   config                    Manage persisted configuration
-  skills                    Manage Codex skills
+  skills                    Manage AI agent skills
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
@@ -79,7 +79,7 @@ Commands:
   logout                    Log out the current account (alias for auth logout)
   completion <shell>        Generate shell completion scripts
   config                    Manage persisted configuration
-  skills                    Manage Codex skills
+  skills                    Manage AI agent skills
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities

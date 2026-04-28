@@ -224,7 +224,7 @@
 - 说明：connector 命中结果仍会在本地缓存 schema，并在文本与 JSON 输出中
   报告其缓存路径。
 
-## Codex Skill
+## AI Agent Skill
 
 ### `oo skills list`
 
@@ -261,8 +261,7 @@
 
 ### `oo skills install [packageName]`
 
-将内置 skill 安装到受支持的本地 skill 目录，或将已发布 skill 安装到本地
-Codex skills 目录。
+将内置或已发布 skill 安装到受支持的本地 skill 目录。
 
 - 别名：`oo skills add [packageName]`。
 - 参数：`[packageName]` 可选。
@@ -292,16 +291,14 @@ Codex skills 目录。
   目录（`claude-skills/`、`openclaw-skills/`，以及直接位于 `skills/` 下的旧
   Codex 内置 / 已发布 skill 目录）。内置 skill 会自动以新布局重建；之前安装
   的已发布 skill 需要通过 `oo skills install <packageName>` 重新安装。
-- 目标目录：内置 skill 会发布到所有已存在的受支持宿主目录，目前包括
+- 目标目录：内置和已发布 skill 会发布到所有已存在的受支持宿主目录，目前包括
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>` 和
   `~/.claude/skills/<skill-id>`，以及
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`。
-- 目标目录：已发布 skill 会发布到
-  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`。
-- 安装方式：内置 Codex 和 Claude Code skill 会优先把目标目录发布为指向
-  canonical 目录的软连接。如果当前平台或环境下创建软连接失败，则会回退为把
-  canonical 目录内容复制到目标 skills 目录。
-- 安装方式：内置 OpenClaw skill 会直接复制到
+- 安装方式：内置和已发布的 Codex / Claude Code skill 会优先把目标目录发布
+  为指向 canonical 目录的软连接。如果当前平台或环境下创建软连接失败，则会
+  回退为把 canonical 目录内容复制到目标 skills 目录。
+- 安装方式：内置和已发布的 OpenClaw skill 会直接复制到
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`，以确保安装后的 skill
   保持在 OpenClaw 管理的 skills 根目录内。
 - 元数据：内置 skill 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
@@ -315,6 +312,8 @@ Codex skills 目录。
   `--skill <name>` 或 `--all -y`。
 - 说明：如果显式安装的已发布 skill 与现有同名 skill 冲突，命令会在交互终
   端中要求用户输入 `yes` 或 `no` 决定是否覆盖。
+- 说明：如果目标目录已存在但没有有效的 `oo` 元数据，会被视为非 OOMOL
+  skill，命令不会覆盖它。
 - 说明：在交互选择页面中，存在重名冲突的 skill 会在列表中显示状态标记；
   只要用户仍然选择该项，就会执行覆盖。
 - 说明：当 Codex、Claude Code 和 OpenClaw 的受支持根目录都不存在时，命令
@@ -325,7 +324,7 @@ Codex skills 目录。
 
 ### `oo skills update [skills...]`
 
-更新已安装且由 oo 管理的 Codex skill。
+更新已安装且由 oo 管理的已发布 skill。
 
 - 参数：省略时，会检查所有已安装且由 oo 管理的已发布 skill。
 - 参数：提供一个或多个 skill 名称时，只会检查并更新这些指定 skill。
@@ -335,15 +334,14 @@ Codex skills 目录。
 - 已发布 skill：registry skill 会从 `.oo-metadata.json` 读取所属包名，再通过
   不带显式版本的 package info 请求判断最新可用版本。
 - 更新顺序：命令会先刷新 canonical 目录
-  `<config-dir>/skills/registry/<skill-id>`，再同步到
-  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`。
+  `<config-dir>/skills/registry/<skill-id>`，再同步到所有已存在的受支持宿主目录。
 - 交互式终端：会显示实时进度。
-- 非交互式终端：每个处理过的 skill 输出一行状态信息。
+- 非交互式终端：对每个已是最新或失败的 skill 输出一行状态信息；对每个已更新
+  的宿主目标路径输出一行成功信息。
 
 ### `oo skills uninstall [skill]`
 
-从受支持的本地 skill 目录移除内置 skill，或从本地 Codex skills 目录移除
-一个由 oo 管理的已发布 skill。
+从受支持的本地 skill 目录移除由 oo 管理的 skill。
 
 - 别名：`oo skills remove [skill]`。
 - 参数：省略 `[skill]` 时，命令会移除全部内置 skill。
@@ -352,15 +350,14 @@ Codex skills 目录。
 - 会同时移除 canonical 目录：内置 skill 会移除
   `<config-dir>/skills/bundled/<agent>/<skill>`（每个已安装宿主各一份），
   已发布 skill 会移除 `<config-dir>/skills/registry/<skill>`。
-- 会同时移除目标目录：内置 skill 会从所有已存在的受支持宿主目录中移除，目
-  前包括 `${CODEX_HOME:-~/.codex}/skills/<skill>` 和
+- 会同时移除目标目录：内置和已发布 skill 会从所有已存在的受支持宿主目录中
+  移除，目前包括 `${CODEX_HOME:-~/.codex}/skills/<skill>` 和
   `~/.claude/skills/<skill>`，以及
-  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`；已发布 skill 会从
-  `${CODEX_HOME:-~/.codex}/skills/<skill>` 中移除。
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`。
 - 路径规则：`[skill]` 解析后必须仍然落在这些本地 `skills` 根目录的子目录中。
   任何会逃出这些根目录的名称都会被拒绝。
-- 说明：如果目标目录不存在，或者其 `.oo-metadata.json` 缺失或无效，
-  命令会直接报错，不会删除任何内容。
+- 说明：如果请求的 skill 在任何受支持目标中都不存在受管理安装，或某个已存在
+  的同名目标不是由 `oo` 管理，命令会直接报错，不会删除任何内容。
 
 ## 日志
 

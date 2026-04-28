@@ -49,7 +49,7 @@ Commands:
   logout                    Log out the current account (alias for auth logout)
   completion <shell>        Generate shell completion scripts
   config                    Manage persisted configuration
-  skills                    Manage Codex skills
+  skills                    Manage AI agent skills
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
@@ -83,7 +83,7 @@ Commands:
   logout                    Log out the current account (alias for auth logout)
   completion <shell>        Generate shell completion scripts
   config                    Manage persisted configuration
-  skills                    Manage Codex skills
+  skills                    Manage AI agent skills
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
@@ -120,7 +120,7 @@ Commands:
   logout                    Log out the current account (alias for auth logout)
   completion <shell>        Generate shell completion scripts
   config                    Manage persisted configuration
-  skills                    Manage Codex skills
+  skills                    Manage AI agent skills
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
@@ -155,7 +155,7 @@ exports[`runCli bootstrap renders help in English and Chinese 1`] = `
   logout                    登出当前账号（auth logout 的别名）
   completion <shell>        生成 shell 补全脚本
   config                    管理持久化配置
-  skills                    管理 Codex skill
+  skills                    管理 AI Agent skill
   log                       管理持久化 debug 日志
   search [options] <text>   搜索 package 与 connector action
   packages                  包相关工具
@@ -186,7 +186,7 @@ Commands:
   logout                    Log out the current account (alias for auth logout)
   completion <shell>        Generate shell completion scripts
   config                    Manage persisted configuration
-  skills                    Manage Codex skills
+  skills                    Manage AI agent skills
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
@@ -221,7 +221,7 @@ Commands:
   logout                    Log out the current account (alias for auth logout)
   completion <shell>        Generate shell completion scripts
   config                    Manage persisted configuration
-  skills                    Manage Codex skills
+  skills                    Manage AI agent skills
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities

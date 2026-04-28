@@ -1,6 +1,7 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
+import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 
 import type { ManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import { readdir, readFile } from "node:fs/promises";
@@ -9,20 +10,14 @@ import { z } from "zod";
 import { compareSemver } from "../../semver.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
+import { availableBundledSkillNames } from "./embedded-assets.ts";
 import {
-    directoryExists,
-} from "./bundled-skill-observation.ts";
-import {
-    codexSkillsDirectoryName,
-    resolveBundledSkillHomeDirectory,
-} from "./bundled-skill-paths.ts";
-import {
-    availableBundledSkillAgentNames,
-    availableBundledSkillNames,
-} from "./embedded-assets.ts";
+    resolveAvailableManagedSkillHosts,
+} from "./managed-skill-hosts.ts";
 import { parseManagedSkillMetadataContent } from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillMetadataFilePath,
+    resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { isBundledSkillName } from "./shared.ts";
 
@@ -41,7 +36,7 @@ export interface ManagedSkillListItem {
     path: string;
 }
 
-interface ManagedSkillHostListItem extends ManagedSkillListItem {
+export interface ManagedSkillHostListItem extends ManagedSkillListItem {
     hostName: BundledSkillAgentName;
 }
 
@@ -86,27 +81,22 @@ export const skillsListCommand: CliCommandDefinition<Record<string, never>> = {
 async function listManagedSkillInstallationsByHost(
     env: Record<string, string | undefined>,
 ): Promise<ManagedSkillHostListItem[]> {
-    const hostDirectories = await Promise.all(
-        availableBundledSkillAgentNames.map(async (hostName) => {
-            const homeDirectory = resolveBundledSkillHomeDirectory(env, hostName);
+    return listManagedSkillInstallationsForHosts(
+        await resolveAvailableManagedSkillHosts(env),
+    );
+}
 
-            return await directoryExists(homeDirectory)
-                ? {
-                        hostName,
-                        skillsDirectoryPath: join(homeDirectory, codexSkillsDirectoryName),
-                    }
-                : undefined;
-        }),
-    );
-    const existingHostDirectories = hostDirectories.filter(
-        hostDirectory => hostDirectory !== undefined,
-    );
+export async function listManagedSkillInstallationsForHosts(
+    hosts: readonly ManagedSkillHost[],
+): Promise<ManagedSkillHostListItem[]> {
     const skillsByHost = await Promise.all(
-        existingHostDirectories.map(hostDirectory =>
-            listManagedSkillInstallations(hostDirectory.skillsDirectoryPath)
+        hosts.map(host =>
+            listManagedSkillInstallations(
+                resolveManagedSkillsDirectoryPath(host.homeDirectory),
+            )
                 .then(skills => skills.map(skill => ({
                     ...skill,
-                    hostName: hostDirectory.hostName,
+                    hostName: host.agentName,
                 }) satisfies ManagedSkillHostListItem)),
         ),
     );

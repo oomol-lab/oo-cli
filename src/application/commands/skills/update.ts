@@ -1,6 +1,7 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 import type { ManagedSkillListItem } from "./list.ts";
+import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import type { PreparedRegistrySkillPublication } from "./registry-skill-publication.ts";
 
 import { z } from "zod";
@@ -10,14 +11,21 @@ import { writeLine } from "../shared/output.ts";
 import {
     directoryExists,
     fileExists,
-    requireCodexHomeDirectory,
 } from "./bundled-skill-observation.ts";
-import { listManagedSkillInstallations } from "./list.ts";
+import {
+    listManagedSkillInstallations,
+    listManagedSkillInstallationsForHosts,
+} from "./list.ts";
+import {
+    createMissingManagedSkillHostError,
+    resolveAvailableManagedSkillHosts,
+    resolveManagedSkillHostInstallations,
+} from "./managed-skill-hosts.ts";
+import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     isManagedSkillPathContained,
-    resolveManagedSkillDirectoryPath,
+    resolveManagedSkillCanonicalRootDirectoryPath,
     resolveManagedSkillMetadataFilePath,
-    resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
@@ -26,6 +34,7 @@ import {
 import {
     prepareRegistrySkillPublication,
     publishPreparedRegistrySkillPublication,
+    validateRegistrySkillPublicationTargets,
 } from "./registry-skill-publication.ts";
 import {
     downloadRegistryPackageTarball,
@@ -97,15 +106,21 @@ export async function updateManagedSkills(
     },
     context: CliExecutionContext,
 ): Promise<void> {
-    const codexHomeDirectory = await requireCodexHomeDirectory(context);
+    const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
+
+    if (availableHosts.length === 0) {
+        throw createMissingManagedSkillHostError(context.env);
+    }
+
     const settingsFilePath = context.settingsStore.getFilePath();
-    const installedSkills = await listManagedSkillInstallations(
-        resolveManagedSkillsDirectoryPath(codexHomeDirectory),
+    const installedSkills = await readKnownManagedSkillInstallations(
+        availableHosts,
+        settingsFilePath,
     );
     const selectedSkills = await resolveSelectedManagedSkills(
         request.skillNames,
         installedSkills,
-        codexHomeDirectory,
+        availableHosts,
         settingsFilePath,
     );
 
@@ -155,7 +170,7 @@ export async function updateManagedSkills(
                     group,
                     {
                         account: account!,
-                        codexHomeDirectory,
+                        availableHosts,
                         progressReporter,
                         settingsFilePath,
                     },
@@ -194,21 +209,21 @@ export async function updateManagedSkills(
                 installationPath: string;
                 skillName: string;
             }
-        > = await Promise.all(
+        > = (await Promise.all(
             publications.map(async (publication) => {
                 try {
                     progressReporter?.updateSkill(
                         publication.preparedPublication.skillName,
                         "publishing",
                     );
-                    const installation = await publishPreparedRegistrySkillPublication(
+                    const installations = await publishPreparedRegistrySkillPublication(
                         publication.preparedPublication,
                     );
 
-                    return {
+                    return installations.map(installation => ({
                         installationPath: installation.path,
                         skillName: publication.preparedPublication.skillName,
-                    };
+                    }));
                 }
                 catch (error) {
                     const normalizedError = normalizeSkillUpdateError(error);
@@ -221,7 +236,7 @@ export async function updateManagedSkills(
                     };
                 }
             }),
-        );
+        )).flat();
 
         for (const result of publicationResults) {
             if ("error" in result) {
@@ -253,10 +268,49 @@ export async function updateManagedSkills(
     }
 }
 
+async function readKnownManagedSkillInstallations(
+    availableHosts: readonly ManagedSkillHost[],
+    settingsFilePath: string,
+): Promise<ManagedSkillListItem[]> {
+    const [canonicalSkills, hostSkills] = await Promise.all([
+        listManagedSkillInstallations(
+            resolveManagedSkillCanonicalRootDirectoryPath(settingsFilePath),
+        ),
+        listManagedSkillInstallationsForHosts(availableHosts),
+    ]);
+
+    return mergeManagedSkillInstallationsByName([
+        ...hostSkills,
+        ...canonicalSkills,
+    ]);
+}
+
+function mergeManagedSkillInstallationsByName(
+    skills: readonly ManagedSkillListItem[],
+): ManagedSkillListItem[] {
+    const skillsByName = new Map<string, ManagedSkillListItem>();
+
+    for (const skill of skills) {
+        const existingSkill = skillsByName.get(skill.name);
+
+        if (
+            existingSkill === undefined
+            || (
+                existingSkill.metadata?.packageName === undefined
+                && skill.metadata?.packageName !== undefined
+            )
+        ) {
+            skillsByName.set(skill.name, skill);
+        }
+    }
+
+    return Array.from(skillsByName.values());
+}
+
 async function resolveSelectedManagedSkills(
     requestedSkillNames: readonly string[],
     installedSkills: readonly ManagedSkillListItem[],
-    codexHomeDirectory: string,
+    availableHosts: readonly ManagedSkillHost[],
     settingsFilePath: string,
 ): Promise<ManagedSkillListItem[]> {
     if (requestedSkillNames.length === 0) {
@@ -288,13 +342,18 @@ async function resolveSelectedManagedSkills(
             );
         }
 
-        if (
+        const hostInstallations = resolveManagedSkillHostInstallations(
+            availableHosts,
+            requestedSkillName,
+        );
+
+        if (hostInstallations.some(installation =>
             !isManagedSkillPathContained(
-                codexHomeDirectory,
+                installation.homeDirectory,
                 settingsFilePath,
                 requestedSkillName,
-            )
-        ) {
+            ),
+        )) {
             throw new CliUserError("errors.skills.invalidPath", 1, {
                 name: requestedSkillName,
             });
@@ -307,26 +366,37 @@ async function resolveSelectedManagedSkills(
             continue;
         }
 
-        const installedSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
-            requestedSkillName,
+        const targetStates = await Promise.all(
+            hostInstallations.map(async (installation) => {
+                const installedDirectoryExists = await directoryExists(
+                    installation.installedSkillDirectoryPath,
+                );
+
+                return {
+                    ...installation,
+                    hasDirectoryWithoutMetadata: installedDirectoryExists
+                        && !(await fileExists(
+                            resolveManagedSkillMetadataFilePath(
+                                installation.installedSkillDirectoryPath,
+                            ),
+                        )),
+                };
+            }),
         );
-        const installedDirectoryExists = await directoryExists(
-            installedSkillDirectoryPath,
+        const unmanagedTarget = targetStates.find(
+            target => target.hasDirectoryWithoutMetadata,
         );
-        const hasDirectoryWithoutMetadata = installedDirectoryExists
-            && !(await fileExists(
-                resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
-            ));
+        const firstTarget = targetStates[0]!;
 
         throw new CliUserError(
-            hasDirectoryWithoutMetadata
+            unmanagedTarget !== undefined
                 ? "errors.skills.notManaged"
                 : "errors.skills.notInstalled",
             1,
             {
                 name: requestedSkillName,
-                path: installedSkillDirectoryPath,
+                path: unmanagedTarget?.installedSkillDirectoryPath
+                    ?? firstTarget.installedSkillDirectoryPath,
             },
         );
     }
@@ -366,7 +436,7 @@ async function prepareRegistrySkillGroupUpdate(
     group: RegistrySkillGroup,
     options: {
         account: AuthAccount;
-        codexHomeDirectory: string;
+        availableHosts: readonly ManagedSkillHost[];
         progressReporter?: SkillsUpdateProgressReporter;
         settingsFilePath: string;
     },
@@ -382,12 +452,18 @@ async function prepareRegistrySkillGroupUpdate(
             options.account,
             context,
         );
+        const targetCurrentStates = await Promise.all(
+            group.skills.map(skill =>
+                isRegistrySkillCurrentInAllHosts(
+                    skill.name,
+                    packageInfo.packageName,
+                    packageInfo.packageVersion,
+                    options.availableHosts,
+                ),
+            ),
+        );
 
-        if (
-            group.skills.every(
-                skill => skill.metadata?.version === packageInfo.packageVersion,
-            )
-        ) {
+        if (targetCurrentStates.every(isCurrent => isCurrent)) {
             return {
                 events: group.skills.map(skill => ({
                     kind: "current",
@@ -401,6 +477,18 @@ async function prepareRegistrySkillGroupUpdate(
         for (const skill of group.skills) {
             options.progressReporter?.updateSkill(skill.name, "preparing");
         }
+
+        await Promise.all(
+            group.skills.map(skill =>
+                validateRegistrySkillPublicationTargets({
+                    hostInstallations: resolveManagedSkillHostInstallations(
+                        options.availableHosts,
+                        skill.name,
+                    ),
+                    skillName: skill.name,
+                }),
+            ),
+        );
 
         const packageBytes = await downloadRegistryPackageTarball(
             packageInfo.packageName,
@@ -416,8 +504,11 @@ async function prepareRegistrySkillGroupUpdate(
                 publications: await Promise.all(
                     group.skills.map(async skill => ({
                         preparedPublication: await prepareRegistrySkillPublication({
-                            codexHomeDirectory: options.codexHomeDirectory,
                             extractedPackage,
+                            hostInstallations: resolveManagedSkillHostInstallations(
+                                options.availableHosts,
+                                skill.name,
+                            ),
                             packageName: packageInfo.packageName,
                             packageVersion: packageInfo.packageVersion,
                             settingsFilePath: options.settingsFilePath,
@@ -448,6 +539,34 @@ async function prepareRegistrySkillGroupUpdate(
             publications: [],
         };
     }
+}
+
+async function isRegistrySkillCurrentInAllHosts(
+    skillName: string,
+    packageName: string,
+    packageVersion: string,
+    availableHosts: readonly ManagedSkillHost[],
+): Promise<boolean> {
+    const hostInstallations = resolveManagedSkillHostInstallations(
+        availableHosts,
+        skillName,
+    );
+    const targetStates = await Promise.all(
+        hostInstallations.map(async (installation) => {
+            if (!(await directoryExists(installation.installedSkillDirectoryPath))) {
+                return undefined;
+            }
+
+            return await readManagedSkillMetadata(
+                installation.installedSkillDirectoryPath,
+            );
+        }),
+    );
+
+    return targetStates.every(metadata =>
+        metadata?.packageName === packageName
+        && metadata.version === packageVersion,
+    );
 }
 
 function normalizeSkillUpdateError(error: unknown): Error {

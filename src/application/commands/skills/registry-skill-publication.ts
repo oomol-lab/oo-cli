@@ -1,32 +1,42 @@
 import type { BundledSkillPublicationResult } from "./bundled-skill-filesystem.ts";
+import type { BundledSkillAgentName } from "./embedded-assets.ts";
+import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
 import type { ExtractedRegistryPackageArchive } from "./registry-skill-archive.ts";
 import type { RegistrySkillSummary } from "./registry-skill-source.ts";
 
 import { cp, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import { CliUserError } from "../../contracts/cli.ts";
 import {
     publishBundledSkillInstallation,
     removePath,
 } from "./bundled-skill-filesystem.ts";
-import { writeManagedSkillMetadata } from "./managed-skill-metadata.ts";
+import { directoryExists } from "./bundled-skill-observation.ts";
+import {
+    readManagedSkillMetadata,
+    writeManagedSkillMetadata,
+} from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
-    resolveManagedSkillDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { requireExtractedRegistrySkillDirectory } from "./registry-skill-archive.ts";
 import { rewriteInstalledRegistrySkillMarkdown } from "./registry-skill-markdown.ts";
 
 export interface PreparedRegistrySkillPublication {
     canonicalSkillDirectoryPath: string;
-    installedSkillDirectoryPath: string;
+    hostInstallations: ManagedSkillHostInstallation[];
     packageName: string;
     packageVersion: string;
     skillName: string;
 }
 
+export interface RegistrySkillPublicationResult extends BundledSkillPublicationResult {
+    agentName: BundledSkillAgentName;
+}
+
 export async function prepareRegistrySkillPublication(options: {
-    codexHomeDirectory: string;
     extractedPackage: ExtractedRegistryPackageArchive;
+    hostInstallations: readonly ManagedSkillHostInstallation[];
     packageName: string;
     packageVersion: string;
     settingsFilePath: string;
@@ -35,10 +45,6 @@ export async function prepareRegistrySkillPublication(options: {
 }): Promise<PreparedRegistrySkillPublication> {
     const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
         options.settingsFilePath,
-        options.skillName,
-    );
-    const installedSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-        options.codexHomeDirectory,
         options.skillName,
     );
 
@@ -70,7 +76,7 @@ export async function prepareRegistrySkillPublication(options: {
 
     return {
         canonicalSkillDirectoryPath,
-        installedSkillDirectoryPath,
+        hostInstallations: [...options.hostInstallations],
         packageName: options.packageName,
         packageVersion: options.packageVersion,
         skillName: options.skillName,
@@ -79,9 +85,58 @@ export async function prepareRegistrySkillPublication(options: {
 
 export async function publishPreparedRegistrySkillPublication(
     preparedPublication: PreparedRegistrySkillPublication,
-): Promise<BundledSkillPublicationResult> {
-    return publishBundledSkillInstallation({
-        canonicalSkillDirectoryPath: preparedPublication.canonicalSkillDirectoryPath,
-        installedSkillDirectoryPath: preparedPublication.installedSkillDirectoryPath,
+): Promise<RegistrySkillPublicationResult[]> {
+    await validateRegistrySkillPublicationTargets(preparedPublication);
+
+    return Promise.all(
+        preparedPublication.hostInstallations.map(async (installation) => {
+            const publication = await publishBundledSkillInstallation({
+                canonicalSkillDirectoryPath: preparedPublication.canonicalSkillDirectoryPath,
+                installedSkillDirectoryPath: installation.installedSkillDirectoryPath,
+                publicationMode: installation.agentName === "openclaw"
+                    ? "copy"
+                    : "symlink-or-copy",
+            });
+
+            return {
+                ...publication,
+                agentName: installation.agentName,
+            };
+        }),
+    );
+}
+
+export async function validateRegistrySkillPublicationTargets(options: {
+    hostInstallations: readonly ManagedSkillHostInstallation[];
+    skillName: string;
+}): Promise<void> {
+    const targetStates = await Promise.all(
+        options.hostInstallations.map(async (installation) => {
+            const installedDirectoryExists = await directoryExists(
+                installation.installedSkillDirectoryPath,
+            );
+
+            return {
+                installation,
+                installedDirectoryExists,
+                metadata: installedDirectoryExists
+                    ? await readManagedSkillMetadata(
+                            installation.installedSkillDirectoryPath,
+                        )
+                    : undefined,
+            };
+        }),
+    );
+    const unmanagedTarget = targetStates.find(
+        target => target.installedDirectoryExists && target.metadata === undefined,
+    );
+
+    if (unmanagedTarget === undefined) {
+        return;
+    }
+
+    throw new CliUserError("errors.skills.nameConflict", 1, {
+        name: options.skillName,
+        path: unmanagedTarget.installation.installedSkillDirectoryPath,
     });
 }

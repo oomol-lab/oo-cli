@@ -1,5 +1,6 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import type { RegistryPackageSkillInfo, RegistrySkillSummary } from "./registry-skill-source.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
@@ -7,24 +8,29 @@ import { withPackageIdentity } from "../../logging/log-fields.ts";
 
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
-import { directoryExists, requireCodexHomeDirectory } from "./bundled-skill-observation.ts";
+import { directoryExists } from "./bundled-skill-observation.ts";
 import { SkillsInstallProgressReporter } from "./install-progress.ts";
 import {
     confirmInteractiveValue,
     selectInteractiveSkills,
 } from "./interactive-prompts.ts";
 import {
+    createMissingManagedSkillHostError,
+    resolveAvailableManagedSkillHosts,
+    resolveManagedSkillHostInstallations,
+} from "./managed-skill-hosts.ts";
+import {
     readManagedSkillMetadata,
 } from "./managed-skill-metadata.ts";
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
-    resolveManagedSkillDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
     prepareRegistrySkillPublication,
     publishPreparedRegistrySkillPublication,
+    validateRegistrySkillPublicationTargets,
 } from "./registry-skill-publication.ts";
 import {
     downloadRegistryPackageTarball,
@@ -68,7 +74,12 @@ export async function installRegistrySkills(
     context: CliExecutionContext,
 ): Promise<void> {
     const account = await requireCurrentAccount(context);
-    const codexHomeDirectory = await requireCodexHomeDirectory(context);
+    const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
+
+    if (availableHosts.length === 0) {
+        throw createMissingManagedSkillHostError(context.env);
+    }
+
     const packageInfo = await loadRegistryPackageSkillInfo(
         request.packageName,
         account,
@@ -84,7 +95,7 @@ export async function installRegistrySkills(
     const selectionActions = await resolveSelectionActions(
         request,
         packageInfo,
-        codexHomeDirectory,
+        availableHosts,
         context,
     );
 
@@ -95,10 +106,17 @@ export async function installRegistrySkills(
     const settingsFilePath = context.settingsStore.getFilePath();
 
     for (const { skillName } of selectionActions.actions) {
-        if (!isManagedSkillPathContained(
-            codexHomeDirectory,
-            settingsFilePath,
+        const hostInstallations = resolveManagedSkillHostInstallations(
+            availableHosts,
             skillName,
+        );
+
+        if (hostInstallations.some(installation =>
+            !isManagedSkillPathContained(
+                installation.homeDirectory,
+                settingsFilePath,
+                skillName,
+            ),
         )) {
             throw new CliUserError("errors.skills.invalidPath", 1, {
                 name: skillName,
@@ -126,7 +144,7 @@ export async function installRegistrySkills(
                     installActions,
                     packageInfo,
                     account,
-                    codexHomeDirectory,
+                    availableHosts,
                     settingsFilePath,
                     selectionActions.isInteractive,
                     context,
@@ -168,11 +186,21 @@ async function executeInstallActions(
     installActions: readonly RegistrySkillSelectionAction[],
     packageInfo: RegistryPackageSkillInfo,
     account: AuthAccount,
-    codexHomeDirectory: string,
+    availableHosts: readonly ManagedSkillHost[],
     settingsFilePath: string,
     isInteractive: boolean,
     context: CliExecutionContext,
 ): Promise<void> {
+    for (const { skillName } of installActions) {
+        await validateRegistrySkillPublicationTargets({
+            hostInstallations: resolveManagedSkillHostInstallations(
+                availableHosts,
+                skillName,
+            ),
+            skillName,
+        });
+    }
+
     const packageBytes = await downloadRegistryPackageTarball(
         packageInfo.packageName,
         packageInfo.packageVersion,
@@ -184,10 +212,14 @@ async function executeInstallActions(
     try {
         for (const { skillName } of installActions) {
             const skill = findPackageSkillOrThrow(packageInfo.skills, skillName, packageInfo.packageName);
-            const installation = await publishPreparedRegistrySkillPublication(
+            const hostInstallations = resolveManagedSkillHostInstallations(
+                availableHosts,
+                skillName,
+            );
+            const publications = await publishPreparedRegistrySkillPublication(
                 await prepareRegistrySkillPublication({
-                    codexHomeDirectory,
                     extractedPackage,
+                    hostInstallations,
                     packageName: packageInfo.packageName,
                     packageVersion: packageInfo.packageVersion,
                     settingsFilePath,
@@ -197,27 +229,32 @@ async function executeInstallActions(
             );
 
             if (!isInteractive) {
-                writeLine(
-                    context.stdout,
-                    context.translator.t("skills.install.success", {
-                        name: skillName,
-                        path: installation.path,
-                    }),
-                );
+                for (const publication of publications) {
+                    writeLine(
+                        context.stdout,
+                        context.translator.t("skills.install.success", {
+                            name: skillName,
+                            path: publication.path,
+                        }),
+                    );
+                }
             }
 
-            context.logger.info(
-                {
-                    ...withPackageIdentity(
-                        packageInfo.packageName,
-                        packageInfo.packageVersion,
-                    ),
-                    installMode: installation.mode,
-                    path: installation.path,
-                    skillName,
-                },
-                "Registry Codex skill installed explicitly.",
-            );
+            for (const publication of publications) {
+                context.logger.info(
+                    {
+                        ...withPackageIdentity(
+                            packageInfo.packageName,
+                            packageInfo.packageVersion,
+                        ),
+                        agentName: publication.agentName,
+                        installMode: publication.mode,
+                        path: publication.path,
+                        skillName,
+                    },
+                    "Registry skill installed explicitly.",
+                );
+            }
         }
     }
     finally {
@@ -228,7 +265,7 @@ async function executeInstallActions(
 async function resolveSelectionActions(
     request: RegistrySkillInstallRequest,
     packageInfo: RegistryPackageSkillInfo,
-    codexHomeDirectory: string,
+    availableHosts: readonly ManagedSkillHost[],
     context: Pick<
         CliExecutionContext,
         "settingsStore" | "stdin" | "stdout" | "translator"
@@ -258,7 +295,7 @@ async function resolveSelectionActions(
                 await filterConfirmedSkillNames(
                     packageInfo.packageName,
                     request.skillNames,
-                    codexHomeDirectory,
+                    availableHosts,
                     context,
                 ),
             ),
@@ -304,7 +341,7 @@ async function resolveSelectionActions(
 
     const skillStates = await readRegistrySkillStates(
         packageInfo,
-        codexHomeDirectory,
+        availableHosts,
         context.settingsStore.getFilePath(),
     );
     const selectedSkillNames = await selectInteractiveSkills(
@@ -349,7 +386,7 @@ async function resolveSelectionActions(
 async function filterConfirmedSkillNames(
     packageName: string,
     skillNames: readonly string[],
-    codexHomeDirectory: string,
+    availableHosts: readonly ManagedSkillHost[],
     context: Pick<
         CliExecutionContext,
         "settingsStore" | "stdin" | "stdout" | "translator"
@@ -361,7 +398,7 @@ async function filterConfirmedSkillNames(
         const status = await readRegistrySkillInstallStatus(
             packageName,
             skillName,
-            codexHomeDirectory,
+            availableHosts,
             context.settingsStore.getFilePath(),
         );
 
@@ -430,7 +467,7 @@ export function findPackageSkillOrThrow(
 
 async function readRegistrySkillStates(
     packageInfo: RegistryPackageSkillInfo,
-    codexHomeDirectory: string,
+    availableHosts: readonly ManagedSkillHost[],
     settingsFilePath: string,
 ): Promise<RegistrySkillState[]> {
     return await Promise.all(
@@ -440,7 +477,7 @@ async function readRegistrySkillStates(
             status: await readRegistrySkillInstallStatus(
                 packageInfo.packageName,
                 skill.name,
-                codexHomeDirectory,
+                availableHosts,
                 settingsFilePath,
             ),
             title: skill.title,
@@ -451,32 +488,36 @@ async function readRegistrySkillStates(
 async function readRegistrySkillInstallStatus(
     packageName: string,
     skillName: string,
-    codexHomeDirectory: string,
+    availableHosts: readonly ManagedSkillHost[],
     settingsFilePath: string,
 ): Promise<RegistrySkillInstallStatus> {
     const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
         settingsFilePath,
         skillName,
     );
-    const installedSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-        codexHomeDirectory,
+    const hostInstallations = resolveManagedSkillHostInstallations(
+        availableHosts,
         skillName,
     );
-    const [canonicalState, installedState] = await Promise.all([
+    const [canonicalState, installedStates] = await Promise.all([
         readManagedSkillPathState(canonicalSkillDirectoryPath),
-        readManagedSkillPathState(installedSkillDirectoryPath),
+        Promise.all(hostInstallations.map(installation =>
+            readManagedSkillPathState(installation.installedSkillDirectoryPath),
+        )),
     ]);
 
     if (
         hasManagedSkillPathConflict(canonicalState, packageName)
-        || hasManagedSkillPathConflict(installedState, packageName)
+        || installedStates.some(state =>
+            hasManagedSkillPathConflict(state, packageName),
+        )
     ) {
         return "conflict";
     }
 
     if (
         canonicalState.metadataPackageName === packageName
-        || installedState.metadataPackageName === packageName
+        || installedStates.some(state => state.metadataPackageName === packageName)
     ) {
         return "installed";
     }
