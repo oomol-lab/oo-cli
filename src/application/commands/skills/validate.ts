@@ -93,57 +93,14 @@ export async function validateSkillDirectory(
         };
     }
 
-    const name = frontmatter.name;
-
-    if (!isNonEmptyString(name)) {
-        return {
-            error: "Frontmatter must include a string name field.",
-        };
-    }
-
-    const nameError = validateSkillNameValue(name);
-
-    if (isDefined(nameError)) {
-        return {
-            error: nameError,
-        };
-    }
-
-    const description = frontmatter.description;
-
-    if (!isNonBlankString(description)) {
-        return {
-            error: "Frontmatter must include a string description field.",
-        };
-    }
-
-    const icon = frontmatter.metadataIcon;
-
-    const iconError = validateSkillIconValue(icon);
-
-    if (isDefined(iconError)) {
-        return {
-            error: iconError,
-        };
-    }
-
-    const title = frontmatter.metadataTitle;
-
-    const titleError = validateSkillTitleValue(title);
-
-    if (isDefined(titleError)) {
-        return {
-            error: titleError,
-        };
-    }
-
-    const warnings = readSkillFrontmatterWarnings(frontmatter);
-
-    if (warnings.length > 0) {
-        return { warnings };
-    }
-
-    return {};
+    return (
+        validateRequiredField(frontmatter.name, "name")
+        || validateRequiredField(frontmatter.description, "description")
+        || validateOptionalField(frontmatter.metadataIcon, "metadata.icon")
+        || validateOptionalField(frontmatter.metadataTitle, "metadata.title")
+        || readSkillFrontmatterWarnings(frontmatter)
+        || {}
+    );
 }
 
 function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
@@ -162,7 +119,7 @@ function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
 
     const metadata = parsedMatter.data.metadata;
 
-    if (metadata !== undefined && !isPlainObject(metadata)) {
+    if (isDefined(metadata) && !isPlainObject(metadata)) {
         return "Frontmatter metadata must be an object.";
     }
 
@@ -174,35 +131,25 @@ function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
     };
 }
 
-function validateSkillNameValue(name: string): string | undefined {
-    if (name === "") {
-        return "Frontmatter name cannot be empty.";
-    }
-
-    return undefined;
-}
-
-function validateSkillIconValue(icon: unknown): string | undefined {
-    if (icon === undefined) {
-        return;
-    }
-
-    if (!isNonBlankString(icon)) {
-        return "Frontmatter metadata.icon must be a non-empty string.";
+function validateRequiredField(
+    fieldValue: unknown,
+    fieldName: string,
+): { error: string } | undefined {
+    if (!isNonBlankString(fieldValue)) {
+        return {
+            error: `Frontmatter must include a non-empty string ${fieldName} field.`,
+        };
     }
 }
 
-function validateSkillTitleValue(title: unknown): string | undefined {
-    if (title === undefined) {
-        return;
-    }
-
-    if (!isString(title)) {
-        return "Frontmatter metadata.title must be a string.";
-    }
-
-    if (!isNonBlankString(title)) {
-        return "Frontmatter metadata.title cannot be empty.";
+function validateOptionalField(
+    fieldValue: unknown,
+    fieldName: string,
+): { error: string } | undefined {
+    if (isDefined(fieldValue) && !isNonBlankString(fieldValue)) {
+        return {
+            error: `Frontmatter ${fieldName} field must be a non-empty string if provided.`,
+        };
     }
 }
 
@@ -212,16 +159,20 @@ function isNonBlankString(value: unknown): value is string {
 
 function readSkillFrontmatterWarnings(
     frontmatter: ParsedFrontmatter,
-): string[] {
-    const warnings: string[] = [];
+): { warnings: string[] } | undefined {
+    let warnings: string[] | undefined;
 
     if (!isNonEmptyString(frontmatter.metadataIcon)) {
-        warnings.push("Warning: Frontmatter metadata.icon is missing.");
+        (warnings ??= []).push(
+            "Warning: Frontmatter metadata.icon is missing.",
+        );
     }
 
     if (!isNonEmptyString(frontmatter.metadataTitle)) {
-        warnings.push("Warning: Frontmatter metadata.title is missing.");
+        (warnings ??= []).push(
+            "Warning: Frontmatter metadata.title is missing.",
+        );
     }
 
-    return warnings;
+    return warnings && { warnings };
 }

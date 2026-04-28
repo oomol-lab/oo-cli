@@ -143,7 +143,36 @@ describe("skills validate command", () => {
             );
 
             await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
-                error: "Frontmatter must include a string description field.",
+                error: "Frontmatter must include a non-empty string description field.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects whitespace-only names", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "empty-name-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: \"   \"",
+                    "description: Use this skill for a workflow.",
+                    "metadata:",
+                    "  icon: ':lucide:wand:'",
+                    "  title: Empty Name Skill",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter must include a non-empty string name field.",
             });
         }
         finally {
@@ -199,7 +228,7 @@ describe("skills validate command", () => {
             );
 
             await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
-                error: "Frontmatter metadata.icon must be a non-empty string.",
+                error: "Frontmatter metadata.icon field must be a non-empty string if provided.",
             });
         }
         finally {
@@ -227,7 +256,7 @@ describe("skills validate command", () => {
             );
 
             await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
-                error: "Frontmatter metadata.title cannot be empty.",
+                error: "Frontmatter metadata.title field must be a non-empty string if provided.",
             });
         }
         finally {
@@ -255,7 +284,7 @@ describe("skills validate command", () => {
             );
 
             await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
-                error: "Frontmatter metadata.title cannot be empty.",
+                error: "Frontmatter metadata.title field must be a non-empty string if provided.",
             });
         }
         finally {
@@ -284,7 +313,7 @@ describe("skills validate command", () => {
             );
 
             await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
-                error: "Frontmatter metadata.title must be a string.",
+                error: "Frontmatter metadata.title field must be a non-empty string if provided.",
             });
         }
         finally {
