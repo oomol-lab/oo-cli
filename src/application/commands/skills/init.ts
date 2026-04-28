@@ -3,6 +3,7 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
 import { lstat, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import matter from "gray-matter";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
@@ -39,6 +40,18 @@ interface LocalSkillHostPublicationTarget {
     agentName: BundledSkillAgentName;
     homeDirectory: string;
     installedSkillDirectoryPath: string;
+}
+
+interface OOSkillFrontmatter {
+    compatibility: string;
+    description: string;
+    metadata?: OOSkillFrontmatterMetadata;
+    name: string;
+}
+
+interface OOSkillFrontmatterMetadata {
+    icon?: string;
+    title?: string;
 }
 
 export const skillsInitCommand: CliCommandDefinition<SkillsInitInput> = {
@@ -265,27 +278,25 @@ function renderInitializedSkillMarkdown(
     icon: string | undefined,
     title: string | undefined,
 ): string {
-    const frontmatterLines = [
-        "---",
-        `name: ${skillName}`,
-        `description: ${JSON.stringify(description)}`,
-        `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
-    ];
+    const frontmatter: OOSkillFrontmatter = {
+        name: skillName,
+        description,
+        compatibility: installedRegistrySkillCompatibility,
+    };
 
     if (icon !== undefined || title !== undefined) {
-        frontmatterLines.push("metadata:");
+        frontmatter.metadata = {};
 
         if (icon !== undefined) {
-            frontmatterLines.push(`  icon: ${JSON.stringify(icon)}`);
+            frontmatter.metadata.icon = icon;
         }
 
         if (title !== undefined) {
-            frontmatterLines.push(`  title: ${JSON.stringify(title)}`);
+            frontmatter.metadata.title = title;
         }
     }
 
-    frontmatterLines.push(
-        "---",
+    const body = [
         "",
         `# ${title ?? renderSkillTitle(skillName)}`,
         "",
@@ -293,9 +304,9 @@ function renderInitializedSkillMarkdown(
         "",
         "TODO: Describe the workflow this skill should follow.",
         "",
-    );
+    ].join("\n");
 
-    return frontmatterLines.join("\n");
+    return matter.stringify(body, frontmatter);
 }
 
 function normalizeSkillName(value: string): string {

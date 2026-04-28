@@ -2,6 +2,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import matter from "gray-matter";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
@@ -13,11 +14,14 @@ interface SkillsValidateInput {
 
 interface SkillValidationResult {
     error?: string;
+    warnings?: string[];
 }
 
 interface ParsedFrontmatter {
-    fields: Map<string, string | undefined>;
-    metadataFields: Map<string, string | undefined>;
+    description: unknown;
+    metadataIcon: unknown;
+    metadataTitle: unknown;
+    name: unknown;
 }
 
 export const skillsValidateCommand: CliCommandDefinition<SkillsValidateInput> = {
@@ -42,6 +46,10 @@ export const skillsValidateCommand: CliCommandDefinition<SkillsValidateInput> = 
             throw new CliUserError("errors.skills.validate.failed", 1, {
                 message: result.error,
             });
+        }
+
+        for (const warning of result.warnings ?? []) {
+            writeLine(context.stderr, warning);
         }
 
         writeLine(
@@ -79,9 +87,9 @@ export async function validateSkillDirectory(
         };
     }
 
-    const name = frontmatter.fields.get("name");
+    const name = frontmatter.name;
 
-    if (name === undefined) {
+    if (typeof name !== "string") {
         return {
             error: "Frontmatter must include a string name field.",
         };
@@ -95,23 +103,15 @@ export async function validateSkillDirectory(
         };
     }
 
-    const description = frontmatter.fields.get("description");
+    const description = frontmatter.description;
 
-    if (description === undefined) {
+    if (typeof description !== "string") {
         return {
             error: "Frontmatter must include a string description field.",
         };
     }
 
-    const descriptionError = validateSkillDescriptionValue(description);
-
-    if (descriptionError !== undefined) {
-        return {
-            error: descriptionError,
-        };
-    }
-
-    const title = frontmatter.metadataFields.get("title");
+    const title = frontmatter.metadataTitle;
 
     const titleError = validateSkillTitleValue(title);
 
@@ -121,177 +121,44 @@ export async function validateSkillDirectory(
         };
     }
 
+    const warnings = readSkillFrontmatterWarnings(frontmatter);
+
+    if (warnings.length > 0) {
+        return { warnings };
+    }
+
     return {};
 }
 
 function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
-    const normalizedContent = content
-        .replaceAll("\r\n", "\n")
-        .replaceAll("\r", "\n");
-    const lines = normalizedContent.split("\n");
+    let parsedMatter: matter.GrayMatterFile<string>;
 
-    if (lines[0] !== "---") {
-        return "SKILL.md must start with YAML frontmatter delimited by ---.";
+    try {
+        parsedMatter = matter(content);
+    }
+    catch {
+        return "Frontmatter must be a YAML dictionary.";
     }
 
-    let endIndex = 1;
-
-    while (endIndex < lines.length && lines[endIndex] !== "---") {
-        endIndex += 1;
+    if (!isRecord(parsedMatter.data)) {
+        return "Frontmatter must be a YAML dictionary.";
     }
 
-    if (endIndex >= lines.length) {
-        return "Frontmatter must end with a --- delimiter.";
-    }
-
-    const fields = new Map<string, string | undefined>();
-    const metadataFields = new Map<string, string | undefined>();
-    const frontmatterLines = lines.slice(1, endIndex);
-    let currentBlockKey: string | undefined;
-    let currentBlockLines: string[] = [];
-
-    for (const line of frontmatterLines) {
-        const topLevelField = readTopLevelFrontmatterField(line);
-
-        if (topLevelField === undefined) {
-            if (currentBlockKey !== undefined && isIndentedLine(line)) {
-                currentBlockLines.push(line.trim());
-                continue;
-            }
-
-            if (line.trim() === "") {
-                continue;
-            }
-
-            return "Frontmatter must be a YAML dictionary.";
-        }
-
-        if (currentBlockKey !== undefined) {
-            fields.set(currentBlockKey, currentBlockLines.join(" ").trim());
-            currentBlockKey = undefined;
-            currentBlockLines = [];
-        }
-
-        if (fields.has(topLevelField.key)) {
-            return `Duplicate frontmatter key: ${topLevelField.key}.`;
-        }
-
-        const parsedValue = parseYamlScalar(topLevelField.value);
-
-        if (parsedValue === "block" || topLevelField.value === "") {
-            currentBlockKey = topLevelField.key;
-            currentBlockLines = [];
-            continue;
-        }
-
-        fields.set(topLevelField.key, parsedValue);
-    }
-
-    if (currentBlockKey !== undefined) {
-        fields.set(currentBlockKey, currentBlockLines.join(" ").trim());
-    }
-
-    const metadataLines = readMetadataBlockLines(frontmatterLines);
-
-    for (const line of metadataLines) {
-        const field = readTopLevelFrontmatterField(line.trim());
-
-        if (field === undefined) {
-            continue;
-        }
-
-        if (metadataFields.has(field.key)) {
-            return `Duplicate metadata key: ${field.key}.`;
-        }
-
-        metadataFields.set(field.key, parseYamlScalar(field.value));
-    }
+    const metadata = parsedMatter.data.metadata;
 
     return {
-        fields,
-        metadataFields,
+        description: parsedMatter.data.description,
+        metadataIcon: isRecord(metadata) ? metadata.icon : undefined,
+        metadataTitle: isRecord(metadata) ? metadata.title : undefined,
+        name: parsedMatter.data.name,
     };
 }
 
-function readMetadataBlockLines(frontmatterLines: readonly string[]): string[] {
-    const metadataLines: string[] = [];
-    let insideMetadata = false;
-
-    for (const line of frontmatterLines) {
-        const topLevelField = readTopLevelFrontmatterField(line);
-
-        if (topLevelField !== undefined) {
-            insideMetadata = topLevelField.key === "metadata";
-            continue;
-        }
-
-        if (insideMetadata && isIndentedLine(line)) {
-            metadataLines.push(line);
-        }
-    }
-
-    return metadataLines;
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function readTopLevelFrontmatterField(
-    line: string,
-): { key: string; value: string } | undefined {
-    if (isIndentedLine(line)) {
-        return undefined;
-    }
-
-    const separatorIndex = line.indexOf(":");
-
-    if (separatorIndex <= 0) {
-        return undefined;
-    }
-
-    return {
-        key: line.slice(0, separatorIndex).trim(),
-        value: line.slice(separatorIndex + 1).trim(),
-    };
-}
-
-function isIndentedLine(line: string): boolean {
-    return line.startsWith(" ") || line.startsWith("\t");
-}
-
-function parseYamlScalar(value: string): string | undefined | "block" {
-    if (value === "") {
-        return undefined;
-    }
-
-    if (value === ">" || value === ">-" || value === "|" || value === "|-") {
-        return "block";
-    }
-
-    if (value.startsWith("\"") && value.endsWith("\"")) {
-        try {
-            const parsedValue: unknown = JSON.parse(value);
-
-            return typeof parsedValue === "string" ? parsedValue : undefined;
-        }
-        catch {
-            return undefined;
-        }
-    }
-
-    if (value.startsWith("'") && value.endsWith("'")) {
-        return value.slice(1, -1).replaceAll("''", "'");
-    }
-
-    if (value.startsWith("[") || value.startsWith("{")) {
-        return undefined;
-    }
-
-    return value;
-}
-
-function validateSkillNameValue(name: string | undefined): string | undefined {
-    if (name === undefined) {
-        return "Frontmatter name must be a string.";
-    }
-
+function validateSkillNameValue(name: string): string | undefined {
     if (name === "") {
         return "Frontmatter name cannot be empty.";
     }
@@ -299,19 +166,13 @@ function validateSkillNameValue(name: string | undefined): string | undefined {
     return undefined;
 }
 
-function validateSkillDescriptionValue(
-    description: string | undefined,
-): string | undefined {
-    if (description === undefined) {
-        return "Frontmatter description must be a string.";
-    }
-
-    return undefined;
-}
-
-function validateSkillTitleValue(title: string | undefined): string | undefined {
+function validateSkillTitleValue(title: unknown): string | undefined {
     if (title === undefined) {
         return undefined;
+    }
+
+    if (typeof title !== "string") {
+        return "Frontmatter metadata.title must be a string.";
     }
 
     if (title === "") {
@@ -319,4 +180,18 @@ function validateSkillTitleValue(title: string | undefined): string | undefined 
     }
 
     return undefined;
+}
+
+function readSkillFrontmatterWarnings(frontmatter: ParsedFrontmatter): string[] {
+    const warnings: string[] = [];
+
+    if (frontmatter.metadataIcon === undefined) {
+        warnings.push("Warning: Frontmatter metadata.icon is missing.");
+    }
+
+    if (frontmatter.metadataTitle === undefined) {
+        warnings.push("Warning: Frontmatter metadata.title is missing.");
+    }
+
+    return warnings;
 }
