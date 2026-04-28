@@ -129,8 +129,8 @@ export const enMessages = {
     "commands.skills.list.summary":
         "List oo-managed skills",
     "commands.skills.check.description":
-        "Check whether local skill authoring can write to managed storage.",
-    "commands.skills.check.summary": "Check local skill authoring",
+        "Check whether this environment can edit local skills.",
+    "commands.skills.check.summary": "Preflight local skill editing",
     "commands.skills.init.description":
         "Initialize a local skill and publish it to supported local skill directories.",
     "commands.skills.init.summary": "Initialize a local skill",
@@ -536,7 +536,7 @@ export const enMessages = {
     "skills.install.allSelected":
         "Installing all {count} skills.",
     "skills.check.success":
-        "Local skill authoring is ready. Writable storage: {path}. Supported hosts: {count}.",
+        "Local skill editing is ready. Writable storage: {path}. Supported hosts: {count}.",
     "skills.list.noResults":
         "No oo-managed skills were found.",
     "skills.list.host": "Host",
@@ -781,8 +781,8 @@ export const zhMessages = {
     "commands.skills.list.summary":
         "列出由 oo 管理的 skill",
     "commands.skills.check.description":
-        "检查本地 skill 创建是否可以写入受管理存储。",
-    "commands.skills.check.summary": "检查本地 skill 创建环境",
+        "检查当前环境是否有权限编辑本地 skills。",
+    "commands.skills.check.summary": "预检本地 skill 编辑环境",
     "commands.skills.init.description":
         "初始化本地 skill，并发布到受支持的本地 skill 目录。",
     "commands.skills.init.summary": "初始化本地 skill",
@@ -1171,7 +1171,7 @@ export const zhMessages = {
     "skills.install.allSelected":
         "将安装全部 {count} 个 skill。",
     "skills.check.success":
-        "本地 skill 创建环境可用。可写存储：{path}。受支持宿主数：{count}。",
+        "本地 skill 编辑环境可用。可写存储：{path}。受支持宿主数：{count}。",
     "skills.list.noResults":
         "未找到由 oo 管理的 skill。",
     "skills.list.host": "宿主",

@@ -29,7 +29,7 @@ interface SkillsCheckResult {
 }
 
 export const skillsCheckCommand: CliCommandDefinition<SkillsCheckInput> = {
-    name: "check",
+    name: "preflight",
     summaryKey: "commands.skills.check.summary",
     descriptionKey: "commands.skills.check.description",
     options: [

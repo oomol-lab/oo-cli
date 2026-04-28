@@ -26,7 +26,7 @@ commands:
 Then run the dedicated preflight for the Codex host:
 
 ```bash
-oo skills check --agent codex
+oo skills preflight --agent codex
 ```
 
 This command checks that the Codex home exists and that the configured local
@@ -35,7 +35,7 @@ writable location when it fails.
 
 If the session is read-only, blocks writes outside the needed skill/config
 directories, blocks network access, cannot run `oo` commands with the needed
-permissions, or `oo skills check --agent codex` fails, request elevated or
+permissions, or `oo skills preflight --agent codex` fails, request elevated or
 out-of-sandbox execution before continuing. The commands that commonly need this
 are:
 

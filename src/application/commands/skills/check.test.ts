@@ -12,7 +12,7 @@ import {
 } from "./bundled-skill-paths.ts";
 import { resolveLocalSkillCanonicalRootDirectoryPath } from "./managed-skill-paths.ts";
 
-describe("skills check command", () => {
+describe("skills preflight command", () => {
     test("checks the requested agent and local canonical storage", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -30,7 +30,7 @@ describe("skills check command", () => {
 
             const result = await sandbox.run([
                 "skills",
-                "check",
+                "preflight",
                 "--agent",
                 "codex",
             ]);
@@ -38,7 +38,7 @@ describe("skills check command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Local skill authoring is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
             );
             expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
         }
@@ -57,7 +57,7 @@ describe("skills check command", () => {
 
             const result = await sandbox.run([
                 "skills",
-                "check",
+                "preflight",
                 "--agent",
                 "codex",
             ]);
@@ -84,7 +84,7 @@ describe("skills check command", () => {
 
             const result = await sandbox.run([
                 "skills",
-                "check",
+                "preflight",
                 "--agent",
                 "codex",
             ]);

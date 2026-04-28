@@ -288,9 +288,9 @@ List oo-managed skills from supported local skill directories.
 - Notes: when a folded skill is installed in multiple supported hosts, the
   `Host` field lists all matching hosts.
 
-### `oo skills check`
+### `oo skills preflight`
 
-Check whether local skill authoring can use the managed local skill storage.
+Check whether this environment has permission to edit local skills.
 
 - Options: `--agent <agent>` restricts the host check to one supported agent:
   `codex`, `claude`, or `openclaw`.

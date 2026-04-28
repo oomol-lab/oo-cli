@@ -257,9 +257,9 @@ skills。
 - 说明：如果折叠后的 skill 安装在多个受支持宿主中，`宿主` 字段会列出所有
   匹配的宿主。
 
-### `oo skills check`
+### `oo skills preflight`
 
-检查本地 skill 创建是否可以使用受管理的本地 skill 存储。
+检查当前环境是否有权限编辑本地 skills。
 
 - 选项：`--agent <agent>` 将宿主检查限制为一个受支持 agent：`codex`、
   `claude` 或 `openclaw`。
