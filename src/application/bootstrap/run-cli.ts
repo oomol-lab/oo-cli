@@ -30,6 +30,7 @@ import {
 } from "../../i18n/locale.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import { createCliCatalog } from "../commands/catalog.ts";
+import { synchronizeManagedSkillsForAvailableHosts } from "../commands/skills/auto-sync.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import {
     formatCliVersionText,
@@ -226,6 +227,8 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         });
 
         const adapter = new CommanderCliAdapter();
+
+        await synchronizeManagedSkillsForAvailableHosts(context);
 
         exitCode = await adapter.run({
             argv: invocation.argv,

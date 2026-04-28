@@ -73,7 +73,7 @@ export async function installBundledSkill(
     }
 
     for (const installation of installations) {
-        const publishedInstallation = await writeBundledSkillInstallation({
+        const publishedInstallation = await publishManagedBundledSkill({
             agentName: installation.agentName,
             homeDirectory: installation.homeDirectory,
             settingsFilePath: context.settingsStore.getFilePath(),
@@ -209,7 +209,7 @@ export async function uninstallManagedSkill(
     await uninstallRegistrySkill(skillName, context, options);
 }
 
-async function writeBundledSkillInstallation(options: {
+export async function publishManagedBundledSkill(options: {
     agentName: BundledSkillAgentName;
     homeDirectory: string;
     settingsFilePath: string;

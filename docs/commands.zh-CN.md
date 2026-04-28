@@ -226,6 +226,19 @@
 
 ## AI Agent Skill
 
+在执行具体命令前，`oo` 会为已经存在的受支持宿主目录静默同步受管理的
+skills。
+
+- 内置 skill：`oo` 会确保每个检测到的 Codex、Claude Code 和 OpenClaw 宿主
+  都安装了 `oo` 与 `oo-find-skills`。已经由 oo 管理的内置 skill 目标会刷新
+  到当前 `oo` 版本；但当启动中的当前版本为 `0.0.0-development` 时，不会刷新
+  已存在的内置 skill 目标。
+- 已发布 skill：如果某个已发布 skill 已经有本地 canonical 副本
+  `<config-dir>/skills/registry/<skill-id>`，`oo` 会把该副本发布到任何新检测
+  到且尚未安装它的受支持宿主。
+- 安全规则：启动同步不会请求 registry，不要求登录，不会产生额外命令输出，也
+  不会覆盖不由 `oo` 管理的同名目标。
+
 ### `oo skills list`
 
 列出受支持的本地 skill 目录中由 oo 管理的 skill。
