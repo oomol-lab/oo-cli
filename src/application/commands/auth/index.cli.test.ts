@@ -210,7 +210,7 @@ describe("auth CLI", () => {
 
                         if (
                             request.method === "GET"
-                            && requestUrl.host === defaultAuthEndpoint
+                            && requestUrl.host === `api.${defaultAuthEndpoint}`
                             && requestUrl.pathname === "/v1/auth/fast_login/profile_with_session_token"
                             && requestUrl.searchParams.get("session_token") === sessionToken
                         ) {

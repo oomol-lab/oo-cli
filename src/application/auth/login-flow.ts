@@ -361,7 +361,7 @@ function createFastLoginProfileWithSessionTokenUrl(
     sessionToken: string,
 ): URL {
     const requestUrl = new URL(
-        `https://${endpoint}/v1/auth/fast_login/profile_with_session_token`,
+        `https://api.${endpoint}/v1/auth/fast_login/profile_with_session_token`,
     );
 
     requestUrl.searchParams.set("session_token", sessionToken);
