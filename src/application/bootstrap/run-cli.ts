@@ -88,6 +88,9 @@ interface CreateCliExecutionContextOptions {
     version: string;
 }
 
+const redactedCliArgumentValue = "<redacted>";
+const sensitiveCliOptionLongFlags = ["--session-token"] as const;
+
 export async function runCli(argv: string[]): Promise<number> {
     return executeCli({
         argv,
@@ -138,11 +141,12 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     });
     const { logger, logFilePath } = loggerHandle;
     const currentExecPath = invocation.execPath ?? process.execPath;
+    const loggedArgv = redactSensitiveCliArguments(invocation.argv);
 
     logger.info(
         {
-            argv: [...invocation.argv],
-            command: invocation.argv.join(" "),
+            argv: loggedArgv,
+            command: loggedArgv.join(" "),
         },
         "CLI command received.",
     );
@@ -492,4 +496,42 @@ function getSystemLocale(): string | undefined {
     catch {
         return undefined;
     }
+}
+
+function redactSensitiveCliArguments(argv: readonly string[]): string[] {
+    const redactedArguments: string[] = [];
+    let shouldRedactNextValue = false;
+
+    for (const argument of argv) {
+        if (shouldRedactNextValue) {
+            redactedArguments.push(redactedCliArgumentValue);
+            shouldRedactNextValue = false;
+            continue;
+        }
+
+        const sensitiveAssignmentFlag = readSensitiveOptionAssignmentFlag(argument);
+
+        if (sensitiveAssignmentFlag !== undefined) {
+            redactedArguments.push(`${sensitiveAssignmentFlag}=${redactedCliArgumentValue}`);
+            continue;
+        }
+
+        redactedArguments.push(argument);
+
+        if (sensitiveCliOptionLongFlags.includes(argument as typeof sensitiveCliOptionLongFlags[number])) {
+            shouldRedactNextValue = true;
+        }
+    }
+
+    return redactedArguments;
+}
+
+function readSensitiveOptionAssignmentFlag(argument: string): string | undefined {
+    for (const optionFlag of sensitiveCliOptionLongFlags) {
+        if (argument.startsWith(`${optionFlag}=`)) {
+            return optionFlag;
+        }
+    }
+
+    return undefined;
 }

@@ -2,13 +2,18 @@ import type {
     CliCommandDefinition,
     CliExecutionContext,
 } from "../../contracts/cli.ts";
+import type { AuthAccount } from "../../schemas/auth.ts";
 
-import { startAuthLoginSession } from "../../auth/login-flow.ts";
+import { z } from "zod";
+import {
+    requestAuthAccountWithSessionToken,
+    startAuthLoginSession,
+} from "../../auth/login-flow.ts";
+import { CliUserError } from "../../contracts/cli.ts";
 import { upsertAuthAccount } from "../../schemas/auth.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { writeLine } from "../shared/output.ts";
 import {
-    emptyAuthCommandInputSchema,
     formatAuthStrong,
     writeAuthBlock,
 } from "./shared.ts";
@@ -16,46 +21,40 @@ import {
 const loginUrlColor = "#c09ff5";
 const defaultAuthEndpoint = "oomol.com";
 
-export const authLoginCommand: CliCommandDefinition = {
+const authLoginCommandInputSchema = z.object({
+    sessionToken: z.string().trim().min(1).optional(),
+});
+
+export type AuthLoginCommandInput = z.output<typeof authLoginCommandInputSchema>;
+
+export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
     name: "login",
     summaryKey: "commands.auth.login.summary",
     descriptionKey: "commands.auth.login.description",
-    inputSchema: emptyAuthCommandInputSchema,
-    handler: async (_, context) => {
+    options: [
+        {
+            name: "sessionToken",
+            longFlag: "--session-token",
+            valueName: "session-token",
+            descriptionKey: "options.sessionToken",
+        },
+    ],
+    inputSchema: authLoginCommandInputSchema,
+    mapInputError: () => new CliUserError("errors.auth.sessionTokenRequired", 2),
+    handler: async (input: AuthLoginCommandInput, context) => {
         const authEndpoint = readAuthEndpoint(context.env);
-        const session = await startAuthLoginSession({
-            endpoint: authEndpoint,
-            fetcher: context.fetcher,
-            logger: context.logger,
-            translator: context.translator,
-        });
-        const colors = createWriterColors(context.stdout);
-
-        context.logger.debug(
-            {
-                authEndpoint,
-                expiresInSeconds: session.expiresInSeconds,
-            },
-            "Auth device login session prepared.",
-        );
-        writeLine(
-            context.stdout,
-            context.translator.t("auth.login.openManually", {
-                url: colors.hex(loginUrlColor)(session.verificationUrl),
-            }),
-        );
-        writeLine(
-            context.stdout,
-            context.translator.t("auth.login.code", {
-                code: colors.bold(session.code),
-            }),
-        );
-        writeLine(
-            context.stdout,
-            context.translator.t("auth.login.waiting"),
-        );
-
-        const account = await session.waitForAccount();
+        const loginMethod = input.sessionToken === undefined
+            ? "device_login" as const
+            : "session_token" as const;
+        const account = loginMethod === "device_login"
+            ? await runDeviceLogin(authEndpoint, context)
+            : await requestAuthAccountWithSessionToken({
+                    endpoint: authEndpoint,
+                    fetcher: context.fetcher,
+                    logger: context.logger,
+                    sessionToken: input.sessionToken!,
+                    translator: context.translator,
+                });
 
         await context.authStore.update(authFile =>
             upsertAuthAccount(authFile, account),
@@ -64,9 +63,12 @@ export const authLoginCommand: CliCommandDefinition = {
             {
                 accountId: account.id,
                 endpoint: account.endpoint,
+                loginMethod,
                 name: account.name,
             },
-            "Auth account persisted after device login.",
+            loginMethod === "device_login"
+                ? "Auth account persisted after device login."
+                : "Auth account persisted after fast login.",
         );
 
         writeAuthBlock(context, {
@@ -84,6 +86,45 @@ export const authLoginCommand: CliCommandDefinition = {
         });
     },
 };
+
+async function runDeviceLogin(
+    authEndpoint: string,
+    context: CliExecutionContext,
+): Promise<AuthAccount> {
+    const session = await startAuthLoginSession({
+        endpoint: authEndpoint,
+        fetcher: context.fetcher,
+        logger: context.logger,
+        translator: context.translator,
+    });
+    const colors = createWriterColors(context.stdout);
+
+    context.logger.debug(
+        {
+            authEndpoint,
+            expiresInSeconds: session.expiresInSeconds,
+        },
+        "Auth device login session prepared.",
+    );
+    writeLine(
+        context.stdout,
+        context.translator.t("auth.login.openManually", {
+            url: colors.hex(loginUrlColor)(session.verificationUrl),
+        }),
+    );
+    writeLine(
+        context.stdout,
+        context.translator.t("auth.login.code", {
+            code: colors.bold(session.code),
+        }),
+    );
+    writeLine(
+        context.stdout,
+        context.translator.t("auth.login.waiting"),
+    );
+
+    return session.waitForAccount();
+}
 
 function readAuthEndpoint(
     env: CliExecutionContext["env"],

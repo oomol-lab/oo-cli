@@ -34,15 +34,18 @@ exports[`auth CLI renders alias descriptions in login and logout help 1`] = `
     "exitCode": 0,
     "stderr": "",
     "stdout": 
-"Log in with an OOMOL account using device login. Alias for auth login.
+"Log in with an OOMOL account using device login or a session token. Alias for
+auth login.
 
 Options:
-  -h, --help     Show help for command
+  --session-token <session-token>  Log in with a session token
+  -h, --help                       Show help for command
 
 Global Options:
-  -V, --version  Show the current version
-  --debug        Print the current log file path when the CLI exits
-  --lang <lang>  Specify the display language
+  -V, --version                    Show the current version
+  --debug                          Print the current log file path when the CLI
+                                   exits
+  --lang <lang>                    Specify the display language
 "
 ,
   },

@@ -33,10 +33,16 @@ Project overview: [README.md](../README.md)
 
 ### `oo auth login`
 
-Start a device login flow and save the authenticated account.
+Start a device login flow or authenticate with a session token, then save the
+authenticated account.
 
 - Notes: the CLI prints the verification URL and user code, then polls until
-  the device login is verified or times out.
+  the device login is verified or times out when `--session-token` is not
+  provided.
+- Options:
+  - `--session-token <session-token>`: Authenticate with an existing session
+    token. The CLI does not print a device-login URL or poll for verification
+    when this option is provided.
 
 ### `oo auth logout`
 
@@ -52,7 +58,8 @@ Switch to the next saved account.
 
 ### `oo login`
 
-Alias for `oo auth login`.
+Alias for `oo auth login`. Supports the same `--session-token <session-token>`
+option.
 
 ### `oo logout`
 
