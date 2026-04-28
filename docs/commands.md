@@ -312,6 +312,8 @@ directory that already exists.
   `name`.
 - Options: `--description <text>` is required and writes the generated
   `SKILL.md` frontmatter description.
+- Generated `SKILL.md` frontmatter includes `compatibility: "Requires the oo
+  CLI."`.
 - Options: `--icon <icon>` writes an opaque non-empty icon reference to
   `.oo-metadata.json`.
 - Options: `--title <title>` writes `metadata.title` to the generated

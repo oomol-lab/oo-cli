@@ -23,7 +23,10 @@ import {
     isLocalSkillPathContained,
     resolveLocalSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
-import { renderOoPackageExecutionGuidance } from "./registry-skill-markdown.ts";
+import {
+    installedRegistrySkillCompatibility,
+    renderOoPackageExecutionGuidance,
+} from "./registry-skill-markdown.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 interface SkillsInitInput {
@@ -271,6 +274,7 @@ function renderInitializedSkillMarkdown(
         "---",
         `name: ${skillName}`,
         `description: ${JSON.stringify(description)}`,
+        `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
     ];
 
     if (title !== undefined) {

@@ -8,7 +8,10 @@ import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import { resolveCodexHomeDirectory } from "./bundled-skill-paths.ts";
 import { resolveLocalSkillCanonicalDirectoryPath } from "./managed-skill-paths.ts";
-import { renderOoPackageExecutionGuidance } from "./registry-skill-markdown.ts";
+import {
+    installedRegistrySkillCompatibility,
+    renderOoPackageExecutionGuidance,
+} from "./registry-skill-markdown.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 describe("skills init command", () => {
@@ -61,6 +64,7 @@ describe("skills init command", () => {
                 "---",
                 "name: campaign-writer",
                 "description: \"Write campaign briefs using a known package workflow.\"",
+                `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
                 "metadata:",
                 "  title: \"Campaign Writer\"",
                 "---",
@@ -109,6 +113,7 @@ describe("skills init command", () => {
                 "---",
                 "name: minimal-skill",
                 "description: \"Use a known package workflow.\"",
+                `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
                 "---",
                 "",
                 "# Minimal Skill",
