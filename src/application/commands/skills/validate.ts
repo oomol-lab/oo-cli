@@ -111,7 +111,7 @@ export async function validateSkillDirectory(
 
     const description = frontmatter.description;
 
-    if (!isNonEmptyString(description)) {
+    if (!isNonBlankString(description)) {
         return {
             error: "Frontmatter must include a string description field.",
         };
@@ -121,7 +121,7 @@ export async function validateSkillDirectory(
 
     const iconError = validateSkillIconValue(icon);
 
-    if (!isDefined(iconError)) {
+    if (isDefined(iconError)) {
         return {
             error: iconError,
         };
@@ -162,7 +162,7 @@ function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
 
     const metadata = parsedMatter.data.metadata;
 
-    if (!isPlainObject(metadata)) {
+    if (metadata !== undefined && !isPlainObject(metadata)) {
         return "Frontmatter metadata must be an object.";
     }
 
@@ -183,23 +183,31 @@ function validateSkillNameValue(name: string): string | undefined {
 }
 
 function validateSkillIconValue(icon: unknown): string | undefined {
-    if (!isDefined(icon)) {
+    if (icon === undefined) {
         return;
     }
 
-    if (!isNonEmptyString(icon)) {
+    if (!isNonBlankString(icon)) {
         return "Frontmatter metadata.icon must be a non-empty string.";
     }
 }
 
 function validateSkillTitleValue(title: unknown): string | undefined {
-    if (!isDefined(title)) {
+    if (title === undefined) {
         return;
     }
 
-    if (!isNonEmptyString(title)) {
-        return "Frontmatter metadata.title must be a non-empty string.";
+    if (!isString(title)) {
+        return "Frontmatter metadata.title must be a string.";
     }
+
+    if (!isNonBlankString(title)) {
+        return "Frontmatter metadata.title cannot be empty.";
+    }
+}
+
+function isNonBlankString(value: unknown): value is string {
+    return isNonEmptyString(value) && value.trim() !== "";
 }
 
 function readSkillFrontmatterWarnings(
