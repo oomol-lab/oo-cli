@@ -1,5 +1,6 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import type { ManagedSkillListItem } from "./list.ts";
 import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import type { PreparedRegistrySkillPublication } from "./registry-skill-publication.ts";
@@ -10,7 +11,6 @@ import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     directoryExists,
-    fileExists,
 } from "./bundled-skill-observation.ts";
 import {
     listManagedSkillInstallations,
@@ -25,7 +25,6 @@ import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalRootDirectoryPath,
-    resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
@@ -49,7 +48,11 @@ interface SkillsUpdateInput {
 
 interface RegistrySkillGroup {
     packageName: string;
-    skills: ManagedSkillListItem[];
+    skills: ManagedSkillUpdateItem[];
+}
+
+interface ManagedSkillUpdateItem extends ManagedSkillListItem {
+    hostNames: BundledSkillAgentName[];
 }
 
 interface CurrentSkillUpdate {
@@ -155,6 +158,7 @@ export async function updateManagedSkills(
                         "errors.skills.update.packageNameMissing",
                         1,
                         {
+                            hostNames: formatManagedSkillUpdateHostNames(skill.hostNames),
                             name: skill.name,
                         },
                     ),
@@ -271,7 +275,7 @@ export async function updateManagedSkills(
 async function readKnownManagedSkillInstallations(
     availableHosts: readonly ManagedSkillHost[],
     settingsFilePath: string,
-): Promise<ManagedSkillListItem[]> {
+): Promise<ManagedSkillUpdateItem[]> {
     const [canonicalSkills, hostSkills] = await Promise.all([
         listManagedSkillInstallations(
             resolveManagedSkillCanonicalRootDirectoryPath(settingsFilePath),
@@ -280,46 +284,97 @@ async function readKnownManagedSkillInstallations(
     ]);
 
     return mergeManagedSkillInstallationsByName([
-        ...hostSkills,
-        ...canonicalSkills,
+        ...hostSkills.map(skill => ({
+            metadata: skill.metadata,
+            name: skill.name,
+            path: skill.path,
+            hostNames: [skill.hostName],
+        } satisfies ManagedSkillUpdateItem)),
+        ...canonicalSkills.map(skill => ({
+            ...skill,
+            hostNames: [],
+        } satisfies ManagedSkillUpdateItem)),
     ]);
 }
 
 function mergeManagedSkillInstallationsByName(
-    skills: readonly ManagedSkillListItem[],
-): ManagedSkillListItem[] {
-    const skillsByName = new Map<string, ManagedSkillListItem>();
+    skills: readonly ManagedSkillUpdateItem[],
+): ManagedSkillUpdateItem[] {
+    const skillsByName = new Map<string, ManagedSkillUpdateItem>();
 
     for (const skill of skills) {
+        if (skill.metadata === undefined) {
+            continue;
+        }
+
         const existingSkill = skillsByName.get(skill.name);
 
-        if (
-            existingSkill === undefined
-            || (
-                existingSkill.metadata?.packageName === undefined
-                && skill.metadata?.packageName !== undefined
-            )
-        ) {
+        if (existingSkill === undefined) {
             skillsByName.set(skill.name, skill);
+            continue;
         }
+
+        const hostNames = mergeManagedSkillHostNames(
+            existingSkill.hostNames,
+            skill.hostNames,
+        );
+
+        if (
+            existingSkill.metadata?.packageName === undefined
+            && skill.metadata.packageName !== undefined
+        ) {
+            skillsByName.set(skill.name, {
+                ...skill,
+                hostNames,
+            });
+            continue;
+        }
+
+        skillsByName.set(skill.name, {
+            ...existingSkill,
+            hostNames,
+        });
     }
 
     return Array.from(skillsByName.values());
 }
 
+function mergeManagedSkillHostNames(
+    left: readonly BundledSkillAgentName[],
+    right: readonly BundledSkillAgentName[],
+): BundledSkillAgentName[] {
+    const hostNames = new Set(left);
+
+    for (const hostName of right) {
+        hostNames.add(hostName);
+    }
+
+    return Array.from(hostNames);
+}
+
+function formatManagedSkillUpdateHostNames(
+    hostNames: readonly BundledSkillAgentName[],
+): string {
+    if (hostNames.length === 0) {
+        return "canonical";
+    }
+
+    return hostNames.join(", ");
+}
+
 async function resolveSelectedManagedSkills(
     requestedSkillNames: readonly string[],
-    installedSkills: readonly ManagedSkillListItem[],
+    installedSkills: readonly ManagedSkillUpdateItem[],
     availableHosts: readonly ManagedSkillHost[],
     settingsFilePath: string,
-): Promise<ManagedSkillListItem[]> {
+): Promise<ManagedSkillUpdateItem[]> {
     if (requestedSkillNames.length === 0) {
         return installedSkills.filter(
             skill => !isBundledSkillName(skill.name),
         );
     }
 
-    const selectedSkills: ManagedSkillListItem[] = [];
+    const selectedSkills: ManagedSkillUpdateItem[] = [];
     const installedSkillIndex = new Map(
         installedSkills.map(skill => [skill.name, skill] as const),
     );
@@ -371,15 +426,16 @@ async function resolveSelectedManagedSkills(
                 const installedDirectoryExists = await directoryExists(
                     installation.installedSkillDirectoryPath,
                 );
+                const metadata = installedDirectoryExists
+                    ? await readManagedSkillMetadata(
+                            installation.installedSkillDirectoryPath,
+                        )
+                    : undefined;
 
                 return {
                     ...installation,
                     hasDirectoryWithoutMetadata: installedDirectoryExists
-                        && !(await fileExists(
-                            resolveManagedSkillMetadataFilePath(
-                                installation.installedSkillDirectoryPath,
-                            ),
-                        )),
+                        && metadata === undefined,
                 };
             }),
         );
@@ -390,10 +446,12 @@ async function resolveSelectedManagedSkills(
 
         throw new CliUserError(
             unmanagedTarget !== undefined
-                ? "errors.skills.notManaged"
+                ? "errors.skills.update.notManaged"
                 : "errors.skills.notInstalled",
             1,
             {
+                hostName: unmanagedTarget?.agentName
+                    ?? firstTarget.agentName,
                 name: requestedSkillName,
                 path: unmanagedTarget?.installedSkillDirectoryPath
                     ?? firstTarget.installedSkillDirectoryPath,
@@ -405,9 +463,9 @@ async function resolveSelectedManagedSkills(
 }
 
 function groupRegistrySkills(
-    skills: readonly ManagedSkillListItem[],
+    skills: readonly ManagedSkillUpdateItem[],
 ): RegistrySkillGroup[] {
-    const groups = new Map<string, ManagedSkillListItem[]>();
+    const groups = new Map<string, ManagedSkillUpdateItem[]>();
 
     for (const skill of skills) {
         const packageName = skill.metadata?.packageName;

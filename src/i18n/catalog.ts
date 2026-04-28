@@ -366,7 +366,9 @@ export const enMessages = {
     "errors.skills.update.bundledUnsupported":
         "Bundled skill {name} is managed by oo and cannot be updated with skills update. Use oo skills add {name} instead.",
     "errors.skills.update.packageNameMissing":
-        "Managed skill {name} cannot be updated because its package metadata is missing.",
+        "Managed skill {name} cannot be updated in {hostNames} because its package metadata is missing.",
+    "errors.skills.update.notManaged":
+        "Skill {name} in host {hostName} is not managed by oo and cannot be updated.",
     "errors.skills.nameConflict":
         "Skill name {name} is already used by a non-OOMOL skill at {path}.",
     "errors.skills.storageConflict":
@@ -975,7 +977,9 @@ export const zhMessages = {
     "errors.skills.update.bundledUnsupported":
         "内置 skill {name} 由 oo 管理，不能通过 skills update 更新。请改用 oo skills add {name}。",
     "errors.skills.update.packageNameMissing":
-        "由 oo 管理的 skill {name} 缺少 package 元数据，无法更新。",
+        "无法在 {hostNames} 中更新由 oo 管理的 skill {name}，因为缺少 package 元数据。",
+    "errors.skills.update.notManaged":
+        "host {hostName} 中的 skill {name} 不是由 oo 管理的 skill，无法更新。",
     "errors.skills.nameConflict":
         "Skill 名称 {name} 已被 {path} 中的非 OOMOL skill 占用。",
     "errors.skills.storageConflict":

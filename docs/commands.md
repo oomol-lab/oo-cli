@@ -377,6 +377,9 @@ Update installed oo-managed published skills.
 - Bundled skills: bundled skills such as `oo` and `oo-find-skills` are
   excluded from this command. Refresh them with `oo skills add`, or let a
   successful `oo install` or `oo update` refresh them automatically.
+- Ownership rule: a skill is considered managed for update only when its
+  `.oo-metadata.json` file can be parsed and contains a non-empty `version`;
+  otherwise the command treats the existing target as unmanaged.
 - Published skills: registry-backed skills derive their package identity from
   `.oo-metadata.json`, then fetch package info without an explicit version to
   determine the latest available package version.

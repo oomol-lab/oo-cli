@@ -331,6 +331,8 @@
 - 内置 skill：bundled `oo`、`oo-find-skills` 等内置 skill 不在此命令处理
   范围内。请使用 `oo skills add` 刷新，或让成功的 `oo install` / `oo update`
   自动刷新它们。
+- 所有权规则：只有当 skill 的 `.oo-metadata.json` 可以被解析，且包含非空
+  `version` 时，update 才会认为它由 oo 管理；否则会把现有目标视为非托管。
 - 已发布 skill：registry skill 会从 `.oo-metadata.json` 读取所属包名，再通过
   不带显式版本的 package info 请求判断最新可用版本。
 - 更新顺序：命令会先刷新 canonical 目录
