@@ -295,7 +295,8 @@ skills。
   以及 `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`。
 - 失败行为：如果没有受支持的 agent home，或 canonical 本地目录、任意目标目录
   已存在，命令会在写入 skill 前以非零状态退出。
-- 输出：文本输出会为每个发布目标路径打印一行成功消息。
+- 输出：文本输出会先打印 canonical 存储目录，然后为每个目标路径打印一行带实际发布
+  方式（软链接或复制）的成功消息。
 
 ### `oo skills validate <path>`
 

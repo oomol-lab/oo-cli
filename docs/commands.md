@@ -336,7 +336,9 @@ directory that already exists.
 - Failure behavior: if no supported agent home exists, or if the canonical
   local directory or any target directory already exists, the command exits
   non-zero before writing the skill.
-- Output: text output prints one success line per published target path.
+- Output: text output first prints the canonical storage directory, then prints
+  one success line per target path with the actual publication mode
+  (`Linked` or `Copied`).
 
 ### `oo skills validate <path>`
 
