@@ -95,7 +95,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 2 oo-managed skills.",
+                    "✓ Found 3 oo-managed skills.",
                     "",
                     "oo",
                     "  Host: OpenClaw",
@@ -103,6 +103,11 @@ describe("skills list CLI", () => {
                     "  Version: 9.9.9",
                     "",
                     "oo-find-skills",
+                    "  Host: OpenClaw",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-create-skill",
                     "  Host: OpenClaw",
                     "  Source: bundled",
                     "  Version: 9.9.9",
