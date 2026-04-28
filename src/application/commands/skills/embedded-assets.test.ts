@@ -118,7 +118,9 @@ describe("embedded skill assets", () => {
 
             expect(skillFile).toBeDefined();
 
-            const content = await Bun.file(skillFile!.sourcePath).text();
+            const content = normalizeLineEndingsForAssertion(
+                await Bun.file(skillFile!.sourcePath).text(),
+            );
 
             expect(content).toContain("Also pass `--title` and `--icon`.");
             expect(content).toContain(
@@ -143,4 +145,8 @@ describe("embedded skill assets", () => {
 
 function normalizePathForAssertion(path: string): string {
     return path.replaceAll("\\", "/");
+}
+
+function normalizeLineEndingsForAssertion(text: string): string {
+    return text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
 }
