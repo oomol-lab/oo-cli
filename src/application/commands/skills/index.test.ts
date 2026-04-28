@@ -49,6 +49,7 @@ describe("skills commands", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -61,6 +62,13 @@ describe("skills commands", () => {
         const findSkillsCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "oo-find-skills",
+        );
+        const createSkillCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo-create-skill",
+        );
+        const createSkillMetadataFilePath = resolveBundledSkillMetadataFilePath(
+            createSkillDirectoryPath,
         );
         const ooMetadataFilePath = resolveBundledSkillMetadataFilePath(ooSkillDirectoryPath);
         const findSkillsMetadataFilePath = resolveBundledSkillMetadataFilePath(
@@ -80,6 +88,7 @@ describe("skills commands", () => {
                 [
                     `Installed skill oo to ${ooSkillDirectoryPath}.`,
                     `Installed skill oo-find-skills to ${findSkillsDirectoryPath}.`,
+                    `Installed skill oo-create-skill to ${createSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -89,6 +98,9 @@ describe("skills commands", () => {
             );
             expect(await realpath(findSkillsDirectoryPath)).toBe(
                 await realpath(findSkillsCanonicalSkillDirectoryPath),
+            );
+            expect(await realpath(createSkillDirectoryPath)).toBe(
+                await realpath(createSkillCanonicalSkillDirectoryPath),
             );
 
             for (const file of getBundledSkillFiles("oo")) {
@@ -101,10 +113,18 @@ describe("skills commands", () => {
                     await readFile(join(findSkillsDirectoryPath, file.relativePath), "utf8"),
                 ).toBe(await Bun.file(file.sourcePath).text());
             }
+            for (const file of getBundledSkillFiles("oo-create-skill")) {
+                expect(
+                    await readFile(join(createSkillDirectoryPath, file.relativePath), "utf8"),
+                ).toBe(await Bun.file(file.sourcePath).text());
+            }
             expect(await readFile(ooMetadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
             );
             expect(await readFile(findSkillsMetadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({ version: resultVersion }),
+            );
+            expect(await readFile(createSkillMetadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
             );
         }
@@ -510,6 +530,7 @@ describe("skills commands", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -522,6 +543,10 @@ describe("skills commands", () => {
         const findSkillsCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "oo-find-skills",
+        );
+        const createSkillCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo-create-skill",
         );
 
         try {
@@ -537,6 +562,7 @@ describe("skills commands", () => {
                 [
                     `Removed skill oo from ${ooSkillDirectoryPath}.`,
                     `Removed skill oo-find-skills from ${findSkillsDirectoryPath}.`,
+                    `Removed skill oo-create-skill from ${createSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -547,10 +573,16 @@ describe("skills commands", () => {
             await expect(stat(findSkillsDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
+            await expect(stat(createSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
             await expect(stat(ooCanonicalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
             await expect(stat(findSkillsCanonicalSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(createSkillCanonicalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }
@@ -679,6 +711,7 @@ describe("skills commands", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -693,6 +726,7 @@ describe("skills commands", () => {
                 [
                     `Removed skill oo from ${ooSkillDirectoryPath}.`,
                     `Removed skill oo-find-skills from ${findSkillsDirectoryPath}.`,
+                    `Removed skill oo-create-skill from ${createSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -701,6 +735,9 @@ describe("skills commands", () => {
                 code: "ENOENT",
             });
             await expect(stat(findSkillsDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(createSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }

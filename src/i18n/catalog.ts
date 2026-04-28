@@ -128,6 +128,15 @@ export const enMessages = {
         "List oo-managed skills from supported local skill directories.",
     "commands.skills.list.summary":
         "List oo-managed skills",
+    "commands.skills.check.description":
+        "Check whether local skill authoring can write to managed storage.",
+    "commands.skills.check.summary": "Check local skill authoring",
+    "commands.skills.init.description":
+        "Initialize a local skill and publish it to supported local skill directories.",
+    "commands.skills.init.summary": "Initialize a local skill",
+    "commands.skills.validate.description":
+        "Validate a local skill directory against the generic skill contract.",
+    "commands.skills.validate.summary": "Validate a skill directory",
     "commands.skills.install.description":
         "Install bundled or published skills into supported local skill directories.",
     "commands.skills.install.summary": "Install skills",
@@ -283,6 +292,14 @@ export const enMessages = {
         "Unsupported skill: {value}. Use {choices}.",
     "errors.skills.invalidPath":
         "Skill name {name} resolves outside the local skill directories.",
+    "errors.skills.init.invalidIcon":
+        "Invalid value for --icon. Use a non-empty icon reference.",
+    "errors.skills.init.invalidTitle":
+        "Invalid value for --title. Use a non-empty display title.",
+    "errors.skills.init.descriptionRequired":
+        "Missing required --description. Provide a concise trigger description for the generated skill.",
+    "errors.skills.init.invalidName":
+        "Invalid skill name: {value}. Use a name that can be normalized to lowercase hyphen-case.",
     "errors.fileDownload.downloadFailed":
         "Failed to download the file at {path}: {message}",
     "errors.fileDownload.invalidExt":
@@ -377,6 +394,10 @@ export const enMessages = {
         "Skill {name} is not installed at {path}.",
     "errors.skills.notManaged":
         "{name} is not managed by oo and cannot be removed.",
+    "errors.skills.check.storageNotWritable":
+        "Local skill storage at {path} is not writable: {message}",
+    "errors.skills.validate.failed":
+        "Skill validation failed: {message}",
     "errors.store.invalidToml":
         "The settings file at {path} is not valid TOML.",
     "errors.store.invalidSchema":
@@ -442,6 +463,7 @@ export const enMessages = {
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
     "options.debug": "Print the current log file path when the CLI exits",
+    "options.description": "Set the required generated skill description",
     "options.fileDownloadExt": "Specify the saved file extension",
     "options.fileDownloadName": "Specify the saved file name without the extension",
     "options.fileStatus": "Filter by upload status",
@@ -455,11 +477,14 @@ export const enMessages = {
     "options.json": "Alias for --format=json",
     "options.keywords":
         "Specify comma-separated keywords to refine the skill search",
+    "options.icon": "Set the generated skill icon reference",
+    "options.title": "Set the generated skill display title",
     "options.skill":
         "Specify skill names to install (use * for all skills)",
     "options.onlyPackageId": "Return only package ids",
     "options.all":
         "Install all published skills without prompting for skill selection",
+    "options.agent": "Check one supported skill host",
     "options.nextToken": "Specify the pagination token for the next page",
     "options.packageId": "Filter by package id",
     "options.packageName": "Alias for --package-id",
@@ -510,6 +535,8 @@ export const enMessages = {
         "Updated oo from {currentVersion} to {version}.",
     "skills.install.allSelected":
         "Installing all {count} skills.",
+    "skills.check.success":
+        "Local skill authoring is ready. Writable storage: {path}. Supported hosts: {count}.",
     "skills.list.noResults":
         "No oo-managed skills were found.",
     "skills.list.host": "Host",
@@ -518,11 +545,13 @@ export const enMessages = {
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.source": "Source",
     "skills.list.source.bundled": "bundled",
+    "skills.list.source.local": "local",
     "skills.list.summary":
         "Found {count} oo-managed skills.",
     "labels.blocks": "Blocks:",
     "labels.status": "Status",
     "labels.version": "Version",
+    "skills.init.success": "Initialized skill {name} at {path}.",
     "skills.install.success": "Installed skill {name} to {path}.",
     "skills.install.overwrite.invalid":
         "Invalid choice. Enter y/yes or n/no.",
@@ -561,6 +590,7 @@ export const enMessages = {
     "skills.update.progress.failed": "failed",
     "skills.update.success": "Updated skill {name} to {path}.",
     "skills.uninstall.success": "Removed skill {name} from {path}.",
+    "skills.validate.success": "Skill at {path} is valid.",
     "versionInfo.buildTime": "Build Time",
     "versionInfo.commit": "Commit",
     "versionInfo.unknown": "unknown",
@@ -750,6 +780,15 @@ export const zhMessages = {
         "列出受支持的本地 skill 目录中由 oo 管理的 skill。",
     "commands.skills.list.summary":
         "列出由 oo 管理的 skill",
+    "commands.skills.check.description":
+        "检查本地 skill 创建是否可以写入受管理存储。",
+    "commands.skills.check.summary": "检查本地 skill 创建环境",
+    "commands.skills.init.description":
+        "初始化本地 skill，并发布到受支持的本地 skill 目录。",
+    "commands.skills.init.summary": "初始化本地 skill",
+    "commands.skills.validate.description":
+        "按照通用 skill 契约校验本地 skill 目录。",
+    "commands.skills.validate.summary": "校验 skill 目录",
     "commands.skills.install.description":
         "将内置或已发布 skill 安装到受支持的本地 skill 目录。",
     "commands.skills.install.summary": "安装 skill",
@@ -894,6 +933,14 @@ export const zhMessages = {
         "不支持的 skill：{value}。请使用 {choices}。",
     "errors.skills.invalidPath":
         "skill 名称 {name} 解析到了本地 skill 目录之外。",
+    "errors.skills.init.invalidIcon":
+        "--icon 的值无效。请使用非空 icon 引用。",
+    "errors.skills.init.invalidTitle":
+        "--title 的值无效。请使用非空显示标题。",
+    "errors.skills.init.descriptionRequired":
+        "缺少必填的 --description。请为生成的 skill 提供简洁的触发描述。",
+    "errors.skills.init.invalidName":
+        "无效的 skill 名称：{value}。请使用可规范化为小写短横线格式的名称。",
     "errors.fileDownload.downloadFailed":
         "下载文件到 {path} 失败：{message}",
     "errors.fileDownload.invalidExt":
@@ -988,6 +1035,10 @@ export const zhMessages = {
         "Skill {name} 未安装在 {path}。",
     "errors.skills.notManaged":
         "{name} 不是由 oo 管理的 skill，无法移除。",
+    "errors.skills.check.storageNotWritable":
+        "本地 skill 存储目录 {path} 不可写：{message}",
+    "errors.skills.validate.failed":
+        "Skill 校验失败：{message}",
     "errors.store.invalidToml": "配置文件 {path} 不是有效的 TOML。",
     "errors.store.invalidSchema": "配置文件 {path} 的结构不受支持。",
     "errors.store.readFailed": "读取配置文件 {path} 失败。",
@@ -1048,6 +1099,7 @@ export const zhMessages = {
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
+    "options.description": "设置必填的生成 skill 描述",
     "options.fileDownloadExt": "指定保存文件的扩展名",
     "options.fileDownloadName": "指定不带扩展名的保存文件名",
     "options.fileStatus": "按上传状态过滤",
@@ -1061,11 +1113,14 @@ export const zhMessages = {
     "options.json": "--format=json 的别名",
     "options.keywords":
         "指定用于细化 skill 搜索的逗号分隔关键词",
+    "options.icon": "设置生成的 skill icon 引用",
+    "options.title": "设置生成的 skill 显示标题",
     "options.skill":
         "指定要安装的 skill 名称（使用 * 表示全部）",
     "options.onlyPackageId": "仅返回 package id",
     "options.all":
         "安装全部已发布 skill，并跳过 skill 选择提示",
+    "options.agent": "检查一个受支持的 skill 宿主",
     "options.nextToken": "指定下一页分页令牌",
     "options.packageId": "按 package id 过滤",
     "options.packageName": "--package-id 的别名",
@@ -1115,6 +1170,8 @@ export const zhMessages = {
         "已将 oo 从 {currentVersion} 更新到 {version}。",
     "skills.install.allSelected":
         "将安装全部 {count} 个 skill。",
+    "skills.check.success":
+        "本地 skill 创建环境可用。可写存储：{path}。受支持宿主数：{count}。",
     "skills.list.noResults":
         "未找到由 oo 管理的 skill。",
     "skills.list.host": "宿主",
@@ -1123,11 +1180,13 @@ export const zhMessages = {
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.source": "来源",
     "skills.list.source.bundled": "内置",
+    "skills.list.source.local": "本地",
     "skills.list.summary":
         "找到 {count} 个由 oo 管理的 skill。",
     "labels.blocks": "功能块：",
     "labels.status": "状态",
     "labels.version": "版本",
+    "skills.init.success": "已在 {path} 初始化 skill {name}。",
     "skills.install.success": "已将 skill {name} 安装到 {path}。",
     "skills.install.overwrite.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
@@ -1166,6 +1225,7 @@ export const zhMessages = {
     "skills.update.progress.failed": "失败",
     "skills.update.success": "已将 skill {name} 更新到 {path}。",
     "skills.uninstall.success": "已从 {path} 移除 skill {name}。",
+    "skills.validate.success": "{path} 中的 skill 有效。",
     "versionInfo.buildTime": "构建时间",
     "versionInfo.commit": "提交",
     "versionInfo.unknown": "未知",

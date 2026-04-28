@@ -8,6 +8,7 @@ const claudeDirectoryName = ".claude";
 const openClawDirectoryName = ".openclaw";
 export const codexSkillsDirectoryName = "skills";
 export const canonicalBundledSkillsDirectoryName = "bundled";
+export const canonicalLocalSkillsDirectoryName = "local";
 export const canonicalRegistrySkillsDirectoryName = "registry";
 
 export const bundledSkillMetadataFileName = ".oo-metadata.json";
@@ -58,7 +59,7 @@ export function resolveBundledSkillHomeDirectory(
 
 export function resolveBundledSkillDirectoryPath(
     homeDirectory: string,
-    skillName: BundledSkillName,
+    skillName: string,
 ): string {
     return join(homeDirectory, codexSkillsDirectoryName, skillName);
 }

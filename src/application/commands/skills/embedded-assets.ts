@@ -1,3 +1,4 @@
+import ooCreateSkillClaudeSkillPath from "../../../../contrib/skills/claude/oo-create-skill/SKILL.md" with { type: "file" };
 import ooFindSkillsClaudeCliContractPath from "../../../../contrib/skills/claude/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsClaudeSkillPath from "../../../../contrib/skills/claude/oo-find-skills/SKILL.md" with { type: "file" };
 import ooClaudeAuthAndBillingReferencePath from "../../../../contrib/skills/claude/oo/references/auth-and-billing.md" with { type: "file" };
@@ -7,6 +8,8 @@ import ooClaudePackageExecutionReferencePath from "../../../../contrib/skills/cl
 import ooClaudeSearchAndSelectionReferencePath from "../../../../contrib/skills/claude/oo/references/search-and-selection.md" with { type: "file" };
 import ooClaudeTaskLifecycleReferencePath from "../../../../contrib/skills/claude/oo/references/task-lifecycle.md" with { type: "file" };
 import ooClaudeSkillPath from "../../../../contrib/skills/claude/oo/SKILL.md" with { type: "file" };
+import ooCreateSkillOpenAIAgentPath from "../../../../contrib/skills/codex/oo-create-skill/agents/openai.yaml" with { type: "file" };
+import ooCreateSkillPath from "../../../../contrib/skills/codex/oo-create-skill/SKILL.md" with { type: "file" };
 import ooFindSkillsOpenAIAgentPath from "../../../../contrib/skills/codex/oo-find-skills/agents/openai.yaml" with { type: "file" };
 import ooFindSkillsCliContractPath from "../../../../contrib/skills/codex/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsSkillPath from "../../../../contrib/skills/codex/oo-find-skills/SKILL.md" with { type: "file" };
@@ -18,6 +21,7 @@ import ooPackageExecutionReferencePath from "../../../../contrib/skills/codex/oo
 import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/codex/oo/references/search-and-selection.md" with { type: "file" };
 import ooTaskLifecycleReferencePath from "../../../../contrib/skills/codex/oo/references/task-lifecycle.md" with { type: "file" };
 import ooSkillPath from "../../../../contrib/skills/codex/oo/SKILL.md" with { type: "file" };
+import ooCreateSkillOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo-create-skill/SKILL.md" with { type: "file" };
 import ooFindSkillsOpenClawCliContractPath from "../../../../contrib/skills/openclaw/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo-find-skills/SKILL.md" with { type: "file" };
 import ooOpenClawAuthAndBillingReferencePath from "../../../../contrib/skills/openclaw/oo/references/auth-and-billing.md" with { type: "file" };
@@ -31,7 +35,7 @@ import ooOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo/SKILL.md
 export const availableBundledSkillAgentNames = ["codex", "claude", "openclaw"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
 
-export const availableBundledSkillNames = ["oo", "oo-find-skills"] as const;
+export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill"] as const;
 export type BundledSkillName = (typeof availableBundledSkillNames)[number];
 
 interface BundledSkillSourceFile {
@@ -146,6 +150,36 @@ const bundledSkillRegistry = {
                 {
                     relativePath: "references/oo-cli-contract.md",
                     sourcePath: ooFindSkillsOpenClawCliContractPath,
+                },
+            ],
+        },
+    },
+    "oo-create-skill": {
+        codex: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCreateSkillPath,
+                },
+                {
+                    relativePath: "agents/openai.yaml",
+                    sourcePath: ooCreateSkillOpenAIAgentPath,
+                },
+            ],
+        },
+        claude: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCreateSkillClaudeSkillPath,
+                },
+            ],
+        },
+        openclaw: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCreateSkillOpenClawSkillPath,
                 },
             ],
         },

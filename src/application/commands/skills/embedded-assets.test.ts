@@ -8,7 +8,11 @@ import {
 
 describe("embedded skill assets", () => {
     test("keeps the bundled skill file registry aligned with the bundled skill names", () => {
-        expect(availableBundledSkillNames).toEqual(["oo", "oo-find-skills"]);
+        expect(availableBundledSkillNames).toEqual([
+            "oo",
+            "oo-find-skills",
+            "oo-create-skill",
+        ]);
         expect(getBundledSkillFiles("oo", "codex").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "agents/openai.yaml",
@@ -61,6 +65,28 @@ describe("embedded skill assets", () => {
         ).toEqual([
             "SKILL.md",
             "references/oo-cli-contract.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-create-skill", "codex").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+            "agents/openai.yaml",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-create-skill", "claude").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-create-skill", "openclaw").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
         ]);
     });
 

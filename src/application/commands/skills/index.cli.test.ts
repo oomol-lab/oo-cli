@@ -280,6 +280,7 @@ describe("skills CLI", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -294,6 +295,7 @@ describe("skills CLI", () => {
                 [
                     `Removed skill oo from ${ooSkillDirectoryPath}.`,
                     `Removed skill oo-find-skills from ${findSkillsDirectoryPath}.`,
+                    `Removed skill oo-create-skill from ${createSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -309,6 +311,7 @@ describe("skills CLI", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -322,6 +325,7 @@ describe("skills CLI", () => {
                 [
                     `Installed skill oo to ${ooSkillDirectoryPath}.`,
                     `Installed skill oo-find-skills to ${findSkillsDirectoryPath}.`,
+                    `Installed skill oo-create-skill to ${createSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
