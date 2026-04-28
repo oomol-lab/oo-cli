@@ -213,7 +213,7 @@ describe("startAuthLoginSession", () => {
 
                     if (
                         request.method === "GET"
-                        && requestUrl.host === "oomol.dev"
+                        && requestUrl.host === "api.oomol.dev"
                         && requestUrl.pathname === "/v1/auth/fast_login/profile_with_session_token"
                         && requestUrl.searchParams.get("session_token") === "session-1"
                     ) {
@@ -272,7 +272,7 @@ describe("startAuthLoginSession", () => {
                 endpoint: "oomol.dev",
                 fetcher: async () => {
                     throw new Error(
-                        `Failed to fetch https://oomol.dev/v1/auth/fast_login/profile_with_session_token?session_token=${searchEncodedSessionToken}`,
+                        `Failed to fetch https://api.oomol.dev/v1/auth/fast_login/profile_with_session_token?session_token=${searchEncodedSessionToken}`,
                     );
                 },
                 logger: logCapture.logger,
@@ -282,7 +282,7 @@ describe("startAuthLoginSession", () => {
                 key: "errors.auth.loginRequestError",
                 params: {
                     message:
-                        "Failed to fetch https://oomol.dev/v1/auth/fast_login/profile_with_session_token?session_token=<redacted>",
+                        "Failed to fetch https://api.oomol.dev/v1/auth/fast_login/profile_with_session_token?session_token=<redacted>",
                 },
             });
 
