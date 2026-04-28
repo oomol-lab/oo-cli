@@ -7,6 +7,7 @@ import {
 } from "./skill-metadata.ts";
 
 export interface ManagedSkillMetadata {
+    icon?: string;
     packageName?: string;
     version: string;
 }
@@ -20,7 +21,17 @@ export function parseManagedSkillMetadataContent(
         return undefined;
     }
     const rawPackageName = parsedMetadata.fields.packageName;
+    const rawIcon = parsedMetadata.fields.icon;
+    let icon: string | undefined;
     let packageName: string | undefined;
+
+    if (rawIcon !== undefined) {
+        if (typeof rawIcon !== "string" || rawIcon.trim() === "") {
+            return undefined;
+        }
+
+        icon = rawIcon;
+    }
 
     if (rawPackageName !== undefined) {
         if (typeof rawPackageName !== "string" || rawPackageName.trim() === "") {
@@ -28,6 +39,14 @@ export function parseManagedSkillMetadataContent(
         }
 
         packageName = rawPackageName;
+    }
+
+    if (icon !== undefined) {
+        return {
+            icon,
+            packageName,
+            version: parsedMetadata.version,
+        };
     }
 
     return {

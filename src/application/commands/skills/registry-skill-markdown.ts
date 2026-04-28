@@ -259,6 +259,8 @@ function isTopLevelHeading(line: string): boolean {
 }
 export function renderOoPackageExecutionGuidance(): string {
     return [
+        "<!-- OO NOTICE START -->",
+        "",
         "Important:",
         "If this skill mentions `oo::packageName` or `oo::packageName::blockName`,",
         "follow the `oo` CLI path instead of reimplementing the capability locally.",
@@ -288,5 +290,7 @@ export function renderOoPackageExecutionGuidance(): string {
         "If the metadata is not sufficient to choose a safe block or construct safe",
         "arguments, stop and inspect further; do not guess parameters and do not run",
         "yet.",
+        "",
+        "<!-- OO NOTICE END -->",
     ].join("\n");
 }

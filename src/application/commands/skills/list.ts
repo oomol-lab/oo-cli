@@ -4,7 +4,7 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 
 import type { ManagedSkillMetadata } from "./managed-skill-metadata.ts";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { compareSemver } from "../../semver.ts";
@@ -16,6 +16,8 @@ import {
 } from "./managed-skill-hosts.ts";
 import { parseManagedSkillMetadataContent } from "./managed-skill-metadata.ts";
 import {
+    isPathWithinDirectory,
+    resolveLocalSkillCanonicalRootDirectoryPath,
     resolveManagedSkillMetadataFilePath,
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
@@ -34,6 +36,7 @@ export interface ManagedSkillListItem {
     metadata?: ManagedSkillMetadata;
     name: string;
     path: string;
+    source?: "local";
 }
 
 export interface ManagedSkillHostListItem extends ManagedSkillListItem {
@@ -45,6 +48,7 @@ interface ManagedSkillOutputListItem {
     metadata?: ManagedSkillMetadata;
     name: string;
     paths: string[];
+    source?: "local";
 }
 
 type ManagedSkillListTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
@@ -56,7 +60,7 @@ export const skillsListCommand: CliCommandDefinition<Record<string, never>> = {
     inputSchema: z.object({}),
     handler: async (_, context) => {
         const skills = groupManagedSkillInstallationsByIdentity(
-            await listManagedSkillInstallationsByHost(context.env),
+            await listManagedSkillInstallationsByHost(context),
         );
 
         context.logger.info(
@@ -79,20 +83,23 @@ export const skillsListCommand: CliCommandDefinition<Record<string, never>> = {
 };
 
 async function listManagedSkillInstallationsByHost(
-    env: Record<string, string | undefined>,
+    context: Pick<CliExecutionContext, "env" | "settingsStore">,
 ): Promise<ManagedSkillHostListItem[]> {
     return listManagedSkillInstallationsForHosts(
-        await resolveAvailableManagedSkillHosts(env),
+        await resolveAvailableManagedSkillHosts(context.env),
+        context.settingsStore.getFilePath(),
     );
 }
 
 export async function listManagedSkillInstallationsForHosts(
     hosts: readonly ManagedSkillHost[],
+    settingsFilePath?: string,
 ): Promise<ManagedSkillHostListItem[]> {
     const skillsByHost = await Promise.all(
         hosts.map(host =>
             listManagedSkillInstallations(
                 resolveManagedSkillsDirectoryPath(host.homeDirectory),
+                settingsFilePath,
             )
                 .then(skills => skills.map(skill => ({
                     ...skill,
@@ -122,6 +129,7 @@ function groupManagedSkillInstallationsByIdentity(
                 metadata: installation.metadata,
                 name: installation.name,
                 paths: [installation.path],
+                source: installation.source,
             });
             continue;
         }
@@ -135,6 +143,7 @@ function groupManagedSkillInstallationsByIdentity(
 
 export async function listManagedSkillInstallations(
     skillsDirectoryPath: string,
+    settingsFilePath?: string,
 ): Promise<ManagedSkillListItem[]> {
     const entries = await readSkillsDirectoryEntries(skillsDirectoryPath);
     const skills: Array<ManagedSkillListItem | undefined> = await Promise.all(
@@ -161,6 +170,10 @@ export async function listManagedSkillInstallations(
                 metadata: parseManagedSkillMetadataContent(metadataContent),
                 name: entryName,
                 path: skillDirectoryPath,
+                source: await readManagedSkillLocalSource(
+                    skillDirectoryPath,
+                    settingsFilePath,
+                ),
             } satisfies ManagedSkillListItem;
         }),
     );
@@ -255,11 +268,15 @@ function formatManagedSkillDetailLine(
 }
 
 function readManagedSkillSource(
-    skill: Pick<ManagedSkillListItem, "metadata" | "name">,
+    skill: Pick<ManagedSkillListItem, "metadata" | "name" | "source">,
     context: Pick<CliExecutionContext, "translator">,
 ): string {
     if (skill.metadata?.packageName !== undefined) {
         return skill.metadata.packageName;
+    }
+
+    if ("source" in skill && skill.source === "local") {
+        return context.translator.t("skills.list.source.local");
     }
 
     if (isBundledSkillName(skill.name)) {
@@ -270,10 +287,14 @@ function readManagedSkillSource(
 }
 
 function readManagedSkillSourceIdentity(
-    skill: Pick<ManagedSkillListItem, "metadata" | "name">,
+    skill: Pick<ManagedSkillListItem, "metadata" | "name" | "source">,
 ): string {
     if (skill.metadata?.packageName !== undefined) {
         return `package:${skill.metadata.packageName}`;
+    }
+
+    if (skill.source === "local") {
+        return "local";
     }
 
     if (isBundledSkillName(skill.name)) {
@@ -309,8 +330,8 @@ function readManagedSkillHostLabel(
 }
 
 function hasSameManagedSkillIdentity(
-    left: Pick<ManagedSkillListItem, "metadata" | "name">,
-    right: Pick<ManagedSkillListItem, "metadata" | "name">,
+    left: Pick<ManagedSkillListItem, "metadata" | "name" | "source">,
+    right: Pick<ManagedSkillListItem, "metadata" | "name" | "source">,
 ): boolean {
     return left.name === right.name
         && readManagedSkillSourceIdentity(left) === readManagedSkillSourceIdentity(right)
@@ -318,8 +339,8 @@ function hasSameManagedSkillIdentity(
 }
 
 function compareManagedSkillListItems(
-    left: Pick<ManagedSkillListItem, "metadata" | "name">,
-    right: Pick<ManagedSkillListItem, "metadata" | "name">,
+    left: Pick<ManagedSkillListItem, "metadata" | "name" | "source">,
+    right: Pick<ManagedSkillListItem, "metadata" | "name" | "source">,
 ): number {
     const leftBundledOrder = readBundledSkillNameOrder(left);
     const rightBundledOrder = readBundledSkillNameOrder(right);
@@ -340,13 +361,44 @@ function compareManagedSkillListItems(
 }
 
 function readBundledSkillNameOrder(
-    skill: Pick<ManagedSkillListItem, "metadata" | "name">,
+    skill: Pick<ManagedSkillListItem, "metadata" | "name" | "source">,
 ): number | undefined {
-    if (skill.metadata?.packageName !== undefined || !isBundledSkillName(skill.name)) {
+    if (
+        skill.metadata?.packageName !== undefined
+        || skill.source === "local"
+        || !isBundledSkillName(skill.name)
+    ) {
         return undefined;
     }
 
     return availableBundledSkillNames.indexOf(skill.name);
+}
+
+async function readManagedSkillLocalSource(
+    skillDirectoryPath: string,
+    settingsFilePath?: string,
+): Promise<"local" | undefined> {
+    if (settingsFilePath === undefined) {
+        return undefined;
+    }
+
+    try {
+        const realSkillDirectoryPath = await realpath(skillDirectoryPath);
+
+        return isPathWithinDirectory(
+            resolveLocalSkillCanonicalRootDirectoryPath(settingsFilePath),
+            realSkillDirectoryPath,
+        )
+            ? "local"
+            : undefined;
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return undefined;
+        }
+
+        throw error;
+    }
 }
 
 function compareManagedSkillOutputListItems(

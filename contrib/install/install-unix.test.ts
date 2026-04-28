@@ -248,7 +248,7 @@ async function runInstallerFromStdin(
 
 async function runBashCommand(script: string): Promise<CliRunResult> {
     return runCommand(
-        ["bash", "-lc", script],
+        ["bash", "-c", script],
         import.meta.dir,
     );
 }

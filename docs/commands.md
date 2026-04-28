@@ -287,13 +287,69 @@ List oo-managed skills from supported local skill directories.
   skill identity. Identical `name`/source/version installs across multiple
   hosts are folded into one block.
 - Ordering: bundled skills are listed first when present, with `oo` before
-  `oo-find-skills`; the remaining skills are ordered by skill name. Host names
-  within a block follow `Codex`,
+  `oo-find-skills` before `oo-create-skill`; the remaining skills are ordered
+  by skill name. Host names within a block follow `Codex`,
   `Claude Code`, `OpenClaw` order.
 - Output: each skill block shows the skill name, host, source package or
-  bundled marker, and recorded version.
+  bundled/local marker, and recorded version.
 - Notes: when a folded skill is installed in multiple supported hosts, the
   `Host` field lists all matching hosts.
+
+### `oo skills preflight`
+
+Check whether this environment has permission to edit local skills.
+
+- Options: `--agent <agent>` restricts the host check to one supported agent:
+  `codex`, `claude`, or `openclaw`.
+- Host check: without `--agent`, at least one supported agent home directory
+  must already exist. With `--agent`, that specific agent home directory must
+  exist.
+- Storage check: the command creates `<config-dir>/skills/local` and each
+  checked host publish root, such as `<agent-home>/skills`, when needed. It
+  writes and removes a temporary probe file in each checked directory.
+- Output: on success, text output prints the writable storage path and number
+  of checked supported hosts. On failure, the command exits non-zero.
+
+### `oo skills init <name>`
+
+Initialize one local skill and publish it to every supported agent home
+directory that already exists.
+
+- Arguments: `<name>` is normalized to lowercase hyphen-case and used as the
+  skill id, canonical directory name, target directory name, and frontmatter
+  `name`.
+- Options: `--description <text>` is required and writes the generated
+  `SKILL.md` frontmatter description.
+- Generated `SKILL.md` frontmatter includes `compatibility: "Requires the oo
+  CLI."`.
+- Options: `--icon <icon>` writes an opaque non-empty icon reference to
+  `.oo-metadata.json`.
+- Options: `--title <title>` writes `metadata.title` to the generated
+  `SKILL.md` frontmatter. When omitted, `metadata.title` is not generated.
+- Canonical directory: the skill is created under
+  `<config-dir>/skills/local/<skill-id>`, where `<config-dir>` is the directory
+  containing the oo settings file.
+- Target directories: the command publishes directory links to each existing
+  supported agent skill directory:
+  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`, `~/.claude/skills/<skill-id>`,
+  and `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`.
+- Failure behavior: if no supported agent home exists, or if the canonical
+  local directory or any target directory already exists, the command exits
+  non-zero before writing the skill.
+- Output: text output prints one success line per published target path.
+
+### `oo skills validate <path>`
+
+Validate a local skill directory against the generic skill contract.
+
+- Arguments: `<path>` is the skill directory containing `SKILL.md`.
+- Validation: `SKILL.md` must start with YAML frontmatter delimited by `---`.
+  The frontmatter must be a dictionary with string `name` and `description`
+  fields.
+- Validation: nested `metadata.title` is optional, but when present it must be a
+  non-empty string.
+- Output: on success, the command prints a concise success message. On failure,
+  it prints the validation error and exits non-zero.
 
 ### `oo skills search <text>`
 
@@ -318,8 +374,8 @@ Install bundled or published skills into supported local skill directories.
 - Alias: `oo skills add [packageName]`.
 - Arguments: `[packageName]` is optional.
 - Arguments: when omitted, the command installs all bundled skills.
-- Arguments: when `[packageName]` is `oo` or `oo-find-skills`, the command
-  installs the corresponding bundled skill.
+- Arguments: when `[packageName]` is `oo`, `oo-find-skills`, or
+  `oo-create-skill`, the command installs the corresponding bundled skill.
 - Arguments: when `[packageName]` is a published package name, the command
   installs skills from that package.
 - Options: `-s, --skill <skills...>` installs one or more named published

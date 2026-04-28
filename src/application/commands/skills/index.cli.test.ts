@@ -17,6 +17,7 @@ import {
     resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
+import { availableBundledSkillNames } from "./embedded-assets.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
@@ -138,32 +139,26 @@ describe("skills CLI", () => {
     test("does not auto-refresh installed bundled skills during development-version cli startup", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const findSkillsDirectoryPath = join(
-            codexHomeDirectory,
-            "skills",
-            "oo-find-skills",
-        );
-        const ooSkillFilePath = join(ooSkillDirectoryPath, "SKILL.md");
-        const findSkillsSkillFilePath = join(findSkillsDirectoryPath, "SKILL.md");
-        const skillDirectoryPaths = [
-            ooSkillDirectoryPath,
-            findSkillsDirectoryPath,
-        ];
+        const skillTargets = availableBundledSkillNames.map(skillName => ({
+            directoryPath: join(codexHomeDirectory, "skills", skillName),
+            name: skillName,
+        }));
         const installedVersion = "9.9.9";
 
         try {
-            for (const skillDirectoryPath of skillDirectoryPaths) {
-                await mkdir(skillDirectoryPath, { recursive: true });
+            for (const skillTarget of skillTargets) {
+                await mkdir(skillTarget.directoryPath, { recursive: true });
                 await Bun.write(
-                    resolveBundledSkillMetadataFilePath(skillDirectoryPath),
+                    resolveBundledSkillMetadataFilePath(skillTarget.directoryPath),
                     renderSkillMetadataJson({
                         version: installedVersion,
                     }),
                 );
+                await Bun.write(
+                    join(skillTarget.directoryPath, "SKILL.md"),
+                    `# Local ${skillTarget.name}\n`,
+                );
             }
-            await Bun.write(ooSkillFilePath, "# Local oo\n");
-            await Bun.write(findSkillsSkillFilePath, "# Local oo-find-skills\n");
 
             const result = await sandbox.run(["--help"], {
                 version: bundledSkillDevelopmentVersion,
@@ -173,16 +168,19 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toContain("Options:");
-            expect(await readFile(ooSkillFilePath, "utf8")).toBe("# Local oo\n");
-            expect(await readFile(findSkillsSkillFilePath, "utf8")).toBe(
-                "# Local oo-find-skills\n",
-            );
-            expect(
-                await readFile(
-                    resolveBundledSkillMetadataFilePath(ooSkillDirectoryPath),
-                    "utf8",
-                ),
-            ).toBe(renderSkillMetadataJson({ version: installedVersion }));
+            for (const skillTarget of skillTargets) {
+                expect(
+                    await readFile(join(skillTarget.directoryPath, "SKILL.md"), "utf8"),
+                ).toBe(
+                    `# Local ${skillTarget.name}\n`,
+                );
+                expect(
+                    await readFile(
+                        resolveBundledSkillMetadataFilePath(skillTarget.directoryPath),
+                        "utf8",
+                    ),
+                ).toBe(renderSkillMetadataJson({ version: installedVersion }));
+            }
             expect(content).toContain(
                 `"msg":"Bundled skill startup synchronization skipped because the current CLI version is a development version."`,
             );
@@ -280,6 +278,7 @@ describe("skills CLI", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -294,6 +293,7 @@ describe("skills CLI", () => {
                 [
                     `Removed skill oo from ${ooSkillDirectoryPath}.`,
                     `Removed skill oo-find-skills from ${findSkillsDirectoryPath}.`,
+                    `Removed skill oo-create-skill from ${createSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -309,6 +309,7 @@ describe("skills CLI", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -322,6 +323,7 @@ describe("skills CLI", () => {
                 [
                     `Installed skill oo to ${ooSkillDirectoryPath}.`,
                     `Installed skill oo-find-skills to ${findSkillsDirectoryPath}.`,
+                    `Installed skill oo-create-skill to ${createSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );

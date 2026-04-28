@@ -98,6 +98,7 @@ exports[`skills CLI writes explicit skills install and uninstall logs 1`] = `
     "stdout": 
 "Installed skill oo to <HOME>/.codex/skills/oo.
 Installed skill oo-find-skills to <HOME>/.codex/skills/oo-find-skills.
+Installed skill oo-create-skill to <HOME>/.codex/skills/oo-create-skill.
 "
 ,
   },
@@ -107,6 +108,7 @@ Installed skill oo-find-skills to <HOME>/.codex/skills/oo-find-skills.
     "stdout": 
 "Removed skill oo from <HOME>/.codex/skills/oo.
 Removed skill oo-find-skills from <HOME>/.codex/skills/oo-find-skills.
+Removed skill oo-create-skill from <HOME>/.codex/skills/oo-create-skill.
 "
 ,
   },

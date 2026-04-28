@@ -254,12 +254,57 @@ skills。
 - 输出：文本输出会先打印摘要行，再为每个唯一的可见 skill 身份打印一个块。
   如果多个宿主中的安装具有相同 `name`、来源和版本，则会折叠到同一个块中。
 - 排序：bundled skills 会排在最前面；其中 `oo` 优先，其次
-  `oo-find-skills`；其余 skill 按名称排序。每个块内的宿主名称按 `Codex`、
+  `oo-find-skills`，再其次 `oo-create-skill`；其余 skill 按名称排序。每个块内的宿主名称按 `Codex`、
   `Claude Code`、`OpenClaw` 顺序显示。
-- 输出：每个 skill 块会显示 skill 名称、宿主、来源 package 或内置标记，以
+- 输出：每个 skill 块会显示 skill 名称、宿主、来源 package、内置或本地标记，以
   及记录的版本号。
 - 说明：如果折叠后的 skill 安装在多个受支持宿主中，`宿主` 字段会列出所有
   匹配的宿主。
+
+### `oo skills preflight`
+
+检查当前环境是否有权限编辑本地 skills。
+
+- 选项：`--agent <agent>` 将宿主检查限制为一个受支持 agent：`codex`、
+  `claude` 或 `openclaw`。
+- 宿主检查：未提供 `--agent` 时，至少需要存在一个受支持 agent home 目录。
+  提供 `--agent` 时，该指定 agent home 目录必须存在。
+- 存储检查：命令会在需要时创建 `<config-dir>/skills/local` 和每个已检查宿主
+  的发布根目录（如 `<agent-home>/skills`），并在每个已检查目录中写入再移除
+  临时探针文件。
+- 输出：成功时，文本输出会打印可写存储路径和已检查的受支持宿主数量。失败时
+  命令以非零状态退出。
+
+### `oo skills init <name>`
+
+初始化一个本地 skill，并发布到所有已存在的受支持 agent home 目录。
+
+- 参数：`<name>` 会规范化为小写短横线格式，并用作 skill id、canonical 目录名、
+  目标目录名以及 frontmatter `name`。
+- 选项：`--description <text>` 为必填项，并写入生成的 `SKILL.md`
+  frontmatter description。
+- 生成的 `SKILL.md` frontmatter 包含 `compatibility: "Requires the oo CLI."`。
+- 选项：`--icon <icon>` 将非空不透明 icon 引用写入 `.oo-metadata.json`。
+- 选项：`--title <title>` 将 `metadata.title` 写入生成的 `SKILL.md`
+  frontmatter。未提供时不会生成 `metadata.title`。
+- canonical 目录：skill 创建在 `<config-dir>/skills/local/<skill-id>` 下，
+  其中 `<config-dir>` 是 oo settings 文件所在目录。
+- 目标目录：命令会向每个已存在的受支持 agent skill 目录发布目录链接：
+  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`、`~/.claude/skills/<skill-id>`，
+  以及 `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`。
+- 失败行为：如果没有受支持的 agent home，或 canonical 本地目录、任意目标目录
+  已存在，命令会在写入 skill 前以非零状态退出。
+- 输出：文本输出会为每个发布目标路径打印一行成功消息。
+
+### `oo skills validate <path>`
+
+按照通用 skill 契约校验本地 skill 目录。
+
+- 参数：`<path>` 是包含 `SKILL.md` 的 skill 目录。
+- 校验：`SKILL.md` 必须以 `---` 分隔的 YAML frontmatter 开头。frontmatter
+  必须是字典，并包含字符串 `name` 和 `description` 字段。
+- 校验：嵌套的 `metadata.title` 可以省略；如果提供，则必须是非空字符串。
+- 输出：成功时命令会打印简短成功消息。失败时打印校验错误并以非零状态退出。
 
 ### `oo skills search <text>`
 
@@ -283,8 +328,8 @@ skills。
 - 别名：`oo skills add [packageName]`。
 - 参数：`[packageName]` 可选。
 - 参数：未提供时，该命令会安装全部内置 skill。
-- 参数：当 `[packageName]` 为 `oo` 或 `oo-find-skills` 时，命令安装对应
-  的内置 skill。
+- 参数：当 `[packageName]` 为 `oo`、`oo-find-skills` 或 `oo-create-skill` 时，
+  命令安装对应的内置 skill。
 - 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
   安装 skill。
 - 选项：`-s, --skill <skills...>` 用于安装 package 中一个或多个指定的

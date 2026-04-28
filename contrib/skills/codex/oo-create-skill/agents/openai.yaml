@@ -1,0 +1,7 @@
+interface:
+  display_name: oo Create Skill
+  short_description: Create local OOMOL package workflow skills
+  default_prompt: Use $oo-create-skill when the user wants to create or update a local agent skill for a known OOMOL/oo package workflow and already knows the package or block references. Do not use it for discovering unknown packages or finding published skills.
+
+policy:
+  allow_implicit_invocation: true
