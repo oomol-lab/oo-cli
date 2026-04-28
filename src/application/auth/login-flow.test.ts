@@ -6,7 +6,10 @@ import {
     toRequest,
 } from "../../../__tests__/helpers.ts";
 import { createTranslator } from "../../i18n/translator.ts";
-import { startAuthLoginSession } from "./login-flow.ts";
+import {
+    requestAuthAccountWithSessionToken,
+    startAuthLoginSession,
+} from "./login-flow.ts";
 
 describe("startAuthLoginSession", () => {
     test("creates a device login session and returns the verified account", async () => {
@@ -189,6 +192,106 @@ describe("startAuthLoginSession", () => {
                         "network down\n当前环境可能在网络受限的沙箱中，请尝试提权。",
                 },
             });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("requests a fast login profile with a session token", async () => {
+        const logCapture = createLogCapture();
+        const requests: Request[] = [];
+
+        try {
+            const account = await requestAuthAccountWithSessionToken({
+                endpoint: "oomol.dev",
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    const requestUrl = new URL(request.url);
+
+                    requests.push(request);
+
+                    if (
+                        request.method === "GET"
+                        && requestUrl.host === "oomol.dev"
+                        && requestUrl.pathname === "/v1/auth/fast_login/profile_with_session_token"
+                        && requestUrl.searchParams.get("session_token") === "session-1"
+                    ) {
+                        return new Response(JSON.stringify({
+                            api_key: "secret-1",
+                            endpoint: "oomol.dev",
+                            id: "0193438c-238f-703c-8754-e4a04e0be0c1",
+                            name: "Alice",
+                        }));
+                    }
+
+                    throw new Error(`Unexpected request: ${request.method} ${requestUrl}`);
+                },
+                logger: logCapture.logger,
+                sessionToken: "session-1",
+                translator: createTranslator("en"),
+            });
+
+            expect(requests).toHaveLength(1);
+            expect(account).toEqual({
+                apiKey: "secret-1",
+                endpoint: "oomol.dev",
+                id: "0193438c-238f-703c-8754-e4a04e0be0c1",
+                name: "Alice",
+            });
+
+            const request = requests[0];
+
+            expect(request?.method).toBe("GET");
+            expect(new URL(request!.url).searchParams.get("session_token")).toBe(
+                "session-1",
+            );
+
+            const logs = logCapture.read();
+
+            expect(logs).toContain("\"msg\":\"Auth fast login request started.\"");
+            expect(logs).toContain("\"msg\":\"Auth fast login completed successfully.\"");
+            expect(logs).not.toContain("session-1");
+            expect(logs).not.toContain("secret-1");
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("redacts the session token from fast login failures", async () => {
+        const logCapture = createLogCapture();
+        const sessionToken = "token with/sensitive value";
+        const encodedSessionToken = encodeURIComponent(sessionToken);
+        const searchEncodedSessionToken = new URLSearchParams({
+            session_token: sessionToken,
+        }).toString().slice("session_token=".length);
+
+        try {
+            await expect(requestAuthAccountWithSessionToken({
+                endpoint: "oomol.dev",
+                fetcher: async () => {
+                    throw new Error(
+                        `Failed to fetch https://oomol.dev/v1/auth/fast_login/profile_with_session_token?session_token=${searchEncodedSessionToken}`,
+                    );
+                },
+                logger: logCapture.logger,
+                sessionToken,
+                translator: createTranslator("en"),
+            })).rejects.toMatchObject({
+                key: "errors.auth.loginRequestError",
+                params: {
+                    message:
+                        "Failed to fetch https://oomol.dev/v1/auth/fast_login/profile_with_session_token?session_token=<redacted>",
+                },
+            });
+
+            const logs = logCapture.read();
+
+            expect(logs).not.toContain(sessionToken);
+            expect(logs).not.toContain(encodedSessionToken);
+            expect(logs).not.toContain(searchEncodedSessionToken);
+            expect(logs).toContain("session_token=<redacted>");
         }
         finally {
             logCapture.close();

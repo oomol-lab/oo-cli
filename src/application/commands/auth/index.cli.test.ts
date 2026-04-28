@@ -188,6 +188,72 @@ describe("auth CLI", () => {
         }
     });
 
+    test("supports login with a session token", async () => {
+        const sandbox = await createCliSandbox();
+        const sessionToken = "session-1";
+        const requests: Request[] = [];
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+            const result = await sandbox.run(
+                ["login", "--session-token", sessionToken],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+                        const requestUrl = new URL(request.url);
+
+                        requests.push(request);
+
+                        if (
+                            request.method === "GET"
+                            && requestUrl.host === defaultAuthEndpoint
+                            && requestUrl.pathname === "/v1/auth/fast_login/profile_with_session_token"
+                            && requestUrl.searchParams.get("session_token") === sessionToken
+                        ) {
+                            return new Response(JSON.stringify({
+                                api_key: "secret-1",
+                                endpoint: defaultAuthEndpoint,
+                                id: "0193438c-238f-703c-8754-e4a04e0be0c1",
+                                name: "Alice",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected auth fast login request: ${request.method} ${requestUrl}`);
+                    },
+                },
+            );
+            const authFileContent = await readFile(authFilePath, "utf8");
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(result.stdout).not.toContain("Open this URL");
+            expect(result.stdout).not.toContain("Enter this code");
+            expect(result.stdout).not.toContain("Waiting for the device login");
+            expect(createCliSnapshot(result)).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout:
+                    "✓ Logged in to oomol.com account Alice\n  - Active account: true\n",
+            });
+            expect(authFileContent).toContain("id = \"0193438c-238f-703c-8754-e4a04e0be0c1\"");
+            expect(authFileContent).toContain("api_key = \"secret-1\"");
+            expect(authFileContent).toContain("endpoint = \"oomol.com\"");
+            expect(content).toContain(`"msg":"Auth fast login request started."`);
+            expect(content).toContain(`"msg":"Auth fast login completed successfully."`);
+            expect(content).toContain(`"msg":"Auth account persisted after fast login."`);
+            expect(content).not.toContain(sessionToken);
+            expect(content).not.toContain("secret-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("renders the auth login url and success block with color styling when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
         const colors = createTerminalColors(true);

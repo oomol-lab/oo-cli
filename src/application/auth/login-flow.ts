@@ -36,8 +36,28 @@ const deviceLoginResultResponseSchema = z.union([
     deviceLoginVerifiedResponseSchema,
 ]);
 
+const fastLoginProfileResponseSchema = z.object({
+    api_key: z.string().min(1),
+    endpoint: z.string().min(1),
+    id: z.string().min(1),
+    name: z.string().min(1),
+}).passthrough();
+
 type DeviceLoginCodeResponse = z.output<typeof deviceLoginCodeResponseSchema>;
 type DeviceLoginResultResponse = z.output<typeof deviceLoginResultResponseSchema>;
+
+interface AuthAccountResponse {
+    api_key: string;
+    endpoint: string;
+    id: string;
+    name: string;
+}
+
+interface AuthLoginRequestOptions {
+    fetcher: Fetcher;
+    logger: Logger;
+    translator: Pick<CliExecutionContext["translator"], "t">;
+}
 
 export interface AuthLoginSession {
     code: string;
@@ -46,14 +66,16 @@ export interface AuthLoginSession {
     waitForAccount: () => Promise<AuthAccount>;
 }
 
-interface StartAuthLoginSessionOptions {
+interface StartAuthLoginSessionOptions extends AuthLoginRequestOptions {
     endpoint: string;
-    fetcher: Fetcher;
-    logger: Logger;
-    translator: Pick<CliExecutionContext["translator"], "t">;
     now?: () => number;
     sleep?: (ms: number) => Promise<void>;
     pollIntervalMs?: number;
+}
+
+interface RequestAuthAccountWithSessionTokenOptions extends AuthLoginRequestOptions {
+    endpoint: string;
+    sessionToken: string;
 }
 
 export async function startAuthLoginSession(
@@ -86,6 +108,39 @@ export async function startAuthLoginSession(
     };
 }
 
+export async function requestAuthAccountWithSessionToken(
+    options: RequestAuthAccountWithSessionTokenOptions,
+): Promise<AuthAccount> {
+    const requestUrl = createFastLoginProfileWithSessionTokenUrl(
+        options.endpoint,
+        options.sessionToken,
+    );
+    const rawResponse = await requestAuthLogin(
+        requestUrl,
+        options,
+        {
+            kind: "profile_with_session_token",
+            method: "GET",
+            redactedValues: [options.sessionToken],
+            requestDescription: "fast login",
+        },
+    );
+    const profile = parseAuthLoginResponse(
+        rawResponse,
+        fastLoginProfileResponseSchema,
+    );
+
+    options.logger.info(
+        {
+            ...withAccountIdentity(profile.id, profile.endpoint),
+            name: profile.name,
+        },
+        "Auth fast login completed successfully.",
+    );
+
+    return createAuthAccount(profile);
+}
+
 async function waitForVerifiedAccount(
     state: string,
     expiresAt: number,
@@ -111,12 +166,7 @@ async function waitForVerifiedAccount(
                 "Auth device login completed successfully.",
             );
 
-            return {
-                apiKey: result.api_key,
-                endpoint: result.endpoint,
-                id: result.id,
-                name: result.name,
-            };
+            return createAuthAccount(result);
         }
 
         const remainingMs = expiresAt - resolved.now();
@@ -141,7 +191,7 @@ async function requestDeviceLoginCode(
     state: string,
     options: StartAuthLoginSessionOptions,
 ): Promise<DeviceLoginCodeResponse> {
-    const rawResponse = await requestDeviceLogin(
+    const rawResponse = await requestAuthLogin(
         createDeviceLoginCodeUrl(options.endpoint),
         options,
         {
@@ -150,10 +200,11 @@ async function requestDeviceLoginCode(
             }),
             kind: "code",
             method: "POST",
+            requestDescription: "device login",
         },
     );
 
-    return parseDeviceLoginResponse(
+    return parseAuthLoginResponse(
         rawResponse,
         deviceLoginCodeResponseSchema,
     );
@@ -164,33 +215,34 @@ async function requestDeviceLoginResult(
     options: StartAuthLoginSessionOptions,
 ): Promise<DeviceLoginResultResponse> {
     const requestUrl = createDeviceLoginResultUrl(options.endpoint, state);
-    const rawResponse = await requestDeviceLogin(
+    const rawResponse = await requestAuthLogin(
         requestUrl,
         options,
         {
             kind: "result",
             method: "GET",
+            requestDescription: "device login",
         },
     );
 
-    return parseDeviceLoginResponse(
+    return parseAuthLoginResponse(
         rawResponse,
         deviceLoginResultResponseSchema,
     );
 }
 
-async function requestDeviceLogin(
+async function requestAuthLogin(
     requestUrl: URL,
-    options: Pick<
-        StartAuthLoginSessionOptions,
-        "fetcher" | "logger" | "translator"
-    >,
+    options: AuthLoginRequestOptions,
     requestOptions: {
         body?: string;
-        kind: "code" | "result";
+        kind: "code" | "profile_with_session_token" | "result";
         method: "GET" | "POST";
+        redactedValues?: readonly string[];
+        requestDescription: "device login" | "fast login";
     },
 ): Promise<string> {
+    const redactedValues = requestOptions.redactedValues ?? [];
     const requestStartedAt = Date.now();
 
     options.logger.debug(
@@ -201,7 +253,7 @@ async function requestDeviceLogin(
             method: requestOptions.method,
             ...withRequestTarget(requestUrl.host, requestUrl.pathname),
         },
-        "Auth device login request started.",
+        `Auth ${requestOptions.requestDescription} request started.`,
     );
 
     try {
@@ -225,7 +277,7 @@ async function requestDeviceLogin(
                     status: response.status,
                     ...withRequestTarget(requestUrl.host, requestUrl.pathname),
                 },
-                "Auth device login request returned a non-success status.",
+                `Auth ${requestOptions.requestDescription} request returned a non-success status.`,
             );
             throw new CliUserError("errors.auth.loginRequestFailed", 1, {
                 status: response.status,
@@ -240,7 +292,7 @@ async function requestDeviceLogin(
                 status: response.status,
                 ...withRequestTarget(requestUrl.host, requestUrl.pathname),
             },
-            "Auth device login request completed.",
+            `Auth ${requestOptions.requestDescription} request completed.`,
         );
 
         return await response.text();
@@ -253,21 +305,24 @@ async function requestDeviceLogin(
         options.logger.warn(
             {
                 durationMs: Date.now() - requestStartedAt,
-                err: error,
+                err: createRedactedError(error, redactedValues),
                 kind: requestOptions.kind,
                 method: requestOptions.method,
                 ...withRequestTarget(requestUrl.host, requestUrl.pathname),
             },
-            "Auth device login request failed unexpectedly.",
+            `Auth ${requestOptions.requestDescription} request failed unexpectedly.`,
         );
 
         throw new CliUserError("errors.auth.loginRequestError", 1, {
-            message: getUnexpectedRequestErrorMessage(error, options.translator),
+            message: redactSensitiveValues(
+                getUnexpectedRequestErrorMessage(error, options.translator),
+                redactedValues,
+            ),
         });
     }
 }
 
-function parseDeviceLoginResponse<TValue>(
+function parseAuthLoginResponse<TValue>(
     rawResponse: string,
     schema: z.ZodType<TValue>,
 ): TValue {
@@ -277,6 +332,15 @@ function parseDeviceLoginResponse<TValue>(
     catch {
         throw new CliUserError("errors.auth.loginInvalidResponse", 1);
     }
+}
+
+function createAuthAccount(response: AuthAccountResponse): AuthAccount {
+    return {
+        apiKey: response.api_key,
+        endpoint: response.endpoint,
+        id: response.id,
+        name: response.name,
+    };
 }
 
 function createDeviceLoginCodeUrl(endpoint: string): URL {
@@ -290,4 +354,60 @@ function createDeviceLoginResultUrl(endpoint: string, state: string): URL {
 
     requestUrl.searchParams.set("stat", state);
     return requestUrl;
+}
+
+function createFastLoginProfileWithSessionTokenUrl(
+    endpoint: string,
+    sessionToken: string,
+): URL {
+    const requestUrl = new URL(
+        `https://${endpoint}/v1/auth/fast_login/profile_with_session_token`,
+    );
+
+    requestUrl.searchParams.set("session_token", sessionToken);
+    return requestUrl;
+}
+
+function createRedactedError(
+    error: unknown,
+    sensitiveValues: readonly string[],
+): unknown {
+    if (!(error instanceof Error)) {
+        return redactSensitiveValues(String(error), sensitiveValues);
+    }
+
+    return {
+        message: redactSensitiveValues(error.message, sensitiveValues),
+        name: error.name,
+        stack: error.stack === undefined
+            ? undefined
+            : redactSensitiveValues(error.stack, sensitiveValues),
+    };
+}
+
+function redactSensitiveValues(
+    value: string,
+    sensitiveValues: readonly string[],
+): string {
+    let redactedValue = value;
+
+    for (const sensitiveValue of sensitiveValues) {
+        if (sensitiveValue === "") {
+            continue;
+        }
+
+        redactedValue = redactedValue
+            .replaceAll(sensitiveValue, "<redacted>")
+            .replaceAll(encodeURIComponent(sensitiveValue), "<redacted>")
+            .replaceAll(encodeSearchParamValue(sensitiveValue), "<redacted>");
+    }
+
+    return redactedValue;
+}
+
+function encodeSearchParamValue(value: string): string {
+    const params = new URLSearchParams();
+
+    params.set("value", value);
+    return params.toString().slice("value=".length);
 }

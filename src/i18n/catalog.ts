@@ -20,8 +20,9 @@ export const enMessages = {
     "auth.status.loggedOut": "Not logged in to any OOMOL account.",
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
     "commands.auth.description": "Manage CLI authentication accounts.",
-    "commands.auth.login.description": "Log in with an OOMOL account using device login.",
-    "commands.auth.login.summary": "Log in with device login",
+    "commands.auth.login.description":
+        "Log in with an OOMOL account using device login or a session token.",
+    "commands.auth.login.summary": "Log in with an OOMOL account",
     "commands.auth.logout.description": "Remove the current account from persisted auth data.",
     "commands.auth.logout.summary": "Log out the current account",
     "commands.auth.status.description": "Show the current auth account and validate its API key.",
@@ -98,8 +99,8 @@ export const enMessages = {
         "Print one previous persisted debug log file by index.",
     "commands.log.print.summary": "Print a previous debug log",
     "commands.login.description":
-        "Log in with an OOMOL account using device login. Alias for auth login.",
-    "commands.login.summary": "Log in with device login (alias for auth login)",
+        "Log in with an OOMOL account using device login or a session token. Alias for auth login.",
+    "commands.login.summary": "Log in with an OOMOL account (alias for auth login)",
     "commands.logout.description":
         "Remove the current account from persisted auth data. Alias for auth logout.",
     "commands.logout.summary":
@@ -150,17 +151,19 @@ export const enMessages = {
     "errors.commander.unknownCommand": "Unknown command: {value}.",
     "errors.commander.unknownOption": "Unknown option: {value}.",
     "errors.auth.loginInvalidResponse":
-        "The device login service returned an unsupported response body.",
+        "The auth login service returned an unsupported response body.",
     "errors.auth.loginRequestError":
-        "The device login request failed: {message}",
+        "The auth login request failed: {message}",
     "errors.auth.loginRequestFailed":
-        "The device login request returned HTTP {status}.",
+        "The auth login request returned HTTP {status}.",
     "errors.auth.loginTimeout":
         "Timed out waiting for the device login to complete.",
     "errors.auth.noSavedAccounts":
         "There are no auth accounts to switch to.",
     "errors.auth.required":
         "You must log in before using this command.",
+    "errors.auth.sessionTokenRequired":
+        "Session token must not be empty.",
     "errors.authStore.invalidToml":
         "The auth file at {path} is not valid TOML.",
     "errors.authStore.invalidSchema":
@@ -467,6 +470,7 @@ export const enMessages = {
     "options.showUrl": "Include download URLs in text output",
     "options.size": "Specify the number of items per page",
     "options.status": "Filter by task status",
+    "options.sessionToken": "Log in with a session token",
     "options.timeout":
         "Set how long to wait before timing out (default 6h, range 10s to 24h)",
     "options.yes": "Skip confirmation prompts",
@@ -658,8 +662,8 @@ export const zhMessages = {
     "auth.status.loggedOut": "当前没有登录任何 OOMOL 账号。",
     "auth.switch.success": "已将 {endpoint} 的当前激活账号切换为 {name}",
     "commands.auth.description": "管理 CLI 的认证账号。",
-    "commands.auth.login.description": "通过 device login 登录 OOMOL 账号。",
-    "commands.auth.login.summary": "通过 device login 登录",
+    "commands.auth.login.description": "通过 device login 或 session token 登录 OOMOL 账号。",
+    "commands.auth.login.summary": "登录 OOMOL 账号",
     "commands.auth.logout.description": "从持久化认证数据中移除当前账号。",
     "commands.auth.logout.summary": "登出当前账号",
     "commands.auth.status.description": "显示当前认证账号并校验其 API key。",
@@ -726,8 +730,8 @@ export const zhMessages = {
     "commands.log.path.summary": "显示日志目录路径",
     "commands.log.print.description": "按序号打印某一份更早的持久化 debug 日志文件内容。",
     "commands.log.print.summary": "输出某一份更早的 debug 日志",
-    "commands.login.description": "通过 device login 登录 OOMOL 账号。是 auth login 的别名。",
-    "commands.login.summary": "通过 device login 登录（auth login 的别名）",
+    "commands.login.description": "通过 device login 或 session token 登录 OOMOL 账号。是 auth login 的别名。",
+    "commands.login.summary": "登录 OOMOL 账号（auth login 的别名）",
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
     "commands.logout.summary": "登出当前账号（auth logout 的别名）",
     "commands.package.description": "查看包注册表元数据及相关资源。",
@@ -769,13 +773,14 @@ export const zhMessages = {
     "errors.commander.suggestion": "你是想输入 {value} 吗？",
     "errors.commander.unknownCommand": "未知命令：{value}。",
     "errors.commander.unknownOption": "未知选项：{value}。",
-    "errors.auth.loginInvalidResponse": "device login 服务返回了不受支持的响应内容。",
-    "errors.auth.loginRequestError": "device login 请求失败：{message}",
-    "errors.auth.loginRequestFailed": "device login 请求返回了 HTTP {status}。",
+    "errors.auth.loginInvalidResponse": "auth login 服务返回了不受支持的响应内容。",
+    "errors.auth.loginRequestError": "auth login 请求失败：{message}",
+    "errors.auth.loginRequestFailed": "auth login 请求返回了 HTTP {status}。",
     "errors.auth.loginTimeout": "等待 device login 完成超时。",
     "errors.auth.noSavedAccounts": "没有可切换的认证账号。",
     "errors.auth.required":
         "使用此命令前请先登录。",
+    "errors.auth.sessionTokenRequired": "session token 不能为空。",
     "errors.authStore.invalidToml": "认证文件 {path} 不是有效的 TOML。",
     "errors.authStore.invalidSchema": "认证文件 {path} 的结构不受支持。",
     "errors.authStore.readFailed": "读取认证文件 {path} 失败。",
@@ -1073,6 +1078,7 @@ export const zhMessages = {
     "options.showUrl": "在文本输出中包含下载 URL",
     "options.size": "指定每页数量",
     "options.status": "按任务状态过滤",
+    "options.sessionToken": "使用 session token 登录",
     "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
     "options.yes": "跳过确认提示",
     "options.lang": "指定显示语言",
