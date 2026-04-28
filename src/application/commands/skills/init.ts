@@ -27,7 +27,6 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 interface SkillsInitInput {
     description?: string;
@@ -41,8 +40,6 @@ interface LocalSkillHostPublicationTarget {
     homeDirectory: string;
     installedSkillDirectoryPath: string;
 }
-
-const initializedSkillVersion = "0.0.1";
 
 export const skillsInitCommand: CliCommandDefinition<SkillsInitInput> = {
     name: "init",
@@ -150,20 +147,10 @@ async function initializeLocalSkill(
     const publishedTargets: LocalSkillHostPublicationTarget[] = [];
 
     try {
-        await Promise.all([
-            Bun.write(
-                join(canonicalSkillDirectoryPath, "SKILL.md"),
-                renderInitializedSkillMarkdown(skillName, description, title),
-            ),
-            Bun.write(
-                join(canonicalSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson(
-                    icon === undefined
-                        ? { version: initializedSkillVersion }
-                        : { icon, version: initializedSkillVersion },
-                ),
-            ),
-        ]);
+        await Bun.write(
+            join(canonicalSkillDirectoryPath, "SKILL.md"),
+            renderInitializedSkillMarkdown(skillName, description, icon, title),
+        );
 
         for (const target of targets) {
             const published = await publishBundledSkillInstallation({
@@ -275,6 +262,7 @@ async function pathExists(path: string): Promise<boolean> {
 function renderInitializedSkillMarkdown(
     skillName: string,
     description: string,
+    icon: string | undefined,
     title: string | undefined,
 ): string {
     const frontmatterLines = [
@@ -284,11 +272,16 @@ function renderInitializedSkillMarkdown(
         `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
     ];
 
-    if (title !== undefined) {
-        frontmatterLines.push(
-            "metadata:",
-            `  title: ${JSON.stringify(title)}`,
-        );
+    if (icon !== undefined || title !== undefined) {
+        frontmatterLines.push("metadata:");
+
+        if (icon !== undefined) {
+            frontmatterLines.push(`  icon: ${JSON.stringify(icon)}`);
+        }
+
+        if (title !== undefined) {
+            frontmatterLines.push(`  title: ${JSON.stringify(title)}`);
+        }
     }
 
     frontmatterLines.push(
