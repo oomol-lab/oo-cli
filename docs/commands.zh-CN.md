@@ -304,9 +304,10 @@ skills。
 按照通用 skill 契约校验本地 skill 目录。
 
 - 参数：`<path>` 是包含 `SKILL.md` 的 skill 目录。
-- 校验：`SKILL.md` frontmatter 必须是字典，并包含字符串 `name` 和
+- 校验：`SKILL.md` frontmatter 必须是字典，并包含字符串 `name` 和非空字符串
   `description` 字段。
-- 校验：嵌套的 `metadata.title` 可以省略；如果提供，则必须是非空字符串。
+- 校验：嵌套的 `metadata` 可以省略；如果提供，则必须是字典。嵌套的
+  `metadata.icon` 和 `metadata.title` 可以省略；如果提供，则必须是非空字符串。
 - 警告：缺少 `metadata.icon` 或 `metadata.title` 会打印 warning，但不会导致校验失败。
 - 输出：成功时命令会打印简短成功消息。失败时打印校验错误并以非零状态退出。
 

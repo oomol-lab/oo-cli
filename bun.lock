@@ -6,6 +6,7 @@
       "name": "oo",
       "dependencies": {
         "@clack/core": "0.5.0",
+        "@wopjs/cast": "^0.1.16",
         "ajv": "^8.18.0",
         "ajv-formats": "^3.0.1",
         "ajv-i18n": "^4.2.0",
@@ -185,6 +186,8 @@
     "@vue/compiler-ssr": ["@vue/compiler-ssr@3.5.30", "", { "dependencies": { "@vue/compiler-dom": "3.5.30", "@vue/shared": "3.5.30" } }, "sha512-NsYK6OMTnx109PSL2IAyf62JP6EUdk4Dmj6AkWcJGBvN0dQoMYtVekAmdqgTtWQgEJo+Okstbf/1p7qZr5H+bA=="],
 
     "@vue/shared": ["@vue/shared@3.5.30", "", {}, "sha512-YXgQ7JjaO18NeK2K9VTbDHaFy62WrObMa6XERNfNOkAhD1F1oDSf3ZJ7K6GqabZ0BvSDHajp8qfS5Sa2I9n8uQ=="],
+
+    "@wopjs/cast": ["@wopjs/cast@0.1.16", "", {}, "sha512-HoQfg6R6/swD2N/RYd+1qiccUnM0aBPgRIkr48emqkq3heF7VZAOriAJGWx24o1xm3i6hdRGQ4oOEl5OfC0PKQ=="],
 
     "acorn": ["acorn@8.16.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw=="],
 

@@ -348,9 +348,10 @@ Validate a local skill directory against the generic skill contract.
 
 - Arguments: `<path>` is the skill directory containing `SKILL.md`.
 - Validation: `SKILL.md` frontmatter must be a dictionary with string `name`
-  and `description` fields.
-- Validation: nested `metadata.title` is optional, but when present it must be a
-  non-empty string.
+  and non-empty string `description` fields.
+- Validation: nested `metadata` is optional, but when present it must be a
+  dictionary. Nested `metadata.icon` and `metadata.title` are optional, but when
+  present they must be non-empty strings.
 - Warnings: missing `metadata.icon` or `metadata.title` prints a warning, but
   does not make validation fail.
 - Output: on success, the command prints a concise success message. On failure,

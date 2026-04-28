@@ -122,6 +122,91 @@ describe("skills validate command", () => {
         }
     });
 
+    test("rejects whitespace-only descriptions", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "empty-description-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: empty-description-skill",
+                    "description: \"   \"",
+                    "metadata:",
+                    "  icon: ':lucide:wand:'",
+                    "  title: Empty Description Skill",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter must include a string description field.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects non-object metadata", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "non-object-metadata-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: non-object-metadata-skill",
+                    "description: Use this skill for a workflow.",
+                    "metadata: invalid",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter metadata must be an object.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects empty metadata icon", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "empty-icon-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: empty-icon-skill",
+                    "description: Use this skill for a workflow.",
+                    "metadata:",
+                    "  icon: \"  \"",
+                    "  title: Empty Icon Skill",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter metadata.icon must be a non-empty string.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
     test("rejects empty metadata title", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
         const skillDirectoryPath = join(rootDirectory, "empty-title-skill");
@@ -136,6 +221,34 @@ describe("skills validate command", () => {
                     "description: Use this skill for a workflow.",
                     "metadata:",
                     "  title: \"\"",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter metadata.title cannot be empty.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects whitespace-only metadata title", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "whitespace-title-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: whitespace-title-skill",
+                    "description: Use this skill for a workflow.",
+                    "metadata:",
+                    "  title: \"   \"",
                     "---",
                     "",
                 ].join("\n"),

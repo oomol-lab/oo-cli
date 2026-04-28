@@ -2,6 +2,12 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import {
+    isDefined,
+    isNonEmptyString,
+    isPlainObject,
+    isString,
+} from "@wopjs/cast";
 import matter from "gray-matter";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -81,7 +87,7 @@ export async function validateSkillDirectory(
 
     const frontmatter = parseSkillFrontmatter(content);
 
-    if (typeof frontmatter === "string") {
+    if (isString(frontmatter)) {
         return {
             error: frontmatter,
         };
@@ -89,7 +95,7 @@ export async function validateSkillDirectory(
 
     const name = frontmatter.name;
 
-    if (typeof name !== "string") {
+    if (!isNonEmptyString(name)) {
         return {
             error: "Frontmatter must include a string name field.",
         };
@@ -97,7 +103,7 @@ export async function validateSkillDirectory(
 
     const nameError = validateSkillNameValue(name);
 
-    if (nameError !== undefined) {
+    if (isDefined(nameError)) {
         return {
             error: nameError,
         };
@@ -105,9 +111,19 @@ export async function validateSkillDirectory(
 
     const description = frontmatter.description;
 
-    if (typeof description !== "string") {
+    if (!isNonEmptyString(description)) {
         return {
             error: "Frontmatter must include a string description field.",
+        };
+    }
+
+    const icon = frontmatter.metadataIcon;
+
+    const iconError = validateSkillIconValue(icon);
+
+    if (!isDefined(iconError)) {
+        return {
+            error: iconError,
         };
     }
 
@@ -115,7 +131,7 @@ export async function validateSkillDirectory(
 
     const titleError = validateSkillTitleValue(title);
 
-    if (titleError !== undefined) {
+    if (isDefined(titleError)) {
         return {
             error: titleError,
         };
@@ -140,22 +156,22 @@ function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
         return "Frontmatter must be a YAML dictionary.";
     }
 
-    if (!isRecord(parsedMatter.data)) {
+    if (!isPlainObject(parsedMatter.data)) {
         return "Frontmatter must be a YAML dictionary.";
     }
 
     const metadata = parsedMatter.data.metadata;
 
+    if (!isPlainObject(metadata)) {
+        return "Frontmatter metadata must be an object.";
+    }
+
     return {
         description: parsedMatter.data.description,
-        metadataIcon: isRecord(metadata) ? metadata.icon : undefined,
-        metadataTitle: isRecord(metadata) ? metadata.title : undefined,
+        metadataIcon: metadata?.icon,
+        metadataTitle: metadata?.title,
         name: parsedMatter.data.name,
     };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function validateSkillNameValue(name: string): string | undefined {
@@ -166,30 +182,36 @@ function validateSkillNameValue(name: string): string | undefined {
     return undefined;
 }
 
-function validateSkillTitleValue(title: unknown): string | undefined {
-    if (title === undefined) {
-        return undefined;
+function validateSkillIconValue(icon: unknown): string | undefined {
+    if (!isDefined(icon)) {
+        return;
     }
 
-    if (typeof title !== "string") {
-        return "Frontmatter metadata.title must be a string.";
+    if (!isNonEmptyString(icon)) {
+        return "Frontmatter metadata.icon must be a non-empty string.";
     }
-
-    if (title === "") {
-        return "Frontmatter metadata.title cannot be empty.";
-    }
-
-    return undefined;
 }
 
-function readSkillFrontmatterWarnings(frontmatter: ParsedFrontmatter): string[] {
+function validateSkillTitleValue(title: unknown): string | undefined {
+    if (!isDefined(title)) {
+        return;
+    }
+
+    if (!isNonEmptyString(title)) {
+        return "Frontmatter metadata.title must be a non-empty string.";
+    }
+}
+
+function readSkillFrontmatterWarnings(
+    frontmatter: ParsedFrontmatter,
+): string[] {
     const warnings: string[] = [];
 
-    if (frontmatter.metadataIcon === undefined) {
+    if (!isNonEmptyString(frontmatter.metadataIcon)) {
         warnings.push("Warning: Frontmatter metadata.icon is missing.");
     }
 
-    if (frontmatter.metadataTitle === undefined) {
+    if (!isNonEmptyString(frontmatter.metadataTitle)) {
         warnings.push("Warning: Frontmatter metadata.title is missing.");
     }
 
