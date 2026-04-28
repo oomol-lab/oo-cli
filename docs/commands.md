@@ -322,8 +322,10 @@ directory that already exists.
   `SKILL.md` frontmatter description.
 - Generated `SKILL.md` frontmatter includes `compatibility: "Requires the oo
   CLI."`.
-- Options: `--icon <icon>` writes an opaque non-empty icon reference to
-  `metadata.icon` in the generated `SKILL.md` frontmatter.
+- Options: `--icon <icon>` writes a non-empty icon reference to `metadata.icon`
+  in the generated `SKILL.md` frontmatter. The value may be an emoji, an image
+  URL, or `:collection:icon:` where `collection` and `icon` are names from
+  <https://icones.js.org/>.
 - Options: `--title <title>` writes `metadata.title` to the generated
   `SKILL.md` frontmatter. When omitted, `metadata.title` is not generated.
 - Canonical directory: the skill is created under

@@ -284,8 +284,9 @@ skills。
 - 选项：`--description <text>` 为必填项，并写入生成的 `SKILL.md`
   frontmatter description。
 - 生成的 `SKILL.md` frontmatter 包含 `compatibility: "Requires the oo CLI."`。
-- 选项：`--icon <icon>` 将非空不透明 icon 引用写入生成的 `SKILL.md`
-  frontmatter `metadata.icon`。
+- 选项：`--icon <icon>` 将非空 icon 引用写入生成的 `SKILL.md` frontmatter
+  `metadata.icon`。值可以是 emoji、图片 URL，或 `:collection:icon:` 格式，
+  其中 `collection` 和 `icon` 是 <https://icones.js.org/> 上的名称。
 - 选项：`--title <title>` 将 `metadata.title` 写入生成的 `SKILL.md`
   frontmatter。未提供时不会生成 `metadata.title`。
 - canonical 目录：skill 创建在 `<config-dir>/skills/local/<skill-id>` 下，

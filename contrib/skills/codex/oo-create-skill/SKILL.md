@@ -72,6 +72,13 @@ Ask for missing authoring inputs only when they are needed:
 - workflow ordering and expected outputs
 - optional display title and icon preference
 
+If the user does not provide a display title or icon preference, choose them
+yourself from the workflow purpose and package metadata instead of asking only
+for cosmetic details. Use a concise human-readable title and an icon reference
+that fits the workflow. The icon may be an emoji, an image URL, or
+`:collection:icon:` where `collection` and `icon` are names from
+https://icones.js.org/.
+
 ### 3. Resolve concrete package and block references
 
 If the user provides only package-level information, inspect the package before
@@ -95,11 +102,12 @@ generated skill.
 ### 4. Initialize the local skill
 
 When creating a new skill, run `oo skills init <name>` with a required
-`--description` value. Also pass `--title` and `--icon` when those values are
-known. Pass `--title` only when the user provided or confirmed a concise display
-title. If initialization fails because the local canonical directory or an agent
-target directory already exists, ask the user for a different skill name instead
-of overwriting.
+`--description` value. Also pass `--title` and `--icon`. If the user did not
+provide them, derive a concise display title and suitable icon reference from
+the workflow purpose and resolved package metadata before running
+initialization. If initialization fails because the local canonical directory or
+an agent target directory already exists, ask the user for a different skill
+name instead of overwriting.
 
 Do not substitute manual file creation for this step. The initialized skill
 directory must come from a successful `oo skills init` invocation before you
@@ -114,8 +122,9 @@ packages with `oo::packageName` and stable blocks with
 
 Preserve the generated frontmatter `metadata.title` field when it exists. If
 you change the skill's displayed title or first heading, update
-`metadata.title` to the same human-readable title. If the field is absent, do
-not add it by deriving a title from the skill name.
+`metadata.title` to the same human-readable title. If `metadata.title` or
+`metadata.icon` is absent, add a suitable value rather than leaving the
+generated skill without presentation metadata.
 
 The final generated skill must contain concrete package or block references. It
 must not instruct the future agent to run `oo search` or discover packages at
