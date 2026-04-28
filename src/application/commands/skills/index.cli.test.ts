@@ -8,10 +8,19 @@ import {
     createCliSnapshot,
     readLatestLogContent,
 } from "../../../../__tests__/helpers.ts";
+import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
+import { APP_NAME } from "../../config/app-config.ts";
+import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
+import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     resolveBundledSkillMetadataFilePath,
+    resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
+import {
+    resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillMetadataFilePath,
+} from "./managed-skill-paths.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 describe("skills CLI", () => {
@@ -46,7 +55,7 @@ describe("skills CLI", () => {
         }
     });
 
-    test("does not auto-install bundled skills during cli startup", async () => {
+    test("auto-installs bundled skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -60,25 +69,29 @@ describe("skills CLI", () => {
             });
             const content = await readLatestLogContent(sandbox);
 
-            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Options:");
             expect(result.stdout).not.toContain("Installed skill");
-            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
+            await expect(stat(skillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
             });
-            await expect(stat(findSkillsDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
+            await expect(stat(findSkillsDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
             });
             expect(content).not.toContain(
                 `"msg":"Bundled skill installed during first-run bootstrap."`,
             );
-            expect(content).not.toContain(`"msg":"Bundled skill synchronized."`);
+            expect(content).toContain(
+                `"msg":"Bundled skill synchronized during CLI startup."`,
+            );
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("does not auto-refresh installed bundled skills during cli startup", async () => {
+    test("auto-refreshes installed bundled skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
@@ -102,14 +115,160 @@ describe("skills CLI", () => {
             });
             const content = await readLatestLogContent(sandbox);
 
-            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Options:");
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({
-                    version: "0.0.1",
+                    version: "9.9.9",
                 }),
             );
-            expect(await readFile(skillFilePath, "utf8")).toBe("stale\n");
-            expect(content).not.toContain(`"msg":"Bundled skill synchronized."`);
+            expect(await readFile(skillFilePath, "utf8")).toBe(
+                await readFile(getBundledSkillSourcePath("oo", "SKILL.md"), "utf8"),
+            );
+            expect(content).toContain(
+                `"msg":"Bundled skill synchronized during CLI startup."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not auto-refresh installed bundled skills during development-version cli startup", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(
+            codexHomeDirectory,
+            "skills",
+            "oo-find-skills",
+        );
+        const ooSkillFilePath = join(ooSkillDirectoryPath, "SKILL.md");
+        const findSkillsSkillFilePath = join(findSkillsDirectoryPath, "SKILL.md");
+        const skillDirectoryPaths = [
+            ooSkillDirectoryPath,
+            findSkillsDirectoryPath,
+        ];
+        const installedVersion = "9.9.9";
+
+        try {
+            for (const skillDirectoryPath of skillDirectoryPaths) {
+                await mkdir(skillDirectoryPath, { recursive: true });
+                await Bun.write(
+                    resolveBundledSkillMetadataFilePath(skillDirectoryPath),
+                    renderSkillMetadataJson({
+                        version: installedVersion,
+                    }),
+                );
+            }
+            await Bun.write(ooSkillFilePath, "# Local oo\n");
+            await Bun.write(findSkillsSkillFilePath, "# Local oo-find-skills\n");
+
+            const result = await sandbox.run(["--help"], {
+                version: bundledSkillDevelopmentVersion,
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Options:");
+            expect(await readFile(ooSkillFilePath, "utf8")).toBe("# Local oo\n");
+            expect(await readFile(findSkillsSkillFilePath, "utf8")).toBe(
+                "# Local oo-find-skills\n",
+            );
+            expect(
+                await readFile(
+                    resolveBundledSkillMetadataFilePath(ooSkillDirectoryPath),
+                    "utf8",
+                ),
+            ).toBe(renderSkillMetadataJson({ version: installedVersion }));
+            expect(content).toContain(
+                `"msg":"Bundled skill startup synchronization skipped because the current CLI version is a development version."`,
+            );
+            expect(content).not.toContain(
+                `"msg":"Bundled skill synchronized during CLI startup."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("publishes canonical registry skills during cli startup", async () => {
+        const sandbox = await createCliSandbox();
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await mkdir(claudeHomeDirectory, { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                "# ChatGPT\n",
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: "openai",
+                    version: "0.0.3",
+                }),
+            );
+
+            const result = await sandbox.run(["--help"], {
+                fetcher: async () => {
+                    throw new Error("startup synchronization should not fetch");
+                },
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Options:");
+            expect(result.stdout).not.toContain("Installed skill");
+            expect(await readFile(join(claudeSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                "# ChatGPT\n",
+            );
+            expect(content).toContain(
+                `"msg":"Registry skill synchronized during CLI startup."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not overwrite unmanaged bundled skill targets during cli startup", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const skillFilePath = join(skillDirectoryPath, "SKILL.md");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(skillFilePath, "# Custom\n");
+
+            const result = await sandbox.run(["--help"], {
+                version: "9.9.9",
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Options:");
+            expect(await readFile(skillFilePath, "utf8")).toBe("# Custom\n");
+            expect(content).toContain(
+                `"msg":"Bundled skill startup synchronization skipped because the target is not managed by oo."`,
+            );
         }
         finally {
             await sandbox.cleanup();

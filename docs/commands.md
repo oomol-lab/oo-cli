@@ -254,6 +254,20 @@ Search packages and connector actions with one free-form query.
 
 ## AI Agent Skills
 
+Before running a command, `oo` silently synchronizes managed skills for every
+supported host directory that already exists.
+
+- Bundled skills: `oo` ensures `oo` and `oo-find-skills` are installed for
+  each detected Codex, Claude Code, and OpenClaw host. Existing oo-managed
+  bundled skill targets are refreshed to the current `oo` version, except that
+  `0.0.0-development` startup runs do not refresh existing bundled targets.
+- Published skills: when a published skill already has a local canonical copy
+  under `<config-dir>/skills/registry/<skill-id>`, `oo` publishes that copy to
+  any newly detected supported host that is missing it.
+- Safety: startup synchronization does not fetch registry data, does not
+  require authentication, does not print additional command output, and does
+  not overwrite same-name targets that are not managed by `oo`.
+
 ### `oo skills list`
 
 List oo-managed skills from supported local skill directories.

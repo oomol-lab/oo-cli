@@ -39,7 +39,9 @@ describe("skills list CLI", () => {
                 }),
             );
 
-            const result = await sandbox.run(["skills", "list"]);
+            const result = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
@@ -70,7 +72,7 @@ describe("skills list CLI", () => {
         }
     });
 
-    test("lists bundled OpenClaw installs when Codex is not installed", async () => {
+    test("lists startup-synchronized OpenClaw bundled installs when Codex is not installed", async () => {
         const sandbox = await createCliSandbox();
         const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
 
@@ -80,15 +82,22 @@ describe("skills list CLI", () => {
                 version: "9.9.9",
             });
 
-            const result = await sandbox.run(["skills", "list"]);
+            const result = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 1 oo-managed skills.",
+                    "✓ Found 2 oo-managed skills.",
                     "",
                     "oo",
+                    "  Host: OpenClaw",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-find-skills",
                     "  Host: OpenClaw",
                     "  Source: bundled",
                     "  Version: 9.9.9",
@@ -113,7 +122,9 @@ describe("skills list CLI", () => {
                 version: "9.9.9",
             });
 
-            const result = await sandbox.run(["skills", "list"]);
+            const result = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
@@ -139,13 +150,10 @@ describe("skills list CLI", () => {
         }
     });
 
-    test("prints a no-results message when no oo-managed skills are installed", async () => {
+    test("prints a no-results message when no supported host is installed", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
-
             const result = await sandbox.run(["skills", "list"]);
 
             expect(result.exitCode).toBe(0);

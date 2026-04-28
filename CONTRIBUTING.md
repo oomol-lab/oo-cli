@@ -18,8 +18,11 @@ bun run dev --help
 ```
 
 This is the fastest way to verify argument parsing and command output while
-iterating on local changes. Source-based development runs do not auto-install
-or auto-synchronize the bundled Codex skill into `${CODEX_HOME:-~/.codex}`.
+iterating on local changes. Source-based development runs use the same startup
+skill synchronization path as packaged runs: if a supported host directory such
+as `${CODEX_HOME:-~/.codex}` already exists, missing bundled skills may be
+installed there before the requested command executes. Existing bundled skill
+targets are not refreshed while the current version is `0.0.0-development`.
 
 Useful commands:
 
