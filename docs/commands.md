@@ -252,7 +252,7 @@ Search packages and connector actions with one free-form query.
 - Notes: connector matches still cache their schemas locally and report the
   cache path in text and JSON output.
 
-## Codex Skills
+## AI Agent Skills
 
 ### `oo skills list`
 
@@ -292,8 +292,7 @@ Search published skills with free-form text.
 
 ### `oo skills install [packageName]`
 
-Install bundled skills into supported local skill directories, or install
-published skills into the local Codex skills directory.
+Install bundled or published skills into supported local skill directories.
 
 - Alias: `oo skills add [packageName]`.
 - Arguments: `[packageName]` is optional.
@@ -329,19 +328,19 @@ published skills into the local Codex skills directory.
   lived directly under `skills/`). Bundled skills are rebuilt automatically in
   the new layout; previously-installed published skills must be reinstalled
   with `oo skills install <packageName>`.
-- Target directory: bundled skills are published to each existing supported
-  host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill-id>`,
+- Target directory: bundled and published skills are published to each existing
+  supported host directory, currently
+  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`,
   `~/.claude/skills/<skill-id>`, and
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`.
-- Target directory: published skills are published to
-  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
-- Installation mode: bundled Codex and Claude Code skills are published to the
-  target directory as a symlink to the canonical directory when the current
-  platform and environment allow it. When symlink creation fails, `oo` falls
-  back to copying the canonical files into the target skills directory.
-- Installation mode: bundled OpenClaw skills are copied into
+- Installation mode: bundled and published Codex and Claude Code skills are
+  published to the target directory as a symlink to the canonical directory
+  when the current platform and environment allow it. When symlink creation
+  fails, `oo` falls back to copying the canonical files into the target skills
+  directory.
+- Installation mode: bundled and published OpenClaw skills are copied into
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>` so the installed skill
   stays inside OpenClaw's managed skills root.
 - Metadata: bundled skills write a hidden `.oo-metadata.json` file whose
@@ -356,6 +355,8 @@ published skills into the local Codex skills directory.
 - Notes: when an explicitly requested published skill conflicts with an
   existing same-name skill, the command asks for `yes` or `no` before
   overwriting it in an interactive terminal.
+- Notes: existing target directories without valid `oo` metadata are treated as
+  non-OOMOL skills and are not overwritten.
 - Notes: in the interactive picker, conflicting skills are marked in the list;
   selecting one means it will be overwritten.
 - Notes: the command exits with an error when none of the supported Codex,
@@ -367,7 +368,7 @@ published skills into the local Codex skills directory.
 
 ### `oo skills update [skills...]`
 
-Update installed oo-managed Codex skills.
+Update installed oo-managed published skills.
 
 - Arguments: when omitted, the command checks every installed oo-managed
   published skill.
@@ -376,20 +377,23 @@ Update installed oo-managed Codex skills.
 - Bundled skills: bundled skills such as `oo` and `oo-find-skills` are
   excluded from this command. Refresh them with `oo skills add`, or let a
   successful `oo install` or `oo update` refresh them automatically.
+- Ownership rule: a skill is considered managed for update only when its
+  `.oo-metadata.json` file can be parsed and contains a non-empty `version`;
+  otherwise the command treats the existing target as unmanaged.
 - Published skills: registry-backed skills derive their package identity from
   `.oo-metadata.json`, then fetch package info without an explicit version to
   determine the latest available package version.
 - Update order: the command refreshes the canonical
   `<config-dir>/skills/registry/<skill-id>` copy before republishing to
-  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`.
+  each existing supported host directory.
 - Interactive terminals: renders live progress while checking and updating
   skills.
-- Non-interactive terminals: prints one status line per processed skill.
+- Non-interactive terminals: prints one status line for each current or failed
+  skill, and one success line for each updated host target path.
 
 ### `oo skills uninstall [skill]`
 
-Remove bundled skills from supported local skill directories, or remove one
-oo-managed published skill from the local Codex skills directory.
+Remove oo-managed skills from supported local skill directories.
 
 - Alias: `oo skills remove [skill]`.
 - Arguments: when `[skill]` is omitted, the command removes all bundled skills.
@@ -399,16 +403,15 @@ oo-managed published skill from the local Codex skills directory.
 - Canonical directory removed: bundled skills remove
   `<config-dir>/skills/bundled/<agent>/<skill>` for each installed agent, and
   published skills remove `<config-dir>/skills/registry/<skill>`.
-- Target directory removed: bundled skills are removed from every existing
-  supported host directory, currently `${CODEX_HOME:-~/.codex}/skills/<skill>`,
-  `~/.claude/skills/<skill>`, and
-  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`. Published skills are removed
-  from `${CODEX_HOME:-~/.codex}/skills/<skill>`.
+- Target directory removed: bundled and published skills are removed from every
+  existing supported host directory, currently
+  `${CODEX_HOME:-~/.codex}/skills/<skill>`, `~/.claude/skills/<skill>`, and
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`.
 - Path rule: `[skill]` must resolve to child directories under those local
   `skills` roots. Names that escape those roots are rejected.
-- Notes: when the target directory is missing, or its `.oo-metadata.json` file
-  is missing or invalid, the command exits with an error and does not remove
-  anything.
+- Notes: when no supported target has a managed installation for the requested
+  skill, or an existing same-name target is not managed by `oo`, the command
+  exits with an error and does not remove anything.
 
 ## Logs
 

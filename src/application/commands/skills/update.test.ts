@@ -16,7 +16,10 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
-import { resolveCodexHomeDirectory } from "./bundled-skill-paths.ts";
+import {
+    resolveClaudeHomeDirectory,
+    resolveCodexHomeDirectory,
+} from "./bundled-skill-paths.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
@@ -104,30 +107,86 @@ describe("skills update command", () => {
         }
     });
 
+    test("ignores installed skills with unparseable metadata when updating all skills", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeUnparseableManagedSkillInstallation(installedSkillDirectoryPath);
+
+            const result = await sandbox.run(["skills", "update"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe("No updatable oo-managed skills were found.\n");
+            expect(result.stderr).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects an explicit update target with unparseable metadata as unmanaged", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeUnparseableManagedSkillInstallation(installedSkillDirectoryPath);
+
+            const result = await sandbox.run(["skills", "update", "chatgpt"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Skill chatgpt in host codex is not managed by oo and cannot be updated.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("updates a published managed skill to the latest version", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const codexInstalledSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const claudeInstalledSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "chatgpt",
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await Promise.all([
+                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(claudeHomeDirectory, { recursive: true }),
+            ]);
             await writeAuthFile(sandbox);
             await writeManagedRegistrySkillInstallation({
                 canonicalSkillDirectoryPath,
-                installedSkillDirectoryPath,
+                installedSkillDirectoryPath: codexInstalledSkillDirectoryPath,
                 packageName: "openai",
                 skillMarkdown: "# ChatGPT stale\n",
                 version: "0.0.3",
             });
+            await mkdir(claudeInstalledSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(claudeInstalledSkillDirectoryPath, "SKILL.md"),
+                "# ChatGPT stale\n",
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(claudeInstalledSkillDirectoryPath),
+                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+            );
 
             const result = await sandbox.run(
                 ["skills", "update", "chatgpt"],
@@ -163,7 +222,96 @@ describe("skills update command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Updated Codex skill chatgpt to ${installedSkillDirectoryPath}.\n`,
+                [
+                    `Updated skill chatgpt to ${codexInstalledSkillDirectoryPath}.`,
+                    `Updated skill chatgpt to ${claudeInstalledSkillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
+            );
+            expect(await readFile(
+                resolveManagedSkillMetadataFilePath(codexInstalledSkillDirectoryPath),
+                "utf8",
+            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }));
+            expect(await readFile(join(codexInstalledSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
+                "# ChatGPT fresh",
+            );
+            expect(await readFile(
+                resolveManagedSkillMetadataFilePath(claudeInstalledSkillDirectoryPath),
+                "utf8",
+            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }));
+            expect(await readFile(join(claudeInstalledSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
+                "# ChatGPT fresh",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("updates a host target when canonical metadata is already current", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+            await writeManagedRegistrySkillInstallation({
+                canonicalSkillDirectoryPath,
+                installedSkillDirectoryPath,
+                packageName: "openai",
+                skillMarkdown: "# ChatGPT stale\n",
+                version: "0.0.3",
+            });
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
+                renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }),
+            );
+
+            const result = await sandbox.run(
+                ["skills", "update", "chatgpt"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.4",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.4.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT fresh\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Updated skill chatgpt to ${installedSkillDirectoryPath}.\n`,
             );
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
@@ -498,27 +646,37 @@ describe("skills update command", () => {
     test("fails when a non-bundled managed skill is missing package metadata", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
         const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "custom");
+        const claudeInstalledSkillDirectoryPath = join(claudeHomeDirectory, "skills", "custom");
         const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "custom",
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await Promise.all([
+                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(claudeHomeDirectory, { recursive: true }),
+            ]);
             await mkdir(canonicalSkillDirectoryPath, { recursive: true });
             await mkdir(installedSkillDirectoryPath, { recursive: true });
+            await mkdir(claudeInstalledSkillDirectoryPath, { recursive: true });
             await Bun.write(
                 join(canonicalSkillDirectoryPath, "SKILL.md"),
                 "# Custom\n",
             );
             await Bun.write(
                 join(installedSkillDirectoryPath, "SKILL.md"),
+                "# Custom\n",
+            );
+            await Bun.write(
+                join(claudeInstalledSkillDirectoryPath, "SKILL.md"),
                 "# Custom\n",
             );
             await Bun.write(
@@ -529,15 +687,19 @@ describe("skills update command", () => {
                 resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
                 renderSkillMetadataJson({ version: "1.0.0" }),
             );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(claudeInstalledSkillDirectoryPath),
+                renderSkillMetadataJson({ version: "1.0.0" }),
+            );
 
             const result = await sandbox.run(["skills", "update", "custom"]);
 
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe(
-                "Failed to update Codex skill custom: Managed skill custom cannot be updated because its package metadata is missing.\n",
+                "Failed to update skill custom: Managed skill custom cannot be updated in codex, claude because its package metadata is missing.\n",
             );
             expect(result.stderr).toBe(
-                "Managed skill custom cannot be updated because its package metadata is missing.\n",
+                "Managed skill custom cannot be updated in codex, claude because its package metadata is missing.\n",
             );
         }
         finally {
@@ -571,4 +733,12 @@ async function writeManagedRegistrySkillInstallation(options: {
         resolveManagedSkillMetadataFilePath(options.installedSkillDirectoryPath),
         renderSkillMetadataJson({ packageName: options.packageName, version: options.version }),
     );
+}
+
+async function writeUnparseableManagedSkillInstallation(
+    skillDirectoryPath: string,
+): Promise<void> {
+    await mkdir(skillDirectoryPath, { recursive: true });
+    await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# Broken\n");
+    await Bun.write(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "{\n");
 }

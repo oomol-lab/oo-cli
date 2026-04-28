@@ -259,7 +259,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `No supported bundled skill host is installed. Expected one of: ${expectedHomeDirectories}.\n`,
+                `No supported skill host is installed. Expected one of: ${expectedHomeDirectories}.\n`,
             );
         }
         finally {
@@ -559,10 +559,12 @@ describe("skills commands", () => {
         }
     });
 
-    test("uninstalls a published skill from the Codex skills directory", async () => {
+    test("uninstalls a published skill from every existing supported host", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -572,25 +574,40 @@ describe("skills commands", () => {
             storePaths.settingsFilePath,
             "chatgpt",
         );
-        const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
 
         try {
-            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await mkdir(join(codexSkillDirectoryPath, "agents"), { recursive: true });
+            await mkdir(join(claudeSkillDirectoryPath, "agents"), { recursive: true });
             await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
                 recursive: true,
             });
-            await Bun.write(metadataFilePath, renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }));
-            await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+            for (const skillDirectoryPath of [
+                codexSkillDirectoryPath,
+                claudeSkillDirectoryPath,
+            ]) {
+                await Bun.write(
+                    resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+                    renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                );
+                await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+            }
             await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
 
             const result = await sandbox.run(["skills", "uninstall", "chatgpt"]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Removed skill chatgpt from ${skillDirectoryPath}.\n`,
+                [
+                    `Removed skill chatgpt from ${codexSkillDirectoryPath}.`,
+                    `Removed skill chatgpt from ${claudeSkillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
             );
             expect(result.stderr).toBe("");
-            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+            await expect(stat(codexSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(claudeSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
             await expect(stat(canonicalSkillDirectoryPath)).rejects.toMatchObject({
@@ -602,7 +619,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("rejects uninstall when the skill path escapes the Codex skills directory", async () => {
+    test("rejects uninstall when the skill path escapes the local skills directory", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const storePaths = resolveStorePaths({
@@ -643,7 +660,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Skill name ../../outside resolves outside the local Codex skills directory.\n",
+                "Skill name ../../outside resolves outside the local skill directories.\n",
             );
             await expect(stat(installedSentinelPath)).resolves.toMatchObject({
                 isFile: expect.any(Function),
@@ -1010,7 +1027,225 @@ describe("skills commands", () => {
         }
     });
 
-    test("rejects published registry skills that escape the Codex skills directory", async () => {
+    test("installs a published registry skill into every existing supported host", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
+        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
+        const openClawSkillDirectoryPath = join(openClawHomeDirectory, "skills", "chatgpt");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await Promise.all([
+                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(claudeHomeDirectory, { recursive: true }),
+                mkdir(openClawHomeDirectory, { recursive: true }),
+            ]);
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "--skill", "chatgpt"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    `Installed skill chatgpt to ${codexSkillDirectoryPath}.`,
+                    `Installed skill chatgpt to ${claudeSkillDirectoryPath}.`,
+                    `Installed skill chatgpt to ${openClawSkillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
+            );
+            expect(await realpath(codexSkillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await realpath(claudeSkillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await realpath(openClawSkillDirectoryPath)).not.toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect((await lstat(openClawSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
+            for (const skillDirectoryPath of [
+                codexSkillDirectoryPath,
+                claudeSkillDirectoryPath,
+                openClawSkillDirectoryPath,
+            ]) {
+                expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toContain(
+                    "# ChatGPT",
+                );
+                expect(await readFile(
+                    resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+                    "utf8",
+                )).toBe(
+                    renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                );
+            }
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs a published registry skill when only Claude Code is installed", async () => {
+        const sandbox = await createCliSandbox();
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await mkdir(claudeHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "--skill", "chatgpt"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
+            );
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not install a published registry skill over an unmanaged host target", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
+
+        try {
+            await Promise.all([
+                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(claudeSkillDirectoryPath, { recursive: true }),
+            ]);
+            await Bun.write(join(claudeSkillDirectoryPath, "SKILL.md"), "# Existing\n");
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("Skill: chatgpt\n");
+            expect(result.stderr).toBe(
+                `Skill name chatgpt is already used by a non-OOMOL skill at ${claudeSkillDirectoryPath}.\n`,
+            );
+            expect(await readFile(join(claudeSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                "# Existing\n",
+            );
+            await expect(stat(codexSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects published registry skills that escape the local skills directory", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const requests: Request[] = [];
@@ -1049,7 +1284,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("Skill: ../../outside\n");
             expect(result.stderr).toBe(
-                "Skill name ../../outside resolves outside the local Codex skills directory.\n",
+                "Skill name ../../outside resolves outside the local skill directories.\n",
             );
             expect(requests).toHaveLength(1);
         }

@@ -118,8 +118,8 @@ export const enMessages = {
         "Search packages with free-form text against the intent search API.",
     "commands.search.summary": "Search packages by intent",
     "commands.skills.description":
-        "Manage Codex skills.",
-    "commands.skills.summary": "Manage Codex skills",
+        "Manage local AI agent skills.",
+    "commands.skills.summary": "Manage AI agent skills",
     "commands.skills.search.description":
         "Search published skills against the skills search API.",
     "commands.skills.search.summary":
@@ -129,13 +129,13 @@ export const enMessages = {
     "commands.skills.list.summary":
         "List oo-managed skills",
     "commands.skills.install.description":
-        "Install bundled skills into supported local skill directories, or install published skills into the local Codex skills directory.",
+        "Install bundled or published skills into supported local skill directories.",
     "commands.skills.install.summary": "Install skills",
     "commands.skills.update.description":
-        "Update installed oo-managed Codex skills to the latest available version.",
-    "commands.skills.update.summary": "Update oo-managed Codex skills",
+        "Update installed oo-managed published skills to the latest available version.",
+    "commands.skills.update.summary": "Update oo-managed skills",
     "commands.skills.uninstall.description":
-        "Remove bundled skills from supported local skill directories, or remove one oo-managed published skill from the local Codex skills directory.",
+        "Remove oo-managed skills from supported local skill directories.",
     "commands.skills.uninstall.summary": "Remove a managed skill",
     "config.set.success": "Set {key} to {value}.",
     "config.unset.success": "Removed {key}.",
@@ -282,7 +282,7 @@ export const enMessages = {
     "errors.skills.invalidName":
         "Unsupported skill: {value}. Use {choices}.",
     "errors.skills.invalidPath":
-        "Skill name {name} resolves outside the local Codex skills directory.",
+        "Skill name {name} resolves outside the local skill directories.",
     "errors.fileDownload.downloadFailed":
         "Failed to download the file at {path}: {message}",
     "errors.fileDownload.invalidExt":
@@ -342,7 +342,7 @@ export const enMessages = {
     "errors.skills.openclawNotInstalled":
         "OpenClaw is not installed. Expected the OpenClaw home directory at {path}.",
     "errors.skills.noSupportedBundledSkillHosts":
-        "No supported bundled skill host is installed. Expected one of: {paths}.",
+        "No supported skill host is installed. Expected one of: {paths}.",
     "errors.skills.install.confirmationRequired":
         "Skill {name} already exists and requires interactive confirmation.",
     "errors.skills.install.invalidArchive":
@@ -366,7 +366,9 @@ export const enMessages = {
     "errors.skills.update.bundledUnsupported":
         "Bundled skill {name} is managed by oo and cannot be updated with skills update. Use oo skills add {name} instead.",
     "errors.skills.update.packageNameMissing":
-        "Managed skill {name} cannot be updated because its package metadata is missing.",
+        "Managed skill {name} cannot be updated in {hostNames} because its package metadata is missing.",
+    "errors.skills.update.notManaged":
+        "Skill {name} in host {hostName} is not managed by oo and cannot be updated.",
     "errors.skills.nameConflict":
         "Skill name {name} is already used by a non-OOMOL skill at {path}.",
     "errors.skills.storageConflict":
@@ -547,17 +549,17 @@ export const enMessages = {
     "skills.update.noResults":
         "No updatable oo-managed skills were found.",
     "skills.update.current":
-        "Codex skill {name} is already up to date at {version}.",
+        "Skill {name} is already up to date at {version}.",
     "skills.update.failure":
-        "Failed to update Codex skill {name}: {message}",
+        "Failed to update skill {name}: {message}",
     "skills.update.progress.header": "Updating installed skills",
     "skills.update.progress.checking": "checking for updates",
     "skills.update.progress.preparing": "updating canonical files",
-    "skills.update.progress.publishing": "publishing to Codex",
+    "skills.update.progress.publishing": "publishing to supported hosts",
     "skills.update.progress.current": "up to date",
     "skills.update.progress.updated": "updated",
     "skills.update.progress.failed": "failed",
-    "skills.update.success": "Updated Codex skill {name} to {path}.",
+    "skills.update.success": "Updated skill {name} to {path}.",
     "skills.uninstall.success": "Removed skill {name} from {path}.",
     "versionInfo.buildTime": "Build Time",
     "versionInfo.commit": "Commit",
@@ -738,8 +740,8 @@ export const zhMessages = {
         "搜索 package 与 connector action",
     "commands.search.description": "使用自由文本通过意图搜索 API 搜索包。",
     "commands.search.summary": "按意图搜索包",
-    "commands.skills.description": "管理 Codex skill。",
-    "commands.skills.summary": "管理 Codex skill",
+    "commands.skills.description": "管理本地 AI Agent skill。",
+    "commands.skills.summary": "管理 AI Agent skill",
     "commands.skills.search.description":
         "使用自由文本通过 skills search API 搜索已发布的 skill。",
     "commands.skills.search.summary":
@@ -749,12 +751,12 @@ export const zhMessages = {
     "commands.skills.list.summary":
         "列出由 oo 管理的 skill",
     "commands.skills.install.description":
-        "将内置 skill 安装到受支持的本地 skill 目录，或将已发布 skill 安装到本地 Codex skills 目录。",
+        "将内置或已发布 skill 安装到受支持的本地 skill 目录。",
     "commands.skills.install.summary": "安装 skill",
     "commands.skills.update.description":
-        "将已安装且由 oo 管理的 Codex skill 更新到最新可用版本。",
-    "commands.skills.update.summary": "更新由 oo 管理的 Codex skill",
-    "commands.skills.uninstall.description": "从受支持的本地 skill 目录移除内置 skill，或从本地 Codex skills 目录移除一个由 oo 管理的已发布 skill。",
+        "将已安装且由 oo 管理的已发布 skill 更新到最新可用版本。",
+    "commands.skills.update.summary": "更新由 oo 管理的 skill",
+    "commands.skills.uninstall.description": "从受支持的本地 skill 目录移除由 oo 管理的 skill。",
     "commands.skills.uninstall.summary": "移除一个受管理的 skill",
     "config.set.success": "已将 {key} 设置为 {value}。",
     "config.unset.success": "已移除 {key}。",
@@ -891,7 +893,7 @@ export const zhMessages = {
     "errors.skills.invalidName":
         "不支持的 skill：{value}。请使用 {choices}。",
     "errors.skills.invalidPath":
-        "skill 名称 {name} 解析到了本地 Codex skills 目录之外。",
+        "skill 名称 {name} 解析到了本地 skill 目录之外。",
     "errors.fileDownload.downloadFailed":
         "下载文件到 {path} 失败：{message}",
     "errors.fileDownload.invalidExt":
@@ -951,7 +953,7 @@ export const zhMessages = {
     "errors.skills.openclawNotInstalled":
         "未检测到 OpenClaw 安装。期望的 OpenClaw 根目录为 {path}。",
     "errors.skills.noSupportedBundledSkillHosts":
-        "未检测到已安装的受支持内置 skill 宿主。期望其中之一位于：{paths}。",
+        "未检测到已安装的受支持 skill 宿主。期望其中之一位于：{paths}。",
     "errors.skills.install.confirmationRequired":
         "Skill {name} 已存在，且需要在交互终端中确认覆盖。",
     "errors.skills.install.invalidArchive":
@@ -975,7 +977,9 @@ export const zhMessages = {
     "errors.skills.update.bundledUnsupported":
         "内置 skill {name} 由 oo 管理，不能通过 skills update 更新。请改用 oo skills add {name}。",
     "errors.skills.update.packageNameMissing":
-        "由 oo 管理的 skill {name} 缺少 package 元数据，无法更新。",
+        "无法在 {hostNames} 中更新由 oo 管理的 skill {name}，因为缺少 package 元数据。",
+    "errors.skills.update.notManaged":
+        "host {hostName} 中的 skill {name} 不是由 oo 管理的 skill，无法更新。",
     "errors.skills.nameConflict":
         "Skill 名称 {name} 已被 {path} 中的非 OOMOL skill 占用。",
     "errors.skills.storageConflict":
@@ -1150,17 +1154,17 @@ export const zhMessages = {
     "skills.update.noResults":
         "未找到可更新的 oo-managed skill。",
     "skills.update.current":
-        "Codex skill {name} 已是最新版本 {version}。",
+        "skill {name} 已是最新版本 {version}。",
     "skills.update.failure":
-        "更新 Codex skill {name} 失败：{message}",
+        "更新 skill {name} 失败：{message}",
     "skills.update.progress.header": "正在更新已安装的 skill",
     "skills.update.progress.checking": "检查更新中",
     "skills.update.progress.preparing": "更新 canonical 文件中",
-    "skills.update.progress.publishing": "同步到 Codex 中",
+    "skills.update.progress.publishing": "同步到受支持宿主中",
     "skills.update.progress.current": "已是最新",
     "skills.update.progress.updated": "已更新",
     "skills.update.progress.failed": "失败",
-    "skills.update.success": "已将 Codex skill {name} 更新到 {path}。",
+    "skills.update.success": "已将 skill {name} 更新到 {path}。",
     "skills.uninstall.success": "已从 {path} 移除 skill {name}。",
     "versionInfo.buildTime": "构建时间",
     "versionInfo.commit": "提交",
