@@ -15,7 +15,6 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 describe("skills init command", () => {
     test("initializes a local skill and publishes it to existing supported hosts", async () => {
@@ -55,12 +54,11 @@ describe("skills init command", () => {
             expect(await realpath(skillDirectoryPath)).toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
-            expect(
-                await readFile(join(canonicalSkillDirectoryPath, ".oo-metadata.json"), "utf8"),
-            ).toBe(renderSkillMetadataJson({
-                icon: ":lucide:wrench:",
-                version: "0.0.1",
-            }));
+            await expect(
+                stat(join(canonicalSkillDirectoryPath, ".oo-metadata.json")),
+            ).rejects.toMatchObject({
+                code: "ENOENT",
+            });
             expect(
                 await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8"),
             ).toBe([
@@ -69,6 +67,7 @@ describe("skills init command", () => {
                 "description: \"Write campaign briefs using a known package workflow.\"",
                 `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
                 "metadata:",
+                "  icon: \":lucide:wrench:\"",
                 "  title: \"Campaign Writer\"",
                 "---",
                 "",

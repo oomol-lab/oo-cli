@@ -62,7 +62,7 @@ describe("runCli bootstrap", () => {
                 argv: [
                     "skills",
                     "install",
-                    "red-note-ng",
+                    "document-tools",
                     "--skill",
                     "writer",
                 ],
@@ -73,7 +73,7 @@ describe("runCli bootstrap", () => {
 
                     if (request.url.includes("/package-info/")) {
                         return new Response(JSON.stringify({
-                            packageName: "red-note-ng",
+                            packageName: "document-tools",
                             version: "0.0.3",
                             skills: [
                                 {
@@ -85,7 +85,7 @@ describe("runCli bootstrap", () => {
                         }));
                     }
 
-                    if (request.url.endsWith("/red-note-ng/-/meta/red-note-ng-0.0.3.tgz")) {
+                    if (request.url.endsWith("/document-tools/-/meta/document-tools-0.0.3.tgz")) {
                         return new Response(await new Bun.Archive({
                             "package/package/skills/writer/SKILL.md": "# Writer\n",
                         }, {
