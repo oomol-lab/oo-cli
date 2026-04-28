@@ -1,0 +1,17 @@
+{
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit",
+    "source.addMissingImports": "explicit",
+    "source.organizeImports": "never"
+  },
+  "cSpell.enabled": true,
+  "eslint.enable": true,
+  "prettier.enable": false,
+  "biome.enabled": false,
+  "conventionalCommits.gitmoji": false,
+  "conventionalCommits.promptFooter": false,
+  "git.branchProtection": ["main"],
+  "git.branchRandomName.enable": true,
+  "js/ts.tsdk.path": "node_modules/typescript/lib"
+}

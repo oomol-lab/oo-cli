@@ -6,7 +6,10 @@ import { describe, expect, test } from "bun:test";
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
-import { resolveCodexHomeDirectory } from "./bundled-skill-paths.ts";
+import {
+    resolveClaudeHomeDirectory,
+    resolveCodexHomeDirectory,
+} from "./bundled-skill-paths.ts";
 import { resolveLocalSkillCanonicalDirectoryPath } from "./managed-skill-paths.ts";
 import {
     installedRegistrySkillCompatibility,
@@ -199,6 +202,93 @@ describe("skills init command", () => {
             ).rejects.toMatchObject({
                 code: "ENOENT",
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("removes already published targets when a later target fails", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "rollback-skill");
+        const claudePublishRootPath = join(claudeHomeDirectory, "skills");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "rollback-skill",
+        );
+
+        try {
+            await Promise.all([
+                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(claudeHomeDirectory, { recursive: true }),
+            ]);
+            await Bun.write(claudePublishRootPath, "not a directory");
+
+            const result = await sandbox.run([
+                "skills",
+                "init",
+                "rollback-skill",
+                "--description",
+                "Use a known package workflow.",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            await expect(
+                stat(codexSkillDirectoryPath),
+            ).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(
+                stat(canonicalSkillDirectoryPath),
+            ).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not leave a trailing hyphen after truncating the normalized name", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const normalizedSkillName = "a".repeat(63);
+        const inputName = `${"A".repeat(63)} B`;
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            normalizedSkillName,
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "init",
+                inputName,
+                "--description",
+                "Use a known package workflow.",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Initialized skill ${normalizedSkillName} at ${join(codexHomeDirectory, "skills", normalizedSkillName)}.\n`,
+            );
+            expect(
+                await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8"),
+            ).toContain(`name: ${normalizedSkillName}\n`);
         }
         finally {
             await sandbox.cleanup();

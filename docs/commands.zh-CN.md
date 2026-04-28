@@ -265,8 +265,9 @@ skills。
   `claude` 或 `openclaw`。
 - 宿主检查：未提供 `--agent` 时，至少需要存在一个受支持 agent home 目录。
   提供 `--agent` 时，该指定 agent home 目录必须存在。
-- 存储检查：命令会在需要时创建 `<config-dir>/skills/local`，在其中写入临时
-  探针文件，然后移除该探针文件。
+- 存储检查：命令会在需要时创建 `<config-dir>/skills/local` 和每个已检查宿主
+  的发布根目录（如 `<agent-home>/skills`），并在每个已检查目录中写入再移除
+  临时探针文件。
 - 输出：成功时，文本输出会打印可写存储路径和已检查的受支持宿主数量。失败时
   命令以非零状态退出。
 

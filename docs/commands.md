@@ -297,8 +297,9 @@ Check whether local skill authoring can use the managed local skill storage.
 - Host check: without `--agent`, at least one supported agent home directory
   must already exist. With `--agent`, that specific agent home directory must
   exist.
-- Storage check: the command creates `<config-dir>/skills/local` when needed,
-  writes a temporary probe file there, and removes the probe file.
+- Storage check: the command creates `<config-dir>/skills/local` and each
+  checked host publish root, such as `<agent-home>/skills`, when needed. It
+  writes and removes a temporary probe file in each checked directory.
 - Output: on success, text output prints the writable storage path and number
   of checked supported hosts. On failure, the command exits non-zero.
 

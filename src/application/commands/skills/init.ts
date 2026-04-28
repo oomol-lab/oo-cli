@@ -147,6 +147,8 @@ async function initializeLocalSkill(
 
     await mkdir(canonicalSkillDirectoryPath, { recursive: true });
 
+    const publishedTargets: LocalSkillHostPublicationTarget[] = [];
+
     try {
         await Promise.all([
             Bun.write(
@@ -170,6 +172,8 @@ async function initializeLocalSkill(
                 publicationMode: "symlink-or-copy",
             });
 
+            publishedTargets.push(target);
+
             writeLine(
                 context.stdout,
                 context.translator.t("skills.init.success", {
@@ -190,7 +194,10 @@ async function initializeLocalSkill(
         }
     }
     catch (error) {
-        await removePath(canonicalSkillDirectoryPath);
+        await Promise.all([
+            ...publishedTargets.map(target => removePath(target.installedSkillDirectoryPath)),
+            removePath(canonicalSkillDirectoryPath),
+        ]);
         throw error;
     }
 }
@@ -319,7 +326,13 @@ function normalizeSkillName(value: string): string {
         normalizedCharacters.pop();
     }
 
-    return normalizedCharacters.join("").slice(0, 64);
+    let result = normalizedCharacters.join("").slice(0, 64);
+
+    while (result.endsWith("-")) {
+        result = result.slice(0, -1);
+    }
+
+    return result;
 }
 
 function renderSkillTitle(skillName: string): string {

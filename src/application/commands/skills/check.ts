@@ -1,13 +1,17 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
+import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
-import { resolveBundledSkillHomeDirectory } from "./bundled-skill-paths.ts";
+import {
+    codexSkillsDirectoryName,
+    resolveBundledSkillHomeDirectory,
+} from "./bundled-skill-paths.ts";
 import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
 import {
     createMissingManagedSkillHostError,
@@ -73,6 +77,9 @@ export async function checkLocalSkillAuthoringEnvironment(
     );
 
     await verifyWritableDirectory(canonicalRootDirectoryPath);
+    await Promise.all(
+        hosts.map(host => verifyWritableDirectory(resolveManagedSkillHostPublishRoot(host))),
+    );
 
     return {
         canonicalRootDirectoryPath,
@@ -96,6 +103,10 @@ async function resolveRequestedManagedSkillHost(
             homeDirectory,
         },
     ];
+}
+
+function resolveManagedSkillHostPublishRoot(host: ManagedSkillHost): string {
+    return join(host.homeDirectory, codexSkillsDirectoryName);
 }
 
 function createMissingRequestedManagedSkillHostError(
@@ -141,6 +152,11 @@ async function verifyWritableDirectory(directoryPath: string): Promise<void> {
         });
     }
     finally {
-        await rm(probeFilePath, { force: true });
+        try {
+            await rm(probeFilePath, { force: true });
+        }
+        catch {
+            // Preserve the original readiness error when cleanup probes invalid paths.
+        }
     }
 }

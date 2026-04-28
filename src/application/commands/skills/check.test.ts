@@ -1,4 +1,5 @@
 import { mkdir, readdir } from "node:fs/promises";
+import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
@@ -65,6 +66,33 @@ describe("skills check command", () => {
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
                 `Codex is not installed. Expected the Codex home directory at ${codexHomeDirectory}.\n`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("requires the requested agent publish root to be writable", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const publishRootPath = join(codexHomeDirectory, "skills");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await Bun.write(publishRootPath, "not a directory");
+
+            const result = await sandbox.run([
+                "skills",
+                "check",
+                "--agent",
+                "codex",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                `Local skill storage at ${publishRootPath} is not writable:`,
             );
         }
         finally {
