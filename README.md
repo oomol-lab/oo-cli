@@ -59,6 +59,8 @@ supported local host that already exists:
 - Codex: `${CODEX_HOME:-~/.codex}/skills/oo` and
   `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`
 - Claude Code: `~/.claude/skills/oo` and `~/.claude/skills/oo-find-skills`
+- Hermes: `${HERMES_HOME:-~/.hermes}/skills/oo` and
+  `${HERMES_HOME:-~/.hermes}/skills/oo-find-skills`
 - CodeBuddy: `~/.codebuddy/skills/oo` and
   `~/.codebuddy/skills/oo-find-skills`
 - WorkBuddy: `~/.workbuddy/skills/oo` and

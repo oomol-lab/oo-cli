@@ -6,6 +6,7 @@ import { resolveHomeDirectory } from "../../path/home-directory.ts";
 const codexDirectoryName = ".codex";
 const claudeDirectoryName = ".claude";
 const codeBuddyDirectoryName = ".codebuddy";
+const hermesDirectoryName = ".hermes";
 const openClawDirectoryName = ".openclaw";
 const qoderWorkDirectoryName = ".qoderwork";
 const workBuddyDirectoryName = ".workbuddy";
@@ -38,6 +39,18 @@ export function resolveCodeBuddyHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
     return join(resolveHomeDirectory(env), codeBuddyDirectoryName);
+}
+
+export function resolveHermesHomeDirectory(
+    env: Record<string, string | undefined>,
+): string {
+    const explicitHermesHome = env.HERMES_HOME?.trim();
+
+    if (explicitHermesHome) {
+        return explicitHermesHome;
+    }
+
+    return join(resolveHomeDirectory(env), hermesDirectoryName);
 }
 
 export function resolveOpenClawHomeDirectory(
@@ -75,6 +88,8 @@ export function resolveBundledSkillHomeDirectory(
             return resolveCodeBuddyHomeDirectory(env);
         case "codex":
             return resolveCodexHomeDirectory(env);
+        case "hermes":
+            return resolveHermesHomeDirectory(env);
         case "openclaw":
             return resolveOpenClawHomeDirectory(env);
         case "qoderwork":

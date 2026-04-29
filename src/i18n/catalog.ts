@@ -361,6 +361,8 @@ export const enMessages = {
         "Claude Code is not installed. Expected the Claude home directory at {path}.",
     "errors.skills.codebuddyNotInstalled":
         "CodeBuddy is not installed. Expected the CodeBuddy home directory at {path}.",
+    "errors.skills.hermesNotInstalled":
+        "Hermes is not installed. Expected the Hermes home directory at {path}.",
     "errors.skills.openclawNotInstalled":
         "OpenClaw is not installed. Expected the OpenClaw home directory at {path}.",
     "errors.skills.qoderworkNotInstalled":
@@ -553,6 +555,7 @@ export const enMessages = {
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codebuddy": "CodeBuddy",
     "skills.list.host.codex": "Codex",
+    "skills.list.host.hermes": "Hermes",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
     "skills.list.host.workbuddy": "WorkBuddy",
@@ -1015,6 +1018,8 @@ export const zhMessages = {
         "未检测到 Claude Code 安装。期望的 Claude 根目录为 {path}。",
     "errors.skills.codebuddyNotInstalled":
         "未检测到 CodeBuddy 安装。期望的 CodeBuddy 根目录为 {path}。",
+    "errors.skills.hermesNotInstalled":
+        "未检测到 Hermes 安装。期望的 Hermes 根目录为 {path}。",
     "errors.skills.openclawNotInstalled":
         "未检测到 OpenClaw 安装。期望的 OpenClaw 根目录为 {path}。",
     "errors.skills.qoderworkNotInstalled":
@@ -1201,6 +1206,7 @@ export const zhMessages = {
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codebuddy": "CodeBuddy",
     "skills.list.host.codex": "Codex",
+    "skills.list.host.hermes": "Hermes",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
     "skills.list.host.workbuddy": "WorkBuddy",

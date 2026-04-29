@@ -58,6 +58,8 @@ skills：
   `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`
 - Claude Code：`~/.claude/skills/oo` 和
   `~/.claude/skills/oo-find-skills`
+- Hermes：`${HERMES_HOME:-~/.hermes}/skills/oo` 和
+  `${HERMES_HOME:-~/.hermes}/skills/oo-find-skills`
 - CodeBuddy：`~/.codebuddy/skills/oo` 和
   `~/.codebuddy/skills/oo-find-skills`
 - WorkBuddy：`~/.workbuddy/skills/oo` 和
