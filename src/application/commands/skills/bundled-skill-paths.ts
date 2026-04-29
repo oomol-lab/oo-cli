@@ -9,6 +9,7 @@ const codeBuddyDirectoryName = ".codebuddy";
 const hermesDirectoryName = ".hermes";
 const openClawDirectoryName = ".openclaw";
 const qoderWorkDirectoryName = ".qoderwork";
+const traeDirectoryName = ".trae";
 const workBuddyDirectoryName = ".workbuddy";
 export const codexSkillsDirectoryName = "skills";
 export const canonicalBundledSkillsDirectoryName = "bundled";
@@ -71,6 +72,12 @@ export function resolveQoderWorkHomeDirectory(
     return join(resolveHomeDirectory(env), qoderWorkDirectoryName);
 }
 
+export function resolveTraeHomeDirectory(
+    env: Record<string, string | undefined>,
+): string {
+    return join(resolveHomeDirectory(env), traeDirectoryName);
+}
+
 export function resolveWorkBuddyHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
@@ -94,6 +101,8 @@ export function resolveBundledSkillHomeDirectory(
             return resolveOpenClawHomeDirectory(env);
         case "qoderwork":
             return resolveQoderWorkHomeDirectory(env);
+        case "trae":
+            return resolveTraeHomeDirectory(env);
         case "workbuddy":
             return resolveWorkBuddyHomeDirectory(env);
     }

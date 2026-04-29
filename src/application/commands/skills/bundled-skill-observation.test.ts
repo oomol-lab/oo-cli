@@ -13,6 +13,7 @@ import {
     requireCodexHomeDirectory,
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
+import { resolveTraeHomeDirectory } from "./bundled-skill-paths.ts";
 
 describe("bundled skill observation", () => {
     test("reports directory and file existence from stat-backed wrappers", async () => {
@@ -262,6 +263,33 @@ describe("bundled skill observation", () => {
             expect(await requireBundledSkillHomeDirectory({ env }, "qoderwork")).toBe(
                 qoderWorkHomeDirectory,
             );
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("requires the resolved Trae home directory to exist", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const traeHomeDirectory = join(rootDirectory, ".trae");
+        const env = {
+            HOME: rootDirectory,
+        };
+
+        try {
+            await expect(
+                requireBundledSkillHomeDirectory({ env }, "trae"),
+            ).rejects.toMatchObject({
+                exitCode: 1,
+                key: "errors.skills.traeNotInstalled",
+            });
+
+            await mkdir(traeHomeDirectory, { recursive: true });
+
+            expect(await requireBundledSkillHomeDirectory({ env }, "trae")).toBe(
+                traeHomeDirectory,
+            );
+            expect(resolveTraeHomeDirectory(env)).toBe(traeHomeDirectory);
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });

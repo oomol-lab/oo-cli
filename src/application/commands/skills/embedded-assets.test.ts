@@ -59,6 +59,15 @@ describe("embedded skill assets", () => {
             "references/file-transfer.md",
             "references/task-lifecycle.md",
         ]);
+        expect(getBundledSkillFiles("oo", "trae").map(file => file.relativePath)).toEqual([
+            "SKILL.md",
+            "references/auth-and-billing.md",
+            "references/search-and-selection.md",
+            "references/package-execution.md",
+            "references/connector-execution.md",
+            "references/file-transfer.md",
+            "references/task-lifecycle.md",
+        ]);
         expect(getBundledSkillFiles("oo", "openclaw").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
@@ -119,6 +128,14 @@ describe("embedded skill assets", () => {
             "references/oo-cli-contract.md",
         ]);
         expect(
+            getBundledSkillFiles("oo-find-skills", "trae").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+            "references/oo-cli-contract.md",
+        ]);
+        expect(
             getBundledSkillFiles("oo-find-skills", "openclaw").map(
                 file => file.relativePath,
             ),
@@ -171,6 +188,13 @@ describe("embedded skill assets", () => {
             "SKILL.md",
         ]);
         expect(
+            getBundledSkillFiles("oo-create-skill", "trae").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
             getBundledSkillFiles("oo-create-skill", "openclaw").map(
                 file => file.relativePath,
             ),
@@ -193,6 +217,7 @@ describe("embedded skill assets", () => {
             "hermes",
             "codebuddy",
             "workbuddy",
+            "trae",
             "openclaw",
             "qoderwork",
         ]);
@@ -249,8 +274,8 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("keeps Claude-compatible skill frontmatter free of Claude allowed tools", async () => {
-        for (const agentName of ["qoderwork", "workbuddy"] as const) {
+    test("keeps non-Claude skill frontmatter free of Claude allowed tools", async () => {
+        for (const agentName of ["qoderwork", "trae", "workbuddy"] as const) {
             for (const skillName of availableBundledSkillNames) {
                 const skillFile = getBundledSkillFiles(skillName, agentName)
                     .find(file => file.relativePath === "SKILL.md");
@@ -281,6 +306,7 @@ function readBundledSkillSourceAgentName(
     switch (agentName) {
         case "hermes":
             return "claude";
+        case "trae":
         case "workbuddy":
             return "codebuddy";
         default:

@@ -10,6 +10,7 @@ import {
     resolveClaudeHomeDirectory,
     resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
+    resolveTraeHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { resolveLocalSkillCanonicalDirectoryPath } from "./managed-skill-paths.ts";
 import {
@@ -173,6 +174,48 @@ describe("skills init command", () => {
                 await realpath(canonicalSkillDirectoryPath),
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("initializes a local skill by linking for Trae", async () => {
+        const sandbox = await createCliSandbox();
+        const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(traeHomeDirectory, "skills", "trae-skill");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "trae-skill",
+        );
+
+        try {
+            await mkdir(traeHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "init",
+                "trae-skill",
+                "--description",
+                "Use a known package workflow.",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                [
+                    `Initialized skill trae-skill in canonical storage at ${canonicalSkillDirectoryPath}.`,
+                    `Linked skill trae-skill to ${skillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
+            );
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
         }
         finally {
             await sandbox.cleanup();
