@@ -7,6 +7,7 @@ import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import {
     resolveClaudeHomeDirectory,
+    resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
     resolveOpenClawHomeDirectory,
     resolveQoderWorkHomeDirectory,
@@ -153,6 +154,49 @@ describe("skills list CLI", () => {
                     "",
                     "oo-create-skill",
                     "  Host: QoderWork",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                ].join("\n"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists startup-synchronized CodeBuddy bundled installs when Codex is not installed", async () => {
+        const sandbox = await createCliSandbox();
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(codeBuddyHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "✓ Found 3 oo-managed skills.",
+                    "",
+                    "oo",
+                    "  Host: CodeBuddy",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-find-skills",
+                    "  Host: CodeBuddy",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-create-skill",
+                    "  Host: CodeBuddy",
                     "  Source: bundled",
                     "  Version: 9.9.9",
                     "",

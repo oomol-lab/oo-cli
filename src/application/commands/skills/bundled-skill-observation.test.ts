@@ -137,6 +137,32 @@ describe("bundled skill observation", () => {
         }
     });
 
+    test("requires the resolved CodeBuddy home directory to exist", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const codeBuddyHomeDirectory = join(rootDirectory, ".codebuddy");
+        const env = {
+            HOME: rootDirectory,
+        };
+
+        try {
+            await expect(
+                requireBundledSkillHomeDirectory({ env }, "codebuddy"),
+            ).rejects.toMatchObject({
+                exitCode: 1,
+                key: "errors.skills.codebuddyNotInstalled",
+            });
+
+            await mkdir(codeBuddyHomeDirectory, { recursive: true });
+
+            expect(await requireBundledSkillHomeDirectory({ env }, "codebuddy")).toBe(
+                codeBuddyHomeDirectory,
+            );
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
     test("requires the resolved OpenClaw home directory to exist", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
         const openClawHomeDirectory = join(rootDirectory, ".openclaw");

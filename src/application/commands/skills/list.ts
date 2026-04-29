@@ -29,8 +29,9 @@ const managedSkillVersionColor = "#7DD3FC";
 const managedSkillHostOrder = {
     codex: 0,
     claude: 1,
-    openclaw: 2,
-    qoderwork: 3,
+    codebuddy: 2,
+    openclaw: 3,
+    qoderwork: 4,
 } as const satisfies Record<BundledSkillAgentName, number>;
 
 export interface ManagedSkillListItem {
@@ -321,6 +322,8 @@ function readManagedSkillHostLabel(
     switch (hostName) {
         case "claude":
             return context.translator.t("skills.list.host.claude");
+        case "codebuddy":
+            return context.translator.t("skills.list.host.codebuddy");
         case "codex":
             return context.translator.t("skills.list.host.codex");
         case "openclaw":

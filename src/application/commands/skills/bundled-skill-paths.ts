@@ -5,6 +5,7 @@ import { resolveHomeDirectory } from "../../path/home-directory.ts";
 
 const codexDirectoryName = ".codex";
 const claudeDirectoryName = ".claude";
+const codeBuddyDirectoryName = ".codebuddy";
 const openClawDirectoryName = ".openclaw";
 const qoderWorkDirectoryName = ".qoderwork";
 export const codexSkillsDirectoryName = "skills";
@@ -32,6 +33,12 @@ export function resolveClaudeHomeDirectory(
     return join(resolveHomeDirectory(env), claudeDirectoryName);
 }
 
+export function resolveCodeBuddyHomeDirectory(
+    env: Record<string, string | undefined>,
+): string {
+    return join(resolveHomeDirectory(env), codeBuddyDirectoryName);
+}
+
 export function resolveOpenClawHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
@@ -57,6 +64,8 @@ export function resolveBundledSkillHomeDirectory(
     switch (agentName) {
         case "claude":
             return resolveClaudeHomeDirectory(env);
+        case "codebuddy":
+            return resolveCodeBuddyHomeDirectory(env);
         case "codex":
             return resolveCodexHomeDirectory(env);
         case "openclaw":

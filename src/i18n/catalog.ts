@@ -359,6 +359,8 @@ export const enMessages = {
         "Codex is not installed. Expected the Codex home directory at {path}.",
     "errors.skills.claudeNotInstalled":
         "Claude Code is not installed. Expected the Claude home directory at {path}.",
+    "errors.skills.codebuddyNotInstalled":
+        "CodeBuddy is not installed. Expected the CodeBuddy home directory at {path}.",
     "errors.skills.openclawNotInstalled":
         "OpenClaw is not installed. Expected the OpenClaw home directory at {path}.",
     "errors.skills.qoderworkNotInstalled":
@@ -547,6 +549,7 @@ export const enMessages = {
         "No oo-managed skills were found.",
     "skills.list.host": "Host",
     "skills.list.host.claude": "Claude Code",
+    "skills.list.host.codebuddy": "CodeBuddy",
     "skills.list.host.codex": "Codex",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
@@ -1007,6 +1010,8 @@ export const zhMessages = {
         "未检测到 Codex 安装。期望的 Codex 根目录为 {path}。",
     "errors.skills.claudeNotInstalled":
         "未检测到 Claude Code 安装。期望的 Claude 根目录为 {path}。",
+    "errors.skills.codebuddyNotInstalled":
+        "未检测到 CodeBuddy 安装。期望的 CodeBuddy 根目录为 {path}。",
     "errors.skills.openclawNotInstalled":
         "未检测到 OpenClaw 安装。期望的 OpenClaw 根目录为 {path}。",
     "errors.skills.qoderworkNotInstalled":
@@ -1189,6 +1194,7 @@ export const zhMessages = {
         "未找到由 oo 管理的 skill。",
     "skills.list.host": "宿主",
     "skills.list.host.claude": "Claude Code",
+    "skills.list.host.codebuddy": "CodeBuddy",
     "skills.list.host.codex": "Codex",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
