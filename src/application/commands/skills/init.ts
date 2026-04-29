@@ -3,6 +3,7 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
 import { lstat, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import matter from "gray-matter";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
@@ -39,6 +40,23 @@ interface LocalSkillHostPublicationTarget {
     agentName: BundledSkillAgentName;
     homeDirectory: string;
     installedSkillDirectoryPath: string;
+}
+
+interface LocalSkillHostPublicationResult {
+    mode: "copy" | "symlink";
+    path: string;
+}
+
+interface OOSkillFrontmatter {
+    compatibility: string;
+    description: string;
+    metadata?: OOSkillFrontmatterMetadata;
+    name: string;
+}
+
+interface OOSkillFrontmatterMetadata {
+    icon?: string;
+    title?: string;
 }
 
 export const skillsInitCommand: CliCommandDefinition<SkillsInitInput> = {
@@ -145,6 +163,7 @@ async function initializeLocalSkill(
     await mkdir(canonicalSkillDirectoryPath, { recursive: true });
 
     const publishedTargets: LocalSkillHostPublicationTarget[] = [];
+    const publishedResults: LocalSkillHostPublicationResult[] = [];
 
     try {
         await Bun.write(
@@ -160,14 +179,11 @@ async function initializeLocalSkill(
             });
 
             publishedTargets.push(target);
+            publishedResults.push({
+                mode: published.mode,
+                path: published.path,
+            });
 
-            writeLine(
-                context.stdout,
-                context.translator.t("skills.init.success", {
-                    name: skillName,
-                    path: published.path,
-                }),
-            );
             context.logger.info(
                 {
                     agentName: target.agentName,
@@ -179,6 +195,24 @@ async function initializeLocalSkill(
                 "Local skill initialized.",
             );
         }
+
+        writeLine(
+            context.stdout,
+            context.translator.t("skills.init.success", {
+                name: skillName,
+                path: canonicalSkillDirectoryPath,
+            }),
+        );
+
+        for (const publishedResult of publishedResults) {
+            writeLine(
+                context.stdout,
+                context.translator.t(resolveSkillInitPublicationMessageKey(publishedResult.mode), {
+                    name: skillName,
+                    path: publishedResult.path,
+                }),
+            );
+        }
     }
     catch (error) {
         await Promise.all([
@@ -186,6 +220,17 @@ async function initializeLocalSkill(
             removePath(canonicalSkillDirectoryPath),
         ]);
         throw error;
+    }
+}
+
+function resolveSkillInitPublicationMessageKey(
+    mode: LocalSkillHostPublicationResult["mode"],
+): "skills.init.linked" | "skills.init.copied" {
+    switch (mode) {
+        case "symlink":
+            return "skills.init.linked";
+        case "copy":
+            return "skills.init.copied";
     }
 }
 
@@ -265,27 +310,25 @@ function renderInitializedSkillMarkdown(
     icon: string | undefined,
     title: string | undefined,
 ): string {
-    const frontmatterLines = [
-        "---",
-        `name: ${skillName}`,
-        `description: ${JSON.stringify(description)}`,
-        `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
-    ];
+    const frontmatter: OOSkillFrontmatter = {
+        name: skillName,
+        description,
+        compatibility: installedRegistrySkillCompatibility,
+    };
 
     if (icon !== undefined || title !== undefined) {
-        frontmatterLines.push("metadata:");
+        frontmatter.metadata = {};
 
         if (icon !== undefined) {
-            frontmatterLines.push(`  icon: ${JSON.stringify(icon)}`);
+            frontmatter.metadata.icon = icon;
         }
 
         if (title !== undefined) {
-            frontmatterLines.push(`  title: ${JSON.stringify(title)}`);
+            frontmatter.metadata.title = title;
         }
     }
 
-    frontmatterLines.push(
-        "---",
+    const body = [
         "",
         `# ${title ?? renderSkillTitle(skillName)}`,
         "",
@@ -293,9 +336,9 @@ function renderInitializedSkillMarkdown(
         "",
         "TODO: Describe the workflow this skill should follow.",
         "",
-    );
+    ].join("\n");
 
-    return frontmatterLines.join("\n");
+    return matter.stringify(body, frontmatter);
 }
 
 function normalizeSkillName(value: string): string {

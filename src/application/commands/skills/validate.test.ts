@@ -21,6 +21,7 @@ describe("skills validate command", () => {
                     "description: >-",
                     "  Use this skill for a valid workflow.",
                     "metadata:",
+                    "  icon: ':lucide:wand:'",
                     "  title: Valid Skill",
                     "---",
                     "",
@@ -50,6 +51,7 @@ describe("skills validate command", () => {
                     "description: Use this skill with <loose> wording.",
                     "compatibility: Requires the oo CLI.",
                     "metadata:",
+                    "  icon: ':lucide:sparkles:'",
                     "  title: Loose Skill",
                     "---",
                     "",
@@ -63,7 +65,7 @@ describe("skills validate command", () => {
         }
     });
 
-    test("accepts missing metadata title", async () => {
+    test("warns about missing metadata icon and title", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
         const skillDirectoryPath = join(rootDirectory, "missing-title-skill");
 
@@ -80,7 +82,154 @@ describe("skills validate command", () => {
                 ].join("\n"),
             );
 
-            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({});
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                warnings: [
+                    "Warning: Frontmatter metadata.icon is missing.",
+                    "Warning: Frontmatter metadata.title is missing.",
+                ],
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("warns about missing metadata icon only", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "missing-icon-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: missing-icon-skill",
+                    "description: Use this skill for a workflow.",
+                    "metadata:",
+                    "  title: Missing Icon Skill",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                warnings: ["Warning: Frontmatter metadata.icon is missing."],
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects whitespace-only descriptions", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "empty-description-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: empty-description-skill",
+                    "description: \"   \"",
+                    "metadata:",
+                    "  icon: ':lucide:wand:'",
+                    "  title: Empty Description Skill",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter must include a non-empty string description field.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects whitespace-only names", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "empty-name-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: \"   \"",
+                    "description: Use this skill for a workflow.",
+                    "metadata:",
+                    "  icon: ':lucide:wand:'",
+                    "  title: Empty Name Skill",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter must include a non-empty string name field.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects non-object metadata", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "non-object-metadata-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: non-object-metadata-skill",
+                    "description: Use this skill for a workflow.",
+                    "metadata: invalid",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter metadata must be an object.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects empty metadata icon", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "empty-icon-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: empty-icon-skill",
+                    "description: Use this skill for a workflow.",
+                    "metadata:",
+                    "  icon: \"  \"",
+                    "  title: Empty Icon Skill",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter metadata.icon field must be a non-empty string if provided.",
+            });
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });
@@ -107,7 +256,64 @@ describe("skills validate command", () => {
             );
 
             await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
-                error: "Frontmatter metadata.title cannot be empty.",
+                error: "Frontmatter metadata.title field must be a non-empty string if provided.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects whitespace-only metadata title", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "whitespace-title-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: whitespace-title-skill",
+                    "description: Use this skill for a workflow.",
+                    "metadata:",
+                    "  title: \"   \"",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter metadata.title field must be a non-empty string if provided.",
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects non-string metadata title", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "array-title-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: array-title-skill",
+                    "description: Use this skill for a workflow.",
+                    "metadata:",
+                    "  title:",
+                    "    - Array Title",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                error: "Frontmatter metadata.title field must be a non-empty string if provided.",
             });
         }
         finally {
@@ -128,6 +334,7 @@ describe("skills validate command", () => {
                     "name: valid-skill",
                     "description: Use this skill for a valid workflow.",
                     "metadata:",
+                    "  icon: ':lucide:check:'",
                     "  title: Valid Skill",
                     "---",
                     "",
@@ -139,6 +346,40 @@ describe("skills validate command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(`Skill at ${skillDirectoryPath} is valid.\n`);
             expect(result.stderr).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints validation warnings to stderr from the CLI", async () => {
+        const sandbox = await createCliSandbox();
+        const skillDirectoryPath = join(sandbox.cwd, "warning-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: warning-skill",
+                    "description: Use this skill with warnings.",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["skills", "validate", skillDirectoryPath]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(`Skill at ${skillDirectoryPath} is valid.\n`);
+            expect(result.stderr).toBe(
+                [
+                    "Warning: Frontmatter metadata.icon is missing.",
+                    "Warning: Frontmatter metadata.title is missing.",
+                    "",
+                ].join("\n"),
+            );
         }
         finally {
             await sandbox.cleanup();

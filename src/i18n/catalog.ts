@@ -555,7 +555,9 @@ export const enMessages = {
     "labels.blocks": "Blocks:",
     "labels.status": "Status",
     "labels.version": "Version",
-    "skills.init.success": "Initialized skill {name} at {path}.",
+    "skills.init.success": "Initialized skill {name} in canonical storage at {path}.",
+    "skills.init.linked": "Linked skill {name} to {path}.",
+    "skills.init.copied": "Copied skill {name} to {path}.",
     "skills.install.success": "Installed skill {name} to {path}.",
     "skills.install.overwrite.invalid":
         "Invalid choice. Enter y/yes or n/no.",
@@ -1192,7 +1194,9 @@ export const zhMessages = {
     "labels.blocks": "功能块：",
     "labels.status": "状态",
     "labels.version": "版本",
-    "skills.init.success": "已在 {path} 初始化 skill {name}。",
+    "skills.init.success": "已在 canonical 存储 {path} 初始化 skill {name}。",
+    "skills.init.linked": "已将 skill {name} 软链接到 {path}。",
+    "skills.init.copied": "已将 skill {name} 复制到 {path}。",
     "skills.install.success": "已将 skill {name} 安装到 {path}。",
     "skills.install.overwrite.invalid":
         "输入无效。请输入 y/yes 或 n/no。",

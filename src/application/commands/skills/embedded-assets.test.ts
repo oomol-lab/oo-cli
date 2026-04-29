@@ -109,8 +109,44 @@ describe("embedded skill assets", () => {
             }
         }
     });
+
+    test("guides oo-create-skill agents to fill presentation metadata", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
+                file => file.relativePath === "SKILL.md",
+            );
+
+            expect(skillFile).toBeDefined();
+
+            const content = normalizeLineEndingsForAssertion(
+                await Bun.file(skillFile!.sourcePath).text(),
+            );
+
+            expect(content).toContain("Also pass `--title` and `--icon`.");
+            expect(content).toContain(
+                "derive a concise display title and suitable icon reference",
+            );
+            expect(content).toContain(
+                "The icon may be an emoji, an image URL, or\n`:collection:icon:`",
+            );
+            expect(content).toContain("https://icones.js.org/");
+            expect(content).toContain(
+                "If `metadata.title` or\n`metadata.icon` is absent",
+            );
+            expect(content).not.toContain(
+                "Pass `--title` only when the user provided or confirmed",
+            );
+            expect(content).not.toContain(
+                "do\nnot add it by deriving a title from the skill name",
+            );
+        }
+    });
 });
 
 function normalizePathForAssertion(path: string): string {
     return path.replaceAll("\\", "/");
+}
+
+function normalizeLineEndingsForAssertion(text: string): string {
+    return text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
 }

@@ -48,7 +48,11 @@ describe("skills init command", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Initialized skill campaign-writer at ${skillDirectoryPath}.\n`,
+                [
+                    `Initialized skill campaign-writer in canonical storage at ${canonicalSkillDirectoryPath}.`,
+                    `Linked skill campaign-writer to ${skillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
             );
             expect(result.stderr).toBe("");
             expect(await realpath(skillDirectoryPath)).toBe(
@@ -64,11 +68,11 @@ describe("skills init command", () => {
             ).toBe([
                 "---",
                 "name: campaign-writer",
-                "description: \"Write campaign briefs using a known package workflow.\"",
-                `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
+                "description: Write campaign briefs using a known package workflow.",
+                `compatibility: ${installedRegistrySkillCompatibility}`,
                 "metadata:",
-                "  icon: \":lucide:wrench:\"",
-                "  title: \"Campaign Writer\"",
+                "  icon: ':lucide:wrench:'",
+                "  title: Campaign Writer",
                 "---",
                 "",
                 "# Campaign Writer",
@@ -114,8 +118,8 @@ describe("skills init command", () => {
             ).toBe([
                 "---",
                 "name: minimal-skill",
-                "description: \"Use a known package workflow.\"",
-                `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
+                "description: Use a known package workflow.",
+                `compatibility: ${installedRegistrySkillCompatibility}`,
                 "---",
                 "",
                 "# Minimal Skill",
@@ -239,6 +243,7 @@ describe("skills init command", () => {
             ]);
 
             expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
             await expect(
                 stat(codexSkillDirectoryPath),
             ).rejects.toMatchObject({
@@ -283,7 +288,11 @@ describe("skills init command", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Initialized skill ${normalizedSkillName} at ${join(codexHomeDirectory, "skills", normalizedSkillName)}.\n`,
+                [
+                    `Initialized skill ${normalizedSkillName} in canonical storage at ${canonicalSkillDirectoryPath}.`,
+                    `Linked skill ${normalizedSkillName} to ${join(codexHomeDirectory, "skills", normalizedSkillName)}.`,
+                    "",
+                ].join("\n"),
             );
             expect(
                 await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8"),

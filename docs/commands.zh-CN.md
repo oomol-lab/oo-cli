@@ -284,8 +284,9 @@ skills。
 - 选项：`--description <text>` 为必填项，并写入生成的 `SKILL.md`
   frontmatter description。
 - 生成的 `SKILL.md` frontmatter 包含 `compatibility: "Requires the oo CLI."`。
-- 选项：`--icon <icon>` 将非空不透明 icon 引用写入生成的 `SKILL.md`
-  frontmatter `metadata.icon`。
+- 选项：`--icon <icon>` 将非空 icon 引用写入生成的 `SKILL.md` frontmatter
+  `metadata.icon`。值可以是 emoji、图片 URL，或 `:collection:icon:` 格式，
+  其中 `collection` 和 `icon` 是 <https://icones.js.org/> 上的名称。
 - 选项：`--title <title>` 将 `metadata.title` 写入生成的 `SKILL.md`
   frontmatter。未提供时不会生成 `metadata.title`。
 - canonical 目录：skill 创建在 `<config-dir>/skills/local/<skill-id>` 下，
@@ -295,16 +296,19 @@ skills。
   以及 `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`。
 - 失败行为：如果没有受支持的 agent home，或 canonical 本地目录、任意目标目录
   已存在，命令会在写入 skill 前以非零状态退出。
-- 输出：文本输出会为每个发布目标路径打印一行成功消息。
+- 输出：文本输出会先打印 canonical 存储目录，然后为每个目标路径打印一行带实际发布
+  方式（软链接或复制）的成功消息。
 
 ### `oo skills validate <path>`
 
 按照通用 skill 契约校验本地 skill 目录。
 
 - 参数：`<path>` 是包含 `SKILL.md` 的 skill 目录。
-- 校验：`SKILL.md` 必须以 `---` 分隔的 YAML frontmatter 开头。frontmatter
-  必须是字典，并包含字符串 `name` 和 `description` 字段。
-- 校验：嵌套的 `metadata.title` 可以省略；如果提供，则必须是非空字符串。
+- 校验：`SKILL.md` frontmatter 必须是字典，并包含字符串 `name` 和非空字符串
+  `description` 字段。
+- 校验：嵌套的 `metadata` 可以省略；如果提供，则必须是字典。嵌套的
+  `metadata.icon` 和 `metadata.title` 可以省略；如果提供，则必须是非空字符串。
+- 警告：缺少 `metadata.icon` 或 `metadata.title` 会打印 warning，但不会导致校验失败。
 - 输出：成功时命令会打印简短成功消息。失败时打印校验错误并以非零状态退出。
 
 ### `oo skills search <text>`

@@ -322,8 +322,10 @@ directory that already exists.
   `SKILL.md` frontmatter description.
 - Generated `SKILL.md` frontmatter includes `compatibility: "Requires the oo
   CLI."`.
-- Options: `--icon <icon>` writes an opaque non-empty icon reference to
-  `metadata.icon` in the generated `SKILL.md` frontmatter.
+- Options: `--icon <icon>` writes a non-empty icon reference to `metadata.icon`
+  in the generated `SKILL.md` frontmatter. The value may be an emoji, an image
+  URL, or `:collection:icon:` where `collection` and `icon` are names from
+  <https://icones.js.org/>.
 - Options: `--title <title>` writes `metadata.title` to the generated
   `SKILL.md` frontmatter. When omitted, `metadata.title` is not generated.
 - Canonical directory: the skill is created under
@@ -336,18 +338,22 @@ directory that already exists.
 - Failure behavior: if no supported agent home exists, or if the canonical
   local directory or any target directory already exists, the command exits
   non-zero before writing the skill.
-- Output: text output prints one success line per published target path.
+- Output: text output first prints the canonical storage directory, then prints
+  one success line per target path with the actual publication mode
+  (`Linked` or `Copied`).
 
 ### `oo skills validate <path>`
 
 Validate a local skill directory against the generic skill contract.
 
 - Arguments: `<path>` is the skill directory containing `SKILL.md`.
-- Validation: `SKILL.md` must start with YAML frontmatter delimited by `---`.
-  The frontmatter must be a dictionary with string `name` and `description`
-  fields.
-- Validation: nested `metadata.title` is optional, but when present it must be a
-  non-empty string.
+- Validation: `SKILL.md` frontmatter must be a dictionary with string `name`
+  and non-empty string `description` fields.
+- Validation: nested `metadata` is optional, but when present it must be a
+  dictionary. Nested `metadata.icon` and `metadata.title` are optional, but when
+  present they must be non-empty strings.
+- Warnings: missing `metadata.icon` or `metadata.title` prints a warning, but
+  does not make validation fail.
 - Output: on success, the command prints a concise success message. On failure,
   it prints the validation error and exits non-zero.
 
