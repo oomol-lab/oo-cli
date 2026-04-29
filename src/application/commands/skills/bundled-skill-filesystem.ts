@@ -76,6 +76,8 @@ export async function publishBundledSkillInstallation(
 ): Promise<BundledSkillPublicationResult> {
     const publicationMode = options.publicationMode ?? "symlink-or-copy";
 
+    await mkdir(dirname(options.installedSkillDirectoryPath), { recursive: true });
+
     if (publicationMode === "symlink-or-copy") {
         const createDirectoryLink
             = dependencies.createDirectorySymlink ?? createBundledSkillDirectorySymlink;
@@ -251,7 +253,6 @@ async function copyBundledSkillDirectory(
     destinationPath: string,
 ): Promise<void> {
     await removePath(destinationPath);
-    await mkdir(dirname(destinationPath), { recursive: true });
     await cp(sourcePath, destinationPath, {
         dereference: true,
         force: true,
