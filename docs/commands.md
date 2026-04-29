@@ -265,10 +265,10 @@ Before running a command, `oo` silently synchronizes managed skills for every
 supported host directory that already exists.
 
 - Bundled skills: `oo` ensures `oo` and `oo-find-skills` are installed for
-  each detected Codex, Claude Code, OpenClaw, and QoderWork host. Existing
-  oo-managed bundled skill targets are refreshed to the current `oo` version,
-  except that `0.0.0-development` startup runs do not refresh existing bundled
-  targets.
+  each detected Codex, Claude Code, CodeBuddy, OpenClaw, and QoderWork host.
+  Existing oo-managed bundled skill targets are refreshed to the current `oo`
+  version, except that `0.0.0-development` startup runs do not refresh
+  existing bundled targets.
 - Published skills: when a published skill already has a local canonical copy
   under `<config-dir>/skills/registry/<skill-id>`, `oo` publishes that copy to
   any newly detected supported host that is missing it.
@@ -282,7 +282,8 @@ List oo-managed skills from supported local skill directories.
 
 - Ownership rule: the command scans each existing supported local skill root:
   `${CODEX_HOME:-~/.codex}/skills`, `~/.claude/skills`,
-  `${OPENCLAW_HOME:-~/.openclaw}/skills`, and `~/.qoderwork/skills`. It keeps
+  `~/.codebuddy/skills`, `${OPENCLAW_HOME:-~/.openclaw}/skills`, and
+  `~/.qoderwork/skills`. It keeps
   only child directories whose `.oo-metadata.json` can be parsed and contains a
   non-empty `version`.
 - Output: text output prints a summary line and one block per unique visible
@@ -291,7 +292,7 @@ List oo-managed skills from supported local skill directories.
 - Ordering: bundled skills are listed first when present, with `oo` before
   `oo-find-skills` before `oo-create-skill`; the remaining skills are ordered
   by skill name. Host names within a block follow `Codex`,
-  `Claude Code`, `OpenClaw`, `QoderWork` order.
+  `Claude Code`, `CodeBuddy`, `OpenClaw`, `QoderWork` order.
 - Output: each skill block shows the skill name, host, source package or
   bundled/local marker, and recorded version.
 - Notes: when a folded skill is installed in multiple supported hosts, the
@@ -302,7 +303,7 @@ List oo-managed skills from supported local skill directories.
 Check whether this environment has permission to edit local skills.
 
 - Options: `--agent <agent>` restricts the host check to one supported agent:
-  `codex`, `claude`, `openclaw`, or `qoderwork`.
+  `codex`, `claude`, `codebuddy`, `openclaw`, or `qoderwork`.
 - Host check: without `--agent`, at least one supported agent home directory
   must already exist. With `--agent`, that specific agent home directory must
   exist.
@@ -336,6 +337,7 @@ directory that already exists.
 - Target directories: the command publishes directory links to each existing
   supported agent skill directory:
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`, `~/.claude/skills/<skill-id>`,
+  `~/.codebuddy/skills/<skill-id>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`, and
   `~/.qoderwork/skills/<skill-id>`.
 - Failure behavior: if no supported agent home exists, or if the canonical
@@ -405,7 +407,7 @@ Install bundled or published skills into supported local skill directories.
 - Canonical directory: bundled skills are materialized under
   `<config-dir>/skills/bundled/<agent>/<skill-id>`, where `<config-dir>` is the
   directory that contains `settings.toml` and `<agent>` is `codex`, `claude`,
-  `openclaw`, or `qoderwork`.
+  `codebuddy`, `openclaw`, or `qoderwork`.
 - Canonical directory: published skills are materialized to
   `<config-dir>/skills/registry/<skill-id>`.
 - Migration: on first run after upgrading, `oo skills install` removes legacy
@@ -418,15 +420,16 @@ Install bundled or published skills into supported local skill directories.
   supported host directory, currently
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`,
   `~/.claude/skills/<skill-id>`,
+  `~/.codebuddy/skills/<skill-id>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`, and
   `~/.qoderwork/skills/<skill-id>`.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
-- Installation mode: bundled and published Codex, Claude Code, and QoderWork
-  skills are published to the target directory as a symlink to the canonical
-  directory when the current platform and environment allow it. When symlink
-  creation fails, `oo` falls back to copying the canonical files into the
-  target skills directory.
+- Installation mode: bundled and published Codex, Claude Code, CodeBuddy, and
+  QoderWork skills are published to the target directory as a symlink to the
+  canonical directory when the current platform and environment allow it. When
+  symlink creation fails, `oo` falls back to copying the canonical files into
+  the target skills directory.
 - Installation mode: bundled and published OpenClaw skills are copied into
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>` so the installed skill
   stays inside OpenClaw's managed skills root.
@@ -447,7 +450,7 @@ Install bundled or published skills into supported local skill directories.
 - Notes: in the interactive picker, conflicting skills are marked in the list;
   selecting one means it will be overwritten.
 - Notes: the command exits with an error when none of the supported Codex,
-  Claude Code, OpenClaw, or QoderWork home directories exists.
+  Claude Code, CodeBuddy, OpenClaw, or QoderWork home directories exists.
 - Notes: an existing bundled skill installation is considered managed by `oo`
   only when its `.oo-metadata.json` file can be parsed and contains a
   non-empty `version`. Otherwise `oo` treats it as a different skill and will
@@ -492,7 +495,8 @@ Remove oo-managed skills from supported local skill directories.
   published skills remove `<config-dir>/skills/registry/<skill>`.
 - Target directory removed: bundled and published skills are removed from every
   existing supported host directory, currently
-  `${CODEX_HOME:-~/.codex}/skills/<skill>`, `~/.claude/skills/<skill>`, and
+  `${CODEX_HOME:-~/.codex}/skills/<skill>`, `~/.claude/skills/<skill>`,
+  `~/.codebuddy/skills/<skill>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`, and
   `~/.qoderwork/skills/<skill>`.
 - Path rule: `[skill]` must resolve to child directories under those local

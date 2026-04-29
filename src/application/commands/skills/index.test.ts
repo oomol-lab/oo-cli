@@ -24,6 +24,7 @@ import {
     resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
     resolveClaudeHomeDirectory,
+    resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
     resolveOpenClawHomeDirectory,
     resolveQoderWorkHomeDirectory,
@@ -493,6 +494,60 @@ describe("skills commands", () => {
                 await Bun.file(qoderWorkSkillFile.sourcePath).text(),
             );
             expect(installedSkillMarkdown).not.toContain("allowed-tools");
+            await expect(
+                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
+            ).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs bundled skills into CodeBuddy", async () => {
+        const sandbox = await createCliSandbox();
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+            "codebuddy",
+        );
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const skillFilePath = join(skillDirectoryPath, "SKILL.md");
+        const codeBuddySkillFile = getBundledSkillFiles("oo", "codebuddy")
+            .find(file => file.relativePath === "SKILL.md");
+
+        try {
+            if (codeBuddySkillFile === undefined) {
+                throw new Error("Missing CodeBuddy oo SKILL.md fixture");
+            }
+
+            await mkdir(codeBuddyHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Installed skill oo to ${skillDirectoryPath}.\n`,
+            );
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({ version: "9.9.9" }),
+            );
+            expect(await readFile(skillFilePath, "utf8")).toBe(
+                await Bun.file(codeBuddySkillFile.sourcePath).text(),
+            );
             await expect(
                 stat(join(skillDirectoryPath, "agents", "openai.yaml")),
             ).rejects.toMatchObject({
@@ -1126,10 +1181,12 @@ describe("skills commands", () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
         const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
         const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
+        const codeBuddySkillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "chatgpt");
         const openClawSkillDirectoryPath = join(openClawHomeDirectory, "skills", "chatgpt");
         const qoderWorkSkillDirectoryPath = join(qoderWorkHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
@@ -1146,6 +1203,7 @@ describe("skills commands", () => {
             await Promise.all([
                 mkdir(codexHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
+                mkdir(codeBuddyHomeDirectory, { recursive: true }),
                 mkdir(openClawHomeDirectory, { recursive: true }),
                 mkdir(qoderWorkHomeDirectory, { recursive: true }),
             ]);
@@ -1188,6 +1246,7 @@ describe("skills commands", () => {
                 [
                     `Installed skill chatgpt to ${codexSkillDirectoryPath}.`,
                     `Installed skill chatgpt to ${claudeSkillDirectoryPath}.`,
+                    `Installed skill chatgpt to ${codeBuddySkillDirectoryPath}.`,
                     `Installed skill chatgpt to ${openClawSkillDirectoryPath}.`,
                     `Installed skill chatgpt to ${qoderWorkSkillDirectoryPath}.`,
                     "",
@@ -1197,6 +1256,9 @@ describe("skills commands", () => {
                 await realpath(canonicalSkillDirectoryPath),
             );
             expect(await realpath(claudeSkillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await realpath(codeBuddySkillDirectoryPath)).toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
             expect(await realpath(openClawSkillDirectoryPath)).not.toBe(
@@ -1209,6 +1271,7 @@ describe("skills commands", () => {
             for (const skillDirectoryPath of [
                 codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
+                codeBuddySkillDirectoryPath,
                 openClawSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
             ]) {

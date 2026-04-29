@@ -2,6 +2,7 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
 export type ManagedSkillHostMissingErrorKey
     = | "errors.skills.claudeNotInstalled"
+        | "errors.skills.codebuddyNotInstalled"
         | "errors.skills.codexNotInstalled"
         | "errors.skills.openclawNotInstalled"
         | "errors.skills.qoderworkNotInstalled";
@@ -12,6 +13,8 @@ export function resolveManagedSkillHostMissingErrorKey(
     switch (agentName) {
         case "claude":
             return "errors.skills.claudeNotInstalled";
+        case "codebuddy":
+            return "errors.skills.codebuddyNotInstalled";
         case "codex":
             return "errors.skills.codexNotInstalled";
         case "openclaw":

@@ -32,6 +32,15 @@ describe("embedded skill assets", () => {
             "references/file-transfer.md",
             "references/task-lifecycle.md",
         ]);
+        expect(getBundledSkillFiles("oo", "codebuddy").map(file => file.relativePath)).toEqual([
+            "SKILL.md",
+            "references/auth-and-billing.md",
+            "references/search-and-selection.md",
+            "references/package-execution.md",
+            "references/connector-execution.md",
+            "references/file-transfer.md",
+            "references/task-lifecycle.md",
+        ]);
         expect(getBundledSkillFiles("oo", "openclaw").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
@@ -61,6 +70,14 @@ describe("embedded skill assets", () => {
         ]);
         expect(
             getBundledSkillFiles("oo-find-skills", "claude").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+            "references/oo-cli-contract.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-find-skills", "codebuddy").map(
                 file => file.relativePath,
             ),
         ).toEqual([
@@ -99,6 +116,13 @@ describe("embedded skill assets", () => {
             "SKILL.md",
         ]);
         expect(
+            getBundledSkillFiles("oo-create-skill", "codebuddy").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
             getBundledSkillFiles("oo-create-skill", "openclaw").map(
                 file => file.relativePath,
             ),
@@ -118,6 +142,7 @@ describe("embedded skill assets", () => {
         expect([...availableBundledSkillAgentNames]).toEqual([
             "codex",
             "claude",
+            "codebuddy",
             "openclaw",
             "qoderwork",
         ]);
