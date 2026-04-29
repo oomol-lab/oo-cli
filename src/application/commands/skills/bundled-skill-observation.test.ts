@@ -162,4 +162,30 @@ describe("bundled skill observation", () => {
             await rm(rootDirectory, { force: true, recursive: true });
         }
     });
+
+    test("requires the resolved QoderWork home directory to exist", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const qoderWorkHomeDirectory = join(rootDirectory, ".qoderwork");
+        const env = {
+            HOME: rootDirectory,
+        };
+
+        try {
+            await expect(
+                requireBundledSkillHomeDirectory({ env }, "qoderwork"),
+            ).rejects.toMatchObject({
+                exitCode: 1,
+                key: "errors.skills.qoderworkNotInstalled",
+            });
+
+            await mkdir(qoderWorkHomeDirectory, { recursive: true });
+
+            expect(await requireBundledSkillHomeDirectory({ env }, "qoderwork")).toBe(
+                qoderWorkHomeDirectory,
+            );
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
 });

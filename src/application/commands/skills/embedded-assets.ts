@@ -31,8 +31,18 @@ import ooOpenClawPackageExecutionReferencePath from "../../../../contrib/skills/
 import ooOpenClawSearchAndSelectionReferencePath from "../../../../contrib/skills/openclaw/oo/references/search-and-selection.md" with { type: "file" };
 import ooOpenClawTaskLifecycleReferencePath from "../../../../contrib/skills/openclaw/oo/references/task-lifecycle.md" with { type: "file" };
 import ooOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo/SKILL.md" with { type: "file" };
+import ooCreateSkillQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo-create-skill/SKILL.md" with { type: "file" };
+import ooFindSkillsQoderWorkCliContractPath from "../../../../contrib/skills/qoderwork/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
+import ooFindSkillsQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo-find-skills/SKILL.md" with { type: "file" };
+import ooQoderWorkAuthAndBillingReferencePath from "../../../../contrib/skills/qoderwork/oo/references/auth-and-billing.md" with { type: "file" };
+import ooQoderWorkConnectorExecutionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/connector-execution.md" with { type: "file" };
+import ooQoderWorkFileTransferReferencePath from "../../../../contrib/skills/qoderwork/oo/references/file-transfer.md" with { type: "file" };
+import ooQoderWorkPackageExecutionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/package-execution.md" with { type: "file" };
+import ooQoderWorkSearchAndSelectionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/search-and-selection.md" with { type: "file" };
+import ooQoderWorkTaskLifecycleReferencePath from "../../../../contrib/skills/qoderwork/oo/references/task-lifecycle.md" with { type: "file" };
+import ooQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo/SKILL.md" with { type: "file" };
 
-export const availableBundledSkillAgentNames = ["codex", "claude", "openclaw"] as const;
+export const availableBundledSkillAgentNames = ["codex", "claude", "openclaw", "qoderwork"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
 
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill"] as const;
@@ -76,6 +86,14 @@ const ooOpenClawReferenceFiles = createOoReferenceFiles({
     searchAndSelection: ooOpenClawSearchAndSelectionReferencePath,
     taskLifecycle: ooOpenClawTaskLifecycleReferencePath,
 });
+const ooQoderWorkReferenceFiles = createOoReferenceFiles({
+    authAndBilling: ooQoderWorkAuthAndBillingReferencePath,
+    connectorExecution: ooQoderWorkConnectorExecutionReferencePath,
+    fileTransfer: ooQoderWorkFileTransferReferencePath,
+    packageExecution: ooQoderWorkPackageExecutionReferencePath,
+    searchAndSelection: ooQoderWorkSearchAndSelectionReferencePath,
+    taskLifecycle: ooQoderWorkTaskLifecycleReferencePath,
+});
 
 // Keep this registry aligned with contrib/skills/<agent>/<skill> so Bun embeds the files.
 const bundledSkillRegistry = {
@@ -109,6 +127,15 @@ const bundledSkillRegistry = {
                     sourcePath: ooOpenClawSkillPath,
                 },
                 ...ooOpenClawReferenceFiles,
+            ],
+        },
+        qoderwork: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooQoderWorkSkillPath,
+                },
+                ...ooQoderWorkReferenceFiles,
             ],
         },
     },
@@ -153,6 +180,18 @@ const bundledSkillRegistry = {
                 },
             ],
         },
+        qoderwork: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooFindSkillsQoderWorkSkillPath,
+                },
+                {
+                    relativePath: "references/oo-cli-contract.md",
+                    sourcePath: ooFindSkillsQoderWorkCliContractPath,
+                },
+            ],
+        },
     },
     "oo-create-skill": {
         codex: {
@@ -180,6 +219,14 @@ const bundledSkillRegistry = {
                 {
                     relativePath: "SKILL.md",
                     sourcePath: ooCreateSkillOpenClawSkillPath,
+                },
+            ],
+        },
+        qoderwork: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCreateSkillQoderWorkSkillPath,
                 },
             ],
         },
