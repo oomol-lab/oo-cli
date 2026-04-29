@@ -59,8 +59,16 @@ supported local host that already exists:
 - Codex: `${CODEX_HOME:-~/.codex}/skills/oo` and
   `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`
 - Claude Code: `~/.claude/skills/oo` and `~/.claude/skills/oo-find-skills`
+- CodeBuddy: `~/.codebuddy/skills/oo` and
+  `~/.codebuddy/skills/oo-find-skills`
+- WorkBuddy: `~/.workbuddy/skills/oo` and
+  `~/.workbuddy/skills/oo-find-skills`
+- OpenClaw: `${OPENCLAW_HOME:-~/.openclaw}/skills/oo` and
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/oo-find-skills`
+- QoderWork: `~/.qoderwork/skills/oo` and
+  `~/.qoderwork/skills/oo-find-skills`
 
-Then you can use them in Codex or Claude Code. For example, in Codex:
+Then you can use them in any supported host. For example, in Codex:
 
 ```text
 $oo generate a QR code for the string OOMOL

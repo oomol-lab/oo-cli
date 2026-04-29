@@ -58,8 +58,16 @@ skills：
   `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`
 - Claude Code：`~/.claude/skills/oo` 和
   `~/.claude/skills/oo-find-skills`
+- CodeBuddy：`~/.codebuddy/skills/oo` 和
+  `~/.codebuddy/skills/oo-find-skills`
+- WorkBuddy：`~/.workbuddy/skills/oo` 和
+  `~/.workbuddy/skills/oo-find-skills`
+- OpenClaw：`${OPENCLAW_HOME:-~/.openclaw}/skills/oo` 和
+  `${OPENCLAW_HOME:-~/.openclaw}/skills/oo-find-skills`
+- QoderWork：`~/.qoderwork/skills/oo` 和
+  `~/.qoderwork/skills/oo-find-skills`
 
-之后你就可以在 Codex 或 Claude Code 中使用它们。比如在 Codex 中：
+之后你就可以在任一受支持宿主中使用它们。比如在 Codex 中：
 
 ```text
 $oo 帮我生成 OOMOL 字符串的二维码
