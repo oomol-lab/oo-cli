@@ -6,6 +6,7 @@ import { resolveHomeDirectory } from "../../path/home-directory.ts";
 const codexDirectoryName = ".codex";
 const claudeDirectoryName = ".claude";
 const openClawDirectoryName = ".openclaw";
+const qoderWorkDirectoryName = ".qoderwork";
 export const codexSkillsDirectoryName = "skills";
 export const canonicalBundledSkillsDirectoryName = "bundled";
 export const canonicalLocalSkillsDirectoryName = "local";
@@ -43,6 +44,12 @@ export function resolveOpenClawHomeDirectory(
     return join(resolveHomeDirectory(env), openClawDirectoryName);
 }
 
+export function resolveQoderWorkHomeDirectory(
+    env: Record<string, string | undefined>,
+): string {
+    return join(resolveHomeDirectory(env), qoderWorkDirectoryName);
+}
+
 export function resolveBundledSkillHomeDirectory(
     env: Record<string, string | undefined>,
     agentName: BundledSkillAgentName,
@@ -54,6 +61,8 @@ export function resolveBundledSkillHomeDirectory(
             return resolveCodexHomeDirectory(env);
         case "openclaw":
             return resolveOpenClawHomeDirectory(env);
+        case "qoderwork":
+            return resolveQoderWorkHomeDirectory(env);
     }
 }
 

@@ -30,6 +30,7 @@ const managedSkillHostOrder = {
     codex: 0,
     claude: 1,
     openclaw: 2,
+    qoderwork: 3,
 } as const satisfies Record<BundledSkillAgentName, number>;
 
 export interface ManagedSkillListItem {
@@ -324,6 +325,8 @@ function readManagedSkillHostLabel(
             return context.translator.t("skills.list.host.codex");
         case "openclaw":
             return context.translator.t("skills.list.host.openclaw");
+        case "qoderwork":
+            return context.translator.t("skills.list.host.qoderwork");
         default:
             return hostName satisfies never;
     }

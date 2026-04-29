@@ -11,6 +11,7 @@ import {
     resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
 } from "./bundled-skill-paths.ts";
+import { resolveManagedSkillHostMissingErrorKey } from "./managed-skill-host-errors.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 export async function requireBundledSkillHomeDirectory(
@@ -23,7 +24,7 @@ export async function requireBundledSkillHomeDirectory(
     );
 
     if (!(await directoryExists(homeDirectory))) {
-        const missingHostErrorKey = resolveBundledSkillHostMissingErrorKey(agentName);
+        const missingHostErrorKey = resolveManagedSkillHostMissingErrorKey(agentName);
 
         throw new CliUserError(
             missingHostErrorKey,
@@ -41,19 +42,6 @@ export async function requireCodexHomeDirectory(
     context: Pick<{ env: Record<string, string | undefined> }, "env">,
 ): Promise<string> {
     return requireBundledSkillHomeDirectory(context, "codex");
-}
-
-function resolveBundledSkillHostMissingErrorKey(
-    agentName: BundledSkillAgentName,
-): "errors.skills.claudeNotInstalled" | "errors.skills.codexNotInstalled" | "errors.skills.openclawNotInstalled" {
-    switch (agentName) {
-        case "claude":
-            return "errors.skills.claudeNotInstalled";
-        case "codex":
-            return "errors.skills.codexNotInstalled";
-        case "openclaw":
-            return "errors.skills.openclawNotInstalled";
-    }
 }
 
 export async function directoryExists(path: string): Promise<boolean> {

@@ -9,6 +9,7 @@ import {
     resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
     resolveOpenClawHomeDirectory,
+    resolveQoderWorkHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
@@ -109,6 +110,49 @@ describe("skills list CLI", () => {
                     "",
                     "oo-create-skill",
                     "  Host: OpenClaw",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                ].join("\n"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists startup-synchronized QoderWork bundled installs when Codex is not installed", async () => {
+        const sandbox = await createCliSandbox();
+        const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(qoderWorkHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "✓ Found 3 oo-managed skills.",
+                    "",
+                    "oo",
+                    "  Host: QoderWork",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-find-skills",
+                    "  Host: QoderWork",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-create-skill",
+                    "  Host: QoderWork",
                     "  Source: bundled",
                     "  Version: 9.9.9",
                     "",

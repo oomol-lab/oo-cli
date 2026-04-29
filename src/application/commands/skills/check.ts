@@ -13,6 +13,7 @@ import {
     resolveBundledSkillHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
+import { resolveManagedSkillHostMissingErrorKey } from "./managed-skill-host-errors.ts";
 import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
@@ -120,19 +121,6 @@ function createMissingRequestedManagedSkillHostError(
             path: homeDirectory,
         },
     );
-}
-
-function resolveManagedSkillHostMissingErrorKey(
-    agentName: BundledSkillAgentName,
-): "errors.skills.claudeNotInstalled" | "errors.skills.codexNotInstalled" | "errors.skills.openclawNotInstalled" {
-    switch (agentName) {
-        case "claude":
-            return "errors.skills.claudeNotInstalled";
-        case "codex":
-            return "errors.skills.codexNotInstalled";
-        case "openclaw":
-            return "errors.skills.openclawNotInstalled";
-    }
 }
 
 async function verifyWritableDirectory(directoryPath: string): Promise<void> {

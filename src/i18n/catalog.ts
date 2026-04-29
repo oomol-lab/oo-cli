@@ -361,6 +361,8 @@ export const enMessages = {
         "Claude Code is not installed. Expected the Claude home directory at {path}.",
     "errors.skills.openclawNotInstalled":
         "OpenClaw is not installed. Expected the OpenClaw home directory at {path}.",
+    "errors.skills.qoderworkNotInstalled":
+        "QoderWork is not installed. Expected the QoderWork home directory at {path}.",
     "errors.skills.noSupportedBundledSkillHosts":
         "No supported skill host is installed. Expected one of: {paths}.",
     "errors.skills.install.confirmationRequired":
@@ -547,6 +549,7 @@ export const enMessages = {
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codex": "Codex",
     "skills.list.host.openclaw": "OpenClaw",
+    "skills.list.host.qoderwork": "QoderWork",
     "skills.list.source": "Source",
     "skills.list.source.bundled": "bundled",
     "skills.list.source.local": "local",
@@ -1006,6 +1009,8 @@ export const zhMessages = {
         "未检测到 Claude Code 安装。期望的 Claude 根目录为 {path}。",
     "errors.skills.openclawNotInstalled":
         "未检测到 OpenClaw 安装。期望的 OpenClaw 根目录为 {path}。",
+    "errors.skills.qoderworkNotInstalled":
+        "未检测到 QoderWork 安装。期望的 QoderWork 根目录为 {path}。",
     "errors.skills.noSupportedBundledSkillHosts":
         "未检测到已安装的受支持 skill 宿主。期望其中之一位于：{paths}。",
     "errors.skills.install.confirmationRequired":
@@ -1186,6 +1191,7 @@ export const zhMessages = {
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codex": "Codex",
     "skills.list.host.openclaw": "OpenClaw",
+    "skills.list.host.qoderwork": "QoderWork",
     "skills.list.source": "来源",
     "skills.list.source.bundled": "内置",
     "skills.list.source.local": "本地",
