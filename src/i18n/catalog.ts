@@ -365,6 +365,8 @@ export const enMessages = {
         "OpenClaw is not installed. Expected the OpenClaw home directory at {path}.",
     "errors.skills.qoderworkNotInstalled":
         "QoderWork is not installed. Expected the QoderWork home directory at {path}.",
+    "errors.skills.workbuddyNotInstalled":
+        "WorkBuddy is not installed. Expected the WorkBuddy home directory at {path}.",
     "errors.skills.noSupportedBundledSkillHosts":
         "No supported skill host is installed. Expected one of: {paths}.",
     "errors.skills.install.confirmationRequired":
@@ -553,6 +555,7 @@ export const enMessages = {
     "skills.list.host.codex": "Codex",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
+    "skills.list.host.workbuddy": "WorkBuddy",
     "skills.list.source": "Source",
     "skills.list.source.bundled": "bundled",
     "skills.list.source.local": "local",
@@ -1016,6 +1019,8 @@ export const zhMessages = {
         "未检测到 OpenClaw 安装。期望的 OpenClaw 根目录为 {path}。",
     "errors.skills.qoderworkNotInstalled":
         "未检测到 QoderWork 安装。期望的 QoderWork 根目录为 {path}。",
+    "errors.skills.workbuddyNotInstalled":
+        "未检测到 WorkBuddy 安装。期望的 WorkBuddy 根目录为 {path}。",
     "errors.skills.noSupportedBundledSkillHosts":
         "未检测到已安装的受支持 skill 宿主。期望其中之一位于：{paths}。",
     "errors.skills.install.confirmationRequired":
@@ -1198,6 +1203,7 @@ export const zhMessages = {
     "skills.list.host.codex": "Codex",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
+    "skills.list.host.workbuddy": "WorkBuddy",
     "skills.list.source": "来源",
     "skills.list.source.bundled": "内置",
     "skills.list.source.local": "本地",

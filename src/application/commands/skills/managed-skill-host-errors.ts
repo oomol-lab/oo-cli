@@ -5,7 +5,8 @@ export type ManagedSkillHostMissingErrorKey
         | "errors.skills.codebuddyNotInstalled"
         | "errors.skills.codexNotInstalled"
         | "errors.skills.openclawNotInstalled"
-        | "errors.skills.qoderworkNotInstalled";
+        | "errors.skills.qoderworkNotInstalled"
+        | "errors.skills.workbuddyNotInstalled";
 
 export function resolveManagedSkillHostMissingErrorKey(
     agentName: BundledSkillAgentName,
@@ -21,5 +22,7 @@ export function resolveManagedSkillHostMissingErrorKey(
             return "errors.skills.openclawNotInstalled";
         case "qoderwork":
             return "errors.skills.qoderworkNotInstalled";
+        case "workbuddy":
+            return "errors.skills.workbuddyNotInstalled";
     }
 }

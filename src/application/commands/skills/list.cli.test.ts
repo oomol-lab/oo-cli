@@ -11,6 +11,7 @@ import {
     resolveCodexHomeDirectory,
     resolveOpenClawHomeDirectory,
     resolveQoderWorkHomeDirectory,
+    resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
@@ -197,6 +198,49 @@ describe("skills list CLI", () => {
                     "",
                     "oo-create-skill",
                     "  Host: CodeBuddy",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                ].join("\n"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists startup-synchronized WorkBuddy bundled installs when Codex is not installed", async () => {
+        const sandbox = await createCliSandbox();
+        const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(workBuddyHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "✓ Found 3 oo-managed skills.",
+                    "",
+                    "oo",
+                    "  Host: WorkBuddy",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-find-skills",
+                    "  Host: WorkBuddy",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-create-skill",
+                    "  Host: WorkBuddy",
                     "  Source: bundled",
                     "  Version: 9.9.9",
                     "",

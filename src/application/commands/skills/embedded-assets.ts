@@ -52,7 +52,7 @@ import ooQoderWorkSearchAndSelectionReferencePath from "../../../../contrib/skil
 import ooQoderWorkTaskLifecycleReferencePath from "../../../../contrib/skills/qoderwork/oo/references/task-lifecycle.md" with { type: "file" };
 import ooQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo/SKILL.md" with { type: "file" };
 
-export const availableBundledSkillAgentNames = ["codex", "claude", "codebuddy", "openclaw", "qoderwork"] as const;
+export const availableBundledSkillAgentNames = ["codex", "claude", "codebuddy", "workbuddy", "openclaw", "qoderwork"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
 
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill"] as const;
@@ -147,6 +147,15 @@ const bundledSkillRegistry = {
                 ...ooCodeBuddyReferenceFiles,
             ],
         },
+        workbuddy: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCodeBuddySkillPath,
+                },
+                ...ooCodeBuddyReferenceFiles,
+            ],
+        },
         openclaw: {
             files: [
                 {
@@ -207,6 +216,18 @@ const bundledSkillRegistry = {
                 },
             ],
         },
+        workbuddy: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooFindSkillsCodeBuddySkillPath,
+                },
+                {
+                    relativePath: "references/oo-cli-contract.md",
+                    sourcePath: ooFindSkillsCodeBuddyCliContractPath,
+                },
+            ],
+        },
         openclaw: {
             files: [
                 {
@@ -254,6 +275,14 @@ const bundledSkillRegistry = {
             ],
         },
         codebuddy: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCreateSkillCodeBuddySkillPath,
+                },
+            ],
+        },
+        workbuddy: {
             files: [
                 {
                     relativePath: "SKILL.md",

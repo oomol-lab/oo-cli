@@ -163,6 +163,32 @@ describe("bundled skill observation", () => {
         }
     });
 
+    test("requires the resolved WorkBuddy home directory to exist", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const workBuddyHomeDirectory = join(rootDirectory, ".workbuddy");
+        const env = {
+            HOME: rootDirectory,
+        };
+
+        try {
+            await expect(
+                requireBundledSkillHomeDirectory({ env }, "workbuddy"),
+            ).rejects.toMatchObject({
+                exitCode: 1,
+                key: "errors.skills.workbuddyNotInstalled",
+            });
+
+            await mkdir(workBuddyHomeDirectory, { recursive: true });
+
+            expect(await requireBundledSkillHomeDirectory({ env }, "workbuddy")).toBe(
+                workBuddyHomeDirectory,
+            );
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
     test("requires the resolved OpenClaw home directory to exist", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
         const openClawHomeDirectory = join(rootDirectory, ".openclaw");

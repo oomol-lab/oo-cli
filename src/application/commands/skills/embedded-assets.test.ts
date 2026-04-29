@@ -41,6 +41,15 @@ describe("embedded skill assets", () => {
             "references/file-transfer.md",
             "references/task-lifecycle.md",
         ]);
+        expect(getBundledSkillFiles("oo", "workbuddy").map(file => file.relativePath)).toEqual([
+            "SKILL.md",
+            "references/auth-and-billing.md",
+            "references/search-and-selection.md",
+            "references/package-execution.md",
+            "references/connector-execution.md",
+            "references/file-transfer.md",
+            "references/task-lifecycle.md",
+        ]);
         expect(getBundledSkillFiles("oo", "openclaw").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
@@ -78,6 +87,14 @@ describe("embedded skill assets", () => {
         ]);
         expect(
             getBundledSkillFiles("oo-find-skills", "codebuddy").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+            "references/oo-cli-contract.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-find-skills", "workbuddy").map(
                 file => file.relativePath,
             ),
         ).toEqual([
@@ -123,6 +140,13 @@ describe("embedded skill assets", () => {
             "SKILL.md",
         ]);
         expect(
+            getBundledSkillFiles("oo-create-skill", "workbuddy").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
             getBundledSkillFiles("oo-create-skill", "openclaw").map(
                 file => file.relativePath,
             ),
@@ -143,13 +167,17 @@ describe("embedded skill assets", () => {
             "codex",
             "claude",
             "codebuddy",
+            "workbuddy",
             "openclaw",
             "qoderwork",
         ]);
 
         for (const skillName of availableBundledSkillNames) {
             for (const agentName of availableBundledSkillAgentNames) {
-                const sourceDirectory = `contrib/skills/${agentName}/${skillName}`;
+                const sourceAgentName = agentName === "workbuddy"
+                    ? "codebuddy"
+                    : agentName;
+                const sourceDirectory = `contrib/skills/${sourceAgentName}/${skillName}`;
                 const skillFiles = getBundledSkillFiles(skillName, agentName);
 
                 expect(skillFiles.every(file => file.agentName === agentName)).toBeTrue();
@@ -198,18 +226,20 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("keeps QoderWork skill frontmatter free of Claude allowed tools", async () => {
-        for (const skillName of availableBundledSkillNames) {
-            const skillFile = getBundledSkillFiles(skillName, "qoderwork")
-                .find(file => file.relativePath === "SKILL.md");
+    test("keeps Claude-compatible skill frontmatter free of Claude allowed tools", async () => {
+        for (const agentName of ["qoderwork", "workbuddy"] as const) {
+            for (const skillName of availableBundledSkillNames) {
+                const skillFile = getBundledSkillFiles(skillName, agentName)
+                    .find(file => file.relativePath === "SKILL.md");
 
-            if (skillFile === undefined) {
-                throw new Error(`Missing QoderWork SKILL.md for ${skillName}`);
+                if (skillFile === undefined) {
+                    throw new Error(`Missing ${agentName} SKILL.md for ${skillName}`);
+                }
+
+                expect(await Bun.file(skillFile.sourcePath).text()).not.toContain(
+                    "allowed-tools",
+                );
             }
-
-            expect(await Bun.file(skillFile.sourcePath).text()).not.toContain(
-                "allowed-tools",
-            );
         }
     });
 });
