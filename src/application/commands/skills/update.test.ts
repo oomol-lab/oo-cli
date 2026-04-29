@@ -1,4 +1,4 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 
@@ -19,6 +19,7 @@ import { APP_NAME } from "../../config/app-config.ts";
 import {
     resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
+    resolveHermesHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
@@ -240,6 +241,84 @@ describe("skills update command", () => {
                 "utf8",
             )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }));
             expect(await readFile(join(claudeInstalledSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
+                "# ChatGPT fresh",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("updates a published managed skill by copying for non-symlink hosts", async () => {
+        const sandbox = await createCliSandbox();
+        const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const installedSkillDirectoryPath = join(hermesHomeDirectory, "skills", "chatgpt");
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await mkdir(hermesHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+            await writeManagedRegistrySkillInstallation({
+                canonicalSkillDirectoryPath,
+                installedSkillDirectoryPath,
+                packageName: "openai",
+                skillMarkdown: "# ChatGPT stale\n",
+                version: "0.0.3",
+            });
+
+            const result = await sandbox.run(
+                ["skills", "update", "chatgpt"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.4",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.4.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT fresh\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Updated skill chatgpt to ${installedSkillDirectoryPath}.\n`,
+            );
+            expect(await realpath(installedSkillDirectoryPath)).not.toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect((await lstat(installedSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
+            expect(await readFile(
+                resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
+                "utf8",
+            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }));
+            expect(await readFile(join(installedSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
                 "# ChatGPT fresh",
             );
         }

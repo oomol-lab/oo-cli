@@ -24,6 +24,7 @@ import {
     isLocalSkillPathContained,
     resolveLocalSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
+import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
@@ -175,7 +176,9 @@ async function initializeLocalSkill(
             const published = await publishBundledSkillInstallation({
                 canonicalSkillDirectoryPath,
                 installedSkillDirectoryPath: target.installedSkillDirectoryPath,
-                publicationMode: "symlink-or-copy",
+                publicationMode: resolveManagedSkillPublicationMode(
+                    target.agentName,
+                ),
             });
 
             publishedTargets.push(target);

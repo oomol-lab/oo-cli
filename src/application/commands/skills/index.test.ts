@@ -439,9 +439,10 @@ describe("skills commands", () => {
             expect(result.stdout).toBe(
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
-            expect(await realpath(skillDirectoryPath)).toBe(
+            expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
             );
@@ -602,9 +603,10 @@ describe("skills commands", () => {
             expect(result.stdout).toBe(
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
-            expect(await realpath(skillDirectoryPath)).toBe(
+            expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
             );
@@ -656,9 +658,10 @@ describe("skills commands", () => {
             expect(result.stdout).toBe(
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
-            expect(await realpath(skillDirectoryPath)).toBe(
+            expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
             );
@@ -1413,28 +1416,29 @@ describe("skills commands", () => {
                     "",
                 ].join("\n"),
             );
-            expect(await realpath(codexSkillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
-            );
-            expect(await realpath(claudeSkillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
-            );
-            expect(await realpath(hermesSkillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
-            );
-            expect(await realpath(codeBuddySkillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
-            );
-            expect(await realpath(workBuddySkillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
-            );
-            expect(await realpath(openClawSkillDirectoryPath)).not.toBe(
-                await realpath(canonicalSkillDirectoryPath),
-            );
-            expect(await realpath(qoderWorkSkillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
-            );
-            expect((await lstat(openClawSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
+            const canonicalSkillRealPath = await realpath(canonicalSkillDirectoryPath);
+
+            for (const linkedSkillDirectoryPath of [
+                codexSkillDirectoryPath,
+                claudeSkillDirectoryPath,
+                qoderWorkSkillDirectoryPath,
+            ]) {
+                expect(await realpath(linkedSkillDirectoryPath)).toBe(
+                    canonicalSkillRealPath,
+                );
+            }
+
+            for (const copiedSkillDirectoryPath of [
+                hermesSkillDirectoryPath,
+                codeBuddySkillDirectoryPath,
+                workBuddySkillDirectoryPath,
+                openClawSkillDirectoryPath,
+            ]) {
+                expect(await realpath(copiedSkillDirectoryPath)).not.toBe(
+                    canonicalSkillRealPath,
+                );
+                expect((await lstat(copiedSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
+            }
             for (const skillDirectoryPath of [
                 codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,

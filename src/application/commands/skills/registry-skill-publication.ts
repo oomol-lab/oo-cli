@@ -19,6 +19,7 @@ import {
 import {
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
+import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 import { requireExtractedRegistrySkillDirectory } from "./registry-skill-archive.ts";
 import { rewriteInstalledRegistrySkillMarkdown } from "./registry-skill-markdown.ts";
 
@@ -93,9 +94,9 @@ export async function publishPreparedRegistrySkillPublication(
             const publication = await publishBundledSkillInstallation({
                 canonicalSkillDirectoryPath: preparedPublication.canonicalSkillDirectoryPath,
                 installedSkillDirectoryPath: installation.installedSkillDirectoryPath,
-                publicationMode: installation.agentName === "openclaw"
-                    ? "copy"
-                    : "symlink-or-copy",
+                publicationMode: resolveManagedSkillPublicationMode(
+                    installation.agentName,
+                ),
             });
 
             return {

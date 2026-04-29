@@ -41,11 +41,12 @@ import {
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
-
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
+
+import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 
 interface BundledSkillHostInstallation extends ManagedSkillHostInstallation {
     canonicalSkillDirectoryPath: string;
@@ -220,7 +221,7 @@ export async function publishManagedBundledSkill(options: {
 
     return publishBundledSkillInstallation({
         ...installationPaths,
-        publicationMode: options.agentName === "openclaw" ? "copy" : "symlink-or-copy",
+        publicationMode: resolveManagedSkillPublicationMode(options.agentName),
     });
 }
 
