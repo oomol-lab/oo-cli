@@ -407,6 +407,9 @@ Install bundled or published skills into supported local skill directories.
 - Options: `-y, --yes` skips confirmation prompts. When a package publishes
   multiple skills and no explicit `--skill` is provided, `-y` installs all of
   them.
+- Output: successful non-interactive installs print a compact summary grouped by
+  installed skills and target AI agents. When exactly one target is written, the
+  summary includes that target path.
 - Notes: when a package publishes exactly one skill and no `--skill` is
   provided, the command installs that skill automatically.
 - Notes: when a package publishes multiple skills and no `--skill`, `--all`, or

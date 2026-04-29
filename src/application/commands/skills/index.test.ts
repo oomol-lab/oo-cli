@@ -91,9 +91,8 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    `Installed skill oo to ${ooSkillDirectoryPath}.`,
-                    `Installed skill oo-find-skills to ${findSkillsDirectoryPath}.`,
-                    `Installed skill oo-create-skill to ${createSkillDirectoryPath}.`,
+                    "Installed 3 skills to Codex.",
+                    "Skills: oo, oo-find-skills, oo-create-skill",
                     "",
                 ].join("\n"),
             );
@@ -132,6 +131,33 @@ describe("skills commands", () => {
             expect(await readFile(createSkillMetadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
             );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("colors compact bundled install summaries when stdout supports colors", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "install"], {
+                stdout: {
+                    hasColors: true,
+                },
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(stripVTControlCharacters(result.stdout)).toBe(
+                "Installed 3 skills to Codex.\nSkills: oo, oo-find-skills, oo-create-skill\n",
+            );
+            expect(result.stdout).toContain("\u001B[32mInstalled\u001B[39m");
+            expect(result.stdout).toContain("\u001B[36mCodex\u001B[39m");
+            expect(result.stdout).toContain("\u001B[36moo\u001B[39m");
         }
         finally {
             await sandbox.cleanup();
@@ -326,11 +352,7 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                [
-                    `Installed skill oo to ${codexOoSkillDirectoryPath}.`,
-                    `Installed skill oo to ${claudeOoSkillDirectoryPath}.`,
-                    "",
-                ].join("\n"),
+                "Installed skill oo to 2 agents: Codex, Claude Code.\n",
             );
             expect(await realpath(codexOoSkillDirectoryPath)).toBe(
                 await realpath(codexCanonicalSkillDirectoryPath),
@@ -1474,17 +1496,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                [
-                    `Installed skill chatgpt to ${codexSkillDirectoryPath}.`,
-                    `Installed skill chatgpt to ${claudeSkillDirectoryPath}.`,
-                    `Installed skill chatgpt to ${hermesSkillDirectoryPath}.`,
-                    `Installed skill chatgpt to ${codeBuddySkillDirectoryPath}.`,
-                    `Installed skill chatgpt to ${workBuddySkillDirectoryPath}.`,
-                    `Installed skill chatgpt to ${traeSkillDirectoryPath}.`,
-                    `Installed skill chatgpt to ${openClawSkillDirectoryPath}.`,
-                    `Installed skill chatgpt to ${qoderWorkSkillDirectoryPath}.`,
-                    "",
-                ].join("\n"),
+                "Installed skill chatgpt to 8 agents: Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, OpenClaw, QoderWork.\n",
             );
             const canonicalSkillRealPath = await realpath(canonicalSkillDirectoryPath);
 

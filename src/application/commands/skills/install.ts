@@ -1,8 +1,10 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import type { BundledSkillName } from "./embedded-assets.ts";
 
+import type { ManagedSkillInstallSummary } from "./install-output.ts";
 import { z } from "zod";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { writeManagedSkillInstallSummary } from "./install-output.ts";
 import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 import { installBundledSkill, isBundledSkillName } from "./shared.ts";
@@ -56,17 +58,23 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         await migrateLegacyCanonicalSkillLayout(context);
 
         if (input.packageName === undefined) {
+            const summaries: ManagedSkillInstallSummary[] = [];
+
             for (const skillName of availableBundledSkillNames) {
-                await installBundledSkill(skillName, context);
+                summaries.push(await installBundledSkill(skillName, context));
             }
+
+            writeManagedSkillInstallSummary(context, summaries);
             return;
         }
 
         if (isBundledSkillName(input.packageName)) {
-            await installBundledSkill(
+            const summary = await installBundledSkill(
                 input.packageName as BundledSkillName,
                 context,
             );
+
+            writeManagedSkillInstallSummary(context, [summary]);
             return;
         }
 

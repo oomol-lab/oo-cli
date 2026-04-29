@@ -230,17 +230,17 @@
 
 ## AI Agent Skill
 
-在执行具体命令前，`oo` 会为已经存在的受支持宿主目录静默同步受管理的
+在执行具体命令前，`oo` 会为已经存在的受支持 Agent 目录静默同步受管理的
 skills。
 
 - 内置 skill：`oo` 会确保每个检测到的 Codex、Claude Code、Hermes、
-  CodeBuddy、WorkBuddy、Trae、OpenClaw 和 QoderWork 宿主都安装了 `oo` 与
+  CodeBuddy、WorkBuddy、Trae、OpenClaw 和 QoderWork Agent 都安装了 `oo` 与
   `oo-find-skills`。已经由 oo 管理的内置 skill 目标会刷新到当前 `oo` 版本；
   但当启动中的当前版本为 `0.0.0-development` 时，不会刷新已存在的内置 skill
   目标。
 - 已发布 skill：如果某个已发布 skill 已经有本地 canonical 副本
   `<config-dir>/skills/registry/<skill-id>`，`oo` 会把该副本发布到任何新检测
-  到且尚未安装它的受支持宿主。
+  到且尚未安装它的受支持 Agent。
 - 安全规则：启动同步不会请求 registry，不要求登录，不会产生额外命令输出，也
   不会覆盖不由 `oo` 管理的同名目标。
 
@@ -255,34 +255,34 @@ skills。
   `${OPENCLAW_HOME:-~/.openclaw}/skills`、`~/.qoderwork/skills`。只保留包含
   可解析 `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
 - 输出：文本输出会先打印摘要行，再为每个唯一的可见 skill 身份打印一个块。
-  如果多个宿主中的安装具有相同 `name`、来源和版本，则会折叠到同一个块中。
+  如果多个 Agent 中的安装具有相同 `name`、来源和版本，则会折叠到同一个块中。
 - 排序：bundled skills 会排在最前面；其中 `oo` 优先，其次
   `oo-find-skills`，再其次 `oo-create-skill`；其余 skill 按名称排序。每个
-  块内的宿主名称按 `Codex`、`Claude Code`、`Hermes`、`CodeBuddy`、
+  块内的 Agent 名称按 `Codex`、`Claude Code`、`Hermes`、`CodeBuddy`、
   `WorkBuddy`、`Trae`、`OpenClaw`、`QoderWork` 顺序显示。
-- 输出：每个 skill 块会显示 skill 名称、宿主、来源 package、内置或本地标记，以
+- 输出：每个 skill 块会显示 skill 名称、Agents、来源 package、内置或本地标记，以
   及记录的版本号。
-- 说明：如果折叠后的 skill 安装在多个受支持宿主中，`宿主` 字段会列出所有
-  匹配的宿主。
+- 说明：如果折叠后的 skill 安装在多个受支持 Agent 中，`Agents` 字段会列出所有
+  匹配的 Agent。
 
 ### `oo skills preflight`
 
 检查当前环境是否有权限编辑本地 skills。
 
-- 选项：`--agent <agent>` 将宿主检查限制为一个受支持 agent：`codex`、
+- 选项：`--agent <agent>` 将 Agent 检查限制为一个受支持 Agent：`codex`、
   `claude`、`hermes`、`codebuddy`、`workbuddy`、`trae`、`openclaw` 或
   `qoderwork`。
-- 宿主检查：未提供 `--agent` 时，至少需要存在一个受支持 agent home 目录。
-  提供 `--agent` 时，该指定 agent home 目录必须存在。
-- 存储检查：命令会在需要时创建 `<config-dir>/skills/local` 和每个已检查宿主
+- Agent 检查：未提供 `--agent` 时，至少需要存在一个受支持 Agent home 目录。
+  提供 `--agent` 时，该指定 Agent home 目录必须存在。
+- 存储检查：命令会在需要时创建 `<config-dir>/skills/local` 和每个已检查 Agent
   的发布根目录（如 `<agent-home>/skills`），并在每个已检查目录中写入再移除
   临时探针文件。
-- 输出：成功时，文本输出会打印可写存储路径和已检查的受支持宿主数量。失败时
+- 输出：成功时，文本输出会打印可写存储路径和已检查的受支持 Agent 数量。失败时
   命令以非零状态退出。
 
 ### `oo skills init <name>`
 
-初始化一个本地 skill，并发布到所有已存在的受支持 agent home 目录。
+初始化一个本地 skill，并发布到所有已存在的受支持 Agent home 目录。
 
 - 参数：`<name>` 会规范化为小写短横线格式，并用作 skill id、canonical 目录名、
   目标目录名以及 frontmatter `name`。
@@ -296,7 +296,7 @@ skills。
   frontmatter。未提供时不会生成 `metadata.title`。
 - canonical 目录：skill 创建在 `<config-dir>/skills/local/<skill-id>` 下，
   其中 `<config-dir>` 是 oo settings 文件所在目录。
-- 目标目录：命令会向每个已存在的受支持 agent skill 目录发布该 skill：
+- 目标目录：命令会向每个已存在的受支持 Agent skill 目录发布该 skill：
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`、`~/.claude/skills/<skill-id>`，
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`、
   `~/.codebuddy/skills/<skill-id>`、`~/.workbuddy/skills/<skill-id>`、
@@ -306,7 +306,7 @@ skills。
 - 发布方式：Codex、Claude Code、Trae 和 QoderWork 目标会在当前平台和环境允许时
   发布为指向 canonical 目录的软连接；Hermes、CodeBuddy、WorkBuddy 和 OpenClaw
   目标会复制。
-- 失败行为：如果没有受支持的 agent home，或 canonical 本地目录、任意目标目录
+- 失败行为：如果没有受支持的 Agent home，或 canonical 本地目录、任意目标目录
   已存在，命令会在写入 skill 前以非零状态退出。
 - 输出：文本输出会先打印 canonical 存储目录，然后为每个目标路径打印一行带实际发布
   方式（软链接或复制）的成功消息。
@@ -355,6 +355,8 @@ skills。
 - 选项：`--all` 是安装全部已发布 skill 的快捷方式，并跳过 skill 选择提示。
 - 选项：`-y, --yes` 用于跳过确认提示。当 package 下有多个 skill 且未显式
   提供 `--skill` 时，`-y` 会安装全部 skill。
+- 输出：非交互安装成功时，会按已安装 skill 和目标 AI Agent 聚合输出精简摘要；
+  当实际只写入一个目标时，摘要会包含该目标路径。
 - 说明：如果 package 只发布了一个 skill，且未提供 `--skill`，命令会自动
   安装这个唯一的 skill。
 - 说明：如果 package 发布了多个 skill，且未提供 `--skill`、`--all` 或
@@ -371,7 +373,7 @@ skills。
   目录（`claude-skills/`、`openclaw-skills/`，以及直接位于 `skills/` 下的旧
   Codex 内置 / 已发布 skill 目录）。内置 skill 会自动以新布局重建；之前安装
   的已发布 skill 需要通过 `oo skills install <packageName>` 重新安装。
-- 目标目录：内置和已发布 skill 会发布到所有已存在的受支持宿主目录，目前包括
+- 目标目录：内置和已发布 skill 会发布到所有已存在的受支持 Agent 目录，目前包括
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>` 和
   `~/.claude/skills/<skill-id>`，以及
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`、
@@ -380,7 +382,7 @@ skills。
   `~/.trae/skills/<skill-id>`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`、
   `~/.qoderwork/skills/<skill-id>`。
-- 目标目录：当已存在的受支持宿主缺少 `skills` 根目录时，命令会先创建该目录，
+- 目标目录：当已存在的受支持 Agent 缺少 `skills` 根目录时，命令会先创建该目录，
   再发布所选 skill。
 - 安装方式：内置和已发布的 Codex / Claude Code / Trae / QoderWork skill 会优
   先把目标目录发布为指向 canonical 目录的软连接。如果当前平台或环境下创建
@@ -422,10 +424,10 @@ skills。
 - 已发布 skill：registry skill 会从 `.oo-metadata.json` 读取所属包名，再通过
   不带显式版本的 package info 请求判断最新可用版本。
 - 更新顺序：命令会先刷新 canonical 目录
-  `<config-dir>/skills/registry/<skill-id>`，再同步到所有已存在的受支持宿主目录。
+  `<config-dir>/skills/registry/<skill-id>`，再同步到所有已存在的受支持 Agent 目录。
 - 交互式终端：会显示实时进度。
 - 非交互式终端：对每个已是最新或失败的 skill 输出一行状态信息；对每个已更新
-  的宿主目标路径输出一行成功信息。
+  的 Agent 目标路径输出一行成功信息。
 
 ### `oo skills uninstall [skill]`
 
@@ -433,12 +435,12 @@ skills。
 
 - 别名：`oo skills remove [skill]`。
 - 参数：省略 `[skill]` 时，命令会移除全部内置 skill。
-- 所有权规则：对内置 skill 来说，只有当某个受支持宿主中的安装目录包含可解
-  析且带有非空 `version` 的 `.oo-metadata.json` 时，才允许从该宿主移除。
+- 所有权规则：对内置 skill 来说，只有当某个受支持 Agent 中的安装目录包含可解
+  析且带有非空 `version` 的 `.oo-metadata.json` 时，才允许从该 Agent 移除。
 - 会同时移除 canonical 目录：内置 skill 会移除
-  `<config-dir>/skills/bundled/<agent>/<skill>`（每个已安装宿主各一份），
+  `<config-dir>/skills/bundled/<agent>/<skill>`（每个已安装 Agent 各一份），
   已发布 skill 会移除 `<config-dir>/skills/registry/<skill>`。
-- 会同时移除目标目录：内置和已发布 skill 会从所有已存在的受支持宿主目录中
+- 会同时移除目标目录：内置和已发布 skill 会从所有已存在的受支持 Agent 目录中
   移除，目前包括 `${CODEX_HOME:-~/.codex}/skills/<skill>` 和
   `~/.claude/skills/<skill>`，以及
   `${HERMES_HOME:-~/.hermes}/skills/<skill>`、

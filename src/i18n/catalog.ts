@@ -574,12 +574,20 @@ export const enMessages = {
     "skills.init.linked": "Linked skill {name} to {path}.",
     "skills.init.copied": "Copied skill {name} to {path}.",
     "skills.install.success": "Installed skill {name} to {path}.",
+    "skills.install.summary.agentsLabel": "Agents",
+    "skills.install.summary.detailLine": "{label}: {values}",
+    "skills.install.summary.installed": "Installed",
+    "skills.install.summary.multipleSkillsMultipleAgents":
+        "{status} {skillCount} skills to {agentCount} agents.",
+    "skills.install.summary.multipleSkillsSingleAgent":
+        "{status} {skillCount} skills to {agentName}.",
+    "skills.install.summary.singleSkillMultipleAgents":
+        "{status} skill {skillName} to {agentCount} agents: {agentNames}.",
+    "skills.install.summary.skillsLabel": "Skills",
     "skills.install.overwrite.invalid":
         "Invalid choice. Enter y/yes or n/no.",
     "skills.install.overwrite.prompt":
         "Skill {name} already exists. Overwrite? [y/N] ",
-    "skills.install.selection.invalid":
-        "Invalid selection. Use one or more comma-separated numbers, or press Enter to cancel.",
     "skills.install.selection.prompt":
         "Select skills to install or keep installed (space to toggle)",
     "skills.install.progress.installing.start": "Installing selected skills...",
@@ -1032,7 +1040,7 @@ export const zhMessages = {
     "errors.skills.workbuddyNotInstalled":
         "未检测到 WorkBuddy 安装。期望的 WorkBuddy 根目录为 {path}。",
     "errors.skills.noSupportedBundledSkillHosts":
-        "未检测到已安装的受支持 skill 宿主。期望其中之一位于：{paths}。",
+        "未检测到已安装的受支持 Agent。期望其中之一位于：{paths}。",
     "errors.skills.install.confirmationRequired":
         "Skill {name} 已存在，且需要在交互终端中确认覆盖。",
     "errors.skills.install.invalidArchive":
@@ -1058,7 +1066,7 @@ export const zhMessages = {
     "errors.skills.update.packageNameMissing":
         "无法在 {hostNames} 中更新由 oo 管理的 skill {name}，因为缺少 package 元数据。",
     "errors.skills.update.notManaged":
-        "host {hostName} 中的 skill {name} 不是由 oo 管理的 skill，无法更新。",
+        "Agent {hostName} 中的 skill {name} 不是由 oo 管理的 skill，无法更新。",
     "errors.skills.nameConflict":
         "Skill 名称 {name} 已被 {path} 中的非 OOMOL skill 占用。",
     "errors.skills.storageConflict":
@@ -1152,7 +1160,7 @@ export const zhMessages = {
     "options.onlyPackageId": "仅返回 package id",
     "options.all":
         "安装全部已发布 skill，并跳过 skill 选择提示",
-    "options.agent": "检查一个受支持的 skill 宿主",
+    "options.agent": "检查一个受支持的 Agent",
     "options.nextToken": "指定下一页分页令牌",
     "options.packageId": "按 package id 过滤",
     "options.packageName": "--package-id 的别名",
@@ -1204,10 +1212,10 @@ export const zhMessages = {
     "skills.install.allSelected":
         "将安装全部 {count} 个 skill。",
     "skills.check.success":
-        "本地 skill 编辑环境可用。可写存储：{path}。受支持宿主数：{count}。",
+        "本地 skill 编辑环境可用。可写存储：{path}。受支持 Agents：{count}。",
     "skills.list.noResults":
         "未找到由 oo 管理的 skill。",
-    "skills.list.host": "宿主",
+    "skills.list.host": "Agents",
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codebuddy": "CodeBuddy",
     "skills.list.host.codex": "Codex",
@@ -1228,12 +1236,20 @@ export const zhMessages = {
     "skills.init.linked": "已将 skill {name} 软链接到 {path}。",
     "skills.init.copied": "已将 skill {name} 复制到 {path}。",
     "skills.install.success": "已将 skill {name} 安装到 {path}。",
+    "skills.install.summary.agentsLabel": "Agents",
+    "skills.install.summary.detailLine": "{label}：{values}",
+    "skills.install.summary.installed": "已安装",
+    "skills.install.summary.multipleSkillsMultipleAgents":
+        "{status} {skillCount} 个 skills 到 {agentCount} 个 Agents。",
+    "skills.install.summary.multipleSkillsSingleAgent":
+        "{status} {skillCount} 个 skills 到 {agentName}。",
+    "skills.install.summary.singleSkillMultipleAgents":
+        "{status} skill {skillName} 到 {agentCount} 个 Agents：{agentNames}。",
+    "skills.install.summary.skillsLabel": "Skills",
     "skills.install.overwrite.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
     "skills.install.overwrite.prompt":
         "Skill {name} 已存在，是否覆盖？[y/N] ",
-    "skills.install.selection.invalid":
-        "选择无效。请输入一个或多个逗号分隔的序号，或直接回车取消。",
     "skills.install.selection.prompt":
         "选择要安装或保留的 skill（空格切换）",
     "skills.install.progress.installing.start": "正在安装所选 skill...",
@@ -1259,7 +1275,7 @@ export const zhMessages = {
     "skills.update.progress.header": "正在更新已安装的 skill",
     "skills.update.progress.checking": "检查更新中",
     "skills.update.progress.preparing": "更新 canonical 文件中",
-    "skills.update.progress.publishing": "同步到受支持宿主中",
+    "skills.update.progress.publishing": "同步到受支持 Agents 中",
     "skills.update.progress.current": "已是最新",
     "skills.update.progress.updated": "已更新",
     "skills.update.progress.failed": "失败",

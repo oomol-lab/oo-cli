@@ -96,9 +96,8 @@ exports[`skills CLI writes explicit skills install and uninstall logs 1`] = `
     "exitCode": 0,
     "stderr": "",
     "stdout": 
-"Installed skill oo to <HOME>/.codex/skills/oo.
-Installed skill oo-find-skills to <HOME>/.codex/skills/oo-find-skills.
-Installed skill oo-create-skill to <HOME>/.codex/skills/oo-create-skill.
+"Installed 3 skills to Codex.
+Skills: oo, oo-find-skills, oo-create-skill
 "
 ,
   },
