@@ -10,6 +10,7 @@ import {
     resolveClaudeHomeDirectory,
     resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
+    resolveHermesHomeDirectory,
     resolveQoderWorkHomeDirectory,
     resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
@@ -96,6 +97,40 @@ describe("skills preflight command", () => {
                 "preflight",
                 "--agent",
                 "qoderwork",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+            );
+            expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("checks Hermes as a requested agent", async () => {
+        const sandbox = await createCliSandbox();
+        const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
+            storePaths.settingsFilePath,
+        );
+
+        try {
+            await mkdir(hermesHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "preflight",
+                "--agent",
+                "hermes",
             ]);
 
             expect(result.exitCode).toBe(0);

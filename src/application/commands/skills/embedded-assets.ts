@@ -52,7 +52,7 @@ import ooQoderWorkSearchAndSelectionReferencePath from "../../../../contrib/skil
 import ooQoderWorkTaskLifecycleReferencePath from "../../../../contrib/skills/qoderwork/oo/references/task-lifecycle.md" with { type: "file" };
 import ooQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo/SKILL.md" with { type: "file" };
 
-export const availableBundledSkillAgentNames = ["codex", "claude", "codebuddy", "workbuddy", "openclaw", "qoderwork"] as const;
+export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "openclaw", "qoderwork"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
 
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill"] as const;
@@ -113,7 +113,7 @@ const ooQoderWorkReferenceFiles = createOoReferenceFiles({
     taskLifecycle: ooQoderWorkTaskLifecycleReferencePath,
 });
 
-// Keep this registry aligned with contrib/skills/<agent>/<skill> so Bun embeds the files.
+// Keep this registry aligned with contrib/skills/<agent>/<skill> or its compatible source so Bun embeds the files.
 const bundledSkillRegistry = {
     "oo": {
         codex: {
@@ -130,6 +130,15 @@ const bundledSkillRegistry = {
             ],
         },
         claude: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooClaudeSkillPath,
+                },
+                ...ooClaudeCompatibleReferenceFiles,
+            ],
+        },
+        hermes: {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -204,6 +213,18 @@ const bundledSkillRegistry = {
                 },
             ],
         },
+        hermes: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooFindSkillsClaudeSkillPath,
+                },
+                {
+                    relativePath: "references/oo-cli-contract.md",
+                    sourcePath: ooFindSkillsClaudeCliContractPath,
+                },
+            ],
+        },
         codebuddy: {
             files: [
                 {
@@ -267,6 +288,14 @@ const bundledSkillRegistry = {
             ],
         },
         claude: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCreateSkillClaudeSkillPath,
+                },
+            ],
+        },
+        hermes: {
             files: [
                 {
                     relativePath: "SKILL.md",

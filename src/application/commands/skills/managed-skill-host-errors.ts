@@ -4,6 +4,7 @@ export type ManagedSkillHostMissingErrorKey
     = | "errors.skills.claudeNotInstalled"
         | "errors.skills.codebuddyNotInstalled"
         | "errors.skills.codexNotInstalled"
+        | "errors.skills.hermesNotInstalled"
         | "errors.skills.openclawNotInstalled"
         | "errors.skills.qoderworkNotInstalled"
         | "errors.skills.workbuddyNotInstalled";
@@ -18,6 +19,8 @@ export function resolveManagedSkillHostMissingErrorKey(
             return "errors.skills.codebuddyNotInstalled";
         case "codex":
             return "errors.skills.codexNotInstalled";
+        case "hermes":
+            return "errors.skills.hermesNotInstalled";
         case "openclaw":
             return "errors.skills.openclawNotInstalled";
         case "qoderwork":

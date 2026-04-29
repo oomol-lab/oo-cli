@@ -137,6 +137,33 @@ describe("bundled skill observation", () => {
         }
     });
 
+    test("requires the resolved Hermes home directory to exist", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const hermesHomeDirectory = join(rootDirectory, "custom-hermes-home");
+        const env = {
+            HERMES_HOME: hermesHomeDirectory,
+            HOME: rootDirectory,
+        };
+
+        try {
+            await expect(
+                requireBundledSkillHomeDirectory({ env }, "hermes"),
+            ).rejects.toMatchObject({
+                exitCode: 1,
+                key: "errors.skills.hermesNotInstalled",
+            });
+
+            await mkdir(hermesHomeDirectory, { recursive: true });
+
+            expect(await requireBundledSkillHomeDirectory({ env }, "hermes")).toBe(
+                hermesHomeDirectory,
+            );
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
     test("requires the resolved CodeBuddy home directory to exist", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
         const codeBuddyHomeDirectory = join(rootDirectory, ".codebuddy");
