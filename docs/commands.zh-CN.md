@@ -369,6 +369,8 @@ skills。
   `~/.codebuddy/skills/<skill-id>`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`、
   `~/.qoderwork/skills/<skill-id>`。
+- 目标目录：当已存在的受支持宿主缺少 `skills` 根目录时，命令会先创建该目录，
+  再发布所选 skill。
 - 安装方式：内置和已发布的 Codex / Claude Code / CodeBuddy / QoderWork
   skill 会优先把目标目录发布为指向 canonical 目录的软连接。如果当前平台或环境
   下创建软连接失败，则会回退为把 canonical 目录内容复制到目标 skills 目录。

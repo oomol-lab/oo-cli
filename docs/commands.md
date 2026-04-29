@@ -423,6 +423,8 @@ Install bundled or published skills into supported local skill directories.
   `~/.codebuddy/skills/<skill-id>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`, and
   `~/.qoderwork/skills/<skill-id>`.
+- Target directory: if an existing supported host is missing its `skills` root,
+  the command creates that root before publishing the selected skill.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
 - Installation mode: bundled and published Codex, Claude Code, CodeBuddy, and

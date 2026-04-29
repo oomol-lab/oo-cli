@@ -451,6 +451,7 @@ describe("skills commands", () => {
     test("installs bundled skills into QoderWork without Claude allowed tools", async () => {
         const sandbox = await createCliSandbox();
         const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
+        const qoderWorkSkillsDirectoryPath = join(qoderWorkHomeDirectory, "skills");
         const skillDirectoryPath = join(qoderWorkHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -473,6 +474,9 @@ describe("skills commands", () => {
             }
 
             await mkdir(qoderWorkHomeDirectory, { recursive: true });
+            await expect(stat(qoderWorkSkillsDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
 
             const result = await sandbox.run(["skills", "install", "oo"], {
                 version: "9.9.9",
@@ -482,6 +486,7 @@ describe("skills commands", () => {
             expect(result.stdout).toBe(
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
+            expect((await stat(qoderWorkSkillsDirectoryPath)).isDirectory()).toBeTrue();
             expect(await realpath(skillDirectoryPath)).toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
