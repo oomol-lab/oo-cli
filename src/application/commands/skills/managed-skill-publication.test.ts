@@ -19,6 +19,7 @@ describe("managed skill publication policy", () => {
             hermes: "copy",
             openclaw: "copy",
             qoderwork: "symlink-or-copy",
+            trae: "symlink-or-copy",
             workbuddy: "copy",
         });
     });

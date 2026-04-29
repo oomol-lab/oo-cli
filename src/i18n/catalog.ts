@@ -367,6 +367,8 @@ export const enMessages = {
         "OpenClaw is not installed. Expected the OpenClaw home directory at {path}.",
     "errors.skills.qoderworkNotInstalled":
         "QoderWork is not installed. Expected the QoderWork home directory at {path}.",
+    "errors.skills.traeNotInstalled":
+        "Trae is not installed. Expected the Trae home directory at {path}.",
     "errors.skills.workbuddyNotInstalled":
         "WorkBuddy is not installed. Expected the WorkBuddy home directory at {path}.",
     "errors.skills.noSupportedBundledSkillHosts":
@@ -558,6 +560,7 @@ export const enMessages = {
     "skills.list.host.hermes": "Hermes",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
+    "skills.list.host.trae": "Trae",
     "skills.list.host.workbuddy": "WorkBuddy",
     "skills.list.source": "Source",
     "skills.list.source.bundled": "bundled",
@@ -1024,6 +1027,8 @@ export const zhMessages = {
         "未检测到 OpenClaw 安装。期望的 OpenClaw 根目录为 {path}。",
     "errors.skills.qoderworkNotInstalled":
         "未检测到 QoderWork 安装。期望的 QoderWork 根目录为 {path}。",
+    "errors.skills.traeNotInstalled":
+        "未检测到 Trae 安装。期望的 Trae 根目录为 {path}。",
     "errors.skills.workbuddyNotInstalled":
         "未检测到 WorkBuddy 安装。期望的 WorkBuddy 根目录为 {path}。",
     "errors.skills.noSupportedBundledSkillHosts":
@@ -1209,6 +1214,7 @@ export const zhMessages = {
     "skills.list.host.hermes": "Hermes",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
+    "skills.list.host.trae": "Trae",
     "skills.list.host.workbuddy": "WorkBuddy",
     "skills.list.source": "来源",
     "skills.list.source.bundled": "内置",

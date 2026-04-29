@@ -234,9 +234,10 @@
 skills。
 
 - 内置 skill：`oo` 会确保每个检测到的 Codex、Claude Code、Hermes、
-  CodeBuddy、WorkBuddy、OpenClaw 和 QoderWork 宿主都安装了 `oo` 与 `oo-find-skills`。已经由 oo
-  管理的内置 skill 目标会刷新到当前 `oo` 版本；但当启动中的当前版本为
-  `0.0.0-development` 时，不会刷新已存在的内置 skill 目标。
+  CodeBuddy、WorkBuddy、Trae、OpenClaw 和 QoderWork 宿主都安装了 `oo` 与
+  `oo-find-skills`。已经由 oo 管理的内置 skill 目标会刷新到当前 `oo` 版本；
+  但当启动中的当前版本为 `0.0.0-development` 时，不会刷新已存在的内置 skill
+  目标。
 - 已发布 skill：如果某个已发布 skill 已经有本地 canonical 副本
   `<config-dir>/skills/registry/<skill-id>`，`oo` 会把该副本发布到任何新检测
   到且尚未安装它的受支持宿主。
@@ -250,15 +251,15 @@ skills。
 - 所有权规则：命令会扫描每个已存在的受支持本地 skill 根目录：
   `${CODEX_HOME:-~/.codex}/skills`、`~/.claude/skills`，以及
   `${HERMES_HOME:-~/.hermes}/skills`、`~/.codebuddy/skills`、
-  `~/.workbuddy/skills`、`${OPENCLAW_HOME:-~/.openclaw}/skills`、
-  `~/.qoderwork/skills`。只保留包含可解析 `.oo-metadata.json` 且其中包含非空
-  `version` 的子目录。
+  `~/.workbuddy/skills`、`~/.trae/skills`、
+  `${OPENCLAW_HOME:-~/.openclaw}/skills`、`~/.qoderwork/skills`。只保留包含
+  可解析 `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
 - 输出：文本输出会先打印摘要行，再为每个唯一的可见 skill 身份打印一个块。
   如果多个宿主中的安装具有相同 `name`、来源和版本，则会折叠到同一个块中。
 - 排序：bundled skills 会排在最前面；其中 `oo` 优先，其次
   `oo-find-skills`，再其次 `oo-create-skill`；其余 skill 按名称排序。每个
   块内的宿主名称按 `Codex`、`Claude Code`、`Hermes`、`CodeBuddy`、
-  `WorkBuddy`、`OpenClaw`、`QoderWork` 顺序显示。
+  `WorkBuddy`、`Trae`、`OpenClaw`、`QoderWork` 顺序显示。
 - 输出：每个 skill 块会显示 skill 名称、宿主、来源 package、内置或本地标记，以
   及记录的版本号。
 - 说明：如果折叠后的 skill 安装在多个受支持宿主中，`宿主` 字段会列出所有
@@ -269,7 +270,8 @@ skills。
 检查当前环境是否有权限编辑本地 skills。
 
 - 选项：`--agent <agent>` 将宿主检查限制为一个受支持 agent：`codex`、
-  `claude`、`hermes`、`codebuddy`、`workbuddy`、`openclaw` 或 `qoderwork`。
+  `claude`、`hermes`、`codebuddy`、`workbuddy`、`trae`、`openclaw` 或
+  `qoderwork`。
 - 宿主检查：未提供 `--agent` 时，至少需要存在一个受支持 agent home 目录。
   提供 `--agent` 时，该指定 agent home 目录必须存在。
 - 存储检查：命令会在需要时创建 `<config-dir>/skills/local` 和每个已检查宿主
@@ -298,10 +300,12 @@ skills。
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`、`~/.claude/skills/<skill-id>`，
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`、
   `~/.codebuddy/skills/<skill-id>`、`~/.workbuddy/skills/<skill-id>`、
+  `~/.trae/skills/<skill-id>`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`，以及
   `~/.qoderwork/skills/<skill-id>`。
-- 发布方式：Codex、Claude Code 和 QoderWork 目标会在当前平台和环境允许时发布为
-  指向 canonical 目录的软连接；Hermes、CodeBuddy、WorkBuddy 和 OpenClaw 目标会复制。
+- 发布方式：Codex、Claude Code、Trae 和 QoderWork 目标会在当前平台和环境允许时
+  发布为指向 canonical 目录的软连接；Hermes、CodeBuddy、WorkBuddy 和 OpenClaw
+  目标会复制。
 - 失败行为：如果没有受支持的 agent home，或 canonical 本地目录、任意目标目录
   已存在，命令会在写入 skill 前以非零状态退出。
 - 输出：文本输出会先打印 canonical 存储目录，然后为每个目标路径打印一行带实际发布
@@ -360,7 +364,7 @@ skills。
 - canonical 目录：内置 skill 会先释放到
   `<config-dir>/skills/bundled/<agent>/<skill-id>`，其中 `<config-dir>` 是
   `settings.toml` 所在目录，`<agent>` 为 `codex`、`claude`、`hermes`、
-  `codebuddy`、`workbuddy`、`openclaw` 或 `qoderwork`。
+  `codebuddy`、`workbuddy`、`trae`、`openclaw` 或 `qoderwork`。
 - canonical 目录：已发布 skill 会先释放到
   `<config-dir>/skills/registry/<skill-id>`。
 - 迁移：升级后首次运行 `oo skills install` 时，命令会清理历史遗留的 canonical
@@ -373,13 +377,14 @@ skills。
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`、
   `~/.codebuddy/skills/<skill-id>`、
   `~/.workbuddy/skills/<skill-id>`、
+  `~/.trae/skills/<skill-id>`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`、
   `~/.qoderwork/skills/<skill-id>`。
 - 目标目录：当已存在的受支持宿主缺少 `skills` 根目录时，命令会先创建该目录，
   再发布所选 skill。
-- 安装方式：内置和已发布的 Codex / Claude Code / QoderWork skill 会优先把
-  目标目录发布为指向 canonical 目录的软连接。如果当前平台或环境下创建软连接失败，则
-  会回退为把 canonical 目录内容复制到目标 skills 目录。
+- 安装方式：内置和已发布的 Codex / Claude Code / Trae / QoderWork skill 会优
+  先把目标目录发布为指向 canonical 目录的软连接。如果当前平台或环境下创建
+  软连接失败，则会回退为把 canonical 目录内容复制到目标 skills 目录。
 - 安装方式：内置和已发布的 Hermes / CodeBuddy / WorkBuddy / OpenClaw skill
   会直接复制到目标 skills 目录。
 - 元数据：内置 skill 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
@@ -397,8 +402,8 @@ skills。
   skill，命令不会覆盖它。
 - 说明：在交互选择页面中，存在重名冲突的 skill 会在列表中显示状态标记；
   只要用户仍然选择该项，就会执行覆盖。
-- 说明：当 Codex、Claude Code、Hermes、CodeBuddy、WorkBuddy、OpenClaw 和
-  QoderWork 的受支持根目录都不存在时，命令会直接报错退出。
+- 说明：当 Codex、Claude Code、Hermes、CodeBuddy、WorkBuddy、Trae、OpenClaw
+  和 QoderWork 的受支持根目录都不存在时，命令会直接报错退出。
 - 说明：只有当 bundled skill 的 `.oo-metadata.json` 可以被解析，且其中包
   含非空的 `version` 时，`oo` 才会认为这是自己管理的内置 skill；否则会视
   为其他 skill，并拒绝覆盖。
@@ -439,6 +444,7 @@ skills。
   `${HERMES_HOME:-~/.hermes}/skills/<skill>`、
   `~/.codebuddy/skills/<skill>`、
   `~/.workbuddy/skills/<skill>`、
+  `~/.trae/skills/<skill>`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`、
   `~/.qoderwork/skills/<skill>`。
 - 路径规则：`[skill]` 解析后必须仍然落在这些本地 `skills` 根目录的子目录中。

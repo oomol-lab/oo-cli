@@ -52,7 +52,7 @@ import ooQoderWorkSearchAndSelectionReferencePath from "../../../../contrib/skil
 import ooQoderWorkTaskLifecycleReferencePath from "../../../../contrib/skills/qoderwork/oo/references/task-lifecycle.md" with { type: "file" };
 import ooQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo/SKILL.md" with { type: "file" };
 
-export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "openclaw", "qoderwork"] as const;
+export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "trae", "openclaw", "qoderwork"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
 
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill"] as const;
@@ -165,6 +165,15 @@ const bundledSkillRegistry = {
                 ...ooCodeBuddyReferenceFiles,
             ],
         },
+        trae: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCodeBuddySkillPath,
+                },
+                ...ooCodeBuddyReferenceFiles,
+            ],
+        },
         openclaw: {
             files: [
                 {
@@ -249,6 +258,18 @@ const bundledSkillRegistry = {
                 },
             ],
         },
+        trae: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooFindSkillsCodeBuddySkillPath,
+                },
+                {
+                    relativePath: "references/oo-cli-contract.md",
+                    sourcePath: ooFindSkillsCodeBuddyCliContractPath,
+                },
+            ],
+        },
         openclaw: {
             files: [
                 {
@@ -312,6 +333,14 @@ const bundledSkillRegistry = {
             ],
         },
         workbuddy: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCreateSkillCodeBuddySkillPath,
+                },
+            ],
+        },
+        trae: {
             files: [
                 {
                     relativePath: "SKILL.md",
