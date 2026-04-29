@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -8,6 +8,7 @@ import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     resolveClaudeHomeDirectory,
+    resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { resolveLocalSkillCanonicalDirectoryPath } from "./managed-skill-paths.ts";
@@ -129,6 +130,49 @@ describe("skills init command", () => {
                 "TODO: Describe the workflow this skill should follow.",
                 "",
             ].join("\n"));
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("initializes a local skill by copying for non-symlink hosts", async () => {
+        const sandbox = await createCliSandbox();
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "copy-skill");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "copy-skill",
+        );
+
+        try {
+            await mkdir(codeBuddyHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "init",
+                "copy-skill",
+                "--description",
+                "Use a known package workflow.",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                [
+                    `Initialized skill copy-skill in canonical storage at ${canonicalSkillDirectoryPath}.`,
+                    `Copied skill copy-skill to ${skillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
+            );
+            expect(await realpath(skillDirectoryPath)).not.toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
         }
         finally {
             await sandbox.cleanup();

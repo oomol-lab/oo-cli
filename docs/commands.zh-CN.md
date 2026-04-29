@@ -294,12 +294,14 @@ skills。
   frontmatter。未提供时不会生成 `metadata.title`。
 - canonical 目录：skill 创建在 `<config-dir>/skills/local/<skill-id>` 下，
   其中 `<config-dir>` 是 oo settings 文件所在目录。
-- 目标目录：命令会向每个已存在的受支持 agent skill 目录发布目录链接：
+- 目标目录：命令会向每个已存在的受支持 agent skill 目录发布该 skill：
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`、`~/.claude/skills/<skill-id>`，
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`、
   `~/.codebuddy/skills/<skill-id>`、`~/.workbuddy/skills/<skill-id>`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`，以及
   `~/.qoderwork/skills/<skill-id>`。
+- 发布方式：Codex、Claude Code 和 QoderWork 目标会在当前平台和环境允许时发布为
+  指向 canonical 目录的软连接；Hermes、CodeBuddy、WorkBuddy 和 OpenClaw 目标会复制。
 - 失败行为：如果没有受支持的 agent home，或 canonical 本地目录、任意目标目录
   已存在，命令会在写入 skill 前以非零状态退出。
 - 输出：文本输出会先打印 canonical 存储目录，然后为每个目标路径打印一行带实际发布
@@ -375,12 +377,11 @@ skills。
   `~/.qoderwork/skills/<skill-id>`。
 - 目标目录：当已存在的受支持宿主缺少 `skills` 根目录时，命令会先创建该目录，
   再发布所选 skill。
-- 安装方式：内置和已发布的 Codex / Claude Code / Hermes / CodeBuddy /
-  WorkBuddy / QoderWork skill 会优先把目标目录发布为指向 canonical 目录的软连接。如果当前平台
-  或环境下创建软连接失败，则会回退为把 canonical 目录内容复制到目标 skills 目录。
-- 安装方式：内置和已发布的 OpenClaw skill 会直接复制到
-  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`，以确保安装后的 skill
-  保持在 OpenClaw 管理的 skills 根目录内。
+- 安装方式：内置和已发布的 Codex / Claude Code / QoderWork skill 会优先把
+  目标目录发布为指向 canonical 目录的软连接。如果当前平台或环境下创建软连接失败，则
+  会回退为把 canonical 目录内容复制到目标 skills 目录。
+- 安装方式：内置和已发布的 Hermes / CodeBuddy / WorkBuddy / OpenClaw skill
+  会直接复制到目标 skills 目录。
 - 元数据：内置 skill 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
   `version` 字段记录当前 `oo` 版本。
 - 元数据：已发布 skill 也会写入一个隐藏的 `.oo-metadata.json` 文件，

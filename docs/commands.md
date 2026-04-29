@@ -337,13 +337,16 @@ directory that already exists.
 - Canonical directory: the skill is created under
   `<config-dir>/skills/local/<skill-id>`, where `<config-dir>` is the directory
   containing the oo settings file.
-- Target directories: the command publishes directory links to each existing
+- Target directories: the command publishes the skill to each existing
   supported agent skill directory:
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`, `~/.claude/skills/<skill-id>`,
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`,
   `~/.codebuddy/skills/<skill-id>`, `~/.workbuddy/skills/<skill-id>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`, and
   `~/.qoderwork/skills/<skill-id>`.
+- Publication mode: Codex, Claude Code, and QoderWork targets are published as
+  symlinks to the canonical directory when the current platform and environment
+  allow it. Hermes, CodeBuddy, WorkBuddy, and OpenClaw targets are copied.
 - Failure behavior: if no supported agent home exists, or if the canonical
   local directory or any target directory already exists, the command exits
   non-zero before writing the skill.
@@ -433,14 +436,13 @@ Install bundled or published skills into supported local skill directories.
   the command creates that root before publishing the selected skill.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
-- Installation mode: bundled and published Codex, Claude Code, Hermes,
-  CodeBuddy, WorkBuddy, and QoderWork skills are published to the target
-  directory as a symlink to the canonical directory when the current platform
-  and environment allow it. When symlink creation fails, `oo` falls back to
-  copying the canonical files into the target skills directory.
-- Installation mode: bundled and published OpenClaw skills are copied into
-  `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>` so the installed skill
-  stays inside OpenClaw's managed skills root.
+- Installation mode: bundled and published Codex, Claude Code, and QoderWork
+  skills are published to the target directory as a symlink to the canonical
+  directory when the current platform and environment allow it. When symlink
+  creation fails, `oo` falls back to copying the canonical files into the target
+  skills directory.
+- Installation mode: bundled and published Hermes, CodeBuddy, WorkBuddy, and
+  OpenClaw skills are copied into the target skills directory.
 - Metadata: bundled skills write a hidden `.oo-metadata.json` file whose
   `version` field matches the current `oo` version.
 - Metadata: published skills write a hidden `.oo-metadata.json` file whose
