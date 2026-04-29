@@ -1,14 +1,17 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type {
+    ManagedSkillInstallPublication,
+    ManagedSkillInstallSummary,
+} from "./install-output.ts";
 import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import type { RegistryPackageSkillInfo, RegistrySkillSummary } from "./registry-skill-source.ts";
-
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
-
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
+import { writeManagedSkillInstallSummary } from "./install-output.ts";
 import { SkillsInstallProgressReporter } from "./install-progress.ts";
 import {
     confirmInteractiveValue,
@@ -140,15 +143,18 @@ export async function installRegistrySkills(
             progressReporter?.startInstalling(installSkillNames);
 
             try {
-                await executeInstallActions(
+                const summaries = await executeInstallActions(
                     installActions,
                     packageInfo,
                     account,
                     availableHosts,
                     settingsFilePath,
-                    selectionActions.isInteractive,
                     context,
                 );
+
+                if (!selectionActions.isInteractive) {
+                    writeManagedSkillInstallSummary(context, summaries);
+                }
             }
             catch (error) {
                 progressReporter?.failInstalling();
@@ -188,9 +194,8 @@ async function executeInstallActions(
     account: AuthAccount,
     availableHosts: readonly ManagedSkillHost[],
     settingsFilePath: string,
-    isInteractive: boolean,
     context: CliExecutionContext,
-): Promise<void> {
+): Promise<ManagedSkillInstallSummary[]> {
     for (const { skillName } of installActions) {
         await validateRegistrySkillPublicationTargets({
             hostInstallations: resolveManagedSkillHostInstallations(
@@ -210,6 +215,8 @@ async function executeInstallActions(
     const extractedPackage = await extractRegistryPackageArchive(packageBytes);
 
     try {
+        const summaries: ManagedSkillInstallSummary[] = [];
+
         for (const { skillName } of installActions) {
             const skill = findPackageSkillOrThrow(packageInfo.skills, skillName, packageInfo.packageName);
             const hostInstallations = resolveManagedSkillHostInstallations(
@@ -228,17 +235,13 @@ async function executeInstallActions(
                 }),
             );
 
-            if (!isInteractive) {
-                for (const publication of publications) {
-                    writeLine(
-                        context.stdout,
-                        context.translator.t("skills.install.success", {
-                            name: skillName,
-                            path: publication.path,
-                        }),
-                    );
-                }
-            }
+            summaries.push({
+                name: skillName,
+                publications: publications.map(publication => ({
+                    agentName: publication.agentName,
+                    path: publication.path,
+                }) satisfies ManagedSkillInstallPublication),
+            });
 
             for (const publication of publications) {
                 context.logger.info(
@@ -256,6 +259,8 @@ async function executeInstallActions(
                 );
             }
         }
+
+        return summaries;
     }
     finally {
         await extractedPackage.cleanup();

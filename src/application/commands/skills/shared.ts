@@ -5,6 +5,10 @@ import type {
     BundledSkillAgentName,
     BundledSkillName,
 } from "./embedded-assets.ts";
+import type {
+    ManagedSkillInstallPublication,
+    ManagedSkillInstallSummary,
+} from "./install-output.ts";
 import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
 import {
     mkdir,
@@ -55,7 +59,7 @@ interface BundledSkillHostInstallation extends ManagedSkillHostInstallation {
 export async function installBundledSkill(
     skillName: BundledSkillName,
     context: CliExecutionContext,
-): Promise<void> {
+): Promise<ManagedSkillInstallSummary> {
     const installations = await resolveAvailableBundledSkillHostInstallations(
         context,
         skillName,
@@ -73,6 +77,8 @@ export async function installBundledSkill(
         );
     }
 
+    const publications: ManagedSkillInstallPublication[] = [];
+
     for (const installation of installations) {
         const publishedInstallation = await publishManagedBundledSkill({
             agentName: installation.agentName,
@@ -82,13 +88,10 @@ export async function installBundledSkill(
             version: context.version,
         });
 
-        writeLine(
-            context.stdout,
-            context.translator.t("skills.install.success", {
-                name: skillName,
-                path: publishedInstallation.path,
-            }),
-        );
+        publications.push({
+            agentName: installation.agentName,
+            path: publishedInstallation.path,
+        });
         context.logger.info(
             {
                 agentName: installation.agentName,
@@ -101,6 +104,11 @@ export async function installBundledSkill(
             "Bundled skill installed explicitly.",
         );
     }
+
+    return {
+        name: skillName,
+        publications,
+    };
 }
 
 export async function uninstallBundledSkill(

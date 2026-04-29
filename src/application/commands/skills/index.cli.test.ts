@@ -307,9 +307,6 @@ describe("skills CLI", () => {
     test("supports skills add as an alias for install", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
-        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -321,9 +318,8 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    `Installed skill oo to ${ooSkillDirectoryPath}.`,
-                    `Installed skill oo-find-skills to ${findSkillsDirectoryPath}.`,
-                    `Installed skill oo-create-skill to ${createSkillDirectoryPath}.`,
+                    "Installed 3 skills to Codex.",
+                    "Skills: oo, oo-find-skills, oo-create-skill",
                     "",
                 ].join("\n"),
             );

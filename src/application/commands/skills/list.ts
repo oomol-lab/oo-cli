@@ -12,6 +12,9 @@ import { createWriterColors } from "../../terminal-colors.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import {
+    readManagedSkillHostLabels,
+} from "./managed-skill-host-labels.ts";
+import {
     resolveAvailableManagedSkillHosts,
 } from "./managed-skill-hosts.ts";
 import { parseManagedSkillMetadataContent } from "./managed-skill-metadata.ts";
@@ -243,7 +246,7 @@ function formatManagedSkillListItem(
         formatManagedSkillDetailLine(
             context.translator.t("skills.list.host"),
             colors.hex(managedSkillSourceColor)(
-                readManagedSkillHostLabels(skill.hostNames, context),
+                readManagedSkillHostLabels(skill.hostNames, context.translator),
             ),
             colors,
         ),
@@ -307,41 +310,6 @@ function readManagedSkillSourceIdentity(
     }
 
     return "unknown";
-}
-
-function readManagedSkillHostLabels(
-    hostNames: readonly BundledSkillAgentName[],
-    context: Pick<CliExecutionContext, "translator">,
-): string {
-    return hostNames.map(hostName =>
-        readManagedSkillHostLabel(hostName, context),
-    ).join(", ");
-}
-
-function readManagedSkillHostLabel(
-    hostName: BundledSkillAgentName,
-    context: Pick<CliExecutionContext, "translator">,
-): string {
-    switch (hostName) {
-        case "claude":
-            return context.translator.t("skills.list.host.claude");
-        case "codebuddy":
-            return context.translator.t("skills.list.host.codebuddy");
-        case "codex":
-            return context.translator.t("skills.list.host.codex");
-        case "hermes":
-            return context.translator.t("skills.list.host.hermes");
-        case "openclaw":
-            return context.translator.t("skills.list.host.openclaw");
-        case "qoderwork":
-            return context.translator.t("skills.list.host.qoderwork");
-        case "trae":
-            return context.translator.t("skills.list.host.trae");
-        case "workbuddy":
-            return context.translator.t("skills.list.host.workbuddy");
-        default:
-            return hostName satisfies never;
-    }
 }
 
 function hasSameManagedSkillIdentity(
