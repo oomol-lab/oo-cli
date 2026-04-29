@@ -1,9 +1,6 @@
 ---
 name: oo-create-skill
-description: >-
-  Create or update a local agent skill for a known OOMOL package workflow. Use
-  when the user already knows which oo package or block should power the
-  workflow and wants reusable skill instructions.
+description: "Create or update a local agent skill for a known OOMOL package workflow. Use when the user already knows which oo package or block should power the workflow and wants reusable skill instructions."
 ---
 
 # oo Create Skill

@@ -1,12 +1,6 @@
 ---
 name: oo-find-skills
-description: >-
-  Find, compare, and install published OOMOL/oo skills. Use when the user asks
-  to find, search for, discover, recommend, compare, choose, or install an
-  existing skill for a task; asks whether there is a skill that can do
-  something; or explicitly mentions the OOMOL/oo skill catalog. Do not use for
-  creating or editing local skills, generic skill design, or non-OOMOL skill
-  catalogs.
+description: "Find, compare, and install published OOMOL/oo skills. Use when the user asks to find, search for, discover, recommend, compare, choose, or install an existing skill for a task; asks whether there is a skill that can do something; or explicitly mentions the OOMOL/oo skill catalog. Do not use for creating or editing local skills, generic skill design, or non-OOMOL skill catalogs."
 ---
 
 # oo Find Skills
