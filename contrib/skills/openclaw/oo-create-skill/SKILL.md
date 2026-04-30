@@ -32,6 +32,7 @@ Ask for missing authoring inputs only when they are needed:
 - stable block names, when the user knows them
 - user inputs the skill should collect
 - workflow ordering and expected outputs
+- likely user requests that should trigger the generated skill
 - optional display title and icon preference
 
 If the user does not provide a display title or icon preference, choose them
@@ -71,12 +72,24 @@ initialization. If initialization fails because the local canonical directory or
 an agent target directory already exists, ask the user for a different skill
 name instead of overwriting.
 
+Make `--description` trigger-oriented because it becomes the generated skill's
+frontmatter. Cover the real user requests that should invoke the skill: include
+likely verbs, task nouns, domain terms, inputs, outputs, and the package or
+block-backed capability. Add a concise "Do not use" boundary for nearby skills
+or workflows that should not trigger it.
+
 ### 4. Author the workflow instructions
 
 Write the generated skill in domain terms: when to use it, what to ask the
 user, which workflow steps to follow, and what outputs to report. Reference
 packages with `oo::packageName` and stable blocks with
 `oo::packageName::blockName`.
+
+Review the generated frontmatter `description` before finishing. It must be
+specific enough for future agents to trigger the skill in the target scenario:
+name the task outcome, common user phrasing, important inputs and outputs, and
+the concrete package or block capability. Avoid generic descriptions such as
+"use an OOMOL package workflow" that do not mention the user's domain.
 
 Preserve the generated frontmatter `metadata.title` field when it exists. If
 you change the skill's displayed title or first heading, update
