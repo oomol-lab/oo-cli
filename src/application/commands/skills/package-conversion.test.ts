@@ -58,6 +58,13 @@ describe("skill package conversion", () => {
 
         await writeSkillFile(sourceDirectoryPath, sourceSkillMarkdown);
         await Bun.write(join(sourceDirectoryPath, ".env"), "local=true\n");
+        await Bun.write(join(sourceDirectoryPath, ".env.production"), "TOKEN=secret\n");
+        await Bun.write(join(sourceDirectoryPath, ".npmrc"), "//registry.test/:_authToken=secret\n");
+        await Bun.write(join(sourceDirectoryPath, ".oo-metadata.json"), "{}\n");
+        await Bun.write(join(sourceDirectoryPath, "debug.local"), "local\n");
+        await Bun.write(join(sourceDirectoryPath, "token.secret"), "secret\n");
+        await mkdir(join(sourceDirectoryPath, ".git"), { recursive: true });
+        await Bun.write(join(sourceDirectoryPath, ".git", "config"), "private\n");
         await mkdir(join(sourceDirectoryPath, "assets"), { recursive: true });
         await Bun.write(join(sourceDirectoryPath, "assets", "prompt.txt"), "Prompt\n");
 
@@ -84,8 +91,10 @@ describe("skill package conversion", () => {
                 "  \"description\": \"Generate 1-10 beautiful infographic series for Xiaohongshu platform from any content, optimized for engagement and visual appeal.\",",
                 "  \"icon\": \":twemoji:closed-book:\",",
                 "  \"files\": [",
-                "    \"package\",",
+                "    \"package/.gitattributes\",",
                 "    \"package/.gitignore\",",
+                "    \"package/package.oo.yaml\",",
+                "    \"package/skills\",",
                 "    \"package/.oo-thumbnail.json\",",
                 "    \"package/.oo-thumbnail.zh-CN.json\"",
                 "  ]",
@@ -141,18 +150,57 @@ describe("skill package conversion", () => {
         expect(await readFile(join(sourceDirectoryPath, "SKILL.md"), "utf8")).toBe(
             sourceSkillMarkdown,
         );
-        expect(
-            await readFile(
-                join(
-                    packageRootDirectoryPath,
-                    "package",
-                    "skills",
-                    "xiaohongshu-image-generator",
-                    ".env",
-                ),
-                "utf8",
-            ),
-        ).toBe("local=true\n");
+        await Promise.all([
+            expectPathMissing(join(
+                packageRootDirectoryPath,
+                "package",
+                "skills",
+                "xiaohongshu-image-generator",
+                ".env",
+            )),
+            expectPathMissing(join(
+                packageRootDirectoryPath,
+                "package",
+                "skills",
+                "xiaohongshu-image-generator",
+                ".env.production",
+            )),
+            expectPathMissing(join(
+                packageRootDirectoryPath,
+                "package",
+                "skills",
+                "xiaohongshu-image-generator",
+                ".npmrc",
+            )),
+            expectPathMissing(join(
+                packageRootDirectoryPath,
+                "package",
+                "skills",
+                "xiaohongshu-image-generator",
+                ".oo-metadata.json",
+            )),
+            expectPathMissing(join(
+                packageRootDirectoryPath,
+                "package",
+                "skills",
+                "xiaohongshu-image-generator",
+                "debug.local",
+            )),
+            expectPathMissing(join(
+                packageRootDirectoryPath,
+                "package",
+                "skills",
+                "xiaohongshu-image-generator",
+                "token.secret",
+            )),
+            expectPathMissing(join(
+                packageRootDirectoryPath,
+                "package",
+                "skills",
+                "xiaohongshu-image-generator",
+                ".git",
+            )),
+        ]);
         expect(
             await readFile(
                 join(
@@ -245,6 +293,18 @@ describe("skill package conversion", () => {
             skillId: "demo-skill",
             version: "0.0.2",
         });
+        await Bun.write(
+            join(packageRootDirectoryPath, "package", "skills", "demo-skill", ".env"),
+            "local=true\n",
+        );
+        await Bun.write(
+            join(packageRootDirectoryPath, "package", "skills", "demo-skill", "debug.local"),
+            "local\n",
+        );
+        await Bun.write(
+            join(packageRootDirectoryPath, "package", "skills", "demo-skill", "token.secret"),
+            "secret\n",
+        );
 
         await publishConvertedSkillPackage({
             account: {
@@ -302,7 +362,6 @@ describe("skill package conversion", () => {
         const tarEntryNames = readTarEntryNames(gunzipSync(tarballBytes));
 
         expect(tarEntryNames).toEqual(expect.arrayContaining([
-            "package/package/",
             "package/package/.gitattributes",
             "package/package/.gitignore",
             "package/package/package.oo.yaml",
@@ -311,6 +370,9 @@ describe("skill package conversion", () => {
             "package/package/skills/demo-skill/SKILL.md",
             "package/package.json",
         ]));
+        expect(tarEntryNames).not.toContain("package/package/skills/demo-skill/.env");
+        expect(tarEntryNames).not.toContain("package/package/skills/demo-skill/debug.local");
+        expect(tarEntryNames).not.toContain("package/package/skills/demo-skill/token.secret");
         expect(tarEntryNames).not.toContain("package/package/.oo-thumbnail.json");
         expect(tarEntryNames).not.toContain("package/package/.oo-thumbnail.zh-CN.json");
     });
@@ -637,4 +699,10 @@ async function writeSkillFile(
 ): Promise<void> {
     await mkdir(directoryPath, { recursive: true });
     await Bun.write(join(directoryPath, "SKILL.md"), content);
+}
+
+async function expectPathMissing(path: string): Promise<void> {
+    await expect(stat(path)).rejects.toMatchObject({
+        code: "ENOENT",
+    });
 }

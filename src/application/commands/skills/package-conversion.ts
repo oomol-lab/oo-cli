@@ -4,7 +4,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { cp, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
-import { join, posix, relative, sep } from "node:path";
+import { basename, join, posix, relative, sep } from "node:path";
 import process from "node:process";
 import { gzipSync } from "node:zlib";
 import matter from "gray-matter";
@@ -79,11 +79,25 @@ export type SkillPublishVisibility = (typeof skillPublishVisibilityValues)[numbe
 export const defaultSkillPublishVisibility: SkillPublishVisibility = "private";
 
 const skillPackageFiles = [
-    "package",
+    "package/.gitattributes",
     "package/.gitignore",
+    "package/package.oo.yaml",
+    "package/skills",
     "package/.oo-thumbnail.json",
     "package/.oo-thumbnail.zh-CN.json",
 ] as const;
+const localOnlyPackagePathNames: ReadonlySet<string> = new Set([
+    ".ds_store",
+    ".env",
+    ".envrc",
+    ".git",
+    ".hg",
+    ".npmrc",
+    ".oo-metadata.json",
+    ".svn",
+    "desktop.ini",
+    "thumbs.db",
+]);
 const tarBlockSize = 512;
 const tarHeaderSize = 512;
 const npmCompatiblePublishUserAgent = `npm/10.0.0 node/${process.version} ${process.platform} ${process.arch}`;
@@ -114,6 +128,12 @@ export async function convertSkillDirectoryToPackage(
     await rm(packageDirectoryPath, { force: true, recursive: true });
     await mkdir(packageSkillsDirectoryPath, { recursive: true });
     await cp(options.skillDirectoryPath, packageSkillDirectoryPath, {
+        filter: (sourcePath) => {
+            const sourceRelativePath = relative(options.skillDirectoryPath, sourcePath);
+
+            return sourceRelativePath === ""
+                || !isLocalOnlyPackagePath(sourceRelativePath);
+        },
         force: true,
         recursive: true,
     });
@@ -441,6 +461,11 @@ async function collectExistingPath(
     entries: Map<string, TarEntry>,
 ): Promise<void> {
     const safeRelativePath = resolveSafePackageRelativePath(relativePath);
+
+    if (isLocalOnlyPackagePath(safeRelativePath)) {
+        return;
+    }
+
     const absolutePath = join(packageRootDirectoryPath, safeRelativePath);
     let metadata: Awaited<ReturnType<typeof stat>>;
 
@@ -509,6 +534,15 @@ function resolveSafePackageRelativePath(relativePath: string): string {
     }
 
     return normalizedPath;
+}
+
+function isLocalOnlyPackagePath(relativePath: string): boolean {
+    const pathName = basename(relativePath).toLowerCase();
+
+    return localOnlyPackagePathNames.has(pathName)
+        || pathName.startsWith(".env.")
+        || pathName.endsWith(".local")
+        || pathName.endsWith(".secret");
 }
 
 function createArchivePath(relativePath: string): string {

@@ -341,6 +341,8 @@ skills。
   semver。
 - 包元数据：缺少 `metadata.title` 时，会从 `<skill-id>` 生成标题。缺少
   `metadata.version` 时，默认使用 `0.0.1`。
+- 包内容：`.env`、`.env.*`、`.npmrc`、`.envrc`、`.git`、`.oo-metadata.json`、
+  `*.local` 和 `*.secret` 等本地专用文件或目录不会进入发布包。
 - Registry 安全检查：发布前，命令会查询远端 latest 包元数据。如果远端包已经
   包含 blocks，交互式终端会按既有 `[y/N]` 确认风格询问是否继续。回答 no、
   直接回车，或在没有交互式 stdin 的环境中运行，都会在转换、PUT 和本地 metadata

@@ -391,6 +391,9 @@ step.
   `metadata.version` must be semver.
 - Package metadata: missing `metadata.title` falls back to a title generated
   from `<skill-id>`. Missing `metadata.version` falls back to `0.0.1`.
+- Package contents: local-only files and directories such as `.env`, `.env.*`,
+  `.npmrc`, `.envrc`, `.git`, `.oo-metadata.json`, `*.local`, and `*.secret`
+  are excluded from the published package.
 - Registry safety: before publishing, the command looks up the latest remote
   package metadata. If the remote package already contains blocks, an
   interactive terminal prompts for confirmation with the standard `[y/N]`
