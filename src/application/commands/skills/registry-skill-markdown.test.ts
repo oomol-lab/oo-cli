@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     installedRegistrySkillCompatibility,
     normalizeInstalledRegistrySkillMarkdown,
+    removeManagedOoSkillArtifacts,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
 
@@ -205,5 +206,57 @@ describe("registry skill markdown", () => {
                 "",
             ].join("\n"),
         );
+    });
+
+    test("removes managed OO artifacts from skill markdown", () => {
+        const result = removeManagedOoSkillArtifacts([
+            "---",
+            "name: chatgpt",
+            "description: \"Chat with a model\"",
+            `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
+            "metadata:",
+            "  title: ChatGPT",
+            "---",
+            "",
+            "# ChatGPT",
+            "",
+            "Keep this introduction.",
+            "",
+            guidance,
+            "",
+            "Keep this tail.",
+            "",
+        ].join("\n"));
+
+        expect(result).toBe([
+            "---",
+            "name: chatgpt",
+            "description: \"Chat with a model\"",
+            "metadata:",
+            "  title: ChatGPT",
+            "---",
+            "",
+            "# ChatGPT",
+            "",
+            "Keep this introduction.",
+            "",
+            "Keep this tail.",
+            "",
+        ].join("\n"));
+    });
+
+    test("keeps custom compatibility when removing managed OO artifacts", () => {
+        const content = [
+            "---",
+            "name: chatgpt",
+            "description: \"Chat with a model\"",
+            "compatibility: Requires a custom runtime.",
+            "---",
+            "",
+            "# ChatGPT",
+            "",
+        ].join("\n");
+
+        expect(removeManagedOoSkillArtifacts(content)).toBe(content);
     });
 });

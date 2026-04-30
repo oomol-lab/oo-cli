@@ -29,6 +29,7 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
+import { renderSkillTitle } from "./skill-title.ts";
 
 interface SkillsInitInput {
     description?: string;
@@ -372,24 +373,6 @@ function normalizeSkillName(value: string): string {
     }
 
     return result;
-}
-
-function renderSkillTitle(skillName: string): string {
-    return skillName
-        .split("-")
-        .filter(part => part !== "")
-        .map(capitalizeAsciiWord)
-        .join(" ");
-}
-
-function capitalizeAsciiWord(value: string): string {
-    const firstChar = value[0];
-
-    if (firstChar === undefined) {
-        return value;
-    }
-
-    return `${firstChar.toUpperCase()}${value.slice(1)}`;
 }
 
 function isLowercaseAsciiLetter(char: string): boolean {

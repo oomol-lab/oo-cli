@@ -4,6 +4,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export const installedRegistrySkillCompatibility = "Requires the oo CLI.";
+export const ooNoticeStartMarker = "<!-- OO NOTICE START -->";
+export const ooNoticeEndMarker = "<!-- OO NOTICE END -->";
 
 interface SplitFrontmatterResult {
     body: string;
@@ -257,9 +259,124 @@ function renderSkillMarkdown(frontmatterLines: string[], body: string): string {
 function isTopLevelHeading(line: string): boolean {
     return line.startsWith("# ");
 }
+
+export function removeOoNoticeBlocks(content: string): string {
+    const outputLines: string[] = [];
+    let pendingNoticeLines: string[] | undefined;
+    let removedNotice = false;
+    let skipDuplicateBlankAfterNotice = false;
+
+    for (const line of content.split("\n")) {
+        if (pendingNoticeLines !== undefined) {
+            pendingNoticeLines.push(line);
+
+            if (line.trim() === ooNoticeEndMarker) {
+                pendingNoticeLines = undefined;
+                removedNotice = true;
+                skipDuplicateBlankAfterNotice
+                    = outputLines.at(-1)?.trim() === "";
+            }
+
+            continue;
+        }
+
+        if (line.trim() === ooNoticeStartMarker) {
+            pendingNoticeLines = [line];
+            continue;
+        }
+
+        if (skipDuplicateBlankAfterNotice && line.trim() === "") {
+            skipDuplicateBlankAfterNotice = false;
+            continue;
+        }
+
+        skipDuplicateBlankAfterNotice = false;
+        outputLines.push(line);
+    }
+
+    if (pendingNoticeLines !== undefined) {
+        outputLines.push(...pendingNoticeLines);
+    }
+
+    if (!removedNotice) {
+        return content;
+    }
+
+    return outputLines.join("\n");
+}
+
+export function removeManagedOoSkillArtifacts(content: string): string {
+    const contentWithoutNotice = removeOoNoticeBlocks(content);
+
+    return removeInstalledRegistrySkillCompatibilityField(contentWithoutNotice);
+}
+
+function removeInstalledRegistrySkillCompatibilityField(content: string): string {
+    const splitFrontmatter = trySplitFrontmatter(content);
+
+    if (splitFrontmatter === undefined) {
+        return content;
+    }
+
+    const compatibilityField = readFrontmatterFieldRanges(
+        splitFrontmatter.frontmatterLines,
+    ).find(field => field.key === "compatibility");
+
+    if (compatibilityField === undefined) {
+        return content;
+    }
+
+    const compatibility = readInlineStringFieldValue(
+        splitFrontmatter.frontmatterLines[compatibilityField.start] ?? "",
+    );
+
+    if (compatibility !== installedRegistrySkillCompatibility) {
+        return content;
+    }
+
+    return renderSkillMarkdown(
+        [
+            ...splitFrontmatter.frontmatterLines.slice(0, compatibilityField.start),
+            ...splitFrontmatter.frontmatterLines.slice(compatibilityField.end),
+        ],
+        splitFrontmatter.body.trimStart(),
+    );
+}
+
+function readInlineStringFieldValue(line: string): string | undefined {
+    const separatorIndex = line.indexOf(":");
+
+    if (separatorIndex < 0) {
+        return undefined;
+    }
+
+    const rawValue = line.slice(separatorIndex + 1).trim();
+
+    if (rawValue === "") {
+        return undefined;
+    }
+
+    if (rawValue.startsWith("\"") && rawValue.endsWith("\"")) {
+        try {
+            const parsed = JSON.parse(rawValue) as unknown;
+
+            return typeof parsed === "string" ? parsed : undefined;
+        }
+        catch {
+            return undefined;
+        }
+    }
+
+    if (rawValue.startsWith("'") && rawValue.endsWith("'")) {
+        return rawValue.slice(1, -1).replaceAll("''", "'");
+    }
+
+    return rawValue;
+}
+
 export function renderOoPackageExecutionGuidance(): string {
     return [
-        "<!-- OO NOTICE START -->",
+        ooNoticeStartMarker,
         "",
         "Important:",
         "If this skill mentions `oo::packageName` or `oo::packageName::blockName`,",
@@ -291,6 +408,6 @@ export function renderOoPackageExecutionGuidance(): string {
         "arguments, stop and inspect further; do not guess parameters and do not run",
         "yet.",
         "",
-        "<!-- OO NOTICE END -->",
+        ooNoticeEndMarker,
     ].join("\n");
 }
