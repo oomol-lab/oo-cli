@@ -132,10 +132,13 @@ Install one managed `oo` release into the local self-managed runtime.
   `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
   when `PATH` yields no `oo` candidates, the CLI falls back to the current
   command path. Cleanup failures do not change the command result.
-- Notes: when the executable directory is not on `PATH`, install attempts to
-  persist it for future shells. When automatic PATH configuration succeeds,
-  install tells the user to restart their shell; when it fails, install prints
-  a setup note that tells the user which directory to add.
+- Notes: when automatic PATH modification is enabled, install ensures zsh
+  startup profiles `.zprofile` and `.zshenv` contain the managed PATH snippet,
+  even if the current `PATH` already contains the executable directory. When the
+  executable directory is not on `PATH`, install also attempts to persist it for
+  future shells. When automatic PATH configuration succeeds, install tells the
+  user to restart their shell; when it fails, install prints a setup note that
+  tells the user which directory to add.
 - Notes: when some shell profiles were updated and others could not be,
   install lists both — the profiles that were updated and the profiles that
   could not be updated — followed by the restart-shell note. The user can
@@ -172,10 +175,13 @@ Update the managed `oo` install to the latest published release.
   `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
   when `PATH` yields no `oo` candidates, the CLI falls back to the current
   command path. Cleanup failures do not change the command result.
-- Notes: when the executable directory is not on `PATH`, update attempts to
-  persist it for future shells. When automatic PATH configuration succeeds,
-  update tells the user to restart their shell; when it fails, update prints a
-  setup note that tells the user which directory to add.
+- Notes: when automatic PATH modification is enabled, update ensures zsh
+  startup profiles `.zprofile` and `.zshenv` contain the managed PATH snippet,
+  even if the current `PATH` already contains the executable directory. When the
+  executable directory is not on `PATH`, update also attempts to persist it for
+  future shells. When automatic PATH configuration succeeds, update tells the
+  user to restart their shell; when it fails, update prints a setup note that
+  tells the user which directory to add.
 - Notes: when some shell profiles were updated and others could not be,
   update lists both — the profiles that were updated and the profiles that
   could not be updated — followed by the restart-shell note. The user can

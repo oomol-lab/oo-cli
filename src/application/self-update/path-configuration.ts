@@ -30,6 +30,8 @@ interface ShellProfileConfiguration {
     snippet: string;
 }
 
+type AlreadyConfiguredTargetMode = "include" | "omit";
+
 interface ShellProfileCandidate extends ShellProfileConfiguration {
     installed: boolean;
     profileExists: boolean;
@@ -58,20 +60,20 @@ const knownUnixShellNames = new Set<string>([
 export async function ensureExecutableDirectoryOnPath(
     options: EnsureExecutableDirectoryOnPathOptions,
 ): Promise<SelfUpdatePathConfigurationResult> {
-    if (isExecutableDirectoryOnPath(
+    const executableDirectoryOnPath = isExecutableDirectoryOnPath(
         options.executableDirectory,
         options.env,
         options.platform,
-    )) {
-        return {
-            status: "already-configured",
-        };
-    }
+    );
 
     if (options.modifyPath === false) {
-        return {
-            status: "skipped",
-        };
+        return executableDirectoryOnPath
+            ? {
+                    status: "already-configured",
+                }
+            : {
+                    status: "skipped",
+                };
     }
 
     const overriddenResult = await options.runtime.configurePath?.({
@@ -83,6 +85,14 @@ export async function ensureExecutableDirectoryOnPath(
 
     if (overriddenResult !== undefined) {
         return overriddenResult;
+    }
+
+    if (executableDirectoryOnPath) {
+        return options.platform === "win32"
+            ? {
+                    status: "already-configured",
+                }
+            : await configureZshStartupProfiles(options);
     }
 
     return options.platform === "win32"
@@ -120,73 +130,20 @@ async function configureUnixShellProfile(
     options: EnsureExecutableDirectoryOnPathOptions,
 ): Promise<SelfUpdatePathConfigurationResult> {
     try {
-        const configurations = await resolveShellProfileConfigurations(options);
-        const alreadyConfiguredTargets: string[] = [];
-        const configuredTargets: string[] = [];
-        const failedTargets: string[] = [];
+        const [shellConfigurations, zshStartupConfigurations] = await Promise.all([
+            resolveShellProfileConfigurations(options),
+            resolveZshStartupProfileConfigurations(options),
+        ]);
+        const configurations = deduplicateShellProfileConfigurations([
+            ...shellConfigurations,
+            ...zshStartupConfigurations,
+        ]);
 
-        for (const configuration of configurations) {
-            if (configuration.content.includes(pathConfigurationSentinel)) {
-                alreadyConfiguredTargets.push(configuration.profilePath);
-                continue;
-            }
-
-            try {
-                await writeShellProfileConfiguration(configuration);
-                configuredTargets.push(configuration.profilePath);
-                options.runtime.logger.info(
-                    {
-                        executableDirectory: options.executableDirectory,
-                        profilePath: configuration.profilePath,
-                    },
-                    "CLI executable directory was added to the shell profile PATH.",
-                );
-            }
-            catch (error) {
-                failedTargets.push(configuration.profilePath);
-                options.runtime.logger.warn(
-                    {
-                        err: error,
-                        executableDirectory: options.executableDirectory,
-                        profilePath: configuration.profilePath,
-                    },
-                    "CLI executable directory shell profile PATH configuration failed.",
-                );
-            }
-        }
-
-        if (configuredTargets.length > 0 && failedTargets.length > 0) {
-            return {
-                status: "partial-configured",
-                target: configuredTargets,
-                failedTargets,
-            };
-        }
-
-        if (configuredTargets.length > 0) {
-            return {
-                status: "configured",
-                target: configuredTargets,
-            };
-        }
-
-        if (failedTargets.length > 0) {
-            return {
-                status: "failed",
-                failedTargets,
-            };
-        }
-
-        if (alreadyConfiguredTargets.length > 0) {
-            return {
-                status: "already-configured",
-                target: alreadyConfiguredTargets,
-            };
-        }
-
-        return {
-            status: "failed",
-        };
+        return await writeShellProfileConfigurations(
+            configurations,
+            options,
+            "include",
+        );
     }
     catch (error) {
         options.runtime.logger.warn(
@@ -201,6 +158,112 @@ async function configureUnixShellProfile(
             status: "failed",
         };
     }
+}
+
+async function configureZshStartupProfiles(
+    options: EnsureExecutableDirectoryOnPathOptions,
+): Promise<SelfUpdatePathConfigurationResult> {
+    try {
+        const configurations = await resolveZshStartupProfileConfigurations(options);
+
+        return await writeShellProfileConfigurations(
+            configurations,
+            options,
+            "omit",
+        );
+    }
+    catch (error) {
+        options.runtime.logger.warn(
+            {
+                err: error,
+                executableDirectory: options.executableDirectory,
+            },
+            "CLI executable directory shell profile PATH configuration failed.",
+        );
+
+        return {
+            status: "failed",
+        };
+    }
+}
+
+async function writeShellProfileConfigurations(
+    configurations: readonly ShellProfileConfiguration[],
+    options: EnsureExecutableDirectoryOnPathOptions,
+    alreadyConfiguredTargetMode: AlreadyConfiguredTargetMode,
+): Promise<SelfUpdatePathConfigurationResult> {
+    const alreadyConfiguredTargets: string[] = [];
+    const configuredTargets: string[] = [];
+    const failedTargets: string[] = [];
+
+    for (const configuration of configurations) {
+        if (configuration.content.includes(pathConfigurationSentinel)) {
+            alreadyConfiguredTargets.push(configuration.profilePath);
+            continue;
+        }
+
+        try {
+            await writeShellProfileConfiguration(configuration);
+            configuredTargets.push(configuration.profilePath);
+            options.runtime.logger.info(
+                {
+                    executableDirectory: options.executableDirectory,
+                    profilePath: configuration.profilePath,
+                },
+                "CLI executable directory was added to the shell profile PATH.",
+            );
+        }
+        catch (error) {
+            failedTargets.push(configuration.profilePath);
+            options.runtime.logger.warn(
+                {
+                    err: error,
+                    executableDirectory: options.executableDirectory,
+                    profilePath: configuration.profilePath,
+                },
+                "CLI executable directory shell profile PATH configuration failed.",
+            );
+        }
+    }
+
+    if (configuredTargets.length > 0 && failedTargets.length > 0) {
+        return {
+            status: "partial-configured",
+            target: configuredTargets,
+            failedTargets,
+        };
+    }
+
+    if (configuredTargets.length > 0) {
+        return {
+            status: "configured",
+            target: configuredTargets,
+        };
+    }
+
+    if (failedTargets.length > 0) {
+        return {
+            status: "failed",
+            failedTargets,
+        };
+    }
+
+    if (alreadyConfiguredTargets.length > 0) {
+        if (alreadyConfiguredTargetMode === "omit") {
+            return {
+                status: "already-configured",
+            };
+        }
+
+        return {
+            status: "already-configured",
+            target: alreadyConfiguredTargets,
+        };
+    }
+
+    return {
+        status: "failed",
+    };
 }
 
 async function resolveShellProfileConfigurations(
@@ -400,6 +463,45 @@ async function createBashProfileCandidates(
         ...existing,
         ...fallbackNames.map(profileName => createCandidate(profileName, "", false)),
     ];
+}
+
+function deduplicateShellProfileConfigurations(
+    configurations: readonly ShellProfileConfiguration[],
+): ShellProfileConfiguration[] {
+    const deduplicatedConfigurations: ShellProfileConfiguration[] = [];
+    const seenProfilePaths = new Set<string>();
+
+    for (const configuration of configurations) {
+        if (seenProfilePaths.has(configuration.profilePath)) {
+            continue;
+        }
+
+        seenProfilePaths.add(configuration.profilePath);
+        deduplicatedConfigurations.push(configuration);
+    }
+
+    return deduplicatedConfigurations;
+}
+
+async function resolveZshStartupProfileConfigurations(
+    options: EnsureExecutableDirectoryOnPathOptions,
+): Promise<ShellProfileConfiguration[]> {
+    const homeDirectory = resolveHomeDirectory(options.env);
+    const pathModule = readPathModule(options.platform);
+    const zshDirectory = options.env.ZDOTDIR ?? homeDirectory;
+
+    return await Promise.all([
+        createShellProfileConfiguration(
+            pathModule.join(zshDirectory, ".zprofile"),
+            options.platform,
+            createPosixPathSnippet(),
+        ),
+        createShellProfileConfiguration(
+            pathModule.join(zshDirectory, ".zshenv"),
+            options.platform,
+            createPosixPathSnippet(),
+        ),
+    ]);
 }
 
 async function createShellProfileCandidate(
