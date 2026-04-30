@@ -1,13 +1,6 @@
 ---
 name: oo-publish-skill
-description: >-
-  Publish, release, upload, submit, or share an existing AI agent skill
-  directory with SKILL.md to the OOMOL registry by running oo skills publish.
-  Use when the user asks to publish a skill, make a skill available in the
-  OOMOL skill catalog, release a registry skill package, or publish from a
-  local, agent-installed, registry-installed, or path-based skill source. Do
-  not use for finding, installing, creating, or editing skills unless the final
-  goal is publication.
+description: Publish, release, upload, submit, or share an existing AI agent skill to the OOMOL registry by running oo skills publish. Use when the user asks to publish a skill, make a skill available in the OOMOL hub, release a registry skill package.
 ---
 
 # oo Publish Skill
