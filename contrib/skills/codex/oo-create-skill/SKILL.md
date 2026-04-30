@@ -1,15 +1,24 @@
 ---
 name: oo-create-skill
 description: >-
-  Create or update a local agent skill for a known OOMOL package workflow. Use
-  when the user already knows which oo package or block should power the
-  workflow and wants reusable skill instructions.
+  Author, generate, scaffold, or update a local AI agent skill that turns an
+  OOMOL/oo package, block, or selected workflow into reusable instructions. Use
+  when the user asks to create a skill, write a skill, make a Codex/Claude/agent
+  skill, or refine an existing local skill for an oo-powered workflow, even if
+  package discovery is needed first. Do not use for finding/installing published
+  skills or publishing skills.
 ---
 
 # oo Create Skill
 
-Use this skill when the user wants to create or update a local skill around an
-OOMOL package workflow.
+Use this skill when the user wants to create, generate, scaffold, author, or
+update a local skill around an OOMOL/oo package workflow. This includes requests
+to turn a specific package or block into reusable agent instructions, or to
+create the skill after the right package is discovered.
+
+If the user only wants to discover or install existing published skills, use
+`oo-find-skills`. If the user wants to publish a finished skill, use
+`oo-publish-skill`.
 
 ## Workflow
 

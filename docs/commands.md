@@ -264,9 +264,9 @@ Search packages and connector actions with one free-form query.
 Before running a command, `oo` silently synchronizes managed skills for every
 supported host directory that already exists.
 
-- Bundled skills: `oo` ensures `oo` and `oo-find-skills` are installed for
-  each detected Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae,
-  OpenClaw, and QoderWork host.
+- Bundled skills: `oo` ensures `oo`, `oo-find-skills`, `oo-create-skill`, and
+  `oo-publish-skill` are installed for each detected Codex, Claude Code,
+  Hermes, CodeBuddy, WorkBuddy, Trae, OpenClaw, and QoderWork host.
   Existing oo-managed bundled skill targets are refreshed to the current `oo`
   version, except that `0.0.0-development` startup runs do not refresh
   existing bundled targets.
@@ -292,10 +292,10 @@ List oo-managed skills from supported local skill directories.
   skill identity. Identical `name`/source/version installs across multiple
   hosts are folded into one block.
 - Ordering: bundled skills are listed first when present, with `oo` before
-  `oo-find-skills` before `oo-create-skill`; the remaining skills are ordered
-  by skill name. Host names within a block follow `Codex`,
-  `Claude Code`, `Hermes`, `CodeBuddy`, `WorkBuddy`, `Trae`, `OpenClaw`,
-  `QoderWork` order.
+  `oo-find-skills` before `oo-create-skill` before `oo-publish-skill`; the
+  remaining skills are ordered by skill name. Host names within a block follow
+  `Codex`, `Claude Code`, `Hermes`, `CodeBuddy`, `WorkBuddy`, `Trae`,
+  `OpenClaw`, `QoderWork` order.
 - Output: each skill block shows the skill name, host, source package or
   bundled/local marker, and recorded version.
 - Notes: when a folded skill is installed in multiple supported hosts, the
@@ -374,14 +374,38 @@ Validate a local skill directory against the generic skill contract.
 
 ### `oo skills publish <skill-id>`
 
-Convert one canonical local skill into an OOMOL package and run the publish
-step.
+Convert one skill into an OOMOL package and run the publish step.
 
-- Arguments: `<skill-id>` is the canonical local skill id. The source directory
-  is `<config-dir>/skills/local/<skill-id>`, where `<config-dir>` is the
-  directory containing the oo settings file.
+- Arguments: `<skill-id>` is normally a skill id. When no managed skill matches,
+  it may also be a path to a skill directory containing `SKILL.md`. Relative
+  paths resolve from the current working directory.
 - Options: `--visibility <visibility>` sets the registry package visibility.
   Accepted values are `private` and `public`. The default is `private`.
+- Options: `--agent <agent>` is a source hint used only when the skill is not
+  found in local, bundled, or registry storage. Accepted values are `codex`,
+  `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `openclaw`, and
+  `qoderwork`.
+- Source resolution: the command first checks
+  `<config-dir>/skills/local/<skill-id>`. If present, that local skill is
+  published.
+- Source resolution: bundled skills are rejected because they are managed by the
+  oo CLI release.
+- Source resolution: registry skills under
+  `<config-dir>/skills/registry/<skill-id>` can be published. If their installed
+  metadata package name differs from the target package name, an interactive
+  `[y/N]` confirmation is required before publishing them under the current
+  account scope.
+- Source resolution: when `--agent` is provided and no managed source matched,
+  the command checks that agent's `<agent-home>/skills/<skill-id>` directory.
+  A matching skill is adopted into local canonical storage before publishing.
+- Source resolution: when no managed source matched, `<skill-id>` is resolved as
+  a filesystem path. A matching skill directory is adopted into local canonical
+  storage before publishing.
+- Adoption: adopting a skill moves it to `<config-dir>/skills/local/<skill-id>`,
+  imports any managed `.oo-metadata.json` fields into `SKILL.md` frontmatter,
+  removes `.oo-metadata.json`, and publishes the local canonical copy to
+  supported agent skill directories. Adoption requires an interactive `[y/N]`
+  confirmation.
 - Authentication: the command requires the current OOMOL account. The package
   name is always `@<lowercase-account.name>/<lowercase-skill-id>`.
 - Validation: the source directory must contain `SKILL.md` with frontmatter
@@ -433,8 +457,9 @@ Install bundled or published skills into supported local skill directories.
 - Alias: `oo skills add [packageName]`.
 - Arguments: `[packageName]` is optional.
 - Arguments: when omitted, the command installs all bundled skills.
-- Arguments: when `[packageName]` is `oo`, `oo-find-skills`, or
-  `oo-create-skill`, the command installs the corresponding bundled skill.
+- Arguments: when `[packageName]` is `oo`, `oo-find-skills`,
+  `oo-create-skill`, or `oo-publish-skill`, the command installs the
+  corresponding bundled skill.
 - Arguments: when `[packageName]` is a published package name, the command
   installs skills from that package.
 - Options: `-s, --skill <skills...>` installs one or more named published
@@ -520,8 +545,9 @@ Update installed oo-managed published skills.
   published skill.
 - Arguments: when one or more skill names are provided, only those named skills
   are checked and updated.
-- Bundled skills: bundled skills such as `oo` and `oo-find-skills` are
-  excluded from this command. Refresh them with `oo skills add`, or let a
+- Bundled skills: bundled skills such as `oo`, `oo-find-skills`,
+  `oo-create-skill`, and `oo-publish-skill` are excluded from this command.
+  Refresh them with `oo skills add`, or let a
   successful `oo install` or `oo update` refresh them automatically.
 - Ownership rule: a skill is considered managed for update only when its
   `.oo-metadata.json` file can be parsed and contains a non-empty `version`;

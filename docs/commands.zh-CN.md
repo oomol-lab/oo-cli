@@ -234,8 +234,9 @@
 skills。
 
 - 内置 skill：`oo` 会确保每个检测到的 Codex、Claude Code、Hermes、
-  CodeBuddy、WorkBuddy、Trae、OpenClaw 和 QoderWork Agent 都安装了 `oo` 与
-  `oo-find-skills`。已经由 oo 管理的内置 skill 目标会刷新到当前 `oo` 版本；
+  CodeBuddy、WorkBuddy、Trae、OpenClaw 和 QoderWork Agent 都安装了 `oo`、
+  `oo-find-skills`、`oo-create-skill` 与 `oo-publish-skill`。已经由 oo 管理的
+  内置 skill 目标会刷新到当前 `oo` 版本；
   但当启动中的当前版本为 `0.0.0-development` 时，不会刷新已存在的内置 skill
   目标。
 - 已发布 skill：如果某个已发布 skill 已经有本地 canonical 副本
@@ -257,9 +258,9 @@ skills。
 - 输出：文本输出会先打印摘要行，再为每个唯一的可见 skill 身份打印一个块。
   如果多个 Agent 中的安装具有相同 `name`、来源和版本，则会折叠到同一个块中。
 - 排序：bundled skills 会排在最前面；其中 `oo` 优先，其次
-  `oo-find-skills`，再其次 `oo-create-skill`；其余 skill 按名称排序。每个
-  块内的 Agent 名称按 `Codex`、`Claude Code`、`Hermes`、`CodeBuddy`、
-  `WorkBuddy`、`Trae`、`OpenClaw`、`QoderWork` 顺序显示。
+  `oo-find-skills`，再其次 `oo-create-skill`，再其次 `oo-publish-skill`；其余
+  skill 按名称排序。每个块内的 Agent 名称按 `Codex`、`Claude Code`、
+  `Hermes`、`CodeBuddy`、`WorkBuddy`、`Trae`、`OpenClaw`、`QoderWork` 顺序显示。
 - 输出：每个 skill 块会显示 skill 名称、Agents、来源 package、内置或本地标记，以
   及记录的版本号。
 - 说明：如果折叠后的 skill 安装在多个受支持 Agent 中，`Agents` 字段会列出所有
@@ -325,13 +326,30 @@ skills。
 
 ### `oo skills publish <skill-id>`
 
-将一个 canonical 本地 skill 转换为 OOMOL 包，并执行发布步骤。
+将一个 skill 转换为 OOMOL 包，并执行发布步骤。
 
-- 参数：`<skill-id>` 是 canonical 本地 skill id。源目录为
-  `<config-dir>/skills/local/<skill-id>`，其中 `<config-dir>` 是 oo
-  settings 文件所在目录。
+- 参数：`<skill-id>` 通常是 skill id。当没有匹配到由 oo 管理的 skill 时，也可以
+  是包含 `SKILL.md` 的 skill 目录路径。相对路径会从当前工作目录解析。
 - 选项：`--visibility <visibility>` 设置 registry 包可见性。可选值为
   `private` 和 `public`，默认值为 `private`。
+- 选项：`--agent <agent>` 仅在 local、bundled 和 registry 存储中都没有匹配时
+  作为来源提示。可选值为 `codex`、`claude`、`hermes`、`codebuddy`、
+  `workbuddy`、`trae`、`openclaw` 和 `qoderwork`。
+- 来源解析：命令会先检查 `<config-dir>/skills/local/<skill-id>`。如果存在，则发布
+  这个本地 skill。
+- 来源解析：内置 skill 会被拒绝发布，因为它们由 oo CLI 版本管理。
+- 来源解析：可以发布 `<config-dir>/skills/registry/<skill-id>` 下的 registry
+  skill。如果已安装元数据中的包名和目标包名不同，命令会使用交互式 `[y/N]`
+  确认，再将它发布到当前账号 scope 下。
+- 来源解析：如果传入了 `--agent` 且前面的来源都没有匹配，命令会检查该 Agent 的
+  `<agent-home>/skills/<skill-id>` 目录。匹配到的 skill 会先被接管到本地 canonical
+  存储，再继续发布。
+- 来源解析：如果仍未匹配，`<skill-id>` 会按文件系统路径解析。匹配到的 skill
+  目录会先被接管到本地 canonical 存储，再继续发布。
+- 接管：接管会把 skill 移动到 `<config-dir>/skills/local/<skill-id>`，将已有
+  `.oo-metadata.json` 字段导入 `SKILL.md` frontmatter，删除 `.oo-metadata.json`，
+  并把本地 canonical 副本发布到受支持的 Agent skill 目录。接管需要交互式 `[y/N]`
+  确认。
 - 认证：命令要求存在当前 OOMOL 账号。包名始终为
   `@<小写 account.name>/<小写 skill-id>`。
 - 校验：源目录必须包含 `SKILL.md`，其 frontmatter `name` 必须匹配
@@ -377,8 +395,8 @@ skills。
 - 别名：`oo skills add [packageName]`。
 - 参数：`[packageName]` 可选。
 - 参数：未提供时，该命令会安装全部内置 skill。
-- 参数：当 `[packageName]` 为 `oo`、`oo-find-skills` 或 `oo-create-skill` 时，
-  命令安装对应的内置 skill。
+- 参数：当 `[packageName]` 为 `oo`、`oo-find-skills`、`oo-create-skill` 或
+  `oo-publish-skill` 时，命令安装对应的内置 skill。
 - 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
   安装 skill。
 - 选项：`-s, --skill <skills...>` 用于安装 package 中一个或多个指定的
@@ -448,9 +466,9 @@ skills。
 
 - 参数：省略时，会检查所有已安装且由 oo 管理的已发布 skill。
 - 参数：提供一个或多个 skill 名称时，只会检查并更新这些指定 skill。
-- 内置 skill：bundled `oo`、`oo-find-skills` 等内置 skill 不在此命令处理
-  范围内。请使用 `oo skills add` 刷新，或让成功的 `oo install` / `oo update`
-  自动刷新它们。
+- 内置 skill：bundled `oo`、`oo-find-skills`、`oo-create-skill`、
+  `oo-publish-skill` 等内置 skill 不在此命令处理范围内。请使用
+  `oo skills add` 刷新，或让成功的 `oo install` / `oo update` 自动刷新它们。
 - 所有权规则：只有当 skill 的 `.oo-metadata.json` 可以被解析，且包含非空
   `version` 时，update 才会认为它由 oo 管理；否则会把现有目标视为非托管。
 - 已发布 skill：registry skill 会从 `.oo-metadata.json` 读取所属包名，再通过

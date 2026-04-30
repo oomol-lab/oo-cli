@@ -12,6 +12,7 @@ describe("embedded skill assets", () => {
             "oo",
             "oo-find-skills",
             "oo-create-skill",
+            "oo-publish-skill",
         ]);
         expect(getBundledSkillFiles("oo", "codex").map(file => file.relativePath)).toEqual([
             "SKILL.md",
@@ -208,6 +209,63 @@ describe("embedded skill assets", () => {
         ).toEqual([
             "SKILL.md",
         ]);
+        expect(
+            getBundledSkillFiles("oo-publish-skill", "codex").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+            "agents/openai.yaml",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-publish-skill", "claude").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-publish-skill", "hermes").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-publish-skill", "codebuddy").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-publish-skill", "workbuddy").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-publish-skill", "trae").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-publish-skill", "openclaw").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-publish-skill", "qoderwork").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
     });
 
     test("maps bundled skills to contrib/skills/<agent>/<skill> source directories", () => {
@@ -271,6 +329,80 @@ describe("embedded skill assets", () => {
             expect(content).not.toContain(
                 "do\nnot add it by deriving a title from the skill name",
             );
+        }
+    });
+
+    test("guides oo-create-skill trigger descriptions toward local skill authoring", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
+                file => file.relativePath === "SKILL.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
+            }
+
+            const content = normalizeLineEndingsForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+
+            expect(content).toContain("Author, generate, scaffold, or update");
+            expect(content).toContain("create a skill, write a skill, make a Codex/Claude/agent");
+            expect(content).toContain("package discovery is needed first");
+            expect(content).toContain("discover or install existing published skills");
+            expect(content).toContain("publish a finished skill");
+            expect(content).not.toContain("already knows which oo package or block");
+        }
+
+        const openAiAgentFile = getBundledSkillFiles("oo-create-skill", "codex").find(
+            file => file.relativePath === "agents/openai.yaml",
+        );
+
+        if (openAiAgentFile === undefined) {
+            throw new Error("Missing codex oo-create-skill agents/openai.yaml");
+        }
+
+        const openAiAgentContent = await Bun.file(openAiAgentFile.sourcePath).text();
+
+        expect(openAiAgentContent).toContain("$oo-create-skill");
+        expect(openAiAgentContent).toContain("author, scaffold, generate, or update");
+        expect(openAiAgentContent).toContain("package discovery is needed before authoring");
+        expect(openAiAgentContent).toContain(
+            "finding/installing published skills or publishing finished skills",
+        );
+    });
+
+    test("guides oo-publish-skill agents to publish agent skills", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFile = getBundledSkillFiles("oo-publish-skill", agentName).find(
+                file => file.relativePath === "SKILL.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo-publish-skill SKILL.md`);
+            }
+
+            const content = normalizeLineEndingsForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+
+            expect(content).toContain(
+                "Publish, release, upload, submit, or share",
+            );
+            expect(content).toContain("existing AI agent skill");
+            expect(content).toContain("it does not need to be an oo-specific skill");
+            expect(content).toContain("oo skills publish");
+            expect(content).toContain("When publishing by skill id");
+            expect(content).toContain("include `--agent");
+            expect(content).toContain("Add `--visibility public` only");
+            expect(content).toContain("The publish command performs its own");
+            expect(content).toContain("Do not ask whether to publish to the current account");
+            expect(content).toContain("Do not package manually");
+            expect(content).toContain("Report the published package name");
+            expect(content).not.toContain("OOMOL/oo skill");
+            expect(content).not.toContain("oo skills preflight");
+            expect(content).not.toContain("oo auth status");
+            expect(content).not.toContain("Use `--agent` only as a source hint");
         }
     });
 
