@@ -346,12 +346,13 @@ skills。
 - 选项：`--agent <agent>` 仅在 local、bundled 和 registry 存储中都没有匹配时
   作为来源提示。可选值为 `codex`、`claude`、`hermes`、`codebuddy`、
   `workbuddy`、`trae`、`openclaw` 和 `qoderwork`。
+- 选项：`-y, --yes` 会对发布过程中的确认提示自动回答 yes。
 - 来源解析：命令会先检查 `<config-dir>/skills/local/<skill-id>`。如果存在，则发布
   这个本地 skill。
 - 来源解析：内置 skill 会被拒绝发布，因为它们由 oo CLI 版本管理。
 - 来源解析：可以发布 `<config-dir>/skills/registry/<skill-id>` 下的 registry
   skill。如果已安装元数据中的包名和目标包名不同，命令会使用交互式 `[y/N]`
-  确认，再将它发布到当前账号 scope 下。
+  确认，再将它发布到当前账号 scope 下；提供 `-y, --yes` 时会跳过该确认。
 - 来源解析：如果传入了 `--agent` 且前面的来源都没有匹配，命令会检查该 Agent 的
   `<agent-home>/skills/<skill-id>` 目录。匹配到的 skill 会先被接管到本地 canonical
   存储，再继续发布。
@@ -360,7 +361,7 @@ skills。
 - 接管：接管会把 skill 移动到 `<config-dir>/skills/local/<skill-id>`，将已有
   `.oo-metadata.json` 字段导入 `SKILL.md` frontmatter，删除 `.oo-metadata.json`，
   并把本地 canonical 副本发布到受支持的 Agent skill 目录。接管需要交互式 `[y/N]`
-  确认。被接管的源目录不能包含符号链接。
+  确认；提供 `-y, --yes` 时会跳过该确认。被接管的源目录不能包含符号链接。
 - 认证：命令要求存在当前 OOMOL 账号。包名始终为
   `@<小写 account.name>/<小写 skill-id>`。
 - 校验：源目录必须包含 `SKILL.md`，其 frontmatter `name` 必须匹配
@@ -375,7 +376,7 @@ skills。
 - Registry 安全检查：发布前，命令会查询远端 latest 包元数据。如果远端包已经
   包含 blocks，交互式终端会按既有 `[y/N]` 确认风格询问是否继续。回答 no、
   直接回车，或在没有交互式 stdin 的环境中运行，都会在转换、PUT 和本地 metadata
-  回写前停止。
+  回写前停止；提供 `-y, --yes` 时会跳过该确认。
 - 版本解析：如果请求版本不大于远端 latest 包版本，命令会发布下一个 patch 版本。
 - 回写：发布步骤成功后，命令会把最终的 `metadata.packageName` 和
   `metadata.version` 写回 `SKILL.md` frontmatter。

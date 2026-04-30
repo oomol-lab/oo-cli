@@ -397,6 +397,7 @@ Convert one skill into an OOMOL package and run the publish step.
   found in local, bundled, or registry storage. Accepted values are `codex`,
   `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `openclaw`, and
   `qoderwork`.
+- Options: `-y, --yes` answers publish confirmation prompts with yes.
 - Source resolution: the command first checks
   `<config-dir>/skills/local/<skill-id>`. If present, that local skill is
   published.
@@ -406,7 +407,7 @@ Convert one skill into an OOMOL package and run the publish step.
   `<config-dir>/skills/registry/<skill-id>` can be published. If their installed
   metadata package name differs from the target package name, an interactive
   `[y/N]` confirmation is required before publishing them under the current
-  account scope.
+  account scope unless `-y, --yes` is provided.
 - Source resolution: when `--agent` is provided and no managed source matched,
   the command checks that agent's `<agent-home>/skills/<skill-id>` directory.
   A matching skill is adopted into local canonical storage before publishing.
@@ -417,7 +418,8 @@ Convert one skill into an OOMOL package and run the publish step.
   imports any managed `.oo-metadata.json` fields into `SKILL.md` frontmatter,
   removes `.oo-metadata.json`, and publishes the local canonical copy to
   supported agent skill directories. Adoption requires an interactive `[y/N]`
-  confirmation. Adopted source directories must not contain symbolic links.
+  confirmation unless `-y, --yes` is provided. Adopted source directories must
+  not contain symbolic links.
 - Authentication: the command requires the current OOMOL account. The package
   name is always `@<lowercase-account.name>/<lowercase-skill-id>`.
 - Validation: the source directory must contain `SKILL.md` with frontmatter
@@ -434,8 +436,9 @@ Convert one skill into an OOMOL package and run the publish step.
 - Registry safety: before publishing, the command looks up the latest remote
   package metadata. If the remote package already contains blocks, an
   interactive terminal prompts for confirmation with the standard `[y/N]`
-  confirmation style. Answering no, pressing Enter, or running without an
-  interactive stdin stops before conversion, PUT, or local metadata writeback.
+  confirmation style unless `-y, --yes` is provided. Answering no, pressing
+  Enter, or running without an interactive stdin stops before conversion, PUT,
+  or local metadata writeback.
 - Version resolution: if the requested version is not greater than the latest
   remote package version, the command publishes the next patch version.
 - Writeback: after the publish step succeeds, `SKILL.md` frontmatter is updated
