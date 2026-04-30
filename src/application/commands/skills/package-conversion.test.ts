@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, symlink } from "node:fs/promises";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { describe, expect, test } from "bun:test";
 
@@ -448,7 +448,7 @@ describe("skill package conversion", () => {
                     await Bun.write(targetPath, "secret\n");
                     await symlink(targetPath, linkPath);
                 },
-                expectedPath: "package/skills/demo-skill/linked-secret.txt",
+                expectedPath: posix.join("package", "skills", "demo-skill", "linked-secret.txt"),
                 linkName: "linked-secret.txt",
                 name: "file",
             },
@@ -458,7 +458,7 @@ describe("skill package conversion", () => {
                     await Bun.write(join(targetPath, "secret.txt"), "secret\n");
                     await symlink(targetPath, linkPath, "dir");
                 },
-                expectedPath: "package/skills/demo-skill/linked-secret",
+                expectedPath: posix.join("package", "skills", "demo-skill", "linked-secret"),
                 linkName: "linked-secret",
                 name: "directory",
             },
