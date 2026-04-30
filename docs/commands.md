@@ -26,8 +26,9 @@ Project overview: [README.md](../README.md)
   failures, system failures, and recoverable cache issues can be filtered
   quickly.
   Values include `user_error`, `system_error`, and `recoverable_cache`.
-- The CLI keeps only the most recent `20` log files. Older log files are
-  removed first.
+- The CLI keeps debug log files from the current local calendar day and the
+  previous six local calendar days. Logs outside this seven-day local date
+  window are removed first. There is no fixed file-count cap.
 
 ## Authentication
 
@@ -615,8 +616,8 @@ Print the current persisted debug log directory path.
 Print one previous persisted debug log file.
 
 - Arguments: `[index]` is optional and must be an integer greater than or equal
-  to `1`. `1` means the previous log file, `20` means the twentieth previous
-  log file.
+  to `1`. `1` means the previous log file, and larger values continue walking
+  backward through retained logs.
 - Notes: the current `oo log print` invocation creates its own log file, so the
   command always skips the current run and reads earlier logs.
 

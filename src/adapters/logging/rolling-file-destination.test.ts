@@ -6,19 +6,19 @@ import { createTemporaryDirectory } from "../../../__tests__/helpers.ts";
 import { RollingFileDestination } from "./rolling-file-destination.ts";
 
 describe("RollingFileDestination", () => {
-    test("removes the oldest log file after the file-count limit is exceeded", async () => {
-        const directoryPath = await createTemporaryDirectory("oo-log-rotation");
+    test("removes log files before the local date retention window", async () => {
+        const directoryPath = await createTemporaryDirectory("oo-log-retention");
 
-        await Bun.write(join(directoryPath, "debug-2026-03-24_23-59-58-p123.log"), "first\n");
-        await Bun.write(join(directoryPath, "debug-2026-03-24_23-59-59-p123.log"), "second\n");
+        await Bun.write(join(directoryPath, "debug-2026-03-18_23-59-59-p123.log"), "expired\n");
+        await Bun.write(join(directoryPath, "debug-2026-03-19_00-00-00-p123.log"), "boundary\n");
+        await Bun.write(join(directoryPath, "debug-2026-03-24_23-59-59-p123.log"), "recent\n");
         const destination = new RollingFileDestination({
             directoryPath,
-            maxFiles: 2,
-            now: () => new Date("2026-03-25T00:00:00.000Z"),
+            now: () => new Date(2026, 2, 25, 15, 30, 12),
             pid: 123,
         });
 
-        destination.write("third\n");
+        destination.write("current\n");
         destination.end();
 
         const fileNames = (await readdir(directoryPath)).sort();
@@ -29,10 +29,39 @@ describe("RollingFileDestination", () => {
         );
         const mergedContent = contents.join("");
 
-        expect(fileNames.length).toBe(2);
-        expect(mergedContent).not.toContain("first");
-        expect(mergedContent).toContain("second");
-        expect(mergedContent).toContain("third");
+        expect(fileNames).not.toContain("debug-2026-03-18_23-59-59-p123.log");
+        expect(fileNames).toContain("debug-2026-03-19_00-00-00-p123.log");
+        expect(fileNames).toContain("debug-2026-03-24_23-59-59-p123.log");
+        expect(fileNames).toContain("debug-2026-03-25_15-30-12-p123.log");
+        expect(mergedContent).not.toContain("expired");
+        expect(mergedContent).toContain("boundary");
+        expect(mergedContent).toContain("recent");
+        expect(mergedContent).toContain("current");
+    });
+
+    test("keeps every log file inside the retention window", async () => {
+        const directoryPath = await createTemporaryDirectory("oo-log-no-count-limit");
+
+        await Promise.all(Array.from({ length: 25 }, (_, index) =>
+            Bun.write(
+                join(
+                    directoryPath,
+                    `debug-2026-03-24_00-00-${String(index).padStart(2, "0")}-p${index}.log`,
+                ),
+                `log-${index}\n`,
+            )));
+        const destination = new RollingFileDestination({
+            directoryPath,
+            now: () => new Date(2026, 2, 25, 15, 30, 12),
+            pid: 123,
+        });
+
+        destination.write("current\n");
+        destination.end();
+
+        const fileNames = await readdir(directoryPath);
+
+        expect(fileNames.length).toBe(26);
     });
 
     test("uses a human-readable local timestamp and pid in the log file name", async () => {
