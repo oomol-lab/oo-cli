@@ -3,7 +3,7 @@ import { pathExists } from "../shared/fs-utils.ts";
 import { runSelfUpdateCommandWithLogging } from "./command-runner.ts";
 import {
     resolveSelfUpdatePaths,
-    resolveSelfUpdateVersionFilePath,
+    resolveSelfUpdateVersionExecutablePath,
 } from "./paths.ts";
 
 const selfUpdateBundledSkillRefreshCommandArguments = [
@@ -21,7 +21,7 @@ export async function resolveBundledSkillRefreshCommandPath(options: {
         env: options.env,
         platform: options.platform,
     });
-    const versionCommandPath = resolveSelfUpdateVersionFilePath(
+    const versionCommandPath = resolveSelfUpdateVersionExecutablePath(
         paths,
         options.version,
     );
@@ -29,6 +29,22 @@ export async function resolveBundledSkillRefreshCommandPath(options: {
     return await pathExists(versionCommandPath)
         ? versionCommandPath
         : paths.executablePath;
+}
+
+export async function isManagedVersionExecutableInstalled(options: {
+    env: Record<string, string | undefined>;
+    platform: NodeJS.Platform;
+    version: string;
+}): Promise<boolean> {
+    const paths = resolveSelfUpdatePaths({
+        env: options.env,
+        platform: options.platform,
+    });
+
+    return await pathExists(resolveSelfUpdateVersionExecutablePath(
+        paths,
+        options.version,
+    ));
 }
 
 export async function attemptBundledSkillRefreshAfterSelfUpdate(options: {

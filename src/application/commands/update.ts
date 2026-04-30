@@ -4,6 +4,7 @@ import process from "node:process";
 import { z } from "zod";
 import {
     attemptBundledSkillRefreshAfterSelfUpdate,
+    isManagedVersionExecutableInstalled,
     resolveBundledSkillRefreshCommandPath,
 } from "../self-update/bundled-skills.ts";
 import {
@@ -81,6 +82,11 @@ export const updateCommand: CliCommandDefinition<
                     execPath: context.execPath,
                     platform: process.platform,
                 }).method === "native"
+                && await isManagedVersionExecutableInstalled({
+                    env: context.env,
+                    platform: process.platform,
+                    version: context.version,
+                })
             ) {
                 await attemptBundledSkillRefreshAfterSelfUpdate({
                     commandPath: await resolveBundledSkillRefreshCommandPath({

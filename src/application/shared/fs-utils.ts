@@ -2,7 +2,7 @@ import type { PathLike } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 
 import { stat } from "node:fs/promises";
-import { isFileMissingError } from "./fs-errors.ts";
+import { isPathMissingError } from "./fs-errors.ts";
 
 export async function pathExists(
     path: PathLike,
@@ -13,7 +13,7 @@ export async function pathExists(
         return true;
     }
     catch (error) {
-        if (isFileMissingError(error)) {
+        if (isPathMissingError(error)) {
             return false;
         }
 

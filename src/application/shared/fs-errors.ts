@@ -8,6 +8,10 @@ export function isFileMissingError(error: unknown): error is NodeJS.ErrnoExcepti
     return hasErrorCode(error, "ENOENT");
 }
 
+export function isPathMissingError(error: unknown): error is NodeJS.ErrnoException {
+    return isFileMissingError(error) || hasErrorCode(error, "ENOTDIR");
+}
+
 export function isFileAlreadyExistsError(error: unknown): error is NodeJS.ErrnoException {
     return hasErrorCode(error, "EEXIST");
 }

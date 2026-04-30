@@ -21,7 +21,7 @@ export function resolveSelfUpdatePaths(options: {
     const executableDirectory = pathModule.join(homeDirectory, ".local", "bin");
     const executablePath = pathModule.join(
         executableDirectory,
-        options.platform === "win32" ? "oo.exe" : "oo",
+        resolveSelfUpdateExecutableFileName(options.platform),
     );
 
     switch (options.platform) {
@@ -99,7 +99,7 @@ export function resolveSelfUpdateLockFilePath(
     );
 }
 
-export function resolveSelfUpdateVersionFilePath(
+export function resolveSelfUpdateVersionDirectoryPath(
     paths: Pick<SelfUpdatePaths, "platform" | "versionsDirectory">,
     version: string,
 ): string {
@@ -109,7 +109,17 @@ export function resolveSelfUpdateVersionFilePath(
     );
 }
 
-export function resolveSelfUpdateVersionTempFilePath(options: {
+export function resolveSelfUpdateVersionExecutablePath(
+    paths: Pick<SelfUpdatePaths, "platform" | "versionsDirectory">,
+    version: string,
+): string {
+    return readPathModule(paths.platform).join(
+        resolveSelfUpdateVersionDirectoryPath(paths, version),
+        resolveSelfUpdateExecutableFileName(paths.platform),
+    );
+}
+
+export function resolveSelfUpdateVersionTempDirectoryPath(options: {
     paths: Pick<SelfUpdatePaths, "platform" | "versionsDirectory">;
     processId: number;
     timestamp: number;
@@ -118,6 +128,18 @@ export function resolveSelfUpdateVersionTempFilePath(options: {
     return readPathModule(options.paths.platform).join(
         options.paths.versionsDirectory,
         `${options.version}.tmp.${options.processId}.${options.timestamp}`,
+    );
+}
+
+export function resolveSelfUpdateVersionTempExecutablePath(options: {
+    paths: Pick<SelfUpdatePaths, "platform" | "versionsDirectory">;
+    processId: number;
+    timestamp: number;
+    version: string;
+}): string {
+    return readPathModule(options.paths.platform).join(
+        resolveSelfUpdateVersionTempDirectoryPath(options),
+        resolveSelfUpdateExecutableFileName(options.paths.platform),
     );
 }
 
@@ -131,7 +153,7 @@ export function resolveSelfUpdateStagingBinaryPath(options: {
     return readPathModule(options.paths.platform).join(
         options.paths.stagingDirectory,
         `${options.version}.tmp.${options.processId}.${options.timestamp}`,
-        options.platform === "win32" ? "oo.exe" : "oo",
+        resolveSelfUpdateExecutableFileName(options.platform),
     );
 }
 
@@ -156,4 +178,10 @@ export function readPathModule(
     platform: NodeJS.Platform,
 ): typeof posix | typeof win32 {
     return platform === "win32" ? win32 : posix;
+}
+
+export function resolveSelfUpdateExecutableFileName(
+    platform: NodeJS.Platform,
+): string {
+    return platform === "win32" ? "oo.exe" : "oo";
 }

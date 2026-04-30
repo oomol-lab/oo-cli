@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { detectInstallationMethodFromExecPath } from "./installation.ts";
 import {
     resolveSelfUpdatePaths,
-    resolveSelfUpdateVersionFilePath,
+    resolveSelfUpdateVersionDirectoryPath,
+    resolveSelfUpdateVersionExecutablePath,
 } from "./paths.ts";
 
 describe("detectInstallationMethodFromExecPath", () => {
@@ -26,7 +27,7 @@ describe("detectInstallationMethodFromExecPath", () => {
         });
     });
 
-    test("returns explicit native for a managed version file path", () => {
+    test("returns explicit native for a managed version executable path", () => {
         const env = {
             HOME: "/tmp/home",
         };
@@ -37,7 +38,27 @@ describe("detectInstallationMethodFromExecPath", () => {
 
         expect(detectInstallationMethodFromExecPath({
             env,
-            execPath: resolveSelfUpdateVersionFilePath(paths, "1.2.3"),
+            execPath: resolveSelfUpdateVersionExecutablePath(paths, "1.2.3"),
+            platform: "linux",
+        })).toEqual({
+            confidence: "explicit",
+            method: "native",
+            source: "managedPath",
+        });
+    });
+
+    test("returns explicit native for a legacy managed version file path", () => {
+        const env = {
+            HOME: "/tmp/home",
+        };
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: "linux",
+        });
+
+        expect(detectInstallationMethodFromExecPath({
+            env,
+            execPath: resolveSelfUpdateVersionDirectoryPath(paths, "1.2.3"),
             platform: "linux",
         })).toEqual({
             confidence: "explicit",

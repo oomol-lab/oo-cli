@@ -4,7 +4,7 @@ import type {
     CliSnapshotContext,
 } from "../../../__tests__/helpers.ts";
 import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
 import {
@@ -14,7 +14,8 @@ import {
 } from "../../../__tests__/helpers.ts";
 import {
     resolveSelfUpdatePaths,
-    resolveSelfUpdateVersionFilePath,
+    resolveSelfUpdateVersionDirectoryPath,
+    resolveSelfUpdateVersionExecutablePath,
 } from "../self-update/paths.ts";
 import { detectSelfUpdateReleasePlatform } from "../self-update/platform.ts";
 
@@ -240,7 +241,7 @@ describe("self-update commands", () => {
             env: sandbox.env,
             platform: process.platform,
         });
-        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
             paths,
             "2.0.0",
         );
@@ -385,7 +386,7 @@ describe("self-update commands", () => {
             env: sandbox.env,
             platform: process.platform,
         });
-        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
             paths,
             "2.0.0",
         );
@@ -572,7 +573,7 @@ describe("self-update commands", () => {
             env: sandbox.env,
             platform: process.platform,
         });
-        const currentVersionPath = resolveSelfUpdateVersionFilePath(
+        const currentVersionPath = resolveSelfUpdateVersionExecutablePath(
             paths,
             "1.2.3",
         );
@@ -581,8 +582,7 @@ describe("self-update commands", () => {
         const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
 
         try {
-            await mkdir(paths.versionsDirectory, { recursive: true });
-            await Bun.write(currentVersionPath, "existing-binary");
+            await writeManagedVersion(currentVersionPath, "existing-binary");
 
             const result = await sandbox.run(["update"], {
                 fetcher: async (input, init) => {
@@ -614,6 +614,74 @@ describe("self-update commands", () => {
             });
             expect(latestRequestCount).toBe(1);
             expect(binaryRequestCount).toBe(0);
+            expect(selfUpdateRuntime.commands).toEqual([
+                {
+                    commandArguments: ["skills", "add"],
+                    commandPath: currentVersionPath,
+                    timeoutMs: 10_000,
+                },
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("update repairs a same-version native install that still uses the legacy version file layout", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const paths = resolveSelfUpdatePaths({
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const legacyVersionPath = resolveSelfUpdateVersionDirectoryPath(
+            paths,
+            "1.2.3",
+        );
+        const currentVersionPath = resolveSelfUpdateVersionExecutablePath(
+            paths,
+            "1.2.3",
+        );
+        let latestRequestCount = 0;
+        let binaryRequestCount = 0;
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime();
+
+        try {
+            await writeManagedVersion(legacyVersionPath, "legacy-binary");
+
+            const result = await sandbox.run(["update"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        latestRequestCount += 1;
+                        return new Response(JSON.stringify({
+                            version: "1.2.3",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        binaryRequestCount += 1;
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                execPath: paths.executablePath,
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.2.3",
+            });
+
+            expect(createCliSnapshot(result, { sandbox })).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: "Already up to date at 1.2.3.\nAdded <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.\n",
+            });
+            expect(latestRequestCount).toBe(1);
+            expect(binaryRequestCount).toBe(1);
             expect(selfUpdateRuntime.commands).toEqual([
                 {
                     commandArguments: ["skills", "add"],
@@ -686,15 +754,14 @@ describe("self-update commands", () => {
             env: sandbox.env,
             platform: process.platform,
         });
-        const currentVersionPath = resolveSelfUpdateVersionFilePath(
+        const currentVersionPath = resolveSelfUpdateVersionExecutablePath(
             paths,
             "1.2.3",
         );
         let binaryRequestCount = 0;
 
         try {
-            await mkdir(paths.versionsDirectory, { recursive: true });
-            await Bun.write(currentVersionPath, "existing-binary");
+            await writeManagedVersion(currentVersionPath, "existing-binary");
 
             const result = await sandbox.run(["upgrade"], {
                 execPath: "/usr/local/lib/node_modules/@oomol-lab/oo-cli/bin/oo",
@@ -815,6 +882,11 @@ interface CapturedSelfUpdateCommand {
     commandArguments: readonly string[];
     commandPath: string;
     timeoutMs: number;
+}
+
+async function writeManagedVersion(path: string, content: string): Promise<void> {
+    await mkdir(dirname(path), { recursive: true });
+    await Bun.write(path, content);
 }
 
 function createCapturedSelfUpdateRuntime(commandResult?: {
