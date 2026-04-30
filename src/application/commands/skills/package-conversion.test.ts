@@ -266,6 +266,57 @@ describe("skill package conversion", () => {
         ).not.toContain("icon:");
     });
 
+    test("uses source gitignore rules when converting a skill package", async () => {
+        const sourceDirectoryPath = await createTemporaryDirectory("gitignore-skill");
+        const packageRootDirectoryPath = await createTemporaryDirectory("gitignore-package");
+
+        cleanup.track(sourceDirectoryPath);
+        cleanup.track(packageRootDirectoryPath);
+
+        await writeSkillFile(sourceDirectoryPath, [
+            "---",
+            "name: gitignore-skill",
+            "description: Use a known package workflow.",
+            "---",
+            "",
+        ].join("\n"));
+        await Bun.write(join(sourceDirectoryPath, ".gitignore"), [
+            "private-note.md",
+            "scratch/",
+            "",
+        ].join("\n"));
+        await Bun.write(join(sourceDirectoryPath, "private-note.md"), "local\n");
+        await mkdir(join(sourceDirectoryPath, "scratch"), { recursive: true });
+        await Bun.write(join(sourceDirectoryPath, "scratch", "debug.txt"), "debug\n");
+        await Bun.write(join(sourceDirectoryPath, "published-note.md"), "publish\n");
+
+        await convertSkillDirectoryToPackage({
+            packageName: "@alice/gitignore-skill",
+            packageRootDirectoryPath,
+            skillDirectoryPath: sourceDirectoryPath,
+            skillId: "gitignore-skill",
+            version: "0.0.1",
+        });
+
+        const convertedSkillDirectoryPath = join(
+            packageRootDirectoryPath,
+            "package",
+            "skills",
+            "gitignore-skill",
+        );
+
+        await Promise.all([
+            expectPathMissing(join(convertedSkillDirectoryPath, "private-note.md")),
+            expectPathMissing(join(convertedSkillDirectoryPath, "scratch")),
+        ]);
+        expect(
+            await readFile(join(convertedSkillDirectoryPath, "published-note.md"), "utf8"),
+        ).toBe("publish\n");
+        expect(
+            await readFile(join(convertedSkillDirectoryPath, ".gitignore"), "utf8"),
+        ).toBe("private-note.md\nscratch/\n");
+    });
+
     test("publishes converted package metadata to the OOMOL registry", async () => {
         const sourceDirectoryPath = await createTemporaryDirectory("publish-source");
         const packageRootDirectoryPath = await createTemporaryDirectory("publish-package");
@@ -283,6 +334,13 @@ describe("skill package conversion", () => {
             "---",
             "",
             "# Demo",
+            "",
+        ].join("\n"));
+        await Bun.write(join(sourceDirectoryPath, ".gitignore"), [
+            ".env",
+            "debug.local",
+            "pack-only.txt",
+            "token.secret",
             "",
         ].join("\n"));
 
@@ -304,6 +362,10 @@ describe("skill package conversion", () => {
         await Bun.write(
             join(packageRootDirectoryPath, "package", "skills", "demo-skill", "token.secret"),
             "secret\n",
+        );
+        await Bun.write(
+            join(packageRootDirectoryPath, "package", "skills", "demo-skill", "pack-only.txt"),
+            "pack\n",
         );
 
         await publishConvertedSkillPackage({
@@ -372,6 +434,7 @@ describe("skill package conversion", () => {
         ]));
         expect(tarEntryNames).not.toContain("package/package/skills/demo-skill/.env");
         expect(tarEntryNames).not.toContain("package/package/skills/demo-skill/debug.local");
+        expect(tarEntryNames).not.toContain("package/package/skills/demo-skill/pack-only.txt");
         expect(tarEntryNames).not.toContain("package/package/skills/demo-skill/token.secret");
         expect(tarEntryNames).not.toContain("package/package/.oo-thumbnail.json");
         expect(tarEntryNames).not.toContain("package/package/.oo-thumbnail.zh-CN.json");

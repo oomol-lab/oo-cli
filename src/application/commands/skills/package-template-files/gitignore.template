@@ -298,5 +298,19 @@ dist
 
 .oomol/
 
+# Local skill package files
+.env
+.env.*
+.envrc
+.git/
+.hg/
+.npmrc
+.oo-metadata.json
+.svn/
+*.local
+*.secret
+desktop.ini
+Thumbs.db
+
 .oo-thumbnail.json
 .oo-thumbnail.*.json

@@ -4,10 +4,11 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { cp, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
-import { basename, join, posix, relative, sep } from "node:path";
+import { join, posix, relative, sep } from "node:path";
 import process from "node:process";
 import { gzipSync } from "node:zlib";
 import matter from "gray-matter";
+import ignore from "ignore";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isSemver } from "../../semver.ts";
 import { isFileMissingError } from "../../shared/fs-errors.ts";
@@ -73,6 +74,13 @@ interface TarEntry {
     kind: "directory" | "file";
 }
 
+type GitIgnore = ReturnType<typeof ignore>;
+
+interface PackageIgnoreContext {
+    packageRootDirectoryPath: string;
+    skillIgnores: Map<string, GitIgnore>;
+}
+
 const defaultRequestedPackageVersion = "0.0.1";
 export const skillPublishVisibilityValues = ["private", "public"] as const;
 export type SkillPublishVisibility = (typeof skillPublishVisibilityValues)[number];
@@ -86,18 +94,6 @@ const skillPackageFiles = [
     "package/.oo-thumbnail.json",
     "package/.oo-thumbnail.zh-CN.json",
 ] as const;
-const localOnlyPackagePathNames: ReadonlySet<string> = new Set([
-    ".ds_store",
-    ".env",
-    ".envrc",
-    ".git",
-    ".hg",
-    ".npmrc",
-    ".oo-metadata.json",
-    ".svn",
-    "desktop.ini",
-    "thumbs.db",
-]);
 const tarBlockSize = 512;
 const tarHeaderSize = 512;
 const npmCompatiblePublishUserAgent = `npm/10.0.0 node/${process.version} ${process.platform} ${process.arch}`;
@@ -124,15 +120,27 @@ export async function convertSkillDirectoryToPackage(
         packageSkillsDirectoryPath,
         options.skillId,
     );
+    const skillPackageIgnore = await createSkillPackageIgnore(
+        options.skillDirectoryPath,
+    );
 
     await rm(packageDirectoryPath, { force: true, recursive: true });
     await mkdir(packageSkillsDirectoryPath, { recursive: true });
     await cp(options.skillDirectoryPath, packageSkillDirectoryPath, {
-        filter: (sourcePath) => {
+        filter: async (sourcePath) => {
             const sourceRelativePath = relative(options.skillDirectoryPath, sourcePath);
 
-            return sourceRelativePath === ""
-                || !isLocalOnlyPackagePath(sourceRelativePath);
+            if (sourceRelativePath === "") {
+                return true;
+            }
+
+            const metadata = await stat(sourcePath);
+
+            return !isIgnoredByGitIgnore(
+                skillPackageIgnore,
+                sourceRelativePath,
+                metadata.isDirectory(),
+            );
         },
         force: true,
         recursive: true,
@@ -425,11 +433,25 @@ async function collectTarEntries(
     manifest: PublishManifest,
 ): Promise<TarEntry[]> {
     const entries = new Map<string, TarEntry>();
+    const ignoreContext: PackageIgnoreContext = {
+        packageRootDirectoryPath,
+        skillIgnores: new Map(),
+    };
 
-    await collectExistingPath(packageRootDirectoryPath, "package.json", entries);
+    await collectExistingPath(
+        packageRootDirectoryPath,
+        "package.json",
+        entries,
+        ignoreContext,
+    );
 
     for (const filePath of readManifestFilePaths(manifest)) {
-        await collectExistingPath(packageRootDirectoryPath, filePath, entries);
+        await collectExistingPath(
+            packageRootDirectoryPath,
+            filePath,
+            entries,
+            ignoreContext,
+        );
     }
 
     return [...entries.values()].sort(compareTarEntries);
@@ -459,13 +481,9 @@ async function collectExistingPath(
     packageRootDirectoryPath: string,
     relativePath: string,
     entries: Map<string, TarEntry>,
+    ignoreContext: PackageIgnoreContext,
 ): Promise<void> {
     const safeRelativePath = resolveSafePackageRelativePath(relativePath);
-
-    if (isLocalOnlyPackagePath(safeRelativePath)) {
-        return;
-    }
-
     const absolutePath = join(packageRootDirectoryPath, safeRelativePath);
     let metadata: Awaited<ReturnType<typeof stat>>;
 
@@ -480,6 +498,14 @@ async function collectExistingPath(
         throw error;
     }
 
+    if (await isIgnoredPackageSkillPath(
+        ignoreContext,
+        safeRelativePath,
+        metadata.isDirectory(),
+    )) {
+        return;
+    }
+
     const archivePath = createArchivePath(safeRelativePath);
 
     if (metadata.isDirectory()) {
@@ -488,7 +514,12 @@ async function collectExistingPath(
             archivePath,
             kind: "directory",
         });
-        await collectDirectoryEntries(packageRootDirectoryPath, absolutePath, entries);
+        await collectDirectoryEntries(
+            packageRootDirectoryPath,
+            absolutePath,
+            entries,
+            ignoreContext,
+        );
         return;
     }
 
@@ -505,6 +536,7 @@ async function collectDirectoryEntries(
     packageRootDirectoryPath: string,
     directoryPath: string,
     entries: Map<string, TarEntry>,
+    ignoreContext: PackageIgnoreContext,
 ): Promise<void> {
     const dirents = await readdir(directoryPath, { withFileTypes: true });
 
@@ -514,6 +546,7 @@ async function collectDirectoryEntries(
                 packageRootDirectoryPath,
                 relative(packageRootDirectoryPath, join(directoryPath, dirent.name)),
                 entries,
+                ignoreContext,
             ),
         ),
     );
@@ -536,17 +569,107 @@ function resolveSafePackageRelativePath(relativePath: string): string {
     return normalizedPath;
 }
 
-function isLocalOnlyPackagePath(relativePath: string): boolean {
-    const pathName = basename(relativePath).toLowerCase();
+async function createSkillPackageIgnore(
+    skillDirectoryPath: string,
+): Promise<GitIgnore> {
+    const gitIgnoreContent = await readSkillGitIgnoreContent(skillDirectoryPath);
 
-    return localOnlyPackagePathNames.has(pathName)
-        || pathName.startsWith(".env.")
-        || pathName.endsWith(".local")
-        || pathName.endsWith(".secret");
+    return ignore().add(gitIgnoreContent);
+}
+
+async function readSkillGitIgnoreContent(skillDirectoryPath: string): Promise<string> {
+    try {
+        return await readFile(join(skillDirectoryPath, ".gitignore"), "utf8");
+    }
+    catch (error) {
+        if (isFileMissingError(error)) {
+            return skillPackageGitIgnoreTemplate;
+        }
+
+        throw error;
+    }
+}
+
+async function isIgnoredPackageSkillPath(
+    context: PackageIgnoreContext,
+    relativePath: string,
+    isDirectory: boolean,
+): Promise<boolean> {
+    const skillPath = readPackageSkillPath(relativePath);
+
+    if (skillPath === undefined || skillPath.relativePath === "") {
+        return false;
+    }
+
+    const skillPackageIgnore = await readPackageSkillIgnore(
+        context,
+        skillPath.skillId,
+    );
+
+    return isIgnoredByGitIgnore(
+        skillPackageIgnore,
+        skillPath.relativePath,
+        isDirectory,
+    );
+}
+
+async function readPackageSkillIgnore(
+    context: PackageIgnoreContext,
+    skillId: string,
+): Promise<GitIgnore> {
+    const existingIgnore = context.skillIgnores.get(skillId);
+
+    if (existingIgnore !== undefined) {
+        return existingIgnore;
+    }
+
+    const skillPackageIgnore = await createSkillPackageIgnore(
+        join(context.packageRootDirectoryPath, "package", "skills", skillId),
+    );
+
+    context.skillIgnores.set(skillId, skillPackageIgnore);
+
+    return skillPackageIgnore;
+}
+
+function readPackageSkillPath(
+    relativePath: string,
+): { relativePath: string; skillId: string } | undefined {
+    const segments = toPosixPath(relativePath).split(posix.sep);
+    const skillId = segments[2];
+
+    if (segments[0] !== "package" || segments[1] !== "skills" || skillId === undefined) {
+        return undefined;
+    }
+
+    return {
+        relativePath: segments.slice(3).join(posix.sep),
+        skillId,
+    };
+}
+
+function isIgnoredByGitIgnore(
+    gitIgnore: GitIgnore,
+    relativePath: string,
+    isDirectory: boolean,
+): boolean {
+    return gitIgnore.ignores(createGitIgnorePath(relativePath, isDirectory));
+}
+
+function createGitIgnorePath(relativePath: string, isDirectory: boolean): string {
+    const gitIgnorePath = toPosixPath(relativePath);
+
+    return isDirectory && !gitIgnorePath.endsWith(posix.sep)
+        ? `${gitIgnorePath}${posix.sep}`
+        : gitIgnorePath;
+}
+
+function toPosixPath(path: string): string {
+    return path.replaceAll("\\", posix.sep).replaceAll(sep, posix.sep);
 }
 
 function createArchivePath(relativePath: string): string {
-    return posix.join("package", relativePath.replaceAll(sep, posix.sep));
+    return posix.join("package", toPosixPath(relativePath));
 }
 
 function ensureTarDirectoryPath(path: string): string {
