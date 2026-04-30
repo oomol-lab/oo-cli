@@ -11,6 +11,7 @@ import pino from "pino";
 import {
     createTemporaryDirectory,
     expectCliUserError,
+    requireAbortSignal,
     toRequest,
     useTemporaryDirectoryCleanup,
 } from "../../../../__tests__/helpers.ts";
@@ -573,6 +574,63 @@ describe("skill package conversion", () => {
                 message: "conflict",
                 status: 409,
             },
+        });
+    });
+
+    test("aborts registry publish requests after the request timeout", async () => {
+        const sourceDirectoryPath = await createTemporaryDirectory("publish-timeout-source");
+        const packageRootDirectoryPath = await createTemporaryDirectory("publish-timeout-package");
+        let publishRequestAborted = false;
+
+        cleanup.track(sourceDirectoryPath);
+        cleanup.track(packageRootDirectoryPath);
+
+        await writeSkillFile(sourceDirectoryPath, [
+            "---",
+            "name: demo-skill",
+            "description: Use a known package workflow.",
+            "---",
+            "",
+        ].join("\n"));
+
+        await convertSkillDirectoryToPackage({
+            packageName: "@alice/demo-skill",
+            packageRootDirectoryPath,
+            skillDirectoryPath: sourceDirectoryPath,
+            skillId: "demo-skill",
+            version: "0.0.2",
+        });
+
+        const error = await expectCliUserError(publishConvertedSkillPackage({
+            account: {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+            },
+            context: {
+                fetcher: (_input, init) => new Promise<Response>((_, reject) => {
+                    const signal = requireAbortSignal(init);
+
+                    signal.addEventListener("abort", () => {
+                        publishRequestAborted = true;
+
+                        const error = new Error("Publish request aborted.");
+
+                        error.name = "AbortError";
+                        reject(error);
+                    }, { once: true });
+                }),
+                logger: pino({ enabled: false }),
+                translator: createTranslator("en"),
+            },
+            packageRootDirectoryPath,
+            requestTimeoutMs: 5,
+            visibility: "private",
+        }));
+
+        expect(publishRequestAborted).toBeTrue();
+        expect(error.key).toBe("errors.skills.publish.requestError");
+        expect(error.params).toMatchObject({
+            message: "Publish request aborted.",
         });
     });
 

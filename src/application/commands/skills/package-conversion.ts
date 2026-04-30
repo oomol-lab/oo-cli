@@ -47,6 +47,7 @@ export interface PublishConvertedSkillPackageOptions {
     account: Pick<AuthAccount, "apiKey" | "endpoint">;
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
     packageRootDirectoryPath: string;
+    requestTimeoutMs?: number;
     visibility: SkillPublishVisibility;
 }
 
@@ -97,6 +98,7 @@ const skillPackageFiles = [
 const tarBlockSize = 512;
 const tarHeaderSize = 512;
 const npmCompatiblePublishUserAgent = `npm/10.0.0 node/${process.version} ${process.platform} ${process.arch}`;
+const defaultSkillPackagePublishRequestTimeoutMs = 30_000;
 
 export async function convertSkillDirectoryToPackage(
     options: ConvertSkillPackageOptions,
@@ -311,12 +313,15 @@ export async function publishConvertedSkillPackage(
         options.visibility,
     );
     const requestUrl = createPublishRequestUrl(registry, manifest.name);
+    const requestTimeoutMs = options.requestTimeoutMs
+        ?? defaultSkillPackagePublishRequestTimeoutMs;
 
     options.context.logger.debug(
         {
             packageName: manifest.name,
             packageVersion: manifest.version,
             target: requestUrl.href,
+            timeoutMs: requestTimeoutMs,
         },
         "Skill package publish request started.",
     );
@@ -328,6 +333,7 @@ export async function publishConvertedSkillPackage(
         packageName: manifest.name,
         packageVersion: manifest.version,
         requestUrl,
+        requestTimeoutMs,
     });
 
     options.context.logger.debug(
@@ -821,8 +827,14 @@ async function requestSkillPackagePublish(options: {
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
     packageName: string;
     packageVersion: string;
+    requestTimeoutMs: number;
     requestUrl: URL;
 }): Promise<Response> {
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(
+        () => abortController.abort(),
+        options.requestTimeoutMs,
+    );
     let response: Response;
 
     try {
@@ -835,6 +847,7 @@ async function requestSkillPackagePublish(options: {
                 "User-Agent": npmCompatiblePublishUserAgent,
             },
             method: "PUT",
+            signal: abortController.signal,
         });
     }
     catch (error) {
@@ -844,6 +857,9 @@ async function requestSkillPackagePublish(options: {
                 options.context.translator,
             ),
         });
+    }
+    finally {
+        clearTimeout(timeoutId);
     }
 
     if (response.ok) {
