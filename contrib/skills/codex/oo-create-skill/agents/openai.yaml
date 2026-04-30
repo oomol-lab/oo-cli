@@ -1,7 +1,7 @@
 interface:
   display_name: oo Create Skill
   short_description: Create local OOMOL workflow skills
-  default_prompt: "Use $oo-create-skill when the user asks to author, scaffold, generate, or update a local AI agent skill for an OOMOL/oo package, block, or workflow, even when package discovery is needed before authoring; do not use it for finding/installing published skills or publishing finished skills."
+  default_prompt: "Use $oo-create-skill when the user asks to author, scaffold, generate, or update a local AI agent skill for an OOMOL/oo package, connector action, block, or workflow, even when capability discovery is needed before authoring; do not use it for finding/installing published skills or publishing finished skills."
 
 policy:
   allow_implicit_invocation: true

@@ -347,8 +347,10 @@ describe("embedded skill assets", () => {
             );
 
             expect(content).toContain("Author, generate, scaffold, or update");
-            expect(content).toContain("create a skill, write a skill, make a Codex/Claude/agent");
-            expect(content).toContain("package discovery is needed first");
+            expect(content).toContain("create a skill, write a skill, make a");
+            expect(content).toContain("Codex/Claude/agent skill");
+            expect(content).toContain("connector action");
+            expect(content).toContain("capability discovery is needed first");
             expect(content).toContain("discover or install existing published skills");
             expect(content).toContain("publish a finished skill");
             expect(content).not.toContain("already knows which oo package or block");
@@ -366,10 +368,43 @@ describe("embedded skill assets", () => {
 
         expect(openAiAgentContent).toContain("$oo-create-skill");
         expect(openAiAgentContent).toContain("author, scaffold, generate, or update");
-        expect(openAiAgentContent).toContain("package discovery is needed before authoring");
+        expect(openAiAgentContent).toContain("connector action");
+        expect(openAiAgentContent).toContain("capability discovery is needed before authoring");
         expect(openAiAgentContent).toContain(
             "finding/installing published skills or publishing finished skills",
         );
+    });
+
+    test("guides oo-create-skill discovery toward connector-aware selection", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
+                file => file.relativePath === "SKILL.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
+            }
+
+            const content = normalizeLineEndingsForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+
+            expect(content).toContain(
+                "Resolve concrete package, block, and connector references",
+            );
+            expect(content).toContain(
+                "Treat package and connector results as first-class authoring candidates.",
+            );
+            expect(content).toContain("prefer an already-authenticated connector");
+            expect(content).toContain("Do not force a package or block reference");
+            expect(content).toContain("when the chosen reusable workflow is connector-backed.");
+            expect(content).toContain(
+                "concrete connector service/action identifiers",
+            );
+            expect(content).toContain(
+                "run `oo search`, `oo connector search`, or discover capabilities",
+            );
+        }
     });
 
     test("guides oo-publish-skill agents to publish agent skills", async () => {
