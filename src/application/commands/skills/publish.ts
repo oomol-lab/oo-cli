@@ -1,10 +1,12 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
-import type { SkillPublishVisibility } from "./package-conversion.ts";
+import type { BundledSkillAgentName } from "./embedded-assets.ts";
+import type { LocalSkillHostPublicationTarget } from "./init.ts";
 
-import { mkdtemp, rm } from "node:fs/promises";
+import type { SkillPublishVisibility } from "./package-conversion.ts";
+import { cp, lstat, mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -13,10 +15,39 @@ import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
+import {
+    isNodeNotFoundError,
+    publishBundledSkillInstallation,
+    removePath,
+} from "./bundled-skill-filesystem.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
+import {
+    resolveBundledSkillCanonicalRootDirectoryPath,
+    resolveBundledSkillHomeDirectory,
+} from "./bundled-skill-paths.ts";
 import { checkLocalSkillAuthoringEnvironment } from "./check.ts";
+import {
+    availableBundledSkillAgentNames,
+    availableBundledSkillNames,
+} from "./embedded-assets.ts";
+import {
+    resolveLocalSkillPublicationTargets,
+    resolveSkillInitPublicationMessageKey,
+} from "./init.ts";
 import { confirmInteractiveValue } from "./interactive-prompts.ts";
-import { resolveLocalSkillCanonicalDirectoryPath } from "./managed-skill-paths.ts";
+import { createMissingManagedSkillHostError } from "./managed-skill-hosts.ts";
+import {
+    parseManagedSkillMetadataContent,
+    readManagedSkillMetadata,
+} from "./managed-skill-metadata.ts";
+import {
+    isLocalSkillPathContained,
+    resolveLocalSkillCanonicalDirectoryPath,
+    resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillDirectoryPath,
+    resolveManagedSkillMetadataFilePath,
+} from "./managed-skill-paths.ts";
+import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 import {
     convertSkillDirectoryToPackage,
     defaultSkillPublishVisibility,
@@ -24,9 +55,11 @@ import {
     readLocalSkillPackageMetadata,
     skillPublishVisibilityValues,
     writePublishedSkillMetadata,
+    writeSkillFrontmatterMetadata,
 } from "./package-conversion.ts";
 
 interface SkillsPublishInput {
+    agent?: string;
     skill: string;
     visibility?: string;
 }
@@ -38,6 +71,34 @@ interface PublishLocalSkillPackageResult {
     skillId: string;
     version: string;
 }
+
+interface PublishSkillPackageOptions {
+    agentName?: BundledSkillAgentName;
+}
+
+interface LocalSkillPublishSource {
+    kind: "local";
+    skillDirectoryPath: string;
+    skillId: string;
+}
+
+interface RegistrySkillPublishSource {
+    kind: "registry";
+    packageName: string;
+    skillDirectoryPath: string;
+    skillId: string;
+}
+
+interface AdoptableSkillPublishSource {
+    kind: "adoptable";
+    skillDirectoryPath: string;
+    skillId: string;
+}
+
+type SkillPublishSource
+    = | AdoptableSkillPublishSource
+        | LocalSkillPublishSource
+        | RegistrySkillPublishSource;
 
 interface ResolveSkillPublishVersionRequest {
     account: AuthAccount;
@@ -76,6 +137,12 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
     ],
     options: [
         {
+            name: "agent",
+            longFlag: "--agent",
+            valueName: "agent",
+            descriptionKey: "options.agent",
+        },
+        {
             name: "visibility",
             longFlag: "--visibility",
             valueName: "visibility",
@@ -83,16 +150,19 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
         },
     ],
     inputSchema: z.object({
+        agent: z.string().optional(),
         skill: z.string(),
         visibility: z.string().optional(),
     }),
     handler: async (input, context) => {
+        const agentName = parseSkillPublishAgent(input.agent);
         const visibility = parseSkillPublishVisibility(input.visibility)
             ?? defaultSkillPublishVisibility;
-        const result = await publishLocalSkillPackage(
+        const result = await publishSkillPackage(
             input.skill,
             context,
             visibility,
+            { agentName },
         );
 
         writeLine(
@@ -119,18 +189,6 @@ export async function publishLocalSkillPackage(
     const checkAuthoringEnvironment
         = dependencies.checkAuthoringEnvironment ?? checkLocalSkillAuthoringEnvironment;
     const requireAccount = dependencies.requireCurrentAccount ?? requireCurrentAccount;
-    const resolveFinalPublishVersion = dependencies.resolveFinalPublishVersion
-        ?? resolveRequestedSkillPublishVersion;
-    const createTemporaryPackageRoot = dependencies.createTemporaryPackageRoot
-        ?? createDefaultTemporaryPackageRoot;
-    const removeTemporaryPackageRoot = dependencies.removeTemporaryPackageRoot
-        ?? removeDefaultTemporaryPackageRoot;
-    const convertDirectory = dependencies.convertSkillDirectoryToPackage
-        ?? convertSkillDirectoryToPackage;
-    const publishPackage = dependencies.publishConvertedSkillPackage
-        ?? publishConvertedSkillPackage;
-    const writeMetadata = dependencies.writePublishedSkillMetadata
-        ?? writePublishedSkillMetadata;
 
     await checkAuthoringEnvironment(context);
 
@@ -148,17 +206,96 @@ export async function publishLocalSkillPackage(
 
     const account = await requireAccount(context);
     const packageName = resolveCanonicalSkillPackageName(account.name, skillId);
-    const hubUrl = createSkillPackageHubUrl(account.endpoint, packageName);
+
+    return await publishResolvedSkillPackage(
+        {
+            account,
+            packageName,
+            skillDirectoryPath,
+            skillId,
+        },
+        context,
+        visibility,
+        dependencies,
+    );
+}
+
+export async function publishSkillPackage(
+    skillReference: string,
+    context: CliExecutionContext,
+    visibility: SkillPublishVisibility = defaultSkillPublishVisibility,
+    options: PublishSkillPackageOptions = {},
+    dependencies: PublishLocalSkillPackageDependencies = {},
+): Promise<PublishLocalSkillPackageResult> {
+    const source = await resolveSkillPublishSource(skillReference, context, {
+        agentName: options.agentName,
+    });
+    const checkAuthoringEnvironment
+        = dependencies.checkAuthoringEnvironment ?? checkLocalSkillAuthoringEnvironment;
+    const requireAccount = dependencies.requireCurrentAccount ?? requireCurrentAccount;
+
+    await checkAuthoringEnvironment(context);
+
+    const account = await requireAccount(context);
+    const packageName = resolveCanonicalSkillPackageName(account.name, source.skillId);
+    const publishSource = await confirmAndPrepareSkillPublishSource(
+        {
+            packageName,
+            source,
+        },
+        context,
+    );
+
+    return await publishResolvedSkillPackage(
+        {
+            account,
+            packageName,
+            skillDirectoryPath: publishSource.skillDirectoryPath,
+            skillId: publishSource.skillId,
+        },
+        context,
+        visibility,
+        dependencies,
+    );
+}
+
+async function publishResolvedSkillPackage(
+    request: {
+        account: AuthAccount;
+        packageName: string;
+        skillDirectoryPath: string;
+        skillId: string;
+    },
+    context: CliExecutionContext,
+    visibility: SkillPublishVisibility,
+    dependencies: PublishLocalSkillPackageDependencies,
+): Promise<PublishLocalSkillPackageResult> {
+    const resolveFinalPublishVersion = dependencies.resolveFinalPublishVersion
+        ?? resolveRequestedSkillPublishVersion;
+    const createTemporaryPackageRoot = dependencies.createTemporaryPackageRoot
+        ?? createDefaultTemporaryPackageRoot;
+    const removeTemporaryPackageRoot = dependencies.removeTemporaryPackageRoot
+        ?? removeDefaultTemporaryPackageRoot;
+    const convertDirectory = dependencies.convertSkillDirectoryToPackage
+        ?? convertSkillDirectoryToPackage;
+    const publishPackage = dependencies.publishConvertedSkillPackage
+        ?? publishConvertedSkillPackage;
+    const writeMetadata = dependencies.writePublishedSkillMetadata
+        ?? writePublishedSkillMetadata;
+    const hubUrl = createSkillPackageHubUrl(
+        request.account.endpoint,
+        request.packageName,
+    );
     const skillMetadata = await readLocalSkillPackageMetadata({
-        skillDirectoryPath,
-        skillId,
+        skillDirectoryPath: request.skillDirectoryPath,
+        skillId: request.skillId,
     });
     const version = await resolveFinalPublishVersion({
-        account,
+        account: request.account,
         context,
-        packageName,
+        packageName: request.packageName,
         requestedVersion: skillMetadata.requestedVersion,
-        skillId,
+        skillId: request.skillId,
     });
     let packageRootDirectoryPath: string | undefined;
 
@@ -166,21 +303,21 @@ export async function publishLocalSkillPackage(
         packageRootDirectoryPath = await createTemporaryPackageRoot();
 
         await convertDirectory({
-            packageName,
+            packageName: request.packageName,
             packageRootDirectoryPath,
-            skillDirectoryPath,
-            skillId,
+            skillDirectoryPath: request.skillDirectoryPath,
+            skillId: request.skillId,
             version,
         });
         await publishPackage({
-            account,
+            account: request.account,
             context,
             packageRootDirectoryPath,
             visibility,
         });
         await writeMetadata({
-            packageName,
-            skillDirectoryPath,
+            packageName: request.packageName,
+            skillDirectoryPath: request.skillDirectoryPath,
             version,
         });
     }
@@ -192,11 +329,21 @@ export async function publishLocalSkillPackage(
 
     return {
         hubUrl,
-        packageName,
-        skillDirectoryPath,
-        skillId,
+        packageName: request.packageName,
+        skillDirectoryPath: request.skillDirectoryPath,
+        skillId: request.skillId,
         version,
     };
+}
+
+function parseSkillPublishAgent(
+    value: string | undefined,
+): BundledSkillAgentName | undefined {
+    return parseEnumOption(
+        value,
+        availableBundledSkillAgentNames,
+        "errors.skills.publish.invalidAgent",
+    );
 }
 
 function parseSkillPublishVisibility(
@@ -207,6 +354,758 @@ function parseSkillPublishVisibility(
         skillPublishVisibilityValues,
         "errors.skills.publish.invalidVisibility",
     );
+}
+
+async function resolveSkillPublishSource(
+    skillReference: string,
+    context: Pick<CliExecutionContext, "cwd" | "env" | "settingsStore">,
+    options: PublishSkillPackageOptions,
+): Promise<SkillPublishSource> {
+    const normalizedReference = skillReference.trim();
+
+    if (normalizedReference === "") {
+        throw createSkillPublishSourceMissingError(skillReference);
+    }
+
+    const settingsFilePath = context.settingsStore.getFilePath();
+
+    if (isSkillIdReference(normalizedReference)) {
+        const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            settingsFilePath,
+            normalizedReference,
+        );
+
+        if (await directoryExists(localSkillDirectoryPath)) {
+            return {
+                kind: "local",
+                skillDirectoryPath: localSkillDirectoryPath,
+                skillId: normalizedReference,
+            };
+        }
+
+        await rejectBundledSkillPublishIfMatched(
+            settingsFilePath,
+            normalizedReference,
+        );
+
+        const registrySkillSource = await resolveRegistrySkillPublishSource(
+            settingsFilePath,
+            normalizedReference,
+        );
+
+        if (registrySkillSource !== undefined) {
+            return registrySkillSource;
+        }
+
+        if (options.agentName !== undefined) {
+            const agentSkillSource = await resolveAgentSkillPublishSource(
+                context.env,
+                normalizedReference,
+                options.agentName,
+            );
+
+            if (agentSkillSource !== undefined) {
+                return agentSkillSource;
+            }
+        }
+    }
+
+    const pathSkillSource = await resolvePathSkillPublishSource(
+        normalizedReference,
+        context.cwd,
+        settingsFilePath,
+    );
+
+    if (pathSkillSource !== undefined) {
+        return pathSkillSource;
+    }
+
+    throw createSkillPublishSourceMissingError(skillReference);
+}
+
+async function rejectBundledSkillPublishIfMatched(
+    settingsFilePath: string,
+    skillId: string,
+): Promise<void> {
+    if (isBundledSkillName(skillId)) {
+        throw createBundledSkillPublishError(skillId);
+    }
+
+    const bundledSkillDirectoryPath = await findExistingBundledSkillDirectoryPath(
+        settingsFilePath,
+        skillId,
+    );
+
+    if (bundledSkillDirectoryPath !== undefined) {
+        throw createBundledSkillPublishError(skillId);
+    }
+}
+
+async function findExistingBundledSkillDirectoryPath(
+    settingsFilePath: string,
+    skillId: string,
+): Promise<string | undefined> {
+    const bundledSkillDirectoryPaths = availableBundledSkillAgentNames.map(
+        agentName => join(
+            resolveBundledSkillCanonicalRootDirectoryPath(
+                settingsFilePath,
+                agentName,
+            ),
+            skillId,
+        ),
+    );
+
+    for (const bundledSkillDirectoryPath of bundledSkillDirectoryPaths) {
+        if (await directoryExists(bundledSkillDirectoryPath)) {
+            return bundledSkillDirectoryPath;
+        }
+    }
+
+    return undefined;
+}
+
+async function resolveRegistrySkillPublishSource(
+    settingsFilePath: string,
+    skillId: string,
+): Promise<RegistrySkillPublishSource | undefined> {
+    const skillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+        settingsFilePath,
+        skillId,
+    );
+
+    if (!(await directoryExists(skillDirectoryPath))) {
+        return undefined;
+    }
+
+    const metadata = await readManagedSkillMetadata(skillDirectoryPath);
+
+    if (metadata?.packageName === undefined) {
+        throw new CliUserError("errors.skills.publish.registryMetadataMissing", 1, {
+            name: skillId,
+            path: resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+        });
+    }
+
+    return {
+        kind: "registry",
+        packageName: metadata.packageName,
+        skillDirectoryPath,
+        skillId,
+    };
+}
+
+async function resolveAgentSkillPublishSource(
+    env: Record<string, string | undefined>,
+    skillId: string,
+    agentName: BundledSkillAgentName,
+): Promise<AdoptableSkillPublishSource | undefined> {
+    const homeDirectory = resolveBundledSkillHomeDirectory(env, agentName);
+    const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+        homeDirectory,
+        skillId,
+    );
+
+    if (!(await isSkillDirectoryWithSkillFile(skillDirectoryPath))) {
+        return undefined;
+    }
+
+    return {
+        kind: "adoptable",
+        skillDirectoryPath,
+        skillId,
+    };
+}
+
+async function resolvePathSkillPublishSource(
+    skillReference: string,
+    cwd: string,
+    settingsFilePath: string,
+): Promise<SkillPublishSource | undefined> {
+    const skillDirectoryPath = isAbsolute(skillReference)
+        ? resolve(skillReference)
+        : resolve(cwd, skillReference);
+
+    if (!(await isSkillDirectoryWithSkillFile(skillDirectoryPath))) {
+        return undefined;
+    }
+
+    const skillId = basename(skillDirectoryPath);
+
+    if (!isSkillIdReference(skillId)) {
+        return undefined;
+    }
+
+    const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+        settingsFilePath,
+        skillId,
+    );
+
+    if (resolve(localSkillDirectoryPath) === skillDirectoryPath) {
+        return {
+            kind: "local",
+            skillDirectoryPath,
+            skillId,
+        };
+    }
+
+    if (isBundledSkillName(skillId)) {
+        throw createBundledSkillPublishError(skillId);
+    }
+
+    const bundledSkillDirectoryPath = await findExistingBundledSkillDirectoryPath(
+        settingsFilePath,
+        skillId,
+    );
+
+    if (
+        bundledSkillDirectoryPath !== undefined
+        && resolve(bundledSkillDirectoryPath) === skillDirectoryPath
+    ) {
+        throw createBundledSkillPublishError(skillId);
+    }
+
+    const registrySkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+        settingsFilePath,
+        skillId,
+    );
+
+    if (resolve(registrySkillDirectoryPath) === skillDirectoryPath) {
+        return await resolveRegistrySkillPublishSource(settingsFilePath, skillId);
+    }
+
+    return {
+        kind: "adoptable",
+        skillDirectoryPath,
+        skillId,
+    };
+}
+
+async function confirmAndPrepareSkillPublishSource(
+    options: {
+        packageName: string;
+        source: SkillPublishSource;
+    },
+    context: Pick<CliExecutionContext, "env" | "settingsStore" | "stdin" | "stdout" | "translator">,
+): Promise<LocalSkillPublishSource | RegistrySkillPublishSource> {
+    switch (options.source.kind) {
+        case "local":
+            return options.source;
+        case "registry": {
+            if (
+                normalizePackageNameForComparison(options.source.packageName)
+                === normalizePackageNameForComparison(options.packageName)
+            ) {
+                return options.source;
+            }
+
+            await confirmRegistrySkillPackagePublish(
+                options.source,
+                options.packageName,
+                context,
+            );
+
+            return options.source;
+        }
+        case "adoptable": {
+            const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+                context.settingsStore.getFilePath(),
+                options.source.skillId,
+            );
+            const publicationTargets = await resolveAdoptedLocalSkillPublicationTargets({
+                context,
+                source: options.source,
+            });
+
+            await validateAdoptableSkillPublishSource(options.source);
+
+            await confirmAdoptableSkillPublish(
+                {
+                    localSkillDirectoryPath,
+                    packageName: options.packageName,
+                    source: options.source,
+                },
+                context,
+            );
+
+            await adoptSkillPublishSource({
+                context,
+                localSkillDirectoryPath,
+                publicationTargets,
+                source: options.source,
+            });
+
+            return {
+                kind: "local",
+                skillDirectoryPath: localSkillDirectoryPath,
+                skillId: options.source.skillId,
+            };
+        }
+    }
+}
+
+async function confirmRegistrySkillPackagePublish(
+    source: RegistrySkillPublishSource,
+    targetPackageName: string,
+    context: Pick<CliExecutionContext, "stdin" | "stdout" | "translator">,
+): Promise<void> {
+    const params = {
+        name: source.skillId,
+        packageName: source.packageName,
+        targetPackageName,
+    };
+
+    if (context.stdin.isTTY !== true) {
+        throw new CliUserError(
+            "errors.skills.publish.registryPackageConfirmationRequired",
+            1,
+            params,
+        );
+    }
+
+    const confirmed = await confirmInteractiveValue(
+        context,
+        {
+            invalidMessage: context.translator.t(
+                "skills.publish.confirm.invalid",
+            ),
+            prompt: context.translator.t(
+                "skills.publish.registryPackage.prompt",
+                params,
+            ),
+        },
+    );
+
+    if (!confirmed) {
+        throw new CliUserError(
+            "errors.skills.publish.registryPackageMismatch",
+            1,
+            params,
+        );
+    }
+}
+
+async function confirmAdoptableSkillPublish(
+    options: {
+        localSkillDirectoryPath: string;
+        packageName: string;
+        source: AdoptableSkillPublishSource;
+    },
+    context: Pick<CliExecutionContext, "stdin" | "stdout" | "translator">,
+): Promise<void> {
+    const params = {
+        localPath: options.localSkillDirectoryPath,
+        name: options.source.skillId,
+        packageName: options.packageName,
+        path: options.source.skillDirectoryPath,
+    };
+
+    if (context.stdin.isTTY !== true) {
+        throw new CliUserError(
+            "errors.skills.publish.adoptionConfirmationRequired",
+            1,
+            params,
+        );
+    }
+
+    const confirmed = await confirmInteractiveValue(
+        context,
+        {
+            invalidMessage: context.translator.t(
+                "skills.publish.confirm.invalid",
+            ),
+            prompt: context.translator.t(
+                "skills.publish.adoption.prompt",
+                params,
+            ),
+        },
+    );
+
+    if (!confirmed) {
+        throw new CliUserError("errors.skills.publish.adoptionCancelled", 1, params);
+    }
+}
+
+async function adoptSkillPublishSource(
+    options: {
+        context: Pick<CliExecutionContext, "env" | "settingsStore" | "stdout" | "translator">;
+        localSkillDirectoryPath: string;
+        publicationTargets: readonly LocalSkillHostPublicationTarget[];
+        source: AdoptableSkillPublishSource;
+    },
+): Promise<void> {
+    const publishedTargets: LocalSkillHostPublicationTarget[] = [];
+    let activePublicationTarget: LocalSkillHostPublicationTarget | undefined;
+
+    try {
+        await copySkillDirectoryToLocalStorage(
+            options.source.skillDirectoryPath,
+            options.localSkillDirectoryPath,
+            options.source.skillId,
+        );
+        await importManagedMetadataToSkillFrontmatter(options.localSkillDirectoryPath);
+        await validateAdoptedLocalSkill(options.localSkillDirectoryPath, options.source.skillId);
+
+        writeLine(
+            options.context.stdout,
+            options.context.translator.t("skills.publish.adopted", {
+                name: options.source.skillId,
+                path: options.localSkillDirectoryPath,
+            }),
+        );
+
+        for (const target of orderAdoptedLocalSkillPublicationTargets(
+            options.publicationTargets,
+            options.source.skillDirectoryPath,
+        )) {
+            activePublicationTarget = target;
+            const published = await publishBundledSkillInstallation({
+                canonicalSkillDirectoryPath: options.localSkillDirectoryPath,
+                installedSkillDirectoryPath: target.installedSkillDirectoryPath,
+                publicationMode: resolveManagedSkillPublicationMode(target.agentName),
+            });
+
+            publishedTargets.push(target);
+            activePublicationTarget = undefined;
+
+            writeLine(
+                options.context.stdout,
+                options.context.translator.t(
+                    resolveSkillInitPublicationMessageKey(published.mode),
+                    {
+                        name: options.source.skillId,
+                        path: published.path,
+                    },
+                ),
+            );
+        }
+
+        if (!hasSourcePublicationTarget(
+            options.publicationTargets,
+            options.source.skillDirectoryPath,
+        )) {
+            await removePath(options.source.skillDirectoryPath);
+        }
+    }
+    catch (error) {
+        await rollbackAdoptedSkillPublishSource({
+            localSkillDirectoryPath: options.localSkillDirectoryPath,
+            publishedTargets,
+            source: options.source,
+            targetBeingPublished: activePublicationTarget,
+        });
+        throw error;
+    }
+}
+
+async function copySkillDirectoryToLocalStorage(
+    sourceDirectoryPath: string,
+    localSkillDirectoryPath: string,
+    skillId: string,
+): Promise<void> {
+    if (await pathExists(localSkillDirectoryPath)) {
+        throw new CliUserError("errors.skills.storageConflict", 1, {
+            name: skillId,
+            path: localSkillDirectoryPath,
+        });
+    }
+
+    await assertSkillDirectoryHasNoSymbolicLinks(sourceDirectoryPath);
+    await mkdir(dirname(localSkillDirectoryPath), { recursive: true });
+
+    await cp(sourceDirectoryPath, localSkillDirectoryPath, {
+        dereference: false,
+        errorOnExist: true,
+        force: false,
+        recursive: true,
+    });
+}
+
+async function importManagedMetadataToSkillFrontmatter(
+    skillDirectoryPath: string,
+): Promise<void> {
+    const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
+    let content: string;
+
+    try {
+        content = await readFile(metadataFilePath, "utf8");
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return;
+        }
+
+        throw error;
+    }
+
+    const metadata = parseManagedSkillMetadataContent(content);
+
+    if (metadata !== undefined) {
+        await writeSkillFrontmatterMetadata({
+            metadata: {
+                icon: metadata.icon,
+                packageName: metadata.packageName,
+                version: metadata.version,
+            },
+            skillDirectoryPath,
+        });
+    }
+
+    await rm(metadataFilePath, { force: true });
+}
+
+async function resolveAdoptedLocalSkillPublicationTargets(
+    options: {
+        context: Pick<CliExecutionContext, "env" | "settingsStore">;
+        source: AdoptableSkillPublishSource;
+    },
+): Promise<LocalSkillHostPublicationTarget[]> {
+    const targets = await resolveLocalSkillPublicationTargets(
+        options.context.env,
+        options.source.skillId,
+    );
+
+    if (targets.length === 0) {
+        throw createMissingManagedSkillHostError(options.context.env);
+    }
+
+    const settingsFilePath = options.context.settingsStore.getFilePath();
+
+    if (targets.some(target =>
+        !isLocalSkillPathContained(
+            target.homeDirectory,
+            settingsFilePath,
+            options.source.skillId,
+        ),
+    )) {
+        throw new CliUserError("errors.skills.invalidPath", 1, {
+            name: options.source.skillId,
+        });
+    }
+
+    const conflictingTarget = await findExistingLocalSkillPublicationTarget(
+        targets,
+        options.source.skillDirectoryPath,
+    );
+
+    if (conflictingTarget !== undefined) {
+        throw new CliUserError("errors.skills.nameConflict", 1, {
+            name: options.source.skillId,
+            path: conflictingTarget.installedSkillDirectoryPath,
+        });
+    }
+
+    return targets;
+}
+
+async function rollbackAdoptedSkillPublishSource(
+    options: {
+        localSkillDirectoryPath: string;
+        publishedTargets: readonly LocalSkillHostPublicationTarget[];
+        source: AdoptableSkillPublishSource;
+        targetBeingPublished?: LocalSkillHostPublicationTarget;
+    },
+): Promise<void> {
+    const targetsToRemove = options.targetBeingPublished === undefined
+        ? [...options.publishedTargets]
+        : [...options.publishedTargets, options.targetBeingPublished];
+
+    await Promise.all(targetsToRemove.map(target =>
+        removePath(target.installedSkillDirectoryPath),
+    ));
+
+    if (!(await pathExists(options.source.skillDirectoryPath))) {
+        await restoreSourceSkillDirectoryFromLocalStorage(
+            options.localSkillDirectoryPath,
+            options.source.skillDirectoryPath,
+        );
+    }
+
+    await removePath(options.localSkillDirectoryPath);
+}
+
+async function restoreSourceSkillDirectoryFromLocalStorage(
+    localSkillDirectoryPath: string,
+    sourceDirectoryPath: string,
+): Promise<void> {
+    await assertSkillDirectoryHasNoSymbolicLinks(localSkillDirectoryPath);
+    await mkdir(dirname(sourceDirectoryPath), { recursive: true });
+    await cp(localSkillDirectoryPath, sourceDirectoryPath, {
+        dereference: false,
+        errorOnExist: true,
+        force: false,
+        recursive: true,
+    });
+}
+
+async function assertSkillDirectoryHasNoSymbolicLinks(
+    skillDirectoryPath: string,
+    path: string = skillDirectoryPath,
+): Promise<void> {
+    const metadata = await lstat(path);
+
+    if (metadata.isSymbolicLink()) {
+        throw createSymbolicLinkSkillEntryError(skillDirectoryPath, path);
+    }
+
+    if (!metadata.isDirectory()) {
+        return;
+    }
+
+    const entries = await readdir(path, { withFileTypes: true });
+
+    await Promise.all(entries.map(entry =>
+        assertSkillDirectoryHasNoSymbolicLinks(
+            skillDirectoryPath,
+            join(path, entry.name),
+        ),
+    ));
+}
+
+function createSymbolicLinkSkillEntryError(
+    skillDirectoryPath: string,
+    symbolicLinkPath: string,
+): CliUserError {
+    const entryPath = relative(skillDirectoryPath, symbolicLinkPath);
+
+    return new CliUserError("errors.skills.publish.invalidSkillFile", 1, {
+        message: `Skill entries must not be symbolic links: ${
+            entryPath === "" ? symbolicLinkPath : entryPath
+        }.`,
+        path: skillDirectoryPath,
+    });
+}
+
+async function findExistingLocalSkillPublicationTarget(
+    targets: readonly LocalSkillHostPublicationTarget[],
+    sourceDirectoryPath: string,
+): Promise<LocalSkillHostPublicationTarget | undefined> {
+    for (const target of targets) {
+        if (
+            await pathExists(target.installedSkillDirectoryPath)
+            && !isSameResolvedPath(target.installedSkillDirectoryPath, sourceDirectoryPath)
+        ) {
+            return target;
+        }
+    }
+
+    return undefined;
+}
+
+function orderAdoptedLocalSkillPublicationTargets(
+    targets: readonly LocalSkillHostPublicationTarget[],
+    sourceDirectoryPath: string,
+): LocalSkillHostPublicationTarget[] {
+    const nonSourceTargets: LocalSkillHostPublicationTarget[] = [];
+    const sourceTargets: LocalSkillHostPublicationTarget[] = [];
+
+    for (const target of targets) {
+        if (isSourcePublicationTarget(target, sourceDirectoryPath)) {
+            sourceTargets.push(target);
+            continue;
+        }
+
+        nonSourceTargets.push(target);
+    }
+
+    return [...nonSourceTargets, ...sourceTargets];
+}
+
+function hasSourcePublicationTarget(
+    targets: readonly LocalSkillHostPublicationTarget[],
+    sourceDirectoryPath: string,
+): boolean {
+    return targets.some(target => isSourcePublicationTarget(target, sourceDirectoryPath));
+}
+
+function isSourcePublicationTarget(
+    target: LocalSkillHostPublicationTarget,
+    sourceDirectoryPath: string,
+): boolean {
+    return isSameResolvedPath(target.installedSkillDirectoryPath, sourceDirectoryPath);
+}
+
+function isSameResolvedPath(leftPath: string, rightPath: string): boolean {
+    return resolve(leftPath) === resolve(rightPath);
+}
+
+async function validateAdoptableSkillPublishSource(
+    source: AdoptableSkillPublishSource,
+): Promise<void> {
+    await validateAdoptedLocalSkill(source.skillDirectoryPath, source.skillId);
+}
+
+async function validateAdoptedLocalSkill(
+    skillDirectoryPath: string,
+    skillId: string,
+): Promise<void> {
+    await readLocalSkillPackageMetadata({
+        skillDirectoryPath,
+        skillId,
+    });
+}
+
+async function isSkillDirectoryWithSkillFile(
+    directoryPath: string,
+): Promise<boolean> {
+    if (!(await directoryExists(directoryPath))) {
+        return false;
+    }
+
+    try {
+        const skillFileStats = await lstat(join(directoryPath, "SKILL.md"));
+
+        return skillFileStats.isFile();
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return false;
+        }
+
+        throw error;
+    }
+}
+
+async function pathExists(path: string): Promise<boolean> {
+    try {
+        await lstat(path);
+        return true;
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return false;
+        }
+
+        throw error;
+    }
+}
+
+function isSkillIdReference(value: string): boolean {
+    const trimmedValue = value.trim();
+
+    return trimmedValue !== ""
+        && trimmedValue !== "."
+        && trimmedValue !== ".."
+        && basename(trimmedValue) === trimmedValue;
+}
+
+function normalizePackageNameForComparison(packageName: string): string {
+    return packageName.trim().toLowerCase();
+}
+
+function isBundledSkillName(value: string): boolean {
+    return (availableBundledSkillNames as readonly string[]).includes(value);
+}
+
+function createBundledSkillPublishError(skillId: string): CliUserError {
+    return new CliUserError("errors.skills.publish.bundledSkill", 1, {
+        name: skillId,
+    });
+}
+
+function createSkillPublishSourceMissingError(skillReference: string): CliUserError {
+    return new CliUserError("errors.skills.publish.skillNotFound", 1, {
+        name: skillReference,
+    });
 }
 
 async function resolveRequestedSkillPublishVersion(

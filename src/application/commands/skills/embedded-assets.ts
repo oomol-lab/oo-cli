@@ -1,6 +1,7 @@
 import ooCreateSkillClaudeSkillPath from "../../../../contrib/skills/claude/oo-create-skill/SKILL.md" with { type: "file" };
 import ooFindSkillsClaudeCliContractPath from "../../../../contrib/skills/claude/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsClaudeSkillPath from "../../../../contrib/skills/claude/oo-find-skills/SKILL.md" with { type: "file" };
+import ooPublishSkillClaudeSkillPath from "../../../../contrib/skills/claude/oo-publish-skill/SKILL.md" with { type: "file" };
 import ooClaudeAuthAndBillingReferencePath from "../../../../contrib/skills/claude/oo/references/auth-and-billing.md" with { type: "file" };
 import ooClaudeConnectorExecutionReferencePath from "../../../../contrib/skills/claude/oo/references/connector-execution.md" with { type: "file" };
 import ooClaudeFileTransferReferencePath from "../../../../contrib/skills/claude/oo/references/file-transfer.md" with { type: "file" };
@@ -11,6 +12,7 @@ import ooClaudeSkillPath from "../../../../contrib/skills/claude/oo/SKILL.md" wi
 import ooCreateSkillCodeBuddySkillPath from "../../../../contrib/skills/codebuddy/oo-create-skill/SKILL.md" with { type: "file" };
 import ooFindSkillsCodeBuddyCliContractPath from "../../../../contrib/skills/codebuddy/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsCodeBuddySkillPath from "../../../../contrib/skills/codebuddy/oo-find-skills/SKILL.md" with { type: "file" };
+import ooPublishSkillCodeBuddySkillPath from "../../../../contrib/skills/codebuddy/oo-publish-skill/SKILL.md" with { type: "file" };
 import ooCodeBuddyAuthAndBillingReferencePath from "../../../../contrib/skills/codebuddy/oo/references/auth-and-billing.md" with { type: "file" };
 import ooCodeBuddyConnectorExecutionReferencePath from "../../../../contrib/skills/codebuddy/oo/references/connector-execution.md" with { type: "file" };
 import ooCodeBuddyFileTransferReferencePath from "../../../../contrib/skills/codebuddy/oo/references/file-transfer.md" with { type: "file" };
@@ -23,6 +25,8 @@ import ooCreateSkillPath from "../../../../contrib/skills/codex/oo-create-skill/
 import ooFindSkillsOpenAIAgentPath from "../../../../contrib/skills/codex/oo-find-skills/agents/openai.yaml" with { type: "file" };
 import ooFindSkillsCliContractPath from "../../../../contrib/skills/codex/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsSkillPath from "../../../../contrib/skills/codex/oo-find-skills/SKILL.md" with { type: "file" };
+import ooPublishSkillOpenAIAgentPath from "../../../../contrib/skills/codex/oo-publish-skill/agents/openai.yaml" with { type: "file" };
+import ooPublishSkillPath from "../../../../contrib/skills/codex/oo-publish-skill/SKILL.md" with { type: "file" };
 import ooOpenAIAgentPath from "../../../../contrib/skills/codex/oo/agents/openai.yaml" with { type: "file" };
 import ooAuthAndBillingReferencePath from "../../../../contrib/skills/codex/oo/references/auth-and-billing.md" with { type: "file" };
 import ooConnectorExecutionReferencePath from "../../../../contrib/skills/codex/oo/references/connector-execution.md" with { type: "file" };
@@ -34,6 +38,7 @@ import ooSkillPath from "../../../../contrib/skills/codex/oo/SKILL.md" with { ty
 import ooCreateSkillOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo-create-skill/SKILL.md" with { type: "file" };
 import ooFindSkillsOpenClawCliContractPath from "../../../../contrib/skills/openclaw/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo-find-skills/SKILL.md" with { type: "file" };
+import ooPublishSkillOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo-publish-skill/SKILL.md" with { type: "file" };
 import ooOpenClawAuthAndBillingReferencePath from "../../../../contrib/skills/openclaw/oo/references/auth-and-billing.md" with { type: "file" };
 import ooOpenClawConnectorExecutionReferencePath from "../../../../contrib/skills/openclaw/oo/references/connector-execution.md" with { type: "file" };
 import ooOpenClawFileTransferReferencePath from "../../../../contrib/skills/openclaw/oo/references/file-transfer.md" with { type: "file" };
@@ -44,6 +49,7 @@ import ooOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo/SKILL.md
 import ooCreateSkillQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo-create-skill/SKILL.md" with { type: "file" };
 import ooFindSkillsQoderWorkCliContractPath from "../../../../contrib/skills/qoderwork/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo-find-skills/SKILL.md" with { type: "file" };
+import ooPublishSkillQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo-publish-skill/SKILL.md" with { type: "file" };
 import ooQoderWorkAuthAndBillingReferencePath from "../../../../contrib/skills/qoderwork/oo/references/auth-and-billing.md" with { type: "file" };
 import ooQoderWorkConnectorExecutionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/connector-execution.md" with { type: "file" };
 import ooQoderWorkFileTransferReferencePath from "../../../../contrib/skills/qoderwork/oo/references/file-transfer.md" with { type: "file" };
@@ -55,7 +61,7 @@ import ooQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo/SKILL.
 export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "trae", "openclaw", "qoderwork"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
 
-export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill"] as const;
+export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill", "oo-publish-skill"] as const;
 export type BundledSkillName = (typeof availableBundledSkillNames)[number];
 
 interface BundledSkillSourceFile {
@@ -361,6 +367,76 @@ const bundledSkillRegistry = {
                 {
                     relativePath: "SKILL.md",
                     sourcePath: ooCreateSkillQoderWorkSkillPath,
+                },
+            ],
+        },
+    },
+    "oo-publish-skill": {
+        codex: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillPath,
+                },
+                {
+                    relativePath: "agents/openai.yaml",
+                    sourcePath: ooPublishSkillOpenAIAgentPath,
+                },
+            ],
+        },
+        claude: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillClaudeSkillPath,
+                },
+            ],
+        },
+        hermes: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillClaudeSkillPath,
+                },
+            ],
+        },
+        codebuddy: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillCodeBuddySkillPath,
+                },
+            ],
+        },
+        workbuddy: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillCodeBuddySkillPath,
+                },
+            ],
+        },
+        trae: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillCodeBuddySkillPath,
+                },
+            ],
+        },
+        openclaw: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillOpenClawSkillPath,
+                },
+            ],
+        },
+        qoderwork: {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillQoderWorkSkillPath,
                 },
             ],
         },

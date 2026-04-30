@@ -51,6 +51,12 @@ export interface PublishConvertedSkillPackageOptions {
     visibility: SkillPublishVisibility;
 }
 
+export interface SkillFrontmatterMetadataUpdate {
+    icon?: string;
+    packageName?: string;
+    version?: string;
+}
+
 interface PackageMetadataFile {
     description: string;
     displayName: string;
@@ -259,17 +265,22 @@ export async function writePublishedSkillMetadata(
         version: string;
     },
 ): Promise<void> {
-    if (!isNonBlankString(options.packageName)) {
-        throw new CliUserError("errors.skills.publish.invalidPackageMetadata", 1, {
-            message: "Package name must be a non-empty string.",
-        });
-    }
+    await writeSkillFrontmatterMetadata({
+        metadata: {
+            packageName: options.packageName,
+            version: options.version,
+        },
+        skillDirectoryPath: options.skillDirectoryPath,
+    });
+}
 
-    if (!isSemver(options.version)) {
-        throw new CliUserError("errors.skills.publish.invalidPackageMetadata", 1, {
-            message: "Package version must be a valid semver string.",
-        });
-    }
+export async function writeSkillFrontmatterMetadata(
+    options: {
+        metadata: SkillFrontmatterMetadataUpdate;
+        skillDirectoryPath: string;
+    },
+): Promise<void> {
+    validateSkillFrontmatterMetadataUpdate(options.metadata);
 
     const skillFilePath = join(options.skillDirectoryPath, "SKILL.md");
     const parsed = await readSkillMarkdownMatter(skillFilePath);
@@ -286,8 +297,7 @@ export async function writePublishedSkillMetadata(
         ...parsed.data,
         metadata: {
             ...(metadata ?? {}),
-            packageName: options.packageName,
-            version: options.version,
+            ...createDefinedSkillFrontmatterMetadata(options.metadata),
         },
     };
 
@@ -295,6 +305,38 @@ export async function writePublishedSkillMetadata(
         skillFilePath,
         matter.stringify(parsed.content, nextFrontmatter),
     );
+}
+
+function validateSkillFrontmatterMetadataUpdate(
+    metadata: SkillFrontmatterMetadataUpdate,
+): void {
+    if (metadata.icon !== undefined && !isNonBlankString(metadata.icon)) {
+        throw new CliUserError("errors.skills.publish.invalidPackageMetadata", 1, {
+            message: "Skill icon must be a non-empty string.",
+        });
+    }
+
+    if (metadata.packageName !== undefined && !isNonBlankString(metadata.packageName)) {
+        throw new CliUserError("errors.skills.publish.invalidPackageMetadata", 1, {
+            message: "Package name must be a non-empty string.",
+        });
+    }
+
+    if (metadata.version !== undefined && !isSemver(metadata.version)) {
+        throw new CliUserError("errors.skills.publish.invalidPackageMetadata", 1, {
+            message: "Package version must be a valid semver string.",
+        });
+    }
+}
+
+function createDefinedSkillFrontmatterMetadata(
+    metadata: SkillFrontmatterMetadataUpdate,
+): SkillFrontmatterMetadataUpdate {
+    return {
+        ...(metadata.icon === undefined ? {} : { icon: metadata.icon }),
+        ...(metadata.packageName === undefined ? {} : { packageName: metadata.packageName }),
+        ...(metadata.version === undefined ? {} : { version: metadata.version }),
+    };
 }
 
 export async function publishConvertedSkillPackage(

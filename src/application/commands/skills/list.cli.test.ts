@@ -52,7 +52,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 4 oo-managed skills.",
+                    "✓ Found 5 oo-managed skills.",
                     "",
                     "oo",
                     "  Host: Codex",
@@ -65,6 +65,11 @@ describe("skills list CLI", () => {
                     "  Version: 9.9.9",
                     "",
                     "oo-create-skill",
+                    "  Host: Codex",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-publish-skill",
                     "  Host: Codex",
                     "  Source: bundled",
                     "  Version: 9.9.9",
@@ -100,7 +105,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 3 oo-managed skills.",
+                    "✓ Found 4 oo-managed skills.",
                     "",
                     "oo",
                     "  Host: OpenClaw",
@@ -113,6 +118,11 @@ describe("skills list CLI", () => {
                     "  Version: 9.9.9",
                     "",
                     "oo-create-skill",
+                    "  Host: OpenClaw",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-publish-skill",
                     "  Host: OpenClaw",
                     "  Source: bundled",
                     "  Version: 9.9.9",
@@ -143,7 +153,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 3 oo-managed skills.",
+                    "✓ Found 4 oo-managed skills.",
                     "",
                     "oo",
                     "  Host: QoderWork",
@@ -156,6 +166,11 @@ describe("skills list CLI", () => {
                     "  Version: 9.9.9",
                     "",
                     "oo-create-skill",
+                    "  Host: QoderWork",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-publish-skill",
                     "  Host: QoderWork",
                     "  Source: bundled",
                     "  Version: 9.9.9",
@@ -186,7 +201,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 3 oo-managed skills.",
+                    "✓ Found 4 oo-managed skills.",
                     "",
                     "oo",
                     "  Host: CodeBuddy",
@@ -199,6 +214,11 @@ describe("skills list CLI", () => {
                     "  Version: 9.9.9",
                     "",
                     "oo-create-skill",
+                    "  Host: CodeBuddy",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-publish-skill",
                     "  Host: CodeBuddy",
                     "  Source: bundled",
                     "  Version: 9.9.9",
@@ -229,7 +249,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 3 oo-managed skills.",
+                    "✓ Found 4 oo-managed skills.",
                     "",
                     "oo",
                     "  Host: WorkBuddy",
@@ -242,6 +262,11 @@ describe("skills list CLI", () => {
                     "  Version: 9.9.9",
                     "",
                     "oo-create-skill",
+                    "  Host: WorkBuddy",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-publish-skill",
                     "  Host: WorkBuddy",
                     "  Source: bundled",
                     "  Version: 9.9.9",
@@ -272,7 +297,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 3 oo-managed skills.",
+                    "✓ Found 4 oo-managed skills.",
                     "",
                     "oo",
                     "  Host: Trae",
@@ -285,6 +310,11 @@ describe("skills list CLI", () => {
                     "  Version: 9.9.9",
                     "",
                     "oo-create-skill",
+                    "  Host: Trae",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-publish-skill",
                     "  Host: Trae",
                     "  Source: bundled",
                     "  Version: 9.9.9",
@@ -315,7 +345,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 3 oo-managed skills.",
+                    "✓ Found 4 oo-managed skills.",
                     "",
                     "oo",
                     "  Host: Hermes",
@@ -328,6 +358,11 @@ describe("skills list CLI", () => {
                     "  Version: 9.9.9",
                     "",
                     "oo-create-skill",
+                    "  Host: Hermes",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-publish-skill",
                     "  Host: Hermes",
                     "  Source: bundled",
                     "  Version: 9.9.9",
@@ -360,7 +395,7 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 3 oo-managed skills.",
+                    "✓ Found 4 oo-managed skills.",
                     "",
                     "oo",
                     "  Host: Codex, Claude Code",
@@ -373,6 +408,11 @@ describe("skills list CLI", () => {
                     "  Version: 9.9.9",
                     "",
                     "oo-create-skill",
+                    "  Host: Codex, Claude Code",
+                    "  Source: bundled",
+                    "  Version: 9.9.9",
+                    "",
+                    "oo-publish-skill",
                     "  Host: Codex, Claude Code",
                     "  Source: bundled",
                     "  Version: 9.9.9",

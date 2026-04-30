@@ -139,8 +139,8 @@ export const enMessages = {
         "Validate a local skill directory against the generic skill contract.",
     "commands.skills.validate.summary": "Validate a skill directory",
     "commands.skills.publish.description":
-        "Convert one local skill into an OOMOL package and publish it.",
-    "commands.skills.publish.summary": "Publish a local skill",
+        "Convert one skill into an OOMOL package and publish it.",
+    "commands.skills.publish.summary": "Publish a skill",
     "commands.skills.install.description":
         "Install bundled or published skills into supported local skill directories.",
     "commands.skills.install.summary": "Install skills",
@@ -308,12 +308,26 @@ export const enMessages = {
         "Invalid skill name: {value}. Use a name that can be normalized to lowercase hyphen-case.",
     "errors.skills.publish.invalidPackageMetadata":
         "Invalid skill package metadata: {message}",
+    "errors.skills.publish.invalidAgent":
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, openclaw, or qoderwork.",
     "errors.skills.publish.invalidSkillFile":
         "Cannot publish the skill at {path}: {message}",
     "errors.skills.publish.invalidVisibility":
         "Invalid skill publish visibility: {value}. Use private or public.",
+    "errors.skills.publish.adoptionCancelled":
+        "Publishing skill {name} was cancelled before moving {path} into local storage.",
+    "errors.skills.publish.adoptionConfirmationRequired":
+        "Skill {name} was found at {path}. Run in an interactive terminal to confirm moving it into local storage at {localPath}.",
+    "errors.skills.publish.bundledSkill":
+        "Bundled skill {name} cannot be published directly because it is managed by the oo CLI release. Create or adopt a local copy before publishing.",
     "errors.skills.publish.localSkillMissing":
         "Local skill {name} does not exist at {path}.",
+    "errors.skills.publish.registryMetadataMissing":
+        "Registry skill {name} cannot be published because its metadata file at {path} does not identify a packageName.",
+    "errors.skills.publish.registryPackageConfirmationRequired":
+        "Skill {name} is installed from {packageName}. Run in an interactive terminal to confirm publishing it as {targetPackageName}.",
+    "errors.skills.publish.registryPackageMismatch":
+        "Publishing skill {name} as {targetPackageName} was cancelled because it is installed from {packageName}.",
     "errors.skills.publish.remotePackageHasBlocks":
         "Publishing skill {name} as {packageName} was cancelled because remote package {packageName}@{version} contains blocks.",
     "errors.skills.publish.remotePackageHasBlocksConfirmationRequired":
@@ -324,6 +338,8 @@ export const enMessages = {
         "The skill package publish request failed: {message}",
     "errors.skills.publish.requestFailed":
         "The skill package publish request returned HTTP {status}: {message}",
+    "errors.skills.publish.skillNotFound":
+        "Cannot find skill {name} in local, bundled, registry, requested agent, or path sources.",
     "errors.fileDownload.downloadFailed":
         "Failed to download the file at {path}: {message}",
     "errors.fileDownload.invalidExt":
@@ -598,8 +614,16 @@ export const enMessages = {
     "skills.init.copied": "Copied skill {name} to {path}.",
     "skills.publish.success":
         "Published skill {name} as {visibility} package {packageName}@{version}. View it at {hubUrl}.",
+    "skills.publish.adopted":
+        "Adopted skill {name} into local canonical storage at {path}.",
+    "skills.publish.adoption.prompt":
+        "Skill {name} was found at {path}. Move it into local storage at {localPath} and publish it as {packageName}? [y/N] ",
+    "skills.publish.confirm.invalid":
+        "Invalid choice. Enter y/yes or n/no.",
     "skills.publish.visibility.private": "private",
     "skills.publish.visibility.public": "public",
+    "skills.publish.registryPackage.prompt":
+        "Skill {name} is installed from {packageName}. Publish it as {targetPackageName}? [y/N] ",
     "skills.publish.remoteBlocks.invalid":
         "Invalid choice. Enter y/yes or n/no.",
     "skills.publish.remoteBlocks.prompt":
@@ -850,8 +874,8 @@ export const zhMessages = {
         "按照通用 skill 契约校验本地 skill 目录。",
     "commands.skills.validate.summary": "校验 skill 目录",
     "commands.skills.publish.description":
-        "将一个本地 skill 转换为 OOMOL 包并发布。",
-    "commands.skills.publish.summary": "发布本地 skill",
+        "将一个 skill 转换为 OOMOL 包并发布。",
+    "commands.skills.publish.summary": "发布 skill",
     "commands.skills.install.description":
         "将内置或已发布 skill 安装到受支持的本地 skill 目录。",
     "commands.skills.install.summary": "安装 skill",
@@ -1007,12 +1031,26 @@ export const zhMessages = {
         "无效的 skill 名称：{value}。请使用可规范化为小写短横线格式的名称。",
     "errors.skills.publish.invalidPackageMetadata":
         "skill 包元数据无效：{message}",
+    "errors.skills.publish.invalidAgent":
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、openclaw 或 qoderwork。",
     "errors.skills.publish.invalidSkillFile":
         "无法发布 {path} 中的 skill：{message}",
     "errors.skills.publish.invalidVisibility":
         "无效的 skill 发布可见性：{value}。请使用 private 或 public。",
+    "errors.skills.publish.adoptionCancelled":
+        "已在将 {path} 移入本地存储前取消发布 skill {name}。",
+    "errors.skills.publish.adoptionConfirmationRequired":
+        "在 {path} 找到 skill {name}。请在交互式终端中确认是否将它移入本地存储 {localPath}。",
+    "errors.skills.publish.bundledSkill":
+        "不能直接发布内置 skill {name}，因为它由 oo CLI 版本管理。请先创建或接管一个本地副本再发布。",
     "errors.skills.publish.localSkillMissing":
         "本地 skill {name} 不存在于 {path}。",
+    "errors.skills.publish.registryMetadataMissing":
+        "无法发布 registry skill {name}，因为它位于 {path} 的元数据文件没有标识 packageName。",
+    "errors.skills.publish.registryPackageConfirmationRequired":
+        "skill {name} 安装自 {packageName}。请在交互式终端中确认是否将它发布为 {targetPackageName}。",
+    "errors.skills.publish.registryPackageMismatch":
+        "已取消将 skill {name} 发布为 {targetPackageName}：它安装自 {packageName}。",
     "errors.skills.publish.remotePackageHasBlocks":
         "已取消将 skill {name} 发布为 {packageName}：远端包 {packageName}@{version} 中存在区块。",
     "errors.skills.publish.remotePackageHasBlocksConfirmationRequired":
@@ -1023,6 +1061,8 @@ export const zhMessages = {
         "skill 包发布请求失败：{message}",
     "errors.skills.publish.requestFailed":
         "skill 包发布请求返回了 HTTP {status}：{message}",
+    "errors.skills.publish.skillNotFound":
+        "无法在 local、bundled、registry、指定 Agent 或路径来源中找到 skill {name}。",
     "errors.fileDownload.downloadFailed":
         "下载文件到 {path} 失败：{message}",
     "errors.fileDownload.invalidExt":
@@ -1291,8 +1331,16 @@ export const zhMessages = {
     "skills.init.copied": "已将 skill {name} 复制到 {path}。",
     "skills.publish.success":
         "已将 skill {name} 以{visibility}发布为 {packageName}@{version}。可在 {hubUrl} 查看。",
+    "skills.publish.adopted":
+        "已将 skill {name} 接管到本地 canonical 存储 {path}。",
+    "skills.publish.adoption.prompt":
+        "在 {path} 找到 skill {name}。是否将它移入本地存储 {localPath} 并发布为 {packageName}？[y/N] ",
+    "skills.publish.confirm.invalid":
+        "输入无效。请输入 y/yes 或 n/no。",
     "skills.publish.visibility.private": "私有包",
     "skills.publish.visibility.public": "公开包",
+    "skills.publish.registryPackage.prompt":
+        "skill {name} 安装自 {packageName}。是否发布为 {targetPackageName}？[y/N] ",
     "skills.publish.remoteBlocks.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
     "skills.publish.remoteBlocks.prompt":

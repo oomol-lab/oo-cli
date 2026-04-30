@@ -1,0 +1,7 @@
+interface:
+  display_name: oo Publish Skill
+  short_description: Publish agent skills to OOMOL registry
+  default_prompt: Use $oo-publish-skill when the user asks to publish, release, upload, submit, or share an existing AI agent skill directory with SKILL.md to the OOMOL registry or skill catalog, asks to run oo skills publish, make a skill available as a registry package, or resolve publish visibility, version, adoption, package-name, or overwrite prompts. Do not use it for finding, installing, creating, or editing skills unless the final goal is publication.
+
+policy:
+  allow_implicit_invocation: true

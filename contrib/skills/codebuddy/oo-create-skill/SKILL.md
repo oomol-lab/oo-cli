@@ -1,12 +1,24 @@
 ---
 name: oo-create-skill
-description: "Create or update a local agent skill for a known OOMOL package workflow. Use when the user already knows which oo package or block should power the workflow and wants reusable skill instructions."
+description: >-
+  Author, generate, scaffold, or update a local AI agent skill that turns an
+  OOMOL/oo package, block, or selected workflow into reusable instructions. Use
+  when the user asks to create a skill, write a skill, make a Codex/Claude/agent
+  skill, or refine an existing local skill for an oo-powered workflow, even if
+  package discovery is needed first. Do not use for finding/installing published
+  skills or publishing skills.
 ---
 
 # oo Create Skill
 
-Use this skill when the user wants to create or update a local skill around an
-OOMOL package workflow.
+Use this skill when the user wants to create, generate, scaffold, author, or
+update a local skill around an OOMOL/oo package workflow. This includes requests
+to turn a specific package or block into reusable agent instructions, or to
+create the skill after the right package is discovered.
+
+If the user only wants to discover or install existing published skills, use
+`oo-find-skills`. If the user wants to publish a finished skill, use
+`oo-publish-skill`.
 
 ## Workflow
 
@@ -20,6 +32,7 @@ Ask for missing authoring inputs only when they are needed:
 - stable block names, when the user knows them
 - user inputs the skill should collect
 - workflow ordering and expected outputs
+- likely user requests that should trigger the generated skill
 - optional display title and icon preference
 
 If the user does not provide a display title or icon preference, choose them
@@ -59,12 +72,24 @@ initialization. If initialization fails because the local canonical directory or
 an agent target directory already exists, ask the user for a different skill
 name instead of overwriting.
 
+Make `--description` trigger-oriented because it becomes the generated skill's
+frontmatter. Cover the real user requests that should invoke the skill: include
+likely verbs, task nouns, domain terms, inputs, outputs, and the package or
+block-backed capability. Add a concise "Do not use" boundary for nearby skills
+or workflows that should not trigger it.
+
 ### 4. Author the workflow instructions
 
 Write the generated skill in domain terms: when to use it, what to ask the
 user, which workflow steps to follow, and what outputs to report. Reference
 packages with `oo::packageName` and stable blocks with
 `oo::packageName::blockName`.
+
+Review the generated frontmatter `description` before finishing. It must be
+specific enough for future agents to trigger the skill in the target scenario:
+name the task outcome, common user phrasing, important inputs and outputs, and
+the concrete package or block capability. Avoid generic descriptions such as
+"use an OOMOL package workflow" that do not mention the user's domain.
 
 Preserve the generated frontmatter `metadata.title` field when it exists. If
 you change the skill's displayed title or first heading, update

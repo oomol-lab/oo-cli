@@ -38,13 +38,13 @@ interface SkillsInitInput {
     title?: string;
 }
 
-interface LocalSkillHostPublicationTarget {
+export interface LocalSkillHostPublicationTarget {
     agentName: BundledSkillAgentName;
     homeDirectory: string;
     installedSkillDirectoryPath: string;
 }
 
-interface LocalSkillHostPublicationResult {
+export interface LocalSkillHostPublicationResult {
     mode: "copy" | "symlink";
     path: string;
 }
@@ -227,7 +227,7 @@ async function initializeLocalSkill(
     }
 }
 
-function resolveSkillInitPublicationMessageKey(
+export function resolveSkillInitPublicationMessageKey(
     mode: LocalSkillHostPublicationResult["mode"],
 ): "skills.init.linked" | "skills.init.copied" {
     switch (mode) {
@@ -238,7 +238,7 @@ function resolveSkillInitPublicationMessageKey(
     }
 }
 
-async function resolveLocalSkillPublicationTargets(
+export async function resolveLocalSkillPublicationTargets(
     env: Record<string, string | undefined>,
     skillName: string,
 ): Promise<LocalSkillHostPublicationTarget[]> {

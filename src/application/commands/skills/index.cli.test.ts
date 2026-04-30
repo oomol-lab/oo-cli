@@ -279,6 +279,7 @@ describe("skills CLI", () => {
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
         const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
+        const publishSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -294,6 +295,7 @@ describe("skills CLI", () => {
                     `Removed skill oo from ${ooSkillDirectoryPath}.`,
                     `Removed skill oo-find-skills from ${findSkillsDirectoryPath}.`,
                     `Removed skill oo-create-skill from ${createSkillDirectoryPath}.`,
+                    `Removed skill oo-publish-skill from ${publishSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -318,8 +320,8 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    "Installed 3 skills to Codex.",
-                    "Skills: oo, oo-find-skills, oo-create-skill",
+                    "Installed 4 skills to Codex.",
+                    "Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill",
                     "",
                 ].join("\n"),
             );
@@ -335,8 +337,10 @@ describe("skills CLI", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const publishSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");
         const serializedOoSkillDirectoryPath = JSON.stringify(ooSkillDirectoryPath);
         const serializedFindSkillsDirectoryPath = JSON.stringify(findSkillsDirectoryPath);
+        const serializedPublishSkillDirectoryPath = JSON.stringify(publishSkillDirectoryPath);
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -357,8 +361,10 @@ describe("skills CLI", () => {
             );
             expect(installContent).toContain(`"skillName":"oo"`);
             expect(installContent).toContain(`"skillName":"oo-find-skills"`);
+            expect(installContent).toContain(`"skillName":"oo-publish-skill"`);
             expect(installContent).toContain(`"path":${serializedOoSkillDirectoryPath}`);
             expect(installContent).toContain(`"path":${serializedFindSkillsDirectoryPath}`);
+            expect(installContent).toContain(`"path":${serializedPublishSkillDirectoryPath}`);
             expect(installContent).toContain(`"version":"9.9.9"`);
 
             expect(uninstallContent).toContain(
