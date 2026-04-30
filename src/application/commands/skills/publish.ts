@@ -548,6 +548,10 @@ async function resolvePathSkillPublishSource(
         };
     }
 
+    if (isBundledSkillName(skillId)) {
+        throw createBundledSkillPublishError(skillId);
+    }
+
     const bundledSkillDirectoryPath = await findExistingBundledSkillDirectoryPath(
         settingsFilePath,
         skillId,

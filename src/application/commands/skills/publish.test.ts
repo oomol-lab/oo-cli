@@ -602,6 +602,31 @@ describe("skills publish command", () => {
         }
     });
 
+    test("rejects publishing bundled skills by installed target path", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "oo",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            const installResult = await sandbox.run(["skills", "install", "oo"]);
+            expect(installResult.exitCode).toBe(0);
+
+            const result = await sandbox.run(["skills", "publish", skillDirectoryPath]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toBe(
+                "Bundled skill oo cannot be published directly because it is managed by the oo CLI release. Create or adopt a local copy before publishing.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("rejects an unsupported publish agent", async () => {
         const sandbox = await createCliSandbox();
 
