@@ -117,8 +117,10 @@
 - 说明：install 成功后，CLI 会尽力移除在 `PATH` 中任意位置出现的旧全局
   package-manager `@oomol-lab/oo-cli` 安装；如果 `PATH` 中没有找到 `oo`
   候选项，CLI 会回退到当前命令路径进行判断。清理失败不会改变命令结果。
-- 说明：如果可执行目录没有出现在 `PATH` 中，install 会尝试为后续 shell
-  持久化 PATH 配置；如果自动配置成功，install 会提示用户重启 shell；如果自动配置失败，
+- 说明：当自动 PATH 修改启用时，install 会确保 zsh startup profile
+  `.zprofile` 和 `.zshenv` 包含托管 PATH 片段，即使当前 `PATH` 已经包含可执行目录。
+  如果可执行目录没有出现在 `PATH` 中，install 还会尝试为后续 shell 持久化 PATH
+  配置；如果自动配置成功，install 会提示用户重启 shell；如果自动配置失败，
   install 会打印 setup note，告知用户应当把哪个目录加入 `PATH`。
 - 说明：当部分 shell profile 配置成功、另一部分失败时，install 会分别列出两组
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
@@ -149,8 +151,10 @@
 - 说明：update 成功后，CLI 会尽力移除在 `PATH` 中任意位置出现的旧全局
   package-manager `@oomol-lab/oo-cli` 安装；如果 `PATH` 中没有找到 `oo`
   候选项，CLI 会回退到当前命令路径进行判断。清理失败不会改变命令结果。
-- 说明：如果可执行目录没有出现在 `PATH` 中，update 会尝试为后续 shell
-  持久化 PATH 配置；如果自动配置成功，update 会提示用户重启 shell；如果自动配置失败，
+- 说明：当自动 PATH 修改启用时，update 会确保 zsh startup profile
+  `.zprofile` 和 `.zshenv` 包含托管 PATH 片段，即使当前 `PATH` 已经包含可执行目录。
+  如果可执行目录没有出现在 `PATH` 中，update 还会尝试为后续 shell 持久化 PATH
+  配置；如果自动配置成功，update 会提示用户重启 shell；如果自动配置失败，
   update 会打印 setup note，告知用户应当把哪个目录加入 `PATH`。
 - 说明：当部分 shell profile 配置成功、另一部分失败时，update 会分别列出两组
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此

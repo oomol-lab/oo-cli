@@ -1,5 +1,5 @@
 import type { SelfUpdateCommandRunOptions } from "../contracts/self-update.ts";
-import { mkdir, readFile } from "node:fs/promises";
+import { chmod, mkdir, readFile } from "node:fs/promises";
 import { posix, win32 } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
@@ -14,6 +14,7 @@ import {
 } from "./path-configuration.ts";
 
 const { track: trackDirectory } = useTemporaryDirectoryCleanup();
+const posixHostTest = process.platform === "win32" ? test.skip : test;
 
 describe("ensureExecutableDirectoryOnPath", () => {
     test("writes zsh profile PATH setup when the executable directory is missing from PATH", async () => {
@@ -21,6 +22,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const homeDirectory = toPortablePath(rootDirectory);
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const zshrcPath = posix.join(homeDirectory, ".zshrc");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
         const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
@@ -47,19 +49,13 @@ describe("ensureExecutableDirectoryOnPath", () => {
 
             expect(result).toEqual({
                 status: "configured",
-                target: [zshrcPath, zshenvPath],
+                target: [zshrcPath, zshenvPath, zprofilePath],
             });
-            const expectedSnippet = [
-                "# Added by oo CLI",
-                "case \":$PATH:\" in",
-                "    *\":$HOME/.local/bin:\"*) ;;",
-                "    *) export PATH=\"$HOME/.local/bin:$PATH\" ;;",
-                "esac",
-                "",
-            ].join("\n");
+            const expectedSnippet = createExpectedPosixPathSnippet();
 
             expect(await readFile(zshrcPath, "utf8")).toBe(expectedSnippet);
             expect(await readFile(zshenvPath, "utf8")).toBe(expectedSnippet);
+            expect(await readFile(zprofilePath, "utf8")).toBe(expectedSnippet);
         }
         finally {
             logCapture.close();
@@ -108,11 +104,149 @@ describe("ensureExecutableDirectoryOnPath", () => {
         }
     });
 
+    posixHostTest("writes zsh startup profiles when the executable directory is already on PATH", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-darwin-zsh-on-path");
+        const homeDirectory = toPortablePath(rootDirectory);
+        const executableDirectory = posix.join(homeDirectory, ".local", "bin");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
+        const logCapture = createLogCapture();
+        const env = {
+            HOME: homeDirectory,
+            PATH: `/usr/bin:${executableDirectory}`,
+            SHELL: "/bin/bash",
+        };
+
+        trackDirectory(rootDirectory);
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env,
+                executableDirectory,
+                platform: "darwin",
+                runtime: {
+                    env,
+                    logger: logCapture.logger,
+                    platform: "darwin",
+                    resolveCommandPath: () => null,
+                },
+            });
+
+            expect(result).toEqual({
+                status: "configured",
+                target: [zprofilePath, zshenvPath],
+            });
+            expect(await readFile(zprofilePath, "utf8")).toBe(
+                createExpectedPosixPathSnippet(),
+            );
+            expect(await readFile(zshenvPath, "utf8")).toBe(
+                createExpectedPosixPathSnippet(),
+            );
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    posixHostTest("does not rewrite marked zsh startup profiles when the executable directory is already on PATH", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-darwin-zsh-marked");
+        const homeDirectory = toPortablePath(rootDirectory);
+        const executableDirectory = posix.join(homeDirectory, ".local", "bin");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
+        const logCapture = createLogCapture();
+        const env = {
+            HOME: homeDirectory,
+            PATH: `/usr/bin:${executableDirectory}`,
+            SHELL: "/bin/bash",
+        };
+        const expectedSnippet = createExpectedPosixPathSnippet();
+
+        trackDirectory(rootDirectory);
+        await Bun.write(zprofilePath, expectedSnippet);
+        await Bun.write(zshenvPath, expectedSnippet);
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env,
+                executableDirectory,
+                platform: "darwin",
+                runtime: {
+                    env,
+                    logger: logCapture.logger,
+                    platform: "darwin",
+                    resolveCommandPath: () => null,
+                },
+            });
+
+            expect(result).toEqual({
+                status: "already-configured",
+            });
+            expect(countOccurrences(
+                await readFile(zprofilePath, "utf8"),
+                "# Added by oo CLI",
+            )).toBe(1);
+            expect(countOccurrences(
+                await readFile(zshenvPath, "utf8"),
+                "# Added by oo CLI",
+            )).toBe(1);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    posixHostTest("continues zsh startup profile writes when another startup profile cannot be read", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-darwin-zsh-read-failure");
+        const homeDirectory = toPortablePath(rootDirectory);
+        const executableDirectory = posix.join(homeDirectory, ".local", "bin");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
+        const logCapture = createLogCapture();
+        const env = {
+            HOME: homeDirectory,
+            PATH: `/usr/bin:${executableDirectory}`,
+            SHELL: "/bin/bash",
+        };
+
+        trackDirectory(rootDirectory);
+        await Bun.write(zprofilePath, "# unreadable zprofile\n");
+        await chmod(zprofilePath, 0);
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env,
+                executableDirectory,
+                platform: "darwin",
+                runtime: {
+                    env,
+                    logger: logCapture.logger,
+                    platform: "darwin",
+                    resolveCommandPath: () => null,
+                },
+            });
+
+            expect(result).toEqual({
+                status: "partial-configured",
+                target: [zshenvPath],
+                failedTargets: [zprofilePath],
+            });
+            expect(await readFile(zshenvPath, "utf8")).toBe(
+                createExpectedPosixPathSnippet(),
+            );
+        }
+        finally {
+            await chmod(zprofilePath, 0o600).catch(() => undefined);
+            logCapture.close();
+        }
+    });
+
     test("separates PATH setup from existing shell profile content with a blank line", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-path-existing-content");
         const homeDirectory = toPortablePath(rootDirectory);
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const zshrcPath = posix.join(homeDirectory, ".zshrc");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
         const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
@@ -138,9 +272,12 @@ describe("ensureExecutableDirectoryOnPath", () => {
                 },
             });
 
-            expect(result.target).toEqual([zshrcPath, zshenvPath]);
+            expect(result.target).toEqual([zshrcPath, zshenvPath, zprofilePath]);
             expect(await readFile(zshrcPath, "utf8")).toContain(
                 "# existing zshrc\n\n# Added by oo CLI\n",
+            );
+            expect(await readFile(zprofilePath, "utf8")).toStartWith(
+                "# Added by oo CLI\n",
             );
             expect(await readFile(zshenvPath, "utf8")).toStartWith(
                 "# Added by oo CLI\n",
@@ -157,6 +294,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const configHomeDirectory = posix.join(homeDirectory, "xdg");
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const zshProfilePath = posix.join(homeDirectory, ".zshrc");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
         const bashProfilePath = posix.join(homeDirectory, ".bashrc");
         const fishProfilePath = posix.join(configHomeDirectory, "fish", "conf.d", "oo.fish");
         const logCapture = createLogCapture();
@@ -196,9 +334,11 @@ describe("ensureExecutableDirectoryOnPath", () => {
                     bashProfilePath,
                     profilePath,
                     fishProfilePath,
+                    zprofilePath,
                 ],
             });
             await expect(Bun.file(zshProfilePath).exists()).resolves.toBeTrue();
+            await expect(Bun.file(zprofilePath).exists()).resolves.toBeTrue();
             await expect(Bun.file(zshenvPath).exists()).resolves.toBeTrue();
             await expect(Bun.file(bashProfilePath).exists()).resolves.toBeTrue();
             await expect(Bun.file(profilePath).exists()).resolves.toBeTrue();
@@ -215,6 +355,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const configHomeDirectory = posix.join(homeDirectory, "xdg");
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const profilePath = posix.join(configHomeDirectory, "fish", "conf.d", "oo.fish");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -255,7 +397,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
             expect(firstResult.status).toBe("configured");
             expect(secondResult).toEqual({
                 status: "already-configured",
-                target: [profilePath],
+                target: [zshenvPath, profilePath, zprofilePath],
             });
             expect(countOccurrences(
                 profileContent,
@@ -273,6 +415,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const bashLoginPath = posix.join(homeDirectory, ".bash_login");
         const bashrcPath = posix.join(homeDirectory, ".bashrc");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -297,7 +441,12 @@ describe("ensureExecutableDirectoryOnPath", () => {
                 },
             });
 
-            expect(result.target).toEqual([bashLoginPath, bashrcPath]);
+            expect(result.target).toEqual([
+                bashLoginPath,
+                bashrcPath,
+                zprofilePath,
+                zshenvPath,
+            ]);
             expect(await readFile(bashLoginPath, "utf8")).toContain(
                 "# existing bash login profile\n\n# Added by oo CLI\n",
             );
@@ -316,6 +465,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const bashrcPath = posix.join(homeDirectory, ".bashrc");
         const profilePath = posix.join(homeDirectory, ".profile");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -340,7 +491,12 @@ describe("ensureExecutableDirectoryOnPath", () => {
                 },
             });
 
-            expect(result.target).toEqual([bashrcPath, profilePath]);
+            expect(result.target).toEqual([
+                bashrcPath,
+                profilePath,
+                zprofilePath,
+                zshenvPath,
+            ]);
             expect(await readFile(bashrcPath, "utf8")).toContain(
                 "# existing bashrc\n\n# Added by oo CLI\n",
             );
@@ -360,6 +516,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const bashrcPath = posix.join(homeDirectory, ".bashrc");
         const profilePath = posix.join(homeDirectory, ".profile");
         const bashProfilePath = posix.join(homeDirectory, ".bash_profile");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -386,7 +544,12 @@ describe("ensureExecutableDirectoryOnPath", () => {
             });
 
             expect(result.status).toBe("configured");
-            expect(result.target).toEqual([bashrcPath, profilePath]);
+            expect(result.target).toEqual([
+                bashrcPath,
+                profilePath,
+                zprofilePath,
+                zshenvPath,
+            ]);
             expect(await readFile(bashrcPath, "utf8")).toContain(
                 "# existing bashrc\n\n# Added by oo CLI\n",
             );
@@ -407,6 +570,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const bashrcPath = posix.join(homeDirectory, ".bashrc");
         const bashProfilePath = posix.join(homeDirectory, ".bash_profile");
         const profilePath = posix.join(homeDirectory, ".profile");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -432,7 +597,12 @@ describe("ensureExecutableDirectoryOnPath", () => {
 
             // .bashrc covers interactive non-login; .profile covers SSH/login
             // bash when .bash_profile and .bash_login are absent.
-            expect(result.target).toEqual([bashrcPath, profilePath]);
+            expect(result.target).toEqual([
+                bashrcPath,
+                profilePath,
+                zprofilePath,
+                zshenvPath,
+            ]);
             await expect(Bun.file(bashrcPath).exists()).resolves.toBeTrue();
             await expect(Bun.file(profilePath).exists()).resolves.toBeTrue();
             await expect(Bun.file(bashProfilePath).exists()).resolves.toBeFalse();
@@ -448,6 +618,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const bashrcPath = posix.join(homeDirectory, ".bashrc");
         const profilePath = posix.join(homeDirectory, ".profile");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -473,7 +645,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
 
             expect(result).toEqual({
                 status: "configured",
-                target: [bashrcPath, profilePath],
+                target: [bashrcPath, profilePath, zprofilePath, zshenvPath],
             });
         }
         finally {
@@ -487,6 +659,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const bashProfilePath = posix.join(homeDirectory, ".bash_profile");
         const bashrcPath = posix.join(homeDirectory, ".bashrc");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -512,7 +686,12 @@ describe("ensureExecutableDirectoryOnPath", () => {
 
             // .bash_profile covers login (Terminal.app default); .bashrc
             // covers nested bash and `bash -c` invocations.
-            expect(result.target).toEqual([bashProfilePath, bashrcPath]);
+            expect(result.target).toEqual([
+                bashProfilePath,
+                bashrcPath,
+                zprofilePath,
+                zshenvPath,
+            ]);
             expect(await readFile(bashProfilePath, "utf8")).toContain(
                 "# Added by oo CLI\n",
             );
@@ -535,6 +714,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
             "nushell",
             "config.nu",
         );
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -559,7 +740,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
                 },
             });
 
-            expect(result.target).toEqual([profilePath]);
+            expect(result.target).toEqual([profilePath, zprofilePath, zshenvPath]);
             const profileContent = await readFile(profilePath, "utf8");
 
             expect(profileContent).toContain("# Added by oo CLI\n");
@@ -584,6 +765,8 @@ describe("ensureExecutableDirectoryOnPath", () => {
             "powershell",
             "Microsoft.PowerShell_profile.ps1",
         );
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
             HOME: homeDirectory,
@@ -608,7 +791,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
                 },
             });
 
-            expect(result.target).toEqual([profilePath]);
+            expect(result.target).toEqual([profilePath, zprofilePath, zshenvPath]);
             const profileContent = await readFile(profilePath, "utf8");
 
             expect(profileContent).toContain("$pathEntry = Join-Path $HOME '.local/bin'");
@@ -689,6 +872,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const homeDirectory = toPortablePath(rootDirectory);
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const zshrcPath = posix.join(homeDirectory, ".zshrc");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
         const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
@@ -718,7 +902,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
 
             expect(result).toEqual({
                 status: "partial-configured",
-                target: [zshrcPath],
+                target: [zshrcPath, zprofilePath],
                 failedTargets: [zshenvPath],
             });
             await expect(Bun.file(zshrcPath).exists()).resolves.toBeTrue();
@@ -733,6 +917,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
         const homeDirectory = toPortablePath(rootDirectory);
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
         const zshrcPath = posix.join(homeDirectory, ".zshrc");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
         const zshenvPath = posix.join(homeDirectory, ".zshenv");
         const logCapture = createLogCapture();
         const env = {
@@ -743,6 +928,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
 
         trackDirectory(rootDirectory);
         await mkdir(zshrcPath, { recursive: true });
+        await mkdir(zprofilePath, { recursive: true });
         await mkdir(zshenvPath, { recursive: true });
 
         try {
@@ -760,7 +946,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
             });
 
             expect(result.status).toBe("failed");
-            expect(result.failedTargets).toEqual([zshrcPath, zshenvPath]);
+            expect(result.failedTargets).toEqual([zshrcPath, zshenvPath, zprofilePath]);
         }
         finally {
             logCapture.close();
@@ -963,6 +1149,17 @@ describe("isExecutableDirectoryOnPath", () => {
 
 function countOccurrences(value: string, searchValue: string): number {
     return value.split(searchValue).length - 1;
+}
+
+function createExpectedPosixPathSnippet(): string {
+    return [
+        "# Added by oo CLI",
+        "case \":$PATH:\" in",
+        "    *\":$HOME/.local/bin:\"*) ;;",
+        "    *) export PATH=\"$HOME/.local/bin:$PATH\" ;;",
+        "esac",
+        "",
+    ].join("\n");
 }
 
 function toPortablePath(path: string): string {
