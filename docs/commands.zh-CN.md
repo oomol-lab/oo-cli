@@ -323,6 +323,36 @@ skills。
 - 警告：缺少 `metadata.icon` 或 `metadata.title` 会打印 warning，但不会导致校验失败。
 - 输出：成功时命令会打印简短成功消息。失败时打印校验错误并以非零状态退出。
 
+### `oo skills publish <skill-id>`
+
+将一个 canonical 本地 skill 转换为 OOMOL 包，并执行发布步骤。
+
+- 参数：`<skill-id>` 是 canonical 本地 skill id。源目录为
+  `<config-dir>/skills/local/<skill-id>`，其中 `<config-dir>` 是 oo
+  settings 文件所在目录。
+- 选项：`--visibility <visibility>` 设置 registry 包可见性。可选值为
+  `private` 和 `public`，默认值为 `private`。
+- 认证：命令要求存在当前 OOMOL 账号。包名始终为
+  `@<小写 account.name>/<小写 skill-id>`。
+- 校验：源目录必须包含 `SKILL.md`，其 frontmatter `name` 必须匹配
+  `<skill-id>`，并且 `description` 必须是非空字符串。可选的
+  `metadata.title`、`metadata.icon`、`metadata.packageName` 和
+  `metadata.version` 提供时必须是非空字符串，且 `metadata.version` 必须是
+  semver。
+- 包元数据：缺少 `metadata.title` 时，会从 `<skill-id>` 生成标题。缺少
+  `metadata.version` 时，默认使用 `0.0.1`。
+- Registry 安全检查：发布前，命令会查询远端 latest 包元数据。如果远端包已经
+  包含 blocks，交互式终端会按既有 `[y/N]` 确认风格询问是否继续。回答 no、
+  直接回车，或在没有交互式 stdin 的环境中运行，都会在转换、PUT 和本地 metadata
+  回写前停止。
+- 版本解析：如果请求版本不大于远端 latest 包版本，命令会发布下一个 patch 版本。
+- 回写：发布步骤成功后，命令会把最终的 `metadata.packageName` 和
+  `metadata.version` 写回 `SKILL.md` frontmatter。
+- 输出：成功时，文本输出会打印 skill id、最终包标识、所选可见性（`private`
+  或 `public`）以及当前账号 endpoint 对应的 Hub 包页面 URL，例如生产账号使用
+  `https://hub.oomol.com/package/<packageName>`。失败时命令以非零状态退出，并保持
+  `SKILL.md` 不变。
+
 ### `oo skills search <text>`
 
 使用自由文本搜索已发布的 skill。

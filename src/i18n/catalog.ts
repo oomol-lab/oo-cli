@@ -138,6 +138,9 @@ export const enMessages = {
     "commands.skills.validate.description":
         "Validate a local skill directory against the generic skill contract.",
     "commands.skills.validate.summary": "Validate a skill directory",
+    "commands.skills.publish.description":
+        "Convert one local skill into an OOMOL package and publish it.",
+    "commands.skills.publish.summary": "Publish a local skill",
     "commands.skills.install.description":
         "Install bundled or published skills into supported local skill directories.",
     "commands.skills.install.summary": "Install skills",
@@ -303,6 +306,24 @@ export const enMessages = {
         "Missing required --description. Provide a concise trigger description for the generated skill.",
     "errors.skills.init.invalidName":
         "Invalid skill name: {value}. Use a name that can be normalized to lowercase hyphen-case.",
+    "errors.skills.publish.invalidPackageMetadata":
+        "Invalid skill package metadata: {message}",
+    "errors.skills.publish.invalidSkillFile":
+        "Cannot publish the skill at {path}: {message}",
+    "errors.skills.publish.invalidVisibility":
+        "Invalid skill publish visibility: {value}. Use private or public.",
+    "errors.skills.publish.localSkillMissing":
+        "Local skill {name} does not exist at {path}.",
+    "errors.skills.publish.remotePackageHasBlocks":
+        "Publishing skill {name} as {packageName} was cancelled because remote package {packageName}@{version} contains blocks.",
+    "errors.skills.publish.remotePackageHasBlocksConfirmationRequired":
+        "Remote package {packageName}@{version} contains blocks. Run in an interactive terminal to confirm publishing skill {name} as {packageName}.",
+    "errors.skills.publish.remotePackageInvalidVersion":
+        "Cannot publish skill {name} as {packageName}: remote package {packageName}@{version} has an invalid semver version.",
+    "errors.skills.publish.requestError":
+        "The skill package publish request failed: {message}",
+    "errors.skills.publish.requestFailed":
+        "The skill package publish request returned HTTP {status}: {message}",
     "errors.fileDownload.downloadFailed":
         "Failed to download the file at {path}: {message}",
     "errors.fileDownload.invalidExt":
@@ -492,6 +513,8 @@ export const enMessages = {
         "Specify comma-separated keywords to refine the skill search",
     "options.icon": "Set the generated skill icon reference",
     "options.title": "Set the generated skill display title",
+    "options.visibility":
+        "Set package visibility (private or public; default private)",
     "options.skill":
         "Specify skill names to install (use * for all skills)",
     "options.onlyPackageId": "Return only package ids",
@@ -573,6 +596,14 @@ export const enMessages = {
     "skills.init.success": "Initialized skill {name} in canonical storage at {path}.",
     "skills.init.linked": "Linked skill {name} to {path}.",
     "skills.init.copied": "Copied skill {name} to {path}.",
+    "skills.publish.success":
+        "Published skill {name} as {visibility} package {packageName}@{version}. View it at {hubUrl}.",
+    "skills.publish.visibility.private": "private",
+    "skills.publish.visibility.public": "public",
+    "skills.publish.remoteBlocks.invalid":
+        "Invalid choice. Enter y/yes or n/no.",
+    "skills.publish.remoteBlocks.prompt":
+        "Remote package {packageName}@{version} contains blocks. Continue publishing skill {name} as {packageName}? [y/N] ",
     "skills.install.success": "Installed skill {name} to {path}.",
     "skills.install.overwrite.invalid":
         "Invalid choice. Enter y/yes or n/no.",
@@ -810,6 +841,9 @@ export const zhMessages = {
     "commands.skills.validate.description":
         "按照通用 skill 契约校验本地 skill 目录。",
     "commands.skills.validate.summary": "校验 skill 目录",
+    "commands.skills.publish.description":
+        "将一个本地 skill 转换为 OOMOL 包并发布。",
+    "commands.skills.publish.summary": "发布本地 skill",
     "commands.skills.install.description":
         "将内置或已发布 skill 安装到受支持的本地 skill 目录。",
     "commands.skills.install.summary": "安装 skill",
@@ -963,6 +997,24 @@ export const zhMessages = {
         "缺少必填的 --description。请为生成的 skill 提供简洁的触发描述。",
     "errors.skills.init.invalidName":
         "无效的 skill 名称：{value}。请使用可规范化为小写短横线格式的名称。",
+    "errors.skills.publish.invalidPackageMetadata":
+        "skill 包元数据无效：{message}",
+    "errors.skills.publish.invalidSkillFile":
+        "无法发布 {path} 中的 skill：{message}",
+    "errors.skills.publish.invalidVisibility":
+        "无效的 skill 发布可见性：{value}。请使用 private 或 public。",
+    "errors.skills.publish.localSkillMissing":
+        "本地 skill {name} 不存在于 {path}。",
+    "errors.skills.publish.remotePackageHasBlocks":
+        "已取消将 skill {name} 发布为 {packageName}：远端包 {packageName}@{version} 中存在区块。",
+    "errors.skills.publish.remotePackageHasBlocksConfirmationRequired":
+        "远端包 {packageName}@{version} 中存在区块。请在交互式终端中确认是否将 skill {name} 发布为 {packageName}。",
+    "errors.skills.publish.remotePackageInvalidVersion":
+        "无法将 skill {name} 发布为 {packageName}：远端包 {packageName}@{version} 的版本不是有效 semver。",
+    "errors.skills.publish.requestError":
+        "skill 包发布请求失败：{message}",
+    "errors.skills.publish.requestFailed":
+        "skill 包发布请求返回了 HTTP {status}：{message}",
     "errors.fileDownload.downloadFailed":
         "下载文件到 {path} 失败：{message}",
     "errors.fileDownload.invalidExt":
@@ -1147,6 +1199,8 @@ export const zhMessages = {
         "指定用于细化 skill 搜索的逗号分隔关键词",
     "options.icon": "设置生成的 skill icon 引用",
     "options.title": "设置生成的 skill 显示标题",
+    "options.visibility":
+        "设置包可见性（private 或 public，默认 private）",
     "options.skill":
         "指定要安装的 skill 名称（使用 * 表示全部）",
     "options.onlyPackageId": "仅返回 package id",
@@ -1227,6 +1281,14 @@ export const zhMessages = {
     "skills.init.success": "已在 canonical 存储 {path} 初始化 skill {name}。",
     "skills.init.linked": "已将 skill {name} 软链接到 {path}。",
     "skills.init.copied": "已将 skill {name} 复制到 {path}。",
+    "skills.publish.success":
+        "已将 skill {name} 以{visibility}发布为 {packageName}@{version}。可在 {hubUrl} 查看。",
+    "skills.publish.visibility.private": "私有包",
+    "skills.publish.visibility.public": "公开包",
+    "skills.publish.remoteBlocks.invalid":
+        "输入无效。请输入 y/yes 或 n/no。",
+    "skills.publish.remoteBlocks.prompt":
+        "远端包 {packageName}@{version} 中存在区块。是否继续将 skill {name} 发布为 {packageName}？[y/N] ",
     "skills.install.success": "已将 skill {name} 安装到 {path}。",
     "skills.install.overwrite.invalid":
         "输入无效。请输入 y/yes 或 n/no。",

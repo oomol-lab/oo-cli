@@ -200,11 +200,12 @@ describe("startAuthLoginSession", () => {
 
     test("requests a fast login profile with a session token", async () => {
         const logCapture = createLogCapture();
+        const endpoint = "example.test";
         const requests: Request[] = [];
 
         try {
             const account = await requestAuthAccountWithSessionToken({
-                endpoint: "oomol.dev",
+                endpoint,
                 fetcher: async (input, init) => {
                     const request = toRequest(input, init);
                     const requestUrl = new URL(request.url);
@@ -213,13 +214,13 @@ describe("startAuthLoginSession", () => {
 
                     if (
                         request.method === "GET"
-                        && requestUrl.host === "api.oomol.dev"
+                        && requestUrl.host === `api.${endpoint}`
                         && requestUrl.pathname === "/v1/auth/fast_login/profile_with_session_token"
                         && requestUrl.searchParams.get("session_token") === "session-1"
                     ) {
                         return new Response(JSON.stringify({
                             api_key: "secret-1",
-                            endpoint: "oomol.dev",
+                            endpoint,
                             id: "0193438c-238f-703c-8754-e4a04e0be0c1",
                             name: "Alice",
                         }));
@@ -235,7 +236,7 @@ describe("startAuthLoginSession", () => {
             expect(requests).toHaveLength(1);
             expect(account).toEqual({
                 apiKey: "secret-1",
-                endpoint: "oomol.dev",
+                endpoint,
                 id: "0193438c-238f-703c-8754-e4a04e0be0c1",
                 name: "Alice",
             });
@@ -261,6 +262,7 @@ describe("startAuthLoginSession", () => {
 
     test("redacts the session token from fast login failures", async () => {
         const logCapture = createLogCapture();
+        const endpoint = "example.test";
         const sessionToken = "token with/sensitive value";
         const encodedSessionToken = encodeURIComponent(sessionToken);
         const searchEncodedSessionToken = new URLSearchParams({
@@ -269,10 +271,10 @@ describe("startAuthLoginSession", () => {
 
         try {
             await expect(requestAuthAccountWithSessionToken({
-                endpoint: "oomol.dev",
+                endpoint,
                 fetcher: async () => {
                     throw new Error(
-                        `Failed to fetch https://api.oomol.dev/v1/auth/fast_login/profile_with_session_token?session_token=${searchEncodedSessionToken}`,
+                        `Failed to fetch https://api.${endpoint}/v1/auth/fast_login/profile_with_session_token?session_token=${searchEncodedSessionToken}`,
                     );
                 },
                 logger: logCapture.logger,
@@ -282,7 +284,7 @@ describe("startAuthLoginSession", () => {
                 key: "errors.auth.loginRequestError",
                 params: {
                     message:
-                        "Failed to fetch https://api.oomol.dev/v1/auth/fast_login/profile_with_session_token?session_token=<redacted>",
+                        `Failed to fetch https://api.${endpoint}/v1/auth/fast_login/profile_with_session_token?session_token=<redacted>`,
                 },
             });
 

@@ -372,6 +372,40 @@ Validate a local skill directory against the generic skill contract.
 - Output: on success, the command prints a concise success message. On failure,
   it prints the validation error and exits non-zero.
 
+### `oo skills publish <skill-id>`
+
+Convert one canonical local skill into an OOMOL package and run the publish
+step.
+
+- Arguments: `<skill-id>` is the canonical local skill id. The source directory
+  is `<config-dir>/skills/local/<skill-id>`, where `<config-dir>` is the
+  directory containing the oo settings file.
+- Options: `--visibility <visibility>` sets the registry package visibility.
+  Accepted values are `private` and `public`. The default is `private`.
+- Authentication: the command requires the current OOMOL account. The package
+  name is always `@<lowercase-account.name>/<lowercase-skill-id>`.
+- Validation: the source directory must contain `SKILL.md` with frontmatter
+  `name` matching `<skill-id>` and a non-empty string `description`.
+  Optional `metadata.title`, `metadata.icon`, `metadata.packageName`, and
+  `metadata.version` must be non-empty strings when present, and
+  `metadata.version` must be semver.
+- Package metadata: missing `metadata.title` falls back to a title generated
+  from `<skill-id>`. Missing `metadata.version` falls back to `0.0.1`.
+- Registry safety: before publishing, the command looks up the latest remote
+  package metadata. If the remote package already contains blocks, an
+  interactive terminal prompts for confirmation with the standard `[y/N]`
+  confirmation style. Answering no, pressing Enter, or running without an
+  interactive stdin stops before conversion, PUT, or local metadata writeback.
+- Version resolution: if the requested version is not greater than the latest
+  remote package version, the command publishes the next patch version.
+- Writeback: after the publish step succeeds, `SKILL.md` frontmatter is updated
+  with the final `metadata.packageName` and `metadata.version`.
+- Output: on success, text output prints the skill id, final package specifier,
+  selected visibility (`private` or `public`), and the Hub package URL
+  for the current account endpoint, for example
+  `https://hub.oomol.com/package/<packageName>` for production accounts. On
+  failure, the command exits non-zero and leaves `SKILL.md` unchanged.
+
 ### `oo skills search <text>`
 
 Search published skills with free-form text.
