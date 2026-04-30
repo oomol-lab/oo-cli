@@ -30,6 +30,7 @@ export class RollingFileDestination implements DestinationStream {
     private readonly sessionId: string;
     private readonly filePath: string;
     private currentFileDescriptor?: number;
+    private lastPrunedRetentionStart?: number;
     private writable = true;
 
     constructor(options: RollingFileDestinationOptions) {
@@ -58,6 +59,7 @@ export class RollingFileDestination implements DestinationStream {
 
         try {
             this.ensureFileOpened();
+            this.pruneExpiredFilesOncePerRetentionWindow();
 
             const currentFileDescriptor = this.currentFileDescriptor;
 
@@ -66,7 +68,6 @@ export class RollingFileDestination implements DestinationStream {
             }
 
             writeSync(currentFileDescriptor, String(chunk));
-            this.pruneExpiredFiles();
         }
         catch {
             this.disableWrites();
@@ -102,8 +103,15 @@ export class RollingFileDestination implements DestinationStream {
         this.currentFileDescriptor = openSync(this.filePath, "a");
     }
 
-    private pruneExpiredFiles(): void {
+    private pruneExpiredFilesOncePerRetentionWindow(): void {
         const retentionStart = resolveRetentionStart(this.now());
+        const retentionStartTime = retentionStart.getTime();
+
+        if (this.lastPrunedRetentionStart === retentionStartTime) {
+            return;
+        }
+
+        this.lastPrunedRetentionStart = retentionStartTime;
 
         for (const logFile of this.listLogFiles()) {
             if (
