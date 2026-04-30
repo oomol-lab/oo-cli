@@ -1,10 +1,15 @@
+import { createHmac } from "node:crypto";
 import process from "node:process";
 
 import {
     assembleReleaseArtifacts,
     parseBuildTargetIds,
 } from "./npm-packages.ts";
-import { buildCreateReleaseCommand, preparePackageManifest } from "./release-steps.ts";
+import {
+    buildCreateReleaseCommand,
+    buildFeishuReleaseNotification,
+    preparePackageManifest,
+} from "./release-steps.ts";
 
 async function runPrepareManifest(): Promise<void> {
     const releaseVersion = readRequiredEnv("RELEASE_VERSION");
@@ -33,6 +38,50 @@ async function runCreateGitHubRelease(assets: readonly string[]): Promise<void> 
     if (exitCode !== 0) {
         process.exit(exitCode);
     }
+}
+
+async function runNotifyFeishuRelease(): Promise<void> {
+    const webhookUrl = readRequiredEnv("FEISHU_RELEASE_WEBHOOK");
+    const feishuSignature = createFeishuSignature(process.env.FEISHU_RELEASE_SECRET ?? "");
+    const payload = buildFeishuReleaseNotification({
+        releaseVersion: readRequiredEnv("RELEASE_VERSION"),
+        releaseTag: readRequiredEnv("RELEASE_TAG"),
+        repository: readRequiredEnv("GITHUB_REPOSITORY"),
+        serverUrl: readRequiredEnv("GITHUB_SERVER_URL"),
+        runId: readRequiredEnv("GITHUB_RUN_ID"),
+        timestamp: feishuSignature?.timestamp,
+        sign: feishuSignature?.sign,
+    });
+
+    const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+        },
+        body: payload,
+        signal: AbortSignal.timeout(15_000),
+    });
+    const responseText = await response.text();
+
+    if (!response.ok) {
+        throw new Error(`Failed to notify Feishu release group: ${response.status} ${response.statusText}`);
+    }
+
+    const responseBody = JSON.parse(responseText) as Record<string, unknown>;
+    const errorCode = responseBody.code ?? responseBody.StatusCode;
+    if (errorCode !== 0) {
+        throw new Error(`Failed to notify Feishu release group: ${responseText}`);
+    }
+}
+
+function createFeishuSignature(secret: string): { timestamp: string; sign: string } | undefined {
+    if (secret === "") {
+        return undefined;
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const sign = createHmac("sha256", `${timestamp}\n${secret}`).digest("base64");
+    return { timestamp, sign };
 }
 
 async function runAssembleReleaseArtifacts(): Promise<void> {
@@ -68,6 +117,9 @@ export async function main(args: readonly string[]): Promise<void> {
             return;
         case "create-github-release":
             await runCreateGitHubRelease(commandArgs);
+            return;
+        case "notify-feishu-release":
+            await runNotifyFeishuRelease();
             return;
         default:
             throw new Error(`Unsupported command: ${command ?? ""}`);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     buildCreateReleaseCommand,
+    buildFeishuReleaseNotification,
     preparePackageManifest,
 } from "./release-steps.ts";
 
@@ -103,4 +104,48 @@ describe("release-workflow", () => {
             }),
         ).toThrow("At least one release asset is required.");
     });
+
+    test("builds the Feishu release notification payload", () => {
+        expect(JSON.parse(buildFeishuReleaseNotification(createFeishuInput()))).toEqual({
+            msg_type: "text",
+            content: {
+                text: [
+                    "oo-cli v1.2.3 已发布",
+                    "",
+                    "版本：1.2.3",
+                    "npm：https://www.npmjs.com/package/@oomol-lab/oo-cli/v/1.2.3",
+                    "Release：https://github.com/oomol-lab/oo-cli/releases/tag/v1.2.3",
+                    "Workflow：https://github.com/oomol-lab/oo-cli/actions/runs/123456789",
+                ].join("\n"),
+            },
+        });
+    });
+
+    test("builds the signed Feishu release notification payload", () => {
+        expect(JSON.parse(buildFeishuReleaseNotification(createFeishuInput({
+            timestamp: "1710000000",
+            sign: "signature",
+        })))).toMatchObject({
+            timestamp: "1710000000",
+            sign: "signature",
+            msg_type: "text",
+        });
+    });
+
+    test("rejects Feishu notifications without a release tag", () => {
+        expect(() =>
+            buildFeishuReleaseNotification(createFeishuInput({ releaseTag: "" })),
+        ).toThrow("RELEASE_TAG is required.");
+    });
 });
+
+function createFeishuInput(overrides: Partial<Parameters<typeof buildFeishuReleaseNotification>[0]> = {}): Parameters<typeof buildFeishuReleaseNotification>[0] {
+    return {
+        releaseVersion: "1.2.3",
+        releaseTag: "v1.2.3",
+        repository: "oomol-lab/oo-cli",
+        serverUrl: "https://github.com",
+        runId: "123456789",
+        ...overrides,
+    };
+}

@@ -190,3 +190,32 @@ jobs:
     with:
       tag: ${{ needs.compute-version.outputs.tag_name }}
     secrets: inherit
+
+  notify-feishu-release:
+    needs:
+      - compute-version
+      - publish
+      - upload-release-binaries-to-oss
+      - deploy-install-worker
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      RELEASE_VERSION: ${{ needs.compute-version.outputs.version }}
+      RELEASE_TAG: ${{ needs.compute-version.outputs.tag_name }}
+      FEISHU_RELEASE_WEBHOOK: ${{ secrets.FEISHU_RELEASE_WEBHOOK }}
+      FEISHU_RELEASE_SECRET: ${{ secrets.FEISHU_RELEASE_SECRET }}
+
+    steps:
+      - name: Checkout
+        if: env.FEISHU_RELEASE_WEBHOOK != ''
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Bun
+        if: env.FEISHU_RELEASE_WEBHOOK != ''
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Notify Feishu release group
+        if: env.FEISHU_RELEASE_WEBHOOK != ''
+        run: bun run contrib/ci/release-workflow.ts notify-feishu-release
