@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
+import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
+import { APP_NAME } from "../../config/app-config.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import {
     resolveClaudeHomeDirectory,
@@ -15,6 +17,7 @@ import {
     resolveTraeHomeDirectory,
     resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
+import { resolveLocalSkillCanonicalDirectoryPath } from "./managed-skill-paths.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 const managedSkillNameColor = "#59F78D";
@@ -81,6 +84,66 @@ describe("skills list CLI", () => {
                     "",
                 ].join("\n"),
             );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists local canonical skills created by init", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "campaign-writer",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const initResult = await sandbox.run([
+                "skills",
+                "init",
+                "Campaign Writer",
+                "--description",
+                "Write campaign briefs using a known package workflow.",
+            ]);
+            const result = await sandbox.run(["skills", "list-local"]);
+
+            expect(initResult.exitCode).toBe(0);
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "✓ Found 1 local skills.",
+                    "",
+                    "campaign-writer",
+                    "  Source: local",
+                    "  Version: unknown",
+                    `  Path: ${canonicalSkillDirectoryPath}`,
+                    "",
+                ].join("\n"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints a no-results message when no local skills exist", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["skills", "list-local"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe("! No local skills were found.\n");
         }
         finally {
             await sandbox.cleanup();

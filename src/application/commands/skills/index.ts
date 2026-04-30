@@ -3,7 +3,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import { skillsCheckCommand } from "./check.ts";
 import { skillsInitCommand } from "./init.ts";
 import { skillsInstallCommand } from "./install.ts";
-import { skillsListCommand } from "./list.ts";
+import { skillsListCommand, skillsListLocalCommand } from "./list.ts";
 import { skillsPublishCommand } from "./publish.ts";
 import { skillsSearchCommand } from "./search.ts";
 import { skillsUninstallCommand } from "./uninstall.ts";
@@ -17,6 +17,7 @@ export const skillsCommand: CliCommandDefinition = {
     children: [
         skillsSearchCommand,
         skillsListCommand,
+        skillsListLocalCommand,
         skillsCheckCommand,
         skillsInitCommand,
         skillsValidateCommand,
