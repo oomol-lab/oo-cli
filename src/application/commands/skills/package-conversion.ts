@@ -3,7 +3,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
-import { cp, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
+import { cp, lstat, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { join, posix, relative, sep } from "node:path";
 import process from "node:process";
 import { gzipSync } from "node:zlib";
@@ -134,7 +134,7 @@ export async function convertSkillDirectoryToPackage(
                 return true;
             }
 
-            const metadata = await stat(sourcePath);
+            const metadata = await lstat(sourcePath);
 
             return !isIgnoredByGitIgnore(
                 skillPackageIgnore,
@@ -413,6 +413,8 @@ async function packPackageRoot(
             continue;
         }
 
+        await assertTarFileEntryIsNotSymbolicLink(entry);
+
         const content = Buffer.from(await readFile(entry.absolutePath));
 
         blocks.push(createTarHeader({
@@ -485,10 +487,10 @@ async function collectExistingPath(
 ): Promise<void> {
     const safeRelativePath = resolveSafePackageRelativePath(relativePath);
     const absolutePath = join(packageRootDirectoryPath, safeRelativePath);
-    let metadata: Awaited<ReturnType<typeof stat>>;
+    let metadata: Awaited<ReturnType<typeof lstat>>;
 
     try {
-        metadata = await stat(absolutePath);
+        metadata = await lstat(absolutePath);
     }
     catch (error) {
         if (isFileMissingError(error)) {
@@ -496,6 +498,10 @@ async function collectExistingPath(
         }
 
         throw error;
+    }
+
+    if (metadata.isSymbolicLink()) {
+        throw createSymbolicLinkPackageEntryError(safeRelativePath);
     }
 
     if (await isIgnoredPackageSkillPath(
@@ -529,6 +535,14 @@ async function collectExistingPath(
             archivePath,
             kind: "file",
         });
+    }
+}
+
+async function assertTarFileEntryIsNotSymbolicLink(entry: TarEntry): Promise<void> {
+    const metadata = await lstat(entry.absolutePath);
+
+    if (metadata.isSymbolicLink()) {
+        throw createSymbolicLinkPackageEntryError(entry.archivePath);
     }
 }
 
@@ -911,6 +925,12 @@ function createInvalidPackageMetadataError(message: string): CliUserError {
     return new CliUserError("errors.skills.publish.invalidPackageMetadata", 1, {
         message,
     });
+}
+
+function createSymbolicLinkPackageEntryError(path: string): CliUserError {
+    return createInvalidPackageMetadataError(
+        `Package entries must not be symbolic links: ${path}.`,
+    );
 }
 
 async function removeManagedOoArtifactsFromSkillFile(

@@ -393,7 +393,8 @@ step.
   from `<skill-id>`. Missing `metadata.version` falls back to `0.0.1`.
 - Package contents: the skill directory's `.gitignore` controls which local
   files are excluded from the published package. When the skill has no
-  `.gitignore`, the built-in package template is used.
+  `.gitignore`, the built-in package template is used. Symbolic links are
+  rejected during packaging.
 - Registry safety: before publishing, the command looks up the latest remote
   package metadata. If the remote package already contains blocks, an
   interactive terminal prompts for confirmation with the standard `[y/N]`

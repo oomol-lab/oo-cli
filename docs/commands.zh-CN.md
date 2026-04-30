@@ -342,7 +342,7 @@ skills。
 - 包元数据：缺少 `metadata.title` 时，会从 `<skill-id>` 生成标题。缺少
   `metadata.version` 时，默认使用 `0.0.1`。
 - 包内容：skill 目录中的 `.gitignore` 决定哪些本地文件不会进入发布包。如果
-  skill 没有 `.gitignore`，则使用内置的包模板规则。
+  skill 没有 `.gitignore`，则使用内置的包模板规则。打包时会拒绝符号链接。
 - Registry 安全检查：发布前，命令会查询远端 latest 包元数据。如果远端包已经
   包含 blocks，交互式终端会按既有 `[y/N]` 确认风格询问是否继续。回答 no、
   直接回车，或在没有交互式 stdin 的环境中运行，都会在转换、PUT 和本地 metadata

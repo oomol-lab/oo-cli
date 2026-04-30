@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { describe, expect, test } from "bun:test";
@@ -438,6 +438,98 @@ describe("skill package conversion", () => {
         expect(tarEntryNames).not.toContain("package/package/skills/demo-skill/token.secret");
         expect(tarEntryNames).not.toContain("package/package/.oo-thumbnail.json");
         expect(tarEntryNames).not.toContain("package/package/.oo-thumbnail.zh-CN.json");
+    });
+
+    test("rejects symlinks while creating publish tarballs", async () => {
+        const cases = [
+            {
+                createLinkedPath: async (targetPath: string, linkPath: string) => {
+                    await Bun.write(targetPath, "secret\n");
+                    await symlink(targetPath, linkPath);
+                },
+                expectedPath: "package/skills/demo-skill/linked-secret.txt",
+                linkName: "linked-secret.txt",
+                name: "file",
+            },
+            {
+                createLinkedPath: async (targetPath: string, linkPath: string) => {
+                    await mkdir(targetPath, { recursive: true });
+                    await Bun.write(join(targetPath, "secret.txt"), "secret\n");
+                    await symlink(targetPath, linkPath, "dir");
+                },
+                expectedPath: "package/skills/demo-skill/linked-secret",
+                linkName: "linked-secret",
+                name: "directory",
+            },
+        ] as const;
+
+        for (const testCase of cases) {
+            const sourceDirectoryPath = await createTemporaryDirectory(
+                `publish-symlink-${testCase.name}-source`,
+            );
+            const packageRootDirectoryPath = await createTemporaryDirectory(
+                `publish-symlink-${testCase.name}-package`,
+            );
+            const externalPath = await createTemporaryDirectory(
+                `publish-symlink-${testCase.name}-external`,
+            );
+            let requestCount = 0;
+
+            cleanup.track(sourceDirectoryPath);
+            cleanup.track(packageRootDirectoryPath);
+            cleanup.track(externalPath);
+
+            await writeSkillFile(sourceDirectoryPath, [
+                "---",
+                "name: demo-skill",
+                "description: Use a known package workflow.",
+                "---",
+                "",
+            ].join("\n"));
+
+            await convertSkillDirectoryToPackage({
+                packageName: "@alice/demo-skill",
+                packageRootDirectoryPath,
+                skillDirectoryPath: sourceDirectoryPath,
+                skillId: "demo-skill",
+                version: "0.0.2",
+            });
+
+            await testCase.createLinkedPath(
+                join(externalPath, "secret"),
+                join(
+                    packageRootDirectoryPath,
+                    "package",
+                    "skills",
+                    "demo-skill",
+                    testCase.linkName,
+                ),
+            );
+
+            const error = await expectCliUserError(publishConvertedSkillPackage({
+                account: {
+                    apiKey: "secret-1",
+                    endpoint: "example.test",
+                },
+                context: {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response("", { status: 201 });
+                    },
+                    logger: pino({ enabled: false }),
+                    translator: createTranslator("en"),
+                },
+                packageRootDirectoryPath,
+                visibility: "public",
+            }));
+
+            expect(error.key).toBe("errors.skills.publish.invalidPackageMetadata");
+            expect(error.params).toMatchObject({
+                message: `Package entries must not be symbolic links: ${testCase.expectedPath}.`,
+            });
+            expect(requestCount).toBe(0);
+        }
     });
 
     test("reports failed registry publish responses", async () => {
