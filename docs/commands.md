@@ -405,7 +405,7 @@ Convert one skill into an OOMOL package and run the publish step.
   imports any managed `.oo-metadata.json` fields into `SKILL.md` frontmatter,
   removes `.oo-metadata.json`, and publishes the local canonical copy to
   supported agent skill directories. Adoption requires an interactive `[y/N]`
-  confirmation.
+  confirmation. Adopted source directories must not contain symbolic links.
 - Authentication: the command requires the current OOMOL account. The package
   name is always `@<lowercase-account.name>/<lowercase-skill-id>`.
 - Validation: the source directory must contain `SKILL.md` with frontmatter

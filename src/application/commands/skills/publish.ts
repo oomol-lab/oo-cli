@@ -4,9 +4,9 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import type { LocalSkillHostPublicationTarget } from "./init.ts";
 
 import type { SkillPublishVisibility } from "./package-conversion.ts";
-import { cp, lstat, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { cp, lstat, mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -809,10 +809,11 @@ async function copySkillDirectoryToLocalStorage(
         });
     }
 
+    await assertSkillDirectoryHasNoSymbolicLinks(sourceDirectoryPath);
     await mkdir(dirname(localSkillDirectoryPath), { recursive: true });
 
     await cp(sourceDirectoryPath, localSkillDirectoryPath, {
-        dereference: true,
+        dereference: false,
         errorOnExist: true,
         force: false,
         recursive: true,
@@ -926,12 +927,51 @@ async function restoreSourceSkillDirectoryFromLocalStorage(
     localSkillDirectoryPath: string,
     sourceDirectoryPath: string,
 ): Promise<void> {
+    await assertSkillDirectoryHasNoSymbolicLinks(localSkillDirectoryPath);
     await mkdir(dirname(sourceDirectoryPath), { recursive: true });
     await cp(localSkillDirectoryPath, sourceDirectoryPath, {
-        dereference: true,
+        dereference: false,
         errorOnExist: true,
         force: false,
         recursive: true,
+    });
+}
+
+async function assertSkillDirectoryHasNoSymbolicLinks(
+    skillDirectoryPath: string,
+    path: string = skillDirectoryPath,
+): Promise<void> {
+    const metadata = await lstat(path);
+
+    if (metadata.isSymbolicLink()) {
+        throw createSymbolicLinkSkillEntryError(skillDirectoryPath, path);
+    }
+
+    if (!metadata.isDirectory()) {
+        return;
+    }
+
+    const entries = await readdir(path, { withFileTypes: true });
+
+    await Promise.all(entries.map(entry =>
+        assertSkillDirectoryHasNoSymbolicLinks(
+            skillDirectoryPath,
+            join(path, entry.name),
+        ),
+    ));
+}
+
+function createSymbolicLinkSkillEntryError(
+    skillDirectoryPath: string,
+    symbolicLinkPath: string,
+): CliUserError {
+    const entryPath = relative(skillDirectoryPath, symbolicLinkPath);
+
+    return new CliUserError("errors.skills.publish.invalidSkillFile", 1, {
+        message: `Skill entries must not be symbolic links: ${
+            entryPath === "" ? symbolicLinkPath : entryPath
+        }.`,
+        path: skillDirectoryPath,
     });
 }
 

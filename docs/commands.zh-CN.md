@@ -349,7 +349,7 @@ skills。
 - 接管：接管会把 skill 移动到 `<config-dir>/skills/local/<skill-id>`，将已有
   `.oo-metadata.json` 字段导入 `SKILL.md` frontmatter，删除 `.oo-metadata.json`，
   并把本地 canonical 副本发布到受支持的 Agent skill 目录。接管需要交互式 `[y/N]`
-  确认。
+  确认。被接管的源目录不能包含符号链接。
 - 认证：命令要求存在当前 OOMOL 账号。包名始终为
   `@<小写 account.name>/<小写 skill-id>`。
 - 校验：源目录必须包含 `SKILL.md`，其 frontmatter `name` 必须匹配

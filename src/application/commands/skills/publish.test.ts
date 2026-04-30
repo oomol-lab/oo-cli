@@ -1,6 +1,6 @@
 import type { CliCatalog, CliExecutionContext, Fetcher } from "../../contracts/cli.ts";
 
-import { lstat, mkdir, readFile, stat } from "node:fs/promises";
+import { lstat, mkdir, readFile, stat, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
@@ -438,6 +438,110 @@ describe("skills publish command", () => {
             .toMatchObject({
                 isDirectory: expect.any(Function),
             });
+    });
+
+    test("rejects adopting a skill directory that contains symlinks", async () => {
+        const cases = [
+            {
+                createLinkedPath: async (targetPath: string, linkPath: string) => {
+                    await Bun.write(targetPath, "secret\n");
+                    await symlink(targetPath, linkPath);
+                },
+                linkPath: join("nested", "linked-secret.txt"),
+                name: "file",
+            },
+            {
+                createLinkedPath: async (targetPath: string, linkPath: string) => {
+                    await mkdir(targetPath, { recursive: true });
+                    await Bun.write(join(targetPath, "secret.txt"), "secret\n");
+                    await symlink(targetPath, linkPath, "dir");
+                },
+                linkPath: join("nested", "linked-secret"),
+                name: "directory",
+            },
+        ] as const;
+
+        for (const testCase of cases) {
+            const configRootDirectoryPath = await createTemporaryDirectory(
+                `publish-adopt-symlink-${testCase.name}-config`,
+            );
+            const cwd = await createTemporaryDirectory(
+                `publish-adopt-symlink-${testCase.name}-cwd`,
+            );
+            const codexHomeDirectory = await createTemporaryDirectory(
+                `publish-adopt-symlink-${testCase.name}-codex`,
+            );
+            const externalPath = await createTemporaryDirectory(
+                `publish-adopt-symlink-${testCase.name}-external`,
+            );
+            const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
+            const stdin = createInteractiveInput();
+            const context = createPublishContext(settingsFilePath, { stdin });
+            const skillId = `symlink-${testCase.name}-skill`;
+            const sourceSkillDirectoryPath = join(cwd, skillId);
+            const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+                settingsFilePath,
+                skillId,
+            );
+
+            cleanup.track(configRootDirectoryPath);
+            cleanup.track(cwd);
+            cleanup.track(codexHomeDirectory);
+            cleanup.track(externalPath);
+
+            context.cwd = cwd;
+            context.env = {
+                CODEX_HOME: codexHomeDirectory,
+                HOME: configRootDirectoryPath,
+                USERPROFILE: configRootDirectoryPath,
+            };
+
+            await writeSkillFile(sourceSkillDirectoryPath, [
+                "---",
+                `name: ${skillId}`,
+                "description: Use a path-local workflow.",
+                "---",
+                "",
+            ].join("\n"));
+            await mkdir(join(sourceSkillDirectoryPath, "nested"), { recursive: true });
+            await testCase.createLinkedPath(
+                join(externalPath, "secret"),
+                join(sourceSkillDirectoryPath, testCase.linkPath),
+            );
+
+            stdin.feed("yes\n");
+
+            await expect(publishSkillPackage(
+                `./${skillId}`,
+                context,
+                "private",
+                {},
+                {
+                    checkAuthoringEnvironment: () => Promise.resolve({
+                        canonicalRootDirectoryPath: "",
+                        hostCount: 1,
+                    }),
+                    convertSkillDirectoryToPackage: () => {
+                        throw new Error("Conversion should not run.");
+                    },
+                    publishConvertedSkillPackage: () => Promise.resolve(),
+                },
+            )).rejects.toMatchObject({
+                key: "errors.skills.publish.invalidSkillFile",
+                params: {
+                    message: `Skill entries must not be symbolic links: ${testCase.linkPath}.`,
+                    path: sourceSkillDirectoryPath,
+                },
+            });
+
+            expect(
+                (await lstat(join(sourceSkillDirectoryPath, testCase.linkPath)))
+                    .isSymbolicLink(),
+            ).toBeTrue();
+            await expect(stat(localSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
     });
 
     test("does not move an invalid path skill into local storage", async () => {
