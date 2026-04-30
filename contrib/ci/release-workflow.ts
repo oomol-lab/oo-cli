@@ -59,6 +59,7 @@ async function runNotifyFeishuRelease(): Promise<void> {
             "content-type": "application/json",
         },
         body: payload,
+        signal: AbortSignal.timeout(15_000),
     });
     const responseText = await response.text();
 

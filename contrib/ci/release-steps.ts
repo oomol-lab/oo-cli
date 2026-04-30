@@ -58,24 +58,26 @@ export function buildFeishuReleaseNotification(input: {
     timestamp?: string;
     sign?: string;
 }): string {
-    if (input.releaseVersion === "") {
+    const releaseVersion = input.releaseVersion.trim();
+    if (releaseVersion === "") {
         throw new Error("RELEASE_VERSION is required.");
     }
 
-    if (input.releaseTag === "") {
+    const releaseTag = input.releaseTag.trim();
+    if (releaseTag === "") {
         throw new Error("RELEASE_TAG is required.");
     }
 
-    const releaseUrl = `${input.serverUrl}/${input.repository}/releases/tag/${input.releaseTag}`;
+    const releaseUrl = `${input.serverUrl}/${input.repository}/releases/tag/${releaseTag}`;
     const runUrl = `${input.serverUrl}/${input.repository}/actions/runs/${input.runId}`;
     const payload: Record<string, unknown> = {
         msg_type: "text",
         content: {
             text: [
-                `oo-cli ${input.releaseTag} 已发布`,
+                `oo-cli ${releaseTag} 已发布`,
                 "",
-                `版本：${input.releaseVersion}`,
-                `npm：https://www.npmjs.com/package/@oomol-lab/oo-cli/v/${input.releaseVersion}`,
+                `版本：${releaseVersion}`,
+                `npm：https://www.npmjs.com/package/@oomol-lab/oo-cli/v/${releaseVersion}`,
                 `Release：${releaseUrl}`,
                 `Workflow：${runUrl}`,
             ].join("\n"),

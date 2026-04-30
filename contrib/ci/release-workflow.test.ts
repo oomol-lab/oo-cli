@@ -106,13 +106,7 @@ describe("release-workflow", () => {
     });
 
     test("builds the Feishu release notification payload", () => {
-        expect(JSON.parse(buildFeishuReleaseNotification({
-            releaseVersion: "1.2.3",
-            releaseTag: "v1.2.3",
-            repository: "oomol-lab/oo-cli",
-            serverUrl: "https://github.com",
-            runId: "123456789",
-        }))).toEqual({
+        expect(JSON.parse(buildFeishuReleaseNotification(createFeishuInput()))).toEqual({
             msg_type: "text",
             content: {
                 text: [
@@ -128,15 +122,10 @@ describe("release-workflow", () => {
     });
 
     test("builds the signed Feishu release notification payload", () => {
-        expect(JSON.parse(buildFeishuReleaseNotification({
-            releaseVersion: "1.2.3",
-            releaseTag: "v1.2.3",
-            repository: "oomol-lab/oo-cli",
-            serverUrl: "https://github.com",
-            runId: "123456789",
+        expect(JSON.parse(buildFeishuReleaseNotification(createFeishuInput({
             timestamp: "1710000000",
             sign: "signature",
-        }))).toMatchObject({
+        })))).toMatchObject({
             timestamp: "1710000000",
             sign: "signature",
             msg_type: "text",
@@ -145,13 +134,18 @@ describe("release-workflow", () => {
 
     test("rejects Feishu notifications without a release tag", () => {
         expect(() =>
-            buildFeishuReleaseNotification({
-                releaseVersion: "1.2.3",
-                releaseTag: "",
-                repository: "oomol-lab/oo-cli",
-                serverUrl: "https://github.com",
-                runId: "123456789",
-            }),
+            buildFeishuReleaseNotification(createFeishuInput({ releaseTag: "" })),
         ).toThrow("RELEASE_TAG is required.");
     });
 });
+
+function createFeishuInput(overrides: Partial<Parameters<typeof buildFeishuReleaseNotification>[0]> = {}): Parameters<typeof buildFeishuReleaseNotification>[0] {
+    return {
+        releaseVersion: "1.2.3",
+        releaseTag: "v1.2.3",
+        repository: "oomol-lab/oo-cli",
+        serverUrl: "https://github.com",
+        runId: "123456789",
+        ...overrides,
+    };
+}
