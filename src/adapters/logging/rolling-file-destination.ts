@@ -12,13 +12,13 @@ import { join } from "node:path";
 import process from "node:process";
 
 const defaultFilePrefix = "debug";
-const defaultMaxFiles = 20;
+const defaultRetentionDays = 7;
+const logFileTimestampLength = "0000-00-00_00-00-00".length;
 let sessionCounter = 0;
 
 export interface RollingFileDestinationOptions {
     directoryPath: string;
     filePrefix?: string;
-    maxFiles?: number;
     now?: () => Date;
     pid?: number;
 }
@@ -26,18 +26,19 @@ export interface RollingFileDestinationOptions {
 export class RollingFileDestination implements DestinationStream {
     private readonly directoryPath: string;
     private readonly filePrefix: string;
-    private readonly maxFiles: number;
+    private readonly now: () => Date;
     private readonly sessionId: string;
     private readonly filePath: string;
     private currentFileDescriptor?: number;
+    private lastPrunedRetentionStart?: number;
     private writable = true;
 
     constructor(options: RollingFileDestinationOptions) {
         this.directoryPath = options.directoryPath;
         this.filePrefix = options.filePrefix ?? defaultFilePrefix;
-        this.maxFiles = options.maxFiles ?? defaultMaxFiles;
+        this.now = options.now ?? (() => new Date());
         this.sessionId = createSessionId(
-            options.now?.() ?? new Date(),
+            this.now(),
             options.pid ?? process.pid,
         );
         mkdirSync(this.directoryPath, { recursive: true });
@@ -58,6 +59,7 @@ export class RollingFileDestination implements DestinationStream {
 
         try {
             this.ensureFileOpened();
+            this.pruneExpiredFilesOncePerRetentionWindow();
 
             const currentFileDescriptor = this.currentFileDescriptor;
 
@@ -66,7 +68,6 @@ export class RollingFileDestination implements DestinationStream {
             }
 
             writeSync(currentFileDescriptor, String(chunk));
-            this.pruneOverflowFiles();
         }
         catch {
             this.disableWrites();
@@ -102,25 +103,34 @@ export class RollingFileDestination implements DestinationStream {
         this.currentFileDescriptor = openSync(this.filePath, "a");
     }
 
-    private pruneOverflowFiles(): void {
-        const filePaths = this.listLogFilePaths();
+    private pruneExpiredFilesOncePerRetentionWindow(): void {
+        const retentionStart = resolveRetentionStart(this.now());
+        const retentionStartTime = retentionStart.getTime();
 
-        while (filePaths.length > this.maxFiles) {
-            const oldestFilePath = filePaths.shift();
+        if (this.lastPrunedRetentionStart === retentionStartTime) {
+            return;
+        }
 
-            if (!oldestFilePath || oldestFilePath === this.filePath) {
+        this.lastPrunedRetentionStart = retentionStartTime;
+
+        for (const logFile of this.listLogFiles()) {
+            if (
+                logFile.filePath === this.filePath
+                || logFile.timestamp === undefined
+                || logFile.timestamp >= retentionStart
+            ) {
                 continue;
             }
 
             try {
-                unlinkSync(oldestFilePath);
+                unlinkSync(logFile.filePath);
             }
             catch {
             }
         }
     }
 
-    private listLogFilePaths(): string[] {
+    private listLogFiles(): LogFileEntry[] {
         try {
             const entries = readdirSync(this.directoryPath, { withFileTypes: true });
 
@@ -129,8 +139,10 @@ export class RollingFileDestination implements DestinationStream {
                     entry.isFile()
                     && entry.name.startsWith(`${this.filePrefix}-`)
                     && entry.name.endsWith(".log"))
-                .map(entry => join(this.directoryPath, entry.name))
-                .sort((left, right) => left.localeCompare(right));
+                .map(entry => ({
+                    filePath: join(this.directoryPath, entry.name),
+                    timestamp: parseLogFileTimestamp(entry.name, this.filePrefix),
+                }));
         }
         catch {
             return [];
@@ -156,6 +168,11 @@ export class RollingFileDestination implements DestinationStream {
         this.closeCurrentFile();
         this.writable = false;
     }
+}
+
+interface LogFileEntry {
+    filePath: string;
+    timestamp: Date | undefined;
 }
 
 function createSessionId(now: Date, pid: number): string {
@@ -188,6 +205,99 @@ function listExistingLogFileNames(directoryPath: string): string[] {
     catch {
         return [];
     }
+}
+
+function resolveRetentionStart(now: Date): Date {
+    const retentionStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+    );
+
+    retentionStart.setDate(retentionStart.getDate() - (defaultRetentionDays - 1));
+
+    return retentionStart;
+}
+
+function parseLogFileTimestamp(
+    fileName: string,
+    filePrefix: string,
+): Date | undefined {
+    const prefix = `${filePrefix}-`;
+    const timestamp = fileName.slice(
+        prefix.length,
+        prefix.length + logFileTimestampLength,
+    );
+
+    if (
+        !fileName.startsWith(prefix)
+        || !fileName.endsWith(".log")
+        || timestamp.length !== logFileTimestampLength
+        || !hasLogFileTimestampSeparators(timestamp)
+    ) {
+        return undefined;
+    }
+
+    const year = readFixedInteger(timestamp, 0, 4);
+    const month = readFixedInteger(timestamp, 5, 2);
+    const day = readFixedInteger(timestamp, 8, 2);
+    const hour = readFixedInteger(timestamp, 11, 2);
+    const minute = readFixedInteger(timestamp, 14, 2);
+    const second = readFixedInteger(timestamp, 17, 2);
+
+    if (
+        year === undefined
+        || month === undefined
+        || day === undefined
+        || hour === undefined
+        || minute === undefined
+        || second === undefined
+    ) {
+        return undefined;
+    }
+
+    const parsed = new Date(year, month - 1, day, hour, minute, second);
+
+    if (
+        parsed.getFullYear() !== year
+        || parsed.getMonth() !== month - 1
+        || parsed.getDate() !== day
+        || parsed.getHours() !== hour
+        || parsed.getMinutes() !== minute
+        || parsed.getSeconds() !== second
+    ) {
+        return undefined;
+    }
+
+    return parsed;
+}
+
+function hasLogFileTimestampSeparators(timestamp: string): boolean {
+    return timestamp.at(4) === "-"
+        && timestamp.at(7) === "-"
+        && timestamp.at(10) === "_"
+        && timestamp.at(13) === "-"
+        && timestamp.at(16) === "-";
+}
+
+function readFixedInteger(
+    value: string,
+    startIndex: number,
+    length: number,
+): number | undefined {
+    let parsed = 0;
+
+    for (const char of value.slice(startIndex, startIndex + length)) {
+        const digit = char.charCodeAt(0) - "0".charCodeAt(0);
+
+        if (digit < 0 || digit > 9) {
+            return undefined;
+        }
+
+        parsed = parsed * 10 + digit;
+    }
+
+    return parsed;
 }
 
 function formatLocalDateTime(date: Date): string {
