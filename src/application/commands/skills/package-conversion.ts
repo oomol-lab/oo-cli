@@ -501,7 +501,7 @@ async function collectExistingPath(
     }
 
     if (metadata.isSymbolicLink()) {
-        throw createSymbolicLinkPackageEntryError(safeRelativePath);
+        throw createSymbolicLinkPackageEntryError(toPosixPath(safeRelativePath));
     }
 
     if (await isIgnoredPackageSkillPath(
