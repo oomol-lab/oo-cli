@@ -9,7 +9,7 @@ import process from "node:process";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { isSemver } from "../semver.ts";
-import { isFileMissingError } from "../shared/fs-errors.ts";
+import { isFileMissingError, isPathMissingError } from "../shared/fs-errors.ts";
 import { pathExists, writeChunk } from "../shared/fs-utils.ts";
 import {
     buildCliBinaryDownloadUrl,
@@ -30,8 +30,10 @@ import {
     resolveSelfUpdatePaths,
     resolveSelfUpdateStagingBinaryPath,
     resolveSelfUpdateStagingDirectory,
-    resolveSelfUpdateVersionFilePath,
-    resolveSelfUpdateVersionTempFilePath,
+    resolveSelfUpdateVersionDirectoryPath,
+    resolveSelfUpdateVersionExecutablePath,
+    resolveSelfUpdateVersionTempDirectoryPath,
+    resolveSelfUpdateVersionTempExecutablePath,
 } from "./paths.ts";
 import { detectSelfUpdateReleasePlatform } from "./platform.ts";
 
@@ -71,6 +73,11 @@ export type SelfUpdateOperationOutcome
 
 export interface ProcessLifetimeVersionLockResource {
     close: () => Promise<void>;
+}
+
+interface TargetVersionMaterialization {
+    backupPath?: string;
+    targetVersionDirectoryPath: string;
 }
 
 export async function resolveLatestSelfUpdateVersion(options: {
@@ -137,7 +144,7 @@ export async function performSelfUpdateOperation(options: {
     }
 
     try {
-        await materializeTargetVersion({
+        const materialization = await materializeTargetVersion({
             currentVersion: options.currentVersion,
             forceReinstall: options.forceReinstall,
             paths,
@@ -150,13 +157,20 @@ export async function performSelfUpdateOperation(options: {
             stage: "activate",
             version: options.targetVersion,
         });
-        await activateTargetVersion({
-            paths,
-            platform: options.runtime.platform,
-            processId: options.runtime.processId,
-            targetVersion: options.targetVersion,
-            timestamp: (options.runtime.now ?? Date.now)(),
-        });
+        try {
+            await activateTargetVersion({
+                paths,
+                platform: options.runtime.platform,
+                processId: options.runtime.processId,
+                targetVersion: options.targetVersion,
+                timestamp: (options.runtime.now ?? Date.now)(),
+            });
+        }
+        catch (error) {
+            await rollbackTargetVersionMaterialization(materialization);
+            throw error;
+        }
+        await commitTargetVersionMaterialization(materialization);
 
         await verifyInstalledEntrypoint({
             paths,
@@ -177,7 +191,7 @@ export async function performSelfUpdateOperation(options: {
             targetVersion: options.targetVersion,
         });
         await attemptBundledSkillRefreshAfterSelfUpdate({
-            commandPath: resolveSelfUpdateVersionFilePath(
+            commandPath: resolveSelfUpdateVersionExecutablePath(
                 paths,
                 options.targetVersion,
             ),
@@ -236,7 +250,11 @@ export async function initializeCurrentVersionProcessLock(options: {
         env: options.runtime.env,
         platform: options.runtime.platform,
     });
-    const currentVersionPath = resolveSelfUpdateVersionFilePath(
+    const currentVersionPath = resolveSelfUpdateVersionExecutablePath(
+        paths,
+        options.currentVersion,
+    );
+    const legacyCurrentVersionPath = resolveSelfUpdateVersionDirectoryPath(
         paths,
         options.currentVersion,
     );
@@ -245,7 +263,10 @@ export async function initializeCurrentVersionProcessLock(options: {
         await cleanupWindowsExecutableBackups(paths, options.runtime.logger);
     }
 
-    if (!(await pathExists(currentVersionPath))) {
+    if (
+        !(await pathExists(currentVersionPath))
+        && !(await pathExists(legacyCurrentVersionPath))
+    ) {
         return undefined;
     }
 
@@ -345,21 +366,27 @@ async function materializeTargetVersion(options: {
     reportStage?: (event: SelfUpdateProgressEvent) => void;
     runtime: SelfUpdateRuntime;
     targetVersion: string;
-}): Promise<void> {
-    const targetVersionPath = resolveSelfUpdateVersionFilePath(
+}): Promise<TargetVersionMaterialization> {
+    const targetVersionDirectoryPath = resolveSelfUpdateVersionDirectoryPath(
+        options.paths,
+        options.targetVersion,
+    );
+    const targetVersionExecutablePath = resolveSelfUpdateVersionExecutablePath(
         options.paths,
         options.targetVersion,
     );
 
     if (
         !options.forceReinstall
-        && await pathExists(targetVersionPath)
+        && await pathExists(targetVersionExecutablePath)
     ) {
         options.reportStage?.({
             stage: "reuse",
             version: options.targetVersion,
         });
-        return;
+        return {
+            targetVersionDirectoryPath,
+        };
     }
 
     const timestamp = (options.runtime.now ?? Date.now)();
@@ -374,7 +401,13 @@ async function materializeTargetVersion(options: {
         stagingBinaryPath,
         options.runtime.platform,
     );
-    const versionTempPath = resolveSelfUpdateVersionTempFilePath({
+    const versionTempDirectoryPath = resolveSelfUpdateVersionTempDirectoryPath({
+        paths: options.paths,
+        processId: options.runtime.processId,
+        timestamp,
+        version: options.targetVersion,
+    });
+    const versionTempExecutablePath = resolveSelfUpdateVersionTempExecutablePath({
         paths: options.paths,
         processId: options.runtime.processId,
         timestamp,
@@ -390,6 +423,7 @@ async function materializeTargetVersion(options: {
         version: options.targetVersion,
     });
     await mkdir(stagingDirectory, { recursive: true });
+    await mkdir(versionTempDirectoryPath, { recursive: true });
 
     try {
         await fetchBinaryResponse({
@@ -410,23 +444,22 @@ async function materializeTargetVersion(options: {
             await chmod(stagingBinaryPath, 0o755);
         }
 
-        await copyFile(stagingBinaryPath, versionTempPath);
+        await copyFile(stagingBinaryPath, versionTempExecutablePath);
 
         if (options.runtime.platform !== "win32") {
-            await chmod(versionTempPath, 0o755);
+            await chmod(versionTempExecutablePath, 0o755);
         }
 
-        await replaceTargetVersionFile({
-            platform: options.runtime.platform,
+        return await replaceTargetVersionDirectory({
             processId: options.runtime.processId,
-            targetVersionPath,
-            temporaryVersionPath: versionTempPath,
+            targetVersionDirectoryPath,
+            temporaryVersionDirectoryPath: versionTempDirectoryPath,
             timestamp,
         });
     }
     finally {
         await removePathBestEffort(stagingDirectory);
-        await removePathBestEffort(versionTempPath);
+        await removePathBestEffort(versionTempDirectoryPath);
     }
 }
 
@@ -636,44 +669,69 @@ async function writeBinaryResponseToFile(options: {
     }
 }
 
-async function replaceTargetVersionFile(options: {
-    platform: NodeJS.Platform;
+async function replaceTargetVersionDirectory(options: {
     processId: number;
-    targetVersionPath: string;
-    temporaryVersionPath: string;
+    targetVersionDirectoryPath: string;
+    temporaryVersionDirectoryPath: string;
     timestamp: number;
-}): Promise<void> {
-    if (options.platform !== "win32") {
-        await rename(options.temporaryVersionPath, options.targetVersionPath);
-        return;
-    }
-
+}): Promise<TargetVersionMaterialization> {
     const backupPath
-        = `${options.targetVersionPath}.old.${options.processId}.${options.timestamp}`;
-
-    try {
-        await rename(options.temporaryVersionPath, options.targetVersionPath);
-        return;
-    }
-    catch {}
-
+        = `${options.targetVersionDirectoryPath}.old.${options.processId}.${options.timestamp}`;
     let backupCreated = false;
 
     try {
-        await rename(options.targetVersionPath, backupPath);
+        await rename(options.targetVersionDirectoryPath, backupPath);
         backupCreated = true;
-        await rename(options.temporaryVersionPath, options.targetVersionPath);
+    }
+    catch (error) {
+        if (!isFileMissingError(error)) {
+            throw error;
+        }
+    }
+
+    try {
+        await rename(
+            options.temporaryVersionDirectoryPath,
+            options.targetVersionDirectoryPath,
+        );
+        return {
+            backupPath: backupCreated ? backupPath : undefined,
+            targetVersionDirectoryPath: options.targetVersionDirectoryPath,
+        };
     }
     catch (error) {
         if (backupCreated) {
-            await rename(backupPath, options.targetVersionPath).catch(() => {});
+            await rename(
+                backupPath,
+                options.targetVersionDirectoryPath,
+            ).catch(() => {});
         }
         throw error;
     }
+}
 
-    if (backupCreated) {
-        await removePathBestEffort(backupPath);
+async function rollbackTargetVersionMaterialization(
+    materialization: TargetVersionMaterialization,
+): Promise<void> {
+    if (materialization.backupPath === undefined) {
+        return;
     }
+
+    await removePathBestEffort(materialization.targetVersionDirectoryPath);
+    await rename(
+        materialization.backupPath,
+        materialization.targetVersionDirectoryPath,
+    ).catch(() => {});
+}
+
+async function commitTargetVersionMaterialization(
+    materialization: TargetVersionMaterialization,
+): Promise<void> {
+    if (materialization.backupPath === undefined) {
+        return;
+    }
+
+    await removePathBestEffort(materialization.backupPath);
 }
 
 async function activateTargetVersion(options: {
@@ -697,7 +755,7 @@ async function activateUnixEntrypoint(options: {
     targetVersion: string;
     timestamp: number;
 }): Promise<void> {
-    const targetVersionPath = resolveSelfUpdateVersionFilePath(
+    const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
         options.paths,
         options.targetVersion,
     );
@@ -723,7 +781,7 @@ async function activateWindowsEntrypoint(options: {
     targetVersion: string;
     timestamp: number;
 }): Promise<void> {
-    const targetVersionPath = resolveSelfUpdateVersionFilePath(
+    const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
         options.paths,
         options.targetVersion,
     );
@@ -767,7 +825,7 @@ async function verifyInstalledEntrypoint(options: {
     reportStage?: (event: SelfUpdateProgressEvent) => void;
     targetVersion: string;
 }): Promise<void> {
-    const targetVersionPath = resolveSelfUpdateVersionFilePath(
+    const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
         options.paths,
         options.targetVersion,
     );
@@ -783,7 +841,7 @@ async function verifyInstalledEntrypoint(options: {
             executableMetadata = await lstat(options.paths.executablePath);
         }
         catch (error) {
-            if (isFileMissingError(error)) {
+            if (isPathMissingError(error)) {
                 throw new CliUserError("errors.selfUpdate.verifyEntrypointMissing", 1, {
                     path: options.paths.executablePath,
                 });
@@ -805,7 +863,7 @@ async function verifyInstalledEntrypoint(options: {
                     : join(dirname(options.paths.executablePath), linkedTarget),
             ),
             realpath(targetVersionPath).catch((error) => {
-                if (isFileMissingError(error)) {
+                if (isPathMissingError(error)) {
                     throw new CliUserError("errors.selfUpdate.verifyTargetMissing", 1, {
                         path: targetVersionPath,
                     });
@@ -825,7 +883,7 @@ async function verifyInstalledEntrypoint(options: {
             await stat(options.paths.executablePath);
         }
         catch (error) {
-            if (isFileMissingError(error)) {
+            if (isPathMissingError(error)) {
                 throw new CliUserError("errors.selfUpdate.verifyEntrypointMissing", 1, {
                     path: options.paths.executablePath,
                 });
@@ -935,7 +993,9 @@ async function readActivatedVersion(
         return undefined;
     }
 
-    return activatedVersionPath;
+    const [activatedVersion] = activatedVersionPath.split(sep);
+
+    return activatedVersion === "" ? undefined : activatedVersion;
 }
 
 async function cleanupStagingDirectory(

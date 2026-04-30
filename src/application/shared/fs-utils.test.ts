@@ -1,9 +1,20 @@
 import type { FileHandle } from "node:fs/promises";
 
 import { describe, expect, test } from "bun:test";
-import { writeChunk } from "./fs-utils.ts";
+import { pathExists, writeChunk } from "./fs-utils.ts";
 
 describe("fs utils", () => {
+    test("pathExists treats a file in the middle of the path as missing", async () => {
+        const metadataReader = async () => {
+            const error = new Error("not a directory") as NodeJS.ErrnoException;
+
+            error.code = "ENOTDIR";
+            throw error;
+        };
+
+        expect(await pathExists("/tmp/version/oo", metadataReader)).toBeFalse();
+    });
+
     test("writeChunk retries partial writes until the chunk is complete", async () => {
         const writtenSegments: number[][] = [];
         const fileHandle = createFileHandleWriteStub((buffer) => {

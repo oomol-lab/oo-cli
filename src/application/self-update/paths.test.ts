@@ -5,7 +5,10 @@ import {
     resolveSelfUpdatePaths,
     resolveSelfUpdateStagingBinaryPath,
     resolveSelfUpdateStagingDirectory,
-    resolveSelfUpdateVersionFilePath,
+    resolveSelfUpdateVersionDirectoryPath,
+    resolveSelfUpdateVersionExecutablePath,
+    resolveSelfUpdateVersionTempDirectoryPath,
+    resolveSelfUpdateVersionTempExecutablePath,
 } from "./paths.ts";
 
 describe("resolveSelfUpdatePaths", () => {
@@ -80,7 +83,7 @@ describe("resolveSelfUpdatePaths", () => {
         });
     });
 
-    test("builds lock, version, and staging paths", () => {
+    test("builds lock, version, version executable, and staging paths", () => {
         const paths = resolveSelfUpdatePaths({
             env: {
                 HOME: "/tmp/home",
@@ -91,8 +94,27 @@ describe("resolveSelfUpdatePaths", () => {
         expect(resolveSelfUpdateLockFilePath(paths, "1.2.3")).toBe(
             posix.join(paths.locksDirectory, "1.2.3.lock"),
         );
-        expect(resolveSelfUpdateVersionFilePath(paths, "1.2.3")).toBe(
+        expect(resolveSelfUpdateVersionDirectoryPath(paths, "1.2.3")).toBe(
             posix.join(paths.versionsDirectory, "1.2.3"),
+        );
+        expect(resolveSelfUpdateVersionExecutablePath(paths, "1.2.3")).toBe(
+            posix.join(paths.versionsDirectory, "1.2.3", "oo"),
+        );
+        expect(resolveSelfUpdateVersionTempDirectoryPath({
+            paths,
+            processId: 123,
+            timestamp: 456,
+            version: "1.2.3",
+        })).toBe(
+            posix.join(paths.versionsDirectory, "1.2.3.tmp.123.456"),
+        );
+        expect(resolveSelfUpdateVersionTempExecutablePath({
+            paths,
+            processId: 123,
+            timestamp: 456,
+            version: "1.2.3",
+        })).toBe(
+            posix.join(paths.versionsDirectory, "1.2.3.tmp.123.456", "oo"),
         );
         expect(resolveSelfUpdateStagingBinaryPath({
             paths,
@@ -126,8 +148,27 @@ describe("resolveSelfUpdatePaths", () => {
         expect(resolveSelfUpdateLockFilePath(paths, "1.2.3")).toBe(
             win32.join(paths.locksDirectory, "1.2.3.lock"),
         );
-        expect(resolveSelfUpdateVersionFilePath(paths, "1.2.3")).toBe(
+        expect(resolveSelfUpdateVersionDirectoryPath(paths, "1.2.3")).toBe(
             win32.join(paths.versionsDirectory, "1.2.3"),
+        );
+        expect(resolveSelfUpdateVersionExecutablePath(paths, "1.2.3")).toBe(
+            win32.join(paths.versionsDirectory, "1.2.3", "oo.exe"),
+        );
+        expect(resolveSelfUpdateVersionTempDirectoryPath({
+            paths,
+            processId: 123,
+            timestamp: 456,
+            version: "1.2.3",
+        })).toBe(
+            win32.join(paths.versionsDirectory, "1.2.3.tmp.123.456"),
+        );
+        expect(resolveSelfUpdateVersionTempExecutablePath({
+            paths,
+            processId: 123,
+            timestamp: 456,
+            version: "1.2.3",
+        })).toBe(
+            win32.join(paths.versionsDirectory, "1.2.3.tmp.123.456", "oo.exe"),
         );
         expect(stagingBinaryPath).toBe(
             win32.join(paths.stagingDirectory, "1.2.3.tmp.123.456", "oo.exe"),

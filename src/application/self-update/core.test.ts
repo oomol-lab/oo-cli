@@ -1,7 +1,7 @@
 import type { SelfUpdateCommandRunOptions } from "../contracts/self-update.ts";
 import type { SelfUpdateProgressEvent } from "./progress.ts";
-import { rmSync, symlinkSync } from "node:fs";
-import { chmod, mkdir, readlink, realpath, writeFile } from "node:fs/promises";
+import { chmodSync, rmSync, symlinkSync } from "node:fs";
+import { chmod, mkdir, readlink, realpath, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
@@ -21,7 +21,8 @@ import {
 import {
     resolveSelfUpdateLockFilePath,
     resolveSelfUpdatePaths,
-    resolveSelfUpdateVersionFilePath,
+    resolveSelfUpdateVersionDirectoryPath,
+    resolveSelfUpdateVersionExecutablePath,
 } from "./paths.ts";
 
 const { track: trackDirectory } = useTemporaryDirectoryCleanup();
@@ -46,7 +47,7 @@ describe("performSelfUpdateOperation", () => {
             env,
             platform: process.platform,
         });
-        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
             paths,
             "1.2.3",
         );
@@ -99,6 +100,160 @@ describe("performSelfUpdateOperation", () => {
         }
     });
 
+    test("downloads a target version as an executable inside the version directory", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-version-directory");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const targetVersionDirectoryPath = resolveSelfUpdateVersionDirectoryPath(
+            paths,
+            "2.0.0",
+        );
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
+            paths,
+            "2.0.0",
+        );
+        const logCapture = createLogCapture();
+
+        trackDirectory(rootDirectory);
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "1.0.0",
+                forceReinstall: true,
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: process.execPath,
+                    fetcher: async () => new Response("binary"),
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
+                },
+                targetVersion: "2.0.0",
+            });
+
+            expect(result.status).toBe("installed");
+            expect((await stat(targetVersionDirectoryPath)).isDirectory()).toBeTrue();
+            expect(await Bun.file(targetVersionPath).text()).toBe("binary");
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("replaces a legacy version file with a version directory during reinstall", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-legacy-version-file");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const legacyVersionPath = resolveSelfUpdateVersionDirectoryPath(
+            paths,
+            "2.0.0",
+        );
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
+            paths,
+            "2.0.0",
+        );
+        const logCapture = createLogCapture();
+
+        trackDirectory(rootDirectory);
+        await mkdir(paths.versionsDirectory, { recursive: true });
+        await writeFile(legacyVersionPath, "legacy-binary");
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "1.0.0",
+                forceReinstall: true,
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: process.execPath,
+                    fetcher: async () => new Response("new-binary"),
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
+                },
+                targetVersion: "2.0.0",
+            });
+
+            expect(result.status).toBe("installed");
+            expect((await stat(legacyVersionPath)).isDirectory()).toBeTrue();
+            expect(await Bun.file(targetVersionPath).text()).toBe("new-binary");
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("restores a legacy version file when same-version activation fails", async () => {
+        if (process.platform === "win32") {
+            return;
+        }
+
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-legacy-activation-fail");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const legacyVersionPath = resolveSelfUpdateVersionDirectoryPath(
+            paths,
+            "1.2.3",
+        );
+        const logCapture = createLogCapture();
+        let blockedActivationDirectory = false;
+
+        trackDirectory(rootDirectory);
+        await Promise.all([
+            mkdir(paths.executableDirectory, { recursive: true }),
+            mkdir(paths.versionsDirectory, { recursive: true }),
+        ]);
+        await writeFile(legacyVersionPath, "legacy-binary");
+        symlinkSync(legacyVersionPath, paths.executablePath);
+
+        try {
+            await expect(performSelfUpdateOperation({
+                currentVersion: "1.2.3",
+                forceReinstall: true,
+                reportStage: (event) => {
+                    if (event.stage !== "activate" || blockedActivationDirectory) {
+                        return;
+                    }
+
+                    blockedActivationDirectory = true;
+                    chmodSync(paths.executableDirectory, 0o555);
+                },
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: paths.executablePath,
+                    fetcher: async () => new Response("new-binary"),
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
+                },
+                targetVersion: "1.2.3",
+            })).rejects.toThrow();
+
+            expect(blockedActivationDirectory).toBeTrue();
+            expect((await stat(legacyVersionPath)).isFile()).toBeTrue();
+            expect(await Bun.file(legacyVersionPath).text()).toBe("legacy-binary");
+            expect(await realpath(paths.executablePath)).toBe(await realpath(legacyVersionPath));
+        }
+        finally {
+            await chmod(paths.executableDirectory, 0o755).catch(() => undefined);
+            logCapture.close();
+        }
+    });
+
     test("keeps versions protected by active locks during cleanup", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-self-update-cleanup");
         const env = createSelfUpdateEnv(rootDirectory);
@@ -114,10 +269,10 @@ describe("performSelfUpdateOperation", () => {
             mkdir(paths.versionsDirectory, { recursive: true }),
         ]);
         await Promise.all([
-            writeManagedVersion(resolveSelfUpdateVersionFilePath(paths, "1.0.0")),
-            writeManagedVersion(resolveSelfUpdateVersionFilePath(paths, "2.0.0")),
-            writeManagedVersion(resolveSelfUpdateVersionFilePath(paths, "9.9.9")),
-            writeManagedVersion(resolveSelfUpdateVersionFilePath(paths, "0.5.0")),
+            writeManagedVersion(resolveSelfUpdateVersionExecutablePath(paths, "1.0.0")),
+            writeManagedVersion(resolveSelfUpdateVersionExecutablePath(paths, "2.0.0")),
+            writeManagedVersion(resolveSelfUpdateVersionExecutablePath(paths, "9.9.9")),
+            writeManagedVersion(resolveSelfUpdateVersionExecutablePath(paths, "0.5.0")),
             writeFile(
                 resolveSelfUpdateLockFilePath(paths, "9.9.9"),
                 `${JSON.stringify({
@@ -150,16 +305,16 @@ describe("performSelfUpdateOperation", () => {
 
             expect(result.status).toBe("installed");
             await expect(
-                Bun.file(resolveSelfUpdateVersionFilePath(paths, "1.0.0")).exists(),
+                Bun.file(resolveSelfUpdateVersionExecutablePath(paths, "1.0.0")).exists(),
             ).resolves.toBeTrue();
             await expect(
-                Bun.file(resolveSelfUpdateVersionFilePath(paths, "2.0.0")).exists(),
+                Bun.file(resolveSelfUpdateVersionExecutablePath(paths, "2.0.0")).exists(),
             ).resolves.toBeTrue();
             await expect(
-                Bun.file(resolveSelfUpdateVersionFilePath(paths, "9.9.9")).exists(),
+                Bun.file(resolveSelfUpdateVersionExecutablePath(paths, "9.9.9")).exists(),
             ).resolves.toBeTrue();
             await expect(
-                Bun.file(resolveSelfUpdateVersionFilePath(paths, "0.5.0")).exists(),
+                Bun.file(resolveSelfUpdateVersionExecutablePath(paths, "0.5.0")).exists(),
             ).resolves.toBeFalse();
         }
         finally {
@@ -178,9 +333,9 @@ describe("performSelfUpdateOperation", () => {
             env,
             platform: process.platform,
         });
-        const currentVersionPath = resolveSelfUpdateVersionFilePath(paths, "1.0.0");
-        const staleVersionPath = resolveSelfUpdateVersionFilePath(paths, "2.0.0");
-        const targetVersionPath = resolveSelfUpdateVersionFilePath(paths, "3.0.0");
+        const currentVersionPath = resolveSelfUpdateVersionExecutablePath(paths, "1.0.0");
+        const staleVersionPath = resolveSelfUpdateVersionExecutablePath(paths, "2.0.0");
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(paths, "3.0.0");
         const siblingVersionPath = join(
             dirname(paths.versionsDirectory),
             `${basename(paths.versionsDirectory)}2.0.0`,
@@ -243,7 +398,7 @@ describe("performSelfUpdateOperation", () => {
             env,
             platform: process.platform,
         });
-        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
             paths,
             "1.2.3",
         );
@@ -313,7 +468,7 @@ describe("performSelfUpdateOperation", () => {
             env,
             platform: process.platform,
         });
-        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
             paths,
             "1.2.3",
         );
@@ -708,7 +863,7 @@ describe("performSelfUpdateOperation", () => {
             env,
             platform: process.platform,
         });
-        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
             paths,
             "2.0.0",
         );
@@ -749,7 +904,7 @@ describe("performSelfUpdateOperation", () => {
             env,
             platform: process.platform,
         });
-        const targetVersionPath = resolveSelfUpdateVersionFilePath(
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
             paths,
             "2.0.0",
         );
