@@ -14,6 +14,7 @@ import {
 } from "./path-configuration.ts";
 
 const { track: trackDirectory } = useTemporaryDirectoryCleanup();
+const posixHostTest = process.platform === "win32" ? test.skip : test;
 
 describe("ensureExecutableDirectoryOnPath", () => {
     test("writes zsh profile PATH setup when the executable directory is missing from PATH", async () => {
@@ -103,7 +104,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
         }
     });
 
-    test("writes zsh startup profiles when the executable directory is already on PATH", async () => {
+    posixHostTest("writes zsh startup profiles when the executable directory is already on PATH", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-path-darwin-zsh-on-path");
         const homeDirectory = toPortablePath(rootDirectory);
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
@@ -147,7 +148,7 @@ describe("ensureExecutableDirectoryOnPath", () => {
         }
     });
 
-    test("does not rewrite marked zsh startup profiles when the executable directory is already on PATH", async () => {
+    posixHostTest("does not rewrite marked zsh startup profiles when the executable directory is already on PATH", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-path-darwin-zsh-marked");
         const homeDirectory = toPortablePath(rootDirectory);
         const executableDirectory = posix.join(homeDirectory, ".local", "bin");
