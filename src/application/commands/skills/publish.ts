@@ -62,6 +62,7 @@ interface SkillsPublishInput {
     agent?: string;
     skill: string;
     visibility?: string;
+    yes?: boolean;
 }
 
 interface PublishLocalSkillPackageResult {
@@ -74,6 +75,7 @@ interface PublishLocalSkillPackageResult {
 
 interface PublishSkillPackageOptions {
     agentName?: BundledSkillAgentName;
+    yes?: boolean;
 }
 
 interface LocalSkillPublishSource {
@@ -109,6 +111,7 @@ interface ResolveSkillPublishVersionRequest {
     packageName: string;
     requestedVersion: string;
     skillId: string;
+    yes: boolean;
 }
 
 interface PublishLocalSkillPackageDependencies {
@@ -148,11 +151,18 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
             valueName: "visibility",
             descriptionKey: "options.visibility",
         },
+        {
+            name: "yes",
+            longFlag: "--yes",
+            shortFlag: "-y",
+            descriptionKey: "options.yes",
+        },
     ],
     inputSchema: z.object({
         agent: z.string().optional(),
         skill: z.string(),
         visibility: z.string().optional(),
+        yes: z.boolean().optional(),
     }),
     handler: async (input, context) => {
         const agentName = parseSkillPublishAgent(input.agent);
@@ -162,7 +172,10 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
             input.skill,
             context,
             visibility,
-            { agentName },
+            {
+                agentName,
+                yes: input.yes === true,
+            },
         );
 
         writeLine(
@@ -213,6 +226,7 @@ export async function publishLocalSkillPackage(
             packageName,
             skillDirectoryPath,
             skillId,
+            yes: false,
         },
         context,
         visibility,
@@ -230,6 +244,7 @@ export async function publishSkillPackage(
     const source = await resolveSkillPublishSource(skillReference, context, {
         agentName: options.agentName,
     });
+    const yes = options.yes === true;
     const checkAuthoringEnvironment
         = dependencies.checkAuthoringEnvironment ?? checkLocalSkillAuthoringEnvironment;
     const requireAccount = dependencies.requireCurrentAccount ?? requireCurrentAccount;
@@ -242,6 +257,7 @@ export async function publishSkillPackage(
         {
             packageName,
             source,
+            yes,
         },
         context,
     );
@@ -252,6 +268,7 @@ export async function publishSkillPackage(
             packageName,
             skillDirectoryPath: publishSource.skillDirectoryPath,
             skillId: publishSource.skillId,
+            yes,
         },
         context,
         visibility,
@@ -265,6 +282,7 @@ async function publishResolvedSkillPackage(
         packageName: string;
         skillDirectoryPath: string;
         skillId: string;
+        yes: boolean;
     },
     context: CliExecutionContext,
     visibility: SkillPublishVisibility,
@@ -296,6 +314,7 @@ async function publishResolvedSkillPackage(
         packageName: request.packageName,
         requestedVersion: skillMetadata.requestedVersion,
         skillId: request.skillId,
+        yes: request.yes,
     });
     let packageRootDirectoryPath: string | undefined;
 
@@ -584,6 +603,7 @@ async function confirmAndPrepareSkillPublishSource(
     options: {
         packageName: string;
         source: SkillPublishSource;
+        yes: boolean;
     },
     context: Pick<CliExecutionContext, "env" | "settingsStore" | "stdin" | "stdout" | "translator">,
 ): Promise<LocalSkillPublishSource | RegistrySkillPublishSource> {
@@ -602,6 +622,7 @@ async function confirmAndPrepareSkillPublishSource(
                 options.source,
                 options.packageName,
                 context,
+                options.yes,
             );
 
             return options.source;
@@ -625,6 +646,7 @@ async function confirmAndPrepareSkillPublishSource(
                     source: options.source,
                 },
                 context,
+                options.yes,
             );
 
             await adoptSkillPublishSource({
@@ -647,7 +669,12 @@ async function confirmRegistrySkillPackagePublish(
     source: RegistrySkillPublishSource,
     targetPackageName: string,
     context: Pick<CliExecutionContext, "stdin" | "stdout" | "translator">,
+    yes: boolean,
 ): Promise<void> {
+    if (yes) {
+        return;
+    }
+
     const params = {
         name: source.skillId,
         packageName: source.packageName,
@@ -691,7 +718,12 @@ async function confirmAdoptableSkillPublish(
         source: AdoptableSkillPublishSource;
     },
     context: Pick<CliExecutionContext, "stdin" | "stdout" | "translator">,
+    yes: boolean,
 ): Promise<void> {
+    if (yes) {
+        return;
+    }
+
     const params = {
         localPath: options.localSkillDirectoryPath,
         name: options.source.skillId,
@@ -1161,6 +1193,10 @@ async function confirmRemotePackageBlocksPublish(
     request: ResolveSkillPublishVersionRequest,
     packageVersion: string,
 ): Promise<void> {
+    if (request.yes) {
+        return;
+    }
+
     const params = {
         name: request.skillId,
         packageName: request.packageName,

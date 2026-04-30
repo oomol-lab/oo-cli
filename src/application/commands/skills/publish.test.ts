@@ -293,6 +293,63 @@ describe("skills publish command", () => {
         );
     });
 
+    test("publishes a registry skill from a different package when --yes is passed", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const skillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "forked-skill",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+            await writeSkillFile(skillDirectoryPath, [
+                "---",
+                "name: forked-skill",
+                "description: Use a registry package workflow.",
+                "---",
+                "",
+            ].join("\n"));
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: "@bob/forked-skill",
+                    version: "0.1.0",
+                }),
+            );
+
+            const result = await sandbox.run(
+                ["skills", "publish", "forked-skill", "--yes"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/-/oomol/package-info/")) {
+                            return new Response("not found", { status: 404 });
+                        }
+
+                        return new Response("", { status: 201 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                "Published skill forked-skill as private package @alice/forked-skill@0.0.1. View it at https://hub.oomol.com/package/@alice/forked-skill.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("adopts an agent skill before publishing it", async () => {
         const sandbox = await createCliSandbox();
         const stdin = createInteractiveInput();
@@ -878,6 +935,66 @@ describe("skills publish command", () => {
             packageName: "@alice/blocked-skill",
             version: "1.2.4",
         });
+    });
+
+    test("publishes over a remote package with blocks when -y is passed", async () => {
+        const { sandbox, skillDirectoryPath } = await createCliPublishSkillSandbox(
+            "blocked-skill",
+            [
+                "---",
+                "name: blocked-skill",
+                "description: Use a known package workflow.",
+                "---",
+                "",
+            ].join("\n"),
+        );
+
+        try {
+            const result = await sandbox.run(
+                ["skills", "publish", "blocked-skill", "-y"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/-/oomol/package-info/")) {
+                            return new Response(JSON.stringify({
+                                blocks: [
+                                    {
+                                        blockName: "main",
+                                        inputHandleDefs: [],
+                                        outputHandleDefs: [],
+                                    },
+                                ],
+                                description: "Remote block package",
+                                packageName: "@alice/blocked-skill",
+                                packageVersion: "1.2.3",
+                                title: "Blocked Skill",
+                            }));
+                        }
+
+                        return new Response("", { status: 201 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                "Published skill blocked-skill as private package @alice/blocked-skill@1.2.4. View it at https://hub.oomol.com/package/@alice/blocked-skill.\n",
+            );
+
+            const parsed = matter(
+                await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
+            );
+
+            expect(parsed.data.metadata).toMatchObject({
+                packageName: "@alice/blocked-skill",
+                version: "1.2.4",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
     });
 
     test("rejects publishing over a remote package with blocks when confirmation is declined", async () => {
