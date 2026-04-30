@@ -3,7 +3,7 @@ import type {
     CliRunResult,
     CliSnapshotContext,
 } from "../../../__tests__/helpers.ts";
-import { mkdir } from "node:fs/promises";
+import { chmod, mkdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
@@ -689,6 +689,9 @@ describe("self-update commands", () => {
                     timeoutMs: 10_000,
                 },
             ]);
+            expect((await stat(legacyVersionPath)).isDirectory()).toBeTrue();
+            await expect(Bun.file(currentVersionPath).exists()).resolves.toBeTrue();
+            expect(await Bun.file(currentVersionPath).text()).toBe("binary");
         }
         finally {
             await sandbox.cleanup();
@@ -887,6 +890,10 @@ interface CapturedSelfUpdateCommand {
 async function writeManagedVersion(path: string, content: string): Promise<void> {
     await mkdir(dirname(path), { recursive: true });
     await Bun.write(path, content);
+
+    if (process.platform !== "win32") {
+        await chmod(path, 0o755);
+    }
 }
 
 function createCapturedSelfUpdateRuntime(commandResult?: {

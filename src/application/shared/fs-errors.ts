@@ -12,6 +12,10 @@ export function isPathMissingError(error: unknown): error is NodeJS.ErrnoExcepti
     return isFileMissingError(error) || hasErrorCode(error, "ENOTDIR");
 }
 
+export function isPathAccessDeniedError(error: unknown): error is NodeJS.ErrnoException {
+    return hasErrorCode(error, "EACCES") || hasErrorCode(error, "EPERM");
+}
+
 export function isFileAlreadyExistsError(error: unknown): error is NodeJS.ErrnoException {
     return hasErrorCode(error, "EEXIST");
 }

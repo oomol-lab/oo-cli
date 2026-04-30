@@ -1,4 +1,7 @@
 import type { SelfUpdateCommandRuntime } from "./command-runner.ts";
+import { constants } from "node:fs";
+import { access, stat } from "node:fs/promises";
+import { isPathAccessDeniedError, isPathMissingError } from "../shared/fs-errors.ts";
 import { pathExists } from "../shared/fs-utils.ts";
 import { runSelfUpdateCommandWithLogging } from "./command-runner.ts";
 import {
@@ -40,11 +43,32 @@ export async function isManagedVersionExecutableInstalled(options: {
         env: options.env,
         platform: options.platform,
     });
-
-    return await pathExists(resolveSelfUpdateVersionExecutablePath(
+    const executablePath = resolveSelfUpdateVersionExecutablePath(
         paths,
         options.version,
-    ));
+    );
+
+    try {
+        const metadata = await stat(executablePath);
+
+        if (!metadata.isFile()) {
+            return false;
+        }
+
+        if (options.platform === "win32") {
+            return true;
+        }
+
+        await access(executablePath, constants.X_OK);
+        return true;
+    }
+    catch (error) {
+        if (isPathMissingError(error) || isPathAccessDeniedError(error)) {
+            return false;
+        }
+
+        throw error;
+    }
 }
 
 export async function attemptBundledSkillRefreshAfterSelfUpdate(options: {
