@@ -7,6 +7,7 @@ import { cp, lstat, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { join, posix, relative, sep } from "node:path";
 import process from "node:process";
 import { gzipSync } from "node:zlib";
+import { isPlainObject } from "@wopjs/cast";
 import matter from "gray-matter";
 import ignore from "ignore";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -18,6 +19,10 @@ import {
     skillPackageGitIgnoreTemplate,
 } from "./package-templates.ts";
 import { removeManagedOoSkillArtifacts } from "./registry-skill-markdown.ts";
+import {
+    hasFrontmatter,
+    isNonBlankString,
+} from "./skill-frontmatter.ts";
 import { renderSkillTitle } from "./skill-title.ts";
 
 export interface ConvertSkillPackageOptions {
@@ -195,7 +200,7 @@ export async function readLocalSkillPackageMetadata(
     const frontmatter = parsed.data;
     const metadata = frontmatter.metadata;
 
-    if (metadata !== undefined && !isPlainRecord(metadata)) {
+    if (metadata !== undefined && !isPlainObject(metadata)) {
         throw createInvalidSkillFileError(
             skillFilePath,
             "Frontmatter metadata must be an object.",
@@ -286,7 +291,7 @@ export async function writeSkillFrontmatterMetadata(
     const parsed = await readSkillMarkdownMatter(skillFilePath);
     const metadata = parsed.data.metadata;
 
-    if (metadata !== undefined && !isPlainRecord(metadata)) {
+    if (metadata !== undefined && !isPlainObject(metadata)) {
         throw createInvalidSkillFileError(
             skillFilePath,
             "Frontmatter metadata must be an object.",
@@ -405,7 +410,7 @@ async function readPublishManifest(
         });
     }
 
-    if (!isPlainRecord(parsed)) {
+    if (!isPlainObject(parsed)) {
         throw createInvalidPackageMetadataError("package.json must contain a JSON object.");
     }
 
@@ -1035,7 +1040,7 @@ async function readSkillMarkdownMatter(
         );
     }
 
-    if (!hasFrontmatter(content) || !isPlainRecord(parsed.data)) {
+    if (!hasFrontmatter(content) || !isPlainObject(parsed.data)) {
         throw createInvalidSkillFileError(
             skillFilePath,
             "Frontmatter must be a YAML dictionary.",
@@ -1121,20 +1126,6 @@ function readOptionalFrontmatterString(
     }
 
     return value;
-}
-
-function hasFrontmatter(content: string): boolean {
-    return content.trimStart().startsWith("---");
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object"
-        && value !== null
-        && !Array.isArray(value);
-}
-
-function isNonBlankString(value: unknown): value is string {
-    return typeof value === "string" && value.trim() !== "";
 }
 
 function createInvalidSkillFileError(

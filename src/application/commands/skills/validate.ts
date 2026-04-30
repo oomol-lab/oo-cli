@@ -13,6 +13,7 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
+import { isNonBlankString } from "./skill-frontmatter.ts";
 
 interface SkillsValidateInput {
     path: string;
@@ -151,10 +152,6 @@ function validateOptionalField(
             error: `Frontmatter ${fieldName} field must be a non-empty string if provided.`,
         };
     }
-}
-
-function isNonBlankString(value: unknown): value is string {
-    return isNonEmptyString(value) && value.trim() !== "";
 }
 
 function readSkillFrontmatterWarnings(

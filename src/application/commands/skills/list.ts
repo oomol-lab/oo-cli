@@ -6,6 +6,8 @@ import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import type { ManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
+import { isPlainObject } from "@wopjs/cast";
+import matter from "gray-matter";
 import { z } from "zod";
 import { compareSemver } from "../../semver.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
@@ -25,6 +27,10 @@ import {
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { isBundledSkillName } from "./shared.ts";
+import {
+    hasFrontmatter,
+    toNonBlankString,
+} from "./skill-frontmatter.ts";
 
 const managedSkillNameColor = "#59F78D";
 const managedSkillSourceColor = "#CAA8FA";
@@ -59,6 +65,12 @@ interface ManagedSkillOutputListItem {
     source?: "local";
 }
 
+export interface LocalSkillListItem {
+    metadata?: ManagedSkillMetadata;
+    name: string;
+    path: string;
+}
+
 type ManagedSkillListTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
 
 export const skillsListCommand: CliCommandDefinition<Record<string, never>> = {
@@ -83,6 +95,37 @@ export const skillsListCommand: CliCommandDefinition<Record<string, never>> = {
         context.stdout.write(
             `${
                 formatManagedSkillListAsText({
+                    skills,
+                }, context)
+            }\n`,
+        );
+    },
+};
+
+export const skillsListLocalCommand: CliCommandDefinition<Record<string, never>> = {
+    name: "list-local",
+    summaryKey: "commands.skills.listLocal.summary",
+    descriptionKey: "commands.skills.listLocal.description",
+    inputSchema: z.object({}),
+    handler: async (_, context) => {
+        const skills = await listLocalSkillInstallations(
+            resolveLocalSkillCanonicalRootDirectoryPath(
+                context.settingsStore.getFilePath(),
+            ),
+        );
+
+        context.logger.info(
+            {
+                count: skills.length,
+                paths: skills.map(skill => skill.path),
+                skillNames: skills.map(skill => skill.name),
+            },
+            "Local skills listed.",
+        );
+
+        context.stdout.write(
+            `${
+                formatLocalSkillListAsText({
                     skills,
                 }, context)
             }\n`,
@@ -191,6 +234,21 @@ export async function listManagedSkillInstallations(
         .sort(compareManagedSkillListItems);
 }
 
+export async function listLocalSkillInstallations(
+    localSkillsDirectoryPath: string,
+): Promise<LocalSkillListItem[]> {
+    const entries = await readSkillsDirectoryEntries(localSkillsDirectoryPath);
+    const skills = await Promise.all(
+        entries.map(entryName =>
+            readLocalSkillListItem(localSkillsDirectoryPath, entryName),
+        ),
+    );
+
+    return skills
+        .filter(skill => skill !== undefined)
+        .sort(compareLocalSkillListItems);
+}
+
 export function formatManagedSkillListAsText(
     inventory: {
         skills: readonly ManagedSkillOutputListItem[];
@@ -217,6 +275,32 @@ export function formatManagedSkillListAsText(
     ].join("\n\n");
 }
 
+export function formatLocalSkillListAsText(
+    inventory: {
+        skills: readonly LocalSkillListItem[];
+    },
+    context: ManagedSkillListTextContext,
+): string {
+    const colors = createWriterColors(context.stdout);
+
+    if (inventory.skills.length === 0) {
+        return `${colors.yellow("!")} ${context.translator.t("skills.listLocal.noResults")}`;
+    }
+
+    const blocks = inventory.skills.map(
+        skill => formatLocalSkillListItem(skill, context, colors),
+    );
+
+    return [
+        `${colors.green("✓")} ${
+            context.translator.t("skills.listLocal.summary", {
+                count: inventory.skills.length,
+            })
+        }`,
+        ...blocks,
+    ].join("\n\n");
+}
+
 async function readSkillsDirectoryEntries(
     skillsDirectoryPath: string,
 ): Promise<string[]> {
@@ -234,6 +318,85 @@ async function readSkillsDirectoryEntries(
 
         throw error;
     }
+}
+
+async function readLocalSkillListItem(
+    localSkillsDirectoryPath: string,
+    entryName: string,
+): Promise<LocalSkillListItem | undefined> {
+    const skillDirectoryPath = join(localSkillsDirectoryPath, entryName);
+    let content: string;
+
+    try {
+        content = await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8");
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return undefined;
+        }
+
+        throw error;
+    }
+
+    const parsed = parseLocalSkillListItem(content, entryName);
+
+    if (parsed === undefined) {
+        return undefined;
+    }
+
+    return {
+        metadata: parsed.metadata,
+        name: entryName,
+        path: skillDirectoryPath,
+    };
+}
+
+function parseLocalSkillListItem(
+    content: string,
+    skillName: string,
+): Pick<LocalSkillListItem, "metadata"> | undefined {
+    let parsed: matter.GrayMatterFile<string>;
+
+    try {
+        parsed = matter(content);
+    }
+    catch {
+        return undefined;
+    }
+
+    if (!hasFrontmatter(content) || !isPlainObject(parsed.data)) {
+        return undefined;
+    }
+
+    const frontmatterName = toNonBlankString(parsed.data.name);
+    const description = toNonBlankString(parsed.data.description);
+
+    if (frontmatterName !== skillName || description === undefined) {
+        return undefined;
+    }
+
+    const metadata = parsed.data.metadata;
+
+    if (metadata !== undefined && !isPlainObject(metadata)) {
+        return undefined;
+    }
+
+    const version = toNonBlankString(metadata?.version);
+
+    if (version === undefined) {
+        return {};
+    }
+
+    const icon = toNonBlankString(metadata?.icon);
+    const packageName = toNonBlankString(metadata?.packageName);
+
+    return {
+        metadata: {
+            ...(icon === undefined ? {} : { icon }),
+            ...(packageName === undefined ? {} : { packageName }),
+            version,
+        },
+    };
 }
 
 function formatManagedSkillListItem(
@@ -260,6 +423,37 @@ function formatManagedSkillListItem(
             colors.hex(managedSkillVersionColor)(
                 skill.metadata?.version ?? context.translator.t("versionInfo.unknown"),
             ),
+            colors,
+        ),
+    ];
+
+    return lines.join("\n");
+}
+
+function formatLocalSkillListItem(
+    skill: LocalSkillListItem,
+    context: ManagedSkillListTextContext,
+    colors: TerminalColors,
+): string {
+    const lines = [
+        colors.bold(colors.hex(managedSkillNameColor)(skill.name)),
+        formatManagedSkillDetailLine(
+            context.translator.t("skills.list.source"),
+            colors.hex(managedSkillSourceColor)(
+                context.translator.t("skills.list.source.local"),
+            ),
+            colors,
+        ),
+        formatManagedSkillDetailLine(
+            context.translator.t("labels.version"),
+            colors.hex(managedSkillVersionColor)(
+                skill.metadata?.version ?? context.translator.t("versionInfo.unknown"),
+            ),
+            colors,
+        ),
+        formatManagedSkillDetailLine(
+            context.translator.t("skills.list.path"),
+            colors.hex(managedSkillSourceColor)(skill.path),
             colors,
         ),
     ];
@@ -405,6 +599,13 @@ function compareManagedSkillOutputListItems(
         left.metadata?.version ?? "",
         right.metadata?.version ?? "",
     );
+}
+
+function compareLocalSkillListItems(
+    left: LocalSkillListItem,
+    right: LocalSkillListItem,
+): number {
+    return left.name.localeCompare(right.name);
 }
 
 function compareManagedSkillHostListItems(

@@ -266,6 +266,17 @@ skills。
 - 说明：如果折叠后的 skill 安装在多个受支持 Agent 中，`Agents` 字段会列出所有
   匹配的 Agent。
 
+### `oo skills list-local`
+
+列出本地 canonical skill 存储中的 skill。
+
+- 所有权规则：命令会扫描 `<config-dir>/skills/local`，只保留 `SKILL.md`
+  frontmatter 中包含匹配的非空 `name` 和非空 `description` 的子目录。
+- 输出：文本输出会先打印摘要行，再为每个本地 skill 打印一个块。
+- 排序：本地 skill 按名称排序。
+- 输出：每个 skill 块会显示 skill 名称、本地来源标记、frontmatter 中记录的
+  `metadata.version`（如果存在），以及 canonical 本地路径。
+
 ### `oo skills preflight`
 
 检查当前环境是否有权限编辑本地 skills。

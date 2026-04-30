@@ -129,6 +129,10 @@ export const enMessages = {
         "List oo-managed skills from supported local skill directories.",
     "commands.skills.list.summary":
         "List oo-managed skills",
+    "commands.skills.listLocal.description":
+        "List skills from local canonical skill storage.",
+    "commands.skills.listLocal.summary":
+        "List local skills",
     "commands.skills.check.description":
         "Check whether this environment can edit local skills.",
     "commands.skills.check.summary": "Preflight local skill editing",
@@ -604,8 +608,13 @@ export const enMessages = {
     "skills.list.source": "Source",
     "skills.list.source.bundled": "bundled",
     "skills.list.source.local": "local",
+    "skills.list.path": "Path",
     "skills.list.summary":
         "Found {count} oo-managed skills.",
+    "skills.listLocal.noResults":
+        "No local skills were found.",
+    "skills.listLocal.summary":
+        "Found {count} local skills.",
     "labels.blocks": "Blocks:",
     "labels.status": "Status",
     "labels.version": "Version",
@@ -864,6 +873,10 @@ export const zhMessages = {
         "列出受支持的本地 skill 目录中由 oo 管理的 skill。",
     "commands.skills.list.summary":
         "列出由 oo 管理的 skill",
+    "commands.skills.listLocal.description":
+        "列出本地 canonical skill 存储中的 skill。",
+    "commands.skills.listLocal.summary":
+        "列出本地 skill",
     "commands.skills.check.description":
         "检查当前环境是否有权限编辑本地 skills。",
     "commands.skills.check.summary": "预检本地 skill 编辑环境",
@@ -1321,8 +1334,13 @@ export const zhMessages = {
     "skills.list.source": "来源",
     "skills.list.source.bundled": "内置",
     "skills.list.source.local": "本地",
+    "skills.list.path": "路径",
     "skills.list.summary":
         "找到 {count} 个由 oo 管理的 skill。",
+    "skills.listLocal.noResults":
+        "未找到本地 skill。",
+    "skills.listLocal.summary":
+        "找到 {count} 个本地 skill。",
     "labels.blocks": "功能块：",
     "labels.status": "状态",
     "labels.version": "版本",

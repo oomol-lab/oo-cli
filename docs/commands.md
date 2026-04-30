@@ -301,6 +301,18 @@ List oo-managed skills from supported local skill directories.
 - Notes: when a folded skill is installed in multiple supported hosts, the
   `Host` field lists all matching hosts.
 
+### `oo skills list-local`
+
+List skills from local canonical skill storage.
+
+- Ownership rule: the command scans `<config-dir>/skills/local` and keeps child
+  directories whose `SKILL.md` frontmatter includes a matching non-empty `name`
+  and a non-empty `description`.
+- Output: text output prints a summary line and one block per local skill.
+- Ordering: local skills are ordered by skill name.
+- Output: each skill block shows the skill name, local source marker, recorded
+  frontmatter `metadata.version` when present, and canonical local path.
+
 ### `oo skills preflight`
 
 Check whether this environment has permission to edit local skills.
