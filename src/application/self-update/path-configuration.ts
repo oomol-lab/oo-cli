@@ -30,6 +30,15 @@ interface ShellProfileConfiguration {
     snippet: string;
 }
 
+interface ShellProfileReadFailure {
+    error: unknown;
+    profilePath: string;
+}
+
+type ShellProfileConfigurationEntry
+    = | ShellProfileConfiguration
+        | ShellProfileReadFailure;
+
 type AlreadyConfiguredTargetMode = "include" | "omit";
 
 interface ShellProfileCandidate extends ShellProfileConfiguration {
@@ -37,6 +46,25 @@ interface ShellProfileCandidate extends ShellProfileConfiguration {
     profileExists: boolean;
     shellNames: readonly string[];
 }
+
+interface ShellProfileCandidateReadFailure extends ShellProfileReadFailure {
+    installed: boolean;
+    profileExists: true;
+    shellNames: readonly string[];
+}
+
+type ShellProfileCandidateEntry
+    = | ShellProfileCandidate
+        | ShellProfileCandidateReadFailure;
+
+interface ShellProfileContent {
+    content: string;
+    profileExists: boolean;
+}
+
+type ShellProfileContentReadResult
+    = | ShellProfileContent
+        | ShellProfileReadFailure;
 
 const pathConfigurationMarker = "Added by oo CLI";
 const pathConfigurationSentinel = `# ${pathConfigurationMarker}`;
@@ -188,7 +216,7 @@ async function configureZshStartupProfiles(
 }
 
 async function writeShellProfileConfigurations(
-    configurations: readonly ShellProfileConfiguration[],
+    configurations: readonly ShellProfileConfigurationEntry[],
     options: EnsureExecutableDirectoryOnPathOptions,
     alreadyConfiguredTargetMode: AlreadyConfiguredTargetMode,
 ): Promise<SelfUpdatePathConfigurationResult> {
@@ -197,6 +225,19 @@ async function writeShellProfileConfigurations(
     const failedTargets: string[] = [];
 
     for (const configuration of configurations) {
+        if (isShellProfileReadFailure(configuration)) {
+            failedTargets.push(configuration.profilePath);
+            options.runtime.logger.warn(
+                {
+                    err: configuration.error,
+                    executableDirectory: options.executableDirectory,
+                    profilePath: configuration.profilePath,
+                },
+                "CLI executable directory shell profile PATH configuration failed.",
+            );
+            continue;
+        }
+
         if (configuration.content.includes(pathConfigurationSentinel)) {
             alreadyConfiguredTargets.push(configuration.profilePath);
             continue;
@@ -268,7 +309,7 @@ async function writeShellProfileConfigurations(
 
 async function resolveShellProfileConfigurations(
     options: EnsureExecutableDirectoryOnPathOptions,
-): Promise<ShellProfileConfiguration[]> {
+): Promise<ShellProfileConfigurationEntry[]> {
     const homeDirectory = resolveHomeDirectory(options.env);
     const pathModule = readPathModule(options.platform);
     const xdgConfigHome = options.env.XDG_CONFIG_HOME
@@ -353,9 +394,18 @@ async function resolveShellProfileConfigurations(
     ];
     const selectedConfigurations = candidates
         .filter(candidate => shouldConfigureShellProfile(candidate, shellName))
-        .map(({ installed, profileExists, shellNames, ...configuration }) =>
-            configuration,
-        );
+        .map((candidate) => {
+            if (isShellProfileReadFailure(candidate)) {
+                return {
+                    error: candidate.error,
+                    profilePath: candidate.profilePath,
+                };
+            }
+
+            const { installed, profileExists, shellNames, ...configuration } = candidate;
+
+            return configuration;
+        });
     const profileFallbackPath = pathModule.join(homeDirectory, ".profile");
     const needsProfileFallback = selectedConfigurations.length === 0
         || (shellName !== undefined && !knownUnixShellNames.has(shellName));
@@ -385,7 +435,7 @@ async function resolveShellProfileConfigurations(
 async function createBashProfileCandidates(
     homeDirectory: string,
     options: EnsureExecutableDirectoryOnPathOptions,
-): Promise<ShellProfileCandidate[]> {
+): Promise<ShellProfileCandidateEntry[]> {
     // bash reads different files for login vs. non-login shells, and a single
     // machine routinely starts bash both ways (terminal emulator vs. SSH).
     // Writing to every rc file that exists matches what rustup/bun do — the
@@ -396,13 +446,13 @@ async function createBashProfileCandidates(
     const profileNames = options.platform === "darwin"
         ? [".bash_profile", ".bash_login", ".bashrc", ".profile"]
         : [".bashrc", ".bash_profile", ".bash_login", ".profile"];
-    const [installed, ...contents] = await Promise.all([
+    const [installed, ...contentResults] = await Promise.all([
         isShellCommandAvailable("bash", options.runtime),
         ...profileNames.map(name =>
-            readTextFileIfExists(pathModule.join(homeDirectory, name)),
+            readShellProfileContent(pathModule.join(homeDirectory, name)),
         ),
     ]);
-    const existing: ShellProfileCandidate[] = [];
+    const existing: ShellProfileCandidateEntry[] = [];
     const existingProfileNames = new Set<string>();
     const createCandidate = (
         profileName: string,
@@ -421,16 +471,36 @@ async function createBashProfileCandidates(
             snippet: createPosixPathSnippet(),
         };
     };
+    const createFailedCandidate = (
+        profileName: string,
+        error: unknown,
+    ): ShellProfileCandidateReadFailure => ({
+        error,
+        installed,
+        profileExists: true,
+        profilePath: pathModule.join(homeDirectory, profileName),
+        shellNames: bashShellNames,
+    });
 
     for (const [index, profileName] of profileNames.entries()) {
-        const content = contents[index];
+        const contentResult = contentResults[index];
 
-        if (content === undefined) {
+        if (contentResult === undefined) {
+            continue;
+        }
+
+        if (isShellProfileReadFailure(contentResult)) {
+            existingProfileNames.add(profileName);
+            existing.push(createFailedCandidate(profileName, contentResult.error));
+            continue;
+        }
+
+        if (!contentResult.profileExists) {
             continue;
         }
 
         existingProfileNames.add(profileName);
-        existing.push(createCandidate(profileName, content, true));
+        existing.push(createCandidate(profileName, contentResult.content, true));
     }
 
     const hasInteractiveProfile = existingProfileNames.has(interactiveProfileName);
@@ -466,18 +536,31 @@ async function createBashProfileCandidates(
 }
 
 function deduplicateShellProfileConfigurations(
-    configurations: readonly ShellProfileConfiguration[],
-): ShellProfileConfiguration[] {
-    const deduplicatedConfigurations: ShellProfileConfiguration[] = [];
-    const seenProfilePaths = new Set<string>();
+    configurations: readonly ShellProfileConfigurationEntry[],
+): ShellProfileConfigurationEntry[] {
+    const deduplicatedConfigurations: ShellProfileConfigurationEntry[] = [];
+    const indexByProfilePath = new Map<string, number>();
 
     for (const configuration of configurations) {
-        if (seenProfilePaths.has(configuration.profilePath)) {
+        const existingIndex = indexByProfilePath.get(configuration.profilePath);
+
+        if (existingIndex === undefined) {
+            indexByProfilePath.set(
+                configuration.profilePath,
+                deduplicatedConfigurations.length,
+            );
+            deduplicatedConfigurations.push(configuration);
             continue;
         }
 
-        seenProfilePaths.add(configuration.profilePath);
-        deduplicatedConfigurations.push(configuration);
+        const existingConfiguration = deduplicatedConfigurations[existingIndex]!;
+
+        if (
+            isShellProfileReadFailure(existingConfiguration)
+            && !isShellProfileReadFailure(configuration)
+        ) {
+            deduplicatedConfigurations[existingIndex] = configuration;
+        }
     }
 
     return deduplicatedConfigurations;
@@ -485,7 +568,7 @@ function deduplicateShellProfileConfigurations(
 
 async function resolveZshStartupProfileConfigurations(
     options: EnsureExecutableDirectoryOnPathOptions,
-): Promise<ShellProfileConfiguration[]> {
+): Promise<ShellProfileConfigurationEntry[]> {
     const homeDirectory = resolveHomeDirectory(options.env);
     const pathModule = readPathModule(options.platform);
     const zshDirectory = options.env.ZDOTDIR ?? homeDirectory;
@@ -511,20 +594,33 @@ async function createShellProfileCandidate(
         snippet: string;
     },
     runtimeOptions: EnsureExecutableDirectoryOnPathOptions,
-): Promise<ShellProfileCandidate> {
+): Promise<ShellProfileCandidateEntry> {
     const pathModule = readPathModule(runtimeOptions.platform);
-    const content = await readTextFileIfExists(options.profilePath);
-    const installedResults = await Promise.all(
-        options.shellNames.map(shellName =>
-            isShellCommandAvailable(shellName, runtimeOptions.runtime),
+    const [contentResult, installedResults] = await Promise.all([
+        readShellProfileContent(options.profilePath),
+        Promise.all(
+            options.shellNames.map(shellName =>
+                isShellCommandAvailable(shellName, runtimeOptions.runtime),
+            ),
         ),
-    );
+    ]);
+    const installed = installedResults.some(Boolean);
+
+    if (isShellProfileReadFailure(contentResult)) {
+        return {
+            error: contentResult.error,
+            installed,
+            profileExists: true,
+            profilePath: options.profilePath,
+            shellNames: options.shellNames,
+        };
+    }
 
     return {
-        content: content ?? "",
-        installed: installedResults.some(Boolean),
+        content: contentResult.content,
+        installed,
         profileDirectory: pathModule.dirname(options.profilePath),
-        profileExists: content !== undefined,
+        profileExists: contentResult.profileExists,
         profilePath: options.profilePath,
         shellNames: options.shellNames,
         snippet: options.snippet,
@@ -532,7 +628,7 @@ async function createShellProfileCandidate(
 }
 
 function shouldConfigureShellProfile(
-    candidate: ShellProfileCandidate,
+    candidate: ShellProfileCandidateEntry,
     currentShellName: string | undefined,
 ): boolean {
     return candidate.installed
@@ -547,11 +643,19 @@ async function createShellProfileConfiguration(
     profilePath: string,
     platform: NodeJS.Platform,
     snippet: string,
-): Promise<ShellProfileConfiguration> {
+): Promise<ShellProfileConfigurationEntry> {
     const pathModule = readPathModule(platform);
+    const contentResult = await readShellProfileContent(profilePath);
+
+    if (isShellProfileReadFailure(contentResult)) {
+        return {
+            error: contentResult.error,
+            profilePath,
+        };
+    }
 
     return {
-        content: await readTextFileIfExists(profilePath) ?? "",
+        content: contentResult.content,
         profileDirectory: pathModule.dirname(profilePath),
         profilePath,
         snippet,
@@ -865,6 +969,34 @@ function normalizePathForComparison(
     return platform === "win32"
         ? resolvedValue.toLowerCase()
         : resolvedValue;
+}
+
+async function readShellProfileContent(
+    profilePath: string,
+): Promise<ShellProfileContentReadResult> {
+    try {
+        const content = await readTextFileIfExists(profilePath);
+
+        return {
+            content: content ?? "",
+            profileExists: content !== undefined,
+        };
+    }
+    catch (error) {
+        return {
+            error,
+            profilePath,
+        };
+    }
+}
+
+function isShellProfileReadFailure(
+    result:
+        | ShellProfileCandidateEntry
+        | ShellProfileConfigurationEntry
+        | ShellProfileContentReadResult,
+): result is ShellProfileReadFailure {
+    return "error" in result;
 }
 
 async function readTextFileIfExists(path: string): Promise<string | undefined> {

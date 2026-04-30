@@ -1,5 +1,5 @@
 import type { SelfUpdateCommandRunOptions } from "../contracts/self-update.ts";
-import { mkdir, readFile } from "node:fs/promises";
+import { chmod, mkdir, readFile } from "node:fs/promises";
 import { posix, win32 } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
@@ -192,6 +192,51 @@ describe("ensureExecutableDirectoryOnPath", () => {
             )).toBe(1);
         }
         finally {
+            logCapture.close();
+        }
+    });
+
+    posixHostTest("continues zsh startup profile writes when another startup profile cannot be read", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-path-darwin-zsh-read-failure");
+        const homeDirectory = toPortablePath(rootDirectory);
+        const executableDirectory = posix.join(homeDirectory, ".local", "bin");
+        const zprofilePath = posix.join(homeDirectory, ".zprofile");
+        const zshenvPath = posix.join(homeDirectory, ".zshenv");
+        const logCapture = createLogCapture();
+        const env = {
+            HOME: homeDirectory,
+            PATH: `/usr/bin:${executableDirectory}`,
+            SHELL: "/bin/bash",
+        };
+
+        trackDirectory(rootDirectory);
+        await Bun.write(zprofilePath, "# unreadable zprofile\n");
+        await chmod(zprofilePath, 0);
+
+        try {
+            const result = await ensureExecutableDirectoryOnPath({
+                env,
+                executableDirectory,
+                platform: "darwin",
+                runtime: {
+                    env,
+                    logger: logCapture.logger,
+                    platform: "darwin",
+                    resolveCommandPath: () => null,
+                },
+            });
+
+            expect(result).toEqual({
+                status: "partial-configured",
+                target: [zshenvPath],
+                failedTargets: [zprofilePath],
+            });
+            expect(await readFile(zshenvPath, "utf8")).toBe(
+                createExpectedPosixPathSnippet(),
+            );
+        }
+        finally {
+            await chmod(zprofilePath, 0o600).catch(() => undefined);
             logCapture.close();
         }
     });
