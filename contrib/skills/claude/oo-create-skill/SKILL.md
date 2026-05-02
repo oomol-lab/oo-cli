@@ -100,10 +100,10 @@ an agent target directory already exists, ask the user for a different skill
 name instead of overwriting.
 
 Make `--description` trigger-oriented because it becomes the generated skill's
-frontmatter. Cover the real user requests that should invoke the skill: include
-likely verbs, task nouns, domain terms, inputs, outputs, and the package or
-block-backed or connector-backed capability. Add a concise "Do not use"
-boundary for nearby skills or workflows that should not trigger it.
+frontmatter. Write it as one short positive trigger sentence that matches how a
+user would ask for the workflow. Include the main action, domain terms, inputs,
+outputs, and the package, block, or connector capability when those words help
+future agents recognize the request.
 
 ### 4. Author the workflow instructions
 
@@ -117,11 +117,11 @@ input and output concepts. Do not present a local `schemaPath` as a stable
 contract for future agents.
 
 Review the generated frontmatter `description` before finishing. It must be
-specific enough for future agents to trigger the skill in the target scenario:
-name the task outcome, common user phrasing, important inputs and outputs, and
-the concrete package, block, or connector capability. Avoid generic
-descriptions such as "use an OOMOL package workflow" that do not mention the
-user's domain.
+simple, direct, and specific enough for future agents to trigger the skill in
+the target scenario: name the task outcome, common user phrasing, important
+inputs and outputs, and the concrete package, block, or connector capability.
+Avoid generic descriptions such as "use an OOMOL package workflow" that do not
+mention the user's domain.
 
 Preserve the generated frontmatter `metadata.title` field when it exists. If
 you change the skill's displayed title or first heading, update
