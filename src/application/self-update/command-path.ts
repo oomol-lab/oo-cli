@@ -14,7 +14,7 @@ export async function resolveCommandPathCandidates(options: {
 }): Promise<CommandPathCandidate[]> {
     const pathValue = readPathValue(options.env, options.platform);
 
-    if (pathValue === undefined || pathValue.trim() === "") {
+    if (pathValue === undefined) {
         return [];
     }
 
@@ -55,10 +55,20 @@ function splitPathEntries(
     pathValue: string,
     platform: NodeJS.Platform,
 ): string[] {
+    const isWindows = platform === "win32";
+    const pathModule = readPathModule(platform);
+
     return pathValue
-        .split(readPathModule(platform).delimiter)
-        .map(pathEntry => pathEntry.trim())
-        .filter(Boolean);
+        .split(pathModule.delimiter)
+        .map((pathEntry) => {
+            const trimmedPathEntry = pathEntry.trim();
+
+            if (trimmedPathEntry === "" && !isWindows) {
+                return ".";
+            }
+
+            return trimmedPathEntry;
+        });
 }
 
 async function resolveFirstPathCandidatePath(options: {
