@@ -19,27 +19,30 @@ export async function resolveCommandPathCandidates(options: {
     }
 
     const pathModule = readPathModule(options.platform);
-    const candidates: CommandPathCandidate[] = [];
+    const pathExists = options.pathExists ?? defaultPathExists;
+    const resolvedCandidates = await Promise.all(
+        splitPathEntries(pathValue, options.platform).map(async (directoryPath) => {
+            const candidatePath = await resolveFirstPathCandidatePath({
+                directoryPath,
+                executableNames: options.executableNames,
+                pathExists,
+                pathModule,
+            });
 
-    for (const directoryPath of splitPathEntries(pathValue, options.platform)) {
-        const candidatePath = await resolveFirstPathCandidatePath({
-            directoryPath,
-            executableNames: options.executableNames,
-            pathExists: options.pathExists ?? defaultPathExists,
-            pathModule,
-        });
+            if (candidatePath === undefined) {
+                return undefined;
+            }
 
-        if (candidatePath === undefined) {
-            continue;
-        }
+            return {
+                directoryPath,
+                path: candidatePath,
+            } satisfies CommandPathCandidate;
+        }),
+    );
 
-        candidates.push({
-            directoryPath,
-            path: candidatePath,
-        });
-    }
-
-    return candidates;
+    return resolvedCandidates.filter(
+        (candidate): candidate is CommandPathCandidate => candidate !== undefined,
+    );
 }
 
 function readPathValue(
