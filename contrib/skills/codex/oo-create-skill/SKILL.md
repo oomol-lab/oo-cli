@@ -145,11 +145,18 @@ initialization. If initialization fails because the local canonical directory or
 an agent target directory already exists, ask the user for a different skill
 name instead of overwriting.
 
-Make `--description` trigger-oriented because it becomes the generated skill's
-frontmatter. Write it as one short positive trigger sentence that matches how a
-user would ask for the workflow. Include the main action, domain terms, inputs,
-outputs, and the package, block, or connector capability when those words help
-future agents recognize the request.
+Make `--description` business-trigger-oriented because it becomes the generated
+skill's frontmatter. Write it as one short positive trigger sentence in the
+language a user would use to ask for the outcome. Center the user-visible task,
+domain terms, required inputs, and expected outputs. Include a model or product
+name only when it is a meaningful user-facing tag or when the user explicitly
+asked for it.
+
+Keep implementation plumbing out of the description. Do not mention package
+names, block ids, connector service/action identifiers, API routes, function
+names, schema paths, command names, file-transfer or storage details, or provider
+channel names unless that exact identifier is something users would naturally
+request. Put concrete execution references in the workflow body instead.
 
 Do not substitute manual file creation for this step. The initialized skill
 directory must come from a successful `oo skills init` invocation before you
@@ -168,10 +175,12 @@ contract for future agents.
 
 Review the generated frontmatter `description` before finishing. It must be
 simple, direct, and specific enough for future agents to trigger the skill in
-the target scenario: name the task outcome, common user phrasing, important
-inputs and outputs, and the concrete package, block, or connector capability.
-Avoid generic descriptions such as "use an OOMOL package workflow" that do not
-mention the user's domain.
+the target scenario: name the task outcome, common user phrasing, domain nouns,
+important inputs and outputs, and user-visible model or product tags when useful.
+It must not read like an implementation recipe or capability inventory. Avoid
+generic descriptions such as "use an OOMOL package workflow" that do not mention
+the user's domain, and avoid channel-first descriptions that explain how the
+task is routed before they say what user outcome the skill supports.
 
 Preserve the generated frontmatter `metadata.title` field when it exists. If
 you change the skill's displayed title or first heading, update
@@ -180,9 +189,9 @@ you change the skill's displayed title or first heading, update
 generated skill without presentation metadata.
 
 The final generated skill must contain concrete package or block references, or
-concrete connector service/action identifiers. It must not instruct the future
-agent to run `oo search`, `oo connector search`, or discover capabilities at
-execution time.
+concrete connector service/action identifiers in its workflow instructions. It
+must not instruct the future agent to run `oo search`, `oo connector search`, or
+discover capabilities at execution time.
 
 Do not duplicate broad oo execution mechanics in authored prose. For
 package-backed workflows, the initialized `SKILL.md` already contains the

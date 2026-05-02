@@ -375,6 +375,36 @@ describe("embedded skill assets", () => {
         );
     });
 
+    test("guides oo-create-skill generated descriptions toward user outcomes", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
+                file => file.relativePath === "SKILL.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
+            }
+
+            const content = normalizeLineEndingsForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+
+            expect(content).toContain("business-trigger-oriented");
+            expect(content).toContain("Center the user-visible task");
+            expect(content).toContain("Include a model or product\nname only");
+            expect(content).toContain("Keep implementation plumbing out of the description");
+            expect(content).toContain("connector service/action identifiers");
+            expect(content).toContain("provider\nchannel names");
+            expect(content).toContain(
+                "Put concrete execution references in the workflow body instead.",
+            );
+            expect(content).toContain(
+                "It must not read like an implementation recipe or capability inventory.",
+            );
+            expect(content).toContain("avoid channel-first descriptions");
+        }
+    });
+
     test("guides oo-create-skill discovery toward connector-aware selection", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
@@ -401,9 +431,8 @@ describe("embedded skill assets", () => {
             expect(content).toContain(
                 "concrete connector service/action identifiers",
             );
-            expect(content).toContain(
-                "run `oo search`, `oo connector search`, or discover capabilities",
-            );
+            expect(content).toContain("run `oo search`, `oo connector search`");
+            expect(content).toContain("discover capabilities at execution time");
         }
     });
 
