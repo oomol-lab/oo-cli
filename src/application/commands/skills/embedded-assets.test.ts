@@ -385,16 +385,16 @@ describe("embedded skill assets", () => {
                 throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
             }
 
-            const content = normalizeLineEndingsForAssertion(
+            const content = normalizeMarkdownWrappingForAssertion(
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
-            expect(content).toContain("business-trigger-oriented");
+            expect(content).toContain("user-outcome-oriented");
             expect(content).toContain("Center the user-visible task");
-            expect(content).toContain("Include a model or product\nname only");
+            expect(content).toContain("Include a model or product name only");
             expect(content).toContain("Keep implementation plumbing out of the description");
             expect(content).toContain("connector service/action identifiers");
-            expect(content).toContain("provider\nchannel names");
+            expect(content).toContain("provider channel names");
             expect(content).toContain(
                 "Put concrete execution references in the workflow body instead.",
             );
@@ -494,6 +494,10 @@ function normalizePathForAssertion(path: string): string {
 
 function normalizeLineEndingsForAssertion(text: string): string {
     return text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
+}
+
+function normalizeMarkdownWrappingForAssertion(text: string): string {
+    return normalizeLineEndingsForAssertion(text).replaceAll("\n", " ");
 }
 
 function readBundledSkillSourceAgentName(

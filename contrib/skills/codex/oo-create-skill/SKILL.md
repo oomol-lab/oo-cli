@@ -145,7 +145,7 @@ initialization. If initialization fails because the local canonical directory or
 an agent target directory already exists, ask the user for a different skill
 name instead of overwriting.
 
-Make `--description` business-trigger-oriented because it becomes the generated
+Make `--description` user-outcome-oriented because it becomes the generated
 skill's frontmatter. Write it as one short positive trigger sentence in the
 language a user would use to ask for the outcome. Center the user-visible task,
 domain terms, required inputs, and expected outputs. Include a model or product
