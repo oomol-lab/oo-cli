@@ -30,6 +30,15 @@ export interface SelfUpdatePathConfigurationResult {
     failedTargets?: readonly string[];
 }
 
+export type SelfUpdateCommandResolutionResult
+    = | {
+        status: "managed" | "missing";
+    }
+    | {
+        path: string;
+        status: "shadowed";
+    };
+
 export interface SelfUpdateRuntimeOverrides {
     /**
      * Gates the Windows HKCU\Environment registry write. Must be true for the

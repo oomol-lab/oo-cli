@@ -131,6 +131,14 @@ describe("detectInstallationMethodFromExecPath", () => {
         }).method).toBe("npm");
     });
 
+    test("detects npm from an exact npm-global path segment", () => {
+        expect(detectInstallationMethodFromExecPath({
+            env: {},
+            execPath: "/Users/demo/Library/Application Support/QClaw/npm-global/bin/oo",
+            platform: "linux",
+        }).method).toBe("npm");
+    });
+
     test("detects npm from an exact .nvm path segment", () => {
         expect(detectInstallationMethodFromExecPath({
             env: {},

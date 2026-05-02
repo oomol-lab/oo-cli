@@ -140,6 +140,7 @@ export const installCommand: CliCommandDefinition<
             );
 
             writeSelfUpdatePathNoteIfNeeded({
+                commandResolution: result.commandResolution,
                 executableDirectory: result.executableDirectory,
                 pathConfiguration: result.pathConfiguration,
                 stdout: context.stdout,

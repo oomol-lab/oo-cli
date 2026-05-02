@@ -107,7 +107,11 @@ function detectPackageManagerFromOoPath(paths) {
             return "pnpm";
         }
 
-        if (pathSegments.includes("fnm_multishells")) {
+        if (
+            pathSegments.includes("fnm_multishells")
+            || pathSegments.includes("npm-global")
+            || pathSegments.includes("npm_global")
+        ) {
             return "npm";
         }
     }

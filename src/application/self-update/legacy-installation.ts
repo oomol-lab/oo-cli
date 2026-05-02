@@ -1,7 +1,7 @@
 import type { SelfUpdateCommandRuntime } from "./command-runner.ts";
 import type { InstallationDetection, PackageManagerInstallationMethod } from "./installation.ts";
 import { realpath } from "node:fs/promises";
-import { pathExists } from "../shared/fs-utils.ts";
+import { resolveCommandPathCandidates } from "./command-path.ts";
 import { runSelfUpdateCommandWithLogging } from "./command-runner.ts";
 import { detectInstallationMethodFromExecPath } from "./installation.ts";
 import { readPathModule, resolveSelfUpdatePaths } from "./paths.ts";
@@ -11,18 +11,28 @@ const legacyPackageManagerUninstallTimeoutMs = 10_000;
 
 const legacyPackageManagerConfigurations = {
     bun: {
-        commandArguments: ["remove", "-g", legacyCliPackageName],
+        createCommandArguments: () => ["remove", "-g", legacyCliPackageName],
     },
     npm: {
-        commandArguments: ["uninstall", "-g", legacyCliPackageName],
+        createCommandArguments: (target: LegacyPackageManagerUninstallTarget) => [
+            "uninstall",
+            "-g",
+            ...(target.prefix === undefined ? [] : ["--prefix", target.prefix]),
+            legacyCliPackageName,
+        ],
     },
     pnpm: {
-        commandArguments: ["remove", "-g", legacyCliPackageName],
+        createCommandArguments: () => ["remove", "-g", legacyCliPackageName],
     },
     yarn: {
-        commandArguments: ["global", "remove", legacyCliPackageName],
+        createCommandArguments: () => ["global", "remove", legacyCliPackageName],
     },
 } as const;
+
+interface LegacyPackageManagerUninstallTarget {
+    method: PackageManagerInstallationMethod;
+    prefix?: string;
+}
 
 export interface LegacyPackageManagerCleanupRuntime extends SelfUpdateCommandRuntime {
     execPath: string;
@@ -33,24 +43,24 @@ export interface LegacyPackageManagerCleanupRuntime extends SelfUpdateCommandRun
 export async function attemptLegacyPackageManagerUninstall(
     runtime: LegacyPackageManagerCleanupRuntime,
 ): Promise<void> {
-    const packageManagers = await resolveLegacyPackageManagersToUninstall(runtime);
+    const targets = await resolveLegacyPackageManagersToUninstall(runtime);
 
-    if (packageManagers.length === 0) {
+    if (targets.length === 0) {
         return;
     }
 
-    for (const packageManager of packageManagers) {
-        await runLegacyPackageManagerUninstall(packageManager, runtime);
+    for (const target of targets) {
+        await runLegacyPackageManagerUninstall(target, runtime);
     }
 }
 
 async function resolveLegacyPackageManagersToUninstall(
     runtime: LegacyPackageManagerCleanupRuntime,
-): Promise<PackageManagerInstallationMethod[]> {
+): Promise<LegacyPackageManagerUninstallTarget[]> {
     const pathResolution = await resolveLegacyPackageManagersFromPath(runtime);
 
     if (pathResolution.encounteredCandidate) {
-        return pathResolution.packageManagers;
+        return pathResolution.targets;
     }
 
     const installation = detectInstallationMethodFromExecPath({
@@ -61,51 +71,40 @@ async function resolveLegacyPackageManagersToUninstall(
 
     return installation.method === "native" || installation.method === "unknown"
         ? []
-        : [installation.method];
+        : [{
+                method: installation.method,
+                prefix: resolvePackageManagerPrefix({
+                    installation,
+                    platform: runtime.platform,
+                    resolvedPath: runtime.execPath,
+                }),
+            }];
 }
 
 async function resolveLegacyPackageManagersFromPath(
     runtime: LegacyPackageManagerCleanupRuntime,
 ): Promise<{
     encounteredCandidate: boolean;
-    packageManagers: PackageManagerInstallationMethod[];
+    targets: LegacyPackageManagerUninstallTarget[];
 }> {
-    const pathValue = runtime.env.PATH?.trim();
-
-    if (pathValue === undefined || pathValue === "") {
-        return {
-            encounteredCandidate: false,
-            packageManagers: [],
-        };
-    }
-
     const paths = resolveSelfUpdatePaths({
         env: runtime.env,
         platform: runtime.platform,
     });
     const pathModule = readPathModule(runtime.platform);
     const executableName = pathModule.basename(paths.executablePath);
-    const packageManagers: PackageManagerInstallationMethod[] = [];
-    const seenPackageManagers = new Set<PackageManagerInstallationMethod>();
-    let encounteredCandidate = false;
+    const targets: LegacyPackageManagerUninstallTarget[] = [];
+    const seenTargets = new Set<string>();
+    const candidates = await resolveCommandPathCandidates({
+        env: runtime.env,
+        executableNames: [executableName],
+        pathExists: runtime.pathExists,
+        platform: runtime.platform,
+    });
 
-    for (const directoryPath of splitPathEntries(pathValue, runtime.platform)) {
-        const candidatePath = await resolveFirstPathCandidatePath({
-            directoryPath,
-            executableNames: [executableName],
-            pathExists: candidatePath =>
-                runtime.pathExists?.(candidatePath)
-                ?? pathExists(candidatePath),
-            pathModule,
-        });
-
-        if (candidatePath === undefined) {
-            continue;
-        }
-
-        encounteredCandidate = true;
+    for (const candidate of candidates) {
         const installation = await detectInstallationMethodFromPathCandidate({
-            candidatePath,
+            candidatePath: candidate.path,
             env: runtime.env,
             platform: runtime.platform,
         });
@@ -114,62 +113,36 @@ async function resolveLegacyPackageManagersFromPath(
             continue;
         }
 
-        if (seenPackageManagers.has(installation.method)) {
+        const target = {
+            method: installation.method,
+            prefix: resolvePackageManagerPrefix({
+                candidateDirectoryPath: candidate.directoryPath,
+                installation,
+                platform: runtime.platform,
+                resolvedPath: installation.resolvedPath,
+            }),
+        };
+        const targetKey = createLegacyPackageManagerTargetKey(target);
+
+        if (seenTargets.has(targetKey)) {
             continue;
         }
 
-        seenPackageManagers.add(installation.method);
-        packageManagers.push(installation.method);
+        seenTargets.add(targetKey);
+        targets.push(target);
     }
 
     return {
-        encounteredCandidate,
-        packageManagers,
+        encounteredCandidate: candidates.length > 0,
+        targets,
     };
-}
-
-function splitPathEntries(
-    pathValue: string,
-    platform: NodeJS.Platform,
-): string[] {
-    const pathEntries = pathValue
-        .split(readPathDelimiter(platform))
-        .map(pathEntry => pathEntry.trim())
-        .filter(Boolean);
-
-    return pathEntries;
-}
-
-function readPathDelimiter(
-    platform: NodeJS.Platform,
-): string {
-    return platform === "win32"
-        ? ";"
-        : ":";
-}
-
-async function resolveFirstPathCandidatePath(options: {
-    directoryPath: string;
-    executableNames: readonly string[];
-    pathExists: (path: string) => Promise<boolean>;
-    pathModule: ReturnType<typeof readPathModule>;
-}): Promise<string | undefined> {
-    for (const executableName of options.executableNames) {
-        const candidatePath = options.pathModule.join(options.directoryPath, executableName);
-
-        if (await options.pathExists(candidatePath)) {
-            return candidatePath;
-        }
-    }
-
-    return undefined;
 }
 
 async function detectInstallationMethodFromPathCandidate(options: {
     candidatePath: string;
     env: Record<string, string | undefined>;
     platform: NodeJS.Platform;
-}): Promise<InstallationDetection> {
+}): Promise<InstallationDetection & { resolvedPath: string }> {
     const resolvedCandidatePath = await realpath(options.candidatePath)
         .catch(() => options.candidatePath);
     const resolvedInstallation = detectInstallationMethodFromExecPath({
@@ -182,28 +155,133 @@ async function detectInstallationMethodFromPathCandidate(options: {
         resolvedInstallation.method !== "unknown"
         || resolvedCandidatePath === options.candidatePath
     ) {
-        return resolvedInstallation;
+        return {
+            ...resolvedInstallation,
+            resolvedPath: resolvedCandidatePath,
+        };
     }
 
-    return detectInstallationMethodFromExecPath({
-        env: options.env,
-        execPath: options.candidatePath,
-        platform: options.platform,
-    });
+    return {
+        ...detectInstallationMethodFromExecPath({
+            env: options.env,
+            execPath: options.candidatePath,
+            platform: options.platform,
+        }),
+        resolvedPath: options.candidatePath,
+    };
+}
+
+function resolvePackageManagerPrefix(options: {
+    candidateDirectoryPath?: string;
+    installation: InstallationDetection;
+    platform: NodeJS.Platform;
+    resolvedPath: string;
+}): string | undefined {
+    if (options.installation.method !== "npm") {
+        return undefined;
+    }
+
+    return resolveNpmGlobalPrefixFromInstallPath(
+        options.resolvedPath,
+        options.platform,
+    ) ?? (
+        options.candidateDirectoryPath === undefined
+            ? undefined
+            : resolveNpmGlobalPrefixFromBinDirectory(
+                    options.candidateDirectoryPath,
+                    options.platform,
+                )
+    );
+}
+
+function resolveNpmGlobalPrefixFromInstallPath(
+    rawPath: string,
+    platform: NodeJS.Platform,
+): string | undefined {
+    const pathModule = readPathModule(platform);
+    const pathParts = splitAbsolutePath(rawPath, platform);
+    const normalizedSegments = pathParts.segments.map(segment =>
+        segment.toLowerCase(),
+    );
+    const nodeModulesIndex = normalizedSegments.lastIndexOf("node_modules");
+
+    if (nodeModulesIndex < 0) {
+        return undefined;
+    }
+
+    const prefixEndIndex = normalizedSegments[nodeModulesIndex - 1] === "lib"
+        ? nodeModulesIndex - 1
+        : nodeModulesIndex;
+
+    if (prefixEndIndex <= 0) {
+        return undefined;
+    }
+
+    return pathModule.join(
+        pathParts.root,
+        ...pathParts.segments.slice(0, prefixEndIndex),
+    );
+}
+
+function resolveNpmGlobalPrefixFromBinDirectory(
+    rawPath: string,
+    platform: NodeJS.Platform,
+): string | undefined {
+    const pathModule = readPathModule(platform);
+    const pathParts = splitAbsolutePath(rawPath, platform);
+    const finalSegment = pathParts.segments.at(-1);
+
+    if (finalSegment?.toLowerCase() !== "bin") {
+        return undefined;
+    }
+
+    const prefixSegments = pathParts.segments.slice(0, -1);
+
+    if (prefixSegments.length === 0) {
+        return undefined;
+    }
+
+    return pathModule.join(pathParts.root, ...prefixSegments);
+}
+
+function splitAbsolutePath(
+    rawPath: string,
+    platform: NodeJS.Platform,
+): {
+    root: string;
+    segments: string[];
+} {
+    const pathModule = readPathModule(platform);
+    const normalizedPath = pathModule.normalize(rawPath);
+    const root = pathModule.parse(normalizedPath).root;
+    const relativePath = pathModule.relative(root, normalizedPath);
+
+    return {
+        root,
+        segments: relativePath === ""
+            ? []
+            : relativePath.split(pathModule.sep).filter(Boolean),
+    };
+}
+
+function createLegacyPackageManagerTargetKey(
+    target: LegacyPackageManagerUninstallTarget,
+): string {
+    return `${target.method}\0${target.prefix ?? ""}`;
 }
 
 async function runLegacyPackageManagerUninstall(
-    packageManager: PackageManagerInstallationMethod,
+    target: LegacyPackageManagerUninstallTarget,
     runtime: LegacyPackageManagerCleanupRuntime,
 ): Promise<void> {
-    const configuration = legacyPackageManagerConfigurations[packageManager];
-    const commandPath = runtime.resolveCommandPath?.(packageManager)
-        ?? Bun.which(packageManager);
+    const configuration = legacyPackageManagerConfigurations[target.method];
+    const commandPath = runtime.resolveCommandPath?.(target.method)
+        ?? Bun.which(target.method);
 
     if (commandPath === null) {
         runtime.logger.warn(
             {
-                packageManager,
+                packageManager: target.method,
             },
             "Legacy package-manager oo-cli uninstall skipped because the executable was not found.",
         );
@@ -211,11 +289,12 @@ async function runLegacyPackageManagerUninstall(
     }
 
     await runSelfUpdateCommandWithLogging({
-        commandArguments: configuration.commandArguments,
+        commandArguments: configuration.createCommandArguments(target),
         commandPath,
         failureMessage: "Legacy package-manager oo-cli uninstall failed.",
         logContext: {
-            packageManager,
+            packageManager: target.method,
+            prefix: target.prefix,
         },
         runtime,
         successMessage: "Legacy package-manager oo-cli uninstall completed.",

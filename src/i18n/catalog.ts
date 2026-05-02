@@ -566,6 +566,8 @@ export const enMessages = {
         "Restart your shell to reload PATH and use oo.",
     "selfUpdate.install.pathNote":
         "Add {path} to PATH to run oo in new shells.",
+    "selfUpdate.pathShadowedNote":
+        "PATH currently resolves oo to {path} before the managed directory {directory}. Move {directory} earlier in PATH or remove the older oo entry, then restart your shell.",
     "selfUpdate.progress.install.header": "Installing oo",
     "selfUpdate.progress.update.header": "Updating oo",
     "selfUpdate.progress.resolve.start": "Resolving latest release...",
@@ -1292,6 +1294,8 @@ export const zhMessages = {
         "请重启 shell 以重新加载 PATH 后使用 oo。",
     "selfUpdate.install.pathNote":
         "请把 {path} 加入 PATH，新的 shell 才能直接运行 oo。",
+    "selfUpdate.pathShadowedNote":
+        "当前 PATH 会先解析到 {path}，早于托管目录 {directory}。请把 {directory} 移到 PATH 更靠前的位置，或移除旧的 oo 入口，然后重启 shell。",
     "selfUpdate.progress.install.header": "正在安装 oo",
     "selfUpdate.progress.update.header": "正在更新 oo",
     "selfUpdate.progress.resolve.start": "正在解析最新发布版本...",

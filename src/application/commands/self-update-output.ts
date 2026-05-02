@@ -1,9 +1,23 @@
 import type { Writer } from "../contracts/cli.ts";
-import type { SelfUpdatePathConfigurationResult } from "../contracts/self-update.ts";
+import type {
+    SelfUpdateCommandResolutionResult,
+    SelfUpdatePathConfigurationResult,
+} from "../contracts/self-update.ts";
 import type { Translator } from "../contracts/translator.ts";
 import { writeLine } from "./shared/output.ts";
 
 export function writeSelfUpdatePathNoteIfNeeded(options: {
+    commandResolution?: SelfUpdateCommandResolutionResult;
+    executableDirectory: string;
+    pathConfiguration: SelfUpdatePathConfigurationResult;
+    stdout: Writer;
+    translator: Pick<Translator, "t">;
+}): void {
+    writeSelfUpdatePathConfigurationNoteIfNeeded(options);
+    writeSelfUpdateCommandResolutionNoteIfNeeded(options);
+}
+
+function writeSelfUpdatePathConfigurationNoteIfNeeded(options: {
     executableDirectory: string;
     pathConfiguration: SelfUpdatePathConfigurationResult;
     stdout: Writer;
@@ -65,6 +79,25 @@ export function writeSelfUpdatePathNoteIfNeeded(options: {
         options.stdout,
         options.translator.t("selfUpdate.install.pathNote", {
             path: options.executableDirectory,
+        }),
+    );
+}
+
+function writeSelfUpdateCommandResolutionNoteIfNeeded(options: {
+    commandResolution?: SelfUpdateCommandResolutionResult;
+    executableDirectory: string;
+    stdout: Writer;
+    translator: Pick<Translator, "t">;
+}): void {
+    if (options.commandResolution?.status !== "shadowed") {
+        return;
+    }
+
+    writeLine(
+        options.stdout,
+        options.translator.t("selfUpdate.pathShadowedNote", {
+            directory: options.executableDirectory,
+            path: options.commandResolution.path,
         }),
     );
 }

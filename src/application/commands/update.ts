@@ -100,7 +100,7 @@ export const updateCommand: CliCommandDefinition<
                         ...context.selfUpdateRuntime,
                     },
                 });
-                const { executableDirectory, pathConfiguration }
+                const { commandResolution, executableDirectory, pathConfiguration }
                     = await ensureSelfUpdateExecutableDirectoryOnPath({
                         modifyPath: effectiveModifyPath,
                         runtime: {
@@ -118,6 +118,7 @@ export const updateCommand: CliCommandDefinition<
                     }),
                 );
                 writeSelfUpdatePathNoteIfNeeded({
+                    commandResolution,
                     executableDirectory,
                     pathConfiguration,
                     stdout: context.stdout,
@@ -166,6 +167,7 @@ export const updateCommand: CliCommandDefinition<
                     }),
                 );
                 writeSelfUpdatePathNoteIfNeeded({
+                    commandResolution: result.commandResolution,
                     executableDirectory: result.executableDirectory,
                     pathConfiguration: result.pathConfiguration,
                     stdout: context.stdout,
@@ -182,6 +184,7 @@ export const updateCommand: CliCommandDefinition<
                 }),
             );
             writeSelfUpdatePathNoteIfNeeded({
+                commandResolution: result.commandResolution,
                 executableDirectory: result.executableDirectory,
                 pathConfiguration: result.pathConfiguration,
                 stdout: context.stdout,

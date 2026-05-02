@@ -116,7 +116,11 @@
 - 说明：install 在报告成功前会校验已安装的 `oo` 命令可正常使用。
 - 说明：install 成功后，CLI 会尽力移除在 `PATH` 中任意位置出现的旧全局
   package-manager `@oomol-lab/oo-cli` 安装；如果 `PATH` 中没有找到 `oo`
-  候选项，CLI 会回退到当前命令路径进行判断。清理失败不会改变命令结果。
+  候选项，CLI 会回退到当前命令路径进行判断。对于 npm 安装，清理命令会在可推断时
+  使用检测到的 global prefix。清理失败不会改变命令结果。
+- 说明：PATH 配置和旧安装清理结束后，如果当前 `PATH` 仍然会先解析到另一个
+  `oo`，早于托管可执行目录，install 会打印 shadowing note，指出更靠前的路径和
+  托管目录。
 - 说明：当自动 PATH 修改启用时，install 会确保 zsh startup profile
   `.zprofile` 和 `.zshenv` 包含托管 PATH 片段，即使当前 `PATH` 已经包含可执行目录。
   如果可执行目录没有出现在 `PATH` 中，install 还会尝试为后续 shell 持久化 PATH
@@ -150,7 +154,11 @@
   刷新 bundled skills，再输出“已是最新版本”的消息。
 - 说明：update 成功后，CLI 会尽力移除在 `PATH` 中任意位置出现的旧全局
   package-manager `@oomol-lab/oo-cli` 安装；如果 `PATH` 中没有找到 `oo`
-  候选项，CLI 会回退到当前命令路径进行判断。清理失败不会改变命令结果。
+  候选项，CLI 会回退到当前命令路径进行判断。对于 npm 安装，清理命令会在可推断时
+  使用检测到的 global prefix。清理失败不会改变命令结果。
+- 说明：PATH 配置和旧安装清理结束后，如果当前 `PATH` 仍然会先解析到另一个
+  `oo`，早于托管可执行目录，update 会打印 shadowing note，指出更靠前的路径和
+  托管目录。
 - 说明：当自动 PATH 修改启用时，update 会确保 zsh startup profile
   `.zprofile` 和 `.zshenv` 包含托管 PATH 片段，即使当前 `PATH` 已经包含可执行目录。
   如果可执行目录没有出现在 `PATH` 中，update 还会尝试为后续 shell 持久化 PATH

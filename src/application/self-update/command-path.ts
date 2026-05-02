@@ -1,0 +1,82 @@
+import { pathExists as defaultPathExists } from "../shared/fs-utils.ts";
+import { readPathModule } from "./paths.ts";
+
+export interface CommandPathCandidate {
+    directoryPath: string;
+    path: string;
+}
+
+export async function resolveCommandPathCandidates(options: {
+    env: Record<string, string | undefined>;
+    executableNames: readonly string[];
+    pathExists?: (path: string) => Promise<boolean>;
+    platform: NodeJS.Platform;
+}): Promise<CommandPathCandidate[]> {
+    const pathValue = readPathValue(options.env, options.platform);
+
+    if (pathValue === undefined || pathValue.trim() === "") {
+        return [];
+    }
+
+    const pathModule = readPathModule(options.platform);
+    const candidates: CommandPathCandidate[] = [];
+
+    for (const directoryPath of splitPathEntries(pathValue, options.platform)) {
+        const candidatePath = await resolveFirstPathCandidatePath({
+            directoryPath,
+            executableNames: options.executableNames,
+            pathExists: options.pathExists ?? defaultPathExists,
+            pathModule,
+        });
+
+        if (candidatePath === undefined) {
+            continue;
+        }
+
+        candidates.push({
+            directoryPath,
+            path: candidatePath,
+        });
+    }
+
+    return candidates;
+}
+
+function readPathValue(
+    env: Record<string, string | undefined>,
+    platform: NodeJS.Platform,
+): string | undefined {
+    return platform === "win32"
+        ? env.Path ?? env.PATH
+        : env.PATH;
+}
+
+function splitPathEntries(
+    pathValue: string,
+    platform: NodeJS.Platform,
+): string[] {
+    return pathValue
+        .split(readPathModule(platform).delimiter)
+        .map(pathEntry => pathEntry.trim())
+        .filter(Boolean);
+}
+
+async function resolveFirstPathCandidatePath(options: {
+    directoryPath: string;
+    executableNames: readonly string[];
+    pathExists: (path: string) => Promise<boolean>;
+    pathModule: ReturnType<typeof readPathModule>;
+}): Promise<string | undefined> {
+    for (const executableName of options.executableNames) {
+        const candidatePath = options.pathModule.join(
+            options.directoryPath,
+            executableName,
+        );
+
+        if (await options.pathExists(candidatePath)) {
+            return candidatePath;
+        }
+    }
+
+    return undefined;
+}

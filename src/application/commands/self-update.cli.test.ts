@@ -4,12 +4,13 @@ import type {
     CliSnapshotContext,
 } from "../../../__tests__/helpers.ts";
 import { chmod, mkdir, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createCliSnapshot,
+    joinPathEntries,
     toRequest,
 } from "../../../__tests__/helpers.ts";
 import {
@@ -563,6 +564,81 @@ describe("self-update commands", () => {
         }
     });
 
+    test("update warns when an older oo still shadows the managed executable on PATH", async () => {
+        const sandbox = await createCliSandbox();
+        const releasePlatform = await detectSelfUpdateReleasePlatform({
+            arch: process.arch,
+            platform: process.platform,
+        });
+        const paths = resolveSelfUpdatePaths({
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const legacyPrefix = join(sandbox.cwd, "QClaw", "npm-global");
+        const legacyDirectory = join(legacyPrefix, "bin");
+        const legacyPath = join(legacyDirectory, basename(paths.executablePath));
+        const selfUpdateRuntime = createCapturedSelfUpdateRuntime({
+            exitCode: 1,
+            signalCode: null,
+            stderr: "permission denied",
+            stdout: "",
+        });
+
+        sandbox.env.PATH = joinPathEntries(
+            [legacyDirectory, paths.executableDirectory],
+            process.platform,
+        );
+
+        try {
+            await writeManagedVersion(legacyPath, "legacy-binary");
+
+            const result = await sandbox.run(["update"], {
+                fetcher: async (input, init) => {
+                    const url = toRequest(input, init).url;
+
+                    if (url.endsWith("/latest.json")) {
+                        return new Response(JSON.stringify({
+                            version: "2.0.0",
+                        }));
+                    }
+
+                    if (url.endsWith(`/${releasePlatform}/${process.platform === "win32" ? "oo.exe" : "oo"}`)) {
+                        return new Response("binary");
+                    }
+
+                    throw new Error(`Unexpected request: ${url}`);
+                },
+                selfUpdateRuntime: selfUpdateRuntime.runtime,
+                version: "1.0.0",
+            });
+
+            expect(createCliSnapshot(result, { sandbox })).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: [
+                    "Updated oo from 1.0.0 to 2.0.0.",
+                    "Added <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.",
+                    `PATH currently resolves oo to <CWD>/QClaw/npm-global/bin/${basename(paths.executablePath)} before the managed directory <HOME>/.local/bin. Move <HOME>/.local/bin earlier in PATH or remove the older oo entry, then restart your shell.`,
+                    "",
+                ].join("\n"),
+            });
+            expect(selfUpdateRuntime.commands).toContainEqual({
+                commandArguments: [
+                    "uninstall",
+                    "-g",
+                    "--prefix",
+                    legacyPrefix,
+                    "@oomol-lab/oo-cli",
+                ],
+                commandPath: "/mock/bin/npm",
+                timeoutMs: 10_000,
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("update refreshes bundled skills for a same-version native install without downloading a binary", async () => {
         const sandbox = await createCliSandbox();
         const releasePlatform = await detectSelfUpdateReleasePlatform({
@@ -761,13 +837,23 @@ describe("self-update commands", () => {
             paths,
             "1.2.3",
         );
+        const packageManagerPrefix = join(sandbox.cwd, "npm-prefix");
+        const packageManagerExecPath = join(
+            packageManagerPrefix,
+            "lib",
+            "node_modules",
+            "@oomol-lab",
+            "oo-cli",
+            "bin",
+            process.platform === "win32" ? "oo.exe" : "oo",
+        );
         let binaryRequestCount = 0;
 
         try {
             await writeManagedVersion(currentVersionPath, "existing-binary");
 
             const result = await sandbox.run(["upgrade"], {
-                execPath: "/usr/local/lib/node_modules/@oomol-lab/oo-cli/bin/oo",
+                execPath: packageManagerExecPath,
                 fetcher: async (input, init) => {
                     const url = toRequest(input, init).url;
 
@@ -797,7 +883,13 @@ describe("self-update commands", () => {
                     timeoutMs: 10_000,
                 },
                 {
-                    commandArguments: ["uninstall", "-g", "@oomol-lab/oo-cli"],
+                    commandArguments: [
+                        "uninstall",
+                        "-g",
+                        "--prefix",
+                        packageManagerPrefix,
+                        "@oomol-lab/oo-cli",
+                    ],
                     commandPath: "/mock/bin/npm",
                     timeoutMs: 10_000,
                 },

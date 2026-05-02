@@ -33,6 +33,12 @@ describe("oo wrapper", () => {
         ])).toBe("npm");
     });
 
+    test("detects npm from the installed oo path under npm-global", () => {
+        expect(wrapperModule.detectPackageManagerFromOoPath([
+            "/Users/demo/Library/Application Support/QClaw/npm-global/bin/oo",
+        ])).toBe("npm");
+    });
+
     test("does not match unrelated path segments by substring", () => {
         expect(wrapperModule.detectPackageManagerFromOoPath([
             "/Users/demo/aabunxx/install/global/node_modules/@oomol-lab/oo-cli/bin/oo.cjs",
