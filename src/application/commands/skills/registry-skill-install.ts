@@ -29,6 +29,10 @@ import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
+import {
+    createManagedSkillUninstallResultError,
+    uninstallRegistrySkill,
+} from "./managed-skill-uninstall.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
     prepareRegistrySkillPublication,
@@ -39,7 +43,6 @@ import {
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
 } from "./registry-skill-source.ts";
-import { uninstallManagedSkill } from "./shared.ts";
 
 interface ManagedSkillPathState {
     exists: boolean;
@@ -170,9 +173,19 @@ export async function installRegistrySkills(
 
             try {
                 for (const { skillName } of uninstallActions) {
-                    await uninstallManagedSkill(skillName, context, {
+                    const result = await uninstallRegistrySkill(skillName, context, {
                         silent: selectionActions.isInteractive,
                     });
+
+                    if (!result.removed) {
+                        throw createManagedSkillUninstallResultError({
+                            context,
+                            logMessage:
+                                "Managed registry skill uninstall skipped because no OOMOL metadata was found.",
+                            result,
+                            skillName,
+                        });
+                    }
                 }
             }
             catch (error) {

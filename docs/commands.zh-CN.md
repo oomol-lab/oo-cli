@@ -503,13 +503,19 @@ skills。
 
 - 别名：`oo skills remove [skill]`。
 - 参数：省略 `[skill]` 时，命令会移除全部内置 skill。
+- 参数：提供 `[skill]` 时，命令会同时检查本地 canonical 存储和已发布的
+  registry 安装；如果两者都匹配同一个名称，会同时移除。registry 安装会先于
+  本地安装移除。
 - 所有权规则：对内置 skill 来说，只有当某个受支持 Agent 中的安装目录包含可解
   析且带有非空 `version` 的 `.oo-metadata.json` 时，才允许从该 Agent 移除。
+- 所有权规则：通过复制发布的本地 skill，如果受支持 Agent 中的 `SKILL.md`
+  内容与本地 canonical `SKILL.md` 一致，也会被视为可移除的本地安装。
 - 会同时移除 canonical 目录：内置 skill 会移除
   `<config-dir>/skills/bundled/<agent>/<skill>`（每个已安装 Agent 各一份），
-  已发布 skill 会移除 `<config-dir>/skills/registry/<skill>`。
-- 会同时移除目标目录：内置和已发布 skill 会从所有已存在的受支持 Agent 目录中
-  移除，目前包括 `${CODEX_HOME:-~/.codex}/skills/<skill>` 和
+  本地 skill 会移除 `<config-dir>/skills/local/<skill>`，已发布 skill 会移除
+  `<config-dir>/skills/registry/<skill>`。
+- 会同时移除目标目录：内置、本地和已发布 skill 会从所有已存在的受支持 Agent
+  目录中移除，目前包括 `${CODEX_HOME:-~/.codex}/skills/<skill>` 和
   `~/.claude/skills/<skill>`，以及
   `${HERMES_HOME:-~/.hermes}/skills/<skill>`、
   `~/.codebuddy/skills/<skill>`、
@@ -519,8 +525,8 @@ skills。
   `~/.qoderwork/skills/<skill>`。
 - 路径规则：`[skill]` 解析后必须仍然落在这些本地 `skills` 根目录的子目录中。
   任何会逃出这些根目录的名称都会被拒绝。
-- 说明：如果请求的 skill 在任何受支持目标中都不存在受管理安装，或某个已存在
-  的同名目标不是由 `oo` 管理，命令会直接报错，不会删除任何内容。
+- 说明：如果请求的 skill 在任何受支持目标中都不存在受管理安装，且不存在同名
+  本地 canonical skill，或某个已存在的同名目标不是由 `oo` 管理，命令会直接报错。
 
 ## 日志
 
