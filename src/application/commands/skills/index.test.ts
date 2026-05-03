@@ -37,6 +37,7 @@ import {
     getBundledSkillFiles,
 } from "./embedded-assets.ts";
 import {
+    resolveLocalSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
@@ -1072,6 +1073,194 @@ describe("skills commands", () => {
             }
             await expect(stat(canonicalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uninstalls matching local and registry skills with the same name", async () => {
+        const sandbox = await createCliSandbox();
+        const skillName = "shared-skill";
+        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", skillName);
+        const codeBuddySkillDirectoryPath = join(codeBuddyHomeDirectory, "skills", skillName);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const localCanonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+        const registryCanonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+        const localSkillContent = [
+            "---",
+            `name: ${skillName}`,
+            "description: Local workflow",
+            "---",
+            "",
+            "# Shared Skill",
+            "",
+        ].join("\n");
+
+        try {
+            await Promise.all([
+                mkdir(claudeSkillDirectoryPath, { recursive: true }),
+                mkdir(codeBuddySkillDirectoryPath, { recursive: true }),
+                mkdir(localCanonicalSkillDirectoryPath, { recursive: true }),
+                mkdir(registryCanonicalSkillDirectoryPath, { recursive: true }),
+            ]);
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(claudeSkillDirectoryPath),
+                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+            );
+            await Bun.write(join(claudeSkillDirectoryPath, "SKILL.md"), "# Registry\n");
+            await Bun.write(join(registryCanonicalSkillDirectoryPath, "SKILL.md"), "# Registry\n");
+            await Bun.write(join(localCanonicalSkillDirectoryPath, "SKILL.md"), localSkillContent);
+            await Bun.write(join(codeBuddySkillDirectoryPath, "SKILL.md"), localSkillContent);
+
+            const result = await sandbox.run(["skills", "remove", skillName]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                [
+                    `Removed skill ${skillName} from ${claudeSkillDirectoryPath}.`,
+                    `Removed skill ${skillName} from ${codeBuddySkillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
+            );
+            expect(result.stderr).toBe("");
+            await expect(stat(claudeSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(codeBuddySkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(localCanonicalSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(registryCanonicalSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uninstalls registry before local when both match the same host path", async () => {
+        const sandbox = await createCliSandbox();
+        const skillName = "same-target";
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const localCanonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+        const registryCanonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+        const skillContent = [
+            "---",
+            `name: ${skillName}`,
+            "description: Shared workflow",
+            "---",
+            "",
+            "# Same Target",
+            "",
+        ].join("\n");
+
+        try {
+            await Promise.all([
+                mkdir(skillDirectoryPath, { recursive: true }),
+                mkdir(localCanonicalSkillDirectoryPath, { recursive: true }),
+                mkdir(registryCanonicalSkillDirectoryPath, { recursive: true }),
+            ]);
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+            );
+            await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillContent);
+            await Bun.write(join(localCanonicalSkillDirectoryPath, "SKILL.md"), skillContent);
+            await Bun.write(join(registryCanonicalSkillDirectoryPath, "SKILL.md"), skillContent);
+
+            const result = await sandbox.run(["skills", "remove", skillName]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                [
+                    `Removed skill ${skillName} from ${skillDirectoryPath}.`,
+                    `Removed skill ${skillName} from ${localCanonicalSkillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
+            );
+            expect(result.stderr).toBe("");
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(localCanonicalSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(registryCanonicalSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not uninstall a local copy when the skill files differ", async () => {
+        const sandbox = await createCliSandbox();
+        const skillName = "local-copy";
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codeBuddyHomeDirectory, "skills", skillName);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const localCanonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+
+        try {
+            await Promise.all([
+                mkdir(skillDirectoryPath, { recursive: true }),
+                mkdir(localCanonicalSkillDirectoryPath, { recursive: true }),
+            ]);
+            await Bun.write(
+                join(localCanonicalSkillDirectoryPath, "SKILL.md"),
+                "# Canonical\n",
+            );
+            await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# Custom\n");
+
+            const result = await sandbox.run(["skills", "remove", skillName]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                `${skillName} is not managed by oo and cannot be removed.\n`,
+            );
+            await expect(stat(skillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
+            await expect(stat(localCanonicalSkillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
             });
         }
         finally {

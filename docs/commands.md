@@ -591,14 +591,22 @@ Remove oo-managed skills from supported local skill directories.
 
 - Alias: `oo skills remove [skill]`.
 - Arguments: when `[skill]` is omitted, the command removes all bundled skills.
+- Arguments: when `[skill]` is provided, the command checks both local canonical
+  storage and published registry installations for that skill name. If both
+  match, both are removed. Registry installations are removed before local
+  installations.
 - Ownership rule: a bundled skill is removable from a supported host only when
   that host's installed directory has a `.oo-metadata.json` file that can be
   parsed and contains a non-empty `version`.
+- Ownership rule: a local skill published by copying is removable from a
+  supported host when its `SKILL.md` content matches the local canonical
+  `SKILL.md`.
 - Canonical directory removed: bundled skills remove
   `<config-dir>/skills/bundled/<agent>/<skill>` for each installed agent, and
-  published skills remove `<config-dir>/skills/registry/<skill>`.
-- Target directory removed: bundled and published skills are removed from every
-  existing supported host directory, currently
+  local skills remove `<config-dir>/skills/local/<skill>`. Published skills
+  remove `<config-dir>/skills/registry/<skill>`.
+- Target directory removed: bundled, local, and published skills are removed
+  from every existing supported host directory, currently
   `${CODEX_HOME:-~/.codex}/skills/<skill>`, `~/.claude/skills/<skill>`,
   `${HERMES_HOME:-~/.hermes}/skills/<skill>`,
   `~/.codebuddy/skills/<skill>`, `~/.workbuddy/skills/<skill>`,
@@ -607,9 +615,9 @@ Remove oo-managed skills from supported local skill directories.
   `~/.qoderwork/skills/<skill>`.
 - Path rule: `[skill]` must resolve to child directories under those local
   `skills` roots. Names that escape those roots are rejected.
-- Notes: when no supported target has a managed installation for the requested
-  skill, or an existing same-name target is not managed by `oo`, the command
-  exits with an error and does not remove anything.
+- Notes: when no supported target has a managed installation and no matching
+  local canonical skill exists for the requested skill, or an existing same-name
+  target is not managed by `oo`, the command exits with an error.
 
 ## Logs
 

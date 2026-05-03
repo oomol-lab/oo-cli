@@ -10,24 +10,17 @@ import type {
     ManagedSkillInstallSummary,
 } from "./install-output.ts";
 import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
-import {
-    mkdir,
-} from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
-import { writeLine } from "../shared/output.ts";
 import {
     publishBundledSkillInstallation,
     removePath,
 } from "./bundled-skill-filesystem.ts";
-import {
-    canUninstallManagedBundledSkillInstallation,
-    resolveBundledSkillInstallConflict,
-} from "./bundled-skill-model.ts";
+import { resolveBundledSkillInstallConflict } from "./bundled-skill-model.ts";
 import {
     directoryExists,
     isManagedBundledSkillInstallation,
-    readInstalledBundledSkillMetadata,
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import {
@@ -42,17 +35,10 @@ import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallation,
-    resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
-import {
-    isManagedSkillPathContained,
-    resolveManagedSkillCanonicalDirectoryPath,
-} from "./managed-skill-paths.ts";
-
 import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 
-interface BundledSkillHostInstallation extends ManagedSkillHostInstallation {
+export interface BundledSkillHostInstallation extends ManagedSkillHostInstallation {
     canonicalSkillDirectoryPath: string;
 }
 
@@ -111,113 +97,6 @@ export async function installBundledSkill(
     };
 }
 
-export async function uninstallBundledSkill(
-    skillName: BundledSkillName,
-    context: CliExecutionContext,
-): Promise<void> {
-    const installations = await resolveAvailableBundledSkillHostInstallations(
-        context,
-        skillName,
-    );
-
-    if (installations.length === 0) {
-        throw createMissingManagedSkillHostError(context.env);
-    }
-
-    const uninstallTargets: Array<
-        BundledSkillHostInstallation & {
-            previousVersion: string | undefined;
-        }
-    > = [];
-
-    for (const installation of installations) {
-        const installedSkillDirectoryExists = await directoryExists(
-            installation.installedSkillDirectoryPath,
-        );
-        const installedSkillMetadata = installedSkillDirectoryExists
-            ? await readInstalledBundledSkillMetadata(
-                    installation.installedSkillDirectoryPath,
-                )
-            : undefined;
-
-        if (!canUninstallManagedBundledSkillInstallation({
-            installedDirectoryExists: installedSkillDirectoryExists,
-            installedDirectoryManaged: installedSkillMetadata !== undefined,
-        })) {
-            if (!installedSkillDirectoryExists) {
-                continue;
-            }
-
-            context.logger.warn(
-                {
-                    agentName: installation.agentName,
-                    path: installation.installedSkillDirectoryPath,
-                    skillName,
-                },
-                "Bundled skill uninstall skipped because no managed installation was found.",
-            );
-            throw createManagedSkillUninstallError({
-                installedDirectoryExists: true,
-                path: installation.installedSkillDirectoryPath,
-                skillName,
-            });
-        }
-
-        uninstallTargets.push({
-            ...installation,
-            previousVersion: installedSkillMetadata?.version,
-        });
-    }
-
-    if (uninstallTargets.length === 0) {
-        throw createManagedSkillUninstallError({
-            installedDirectoryExists: false,
-            path: installations[0]!.installedSkillDirectoryPath,
-            skillName,
-        });
-    }
-
-    for (const target of uninstallTargets) {
-        await Promise.all([
-            removePath(target.installedSkillDirectoryPath),
-            removePath(target.canonicalSkillDirectoryPath),
-        ]);
-
-        writeLine(
-            context.stdout,
-            context.translator.t("skills.uninstall.success", {
-                name: skillName,
-                path: target.installedSkillDirectoryPath,
-            }),
-        );
-        context.logger.info(
-            {
-                agentName: target.agentName,
-                canonicalPath: target.canonicalSkillDirectoryPath,
-                path: target.installedSkillDirectoryPath,
-                previousVersion: target.previousVersion ?? "unknown",
-                skillName,
-            },
-            "Bundled skill removed explicitly.",
-        );
-    }
-}
-
-export async function uninstallManagedSkill(
-    skillName: string,
-    context: CliExecutionContext,
-    options?: {
-        silent?: boolean;
-    },
-): Promise<void> {
-    if (isBundledSkillName(skillName)) {
-        await uninstallBundledSkill(skillName, context);
-        return;
-    }
-
-    await uninstallRegistrySkill(skillName, context, options);
-}
-
 export async function publishManagedBundledSkill(options: {
     agentName: BundledSkillAgentName;
     homeDirectory: string;
@@ -231,6 +110,27 @@ export async function publishManagedBundledSkill(options: {
         ...installationPaths,
         publicationMode: resolveManagedSkillPublicationMode(options.agentName),
     });
+}
+
+export async function resolveAvailableBundledSkillHostInstallations(
+    context: Pick<CliExecutionContext, "env" | "settingsStore">,
+    skillName: BundledSkillName,
+): Promise<BundledSkillHostInstallation[]> {
+    const settingsFilePath = context.settingsStore.getFilePath();
+    const hosts = await resolveAvailableManagedSkillHosts(context.env);
+
+    return hosts.map(host => ({
+        ...resolveManagedSkillHostInstallation(host, skillName),
+        canonicalSkillDirectoryPath: resolveBundledSkillCanonicalDirectoryPath(
+            settingsFilePath,
+            skillName,
+            host.agentName,
+        ),
+    }) satisfies BundledSkillHostInstallation);
+}
+
+export function isBundledSkillName(value: string): value is BundledSkillName {
+    return availableBundledSkillNames.includes(value as BundledSkillName);
 }
 
 async function writeBundledSkillCanonicalInstallation(options: {
@@ -277,23 +177,6 @@ async function writeBundledSkillCanonicalInstallation(options: {
         canonicalSkillDirectoryPath,
         installedSkillDirectoryPath,
     };
-}
-
-async function resolveAvailableBundledSkillHostInstallations(
-    context: Pick<CliExecutionContext, "env" | "settingsStore">,
-    skillName: BundledSkillName,
-): Promise<BundledSkillHostInstallation[]> {
-    const settingsFilePath = context.settingsStore.getFilePath();
-    const hosts = await resolveAvailableManagedSkillHosts(context.env);
-
-    return hosts.map(host => ({
-        ...resolveManagedSkillHostInstallation(host, skillName),
-        canonicalSkillDirectoryPath: resolveBundledSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            skillName,
-            host.agentName,
-        ),
-    }) satisfies BundledSkillHostInstallation);
 }
 
 async function validateBundledSkillInstallationTarget(
@@ -366,141 +249,4 @@ async function validateBundledSkillInstallationTarget(
         name: skillName,
         path: installation.canonicalSkillDirectoryPath,
     });
-}
-
-async function uninstallRegistrySkill(
-    skillName: string,
-    context: CliExecutionContext,
-    options?: {
-        silent?: boolean;
-    },
-): Promise<void> {
-    const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
-
-    if (availableHosts.length === 0) {
-        throw createMissingManagedSkillHostError(context.env);
-    }
-
-    const settingsFilePath = context.settingsStore.getFilePath();
-    const hostInstallations = resolveManagedSkillHostInstallations(
-        availableHosts,
-        skillName,
-    );
-
-    if (hostInstallations.some(installation =>
-        !isManagedSkillPathContained(
-            installation.homeDirectory,
-            settingsFilePath,
-            skillName,
-        ),
-    )) {
-        throw new CliUserError("errors.skills.invalidPath", 1, {
-            name: skillName,
-        });
-    }
-
-    const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
-        settingsFilePath,
-        skillName,
-    );
-    const uninstallTargets: Array<
-        ManagedSkillHostInstallation & {
-            packageName: string | undefined;
-            previousVersion: string | undefined;
-        }
-    > = [];
-
-    for (const installation of hostInstallations) {
-        const installedSkillDirectoryExists = await directoryExists(
-            installation.installedSkillDirectoryPath,
-        );
-        const metadata = installedSkillDirectoryExists
-            ? await readManagedSkillMetadata(installation.installedSkillDirectoryPath)
-            : undefined;
-
-        if (metadata === undefined) {
-            if (!installedSkillDirectoryExists) {
-                continue;
-            }
-
-            context.logger.warn(
-                {
-                    agentName: installation.agentName,
-                    path: installation.installedSkillDirectoryPath,
-                    skillName,
-                },
-                "Managed registry skill uninstall skipped because no OOMOL metadata was found.",
-            );
-            throw createManagedSkillUninstallError({
-                installedDirectoryExists: true,
-                path: installation.installedSkillDirectoryPath,
-                skillName,
-            });
-        }
-
-        uninstallTargets.push({
-            ...installation,
-            packageName: metadata.packageName,
-            previousVersion: metadata.version,
-        });
-    }
-
-    if (uninstallTargets.length === 0) {
-        throw createManagedSkillUninstallError({
-            installedDirectoryExists: false,
-            path: hostInstallations[0]!.installedSkillDirectoryPath,
-            skillName,
-        });
-    }
-
-    await Promise.all([
-        ...uninstallTargets.map(target =>
-            removePath(target.installedSkillDirectoryPath),
-        ),
-        removePath(canonicalSkillDirectoryPath),
-    ]);
-
-    for (const target of uninstallTargets) {
-        if (options?.silent !== true) {
-            writeLine(
-                context.stdout,
-                context.translator.t("skills.uninstall.success", {
-                    name: skillName,
-                    path: target.installedSkillDirectoryPath,
-                }),
-            );
-        }
-        context.logger.info(
-            {
-                agentName: target.agentName,
-                canonicalPath: canonicalSkillDirectoryPath,
-                packageName: target.packageName,
-                path: target.installedSkillDirectoryPath,
-                previousVersion: target.previousVersion ?? "unknown",
-                skillName,
-            },
-            "Managed registry skill removed explicitly.",
-        );
-    }
-}
-
-function createManagedSkillUninstallError(options: {
-    installedDirectoryExists: boolean;
-    path: string;
-    skillName: string;
-}): CliUserError {
-    return new CliUserError(
-        options.installedDirectoryExists
-            ? "errors.skills.notManaged"
-            : "errors.skills.notInstalled",
-        1,
-        {
-            name: options.skillName,
-            path: options.path,
-        },
-    );
-}
-
-export function isBundledSkillName(value: string): value is BundledSkillName {
-    return availableBundledSkillNames.includes(value as BundledSkillName);
 }
