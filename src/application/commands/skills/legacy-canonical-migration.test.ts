@@ -110,6 +110,7 @@ describe("legacy canonical skill migration", () => {
         const legacyCodexBundledPath = join(skillsDirectoryPath, "oo");
         const legacyRegistryPath = join(skillsDirectoryPath, "chatgpt");
         const newBundledPath = join(skillsDirectoryPath, "bundled", "codex", "oo");
+        const newLocalPath = join(skillsDirectoryPath, "local", "local-skill");
         const newRegistryPath = join(skillsDirectoryPath, "registry", "chatgpt");
         const logCapture = createLogCapture();
 
@@ -126,6 +127,8 @@ describe("legacy canonical skill migration", () => {
             );
             await mkdir(newBundledPath, { recursive: true });
             await Bun.write(join(newBundledPath, "SKILL.md"), "new bundled\n");
+            await mkdir(newLocalPath, { recursive: true });
+            await Bun.write(join(newLocalPath, "SKILL.md"), "new local\n");
             await mkdir(newRegistryPath, { recursive: true });
             await Bun.write(join(newRegistryPath, "SKILL.md"), "new registry\n");
 
@@ -143,6 +146,9 @@ describe("legacy canonical skill migration", () => {
                 code: "ENOENT",
             });
             await expect(stat(newBundledPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
+            await expect(stat(newLocalPath)).resolves.toMatchObject({
                 isDirectory: expect.any(Function),
             });
             await expect(stat(newRegistryPath)).resolves.toMatchObject({

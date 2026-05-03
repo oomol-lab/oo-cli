@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { isNodeNotFoundError, removePath } from "./bundled-skill-filesystem.ts";
 import {
     canonicalBundledSkillsDirectoryName,
+    canonicalLocalSkillsDirectoryName,
     canonicalRegistrySkillsDirectoryName,
     codexSkillsDirectoryName,
 } from "./bundled-skill-paths.ts";
@@ -113,6 +114,7 @@ async function readLegacySkillsChildren(
             .map(entry => entry.name)
             .filter(name =>
                 name !== canonicalBundledSkillsDirectoryName
+                && name !== canonicalLocalSkillsDirectoryName
                 && name !== canonicalRegistrySkillsDirectoryName,
             );
     }
