@@ -10,6 +10,7 @@ import {
     selfUpdateDevelopmentVersion,
 } from "../self-update/core.ts";
 import { resolveSelfUpdateModifyPath } from "../self-update/modify-path-preference.ts";
+import { resolveSelfUpdateShowPathShadowingWarning } from "../self-update/path-shadowing-warning-preference.ts";
 import { isSemver } from "../semver.ts";
 import { writeSelfUpdatePathNoteIfNeeded } from "./self-update-output.ts";
 import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
@@ -140,8 +141,12 @@ export const installCommand: CliCommandDefinition<
             );
 
             writeSelfUpdatePathNoteIfNeeded({
+                commandResolution: result.commandResolution,
                 executableDirectory: result.executableDirectory,
                 pathConfiguration: result.pathConfiguration,
+                showPathShadowingWarning: resolveSelfUpdateShowPathShadowingWarning({
+                    env: context.env,
+                }),
                 stdout: context.stdout,
                 translator: context.translator,
             });

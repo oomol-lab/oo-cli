@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { detectInstallationMethodFromExecPath } from "./installation.ts";
 import {
@@ -127,6 +128,23 @@ describe("detectInstallationMethodFromExecPath", () => {
         expect(detectInstallationMethodFromExecPath({
             env: {},
             execPath: "/Users/demo/.config/yarn/global/npm_global/node_modules/@oomol-lab/oo-cli/bin/oo",
+            platform: "linux",
+        }).method).toBe("npm");
+    });
+
+    test("detects npm from an exact npm-global path segment", () => {
+        expect(detectInstallationMethodFromExecPath({
+            env: {},
+            execPath: join(
+                "Users",
+                "demo",
+                "Library",
+                "Application Support",
+                "QClaw",
+                "npm-global",
+                "bin",
+                "oo",
+            ),
             platform: "linux",
         }).method).toBe("npm");
     });

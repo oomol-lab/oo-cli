@@ -1,6 +1,9 @@
 import type { Logger } from "pino";
 import type { CliExecutionContext, Fetcher } from "../contracts/cli.ts";
-import type { SelfUpdatePathConfigurationResult } from "../contracts/self-update.ts";
+import type {
+    SelfUpdateCommandResolutionResult,
+    SelfUpdatePathConfigurationResult,
+} from "../contracts/self-update.ts";
 import type { LegacyPackageManagerCleanupRuntime } from "./legacy-installation.ts";
 import type { SelfUpdateProgressEvent } from "./progress.ts";
 import { chmod, copyFile, lstat, mkdir, open, readdir, readlink, realpath, rename, rm, stat, symlink } from "node:fs/promises";
@@ -17,6 +20,7 @@ import {
     parseLatestCliSemverReleaseVersion,
 } from "../update/release-metadata.ts";
 import { attemptBundledSkillRefreshAfterSelfUpdate } from "./bundled-skills.ts";
+import { resolveSelfUpdateCommandResolution } from "./command-resolution.ts";
 import { attemptLegacyPackageManagerUninstall } from "./legacy-installation.ts";
 import {
     acquireProcessLifetimeVersionLock,
@@ -56,6 +60,7 @@ export const selfUpdateBinaryDownloadStallTimeoutMs = 60_000;
 export const selfUpdateReleaseRequestTimeoutMs = 10_000;
 
 export interface SelfUpdateOperationResult {
+    commandResolution: SelfUpdateCommandResolutionResult;
     executableDirectory: string;
     executablePath: string;
     pathConfiguration: SelfUpdatePathConfigurationResult;
@@ -198,12 +203,14 @@ export async function performSelfUpdateOperation(options: {
             runtime: options.runtime,
         });
         await attemptLegacyPackageManagerUninstall(options.runtime);
-        const { pathConfiguration } = await ensureSelfUpdateExecutableDirectoryOnPath({
-            modifyPath: options.modifyPath,
-            runtime: options.runtime,
-        });
+        const { commandResolution, pathConfiguration }
+            = await ensureSelfUpdateExecutableDirectoryOnPath({
+                modifyPath: options.modifyPath,
+                runtime: options.runtime,
+            });
 
         return {
+            commandResolution,
             executableDirectory: paths.executableDirectory,
             executablePath: paths.executablePath,
             pathConfiguration,
@@ -219,8 +226,9 @@ export async function performSelfUpdateOperation(options: {
 
 export async function ensureSelfUpdateExecutableDirectoryOnPath(options: {
     modifyPath?: boolean;
-    runtime: Pick<SelfUpdateRuntime, "configurePath" | "env" | "logger" | "platform" | "resolveCommandPath" | "runCommand">;
+    runtime: Pick<SelfUpdateRuntime, "configurePath" | "env" | "logger" | "pathExists" | "platform" | "resolveCommandPath" | "runCommand">;
 }): Promise<{
+    commandResolution: SelfUpdateCommandResolutionResult;
     executableDirectory: string;
     pathConfiguration: SelfUpdatePathConfigurationResult;
 }> {
@@ -235,8 +243,15 @@ export async function ensureSelfUpdateExecutableDirectoryOnPath(options: {
         platform: options.runtime.platform,
         runtime: options.runtime,
     });
+    const commandResolution = await resolveSelfUpdateCommandResolution({
+        env: options.runtime.env,
+        executablePath: paths.executablePath,
+        pathExists: options.runtime.pathExists,
+        platform: options.runtime.platform,
+    });
 
     return {
+        commandResolution,
         executableDirectory: paths.executableDirectory,
         pathConfiguration,
     };

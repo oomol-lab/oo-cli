@@ -1,6 +1,6 @@
 import type { SelfUpdateCommandRunOptions } from "../contracts/self-update.ts";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { chmod, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
+import { basename, dirname, join, win32 } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
 import {
@@ -227,38 +227,238 @@ describe("attemptLegacyPackageManagerUninstall", () => {
         }
     });
 
-    test("ignores oo.cmd PATH candidates on Windows and falls back to execPath", async () => {
-        const rootDirectory = await createTemporaryDirectory("oo-legacy-win32");
+    test("preserves npm prefix when fallback uses an npm-global execPath", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-legacy-fallback-npm-prefix");
         const env = createLegacyCleanupEnv(rootDirectory);
+        const npmPrefix = join(rootDirectory, "QClaw", "npm-global");
         const commands = createRecordedCommands();
         const logCapture = createLogCapture();
-        const probedPaths: string[] = [];
 
         trackDirectory(rootDirectory);
-        env.PATH = "legacy-bin;managed-bin";
+        env.PATH = joinPathEntries([join(rootDirectory, "empty", "bin")], process.platform);
+
+        try {
+            await attemptLegacyPackageManagerUninstall({
+                env,
+                execPath: join(npmPrefix, "bin", readExecutableName(process.platform)),
+                logger: logCapture.logger,
+                platform: process.platform,
+                resolveCommandPath: commandName => `/mock/bin/${commandName}`,
+                runCommand: commands.runCommand,
+            });
+
+            expect(commands.read()).toEqual([
+                {
+                    commandArguments: [
+                        "uninstall",
+                        "-g",
+                        "--prefix",
+                        npmPrefix,
+                        "@oomol-lab/oo-cli",
+                    ],
+                    commandPath: "/mock/bin/npm",
+                    timeoutMs: 10_000,
+                },
+            ]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("passes the detected npm prefix when uninstalling a custom npm-global PATH candidate", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-legacy-npm-prefix");
+        const env = createLegacyCleanupEnv(rootDirectory);
+        const npmPrefix = join(rootDirectory, "QClaw", "npm-global");
+        const npmBinDirectory = join(npmPrefix, "bin");
+        const commands = createRecordedCommands();
+        const logCapture = createLogCapture();
+
+        trackDirectory(rootDirectory);
+        env.PATH = joinPathEntries([npmBinDirectory], process.platform);
+        await writeExecutable(join(npmBinDirectory, readExecutableName(process.platform)));
+
+        try {
+            await attemptLegacyPackageManagerUninstall({
+                env,
+                execPath: join(rootDirectory, "downloads", readExecutableName(process.platform)),
+                logger: logCapture.logger,
+                platform: process.platform,
+                resolveCommandPath: commandName => `/mock/bin/${commandName}`,
+                runCommand: commands.runCommand,
+            });
+
+            expect(commands.read()).toEqual([
+                {
+                    commandArguments: [
+                        "uninstall",
+                        "-g",
+                        "--prefix",
+                        npmPrefix,
+                        "@oomol-lab/oo-cli",
+                    ],
+                    commandPath: "/mock/bin/npm",
+                    timeoutMs: 10_000,
+                },
+            ]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("passes the npm prefix resolved from a PATH candidate symlink realpath", async () => {
+        if (process.platform === "win32") {
+            return;
+        }
+
+        const rootDirectory = await createTemporaryDirectory("oo-legacy-npm-realpath-prefix");
+        const env = createLegacyCleanupEnv(rootDirectory);
+        const npmPrefix = join(rootDirectory, "custom-prefix");
+        const npmBinDirectory = join(npmPrefix, "bin");
+        const packageEntrypoint = join(
+            npmPrefix,
+            "lib",
+            "node_modules",
+            "@oomol-lab",
+            "oo-cli",
+            "bin",
+            readExecutableName(process.platform),
+        );
+        const binEntrypoint = join(npmBinDirectory, readExecutableName(process.platform));
+        const commands = createRecordedCommands();
+        const logCapture = createLogCapture();
+
+        trackDirectory(rootDirectory);
+        env.PATH = joinPathEntries([npmBinDirectory], process.platform);
+        await writeExecutable(packageEntrypoint);
+        await mkdir(dirname(binEntrypoint), { recursive: true });
+        await symlink(packageEntrypoint, binEntrypoint);
+        const resolvedNpmPrefix = await realpath(npmPrefix);
+
+        try {
+            await attemptLegacyPackageManagerUninstall({
+                env,
+                execPath: join(rootDirectory, "downloads", readExecutableName(process.platform)),
+                logger: logCapture.logger,
+                platform: process.platform,
+                resolveCommandPath: commandName => `/mock/bin/${commandName}`,
+                runCommand: commands.runCommand,
+            });
+
+            expect(commands.read()).toEqual([
+                {
+                    commandArguments: [
+                        "uninstall",
+                        "-g",
+                        "--prefix",
+                        resolvedNpmPrefix,
+                        "@oomol-lab/oo-cli",
+                    ],
+                    commandPath: "/mock/bin/npm",
+                    timeoutMs: 10_000,
+                },
+            ]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("deduplicates npm cleanup targets by package manager and prefix", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-legacy-npm-prefixes");
+        const env = createLegacyCleanupEnv(rootDirectory);
+        const firstPrefix = join(rootDirectory, "first", "npm-global");
+        const secondPrefix = join(rootDirectory, "second", "npm-global");
+        const firstBinDirectory = join(firstPrefix, "bin");
+        const secondBinDirectory = join(secondPrefix, "bin");
+        const commands = createRecordedCommands();
+        const logCapture = createLogCapture();
+
+        trackDirectory(rootDirectory);
+        env.PATH = joinPathEntries(
+            [firstBinDirectory, firstBinDirectory, secondBinDirectory],
+            process.platform,
+        );
+        await Promise.all([
+            writeExecutable(join(firstBinDirectory, readExecutableName(process.platform))),
+            writeExecutable(join(secondBinDirectory, readExecutableName(process.platform))),
+        ]);
+
+        try {
+            await attemptLegacyPackageManagerUninstall({
+                env,
+                execPath: join(rootDirectory, "downloads", readExecutableName(process.platform)),
+                logger: logCapture.logger,
+                platform: process.platform,
+                resolveCommandPath: commandName => `/mock/bin/${commandName}`,
+                runCommand: commands.runCommand,
+            });
+
+            expect(commands.read()).toEqual([
+                {
+                    commandArguments: [
+                        "uninstall",
+                        "-g",
+                        "--prefix",
+                        firstPrefix,
+                        "@oomol-lab/oo-cli",
+                    ],
+                    commandPath: "/mock/bin/npm",
+                    timeoutMs: 10_000,
+                },
+                {
+                    commandArguments: [
+                        "uninstall",
+                        "-g",
+                        "--prefix",
+                        secondPrefix,
+                        "@oomol-lab/oo-cli",
+                    ],
+                    commandPath: "/mock/bin/npm",
+                    timeoutMs: 10_000,
+                },
+            ]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("detects Windows PATHEXT shims when resolving PATH candidates", async () => {
+        const rootDirectory = "C:\\Users\\demo";
+        const env = createLegacyCleanupEnv(rootDirectory);
+        const npmPrefix = win32.join(rootDirectory, "npm-global");
+        const npmBinDirectory = win32.join(npmPrefix, "bin");
+        const npmShimPath = win32.join(npmBinDirectory, "oo.cmd");
+        const commands = createRecordedCommands();
+        const logCapture = createLogCapture();
+
+        env.Path = [npmBinDirectory, "managed-bin"].join(win32.delimiter);
 
         try {
             await attemptLegacyPackageManagerUninstall({
                 env,
                 execPath: "C:\\Users\\demo\\.bun\\install\\global\\node_modules\\@oomol-lab\\oo-cli\\bin\\oo.exe",
                 logger: logCapture.logger,
-                pathExists: async (path) => {
-                    probedPaths.push(path);
-                    return path === "legacy-bin\\oo.cmd";
-                },
+                pathExists: path => Promise.resolve(
+                    path.toLowerCase() === npmShimPath.toLowerCase(),
+                ),
                 platform: "win32",
                 resolveCommandPath: commandName => `/mock/bin/${commandName}`,
                 runCommand: commands.runCommand,
             });
 
-            expect(probedPaths).toEqual([
-                "legacy-bin\\oo.exe",
-                "managed-bin\\oo.exe",
-            ]);
             expect(commands.read()).toEqual([
                 {
-                    commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
-                    commandPath: "/mock/bin/bun",
+                    commandArguments: [
+                        "uninstall",
+                        "-g",
+                        "--prefix",
+                        npmPrefix,
+                        "@oomol-lab/oo-cli",
+                    ],
+                    commandPath: "/mock/bin/npm",
                     timeoutMs: 10_000,
                 },
             ]);
