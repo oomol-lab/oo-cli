@@ -73,6 +73,8 @@ async function resolveLegacyPackageManagersToUninstall(
         : [{
                 method: installation.method,
                 prefix: resolvePackageManagerPrefix({
+                    candidateDirectoryPath: readPathModule(runtime.platform)
+                        .dirname(runtime.execPath),
                     installation,
                     platform: runtime.platform,
                     resolvedPath: runtime.execPath,

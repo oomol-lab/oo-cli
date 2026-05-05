@@ -227,6 +227,45 @@ describe("attemptLegacyPackageManagerUninstall", () => {
         }
     });
 
+    test("preserves npm prefix when fallback uses an npm-global execPath", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-legacy-fallback-npm-prefix");
+        const env = createLegacyCleanupEnv(rootDirectory);
+        const npmPrefix = join(rootDirectory, "QClaw", "npm-global");
+        const commands = createRecordedCommands();
+        const logCapture = createLogCapture();
+
+        trackDirectory(rootDirectory);
+        env.PATH = joinPathEntries([join(rootDirectory, "empty", "bin")], process.platform);
+
+        try {
+            await attemptLegacyPackageManagerUninstall({
+                env,
+                execPath: join(npmPrefix, "bin", readExecutableName(process.platform)),
+                logger: logCapture.logger,
+                platform: process.platform,
+                resolveCommandPath: commandName => `/mock/bin/${commandName}`,
+                runCommand: commands.runCommand,
+            });
+
+            expect(commands.read()).toEqual([
+                {
+                    commandArguments: [
+                        "uninstall",
+                        "-g",
+                        "--prefix",
+                        npmPrefix,
+                        "@oomol-lab/oo-cli",
+                    ],
+                    commandPath: "/mock/bin/npm",
+                    timeoutMs: 10_000,
+                },
+            ]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
     test("passes the detected npm prefix when uninstalling a custom npm-global PATH candidate", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-legacy-npm-prefix");
         const env = createLegacyCleanupEnv(rootDirectory);

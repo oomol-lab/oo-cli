@@ -32,6 +32,36 @@ describe("resolveCommandPathCandidates", () => {
         ]);
     });
 
+    test("skips PATH candidates whose probe rejects", async () => {
+        const brokenDirectoryPath = posix.join("broken", "bin");
+        const managedDirectoryPath = posix.join("managed", "bin");
+        const executableName = "oo";
+        const brokenExecutablePath = posix.join(brokenDirectoryPath, executableName);
+        const managedExecutablePath = posix.join(managedDirectoryPath, executableName);
+
+        const candidates = await resolveCommandPathCandidates({
+            env: {
+                PATH: [brokenDirectoryPath, managedDirectoryPath].join(posix.delimiter),
+            },
+            executableNames: [executableName],
+            pathExists: (path) => {
+                if (path === brokenExecutablePath) {
+                    return Promise.reject(new Error("permission denied"));
+                }
+
+                return Promise.resolve(path === managedExecutablePath);
+            },
+            platform: "linux",
+        });
+
+        expect(candidates).toEqual([
+            {
+                directoryPath: managedDirectoryPath,
+                path: managedExecutablePath,
+            },
+        ]);
+    });
+
     test("preserves POSIX empty PATH segments as current-directory entries", async () => {
         const executableName = "oo";
         const currentDirectoryExecutablePath = posix.join(".", executableName);

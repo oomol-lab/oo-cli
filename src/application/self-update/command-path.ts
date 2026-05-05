@@ -193,7 +193,9 @@ async function resolveFirstPathCandidatePath(options: {
             executableName,
         );
 
-        if (await options.pathExists(candidatePath)) {
+        const exists = await options.pathExists(candidatePath).catch(() => false);
+
+        if (exists) {
             return candidatePath;
         }
     }
