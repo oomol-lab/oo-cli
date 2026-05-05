@@ -108,4 +108,57 @@ describe("writeSelfUpdatePathNoteIfNeeded", () => {
 
         expect(stdout.read()).toContain("Add /home/demo/.local/bin to PATH");
     });
+
+    test("prints a shadowing note when PATH resolves another oo before the managed directory", () => {
+        const stdout = createTextBuffer();
+
+        writeSelfUpdatePathNoteIfNeeded({
+            commandResolution: {
+                path: "/opt/old/bin/oo",
+                status: "shadowed",
+            },
+            executableDirectory,
+            pathConfiguration: { status: "already-configured" },
+            stdout: stdout.writer,
+            translator,
+        });
+
+        expect(stdout.read()).toBe(
+            "PATH currently resolves oo to /opt/old/bin/oo before the managed directory /home/demo/.local/bin. Move /home/demo/.local/bin earlier in PATH or remove that oo entry, then restart your shell.\n",
+        );
+    });
+
+    test("does not print a shadowing note when the warning is disabled", () => {
+        const stdout = createTextBuffer();
+
+        writeSelfUpdatePathNoteIfNeeded({
+            commandResolution: {
+                path: "/opt/custom/bin/oo",
+                status: "shadowed",
+            },
+            executableDirectory,
+            pathConfiguration: { status: "already-configured" },
+            showPathShadowingWarning: false,
+            stdout: stdout.writer,
+            translator,
+        });
+
+        expect(stdout.read()).toBe("");
+    });
+
+    test("does not print a shadowing note when the managed directory is missing", () => {
+        const stdout = createTextBuffer();
+
+        writeSelfUpdatePathNoteIfNeeded({
+            commandResolution: {
+                status: "managedDirectoryMissing",
+            },
+            executableDirectory,
+            pathConfiguration: { status: "already-configured" },
+            stdout: stdout.writer,
+            translator,
+        });
+
+        expect(stdout.read()).toBe("");
+    });
 });

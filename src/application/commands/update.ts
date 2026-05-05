@@ -1,5 +1,6 @@
 import type { CliCommandDefinition } from "../contracts/cli.ts";
 
+import type { SelfUpdateCommandResolutionResult, SelfUpdatePathConfigurationResult } from "../contracts/self-update.ts";
 import process from "node:process";
 import { z } from "zod";
 import {
@@ -16,6 +17,7 @@ import {
 } from "../self-update/core.ts";
 import { detectInstallationMethodFromExecPath } from "../self-update/installation.ts";
 import { resolveSelfUpdateModifyPath } from "../self-update/modify-path-preference.ts";
+import { resolveSelfUpdateShowPathShadowingWarning } from "../self-update/path-shadowing-warning-preference.ts";
 import { writeSelfUpdatePathNoteIfNeeded } from "./self-update-output.ts";
 import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
 import { writeLine } from "./shared/output.ts";
@@ -44,6 +46,21 @@ export const updateCommand: CliCommandDefinition<
             env: context.env,
             modifyPathFlag: input.modifyPath,
         });
+        const showPathShadowingWarning = resolveSelfUpdateShowPathShadowingWarning({
+            env: context.env,
+        });
+        const writePathNote = (pathNoteResult: {
+            commandResolution: SelfUpdateCommandResolutionResult;
+            executableDirectory: string;
+            pathConfiguration: SelfUpdatePathConfigurationResult;
+        }): void => {
+            writeSelfUpdatePathNoteIfNeeded({
+                ...pathNoteResult,
+                showPathShadowingWarning,
+                stdout: context.stdout,
+                translator: context.translator,
+            });
+        };
 
         if (context.version === selfUpdateDevelopmentVersion) {
             writeLine(
@@ -100,7 +117,7 @@ export const updateCommand: CliCommandDefinition<
                         ...context.selfUpdateRuntime,
                     },
                 });
-                const { executableDirectory, pathConfiguration }
+                const { commandResolution, executableDirectory, pathConfiguration }
                     = await ensureSelfUpdateExecutableDirectoryOnPath({
                         modifyPath: effectiveModifyPath,
                         runtime: {
@@ -117,11 +134,10 @@ export const updateCommand: CliCommandDefinition<
                         version: context.version,
                     }),
                 );
-                writeSelfUpdatePathNoteIfNeeded({
+                writePathNote({
+                    commandResolution,
                     executableDirectory,
                     pathConfiguration,
-                    stdout: context.stdout,
-                    translator: context.translator,
                 });
                 return;
             }
@@ -165,11 +181,10 @@ export const updateCommand: CliCommandDefinition<
                         version: context.version,
                     }),
                 );
-                writeSelfUpdatePathNoteIfNeeded({
+                writePathNote({
+                    commandResolution: result.commandResolution,
                     executableDirectory: result.executableDirectory,
                     pathConfiguration: result.pathConfiguration,
-                    stdout: context.stdout,
-                    translator: context.translator,
                 });
                 return;
             }
@@ -181,11 +196,10 @@ export const updateCommand: CliCommandDefinition<
                     version: latestVersion,
                 }),
             );
-            writeSelfUpdatePathNoteIfNeeded({
+            writePathNote({
+                commandResolution: result.commandResolution,
                 executableDirectory: result.executableDirectory,
                 pathConfiguration: result.pathConfiguration,
-                stdout: context.stdout,
-                translator: context.translator,
             });
         }
         catch (error) {

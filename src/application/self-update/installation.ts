@@ -1,4 +1,5 @@
-import { readPathModule, resolveSelfUpdatePaths } from "./paths.ts";
+import { isPathInsideDirectory, isSamePath } from "./path-comparison.ts";
+import { resolveSelfUpdatePaths } from "./paths.ts";
 
 export const packageManagerInstallationMethods = [
     "bun",
@@ -122,6 +123,7 @@ const packageManagerPathDetectors: Array<{
     {
         matches: pathSegments =>
             pathSegments.includes("fnm_multishells")
+            || pathSegments.includes("npm-global")
             || pathSegments.includes("npm_global")
             || pathSegments.includes(".nvm"),
         method: "npm",
@@ -167,50 +169,4 @@ function isManagedNativeExecutablePath(options: {
         directoryPath: paths.versionsDirectory,
         platform: options.platform,
     });
-}
-
-function isSamePath(options: {
-    leftPath: string;
-    platform: NodeJS.Platform;
-    rightPath: string;
-}): boolean {
-    return normalizeComparablePath(options.leftPath, options.platform)
-        === normalizeComparablePath(options.rightPath, options.platform);
-}
-
-function isPathInsideDirectory(options: {
-    candidatePath: string;
-    directoryPath: string;
-    platform: NodeJS.Platform;
-}): boolean {
-    const pathModule = readPathModule(options.platform);
-    const comparableCandidatePath = normalizeComparablePath(
-        options.candidatePath,
-        options.platform,
-    );
-    const comparableDirectoryPath = normalizeComparablePath(
-        options.directoryPath,
-        options.platform,
-    );
-    const relativePath = pathModule.relative(
-        comparableDirectoryPath,
-        comparableCandidatePath,
-    );
-
-    return relativePath !== ""
-        && relativePath !== "."
-        && !relativePath.startsWith("..")
-        && !pathModule.isAbsolute(relativePath);
-}
-
-function normalizeComparablePath(
-    path: string,
-    platform: NodeJS.Platform,
-): string {
-    const pathModule = readPathModule(platform);
-    const normalizedPath = pathModule.normalize(path.trim());
-
-    return platform === "win32"
-        ? normalizedPath.toLowerCase()
-        : normalizedPath;
 }

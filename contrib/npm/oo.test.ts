@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
@@ -30,6 +31,21 @@ describe("oo wrapper", () => {
     test("detects npm from the installed oo path under fnm_multishells", () => {
         expect(wrapperModule.detectPackageManagerFromOoPath([
             "/Users/demo/.local/state/fnm_multishells/12345/bin/oo",
+        ])).toBe("npm");
+    });
+
+    test("detects npm from the installed oo path under npm-global", () => {
+        expect(wrapperModule.detectPackageManagerFromOoPath([
+            join(
+                "Users",
+                "demo",
+                "Library",
+                "Application Support",
+                "QClaw",
+                "npm-global",
+                "bin",
+                "oo",
+            ),
         ])).toBe("npm");
     });
 

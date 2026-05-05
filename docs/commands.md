@@ -122,6 +122,10 @@ Install one managed `oo` release into the local self-managed runtime.
   `yes`, `on`, case-insensitive) is equivalent to `--no-modify-path`. The flag
   and the env var combine with OR semantics: either one being set skips PATH
   configuration.
+- Environment: setting `OO_HIDE_PATH_SHADOWING_WARNING` to a truthy value hides
+  the shadowing note for users who intentionally keep another `oo` earlier on
+  `PATH`. It does not change managed installation, PATH setup, or legacy
+  cleanup behavior.
 - Output: on success, the CLI prints the installed version and the final
   executable path.
 - Output: when `stderr` is an interactive TTY, the CLI also renders colored
@@ -131,7 +135,12 @@ Install one managed `oo` release into the local self-managed runtime.
 - Notes: after a successful install, the CLI best-effort removes legacy global
   `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
   when `PATH` yields no `oo` candidates, the CLI falls back to the current
-  command path. Cleanup failures do not change the command result.
+  command path. For npm installs, cleanup targets the detected global prefix
+  when it can be inferred. Cleanup failures do not change the command result.
+- Notes: after PATH setup and legacy cleanup, if the current `PATH` still
+  resolves `oo` to another executable before the managed executable directory,
+  install prints a shadowing note that identifies that path and the managed
+  directory.
 - Notes: when automatic PATH modification is enabled, install ensures zsh
   startup profiles `.zprofile` and `.zshenv` contain the managed PATH snippet,
   even if the current `PATH` already contains the executable directory. When the
@@ -160,6 +169,10 @@ Update the managed `oo` install to the latest published release.
   `yes`, `on`, case-insensitive) is equivalent to `--no-modify-path`. The flag
   and the env var combine with OR semantics: either one being set skips PATH
   configuration.
+- Environment: setting `OO_HIDE_PATH_SHADOWING_WARNING` to a truthy value hides
+  the shadowing note for users who intentionally keep another `oo` earlier on
+  `PATH`. It does not change managed installation, PATH setup, or legacy
+  cleanup behavior.
 - Output: when the current version is already the latest published release, the
   CLI prints the up-to-date message.
 - Output: when a newer published release is available, the CLI prints the
@@ -174,7 +187,12 @@ Update the managed `oo` install to the latest published release.
 - Notes: after a successful update, the CLI best-effort removes legacy global
   `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
   when `PATH` yields no `oo` candidates, the CLI falls back to the current
-  command path. Cleanup failures do not change the command result.
+  command path. For npm installs, cleanup targets the detected global prefix
+  when it can be inferred. Cleanup failures do not change the command result.
+- Notes: after PATH setup and legacy cleanup, if the current `PATH` still
+  resolves `oo` to another executable before the managed executable directory,
+  update prints a shadowing note that identifies that path and the managed
+  directory.
 - Notes: when automatic PATH modification is enabled, update ensures zsh
   startup profiles `.zprofile` and `.zshenv` contain the managed PATH snippet,
   even if the current `PATH` already contains the executable directory. When the

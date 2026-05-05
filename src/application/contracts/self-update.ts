@@ -30,6 +30,15 @@ export interface SelfUpdatePathConfigurationResult {
     failedTargets?: readonly string[];
 }
 
+export type SelfUpdateCommandResolutionResult
+    = | {
+        status: "managed" | "managedDirectoryMissing" | "missing";
+    }
+    | {
+        path: string;
+        status: "shadowed";
+    };
+
 export interface SelfUpdateRuntimeOverrides {
     /**
      * Gates the Windows HKCU\Environment registry write. Must be true for the
@@ -41,6 +50,7 @@ export interface SelfUpdateRuntimeOverrides {
     configurePath?: (
         options: SelfUpdatePathConfigurationOptions,
     ) => Promise<SelfUpdatePathConfigurationResult>;
+    pathExists?: (path: string) => Promise<boolean>;
     resolveCommandPath?: (commandName: string) => string | null;
     runCommand?: (
         options: SelfUpdateCommandRunOptions,
