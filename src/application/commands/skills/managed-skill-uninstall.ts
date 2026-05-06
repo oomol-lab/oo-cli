@@ -4,15 +4,9 @@ import type {
     BundledSkillName,
 } from "./embedded-assets.ts";
 import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
-import {
-    readFile,
-    realpath,
-} from "node:fs/promises";
-import { join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
 import {
-    isNodeNotFoundError,
     removePath,
 } from "./bundled-skill-filesystem.ts";
 import {
@@ -23,7 +17,15 @@ import {
     readInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
-import { createMissingManagedSkillHostError, resolveAvailableManagedSkillHosts, resolveManagedSkillHostInstallations } from "./managed-skill-hosts.ts";
+import {
+    hasMatchingSkillFileContent,
+    readSkillFileContent,
+} from "./local-skill-ownership.ts";
+import {
+    createMissingManagedSkillHostError,
+    resolveAvailableManagedSkillHosts,
+    resolveManagedSkillHostInstallations,
+} from "./managed-skill-hosts.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     isLocalSkillPathContained,
@@ -494,10 +496,10 @@ async function resolveLocalSkillUninstallTargets(options: {
         }
 
         if (
-            await isManagedLocalSkillInstallation({
-                installedSkillDirectoryPath: installation.installedSkillDirectoryPath,
-                localCanonicalSkillDirectoryPath: options.canonicalSkillDirectoryPath,
-                localSkillFileContent,
+            localSkillFileContent !== undefined
+            && await hasMatchingSkillFileContent({
+                expectedContent: localSkillFileContent,
+                skillDirectoryPath: installation.installedSkillDirectoryPath,
             })
         ) {
             targets.push(installation);
@@ -526,64 +528,6 @@ async function resolveUnmanagedSkillUninstallInstallations(options: {
     }
 
     return unmanagedInstallations;
-}
-
-async function isManagedLocalSkillInstallation(options: {
-    installedSkillDirectoryPath: string;
-    localCanonicalSkillDirectoryPath: string;
-    localSkillFileContent: string | undefined;
-}): Promise<boolean> {
-    if (
-        await isSameRealPath(
-            options.installedSkillDirectoryPath,
-            options.localCanonicalSkillDirectoryPath,
-        )
-    ) {
-        return true;
-    }
-
-    if (options.localSkillFileContent === undefined) {
-        return false;
-    }
-
-    const installedSkillFileContent = await readSkillFileContent(
-        options.installedSkillDirectoryPath,
-    );
-
-    return installedSkillFileContent === options.localSkillFileContent;
-}
-
-async function isSameRealPath(leftPath: string, rightPath: string): Promise<boolean> {
-    try {
-        const [leftRealPath, rightRealPath] = await Promise.all([
-            realpath(leftPath),
-            realpath(rightPath),
-        ]);
-
-        return leftRealPath === rightRealPath;
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
-}
-
-async function readSkillFileContent(
-    skillDirectoryPath: string,
-): Promise<string | undefined> {
-    try {
-        return await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8");
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return undefined;
-        }
-
-        throw error;
-    }
 }
 
 async function removeLocalCanonicalSkillOnly(options: {

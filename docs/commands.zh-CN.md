@@ -265,35 +265,32 @@ skills。
 
 ### `oo skills list`
 
-列出受支持的本地 skill 目录中由 oo 管理的 skill。
+列出 bundled、registry 和 local skill。
 
-- 所有权规则：命令会扫描每个已存在的受支持本地 skill 根目录：
+- 选项：`--source <source>`、`-s <source>` 将列表过滤为一个来源：
+  `bundled`、`registry` 或 `local`。
+- managed 所有权规则：命令会扫描每个已存在的受支持本地 skill 根目录：
   `${CODEX_HOME:-~/.codex}/skills`、`~/.claude/skills`，以及
   `${HERMES_HOME:-~/.hermes}/skills`、`~/.codebuddy/skills`、
   `~/.workbuddy/skills`、`~/.trae/skills`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills`、`~/.qoderwork/skills`。只保留包含
   可解析 `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
+- local 所有权规则：命令会扫描 `<config-dir>/skills/local`，只保留
+  `SKILL.md` frontmatter 中包含匹配的非空 `name` 和非空 `description` 的子目录。
 - 输出：文本输出会先打印摘要行，再为每个唯一的可见 skill 身份打印一个块。
-  如果多个 Agent 中的安装具有相同 `name`、来源和版本，则会折叠到同一个块中。
+  如果多个 Agent 中的安装具有相同 `name`、来源、package 和版本，则会折叠到同一个
+  块中。
 - 排序：bundled skills 会排在最前面；其中 `oo` 优先，其次
   `oo-find-skills`，再其次 `oo-create-skill`，再其次 `oo-publish-skill`；其余
-  skill 按名称排序。每个块内的 Agent 名称按 `Codex`、`Claude Code`、
+  skill 按名称排序。managed 块内的 Agent 名称按 `Codex`、`Claude Code`、
   `Hermes`、`CodeBuddy`、`WorkBuddy`、`Trae`、`OpenClaw`、`QoderWork` 顺序显示。
-- 输出：每个 skill 块会显示 skill 名称、Agents、来源 package、内置或本地标记，以
-  及记录的版本号。
-- 说明：如果折叠后的 skill 安装在多个受支持 Agent 中，`Agents` 字段会列出所有
-  匹配的 Agent。
-
-### `oo skills list-local`
-
-列出本地 canonical skill 存储中的 skill。
-
-- 所有权规则：命令会扫描 `<config-dir>/skills/local`，只保留 `SKILL.md`
-  frontmatter 中包含匹配的非空 `name` 和非空 `description` 的子目录。
-- 输出：文本输出会先打印摘要行，再为每个本地 skill 打印一个块。
-- 排序：本地 skill 按名称排序。
-- 输出：每个 skill 块会显示 skill 名称、本地来源标记、frontmatter 中记录的
-  `metadata.version`（如果存在），以及 canonical 本地路径。
+- 输出：每个 skill 块会显示 skill 名称，以及 `Host`、`Source` 和 `Version`。
+  `Source` 为 `bundled`、`registry` 或 `local`。registry 和 local 块还会显示
+  `Package`；local 块还会显示 `Path`。`Host` 会列出匹配的受支持 Agent；如果
+  skill 仅存在于 canonical 本地存储，则为 `<local>`。local 的 `Path` 显示 skill
+  本体路径，不显示 Agent 安装路径。
+- 说明：如果折叠后的 skill 安装在多个受支持 Agent 中，`Host` 字段会列出所有匹配的
+  Agent。
 
 ### `oo skills preflight`
 

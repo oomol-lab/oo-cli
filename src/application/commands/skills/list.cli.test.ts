@@ -1,8 +1,8 @@
 import { mkdir } from "node:fs/promises";
+
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
-
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
@@ -17,15 +17,25 @@ import {
     resolveTraeHomeDirectory,
     resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
-import { resolveLocalSkillCanonicalDirectoryPath } from "./managed-skill-paths.ts";
+import {
+    resolveLocalSkillCanonicalDirectoryPath,
+    resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillMetadataFilePath,
+} from "./managed-skill-paths.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 const managedSkillNameColor = "#59F78D";
 const managedSkillSourceColor = "#CAA8FA";
 const managedSkillVersionColor = "#7DD3FC";
+const bundledSkillNames = [
+    "oo",
+    "oo-find-skills",
+    "oo-create-skill",
+    "oo-publish-skill",
+] as const;
 
 describe("skills list CLI", () => {
-    test("lists oo-managed skills with source and version details", async () => {
+    test("lists skills with source, package, and version details", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillsDirectoryPath = join(codexHomeDirectory, "skills");
@@ -55,31 +65,13 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 5 oo-managed skills.",
+                    "✓ Found 5 skills.",
                     "",
-                    "oo",
-                    "  Host: Codex",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-find-skills",
-                    "  Host: Codex",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-create-skill",
-                    "  Host: Codex",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-publish-skill",
-                    "  Host: Codex",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
+                    ...createExpectedBundledSkillLines("Codex"),
                     "alpha-skill",
                     "  Host: Codex",
-                    "  Source: @oomol/alpha",
+                    "  Source: registry",
+                    "  Package: @oomol/alpha",
                     "  Version: 1.2.3",
                     "",
                 ].join("\n"),
@@ -92,7 +84,7 @@ describe("skills list CLI", () => {
 
     test("lists local canonical skills created by init", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -104,7 +96,7 @@ describe("skills list CLI", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(codeBuddyHomeDirectory, { recursive: true });
 
             const initResult = await sandbox.run([
                 "skills",
@@ -113,17 +105,26 @@ describe("skills list CLI", () => {
                 "--description",
                 "Write campaign briefs using a known package workflow.",
             ]);
-            const result = await sandbox.run(["skills", "list-local"]);
+            const allSourcesResult = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
+            const result = await sandbox.run(["skills", "list", "--source", "local"]);
 
             expect(initResult.exitCode).toBe(0);
+            expect(allSourcesResult.exitCode).toBe(0);
+            expect(allSourcesResult.stderr).toBe("");
+            expect(allSourcesResult.stdout).toContain("campaign-writer\n");
+            expect(allSourcesResult.stdout).toContain("  Source: local\n");
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 1 local skills.",
+                    "✓ Found 1 skills.",
                     "",
                     "campaign-writer",
+                    "  Host: CodeBuddy",
                     "  Source: local",
+                    "  Package: <local>",
                     "  Version: unknown",
                     `  Path: ${canonicalSkillDirectoryPath}`,
                     "",
@@ -135,15 +136,102 @@ describe("skills list CLI", () => {
         }
     });
 
+    test("filters listed skills by source with the short option", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "alpha-skill",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                "# Alpha\n",
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.2.3",
+                }),
+            );
+
+            const result = await sandbox.run(["skills", "list", "-s", "registry"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "✓ Found 1 skills.",
+                    "",
+                    "alpha-skill",
+                    "  Host: Codex",
+                    "  Source: registry",
+                    "  Package: @oomol/alpha",
+                    "  Version: 1.2.3",
+                    "",
+                ].join("\n"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("validates the source filter", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["skills", "list", "--source", "unknown"]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Invalid source: unknown. Use bundled, registry, or local.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("prints a no-results message when no local skills exist", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["skills", "list", "--source", "local"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe("! No skills were found.\n");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("treats the removed list-local command as unknown", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             const result = await sandbox.run(["skills", "list-local"]);
 
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe("! No local skills were found.\n");
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("Unknown command: list-local.");
         }
         finally {
             await sandbox.cleanup();
@@ -168,28 +256,9 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 4 oo-managed skills.",
+                    "✓ Found 4 skills.",
                     "",
-                    "oo",
-                    "  Host: OpenClaw",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-find-skills",
-                    "  Host: OpenClaw",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-create-skill",
-                    "  Host: OpenClaw",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-publish-skill",
-                    "  Host: OpenClaw",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
+                    ...createExpectedBundledSkillLines("OpenClaw"),
                 ].join("\n"),
             );
         }
@@ -216,28 +285,9 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 4 oo-managed skills.",
+                    "✓ Found 4 skills.",
                     "",
-                    "oo",
-                    "  Host: QoderWork",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-find-skills",
-                    "  Host: QoderWork",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-create-skill",
-                    "  Host: QoderWork",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-publish-skill",
-                    "  Host: QoderWork",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
+                    ...createExpectedBundledSkillLines("QoderWork"),
                 ].join("\n"),
             );
         }
@@ -264,28 +314,9 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 4 oo-managed skills.",
+                    "✓ Found 4 skills.",
                     "",
-                    "oo",
-                    "  Host: CodeBuddy",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-find-skills",
-                    "  Host: CodeBuddy",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-create-skill",
-                    "  Host: CodeBuddy",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-publish-skill",
-                    "  Host: CodeBuddy",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
+                    ...createExpectedBundledSkillLines("CodeBuddy"),
                 ].join("\n"),
             );
         }
@@ -312,28 +343,9 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 4 oo-managed skills.",
+                    "✓ Found 4 skills.",
                     "",
-                    "oo",
-                    "  Host: WorkBuddy",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-find-skills",
-                    "  Host: WorkBuddy",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-create-skill",
-                    "  Host: WorkBuddy",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-publish-skill",
-                    "  Host: WorkBuddy",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
+                    ...createExpectedBundledSkillLines("WorkBuddy"),
                 ].join("\n"),
             );
         }
@@ -360,28 +372,9 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 4 oo-managed skills.",
+                    "✓ Found 4 skills.",
                     "",
-                    "oo",
-                    "  Host: Trae",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-find-skills",
-                    "  Host: Trae",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-create-skill",
-                    "  Host: Trae",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-publish-skill",
-                    "  Host: Trae",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
+                    ...createExpectedBundledSkillLines("Trae"),
                 ].join("\n"),
             );
         }
@@ -408,28 +401,9 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 4 oo-managed skills.",
+                    "✓ Found 4 skills.",
                     "",
-                    "oo",
-                    "  Host: Hermes",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-find-skills",
-                    "  Host: Hermes",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-create-skill",
-                    "  Host: Hermes",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-publish-skill",
-                    "  Host: Hermes",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
+                    ...createExpectedBundledSkillLines("Hermes"),
                 ].join("\n"),
             );
         }
@@ -458,28 +432,9 @@ describe("skills list CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "✓ Found 4 oo-managed skills.",
+                    "✓ Found 4 skills.",
                     "",
-                    "oo",
-                    "  Host: Codex, Claude Code",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-find-skills",
-                    "  Host: Codex, Claude Code",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-create-skill",
-                    "  Host: Codex, Claude Code",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
-                    "oo-publish-skill",
-                    "  Host: Codex, Claude Code",
-                    "  Source: bundled",
-                    "  Version: 9.9.9",
-                    "",
+                    ...createExpectedBundledSkillLines("Codex, Claude Code"),
                 ].join("\n"),
             );
         }
@@ -496,7 +451,7 @@ describe("skills list CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(result.stdout).toBe("! No oo-managed skills were found.\n");
+            expect(result.stdout).toBe("! No skills were found.\n");
         }
         finally {
             await sandbox.cleanup();
@@ -534,14 +489,30 @@ describe("skills list CLI", () => {
                 `${colors.dim("Host:")} ${colors.hex(managedSkillSourceColor)("Codex")}`,
             );
             expect(result.stdout).toContain(
-                `${colors.dim("Source:")} ${colors.hex(managedSkillSourceColor)("@oomol/alpha")}`,
+                `${colors.dim("Source:")} ${colors.hex(managedSkillSourceColor)("registry")}`,
+            );
+            expect(result.stdout).toContain(
+                `${colors.dim("Package:")} ${colors.hex(managedSkillSourceColor)("@oomol/alpha")}`,
             );
             expect(result.stdout).toContain(
                 `${colors.dim("Version:")} ${colors.hex(managedSkillVersionColor)("1.2.3")}`,
             );
+            expect(result.stdout).not.toContain(colors.dim("Path:"));
         }
         finally {
             await sandbox.cleanup();
         }
     });
 });
+
+function createExpectedBundledSkillLines(
+    hostName: string,
+): string[] {
+    return bundledSkillNames.flatMap(skillName => [
+        skillName,
+        `  Host: ${hostName}`,
+        "  Source: bundled",
+        "  Version: 9.9.9",
+        "",
+    ]);
+}

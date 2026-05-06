@@ -126,13 +126,9 @@ export const enMessages = {
     "commands.skills.search.summary":
         "Search published skills",
     "commands.skills.list.description":
-        "List oo-managed skills from supported local skill directories.",
+        "List bundled, registry, and local skills.",
     "commands.skills.list.summary":
-        "List oo-managed skills",
-    "commands.skills.listLocal.description":
-        "List skills from local canonical skill storage.",
-    "commands.skills.listLocal.summary":
-        "List local skills",
+        "List skills",
     "commands.skills.check.description":
         "Check whether this environment can edit local skills.",
     "commands.skills.check.summary": "Preflight local skill editing",
@@ -424,6 +420,8 @@ export const enMessages = {
         "Package {packageName} does not publish any skills.",
     "errors.skills.install.nonInteractiveSelection":
         "Package {packageName} has multiple skills. Use --skill <name>, --all -y, or run in an interactive terminal.",
+    "errors.skills.list.invalidSource":
+        "Invalid source: {value}. Use bundled, registry, or local.",
     "errors.skills.install.packageDownloadError":
         "The skills package download failed: {message}",
     "errors.skills.install.packageDownloadFailed":
@@ -531,6 +529,8 @@ export const enMessages = {
     "options.json": "Alias for --format=json",
     "options.keywords":
         "Specify comma-separated keywords to refine the skill search",
+    "options.skillListSource":
+        "Filter by skill source (bundled, registry, or local)",
     "options.icon": "Set the generated skill icon reference",
     "options.title": "Set the generated skill display title",
     "options.visibility":
@@ -597,7 +597,7 @@ export const enMessages = {
     "skills.check.success":
         "Local skill editing is ready. Writable storage: {path}. Supported hosts: {count}.",
     "skills.list.noResults":
-        "No oo-managed skills were found.",
+        "No skills were found.",
     "skills.list.host": "Host",
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codebuddy": "CodeBuddy",
@@ -608,15 +608,10 @@ export const enMessages = {
     "skills.list.host.trae": "Trae",
     "skills.list.host.workbuddy": "WorkBuddy",
     "skills.list.source": "Source",
-    "skills.list.source.bundled": "bundled",
-    "skills.list.source.local": "local",
+    "skills.list.package": "Package",
     "skills.list.path": "Path",
     "skills.list.summary":
-        "Found {count} oo-managed skills.",
-    "skills.listLocal.noResults":
-        "No local skills were found.",
-    "skills.listLocal.summary":
-        "Found {count} local skills.",
+        "Found {count} skills.",
     "labels.blocks": "Blocks:",
     "labels.status": "Status",
     "labels.version": "Version",
@@ -872,13 +867,9 @@ export const zhMessages = {
     "commands.skills.search.summary":
         "搜索已发布的 skill",
     "commands.skills.list.description":
-        "列出受支持的本地 skill 目录中由 oo 管理的 skill。",
+        "列出 bundled、registry 和 local skill。",
     "commands.skills.list.summary":
-        "列出由 oo 管理的 skill",
-    "commands.skills.listLocal.description":
-        "列出本地 canonical skill 存储中的 skill。",
-    "commands.skills.listLocal.summary":
-        "列出本地 skill",
+        "列出 skill",
     "commands.skills.check.description":
         "检查当前环境是否有权限编辑本地 skills。",
     "commands.skills.check.summary": "预检本地 skill 编辑环境",
@@ -1158,6 +1149,8 @@ export const zhMessages = {
         "包 {packageName} 没有发布任何 skill。",
     "errors.skills.install.nonInteractiveSelection":
         "包 {packageName} 包含多个 skill。请使用 --skill <name>、--all -y，或在交互终端中运行。",
+    "errors.skills.list.invalidSource":
+        "无效的 source：{value}。请使用 bundled、registry 或 local。",
     "errors.skills.install.packageDownloadError":
         "下载 skills 包失败：{message}",
     "errors.skills.install.packageDownloadFailed":
@@ -1260,6 +1253,8 @@ export const zhMessages = {
     "options.json": "--format=json 的别名",
     "options.keywords":
         "指定用于细化 skill 搜索的逗号分隔关键词",
+    "options.skillListSource":
+        "按 skill 来源过滤（bundled、registry 或 local）",
     "options.icon": "设置生成的 skill icon 引用",
     "options.title": "设置生成的 skill 显示标题",
     "options.visibility":
@@ -1325,7 +1320,7 @@ export const zhMessages = {
     "skills.check.success":
         "本地 skill 编辑环境可用。可写存储：{path}。受支持 Agents：{count}。",
     "skills.list.noResults":
-        "未找到由 oo 管理的 skill。",
+        "未找到 skill。",
     "skills.list.host": "Agents",
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codebuddy": "CodeBuddy",
@@ -1336,15 +1331,10 @@ export const zhMessages = {
     "skills.list.host.trae": "Trae",
     "skills.list.host.workbuddy": "WorkBuddy",
     "skills.list.source": "来源",
-    "skills.list.source.bundled": "内置",
-    "skills.list.source.local": "本地",
+    "skills.list.package": "Package",
     "skills.list.path": "路径",
     "skills.list.summary":
-        "找到 {count} 个由 oo 管理的 skill。",
-    "skills.listLocal.noResults":
-        "未找到本地 skill。",
-    "skills.listLocal.summary":
-        "找到 {count} 个本地 skill。",
+        "找到 {count} 个 skill。",
     "labels.blocks": "功能块：",
     "labels.status": "状态",
     "labels.version": "版本",

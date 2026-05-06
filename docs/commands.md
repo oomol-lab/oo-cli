@@ -304,39 +304,36 @@ supported host directory that already exists.
 
 ### `oo skills list`
 
-List oo-managed skills from supported local skill directories.
+List bundled, registry, and local skills.
 
-- Ownership rule: the command scans each existing supported local skill root:
+- Options: `--source <source>`, `-s <source>` filters the list to one source:
+  `bundled`, `registry`, or `local`.
+- Managed ownership rule: the command scans each existing supported local skill root:
   `${CODEX_HOME:-~/.codex}/skills`, `~/.claude/skills`,
   `${HERMES_HOME:-~/.hermes}/skills`, `~/.codebuddy/skills`,
   `~/.workbuddy/skills`, `~/.trae/skills`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills`, and `~/.qoderwork/skills`. It keeps
   only child directories whose
   `.oo-metadata.json` can be parsed and contains a non-empty `version`.
+- Local ownership rule: the command scans `<config-dir>/skills/local` and keeps
+  child directories whose `SKILL.md` frontmatter includes a matching non-empty
+  `name` and a non-empty `description`.
 - Output: text output prints a summary line and one block per unique visible
-  skill identity. Identical `name`/source/version installs across multiple
-  hosts are folded into one block.
+  skill identity. Identical `name`/source/package/version installs across
+  multiple hosts are folded into one block.
 - Ordering: bundled skills are listed first when present, with `oo` before
   `oo-find-skills` before `oo-create-skill` before `oo-publish-skill`; the
-  remaining skills are ordered by skill name. Host names within a block follow
-  `Codex`, `Claude Code`, `Hermes`, `CodeBuddy`, `WorkBuddy`, `Trae`,
+  remaining skills are ordered by skill name. Host names within a managed block
+  follow `Codex`, `Claude Code`, `Hermes`, `CodeBuddy`, `WorkBuddy`, `Trae`,
   `OpenClaw`, `QoderWork` order.
-- Output: each skill block shows the skill name, host, source package or
-  bundled/local marker, and recorded version.
+- Output: each skill block shows the skill name plus `Host`, `Source`, and
+  `Version`. `Source` is `bundled`, `registry`, or `local`. Registry and local
+  blocks also show `Package`; local blocks also show `Path`. `Host` lists
+  matching supported hosts, or `<local>` when the skill only exists in canonical
+  local storage. Local `Path` shows the skill body path, not the host
+  installation path.
 - Notes: when a folded skill is installed in multiple supported hosts, the
   `Host` field lists all matching hosts.
-
-### `oo skills list-local`
-
-List skills from local canonical skill storage.
-
-- Ownership rule: the command scans `<config-dir>/skills/local` and keeps child
-  directories whose `SKILL.md` frontmatter includes a matching non-empty `name`
-  and a non-empty `description`.
-- Output: text output prints a summary line and one block per local skill.
-- Ordering: local skills are ordered by skill name.
-- Output: each skill block shows the skill name, local source marker, recorded
-  frontmatter `metadata.version` when present, and canonical local path.
 
 ### `oo skills preflight`
 

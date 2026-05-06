@@ -16,6 +16,9 @@ describe("message catalog", () => {
         expect(enMessages["errors.shared.invalidPositiveIntegerOption"]).toBe(
             "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
         );
+        expect(enMessages["errors.skills.list.invalidSource"]).toBe(
+            "Invalid source: {value}. Use bundled, registry, or local.",
+        );
         expect(enMessages["labels.blocks"]).toBe("Blocks:");
         expect(enMessages["labels.status"]).toBe("Status");
         expect(enMessages["labels.version"]).toBe("Version");
@@ -30,6 +33,9 @@ describe("message catalog", () => {
         );
         expect(zhMessages["errors.shared.invalidPositiveIntegerOption"]).toBe(
             "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
+        );
+        expect(zhMessages["errors.skills.list.invalidSource"]).toBe(
+            "无效的 source：{value}。请使用 bundled、registry 或 local。",
         );
         expect(zhMessages["labels.blocks"]).toBe("功能块：");
         expect(zhMessages["labels.status"]).toBe("状态");
@@ -54,6 +60,12 @@ describe("message catalog", () => {
             "packageInfo.text.blocks",
             "search.text.blocks",
             "skills.list.version",
+            "skills.list.source.bundled",
+            "skills.list.source.local",
+            "skills.listLocal.noResults",
+            "skills.listLocal.summary",
+            "commands.skills.listLocal.description",
+            "commands.skills.listLocal.summary",
             "versionInfo.version",
         ] as const;
 
