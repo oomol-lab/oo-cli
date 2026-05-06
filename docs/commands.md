@@ -381,10 +381,10 @@ directory that already exists.
   `~/.trae-cn/skills/<skill-id>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`, and
   `~/.qoderwork/skills/<skill-id>`.
-- Publication mode: Codex, Claude Code, Trae, Trae CN, and QoderWork targets are
+- Publication mode: Codex, Claude Code, and QoderWork targets are
   published as symlinks to the canonical directory when the current platform
-  and environment allow it. Hermes, CodeBuddy, WorkBuddy, and OpenClaw targets
-  are copied.
+  and environment allow it. Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, and
+  OpenClaw targets are copied.
 - Failure behavior: if no supported agent home exists, or if the canonical
   local directory or any target directory already exists, the command exits
   non-zero before writing the skill.
@@ -546,13 +546,13 @@ Install bundled or published skills into supported local skill directories.
   the command creates that root before publishing the selected skill.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
-- Installation mode: bundled and published Codex, Claude Code, Trae, Trae CN,
-  and QoderWork skills are published to the target directory as a symlink to the
+- Installation mode: bundled and published Codex, Claude Code, and QoderWork
+  skills are published to the target directory as a symlink to the
   canonical directory when the current platform and environment allow it. When
   symlink creation fails, `oo` falls back to copying the canonical files into
   the target skills directory.
-- Installation mode: bundled and published Hermes, CodeBuddy, WorkBuddy, and
-  OpenClaw skills are copied into the target skills directory.
+- Installation mode: bundled and published Hermes, CodeBuddy, WorkBuddy, Trae,
+  Trae CN, and OpenClaw skills are copied into the target skills directory.
 - Metadata: bundled skills write a hidden `.oo-metadata.json` file whose
   `version` field matches the current `oo` version.
 - Metadata: published skills write a hidden `.oo-metadata.json` file whose

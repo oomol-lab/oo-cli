@@ -181,7 +181,7 @@ describe("skills init command", () => {
         }
     });
 
-    test("initializes a local skill by linking for Trae", async () => {
+    test("initializes a local skill by copying for Trae", async () => {
         const sandbox = await createCliSandbox();
         const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(traeHomeDirectory, "skills", "trae-skill");
@@ -210,20 +210,21 @@ describe("skills init command", () => {
             expect(result.stdout).toBe(
                 [
                     `Initialized skill trae-skill in canonical storage at ${canonicalSkillDirectoryPath}.`,
-                    `Linked skill trae-skill to ${skillDirectoryPath}.`,
+                    `Copied skill trae-skill to ${skillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
-            expect(await realpath(skillDirectoryPath)).toBe(
+            expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("initializes a local skill by linking for Trae CN", async () => {
+    test("initializes a local skill by copying for Trae CN", async () => {
         const sandbox = await createCliSandbox();
         const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(traeCnHomeDirectory, "skills", "trae-cn-skill");
@@ -252,13 +253,14 @@ describe("skills init command", () => {
             expect(result.stdout).toBe(
                 [
                     `Initialized skill trae-cn-skill in canonical storage at ${canonicalSkillDirectoryPath}.`,
-                    `Linked skill trae-cn-skill to ${skillDirectoryPath}.`,
+                    `Copied skill trae-cn-skill to ${skillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
-            expect(await realpath(skillDirectoryPath)).toBe(
+            expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
         }
         finally {
             await sandbox.cleanup();
