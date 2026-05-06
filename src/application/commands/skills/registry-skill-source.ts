@@ -34,9 +34,10 @@ export interface RegistryPackageSkillInfo {
 export function createRegistryPackageInfoRequestUrl(
     endpoint: string,
     packageName: string,
+    packageVersion = "latest",
 ): URL {
     return new URL(
-        `https://registry.${endpoint}/-/oomol/package-info/${encodeURIComponent(packageName)}/latest`,
+        `https://registry.${endpoint}/-/oomol/package-info/${encodeURIComponent(packageName)}/${encodeURIComponent(packageVersion)}`,
     );
 }
 
@@ -57,10 +58,12 @@ export async function loadRegistryPackageSkillInfo(
     packageName: string,
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+    packageVersion = "latest",
 ): Promise<RegistryPackageSkillInfo> {
     const requestUrl = createRegistryPackageInfoRequestUrl(
         account.endpoint,
         packageName,
+        packageVersion,
     );
     const rawResponse = await requestText({
         context,
@@ -79,7 +82,7 @@ export async function loadRegistryPackageSkillInfo(
             },
         ),
         fields: {
-            common: withPackageIdentity(packageName, "latest"),
+            common: withPackageIdentity(packageName, packageVersion),
         },
         init: {
             headers: {

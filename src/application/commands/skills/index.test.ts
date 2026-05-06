@@ -1754,6 +1754,336 @@ describe("skills commands", () => {
         }
     });
 
+    test("uploads installed registry skills while excluding bundled and local skills", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const registrySkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const bundledSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "local-helper",
+        );
+        const registryCanonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+        const requests: Array<{
+            authorization: string | null;
+            body: unknown;
+            method: string;
+            url: string;
+        }> = [];
+
+        try {
+            await Promise.all([
+                mkdir(registrySkillDirectoryPath, { recursive: true }),
+                mkdir(bundledSkillDirectoryPath, { recursive: true }),
+                mkdir(localSkillDirectoryPath, { recursive: true }),
+                mkdir(registryCanonicalSkillDirectoryPath, { recursive: true }),
+            ]);
+            await writeAuthFile(sandbox);
+            await Bun.write(join(registrySkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+            await Bun.write(join(registryCanonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(registrySkillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: "openai",
+                    version: "0.0.3",
+                }),
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(registryCanonicalSkillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: "openai",
+                    version: "0.0.4",
+                }),
+            );
+            await Bun.write(
+                resolveBundledSkillMetadataFilePath(bundledSkillDirectoryPath),
+                renderSkillMetadataJson({
+                    version: "9.9.9",
+                }),
+            );
+            await Bun.write(
+                join(localSkillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: local-helper",
+                    "description: Local helper",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["skills", "sync", "upload"], {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    const body = await request.json();
+
+                    requests.push({
+                        authorization: request.headers.get("Authorization"),
+                        body,
+                        method: request.method,
+                        url: request.url,
+                    });
+
+                    return new Response(JSON.stringify(body));
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe("Uploaded 1 registry skills.\n");
+            expect(requests).toHaveLength(1);
+            expect(requests[0]).toMatchObject({
+                authorization: "secret-1",
+                method: "PUT",
+                url: "https://cli-api.oomol.com/v1/skills",
+            });
+            expect(requests[0]!.body).toEqual([
+                {
+                    packageName: "openai",
+                    skillName: "chatgpt",
+                    version: "0.0.4",
+                },
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uploads registry skills with ignore patterns and explicit source", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const chatSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const captionSkillDirectoryPath = join(codexHomeDirectory, "skills", "caption");
+        const requests: Array<{
+            body: unknown;
+        }> = [];
+
+        try {
+            await Promise.all([
+                mkdir(chatSkillDirectoryPath, { recursive: true }),
+                mkdir(captionSkillDirectoryPath, { recursive: true }),
+            ]);
+            await writeAuthFile(sandbox);
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(chatSkillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: "openai",
+                    version: "0.0.3",
+                }),
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(captionSkillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: "@private/vision",
+                    version: "1.0.0",
+                }),
+            );
+
+            const result = await sandbox.run([
+                "skills",
+                "sync",
+                "upload",
+                "--source",
+                "registry",
+                "--ignore",
+                "@private/*,missing",
+                "-i",
+                "chat*",
+            ], {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    const body = await request.json();
+
+                    requests.push({ body });
+
+                    return new Response(JSON.stringify(body));
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe("Uploaded 0 registry skills.\n");
+            expect(requests[0]!.body).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects unsupported skill sync sources", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run([
+                "skills",
+                "sync",
+                "upload",
+                "--source",
+                "local",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Invalid sync source: local. Use registry.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("applies uploaded registry skills using exact package versions", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const requests: Request[] = [];
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["skills", "sync", "apply"], {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+
+                    requests.push(request);
+
+                    if (request.url === "https://cli-api.oomol.com/v1/skills") {
+                        return new Response(JSON.stringify([
+                            {
+                                packageName: "openai",
+                                skillName: "chatgpt",
+                                version: "0.0.3",
+                            },
+                        ]));
+                    }
+
+                    if (request.url.includes("/package-info/")) {
+                        return new Response(JSON.stringify({
+                            packageName: "openai",
+                            version: "0.0.3",
+                            skills: [
+                                {
+                                    description: "Chat with a model",
+                                    name: "chatgpt",
+                                    title: "ChatGPT",
+                                },
+                            ],
+                        }));
+                    }
+
+                    if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+                        return new Response(await createRegistrySkillArchiveBytes({
+                            "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                        }));
+                    }
+
+                    throw new Error(`Unexpected request: ${request.url}`);
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain(`Installed skill chatgpt to ${skillDirectoryPath}.\n`);
+            expect(result.stdout).toContain("Applied 1 uploaded registry skills.\n");
+            expect(requests.map(request => request.url)).toContain(
+                "https://registry.oomol.com/-/oomol/package-info/openai/0.0.3",
+            );
+            expect(requests.every(request =>
+                request.headers.get("Authorization") === "secret-1",
+            )).toBeTrue();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports download and install aliases for applying exact uploaded registry versions", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            for (const [alias, version] of [
+                ["download", "0.0.4"],
+                ["install", "0.0.5"],
+            ] as const) {
+                const skillName = `${alias}-skill`;
+                const requests: Request[] = [];
+
+                const result = await sandbox.run(["skills", "sync", alias], {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url === "https://cli-api.oomol.com/v1/skills") {
+                            return new Response(JSON.stringify([
+                                {
+                                    packageName: "openai",
+                                    skillName,
+                                    version,
+                                },
+                            ]));
+                        }
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                skills: [
+                                    {
+                                        description: `Install ${skillName}`,
+                                        name: skillName,
+                                        title: skillName,
+                                    },
+                                ],
+                                version,
+                            }));
+                        }
+
+                        if (request.url.endsWith(`/openai/-/meta/openai-${version}.tgz`)) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                [`package/package/skills/${skillName}/SKILL.md`]: `# ${skillName}\n`,
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                });
+
+                expect(result.exitCode).toBe(0);
+                expect(result.stderr).toBe("");
+                expect(result.stdout).toContain(`Applied 1 uploaded registry skills.\n`);
+                expect(requests.map(request => request.url)).toContain(
+                    `https://registry.oomol.com/-/oomol/package-info/openai/${version}`,
+                );
+                expect(requests.map(request => request.url)).toContain(
+                    `https://registry.oomol.com/openai/-/meta/openai-${version}.tgz`,
+                );
+                expect(requests.every(request =>
+                    request.headers.get("Authorization") === "secret-1",
+                )).toBeTrue();
+            }
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("installs a published registry skill into every existing supported host", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);

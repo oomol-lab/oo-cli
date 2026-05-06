@@ -52,6 +52,7 @@ interface ManagedSkillPathState {
 export interface RegistrySkillInstallRequest {
     all: boolean;
     packageName: string;
+    packageVersion?: string;
     skillNames: string[];
     yes: boolean;
 }
@@ -90,6 +91,7 @@ export async function installRegistrySkills(
         request.packageName,
         account,
         context,
+        request.packageVersion,
     );
 
     if (packageInfo.skills.length === 0) {
