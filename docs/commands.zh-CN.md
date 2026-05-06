@@ -491,6 +491,38 @@ skills。
   含非空的 `version` 时，`oo` 才会认为这是自己管理的内置 skill；否则会视
   为其他 skill，并拒绝覆盖。
 
+### `oo skills sync upload`
+
+将已安装且由 oo 管理的 registry skill 上传到 skills sync 服务。
+
+- 选项：`--source <source>` 选择同步来源。当前唯一支持的值为 `registry`；
+  未提供时默认使用 `registry`。
+- 选项：`-i, --ignore <patterns...>` 会按 `packageName` 或 skill 名称匹配并排除
+  部分 registry skill。该选项可以重复使用，每个值也可以包含逗号分隔的多个模式。
+  模式使用 gitignore 风格匹配。
+- 范围：命令只上传 `.oo-metadata.json` 中同时包含 `packageName` 和 `version`
+  的已发布 registry skill；bundled 和 local skill 永远不会被上传。
+- 请求：命令会发送 `PUT https://api.<endpoint>/v1/skills`，请求体是
+  `{ "packageName": string, "version": string, "skillName": string }` 的 JSON
+  数组，并携带当前账号的 `Authorization` header。
+- 行为：服务端清单会被覆盖；如果过滤后没有 registry skill，也会上传空数组。
+- 输出：成功时，文本输出会显示已上传的 registry skill 数量。
+
+### `oo skills sync apply`
+
+将已上传且由 oo 管理的 registry skill 安装到受支持的本地 skill 目录。
+
+- 别名：`oo skills sync download`、`oo skills sync install`。
+- 选项：`--source <source>` 选择同步来源。当前唯一支持的值为 `registry`；
+  未提供时默认使用 `registry`。
+- 请求：命令会读取 `GET https://api.<endpoint>/v1/skills`，并携带当前账号的
+  `Authorization` header。
+- 行为：每条已上传记录都会按记录中的 `packageName` 和 `version` 安装，并且只从该
+  package 中选择记录里的 `skillName`。
+- 范围：该命令只应用 registry skill。bundled 和 local skill 永远不会通过该命令恢复。
+- 输出：当已上传清单为空时，文本输出会提示未找到已上传的 registry skill。否则会先
+  输出常规安装摘要，再输出最终应用数量。
+
 ### `oo skills update [skills...]`
 
 更新已安装且由 oo 管理的已发布 skill。

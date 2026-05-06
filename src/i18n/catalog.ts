@@ -129,6 +129,15 @@ export const enMessages = {
         "List bundled, registry, and local skills.",
     "commands.skills.list.summary":
         "List skills",
+    "commands.skills.sync.description":
+        "Sync oo-managed registry skills through the skills sync API.",
+    "commands.skills.sync.summary": "Sync registry skills",
+    "commands.skills.sync.upload.description":
+        "Upload installed oo-managed registry skills to the skills sync API.",
+    "commands.skills.sync.upload.summary": "Upload registry skills",
+    "commands.skills.sync.apply.description":
+        "Install uploaded oo-managed registry skills into supported local skill directories.",
+    "commands.skills.sync.apply.summary": "Apply uploaded registry skills",
     "commands.skills.check.description":
         "Check whether this environment can edit local skills.",
     "commands.skills.check.summary": "Preflight local skill editing",
@@ -424,6 +433,14 @@ export const enMessages = {
         "Package {packageName} has multiple skills. Use --skill <name>, --all -y, or run in an interactive terminal.",
     "errors.skills.list.invalidSource":
         "Invalid source: {value}. Use bundled, registry, or local.",
+    "errors.skills.sync.invalidResponse":
+        "The skills sync service returned an unsupported response body.",
+    "errors.skills.sync.invalidSource":
+        "Invalid sync source: {value}. Use registry.",
+    "errors.skills.sync.requestError":
+        "The skills sync request failed: {message}",
+    "errors.skills.sync.requestFailed":
+        "The skills sync request returned HTTP {status}.",
     "errors.skills.install.packageDownloadError":
         "The skills package download failed: {message}",
     "errors.skills.install.packageDownloadFailed":
@@ -533,6 +550,10 @@ export const enMessages = {
         "Specify comma-separated keywords to refine the skill search",
     "options.skillListSource":
         "Filter by skill source (bundled, registry, or local)",
+    "options.skillSyncSource":
+        "Select the skill sync source (registry; default registry)",
+    "options.skillSyncIgnore":
+        "Ignore registry skills by package or skill name pattern",
     "options.icon": "Set the generated skill icon reference",
     "options.title": "Set the generated skill display title",
     "options.visibility":
@@ -682,6 +703,12 @@ export const enMessages = {
     "skills.update.progress.updated": "updated",
     "skills.update.progress.failed": "failed",
     "skills.update.success": "Updated skill {name} to {path}.",
+    "skills.sync.apply.noResults":
+        "No uploaded registry skills were found.",
+    "skills.sync.apply.success":
+        "Applied {count} uploaded registry skills.",
+    "skills.sync.upload.success":
+        "Uploaded {count} registry skills.",
     "skills.uninstall.success": "Removed skill {name} from {path}.",
     "skills.validate.success": "Skill at {path} is valid.",
     "versionInfo.buildTime": "Build Time",
@@ -873,6 +900,15 @@ export const zhMessages = {
         "列出 bundled、registry 和 local skill。",
     "commands.skills.list.summary":
         "列出 skill",
+    "commands.skills.sync.description":
+        "通过 skills sync API 同步由 oo 管理的 registry skill。",
+    "commands.skills.sync.summary": "同步 registry skill",
+    "commands.skills.sync.upload.description":
+        "将已安装且由 oo 管理的 registry skill 上传到 skills sync API。",
+    "commands.skills.sync.upload.summary": "上传 registry skill",
+    "commands.skills.sync.apply.description":
+        "将已上传且由 oo 管理的 registry skill 安装到受支持的本地 skill 目录。",
+    "commands.skills.sync.apply.summary": "应用已上传的 registry skill",
     "commands.skills.check.description":
         "检查当前环境是否有权限编辑本地 skills。",
     "commands.skills.check.summary": "预检本地 skill 编辑环境",
@@ -1156,6 +1192,14 @@ export const zhMessages = {
         "包 {packageName} 包含多个 skill。请使用 --skill <name>、--all -y，或在交互终端中运行。",
     "errors.skills.list.invalidSource":
         "无效的 source：{value}。请使用 bundled、registry 或 local。",
+    "errors.skills.sync.invalidResponse":
+        "skills sync 服务返回了不受支持的响应内容。",
+    "errors.skills.sync.invalidSource":
+        "无效的 sync source：{value}。请使用 registry。",
+    "errors.skills.sync.requestError":
+        "skills sync 请求失败：{message}",
+    "errors.skills.sync.requestFailed":
+        "skills sync 请求返回了 HTTP {status}。",
     "errors.skills.install.packageDownloadError":
         "下载 skills 包失败：{message}",
     "errors.skills.install.packageDownloadFailed":
@@ -1260,6 +1304,10 @@ export const zhMessages = {
         "指定用于细化 skill 搜索的逗号分隔关键词",
     "options.skillListSource":
         "按 skill 来源过滤（bundled、registry 或 local）",
+    "options.skillSyncSource":
+        "选择 skill 同步来源（registry；默认 registry）",
+    "options.skillSyncIgnore":
+        "按 package 或 skill 名称模式忽略 registry skill",
     "options.icon": "设置生成的 skill icon 引用",
     "options.title": "设置生成的 skill 显示标题",
     "options.visibility":
@@ -1408,6 +1456,12 @@ export const zhMessages = {
     "skills.update.progress.updated": "已更新",
     "skills.update.progress.failed": "失败",
     "skills.update.success": "已将 skill {name} 更新到 {path}。",
+    "skills.sync.apply.noResults":
+        "未找到已上传的 registry skill。",
+    "skills.sync.apply.success":
+        "已应用 {count} 个已上传的 registry skill。",
+    "skills.sync.upload.success":
+        "已上传 {count} 个 registry skill。",
     "skills.uninstall.success": "已从 {path} 移除 skill {name}。",
     "skills.validate.success": "{path} 中的 skill 有效。",
     "versionInfo.buildTime": "构建时间",

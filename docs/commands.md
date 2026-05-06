@@ -577,6 +577,44 @@ Install bundled or published skills into supported local skill directories.
   non-empty `version`. Otherwise `oo` treats it as a different skill and will
   not overwrite it.
 
+### `oo skills sync upload`
+
+Upload installed oo-managed registry skills to the skills sync service.
+
+- Options: `--source <source>` selects the sync source. The only supported value
+  is `registry`; when omitted, the command uses `registry`.
+- Options: `-i, --ignore <patterns...>` excludes registry skills from upload by
+  matching patterns against either `packageName` or skill name. The option may
+  be repeated, and each value may contain comma-separated patterns. Patterns use
+  gitignore-style matching.
+- Scope: the command uploads only installed published registry skills whose
+  `.oo-metadata.json` contains both `packageName` and `version`; bundled and
+  local skills are never uploaded.
+- Request: the command sends `PUT https://api.<endpoint>/v1/skills` with a JSON
+  array of `{ "packageName": string, "version": string, "skillName": string }`.
+  The active account's `Authorization` header is included.
+- Behavior: the server-side manifest is overwritten, including with an empty
+  array when no registry skills remain after filtering.
+- Output: on success, text output prints the number of uploaded registry skills.
+
+### `oo skills sync apply`
+
+Install uploaded oo-managed registry skills into supported local skill
+directories.
+
+- Aliases: `oo skills sync download`, `oo skills sync install`.
+- Options: `--source <source>` selects the sync source. The only supported value
+  is `registry`; when omitted, the command uses `registry`.
+- Request: the command reads `GET https://api.<endpoint>/v1/skills`. The active
+  account's `Authorization` header is included.
+- Behavior: each uploaded entry is installed from its recorded `packageName` and
+  `version`, and only the recorded `skillName` is selected from that package.
+- Scope: only registry skills are applied. Bundled and local skills are never
+  restored by this command.
+- Output: when the uploaded manifest is empty, text output reports that no
+  uploaded registry skills were found. Otherwise, regular install summaries are
+  printed, followed by a final applied-count line.
+
 ### `oo skills update [skills...]`
 
 Update installed oo-managed published skills.
