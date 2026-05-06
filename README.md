@@ -65,6 +65,9 @@ supported local host that already exists:
   `~/.codebuddy/skills/oo-find-skills`
 - WorkBuddy: `~/.workbuddy/skills/oo` and
   `~/.workbuddy/skills/oo-find-skills`
+- Trae: `~/.trae/skills/oo` and `~/.trae/skills/oo-find-skills`
+- Trae CN: `~/.trae-cn/skills/oo` and
+  `~/.trae-cn/skills/oo-find-skills`
 - OpenClaw: `${OPENCLAW_HOME:-~/.openclaw}/skills/oo` and
   `${OPENCLAW_HOME:-~/.openclaw}/skills/oo-find-skills`
 - QoderWork: `~/.qoderwork/skills/oo` and

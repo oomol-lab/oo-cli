@@ -10,6 +10,7 @@ import {
     resolveClaudeHomeDirectory,
     resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
+    resolveTraeCnHomeDirectory,
     resolveTraeHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { resolveLocalSkillCanonicalDirectoryPath } from "./managed-skill-paths.ts";
@@ -210,6 +211,48 @@ describe("skills init command", () => {
                 [
                     `Initialized skill trae-skill in canonical storage at ${canonicalSkillDirectoryPath}.`,
                     `Linked skill trae-skill to ${skillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
+            );
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("initializes a local skill by linking for Trae CN", async () => {
+        const sandbox = await createCliSandbox();
+        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(traeCnHomeDirectory, "skills", "trae-cn-skill");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "trae-cn-skill",
+        );
+
+        try {
+            await mkdir(traeCnHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "init",
+                "trae-cn-skill",
+                "--description",
+                "Use a known package workflow.",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                [
+                    `Initialized skill trae-cn-skill in canonical storage at ${canonicalSkillDirectoryPath}.`,
+                    `Linked skill trae-cn-skill to ${skillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );

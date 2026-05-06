@@ -64,6 +64,9 @@ skills：
   `~/.codebuddy/skills/oo-find-skills`
 - WorkBuddy：`~/.workbuddy/skills/oo` 和
   `~/.workbuddy/skills/oo-find-skills`
+- Trae：`~/.trae/skills/oo` 和 `~/.trae/skills/oo-find-skills`
+- Trae CN：`~/.trae-cn/skills/oo` 和
+  `~/.trae-cn/skills/oo-find-skills`
 - OpenClaw：`${OPENCLAW_HOME:-~/.openclaw}/skills/oo` 和
   `${OPENCLAW_HOME:-~/.openclaw}/skills/oo-find-skills`
 - QoderWork：`~/.qoderwork/skills/oo` 和

@@ -69,6 +69,15 @@ describe("embedded skill assets", () => {
             "references/file-transfer.md",
             "references/task-lifecycle.md",
         ]);
+        expect(getBundledSkillFiles("oo", "trae-cn").map(file => file.relativePath)).toEqual([
+            "SKILL.md",
+            "references/auth-and-billing.md",
+            "references/search-and-selection.md",
+            "references/package-execution.md",
+            "references/connector-execution.md",
+            "references/file-transfer.md",
+            "references/task-lifecycle.md",
+        ]);
         expect(getBundledSkillFiles("oo", "openclaw").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
@@ -137,6 +146,14 @@ describe("embedded skill assets", () => {
             "references/oo-cli-contract.md",
         ]);
         expect(
+            getBundledSkillFiles("oo-find-skills", "trae-cn").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+            "references/oo-cli-contract.md",
+        ]);
+        expect(
             getBundledSkillFiles("oo-find-skills", "openclaw").map(
                 file => file.relativePath,
             ),
@@ -190,6 +207,13 @@ describe("embedded skill assets", () => {
         ]);
         expect(
             getBundledSkillFiles("oo-create-skill", "trae").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-create-skill", "trae-cn").map(
                 file => file.relativePath,
             ),
         ).toEqual([
@@ -253,6 +277,13 @@ describe("embedded skill assets", () => {
             "SKILL.md",
         ]);
         expect(
+            getBundledSkillFiles("oo-publish-skill", "trae-cn").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
             getBundledSkillFiles("oo-publish-skill", "openclaw").map(
                 file => file.relativePath,
             ),
@@ -276,6 +307,7 @@ describe("embedded skill assets", () => {
             "codebuddy",
             "workbuddy",
             "trae",
+            "trae-cn",
             "openclaw",
             "qoderwork",
         ]);
@@ -484,7 +516,7 @@ describe("embedded skill assets", () => {
     });
 
     test("keeps non-Claude skill frontmatter free of Claude allowed tools", async () => {
-        for (const agentName of ["qoderwork", "trae", "workbuddy"] as const) {
+        for (const agentName of ["qoderwork", "trae", "trae-cn", "workbuddy"] as const) {
             for (const skillName of availableBundledSkillNames) {
                 const skillFile = getBundledSkillFiles(skillName, agentName)
                     .find(file => file.relativePath === "SKILL.md");
@@ -520,6 +552,7 @@ function readBundledSkillSourceAgentName(
         case "hermes":
             return "claude";
         case "trae":
+        case "trae-cn":
         case "workbuddy":
             return "codebuddy";
         default:

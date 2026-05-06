@@ -22,6 +22,8 @@ export function readManagedSkillHostLabel(
             return translator.t("skills.list.host.qoderwork");
         case "trae":
             return translator.t("skills.list.host.trae");
+        case "trae-cn":
+            return translator.t("skills.list.host.traeCn");
         case "workbuddy":
             return translator.t("skills.list.host.workbuddy");
         default:

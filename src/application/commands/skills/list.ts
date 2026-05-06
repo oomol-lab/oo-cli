@@ -54,14 +54,15 @@ const skillListSourceOrder = {
     local: 2,
 } as const satisfies Record<SkillListSource, number>;
 const managedSkillHostOrder = {
-    codex: 0,
-    claude: 1,
-    hermes: 2,
-    codebuddy: 3,
-    workbuddy: 4,
-    trae: 5,
-    openclaw: 6,
-    qoderwork: 7,
+    "codex": 0,
+    "claude": 1,
+    "hermes": 2,
+    "codebuddy": 3,
+    "workbuddy": 4,
+    "trae": 5,
+    "trae-cn": 6,
+    "openclaw": 7,
+    "qoderwork": 8,
 } as const satisfies Record<BundledSkillAgentName, number>;
 
 type SkillListSource = (typeof skillListSourceValues)[number];

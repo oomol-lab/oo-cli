@@ -29,6 +29,7 @@ import {
     resolveHermesHomeDirectory,
     resolveOpenClawHomeDirectory,
     resolveQoderWorkHomeDirectory,
+    resolveTraeCnHomeDirectory,
     resolveTraeHomeDirectory,
     resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
@@ -821,6 +822,65 @@ describe("skills commands", () => {
         }
     });
 
+    test("installs bundled skills into Trae CN using the CodeBuddy skill template", async () => {
+        const sandbox = await createCliSandbox();
+        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
+        const traeCnSkillsDirectoryPath = join(traeCnHomeDirectory, "skills");
+        const skillDirectoryPath = join(traeCnHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+            "trae-cn",
+        );
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const skillFilePath = join(skillDirectoryPath, "SKILL.md");
+        const traeCnSkillFile = getBundledSkillFiles("oo", "trae-cn")
+            .find(file => file.relativePath === "SKILL.md");
+
+        try {
+            if (traeCnSkillFile === undefined) {
+                throw new Error("Missing Trae CN oo SKILL.md fixture");
+            }
+
+            await mkdir(traeCnHomeDirectory, { recursive: true });
+            await expect(stat(traeCnSkillsDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+
+            const result = await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Installed skill oo to ${skillDirectoryPath}.\n`,
+            );
+            expect((await stat(traeCnSkillsDirectoryPath)).isDirectory()).toBeTrue();
+            expect(await realpath(skillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson({ version: "9.9.9" }),
+            );
+            expect(await readFile(skillFilePath, "utf8")).toBe(
+                await Bun.file(traeCnSkillFile.sourcePath).text(),
+            );
+            await expect(
+                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
+            ).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("refuses to overwrite an existing non-OOMOL skill with the same name", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -986,6 +1046,7 @@ describe("skills commands", () => {
         const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
         const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
         const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
+        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
         const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
         const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
@@ -994,6 +1055,7 @@ describe("skills commands", () => {
         const codeBuddySkillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "chatgpt");
         const workBuddySkillDirectoryPath = join(workBuddyHomeDirectory, "skills", "chatgpt");
         const traeSkillDirectoryPath = join(traeHomeDirectory, "skills", "chatgpt");
+        const traeCnSkillDirectoryPath = join(traeCnHomeDirectory, "skills", "chatgpt");
         const openClawSkillDirectoryPath = join(openClawHomeDirectory, "skills", "chatgpt");
         const qoderWorkSkillDirectoryPath = join(qoderWorkHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
@@ -1014,6 +1076,7 @@ describe("skills commands", () => {
                 codeBuddySkillDirectoryPath,
                 workBuddySkillDirectoryPath,
                 traeSkillDirectoryPath,
+                traeCnSkillDirectoryPath,
                 openClawSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
             ]) {
@@ -1029,6 +1092,7 @@ describe("skills commands", () => {
                 codeBuddySkillDirectoryPath,
                 workBuddySkillDirectoryPath,
                 traeSkillDirectoryPath,
+                traeCnSkillDirectoryPath,
                 openClawSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
             ]) {
@@ -1051,6 +1115,7 @@ describe("skills commands", () => {
                     `Removed skill chatgpt from ${codeBuddySkillDirectoryPath}.`,
                     `Removed skill chatgpt from ${workBuddySkillDirectoryPath}.`,
                     `Removed skill chatgpt from ${traeSkillDirectoryPath}.`,
+                    `Removed skill chatgpt from ${traeCnSkillDirectoryPath}.`,
                     `Removed skill chatgpt from ${openClawSkillDirectoryPath}.`,
                     `Removed skill chatgpt from ${qoderWorkSkillDirectoryPath}.`,
                     "",
@@ -1064,6 +1129,7 @@ describe("skills commands", () => {
                 codeBuddySkillDirectoryPath,
                 workBuddySkillDirectoryPath,
                 traeSkillDirectoryPath,
+                traeCnSkillDirectoryPath,
                 openClawSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
             ]) {
@@ -1694,6 +1760,7 @@ describe("skills commands", () => {
         const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
         const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
         const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
+        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
         const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
         const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
@@ -1702,6 +1769,7 @@ describe("skills commands", () => {
         const codeBuddySkillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "chatgpt");
         const workBuddySkillDirectoryPath = join(workBuddyHomeDirectory, "skills", "chatgpt");
         const traeSkillDirectoryPath = join(traeHomeDirectory, "skills", "chatgpt");
+        const traeCnSkillDirectoryPath = join(traeCnHomeDirectory, "skills", "chatgpt");
         const openClawSkillDirectoryPath = join(openClawHomeDirectory, "skills", "chatgpt");
         const qoderWorkSkillDirectoryPath = join(qoderWorkHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
@@ -1722,6 +1790,7 @@ describe("skills commands", () => {
                 mkdir(codeBuddyHomeDirectory, { recursive: true }),
                 mkdir(workBuddyHomeDirectory, { recursive: true }),
                 mkdir(traeHomeDirectory, { recursive: true }),
+                mkdir(traeCnHomeDirectory, { recursive: true }),
                 mkdir(openClawHomeDirectory, { recursive: true }),
                 mkdir(qoderWorkHomeDirectory, { recursive: true }),
             ]);
@@ -1761,7 +1830,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                "Installed skill chatgpt to 8 agents: Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, OpenClaw, QoderWork.\n",
+                "Installed skill chatgpt to 9 agents: Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork.\n",
             );
             const canonicalSkillRealPath = await realpath(canonicalSkillDirectoryPath);
 
@@ -1769,6 +1838,7 @@ describe("skills commands", () => {
                 codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 traeSkillDirectoryPath,
+                traeCnSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
             ]) {
                 expect(await realpath(linkedSkillDirectoryPath)).toBe(
@@ -1794,6 +1864,7 @@ describe("skills commands", () => {
                 codeBuddySkillDirectoryPath,
                 workBuddySkillDirectoryPath,
                 traeSkillDirectoryPath,
+                traeCnSkillDirectoryPath,
                 openClawSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
             ]) {
