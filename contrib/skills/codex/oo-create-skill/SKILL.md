@@ -117,14 +117,23 @@ step, preserving the user's decisive constraints such as target service,
 language pair, file type, and output format. Inspect the first result set
 before refining.
 
-Treat package and connector results as first-class authoring candidates. Prefer
-the capability that directly matches the intended reusable workflow. When the
-target is a connected third-party account, service, or API, prefer a direct
-connector action over a package. If a package and connector are equally direct,
-prefer an already-authenticated connector because it is usually lower friction
-and has no package cost. Prefer a package when the workflow needs package
-compute, media/document transformation, or a block-specific capability that no
-connector action exposes.
+Treat Fusion API, connector, and package/block results as first-class authoring
+candidates. Prefer the capability that directly matches the intended reusable
+workflow. Business fit comes before convenience: if one capability matches the
+user's domain, inputs, outputs, or required workflow more directly than the
+others, choose the better-matched capability even when it is not first in the
+default preference order. Classify connector results whose service is
+`fusion-api` as OOMOL built-in Fusion API actions that do not require the user
+to provide their own API key. Prefer Fusion API when otherwise equivalent options
+match the workflow because it is usually the most convenient path.
+
+If Fusion API and an ordinary connector action both match, either choose Fusion
+API by default or ask one concise question when the user's cost or account
+preference matters. Explain that Fusion API is the most convenient option, while
+an ordinary connector uses the user's own key and may be most cost-effective if
+they already pay for that provider. If no suitable Fusion API or ordinary
+connector action exists, use a package/block. Blocks are the most flexible path,
+but usually have the weakest performance and highest execution friction.
 
 For connector-backed choices, capture the exact `service`, action `name`,
 description, authentication state, and schema-derived input/output concepts.
@@ -145,18 +154,25 @@ initialization. If initialization fails because the local canonical directory or
 an agent target directory already exists, ask the user for a different skill
 name instead of overwriting.
 
-Make `--description` user-outcome-oriented because it becomes the generated
-skill's frontmatter. Write it as one short positive trigger sentence in the
-language a user would use to ask for the outcome. Center the user-visible task,
-domain terms, required inputs, and expected outputs. Include a model or product
-name only when it is a meaningful user-facing tag or when the user explicitly
-asked for it.
+Make `--description` a user-facing trigger summary because it becomes the
+generated skill's frontmatter and is the main signal future agents see before
+the skill loads. Start with the outcome the skill helps the user accomplish in
+language a user would naturally use. Include the user-visible task, common
+request verbs or phrases, domain nouns, important input artifacts, expected
+outputs, and user-visible product, model, service, or workflow names that users
+are likely to mention.
 
-Keep implementation plumbing out of the description. Do not mention package
-names, block ids, connector service/action identifiers, API routes, function
-names, schema paths, command names, file-transfer or storage details, or provider
-channel names unless that exact identifier is something users would naturally
-request. Put concrete execution references in the workflow body instead.
+Prefer one or two concise sentences over a generic label. The description
+should answer: "What can this skill do for the user?" and "What would a user ask
+that should trigger it?" Keep operational details, routing caveats,
+package/block identifiers, schema details, command syntax, and negative
+conditions in the workflow body unless those exact names are user-facing terms
+that people naturally use in requests.
+
+Use this description shape when helpful:
+`<Primary user outcome>. Use when the user asks to <common verbs/request
+phrases> for <domain objects or input artifacts>, especially when they need
+<expected output/result>.`
 
 Do not substitute manual file creation for this step. The initialized skill
 directory must come from a successful `oo skills init` invocation before you
@@ -173,14 +189,15 @@ packages with `oo::packageName` and stable blocks with
 input and output concepts. Do not present a local `schemaPath` as a stable
 contract for future agents.
 
-Review the generated frontmatter `description` before finishing. It must be
-simple, direct, and specific enough for future agents to trigger the skill in
-the target scenario: name the task outcome, common user phrasing, domain nouns,
-important inputs and outputs, and user-visible model or product tags when useful.
-It must not read like an implementation recipe or capability inventory. Avoid
-generic descriptions such as "use an OOMOL package workflow" that do not mention
-the user's domain, and avoid channel-first descriptions that explain how the
-task is routed before they say what user outcome the skill supports.
+Review the generated frontmatter `description` before finishing. It must say
+the user-visible outcome first, include common verbs or phrases users would
+actually say, name the domain objects or input/output artifacts, and include
+user-visible services, models, products, or workflow names when they improve
+matching. Avoid generic descriptions such as "use an OOMOL package workflow"
+unless they are paired with the concrete user outcome. Move caveats, execution
+details, negative guidance, and boundary cases into the workflow body instead of
+the frontmatter unless they are needed to prevent direct sibling-skill routing
+conflicts.
 
 Preserve the generated frontmatter `metadata.title` field when it exists. If
 you change the skill's displayed title or first heading, update

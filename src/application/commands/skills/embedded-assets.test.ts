@@ -389,19 +389,22 @@ describe("embedded skill assets", () => {
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
-            expect(content).toContain("user-outcome-oriented");
-            expect(content).toContain("Center the user-visible task");
-            expect(content).toContain("Include a model or product name only");
-            expect(content).toContain("Keep implementation plumbing out of the description");
-            expect(content).toContain("connector service/action identifiers");
-            expect(content).toContain("provider channel names");
+            expect(content).toContain("user-facing trigger summary");
+            expect(content).toContain("main signal future agents see before the skill loads");
+            expect(content).toContain("Start with the outcome");
+            expect(content).toContain("common request verbs or phrases");
+            expect(content).toContain("one or two concise sentences");
+            expect(content).toContain("What would a user ask");
+            expect(content).toContain("Use this description shape when helpful");
+            expect(content).toContain("negative conditions in the workflow body");
             expect(content).toContain(
-                "Put concrete execution references in the workflow body instead.",
+                "the user-visible outcome first",
             );
             expect(content).toContain(
-                "It must not read like an implementation recipe or capability inventory.",
+                "Move caveats, execution details, negative guidance, and boundary cases into the workflow body",
             );
-            expect(content).toContain("avoid channel-first descriptions");
+            expect(content).not.toContain("one short positive trigger sentence");
+            expect(content).not.toContain("Keep implementation plumbing out of the description");
         }
     });
 
@@ -422,10 +425,20 @@ describe("embedded skill assets", () => {
             expect(content).toContain(
                 "Resolve concrete package, block, and connector references",
             );
-            expect(content).toContain(
-                "Treat package and connector results as first-class authoring candidates.",
-            );
-            expect(content).toContain("prefer an already-authenticated connector");
+            expect(content).toContain("Treat Fusion API, connector, and package/block results");
+            expect(content).toContain("first-class authoring");
+            expect(content).toContain("Business fit comes before convenience");
+            expect(content).toContain("choose the better-matched capability");
+            expect(content).toContain("default preference order");
+            expect(content).toContain("service is\n`fusion-api`");
+            expect(content).toContain("do not require the user");
+            expect(content).toContain("to provide their own API key");
+            expect(content).toContain("Prefer Fusion API when otherwise equivalent");
+            expect(content).toContain("If Fusion API and an ordinary connector action both match");
+            expect(content).toContain("ordinary connector uses the user's own key");
+            expect(content).toContain("If no suitable Fusion API or ordinary");
+            expect(content).toContain("Blocks are the most flexible path");
+            expect(content).toContain("weakest performance and highest execution friction");
             expect(content).toContain("Do not force a package or block reference");
             expect(content).toContain("when the chosen reusable workflow is connector-backed.");
             expect(content).toContain(
