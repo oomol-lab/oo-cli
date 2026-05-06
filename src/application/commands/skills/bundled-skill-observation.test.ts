@@ -13,7 +13,10 @@ import {
     requireCodexHomeDirectory,
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
-import { resolveTraeHomeDirectory } from "./bundled-skill-paths.ts";
+import {
+    resolveTraeCnHomeDirectory,
+    resolveTraeHomeDirectory,
+} from "./bundled-skill-paths.ts";
 
 describe("bundled skill observation", () => {
     test("reports directory and file existence from stat-backed wrappers", async () => {
@@ -290,6 +293,33 @@ describe("bundled skill observation", () => {
                 traeHomeDirectory,
             );
             expect(resolveTraeHomeDirectory(env)).toBe(traeHomeDirectory);
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("requires the resolved Trae CN home directory to exist", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const traeCnHomeDirectory = join(rootDirectory, ".trae-cn");
+        const env = {
+            HOME: rootDirectory,
+        };
+
+        try {
+            await expect(
+                requireBundledSkillHomeDirectory({ env }, "trae-cn"),
+            ).rejects.toMatchObject({
+                exitCode: 1,
+                key: "errors.skills.traeCnNotInstalled",
+            });
+
+            await mkdir(traeCnHomeDirectory, { recursive: true });
+
+            expect(await requireBundledSkillHomeDirectory({ env }, "trae-cn")).toBe(
+                traeCnHomeDirectory,
+            );
+            expect(resolveTraeCnHomeDirectory(env)).toBe(traeCnHomeDirectory);
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });

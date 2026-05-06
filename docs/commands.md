@@ -291,7 +291,7 @@ supported host directory that already exists.
 
 - Bundled skills: `oo` ensures `oo`, `oo-find-skills`, `oo-create-skill`, and
   `oo-publish-skill` are installed for each detected Codex, Claude Code,
-  Hermes, CodeBuddy, WorkBuddy, Trae, OpenClaw, and QoderWork host.
+  Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, and QoderWork host.
   Existing oo-managed bundled skill targets are refreshed to the current `oo`
   version, except that `0.0.0-development` startup runs do not refresh
   existing bundled targets.
@@ -311,7 +311,7 @@ List bundled, registry, and local skills.
 - Managed ownership rule: the command scans each existing supported local skill root:
   `${CODEX_HOME:-~/.codex}/skills`, `~/.claude/skills`,
   `${HERMES_HOME:-~/.hermes}/skills`, `~/.codebuddy/skills`,
-  `~/.workbuddy/skills`, `~/.trae/skills`,
+  `~/.workbuddy/skills`, `~/.trae/skills`, `~/.trae-cn/skills`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills`, and `~/.qoderwork/skills`. It keeps
   only child directories whose
   `.oo-metadata.json` can be parsed and contains a non-empty `version`.
@@ -325,7 +325,7 @@ List bundled, registry, and local skills.
   `oo-find-skills` before `oo-create-skill` before `oo-publish-skill`; the
   remaining skills are ordered by skill name. Host names within a managed block
   follow `Codex`, `Claude Code`, `Hermes`, `CodeBuddy`, `WorkBuddy`, `Trae`,
-  `OpenClaw`, `QoderWork` order.
+  `Trae CN`, `OpenClaw`, `QoderWork` order.
 - Output: each skill block shows the skill name plus `Host`, `Source`, and
   `Version`. `Source` is `bundled`, `registry`, or `local`. Registry and local
   blocks also show `Package`; local blocks also show `Path`. `Host` lists
@@ -340,8 +340,8 @@ List bundled, registry, and local skills.
 Check whether this environment has permission to edit local skills.
 
 - Options: `--agent <agent>` restricts the host check to one supported agent:
-  `codex`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `openclaw`,
-  or `qoderwork`.
+  `codex`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `trae-cn`,
+  `openclaw`, or `qoderwork`.
 - Host check: without `--agent`, at least one supported agent home directory
   must already exist. With `--agent`, that specific agent home directory must
   exist.
@@ -378,9 +378,10 @@ directory that already exists.
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`,
   `~/.codebuddy/skills/<skill-id>`, `~/.workbuddy/skills/<skill-id>`,
   `~/.trae/skills/<skill-id>`,
+  `~/.trae-cn/skills/<skill-id>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`, and
   `~/.qoderwork/skills/<skill-id>`.
-- Publication mode: Codex, Claude Code, Trae, and QoderWork targets are
+- Publication mode: Codex, Claude Code, Trae, Trae CN, and QoderWork targets are
   published as symlinks to the canonical directory when the current platform
   and environment allow it. Hermes, CodeBuddy, WorkBuddy, and OpenClaw targets
   are copied.
@@ -417,8 +418,8 @@ Convert one skill into an OOMOL package and run the publish step.
   Accepted values are `private` and `public`. The default is `private`.
 - Options: `--agent <agent>` is a source hint used only when the skill is not
   found in local, bundled, or registry storage. Accepted values are `codex`,
-  `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `openclaw`, and
-  `qoderwork`.
+  `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `trae-cn`,
+  `openclaw`, and `qoderwork`.
 - Options: `-y, --yes` answers publish confirmation prompts with yes.
 - Source resolution: the command first checks
   `<config-dir>/skills/local/<skill-id>`. If present, that local skill is
@@ -520,7 +521,8 @@ Install bundled or published skills into supported local skill directories.
 - Canonical directory: bundled skills are materialized under
   `<config-dir>/skills/bundled/<agent>/<skill-id>`, where `<config-dir>` is the
   directory that contains `settings.toml` and `<agent>` is `codex`, `claude`,
-  `hermes`, `codebuddy`, `workbuddy`, `trae`, `openclaw`, or `qoderwork`.
+  `hermes`, `codebuddy`, `workbuddy`, `trae`, `trae-cn`, `openclaw`, or
+  `qoderwork`.
 - Canonical directory: published skills are materialized to
   `<config-dir>/skills/registry/<skill-id>`.
 - Migration: on first run after upgrading, `oo skills install` removes legacy
@@ -537,14 +539,15 @@ Install bundled or published skills into supported local skill directories.
   `~/.codebuddy/skills/<skill-id>`,
   `~/.workbuddy/skills/<skill-id>`,
   `~/.trae/skills/<skill-id>`,
+  `~/.trae-cn/skills/<skill-id>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`, and
   `~/.qoderwork/skills/<skill-id>`.
 - Target directory: if an existing supported host is missing its `skills` root,
   the command creates that root before publishing the selected skill.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
-- Installation mode: bundled and published Codex, Claude Code, Trae, and
-  QoderWork skills are published to the target directory as a symlink to the
+- Installation mode: bundled and published Codex, Claude Code, Trae, Trae CN,
+  and QoderWork skills are published to the target directory as a symlink to the
   canonical directory when the current platform and environment allow it. When
   symlink creation fails, `oo` falls back to copying the canonical files into
   the target skills directory.
@@ -567,8 +570,8 @@ Install bundled or published skills into supported local skill directories.
 - Notes: in the interactive picker, conflicting skills are marked in the list;
   selecting one means it will be overwritten.
 - Notes: the command exits with an error when none of the supported Codex,
-  Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, OpenClaw, or QoderWork home
-  directories exists.
+  Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, or
+  QoderWork home directories exists.
 - Notes: an existing bundled skill installation is considered managed by `oo`
   only when its `.oo-metadata.json` file can be parsed and contains a
   non-empty `version`. Otherwise `oo` treats it as a different skill and will
@@ -626,6 +629,7 @@ Remove oo-managed skills from supported local skill directories.
   `${HERMES_HOME:-~/.hermes}/skills/<skill>`,
   `~/.codebuddy/skills/<skill>`, `~/.workbuddy/skills/<skill>`,
   `~/.trae/skills/<skill>`,
+  `~/.trae-cn/skills/<skill>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`, and
   `~/.qoderwork/skills/<skill>`.
 - Path rule: `[skill]` must resolve to child directories under those local

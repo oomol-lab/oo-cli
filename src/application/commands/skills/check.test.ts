@@ -12,6 +12,7 @@ import {
     resolveCodexHomeDirectory,
     resolveHermesHomeDirectory,
     resolveQoderWorkHomeDirectory,
+    resolveTraeCnHomeDirectory,
     resolveTraeHomeDirectory,
     resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
@@ -234,6 +235,40 @@ describe("skills preflight command", () => {
                 "preflight",
                 "--agent",
                 "trae",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+            );
+            expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("checks Trae CN as a requested agent", async () => {
+        const sandbox = await createCliSandbox();
+        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
+            storePaths.settingsFilePath,
+        );
+
+        try {
+            await mkdir(traeCnHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "preflight",
+                "--agent",
+                "trae-cn",
             ]);
 
             expect(result.exitCode).toBe(0);

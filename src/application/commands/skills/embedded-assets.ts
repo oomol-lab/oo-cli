@@ -58,7 +58,7 @@ import ooQoderWorkSearchAndSelectionReferencePath from "../../../../contrib/skil
 import ooQoderWorkTaskLifecycleReferencePath from "../../../../contrib/skills/qoderwork/oo/references/task-lifecycle.md" with { type: "file" };
 import ooQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo/SKILL.md" with { type: "file" };
 
-export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "trae", "openclaw", "qoderwork"] as const;
+export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "trae", "trae-cn", "openclaw", "qoderwork"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
 
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill", "oo-publish-skill"] as const;
@@ -122,7 +122,7 @@ const ooQoderWorkReferenceFiles = createOoReferenceFiles({
 // Keep this registry aligned with contrib/skills/<agent>/<skill> or its compatible source so Bun embeds the files.
 const bundledSkillRegistry = {
     "oo": {
-        codex: {
+        "codex": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -135,7 +135,7 @@ const bundledSkillRegistry = {
                 ...ooCodexReferenceFiles,
             ],
         },
-        claude: {
+        "claude": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -144,7 +144,7 @@ const bundledSkillRegistry = {
                 ...ooClaudeCompatibleReferenceFiles,
             ],
         },
-        hermes: {
+        "hermes": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -153,7 +153,7 @@ const bundledSkillRegistry = {
                 ...ooClaudeCompatibleReferenceFiles,
             ],
         },
-        codebuddy: {
+        "codebuddy": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -162,7 +162,7 @@ const bundledSkillRegistry = {
                 ...ooCodeBuddyReferenceFiles,
             ],
         },
-        workbuddy: {
+        "workbuddy": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -171,7 +171,7 @@ const bundledSkillRegistry = {
                 ...ooCodeBuddyReferenceFiles,
             ],
         },
-        trae: {
+        "trae": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -180,7 +180,16 @@ const bundledSkillRegistry = {
                 ...ooCodeBuddyReferenceFiles,
             ],
         },
-        openclaw: {
+        "trae-cn": {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCodeBuddySkillPath,
+                },
+                ...ooCodeBuddyReferenceFiles,
+            ],
+        },
+        "openclaw": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -189,7 +198,7 @@ const bundledSkillRegistry = {
                 ...ooOpenClawReferenceFiles,
             ],
         },
-        qoderwork: {
+        "qoderwork": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -200,7 +209,7 @@ const bundledSkillRegistry = {
         },
     },
     "oo-find-skills": {
-        codex: {
+        "codex": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -216,7 +225,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        claude: {
+        "claude": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -228,7 +237,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        hermes: {
+        "hermes": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -240,7 +249,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        codebuddy: {
+        "codebuddy": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -252,7 +261,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        workbuddy: {
+        "workbuddy": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -264,7 +273,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        trae: {
+        "trae": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -276,7 +285,19 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        openclaw: {
+        "trae-cn": {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooFindSkillsCodeBuddySkillPath,
+                },
+                {
+                    relativePath: "references/oo-cli-contract.md",
+                    sourcePath: ooFindSkillsCodeBuddyCliContractPath,
+                },
+            ],
+        },
+        "openclaw": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -288,7 +309,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        qoderwork: {
+        "qoderwork": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -302,7 +323,7 @@ const bundledSkillRegistry = {
         },
     },
     "oo-create-skill": {
-        codex: {
+        "codex": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -314,7 +335,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        claude: {
+        "claude": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -322,7 +343,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        hermes: {
+        "hermes": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -330,7 +351,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        codebuddy: {
+        "codebuddy": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -338,7 +359,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        workbuddy: {
+        "workbuddy": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -346,7 +367,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        trae: {
+        "trae": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -354,7 +375,15 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        openclaw: {
+        "trae-cn": {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCreateSkillCodeBuddySkillPath,
+                },
+            ],
+        },
+        "openclaw": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -362,7 +391,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        qoderwork: {
+        "qoderwork": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -372,7 +401,7 @@ const bundledSkillRegistry = {
         },
     },
     "oo-publish-skill": {
-        codex: {
+        "codex": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -384,7 +413,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        claude: {
+        "claude": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -392,7 +421,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        hermes: {
+        "hermes": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -400,7 +429,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        codebuddy: {
+        "codebuddy": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -408,7 +437,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        workbuddy: {
+        "workbuddy": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -416,7 +445,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        trae: {
+        "trae": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -424,7 +453,15 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        openclaw: {
+        "trae-cn": {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillCodeBuddySkillPath,
+                },
+            ],
+        },
+        "openclaw": {
             files: [
                 {
                     relativePath: "SKILL.md",
@@ -432,7 +469,7 @@ const bundledSkillRegistry = {
                 },
             ],
         },
-        qoderwork: {
+        "qoderwork": {
             files: [
                 {
                     relativePath: "SKILL.md",

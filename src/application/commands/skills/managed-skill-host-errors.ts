@@ -7,6 +7,7 @@ export type ManagedSkillHostMissingErrorKey
         | "errors.skills.hermesNotInstalled"
         | "errors.skills.openclawNotInstalled"
         | "errors.skills.qoderworkNotInstalled"
+        | "errors.skills.traeCnNotInstalled"
         | "errors.skills.traeNotInstalled"
         | "errors.skills.workbuddyNotInstalled";
 
@@ -28,6 +29,8 @@ export function resolveManagedSkillHostMissingErrorKey(
             return "errors.skills.qoderworkNotInstalled";
         case "trae":
             return "errors.skills.traeNotInstalled";
+        case "trae-cn":
+            return "errors.skills.traeCnNotInstalled";
         case "workbuddy":
             return "errors.skills.workbuddyNotInstalled";
     }

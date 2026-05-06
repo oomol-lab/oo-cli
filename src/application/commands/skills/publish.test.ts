@@ -802,7 +802,7 @@ describe("skills publish command", () => {
 
             expect(result.exitCode).toBe(2);
             expect(result.stderr).toBe(
-                "Unsupported skill agent: unknown. Use codex, claude, hermes, codebuddy, workbuddy, trae, openclaw, or qoderwork.\n",
+                "Unsupported skill agent: unknown. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.\n",
             );
         }
         finally {

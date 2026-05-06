@@ -309,7 +309,7 @@ export const enMessages = {
     "errors.skills.publish.invalidPackageMetadata":
         "Invalid skill package metadata: {message}",
     "errors.skills.publish.invalidAgent":
-        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, openclaw, or qoderwork.",
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
     "errors.skills.publish.invalidSkillFile":
         "Cannot publish the skill at {path}: {message}",
     "errors.skills.publish.invalidVisibility":
@@ -406,6 +406,8 @@ export const enMessages = {
         "QoderWork is not installed. Expected the QoderWork home directory at {path}.",
     "errors.skills.traeNotInstalled":
         "Trae is not installed. Expected the Trae home directory at {path}.",
+    "errors.skills.traeCnNotInstalled":
+        "Trae CN is not installed. Expected the Trae CN home directory at {path}.",
     "errors.skills.workbuddyNotInstalled":
         "WorkBuddy is not installed. Expected the WorkBuddy home directory at {path}.",
     "errors.skills.noSupportedBundledSkillHosts":
@@ -606,6 +608,7 @@ export const enMessages = {
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
     "skills.list.host.trae": "Trae",
+    "skills.list.host.traeCn": "Trae CN",
     "skills.list.host.workbuddy": "WorkBuddy",
     "skills.list.source": "Source",
     "skills.list.package": "Package",
@@ -1038,7 +1041,7 @@ export const zhMessages = {
     "errors.skills.publish.invalidPackageMetadata":
         "skill 包元数据无效：{message}",
     "errors.skills.publish.invalidAgent":
-        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、openclaw 或 qoderwork。",
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
     "errors.skills.publish.invalidSkillFile":
         "无法发布 {path} 中的 skill：{message}",
     "errors.skills.publish.invalidVisibility":
@@ -1135,6 +1138,8 @@ export const zhMessages = {
         "未检测到 QoderWork 安装。期望的 QoderWork 根目录为 {path}。",
     "errors.skills.traeNotInstalled":
         "未检测到 Trae 安装。期望的 Trae 根目录为 {path}。",
+    "errors.skills.traeCnNotInstalled":
+        "未检测到 Trae CN 安装。期望的 Trae CN 根目录为 {path}。",
     "errors.skills.workbuddyNotInstalled":
         "未检测到 WorkBuddy 安装。期望的 WorkBuddy 根目录为 {path}。",
     "errors.skills.noSupportedBundledSkillHosts":
@@ -1329,6 +1334,7 @@ export const zhMessages = {
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
     "skills.list.host.trae": "Trae",
+    "skills.list.host.traeCn": "Trae CN",
     "skills.list.host.workbuddy": "WorkBuddy",
     "skills.list.source": "来源",
     "skills.list.package": "Package",

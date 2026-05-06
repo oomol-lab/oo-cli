@@ -13,14 +13,15 @@ describe("managed skill publication policy", () => {
         );
 
         expect(modes).toEqual({
-            claude: "symlink-or-copy",
-            codebuddy: "copy",
-            codex: "symlink-or-copy",
-            hermes: "copy",
-            openclaw: "copy",
-            qoderwork: "symlink-or-copy",
-            trae: "symlink-or-copy",
-            workbuddy: "copy",
+            "claude": "symlink-or-copy",
+            "codebuddy": "copy",
+            "codex": "symlink-or-copy",
+            "hermes": "copy",
+            "openclaw": "copy",
+            "qoderwork": "symlink-or-copy",
+            "trae": "symlink-or-copy",
+            "trae-cn": "symlink-or-copy",
+            "workbuddy": "copy",
         });
     });
 });

@@ -14,6 +14,7 @@ import {
     resolveHermesHomeDirectory,
     resolveOpenClawHomeDirectory,
     resolveQoderWorkHomeDirectory,
+    resolveTraeCnHomeDirectory,
     resolveTraeHomeDirectory,
     resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
@@ -375,6 +376,35 @@ describe("skills list CLI", () => {
                     "✓ Found 4 skills.",
                     "",
                     ...createExpectedBundledSkillLines("Trae"),
+                ].join("\n"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists startup-synchronized Trae CN bundled installs when Codex is not installed", async () => {
+        const sandbox = await createCliSandbox();
+        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(traeCnHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "✓ Found 4 skills.",
+                    "",
+                    ...createExpectedBundledSkillLines("Trae CN"),
                 ].join("\n"),
             );
         }
