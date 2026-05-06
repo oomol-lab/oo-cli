@@ -117,14 +117,23 @@ step, preserving the user's decisive constraints such as target service,
 language pair, file type, and output format. Inspect the first result set
 before refining.
 
-Treat package and connector results as first-class authoring candidates. Prefer
-the capability that directly matches the intended reusable workflow. When the
-target is a connected third-party account, service, or API, prefer a direct
-connector action over a package. If a package and connector are equally direct,
-prefer an already-authenticated connector because it is usually lower friction
-and has no package cost. Prefer a package when the workflow needs package
-compute, media/document transformation, or a block-specific capability that no
-connector action exposes.
+Treat Fusion API, connector, and package/block results as first-class authoring
+candidates. Prefer the capability that directly matches the intended reusable
+workflow. Business fit comes before convenience: if one capability matches the
+user's domain, inputs, outputs, or required workflow more directly than the
+others, choose the better-matched capability even when it is not first in the
+default preference order. Classify connector results whose service is
+`fusion-api` as OOMOL built-in Fusion API actions that do not require the user
+to provide their own API key. Prefer Fusion API when otherwise equivalent options
+match the workflow because it is usually the most convenient path.
+
+If Fusion API and an ordinary connector action both match, either choose Fusion
+API by default or ask one concise question when the user's cost or account
+preference matters. Explain that Fusion API is the most convenient option, while
+an ordinary connector uses the user's own key and may be most cost-effective if
+they already pay for that provider. If no suitable Fusion API or ordinary
+connector action exists, use a package/block. Blocks are the most flexible path,
+but usually have the weakest performance and highest execution friction.
 
 For connector-backed choices, capture the exact `service`, action `name`,
 description, authentication state, and schema-derived input/output concepts.

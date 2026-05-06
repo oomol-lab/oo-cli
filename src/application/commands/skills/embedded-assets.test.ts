@@ -425,10 +425,20 @@ describe("embedded skill assets", () => {
             expect(content).toContain(
                 "Resolve concrete package, block, and connector references",
             );
-            expect(content).toContain(
-                "Treat package and connector results as first-class authoring candidates.",
-            );
-            expect(content).toContain("prefer an already-authenticated connector");
+            expect(content).toContain("Treat Fusion API, connector, and package/block results");
+            expect(content).toContain("first-class authoring");
+            expect(content).toContain("Business fit comes before convenience");
+            expect(content).toContain("choose the better-matched capability");
+            expect(content).toContain("default preference order");
+            expect(content).toContain("service is\n`fusion-api`");
+            expect(content).toContain("do not require the user");
+            expect(content).toContain("to provide their own API key");
+            expect(content).toContain("Prefer Fusion API when otherwise equivalent");
+            expect(content).toContain("If Fusion API and an ordinary connector action both match");
+            expect(content).toContain("ordinary connector uses the user's own key");
+            expect(content).toContain("If no suitable Fusion API or ordinary");
+            expect(content).toContain("Blocks are the most flexible path");
+            expect(content).toContain("weakest performance and highest execution friction");
             expect(content).toContain("Do not force a package or block reference");
             expect(content).toContain("when the chosen reusable workflow is connector-backed.");
             expect(content).toContain(
