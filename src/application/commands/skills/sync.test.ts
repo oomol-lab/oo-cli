@@ -9,7 +9,7 @@ import {
 describe("skills sync", () => {
     test("creates the sync API request URL", () => {
         expect(createSkillSyncRequestUrl("oomol.com").toString()).toBe(
-            "https://api.oomol.com/v1/skills",
+            "https://cli-api.oomol.com/v1/skills",
         );
     });
 

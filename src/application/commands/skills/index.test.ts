@@ -1843,7 +1843,7 @@ describe("skills commands", () => {
             expect(requests[0]).toMatchObject({
                 authorization: "secret-1",
                 method: "PUT",
-                url: "https://api.oomol.com/v1/skills",
+                url: "https://cli-api.oomol.com/v1/skills",
             });
             expect(requests[0]!.body).toEqual([
                 {
@@ -1960,7 +1960,7 @@ describe("skills commands", () => {
 
                     requests.push(request);
 
-                    if (request.url === "https://api.oomol.com/v1/skills") {
+                    if (request.url === "https://cli-api.oomol.com/v1/skills") {
                         return new Response(JSON.stringify([
                             {
                                 packageName: "openai",
@@ -2031,7 +2031,7 @@ describe("skills commands", () => {
 
                         requests.push(request);
 
-                        if (request.url === "https://api.oomol.com/v1/skills") {
+                        if (request.url === "https://cli-api.oomol.com/v1/skills") {
                             return new Response(JSON.stringify([
                                 {
                                     packageName: "openai",
