@@ -145,18 +145,25 @@ initialization. If initialization fails because the local canonical directory or
 an agent target directory already exists, ask the user for a different skill
 name instead of overwriting.
 
-Make `--description` user-outcome-oriented because it becomes the generated
-skill's frontmatter. Write it as one short positive trigger sentence in the
-language a user would use to ask for the outcome. Center the user-visible task,
-domain terms, required inputs, and expected outputs. Include a model or product
-name only when it is a meaningful user-facing tag or when the user explicitly
-asked for it.
+Make `--description` a user-facing trigger summary because it becomes the
+generated skill's frontmatter and is the main signal future agents see before
+the skill loads. Start with the outcome the skill helps the user accomplish in
+language a user would naturally use. Include the user-visible task, common
+request verbs or phrases, domain nouns, important input artifacts, expected
+outputs, and user-visible product, model, service, or workflow names that users
+are likely to mention.
 
-Keep implementation plumbing out of the description. Do not mention package
-names, block ids, connector service/action identifiers, API routes, function
-names, schema paths, command names, file-transfer or storage details, or provider
-channel names unless that exact identifier is something users would naturally
-request. Put concrete execution references in the workflow body instead.
+Prefer one or two concise sentences over a generic label. The description
+should answer: "What can this skill do for the user?" and "What would a user ask
+that should trigger it?" Keep operational details, routing caveats,
+package/block identifiers, schema details, command syntax, and negative
+conditions in the workflow body unless those exact names are user-facing terms
+that people naturally use in requests.
+
+Use this description shape when helpful:
+`<Primary user outcome>. Use when the user asks to <common verbs/request
+phrases> for <domain objects or input artifacts>, especially when they need
+<expected output/result>.`
 
 Do not substitute manual file creation for this step. The initialized skill
 directory must come from a successful `oo skills init` invocation before you
@@ -173,14 +180,15 @@ packages with `oo::packageName` and stable blocks with
 input and output concepts. Do not present a local `schemaPath` as a stable
 contract for future agents.
 
-Review the generated frontmatter `description` before finishing. It must be
-simple, direct, and specific enough for future agents to trigger the skill in
-the target scenario: name the task outcome, common user phrasing, domain nouns,
-important inputs and outputs, and user-visible model or product tags when useful.
-It must not read like an implementation recipe or capability inventory. Avoid
-generic descriptions such as "use an OOMOL package workflow" that do not mention
-the user's domain, and avoid channel-first descriptions that explain how the
-task is routed before they say what user outcome the skill supports.
+Review the generated frontmatter `description` before finishing. It must say
+the user-visible outcome first, include common verbs or phrases users would
+actually say, name the domain objects or input/output artifacts, and include
+user-visible services, models, products, or workflow names when they improve
+matching. Avoid generic descriptions such as "use an OOMOL package workflow"
+unless they are paired with the concrete user outcome. Move caveats, execution
+details, negative guidance, and boundary cases into the workflow body instead of
+the frontmatter unless they are needed to prevent direct sibling-skill routing
+conflicts.
 
 Preserve the generated frontmatter `metadata.title` field when it exists. If
 you change the skill's displayed title or first heading, update

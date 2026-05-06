@@ -389,19 +389,22 @@ describe("embedded skill assets", () => {
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
-            expect(content).toContain("user-outcome-oriented");
-            expect(content).toContain("Center the user-visible task");
-            expect(content).toContain("Include a model or product name only");
-            expect(content).toContain("Keep implementation plumbing out of the description");
-            expect(content).toContain("connector service/action identifiers");
-            expect(content).toContain("provider channel names");
+            expect(content).toContain("user-facing trigger summary");
+            expect(content).toContain("main signal future agents see before the skill loads");
+            expect(content).toContain("Start with the outcome");
+            expect(content).toContain("common request verbs or phrases");
+            expect(content).toContain("one or two concise sentences");
+            expect(content).toContain("What would a user ask");
+            expect(content).toContain("Use this description shape when helpful");
+            expect(content).toContain("negative conditions in the workflow body");
             expect(content).toContain(
-                "Put concrete execution references in the workflow body instead.",
+                "the user-visible outcome first",
             );
             expect(content).toContain(
-                "It must not read like an implementation recipe or capability inventory.",
+                "Move caveats, execution details, negative guidance, and boundary cases into the workflow body",
             );
-            expect(content).toContain("avoid channel-first descriptions");
+            expect(content).not.toContain("one short positive trigger sentence");
+            expect(content).not.toContain("Keep implementation plumbing out of the description");
         }
     });
 
