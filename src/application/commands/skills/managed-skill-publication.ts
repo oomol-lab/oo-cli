@@ -5,8 +5,6 @@ const symlinkCapableManagedSkillAgentNames: ReadonlySet<BundledSkillAgentName> =
     "claude",
     "codex",
     "qoderwork",
-    "trae",
-    "trae-cn",
 ]);
 
 export function resolveManagedSkillPublicationMode(

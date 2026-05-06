@@ -802,9 +802,10 @@ describe("skills commands", () => {
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
             expect((await stat(traeSkillsDirectoryPath)).isDirectory()).toBeTrue();
-            expect(await realpath(skillDirectoryPath)).toBe(
+            expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
             );
@@ -861,9 +862,10 @@ describe("skills commands", () => {
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
             expect((await stat(traeCnSkillsDirectoryPath)).isDirectory()).toBeTrue();
-            expect(await realpath(skillDirectoryPath)).toBe(
+            expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
             );
@@ -1837,8 +1839,6 @@ describe("skills commands", () => {
             for (const linkedSkillDirectoryPath of [
                 codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
-                traeSkillDirectoryPath,
-                traeCnSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
             ]) {
                 expect(await realpath(linkedSkillDirectoryPath)).toBe(
@@ -1850,6 +1850,8 @@ describe("skills commands", () => {
                 hermesSkillDirectoryPath,
                 codeBuddySkillDirectoryPath,
                 workBuddySkillDirectoryPath,
+                traeSkillDirectoryPath,
+                traeCnSkillDirectoryPath,
                 openClawSkillDirectoryPath,
             ]) {
                 expect(await realpath(copiedSkillDirectoryPath)).not.toBe(
