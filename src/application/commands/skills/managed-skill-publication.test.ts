@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
@@ -29,9 +31,14 @@ describe("managed skill publication policy", () => {
     });
 
     test("treats a missing copy-mode target as not current", async () => {
+        const missingSkillDirectoryPath = join(
+            tmpdir(),
+            `oo-missing-managed-skill-publication-target-${Bun.randomUUIDv7()}`,
+        );
+
         await expect(
             isManagedSkillPublicationCurrent(
-                "/tmp/oo-missing-managed-skill-publication-target",
+                missingSkillDirectoryPath,
                 "copy",
             ),
         ).resolves.toBeFalse();
