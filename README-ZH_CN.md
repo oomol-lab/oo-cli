@@ -90,6 +90,17 @@ oo skills install
 oo skills install oo-find-skills
 ```
 
+## Telemetry
+
+`oo` 默认记录受隐私约束的命令使用 telemetry。Telemetry 事件不包含
+free-form 输入文本、路径、用户名、hostname、IP 地址、真实 OOMOL 账号 ID
+或账号名。事件会关闭 PostHog person profile 处理，并使用本地随机 device id
+做设备级聚合。
+
+可以通过 `oo telemetry disable`、`OO_TELEMETRY_DISABLED=1` 或
+`DO_NOT_TRACK=1` 关闭 telemetry。使用 `oo telemetry status` 查看实际开关状态和本地待发送事件数量。
+完整边界见 [PRIVACY-ZH_CN.md](./PRIVACY-ZH_CN.md)。
+
 ## 文档
 
 - [命令参考](./docs/commands.zh-CN.md)

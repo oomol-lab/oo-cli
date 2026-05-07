@@ -1,6 +1,10 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import {
+    bucketTelemetryCount,
+    bucketTelemetryStringLength,
+} from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
@@ -45,6 +49,10 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
+        context.telemetry?.recordProperties({
+            query_length_bucket: bucketTelemetryStringLength(input.text),
+        });
+
         const account = await requireCurrentAccount(context);
         const response = await loadPackageSearchResponse(
             {
@@ -54,6 +62,10 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
             },
             context,
         );
+
+        context.telemetry?.recordProperties({
+            result_count_bucket: bucketTelemetryCount(response.packages.length),
+        });
 
         if (input.onlyPackageId === true) {
             const packageIds = readPackageSearchIds(response.packages);

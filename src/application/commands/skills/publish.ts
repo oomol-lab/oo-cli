@@ -168,6 +168,11 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
         const agentName = parseSkillPublishAgent(input.agent);
         const visibility = parseSkillPublishVisibility(input.visibility)
             ?? defaultSkillPublishVisibility;
+
+        context.telemetry?.recordProperties({
+            visibility,
+        });
+
         const result = await publishSkillPackage(
             input.skill,
             context,
@@ -219,6 +224,13 @@ export async function publishLocalSkillPackage(
 
     const account = await requireAccount(context);
     const packageName = resolveCanonicalSkillPackageName(account.name, skillId);
+    context.telemetry?.recordProperties({
+        adopted: false,
+        package_name: packageName,
+        skill_id: skillId,
+        source_kind: "local",
+        visibility,
+    });
 
     return await publishResolvedSkillPackage(
         {
@@ -253,6 +265,14 @@ export async function publishSkillPackage(
 
     const account = await requireAccount(context);
     const packageName = resolveCanonicalSkillPackageName(account.name, source.skillId);
+    context.telemetry?.recordProperties({
+        adopted: source.kind === "adoptable",
+        package_name: packageName,
+        skill_id: source.skillId,
+        source_kind: source.kind,
+        visibility,
+    });
+
     const publishSource = await confirmAndPrepareSkillPublishSource(
         {
             packageName,

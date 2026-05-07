@@ -11,6 +11,7 @@ import {
 } from "../../auth/login-flow.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { upsertAuthAccount } from "../../schemas/auth.ts";
+import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { writeLine } from "../shared/output.ts";
 import {
@@ -46,6 +47,9 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
         const loginMethod = input.sessionToken === undefined
             ? "device_login" as const
             : "session_token" as const;
+
+        context.telemetry?.recordProperties({ auth_method: loginMethod });
+
         const account = loginMethod === "device_login"
             ? await runDeviceLogin(authEndpoint, context)
             : await requestAuthAccountWithSessionToken({
@@ -56,9 +60,12 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
                     translator: context.translator,
                 });
 
-        await context.authStore.update(authFile =>
+        const nextAuthFile = await context.authStore.update(authFile =>
             upsertAuthAccount(authFile, account),
         );
+        context.telemetry?.recordProperties({
+            account_count_bucket: bucketTelemetryCount(nextAuthFile.auth.length),
+        });
         context.logger.info(
             {
                 accountId: account.id,

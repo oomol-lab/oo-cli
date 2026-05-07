@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -5,6 +7,11 @@ import {
     createCliSnapshot,
     readLatestLogContent,
 } from "../../../__tests__/helpers.ts";
+import { APP_NAME } from "../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../telemetry/outbox.ts";
 
 describe("checkUpdateCommand CLI", () => {
     test("writes update-check lifecycle logs when check-update finds a newer release", async () => {
@@ -24,6 +31,11 @@ describe("checkUpdateCommand CLI", () => {
                 },
             );
             const content = await readLatestLogContent(sandbox);
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(content).toContain(`"msg":"CLI update check started."`);
@@ -35,6 +47,13 @@ describe("checkUpdateCommand CLI", () => {
             );
             expect(content).toContain(`"msg":"CLI update notice emitted."`);
             expect(content).toContain(`"latestVersion":"1.2.0"`);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "check-update",
+                    update_available: true,
+                    version_kind: "stable",
+                },
+            });
         }
         finally {
             await sandbox.cleanup();

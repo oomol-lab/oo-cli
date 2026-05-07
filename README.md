@@ -91,6 +91,19 @@ And you can install the search helper explicitly with:
 oo skills install oo-find-skills
 ```
 
+## Telemetry
+
+`oo` records privacy-constrained command usage telemetry by default. Telemetry
+events do not include free-form input text, paths, usernames, hostnames, IP
+addresses, real OOMOL account ids, or account names. Events are sent with
+PostHog person profile processing disabled and use a random local device id for
+device-level aggregation.
+
+Disable telemetry with `oo telemetry disable`, `OO_TELEMETRY_DISABLED=1`, or
+`DO_NOT_TRACK=1`. Use `oo telemetry status` to inspect the effective state and
+pending local event count. See [PRIVACY.md](./PRIVACY.md) for the full
+telemetry boundary.
+
 ## Documentation
 
 - [Command reference](./docs/commands.md)

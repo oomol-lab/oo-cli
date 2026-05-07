@@ -15,6 +15,7 @@ import { logoutCommand } from "./logout.ts";
 import { packageCommand } from "./package/index.ts";
 import { mixedSearchCommand } from "./search.ts";
 import { skillsCommand } from "./skills/index.ts";
+import { telemetryCommand } from "./telemetry/index.ts";
 import { updateCommand } from "./update.ts";
 
 const globalOptions = [
@@ -53,6 +54,7 @@ export function createCliCatalog(): CliCatalog {
             logCommand,
             mixedSearchCommand,
             packageCommand,
+            telemetryCommand,
             updateCommand,
         ],
     };

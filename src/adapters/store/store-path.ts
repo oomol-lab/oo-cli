@@ -8,6 +8,7 @@ const defaultDownloadSessionsFileName = "download-sessions.sqlite";
 const defaultUploadsFileName = "uploads.sqlite";
 const defaultLogDirectoryName = "logs";
 const defaultWindowsLogDirectoryName = "Logs";
+const defaultTelemetryDirectoryName = "telemetry";
 
 export interface FileStoreLocationOptions {
     appName: string;
@@ -24,6 +25,7 @@ export interface StorePaths {
     logDirectoryPath: string;
     rootDirectory: string;
     settingsFilePath: string;
+    telemetryDirectory: string;
     uploadsFilePath: string;
 }
 
@@ -91,6 +93,7 @@ export function resolveStorePaths(
         logDirectoryPath: resolveLogDirectory(options),
         rootDirectory,
         settingsFilePath: join(rootDirectory, defaultSettingsFileName),
+        telemetryDirectory: join(rootDirectory, defaultTelemetryDirectoryName),
         uploadsFilePath: join(dataDirectory, defaultUploadsFileName),
     };
 }

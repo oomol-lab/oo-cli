@@ -90,6 +90,36 @@ describe("FileSettingsStore", () => {
         });
     });
 
+    test("writes and reads the persisted telemetry setting", async () => {
+        const root = await createTemporaryDirectory("store-telemetry-write");
+        const store = new FileSettingsStore({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+
+        await store.write({
+            telemetry: {
+                enabled: false,
+            },
+        });
+
+        expect(await readFile(store.getFilePath(), "utf8")).toBe(
+            createExpectedSettingsFileContent([
+                "[telemetry]",
+                "enabled = false",
+            ]),
+        );
+        expect(await store.read()).toEqual({
+            telemetry: {
+                enabled: false,
+            },
+        });
+    });
+
     test("writes commented defaults when all persisted settings are removed", async () => {
         const root = await createTemporaryDirectory("store-empty-write");
         const store = new FileSettingsStore({

@@ -25,6 +25,8 @@ export const completionCommand: CliCommandDefinition<CompletionInput> = {
     }),
     mapInputError: (_, rawInput) => createInvalidShellError(rawInput),
     handler: (input, context) => {
+        context.telemetry?.recordProperties({ shell: input.shell });
+
         context.stdout.write(
             context.completionRenderer.render(input.shell, context.catalog),
         );

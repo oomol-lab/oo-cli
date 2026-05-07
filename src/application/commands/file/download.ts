@@ -9,6 +9,7 @@ import {
     defaultFileDownloadOutDir,
     getConfiguredFileDownloadOutDir,
 } from "../../schemas/settings.ts";
+import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import {
     finalizeDownloadedFile,
     openTemporaryDownloadFile,
@@ -72,6 +73,11 @@ export const fileDownloadCommand: CliCommandDefinition<FileDownloadInput> = {
     }),
     handler: async (input, context) => {
         const requestUrl = parseFileDownloadUrl(input.url);
+
+        context.telemetry?.recordProperties({
+            url_scheme: requestUrl.protocol.slice(0, -1),
+        });
+
         const requestedName = parseFileDownloadNameOption(input.name);
         const requestedExtension = parseFileDownloadExtensionOption(input.ext);
 
@@ -99,6 +105,21 @@ export const fileDownloadCommand: CliCommandDefinition<FileDownloadInput> = {
             sessionKey,
             context,
         );
+        const resumed = downloadPlan.kind === "write-response"
+            && downloadPlan.initialBytes > 0;
+
+        if (
+            downloadPlan.kind === "write-response"
+            && downloadPlan.totalBytes !== undefined
+        ) {
+            context.telemetry?.recordProperties({
+                bytes_total_bucket: bucketTelemetryBytes(downloadPlan.totalBytes),
+                resumed,
+            });
+        }
+        else {
+            context.telemetry?.recordProperties({ resumed });
+        }
 
         await executeDownloadPlan(downloadPlan, outputDirectoryPath, context);
     },

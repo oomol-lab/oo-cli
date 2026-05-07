@@ -25,14 +25,23 @@ const fileSettingsSchema = z.object({
     download: fileDownloadSettingsSchema.optional(),
 }).strict();
 
+const telemetrySettingsShape = {
+    enabled: z.boolean().optional(),
+};
+
+const telemetrySettingsReadSchema = z.object(telemetrySettingsShape);
+const telemetrySettingsSchema = z.object(telemetrySettingsShape).strict();
+
 export const settingsFileReadSchema = z.object({
     file: fileSettingsReadSchema.optional(),
     lang: localeSchema.optional(),
+    telemetry: telemetrySettingsReadSchema.optional(),
 });
 
 export const settingsFileSchema = z.object({
     file: fileSettingsSchema.optional(),
     lang: localeSchema.optional(),
+    telemetry: telemetrySettingsSchema.optional(),
 }).strict();
 
 export type AppSettings = z.output<typeof settingsFileSchema>;
@@ -56,6 +65,13 @@ const defaultSettingsCommentBlocks = [
         "# [file.download]",
         `# out_dir = "${defaultFileDownloadOutDir}"`,
     ],
+    [
+        "# telemetry.enabled controls whether oo records privacy-constrained usage telemetry.",
+        "# Default: true.",
+        "# Supported values: true or false.",
+        "# [telemetry]",
+        "# enabled = true",
+    ],
 ] as const;
 
 export function renderSettingsFile(settings: AppSettings): string {
@@ -73,6 +89,12 @@ export function renderSettingsFile(settings: AppSettings): string {
     if (parsedSettings.file?.download?.out_dir !== undefined) {
         persistedSettings.file = {
             download: { out_dir: parsedSettings.file.download.out_dir },
+        };
+    }
+
+    if (parsedSettings.telemetry?.enabled !== undefined) {
+        persistedSettings.telemetry = {
+            enabled: parsedSettings.telemetry.enabled,
         };
     }
 
@@ -122,6 +144,35 @@ export function unsetFileDownloadOutDir(
     }
 
     return deleteNestedProperty(settings, ["file", "download", "out_dir"]);
+}
+
+export function getConfiguredTelemetryEnabled(
+    settings: AppSettings,
+): boolean | undefined {
+    return settings.telemetry?.enabled;
+}
+
+export function setTelemetryEnabled(
+    settings: AppSettings,
+    value: boolean,
+): AppSettings {
+    return {
+        ...settings,
+        telemetry: {
+            ...settings.telemetry,
+            enabled: value,
+        },
+    };
+}
+
+export function unsetTelemetryEnabled(
+    settings: AppSettings,
+): AppSettings {
+    if (settings.telemetry?.enabled === undefined) {
+        return settings;
+    }
+
+    return deleteNestedProperty(settings, ["telemetry", "enabled"]);
 }
 
 // Shallow-clones each level of a nested object along the given path,

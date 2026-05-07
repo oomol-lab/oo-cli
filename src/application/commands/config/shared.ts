@@ -1,24 +1,28 @@
-import type { ZodType } from "zod";
-import type { SupportedLocale } from "../../contracts/cli.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
-    fileDownloadOutDirConfigValueSchema,
     getConfiguredFileDownloadOutDir,
+    getConfiguredTelemetryEnabled,
     localeSchema,
     setFileDownloadOutDir,
+    setTelemetryEnabled,
     unsetFileDownloadOutDir,
+    unsetTelemetryEnabled,
 } from "../../schemas/settings.ts";
 
-interface ConfigDefinition<TValue extends string> {
+interface ParsedConfigValue {
+    readonly apply: (settings: AppSettings) => AppSettings;
+    readonly renderedValue: string;
+}
+
+interface ConfigDefinition {
     createInvalidValueError: (rawValue: unknown) => CliUserError;
-    getValue: (settings: AppSettings) => TValue | undefined;
-    setValue: (settings: AppSettings, value: TValue) => AppSettings;
+    getValue: (settings: AppSettings) => string | undefined;
+    parseRawValue: (rawValue: string) => ParsedConfigValue | undefined;
     unsetValue: (settings: AppSettings) => AppSettings;
-    valueChoices: readonly TValue[];
-    valueSchema: ZodType<TValue>;
+    valueChoices: readonly string[];
 }
 
 function createValueErrorFactory(translationKey: string) {
@@ -30,17 +34,27 @@ function createValueErrorFactory(translationKey: string) {
 }
 
 export const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
+export const telemetryEnabledConfigKey = "telemetry.enabled" as const;
 
 export const configDefinitions = {
     lang: {
         createInvalidValueError: createValueErrorFactory("errors.config.invalidLangValue"),
-        getValue(settings: AppSettings): SupportedLocale | undefined {
+        getValue(settings: AppSettings): string | undefined {
             return settings.lang;
         },
-        setValue(settings: AppSettings, value: SupportedLocale): AppSettings {
+        parseRawValue(rawValue: string): ParsedConfigValue | undefined {
+            const result = localeSchema.safeParse(rawValue);
+
+            if (!result.success) {
+                return undefined;
+            }
+
             return {
-                ...settings,
-                lang: value,
+                apply: settings => ({
+                    ...settings,
+                    lang: result.data,
+                }),
+                renderedValue: result.data,
             };
         },
         unsetValue(settings: AppSettings): AppSettings {
@@ -51,22 +65,57 @@ export const configDefinitions = {
             return nextSettings;
         },
         valueChoices: localeSchema.options,
-        valueSchema: localeSchema,
-    } satisfies ConfigDefinition<SupportedLocale>,
+    } satisfies ConfigDefinition,
     [fileDownloadOutDirConfigKey]: {
         createInvalidValueError: createValueErrorFactory("errors.config.invalidFileDownloadOutDirValue"),
         getValue(settings: AppSettings): string | undefined {
             return getConfiguredFileDownloadOutDir(settings);
         },
-        setValue(settings: AppSettings, value: string): AppSettings {
-            return setFileDownloadOutDir(settings, value);
+        parseRawValue(rawValue: string): ParsedConfigValue | undefined {
+            const value = rawValue.trim();
+
+            if (value === "") {
+                return undefined;
+            }
+
+            return {
+                apply: settings => setFileDownloadOutDir(settings, value),
+                renderedValue: value,
+            };
         },
         unsetValue(settings: AppSettings): AppSettings {
             return unsetFileDownloadOutDir(settings);
         },
         valueChoices: [],
-        valueSchema: fileDownloadOutDirConfigValueSchema,
-    } satisfies ConfigDefinition<string>,
+    } satisfies ConfigDefinition,
+    [telemetryEnabledConfigKey]: {
+        createInvalidValueError: createValueErrorFactory("errors.config.invalidTelemetryEnabledValue"),
+        getValue(settings: AppSettings): string | undefined {
+            const value = getConfiguredTelemetryEnabled(settings);
+
+            return value === undefined ? undefined : String(value);
+        },
+        parseRawValue(rawValue: string): ParsedConfigValue | undefined {
+            switch (rawValue) {
+                case "false":
+                    return {
+                        apply: settings => setTelemetryEnabled(settings, false),
+                        renderedValue: "false",
+                    };
+                case "true":
+                    return {
+                        apply: settings => setTelemetryEnabled(settings, true),
+                        renderedValue: "true",
+                    };
+                default:
+                    return undefined;
+            }
+        },
+        unsetValue(settings: AppSettings): AppSettings {
+            return unsetTelemetryEnabled(settings);
+        },
+        valueChoices: ["true", "false"],
+    } satisfies ConfigDefinition,
 } as const;
 
 export type ConfigKey = keyof typeof configDefinitions;

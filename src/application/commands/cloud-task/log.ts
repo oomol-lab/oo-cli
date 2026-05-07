@@ -1,6 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
@@ -67,6 +68,10 @@ export const cloudTaskLogCommand: CliCommandDefinition<CloudTaskLogInput> = {
         const response = parseCloudTaskLogResponse(
             await requestCloudTask(requestUrl, account.apiKey, context),
         );
+
+        context.telemetry?.recordProperties({
+            log_count_bucket: bucketTelemetryCount(response.logs.length),
+        });
 
         if (format === "json") {
             writeJsonOutput(context.stdout, response);

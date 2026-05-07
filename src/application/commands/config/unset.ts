@@ -27,6 +27,8 @@ export const configUnsetCommand: CliCommandDefinition<ConfigKeyInput> = {
     }),
     mapInputError: (_, rawInput) => createInvalidConfigKeyError(rawInput),
     handler: async (input, context) => {
+        context.telemetry?.recordProperties({ config_key: input.key });
+
         await context.settingsStore.update(settings =>
             configDefinitions[input.key].unsetValue(settings),
         );

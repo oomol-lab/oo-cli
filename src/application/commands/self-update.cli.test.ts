@@ -13,6 +13,7 @@ import {
     joinPathEntries,
     toRequest,
 } from "../../../__tests__/helpers.ts";
+import { APP_NAME } from "../config/app-config.ts";
 import { selfUpdateHidePathShadowingWarningEnvName } from "../self-update/path-shadowing-warning-preference.ts";
 import {
     resolveSelfUpdatePaths,
@@ -20,6 +21,10 @@ import {
     resolveSelfUpdateVersionExecutablePath,
 } from "../self-update/paths.ts";
 import { detectSelfUpdateReleasePlatform } from "../self-update/platform.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../telemetry/outbox.ts";
 
 describe("self-update commands", () => {
     test("install prints the development-version guard and exits successfully", async () => {
@@ -104,9 +109,23 @@ describe("self-update commands", () => {
                 selfUpdateRuntime: selfUpdateRuntime.runtime,
                 version: "1.0.0",
             });
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
 
             expect(createSelfUpdateInstallSnapshot(result, sandbox)).toMatchSnapshot();
             expect(latestRequestCount).toBe(0);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "install",
+                    force: false,
+                    path_modified: true,
+                    update_available: true,
+                    version_kind: "stable",
+                },
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -425,6 +444,19 @@ describe("self-update commands", () => {
                 exitCode: 0,
                 stderr: "",
                 stdout: "Updated oo from 1.0.0 to 2.0.0.\nAdded <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.\n",
+            });
+            expect(parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            )).toMatchObject({
+                properties: {
+                    command_full: "update",
+                    force: true,
+                    path_modified: true,
+                    update_available: true,
+                    version_kind: "stable",
+                },
             });
             expect(selfUpdateRuntime.commands).toEqual([
                 {

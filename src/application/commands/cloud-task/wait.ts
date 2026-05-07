@@ -5,6 +5,7 @@ import type {
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     createCloudTaskTaskUrl,
@@ -84,12 +85,18 @@ export function createCloudTaskWaitHandler(
         );
         const startedAt = dependencies.now();
         let lastPrintedElapsedMs: number | undefined;
+        let pollCount = 0;
 
         while (true) {
             const elapsedMs = dependencies.now() - startedAt;
             const remainingMs = timeoutMs - elapsedMs;
 
             if (remainingMs <= 0) {
+                context.telemetry?.recordProperties({
+                    final_status: "timeout",
+                    polled_count_bucket: bucketTelemetryCount(pollCount),
+                });
+
                 throw new CliUserError("errors.cloudTaskWait.timedOut", 1, {
                     taskId: input.taskId,
                     timeout: formatCloudTaskDuration(timeoutMs),
@@ -99,8 +106,14 @@ export function createCloudTaskWaitHandler(
             const response = parseCloudTaskResultResponse(
                 await requestCloudTask(requestUrl, account.apiKey, context),
             );
+            pollCount += 1;
 
             if (response.status === "success" || response.status === "failed") {
+                context.telemetry?.recordProperties({
+                    final_status: response.status,
+                    polled_count_bucket: bucketTelemetryCount(pollCount),
+                });
+
                 context.stdout.write(
                     `${formatCloudTaskResultAsText(input.taskId, response, context)}\n`,
                 );

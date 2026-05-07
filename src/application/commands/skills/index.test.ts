@@ -17,6 +17,10 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
 import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
 import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
@@ -107,6 +111,23 @@ describe("skills commands", () => {
                 ].join("\n"),
             );
             expect(result.stderr).toBe("");
+            expect(parseTelemetryRowPayload(
+                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+            )).toMatchObject({
+                properties: {
+                    bundled_skill: "__all__",
+                    command_full: "skills.install",
+                    package_kind: "bundled",
+                    skill_ids_count_bucket: "1-5",
+                    skill_ids_sample: [
+                        "oo",
+                        "oo-find-skills",
+                        "oo-create-skill",
+                        "oo-publish-skill",
+                    ],
+                    skill_ids_truncated: false,
+                },
+            });
             expect(await realpath(ooSkillDirectoryPath)).toBe(
                 await realpath(ooCanonicalSkillDirectoryPath),
             );
@@ -1748,6 +1769,18 @@ describe("skills commands", () => {
             expect(requests).toHaveLength(2);
             expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
             expect(requests[1]!.headers.get("Authorization")).toBe("secret-1");
+            expect(parseTelemetryRowPayload(
+                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+            )).toMatchObject({
+                properties: {
+                    command_full: "skills.install",
+                    package_kind: "registry",
+                    package_name: "openai",
+                    skill_ids_count_bucket: "1-5",
+                    skill_ids_sample: ["chatgpt"],
+                    skill_ids_truncated: false,
+                },
+            });
         }
         finally {
             await sandbox.cleanup();

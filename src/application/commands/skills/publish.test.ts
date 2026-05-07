@@ -25,6 +25,10 @@ import { createTranslator } from "../../../i18n/translator.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import { defaultSettings } from "../../schemas/settings.ts";
 import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
+import {
     resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
@@ -102,6 +106,20 @@ describe("skills publish command", () => {
             expect(parsed.data.metadata).toMatchObject({
                 packageName: "@alice/demo-skill",
                 version: "0.0.1",
+            });
+            expect(parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            )).toMatchObject({
+                properties: {
+                    adopted: false,
+                    command_full: "skills.publish",
+                    package_name: "@alice/demo-skill",
+                    skill_id: "demo-skill",
+                    source_kind: "local",
+                    visibility: "private",
+                },
             });
         }
         finally {
@@ -426,6 +444,20 @@ describe("skills publish command", () => {
                 version: "0.3.0",
             });
             expect((await lstat(agentSkillDirectoryPath)).isSymbolicLink()).toBeTrue();
+            expect(parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            )).toMatchObject({
+                properties: {
+                    adopted: true,
+                    command_full: "skills.publish",
+                    package_name: "@alice/agent-skill",
+                    skill_id: "agent-skill",
+                    source_kind: "adoptable",
+                    visibility: "private",
+                },
+            });
         }
         finally {
             await sandbox.cleanup();

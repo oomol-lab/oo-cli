@@ -11,6 +11,10 @@ import {
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import {
     renderConnectorActionSchemaCache,
@@ -351,6 +355,11 @@ describe("connectorCommand CLI", () => {
                     },
                 },
             );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(JSON.parse(result.stdout)).toEqual({
@@ -373,6 +382,17 @@ describe("connectorCommand CLI", () => {
                     to: "foo@bar.com",
                 },
             });
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    action: "send_mail",
+                    command_full: "connector.run",
+                    data_size_bucket: "<1KB",
+                    dry_run: false,
+                    service: "gmail",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("data");
+            expect(telemetryPayload?.properties).not.toHaveProperty("input");
         }
         finally {
             await sandbox.cleanup();
@@ -721,6 +741,11 @@ describe("connectorCommand CLI", () => {
                     }),
                 },
             );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(1);
@@ -735,6 +760,17 @@ describe("connectorCommand CLI", () => {
             expect(content).toContain("\"errorCode\":\"invalid_input\"");
             expect(content).toContain("\"executionId\":\"exec-1\"");
             expect(content).not.toContain("\"responseBody\":");
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    action: "get_message",
+                    command_full: "connector.run",
+                    data_size_bucket: "<1KB",
+                    dry_run: false,
+                    error_code: "invalid_input",
+                    http_status: 400,
+                    service: "gmail",
+                },
+            });
         }
         finally {
             await sandbox.cleanup();

@@ -17,6 +17,10 @@ import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
+import {
     resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
     resolveHermesHomeDirectory,
@@ -229,6 +233,21 @@ describe("skills update command", () => {
                     "",
                 ].join("\n"),
             );
+            expect(parseTelemetryRowPayload(
+                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+            )).toMatchObject({
+                properties: {
+                    command_full: "skills.update",
+                    package_kind: "registry",
+                    package_name: "openai",
+                    package_names_count_bucket: "1-5",
+                    package_names_sample: ["openai"],
+                    package_names_truncated: false,
+                    skill_ids_count_bucket: "1-5",
+                    skill_ids_sample: ["chatgpt"],
+                    skill_ids_truncated: false,
+                },
+            });
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(codexInstalledSkillDirectoryPath),
                 "utf8",

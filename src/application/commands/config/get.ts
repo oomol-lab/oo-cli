@@ -27,6 +27,8 @@ export const configGetCommand: CliCommandDefinition<ConfigKeyInput> = {
     }),
     mapInputError: (_, rawInput) => createInvalidConfigKeyError(rawInput),
     handler: async (input, context) => {
+        context.telemetry?.recordProperties({ config_key: input.key });
+
         const settings = await context.settingsStore.read();
         const value = getConfigValue(settings, input.key);
 

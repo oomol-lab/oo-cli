@@ -40,6 +40,10 @@ import {
     loadRegistryPackageSkillInfo,
 } from "./registry-skill-source.ts";
 import { isBundledSkillName } from "./shared.ts";
+import {
+    createPackageNamesTelemetryProperties,
+    createSkillIdsTelemetryProperties,
+} from "./telemetry.ts";
 import { SkillsUpdateProgressReporter } from "./update-progress.ts";
 
 interface SkillsUpdateInput {
@@ -143,6 +147,19 @@ export async function updateManagedSkills(
     const unresolvedSkills = selectedSkills.filter(skill =>
         !isBundledSkillName(skill.name) && skill.metadata?.packageName === undefined,
     );
+    const packageNames = registrySkillGroups.map(group => group.packageName);
+    context.telemetry?.recordProperties({
+        package_kind: registrySkillGroups.length > 0 ? "registry" : "unknown",
+        ...createSkillIdsTelemetryProperties(selectedSkills.map(skill => skill.name)),
+        ...createPackageNamesTelemetryProperties(packageNames),
+    });
+
+    if (packageNames.length === 1) {
+        context.telemetry?.recordProperties({
+            package_name: packageNames[0]!,
+        });
+    }
+
     const failures: Error[] = [];
 
     progressReporter?.start();

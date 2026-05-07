@@ -110,6 +110,13 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
             });
         }
 
+        context.telemetry?.recordProperties({
+            block_id: block.blockName,
+            dry_run: input.dryRun === true,
+            package_name: packageInfo.packageName,
+            package_version: packageInfo.packageVersion,
+        });
+
         validateCloudTaskInputValues(inputValues, block, context.translator);
 
         if (input.dryRun === true) {

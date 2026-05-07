@@ -2,6 +2,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
 import { getNextAuthAccount, setCurrentAuthId } from "../../schemas/auth.ts";
+import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import {
     emptyAuthCommandInputSchema,
     formatAuthStrong,
@@ -15,6 +16,11 @@ export const authSwitchCommand: CliCommandDefinition = {
     inputSchema: emptyAuthCommandInputSchema,
     handler: async (_, context) => {
         const authFile = await context.authStore.read();
+
+        context.telemetry?.recordProperties({
+            account_count_bucket: bucketTelemetryCount(authFile.auth.length),
+        });
+
         const account = getNextAuthAccount(authFile);
 
         if (account === undefined) {

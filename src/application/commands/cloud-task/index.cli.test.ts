@@ -9,6 +9,10 @@ import {
     toRequest,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 
 const searchDisplayNameColor = "#59F78D";
@@ -156,6 +160,11 @@ describe("cloudTaskCommand CLI", () => {
                     },
                 },
             );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(JSON.parse(result.stdout)).toEqual({
@@ -180,6 +189,18 @@ describe("cloudTaskCommand CLI", () => {
                 packageVersion: "1.0.4",
                 type: "serverless",
             });
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    block_id: "Exist",
+                    command_full: "cloud-task.run",
+                    dry_run: false,
+                    package_name: "qrcode",
+                    package_version: "1.0.4",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("data");
+            expect(telemetryPayload?.properties).not.toHaveProperty("input");
+            expect(telemetryPayload?.properties).not.toHaveProperty("taskID");
         }
         finally {
             await sandbox.cleanup();
@@ -375,6 +396,9 @@ describe("cloudTaskCommand CLI", () => {
                     fetcher,
                 },
             );
+            const telemetryPayloads = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            ).map(row => parseTelemetryRowPayload(row));
 
             expect({
                 listResponse: createCliSnapshot(listResponse),
@@ -426,6 +450,34 @@ describe("cloudTaskCommand CLI", () => {
                 "https://cloud-task.oomol.com/v3/users/me/tasks/task-1/logs?page=2",
                 "https://cloud-task.oomol.com/v3/users/me/tasks?size=1&nextToken=eyJsYXN0SWQiOiIxMjMifQ%3D%3D&status=running&packageID=foo&blockName=main",
             ]);
+            expect(telemetryPayloads.find(
+                payload => payload?.properties.command_full === "cloud-task.result",
+            )).toMatchObject({
+                properties: {
+                    final_status: "success",
+                },
+            });
+            const logTelemetryPayload = telemetryPayloads.find(
+                payload => payload?.properties.command_full === "cloud-task.log",
+            );
+
+            expect(logTelemetryPayload).toMatchObject({
+                properties: {
+                    log_count_bucket: "1-5",
+                },
+            });
+            expect(logTelemetryPayload?.properties).not.toHaveProperty("task_id");
+            expect(logTelemetryPayload?.properties).not.toHaveProperty("taskID");
+            expect(logTelemetryPayload?.properties).not.toHaveProperty("logs");
+            expect(telemetryPayloads.find(
+                payload => payload?.properties.command_full === "cloud-task.list",
+            )).toMatchObject({
+                properties: {
+                    block_id: "main",
+                    package_name: "foo",
+                    result_count_bucket: "1-5",
+                },
+            });
         }
         finally {
             await sandbox.cleanup();

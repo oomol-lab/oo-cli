@@ -7,6 +7,7 @@ import {
     cliUpdateCommand,
     renderCliUpdateNotice,
 } from "../update/update-notifier.ts";
+import { classifyTelemetryVersionKind } from "./self-update-telemetry.ts";
 
 export const checkUpdateCommand: CliCommandDefinition = {
     name: "check-update",
@@ -14,10 +15,15 @@ export const checkUpdateCommand: CliCommandDefinition = {
     descriptionKey: "commands.checkUpdate.description",
     inputSchema: z.object({}),
     handler: async (_, context) => {
+        context.telemetry?.recordProperties({
+            version_kind: classifyTelemetryVersionKind(context.version),
+        });
+
         const result = await checkForCliUpdate(context);
 
         switch (result.status) {
             case "failed":
+                context.telemetry?.recordProperties({ update_available: false });
                 switch (result.reason) {
                     case "invalid-current-version":
                         context.stdout.write(
@@ -36,6 +42,7 @@ export const checkUpdateCommand: CliCommandDefinition = {
                 }
                 return;
             case "up-to-date":
+                context.telemetry?.recordProperties({ update_available: false });
                 context.stdout.write(
                     `${context.translator.t("checkUpdate.upToDate", {
                         version: context.version,
@@ -43,6 +50,7 @@ export const checkUpdateCommand: CliCommandDefinition = {
                 );
                 return;
             case "update-available":
+                context.telemetry?.recordProperties({ update_available: true });
                 context.stdout.write(
                     renderCliUpdateNotice({
                         context,

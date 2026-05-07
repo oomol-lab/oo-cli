@@ -1,6 +1,10 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import {
+    bucketTelemetryCount,
+    bucketTelemetryStringLength,
+} from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
@@ -45,8 +49,14 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentAccount(context);
         const keywords = parseCommaSeparatedKeywords(input.keywords);
+
+        context.telemetry?.recordProperties({
+            keyword_count_bucket: bucketTelemetryCount(keywords.length),
+            query_length_bucket: bucketTelemetryStringLength(input.text),
+        });
+
+        const account = await requireCurrentAccount(context);
         const results = await loadConnectorSearchResults(
             {
                 apiKey: account.apiKey,
@@ -56,6 +66,10 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
             },
             context,
         );
+
+        context.telemetry?.recordProperties({
+            result_count_bucket: bucketTelemetryCount(results.length),
+        });
 
         if (results.length === 0) {
             if (input.format === "json") {

@@ -2,6 +2,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
@@ -108,6 +109,17 @@ export const cloudTaskListCommand: CliCommandDefinition<CloudTaskListInput> = {
             primaryValue: input.blockId,
             secondaryOption: "--block-name",
         });
+        const telemetryProperties: Record<string, string> = {};
+
+        if (packageId !== undefined) {
+            telemetryProperties.package_name = packageId;
+        }
+
+        if (blockId !== undefined) {
+            telemetryProperties.block_id = blockId;
+        }
+
+        context.telemetry?.recordProperties(telemetryProperties);
 
         if (blockId !== undefined && packageId === undefined) {
             throw new CliUserError("errors.cloudTaskList.blockIdRequiresPackageId", 2);
@@ -139,6 +151,10 @@ export const cloudTaskListCommand: CliCommandDefinition<CloudTaskListInput> = {
         const response = parseCloudTaskListResponse(
             await requestCloudTask(requestUrl, account.apiKey, context),
         );
+
+        context.telemetry?.recordProperties({
+            result_count_bucket: bucketTelemetryCount(response.tasks.length),
+        });
 
         if (format === "json") {
             writeJsonOutput(context.stdout, response);

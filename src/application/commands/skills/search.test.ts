@@ -1,6 +1,7 @@
 import type {
     CliCatalog,
     CliExecutionContext,
+    CliTelemetryPropertyValue,
     Fetcher,
     InteractiveInput,
 } from "../../contracts/cli.ts";
@@ -153,10 +154,35 @@ describe("skillsSearchCommand", () => {
             key: "errors.skillsSearch.invalidResponse",
         });
     });
+
+    test("records search telemetry buckets without the query text", async () => {
+        const telemetryProperties: Record<string, CliTelemetryPropertyValue> = {};
+        const context = createSearchContext({
+            fetcher: async () => new Response(JSON.stringify(fullServerResponse)),
+            telemetryProperties,
+        });
+
+        await searchHandler(
+            {
+                text: "text generation",
+                keywords: "  bar, baz , ,bar  ",
+            },
+            context,
+        );
+
+        expect(telemetryProperties).toEqual({
+            keyword_count_bucket: "1-5",
+            query_length_bucket: "6-20",
+            result_count_bucket: "1-5",
+        });
+        expect(telemetryProperties).not.toHaveProperty("query");
+        expect(telemetryProperties).not.toHaveProperty("text");
+    });
 });
 
 function createSearchContext(options: {
     fetcher: Fetcher;
+    telemetryProperties?: Record<string, CliTelemetryPropertyValue>;
 }): CliExecutionContext & {
     stdoutBuffer: ReturnType<typeof createTextBuffer>;
 } {
@@ -188,6 +214,15 @@ function createSearchContext(options: {
         stdout: stdoutBuffer.writer,
         stdoutBuffer,
         stderr: stderr.writer,
+        telemetry: options.telemetryProperties === undefined
+            ? undefined
+            : {
+                    directoryPath: "",
+                    recordProperties(properties) {
+                        Object.assign(options.telemetryProperties!, properties);
+                    },
+                    suppressCurrentInvocation() {},
+                },
         translator,
         completionRenderer: {
             render: () => "",

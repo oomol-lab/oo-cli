@@ -1,6 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { removeCurrentAuthAccount } from "../../schemas/auth.ts";
+import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { writeLine } from "../shared/output.ts";
 import { emptyAuthCommandInputSchema } from "./shared.ts";
 
@@ -28,6 +29,9 @@ export const authLogoutCommand: CliCommandDefinition = {
             },
             "Current auth account was removed.",
         );
+        context.telemetry?.recordProperties({
+            account_count_bucket: bucketTelemetryCount(remainingSavedAccounts),
+        });
 
         writeLine(
             context.stdout,

@@ -43,6 +43,7 @@ import {
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
 } from "./registry-skill-source.ts";
+import { createSkillIdsTelemetryProperties } from "./telemetry.ts";
 
 interface ManagedSkillPathState {
     exists: boolean;
@@ -93,6 +94,11 @@ export async function installRegistrySkills(
         context,
         request.packageVersion,
     );
+    context.telemetry?.recordProperties({
+        package_kind: "registry",
+        package_name: packageInfo.packageName,
+        ...createSkillIdsTelemetryProperties([]),
+    });
 
     if (packageInfo.skills.length === 0) {
         throw new CliUserError("errors.skills.install.noPublishedSkills", 1, {
@@ -110,6 +116,12 @@ export async function installRegistrySkills(
     if (selectionActions.actions.length === 0) {
         return;
     }
+
+    context.telemetry?.recordProperties(createSkillIdsTelemetryProperties(
+        selectionActions.actions
+            .filter(action => action.type === "install")
+            .map(action => action.skillName),
+    ));
 
     const settingsFilePath = context.settingsStore.getFilePath();
 
