@@ -204,6 +204,7 @@ jobs:
       RELEASE_TAG: ${{ needs.compute-version.outputs.tag_name }}
       FEISHU_RELEASE_WEBHOOK: ${{ secrets.FEISHU_RELEASE_WEBHOOK }}
       FEISHU_RELEASE_SECRET: ${{ secrets.FEISHU_RELEASE_SECRET }}
+      FEISHU_RELEASE_FOLLOWUP_AT_USER_ID: ${{ secrets.FEISHU_RELEASE_FOLLOWUP_AT_USER_ID }}
 
     steps:
       - name: Checkout

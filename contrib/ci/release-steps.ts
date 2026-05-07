@@ -58,15 +58,7 @@ export function buildFeishuReleaseNotification(input: {
     timestamp?: string;
     sign?: string;
 }): string {
-    const releaseVersion = input.releaseVersion.trim();
-    if (releaseVersion === "") {
-        throw new Error("RELEASE_VERSION is required.");
-    }
-
-    const releaseTag = input.releaseTag.trim();
-    if (releaseTag === "") {
-        throw new Error("RELEASE_TAG is required.");
-    }
+    const { releaseVersion, releaseTag } = normalizeReleaseInput(input);
 
     const releaseUrl = `${input.serverUrl}/${input.repository}/releases/tag/${releaseTag}`;
     const runUrl = `${input.serverUrl}/${input.repository}/actions/runs/${input.runId}`;
@@ -84,10 +76,58 @@ export function buildFeishuReleaseNotification(input: {
         },
     };
 
+    return stringifyFeishuCustomBotPayload(payload, input);
+}
+
+export function buildFeishuReleaseFollowupNotification(input: {
+    atUserId: string;
+    timestamp?: string;
+    sign?: string;
+}): string {
+    const atUserId = input.atUserId.trim();
+    if (atUserId === "") {
+        throw new Error("FEISHU_RELEASE_FOLLOWUP_AT_USER_ID is required.");
+    }
+
+    const payload: Record<string, unknown> = {
+        msg_type: "text",
+        content: {
+            text: `<at user_id="${escapeFeishuTextAttribute(atUserId)}">follow-up bot</at> 更新 oo-cli`,
+        },
+    };
+
+    return stringifyFeishuCustomBotPayload(payload, input);
+}
+
+function normalizeReleaseInput(input: {
+    releaseVersion: string;
+    releaseTag: string;
+}): { releaseVersion: string; releaseTag: string } {
+    const releaseVersion = input.releaseVersion.trim();
+    if (releaseVersion === "") {
+        throw new Error("RELEASE_VERSION is required.");
+    }
+
+    const releaseTag = input.releaseTag.trim();
+    if (releaseTag === "") {
+        throw new Error("RELEASE_TAG is required.");
+    }
+
+    return { releaseVersion, releaseTag };
+}
+
+function stringifyFeishuCustomBotPayload(payload: Record<string, unknown>, input: {
+    timestamp?: string;
+    sign?: string;
+}): string {
     if (input.timestamp !== undefined && input.sign !== undefined) {
         payload.timestamp = input.timestamp;
         payload.sign = input.sign;
     }
 
     return JSON.stringify(payload);
+}
+
+function escapeFeishuTextAttribute(value: string): string {
+    return value.replaceAll("&", "&amp;").replaceAll("\"", "&quot;");
 }
