@@ -10,11 +10,9 @@ description: >-
 
 # oo Create Skill
 
-Use this skill when the user wants to create, generate, scaffold, author, or
-update a local skill around an OOMOL/oo package or connector workflow. This
-includes requests to turn a specific package, block, connector action, or
-selected workflow into reusable agent instructions, or to create the skill
-after the right capability is discovered.
+Use this skill to create or update a local skill around an OOMOL/oo package,
+block, connector action, or selected workflow. This includes turning a known or
+newly discovered capability into reusable agent instructions.
 
 If the user only wants to discover or install existing published skills, use
 `oo-find-skills`. If the user wants to publish a finished skill, use
@@ -26,11 +24,9 @@ Work like a confident authoring agent: gather facts from `oo` metadata, make
 reasonable choices, write the skill, validate it, and interrupt the user only
 for true blockers.
 
-- Ask only when the skill name cannot be safely derived, the user must choose
-  between materially different external services, cost/account ownership, or
-  output destinations, an `oo` command is blocked by permissions or target
-  conflicts, or required workflow inputs and outputs cannot be inferred from
-  package or connector metadata.
+- Ask only for true blockers: an underivable skill name, a material service,
+  cost/account, or output-destination choice, a blocked `oo` command or target
+  conflict, or required inputs/outputs that metadata cannot answer.
 - Otherwise decide and proceed. Derive the display title, icon, trigger
   description, capability selection, and workflow wording from the user's
   purpose and resolved metadata.
@@ -38,10 +34,10 @@ for true blockers.
   concrete package/block references or connector service/action identifiers,
   not instructions for future agents to run discovery.
 - Choose the capability that most directly satisfies the reusable workflow.
-  Prefer domain fit over result ordering. When otherwise equivalent, choose
-  Fusion API by default because it avoids user-managed provider credentials.
-  Ask about an ordinary connector only when the user has stated provider,
-  account, cost, compliance, or data-routing constraints.
+  Prefer domain fit over result ordering. When options are otherwise
+  equivalent, choose Fusion API by default because it avoids user-managed
+  provider credentials. Ask about an ordinary connector only when the user has
+  stated provider, account, cost, compliance, or data-routing constraints.
 - Treat local/cloud file transfer as a boundary. Generated skills must tell
   future agents to use the agent-provided `oo-upload` helper for local
   attachments sent to cloud processing and `oo-download` for cloud artifacts
@@ -68,9 +64,8 @@ metadata:
 - optional display title and icon preference
 
 Follow the Operating Principles for when to ask. Do not ask only for cosmetic
-details. Use a concise human-readable title and an icon reference that fits the
-workflow. The icon may be an emoji, an image URL, or `:collection:icon:` where
-`collection` and `icon` are names from https://icones.js.org/.
+details. Use a concise title and fitting icon reference: an emoji, an image URL,
+or `:collection:icon:` from https://icones.js.org/.
 
 ### 2. Resolve concrete package, block, and connector references
 
@@ -101,13 +96,11 @@ language pair, file type, and output format. Inspect the first result set
 before refining.
 
 Treat Fusion API, connector, and package/block results as first-class authoring
-candidates. Classify connector results whose service is `fusion-api` as OOMOL
-built-in Fusion API actions that do not require the user to provide their own
-API key. Apply the capability-selection principle above: choose by domain fit
-first, choose Fusion API by default when options are otherwise equivalent, and
-fall back to a package/block when no suitable Fusion API or ordinary connector
-action exists. Blocks are the most flexible path, but usually have the weakest
-performance and highest execution friction.
+candidates. Classify service `fusion-api` as OOMOL built-in Fusion API, which
+does not require the user to provide their own API key. Apply the capability
+principle above; use a package/block only when no suitable Fusion API or
+ordinary connector action exists. Blocks are flexible, but usually have weaker
+performance and higher execution friction.
 
 For connector-backed choices, capture the exact `service`, action `name`,
 description, authentication state, and schema-derived input/output concepts.
@@ -115,33 +108,28 @@ Use `oo connector search "<goal>" --json` only to refine a shortlisted connector
 path, not to restart broad discovery. Do not force a package or block reference
 when the chosen reusable workflow is connector-backed.
 
-After choosing packages, blocks, or connector actions, keep that choice concrete
-in the generated skill.
+Keep chosen packages, blocks, or connector actions concrete in the generated
+skill.
 
 ### 3. Initialize the local skill
 
-When creating a new skill, run `oo skills init <name>` with a required
-`--description` value. Also pass `--title` and `--icon`. If the user did not
-provide them, derive a concise display title and suitable icon reference from
-the workflow purpose and resolved package or connector metadata before running
-initialization. If initialization fails because the local canonical directory or
-an agent target directory already exists, ask the user for a different skill
+When creating a new skill, run `oo skills init <name>` with required
+`--description`, `--title`, and `--icon` values. Derive title and icon from the
+workflow purpose and resolved metadata unless the user provided them. If the
+canonical directory or an agent target already exists, ask for a different skill
 name instead of overwriting.
 
-Make `--description` a user-facing trigger summary because it becomes the
-generated skill's frontmatter and is the main signal future agents see before
-the skill loads. Start with the outcome the skill helps the user accomplish in
-language a user would naturally use. Include the user-visible task, common
-request verbs or phrases, domain nouns, important input artifacts, expected
-outputs, and user-visible product, model, service, or workflow names that users
-are likely to mention.
+Make `--description` a user-facing trigger summary: it becomes the frontmatter
+description and the main signal future agents see before loading the skill.
+Start with the user outcome. Include natural request verbs, domain nouns,
+important input artifacts, expected outputs, and user-visible product, model,
+service, or workflow names that improve matching.
 
 Prefer one or two concise sentences over a generic label. The description
-should answer: "What can this skill do for the user?" and "What would a user ask
-that should trigger it?" Keep operational details, routing caveats,
-package/block identifiers, schema details, command syntax, and negative
-conditions in the workflow body unless those exact names are user-facing terms
-that people naturally use in requests.
+should answer what the skill does and what users would ask. Keep operational
+details, routing caveats, identifiers, schema details, command syntax, and
+negative conditions in the workflow body unless they are natural user-facing
+terms.
 
 Use this description shape when helpful:
 `<Primary user outcome>. Use when the user asks to <common verbs/request
@@ -163,30 +151,23 @@ When the workflow crosses the local/cloud file boundary, include the
 `oo-upload` and `oo-download` helper guidance from the Operating Principles in
 the generated skill.
 
-Review the generated frontmatter `description` before finishing. It must still
-follow the trigger-summary principle from initialization: user-visible outcome
-first, common request language, relevant domain objects or artifacts, and
-user-visible services, models, products, or workflow names when they improve
-matching. Move caveats, execution details, negative guidance, and boundary cases
-into the workflow body unless they are needed to prevent direct sibling-skill
-routing conflicts.
+Review the frontmatter `description` before finishing: user-visible outcome
+first, common request language, relevant artifacts, and user-visible services,
+models, products, or workflow names when useful. Keep caveats, execution
+details, negative guidance, and boundary cases in the workflow body unless they
+prevent direct sibling-skill routing conflicts.
 
-Preserve the generated frontmatter `metadata.title` field when it exists. If
-you change the skill's displayed title or first heading, update
-`metadata.title` to the same human-readable title. If `metadata.title` or
-`metadata.icon` is absent, add a suitable value rather than leaving the
-generated skill without presentation metadata.
+Preserve `metadata.title` when it exists. If you change the displayed title or
+first heading, update `metadata.title` to match. If `metadata.title` or
+`metadata.icon` is absent, add a suitable value.
 
-The final generated skill must contain concrete package or block references, or
-concrete connector service/action identifiers in its workflow instructions. It
-must not instruct the future agent to run `oo search`, `oo connector search`, or
-discover capabilities at execution time.
+The final skill must contain concrete package/block references or connector
+service/action identifiers. It must not instruct future agents to run `oo
+search`, `oo connector search`, or discover capabilities at execution time.
 
-Do not duplicate broad oo execution mechanics in authored prose. For
-package-backed workflows, the initialized `SKILL.md` already contains the
-managed OO notice that tells agents how to inspect and run referenced packages.
-For connector-backed workflows, include only the selected service/action
-identity, the small connector command shape, and schema-derived payload rules.
+Do not duplicate broad oo execution mechanics. For connector-backed workflows,
+include only the selected service/action identity, the small connector command
+shape, and schema-derived payload rules.
 
 Keep `SKILL.md` concise. Use `references/workflow.md` only when the workflow
 has several steps, decision rules, or examples. Use `references/packages.json`

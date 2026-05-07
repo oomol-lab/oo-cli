@@ -344,15 +344,13 @@ describe("embedded skill assets", () => {
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
-            expect(content).toContain("Also pass `--title` and `--icon`.");
-            expect(content).toContain(
-                "derive a concise display title and suitable icon reference",
-            );
-            expect(content).toContain("The icon may be an emoji, an image URL");
+            expect(content).toContain("required `--description`, `--title`, and `--icon`");
+            expect(content).toContain("Derive title and icon");
+            expect(content).toContain("fitting icon reference: an emoji, an image URL");
             expect(content).toContain("`:collection:icon:`");
             expect(content).toContain("https://icones.js.org/");
             expect(content).toContain(
-                "If `metadata.title` or `metadata.icon` is absent",
+                "If `metadata.title` or `metadata.icon` is absent, add a suitable value",
             );
             expect(content).not.toContain(
                 "Pass `--title` only when the user provided or confirmed",
@@ -380,7 +378,8 @@ describe("embedded skill assets", () => {
             expect(content).toContain("Operating Principles");
             expect(content).toContain("Work like a confident authoring agent");
             expect(content).toContain("interrupt the user only for true blockers");
-            expect(content).toContain("Ask only when the skill name cannot be safely derived");
+            expect(content).toContain("Ask only for true blockers");
+            expect(content).toContain("underivable skill name");
             expect(content).toContain("Otherwise decide and proceed");
             expect(content).toContain("Do not ask only for cosmetic details");
             expect(content).toContain("Resolve capabilities once before authoring");
@@ -446,18 +445,18 @@ describe("embedded skill assets", () => {
             );
 
             expect(content).toContain("user-facing trigger summary");
-            expect(content).toContain("main signal future agents see before the skill loads");
-            expect(content).toContain("Start with the outcome");
-            expect(content).toContain("common request verbs or phrases");
+            expect(content).toContain("main signal future agents see before loading the skill");
+            expect(content).toContain("Start with the user outcome");
+            expect(content).toContain("natural request verbs");
             expect(content).toContain("one or two concise sentences");
-            expect(content).toContain("What would a user ask");
+            expect(content).toContain("what users would ask");
             expect(content).toContain("Use this description shape when helpful");
             expect(content).toContain("negative conditions in the workflow body");
             expect(content).toContain(
                 "user-visible outcome first",
             );
             expect(content).toContain(
-                "Move caveats, execution details, negative guidance, and boundary cases into",
+                "Keep caveats, execution details, negative guidance, and boundary cases in",
             );
             expect(content).not.toContain("one short positive trigger sentence");
             expect(content).not.toContain("Keep implementation plumbing out of the description");
@@ -485,18 +484,18 @@ describe("embedded skill assets", () => {
             expect(content).toContain("Prefer domain fit over result ordering");
             expect(content).toContain("Treat Fusion API, connector, and package/block results");
             expect(content).toContain("first-class authoring");
-            expect(content).toContain("service is `fusion-api`");
-            expect(content).toContain("do not require the user");
+            expect(content).toContain("Classify service `fusion-api`");
+            expect(content).toContain("does not require the user");
             expect(content).toContain("to provide their own API key");
             expect(content).toContain("choose Fusion API by default");
             expect(content).toContain("account, cost, compliance");
             expect(content).toContain("no suitable Fusion API or ordinary connector");
-            expect(content).toContain("Blocks are the most flexible path");
-            expect(content).toContain("weakest performance and highest execution friction");
+            expect(content).toContain("Blocks are flexible");
+            expect(content).toContain("weaker performance and higher execution friction");
             expect(content).toContain("Do not force a package or block reference");
             expect(content).toContain("when the chosen reusable workflow is connector-backed.");
             expect(content).toContain(
-                "concrete connector service/action identifiers",
+                "connector service/action identifiers",
             );
             expect(content).toContain("not instructions for future agents to run discovery");
             expect(content).not.toContain("default preference order");
