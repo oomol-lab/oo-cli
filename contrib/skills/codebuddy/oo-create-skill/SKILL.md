@@ -34,11 +34,17 @@ this constitution, not a separate checklist.
    that metadata, schemas, or command output can answer: package/block
    references, connector service/action identifiers, payload field names,
    result field paths, command shape, authentication state, defaults, or schema
-   constraints.
-3. Resolve once, then shorten future executions. The generated skill must
-   contain concrete package/block references or connector service/action
-   identifiers, plus the minimum payload, result, and failure guidance needed
-   so future agents do not run discovery again.
+   constraints. Treat local `schemaPath` files as supporting metadata, not proof
+   that a connector action is currently exposed by `oo`; pin only actions whose
+   service/action identity is confirmed by current command output.
+3. Resolve and test before writing the runbook. Do not predesign the whole
+   execution process and then look for metadata that seems to fit it. Discover
+   the capability, inspect metadata, run the smallest safe test when command
+   shape or result shape matters, and then write the generated skill from those
+   observed facts. The generated skill must contain concrete package/block
+   references or connector service/action identifiers, plus the minimum payload,
+   result, and failure guidance needed so future agents do not run discovery
+   again.
 4. Choose the most direct capability for the user's outcome. Treat Fusion API,
    ordinary connectors, packages, and blocks as first-class candidates. Prefer
    domain fit over result ordering. When choices are otherwise equivalent,
@@ -123,6 +129,21 @@ Use `oo connector search "<goal>" --json` only to refine a shortlisted connector
 path, not to restart broad discovery. Do not force a package or block reference
 when the chosen reusable workflow is connector-backed.
 
+Do not write a connector action into a generated skill just because a local
+schema file exists. If command output does not expose the candidate action, or a
+non-destructive invocation reports `unknown action`, choose an exposed action
+that satisfies the workflow instead and document any important runtime shape
+change, such as async submission plus polling replacing a synchronous call.
+
+When result shape, status transitions, file return format, or envelope structure
+will affect the runbook, run a minimal representative invocation or status/result
+poll during authoring whenever it is safe and proportionate. Do not spend
+meaningful user money, mutate external state, disclose sensitive data, or trigger
+large jobs only to learn a response shape; ask the user or use documented dry-run
+or read-only paths when those risks are material. If a field path is inferred
+from schema rather than observed, label that uncertainty in the generated skill
+instead of presenting it as tested fact.
+
 Keep chosen packages, blocks, or connector actions concrete in the generated
 skill.
 
@@ -176,7 +197,9 @@ headings but include these execution facts when metadata provides them:
   to report on success and what not to treat as the final result. For generated
   files, images, documents, archives, media, or other artifacts, state how
   future agents should preview them or deliver them to the user instead of only
-  reporting a local path.
+  reporting a local path. For inline base64 or `data:` URI artifacts, tell
+  future agents to save and preview the artifact rather than printing the full
+  encoded payload.
 - Failure handling: action-specific stop conditions from schema or metadata,
   plus common auth, permission, billing, schema rejection, inaccessible file,
   timeout, and not-found branches.
