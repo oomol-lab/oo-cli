@@ -19,6 +19,18 @@
 - When generating UUIDs, you must use v7 and must use bun's `randomUUIDv7` function
 - Avoid using regular expressions when possible
 
+### Command Telemetry
+
+- Every new or changed user-facing CLI command must make an explicit telemetry decision during implementation and review.
+- The generic `executeCli` path already emits the command event, so do not add manual command-level emit calls.
+- For useful command-specific dimensions, call `context.telemetry?.recordProperties(...)` from the command handler with only low-cardinality, privacy-safe enums, booleans, counts, or buckets. Prefer helpers in `src/application/telemetry/buckets.ts`; for skill-related command properties, use `src/application/commands/skills/telemetry.ts`.
+- Never record raw user input, paths, cwd, filenames, URL hosts, account IDs/names/emails, usernames, hostnames, error messages, stack traces, tokens, secrets, or free-form option values. Record bucketed values or stable enums instead.
+- Commands that must not be reported, such as `oo telemetry *` and the internal telemetry flush command, must set `excludeFromTelemetry: true` or call `context.telemetry?.suppressCurrentInvocation()`; do not rely on handler branching alone.
+- Every registered command path must have an explicit entry in `src/application/commands/telemetry-decisions.test.ts`; add or update that manifest whenever adding, renaming, removing, or changing telemetry behavior for a command. This architecture test is the hard guard that makes forgotten telemetry decisions fail in `bun run test`.
+- The same architecture test rejects forbidden/private property names, common sensitive suffixes, and base telemetry property names declared in the command telemetry decision manifest; extend that guard before allowing any new sensitive key pattern.
+- Do not pass base telemetry property names such as `command_full`, `distinct_id`, `schema_version`, or privacy control properties through `recordProperties(...)`; both the architecture test and the payload builder reject command-specific properties that attempt to override base telemetry fields.
+- When adding command-specific telemetry properties, add or update tests that assert the expected safe property shape and absence of raw/private values. For command behavior changes, still update `docs/commands*.md` only for the user-facing CLI contract, not internal telemetry details.
+
 ## Code Quality Rules
 
 These rules are extracted from past refactoring sessions to prevent recurring code smells.

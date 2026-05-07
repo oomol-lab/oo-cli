@@ -1,6 +1,7 @@
 import type {
     CliCatalog,
     CliExecutionContext,
+    CliTelemetryPropertyValue,
     Fetcher,
     InteractiveInput,
 } from "../../contracts/cli.ts";
@@ -129,7 +130,11 @@ describe("cloudTaskWaitCommand", () => {
                 status: "success",
             },
         ]);
-        const { context, stdout } = createWaitContext({ fetcher });
+        const telemetryProperties: Record<string, CliTelemetryPropertyValue> = {};
+        const { context, stdout } = createWaitContext({
+            fetcher,
+            telemetryProperties,
+        });
         const handler = createCloudTaskWaitHandler({
             now: () => now,
             sleep: async (durationMs) => {
@@ -148,6 +153,10 @@ describe("cloudTaskWaitCommand", () => {
 
         expect(fetcher.requestCount).toBe(4);
         expect(sleepCalls).toEqual([3_000, 3_000, 3_000]);
+        expect(telemetryProperties).toMatchObject({
+            final_status: "success",
+            polled_count_bucket: "1-5",
+        });
         expect(stdout.read()).toBe(
             [
                 "Waiting for completion after 0s.",
@@ -174,7 +183,11 @@ describe("cloudTaskWaitCommand", () => {
                 status: "failed",
             },
         ]);
-        const { context, stdout } = createWaitContext({ fetcher });
+        const telemetryProperties: Record<string, CliTelemetryPropertyValue> = {};
+        const { context, stdout } = createWaitContext({
+            fetcher,
+            telemetryProperties,
+        });
         const handler = createCloudTaskWaitHandler({
             now: () => now,
             sleep: async (durationMs) => {
@@ -195,6 +208,10 @@ describe("cloudTaskWaitCommand", () => {
         });
 
         expect(fetcher.requestCount).toBe(2);
+        expect(telemetryProperties).toMatchObject({
+            final_status: "failed",
+            polled_count_bucket: "1-5",
+        });
         expect(stdout.read()).toBe(
             [
                 "Waiting for completion after 0s.",
@@ -231,7 +248,11 @@ describe("cloudTaskWaitCommand", () => {
                 status: "running",
             },
         ]);
-        const { context, stdout } = createWaitContext({ fetcher });
+        const telemetryProperties: Record<string, CliTelemetryPropertyValue> = {};
+        const { context, stdout } = createWaitContext({
+            fetcher,
+            telemetryProperties,
+        });
         const handler = createCloudTaskWaitHandler({
             now: () => now,
             sleep: async (durationMs) => {
@@ -254,6 +275,10 @@ describe("cloudTaskWaitCommand", () => {
 
         expect(fetcher.requestCount).toBe(4);
         expect(sleepCalls).toEqual([3_000, 3_000, 3_000, 1_000]);
+        expect(telemetryProperties).toMatchObject({
+            final_status: "timeout",
+            polled_count_bucket: "1-5",
+        });
         expect(stdout.read()).toBe(
             [
                 "Waiting for completion after 0s.",
@@ -268,6 +293,7 @@ describe("cloudTaskWaitCommand", () => {
 
 function createWaitContext(options: {
     fetcher: Fetcher;
+    telemetryProperties?: Record<string, CliTelemetryPropertyValue>;
 }): {
     context: CliExecutionContext;
     stderr: ReturnType<typeof createTextBuffer>;
@@ -295,6 +321,15 @@ function createWaitContext(options: {
             settingsStore: createSettingsStore({}),
             stdout: stdout.writer,
             stderr: stderr.writer,
+            telemetry: options.telemetryProperties === undefined
+                ? undefined
+                : {
+                        directoryPath: "",
+                        recordProperties(properties) {
+                            Object.assign(options.telemetryProperties!, properties);
+                        },
+                        suppressCurrentInvocation() {},
+                    },
             translator,
             completionRenderer: {
                 render: () => "",

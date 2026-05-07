@@ -30,6 +30,7 @@ describe("resolveStorePaths", () => {
             logDirectoryPath: join("/tmp/xdg-state", APP_NAME, "logs"),
             rootDirectory: join("/tmp/xdg", APP_NAME),
             settingsFilePath: join("/tmp/xdg", APP_NAME, "settings.toml"),
+            telemetryDirectory: join("/tmp/xdg", APP_NAME, "telemetry"),
             uploadsFilePath: join("/tmp/xdg", APP_NAME, "data", "uploads.sqlite"),
         });
     });

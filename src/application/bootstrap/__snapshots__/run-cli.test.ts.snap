@@ -53,6 +53,7 @@ Commands:
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
+  telemetry                 Manage CLI telemetry
   update|upgrade [options]  Update the CLI
   help [command]            Show help for a command
 "
@@ -87,6 +88,7 @@ Commands:
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
+  telemetry                 Manage CLI telemetry
   update|upgrade [options]  Update the CLI
   help [command]            Show help for a command
 "
@@ -124,6 +126,7 @@ Commands:
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
+  telemetry                 Manage CLI telemetry
   update|upgrade [options]  Update the CLI
   help [command]            Show help for a command
 "
@@ -159,6 +162,7 @@ exports[`runCli bootstrap renders help in English and Chinese 1`] = `
   log                       管理持久化 debug 日志
   search [options] <text>   搜索 package 与 connector action
   packages                  包相关工具
+  telemetry                 管理 CLI telemetry
   update|upgrade [options]  更新 CLI
   help [command]            显示命令帮助
 "
@@ -190,6 +194,7 @@ Commands:
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
+  telemetry                 Manage CLI telemetry
   update|upgrade [options]  Update the CLI
   help [command]            Show help for a command
 "
@@ -225,6 +230,7 @@ Commands:
   log                       Manage persisted debug logs
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
+  telemetry                 Manage CLI telemetry
   update|upgrade [options]  Update the CLI
   help [command]            Show help for a command
 "

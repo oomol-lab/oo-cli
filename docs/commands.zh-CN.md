@@ -72,7 +72,7 @@
 读取一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`。
+  `lang`、`file.download.out_dir`、`telemetry.enabled`。
 
 ### `oo config path`
 
@@ -83,19 +83,68 @@
 写入一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`。
+  `lang`、`file.download.out_dir`、`telemetry.enabled`。
 - 参数：`<value>` 为对应配置值。
 - 取值规则：当 `<key>` 为 `lang` 时，支持的值为 `en` 和 `zh`。
 - 取值规则：当 `<key>` 为 `file.download.out_dir` 时，支持任意非空路径字符串。
   相对路径会在执行 `oo file download` 时相对于当前工作目录解析；如果以 `~`
   开头，则会展开为当前用户的 home 目录。
+- 取值规则：当 `<key>` 为 `telemetry.enabled` 时，仅支持小写 `true` 和 `false`。
+  `1`、`0`、`True`、`yes` 等其他 boolean-like 写法会被拒绝。设置为 `false` 时，
+  CLI 还会立即尝试清空待发送 telemetry 事件，并且本次 `config set` 调用自身不会被记录为
+  telemetry。
 
 ### `oo config unset <key>`
 
 删除一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`。
+  `lang`、`file.download.out_dir`、`telemetry.enabled`。
+
+## Telemetry
+
+CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-form 输入文本、路径、
+用户名、hostname、IP 地址、错误消息全文、真实 OOMOL 账号 ID、账号名、`$set` 或
+`$identify`。每条事件使用本地随机 device id，并设置
+`$process_person_profile = false`。package name 和 skill id 可能出现在 telemetry
+事件中，包括 private package name，因为它们被视为已发布的产品产物名。
+
+- 环境变量：将 `OO_TELEMETRY_DISABLED` 设为真值（`1`、`true`、`yes`、`on`，
+  大小写不敏感）会关闭当前 invocation 的 telemetry。
+- 环境变量：将 `DO_NOT_TRACK` 设为真值（`1`、`true`、`yes`、`on`，
+  大小写不敏感）也会关闭当前 invocation 的 telemetry。
+- 持久化：`oo telemetry disable` 和 `oo config set telemetry.enabled false` 会在
+  `settings.toml` 中持久化 telemetry 关闭状态。
+- 边界：关闭 telemetry 会阻止后续发送，并立即尝试清空本地待发送 telemetry 事件。
+  如果本地 telemetry store 暂时不可用，关闭状态仍会在未来发送前生效；但无法撤回已经通过
+  活跃 TCP 连接发出的字节。
+
+### `oo telemetry status`
+
+显示 telemetry 的实际开关状态、已存在的本地 device id 前缀、待发送事件数量和最后一次
+成功 flush 时间。
+
+- 输出：telemetry 启用时显示 `enabled: true`。
+- 输出：被 `OO_TELEMETRY_DISABLED` 或 `DO_NOT_TRACK` 关闭时显示
+  `enabled: false (env)`。
+- 输出：被持久化的 `telemetry.enabled = false` 关闭时显示
+  `enabled: false (config)`。
+- 输出：`device_id` 在 telemetry 创建本地 device id 前显示为 `none`。
+- 输出：`pending` 是本地待发送 telemetry 事件数量，包括已经开始发送但尚未确认发送成功
+  的事件。
+- 说明：`status` 不会创建 device id，也不会被记录为 telemetry。
+
+### `oo telemetry enable`
+
+持久化写入 `telemetry.enabled = true`。
+
+- 说明：开启 telemetry 不会清空 pending events，也不会被记录为 telemetry。
+
+### `oo telemetry disable`
+
+持久化写入 `telemetry.enabled = false`，并立即尝试删除本地全部待发送 telemetry 事件。
+
+- 说明：关闭 telemetry 不会被记录为 telemetry。
 
 ## 更新
 

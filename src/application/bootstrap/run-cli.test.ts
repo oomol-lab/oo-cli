@@ -4,7 +4,7 @@ import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 
 import { mkdir, readdir, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { describe, expect, test } from "bun:test";
 import {
@@ -21,6 +21,16 @@ import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { resolveCodexHomeDirectory } from "../commands/skills/bundled-skill-paths.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
+import { createTelemetryItemForTest } from "../telemetry/__tests__/helpers.ts";
+import {
+    telemetryInternalCommand,
+    telemetryInternalEnvKey,
+} from "../telemetry/constants.ts";
+import {
+    enqueueTelemetryBatchItem,
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../telemetry/outbox.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
 import { createLazyInput, executeCli } from "./run-cli.ts";
 
@@ -285,6 +295,102 @@ describe("runCli bootstrap", () => {
         }
     });
 
+    test("records telemetry for invalid global inputs before store initialization", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const invalidLang = await sandbox.run(["--lang", "fr", "--help"]);
+            const rows = readTelemetryRowsForTest(
+                resolveSandboxTelemetryDirectory(sandbox),
+            );
+            const payload = parseTelemetryRowPayload(rows[0]!);
+
+            expect(invalidLang.exitCode).toBe(2);
+            expect(rows).toHaveLength(1);
+            expect(payload).toMatchObject({
+                properties: {
+                    command_action: "invalid_argument",
+                    command_full: "__parse__.invalid_argument",
+                    command_group: "__parse__",
+                    error_category: "user_error",
+                    exit_code: 2,
+                    parse_error_kind: "invalid_argument",
+                    success: false,
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("runs the internal telemetry flusher without recursive telemetry", async () => {
+        const sandbox = await createCliSandbox();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
+        let requestCount = 0;
+
+        try {
+            enqueueTelemetryBatchItem({
+                directoryPath: telemetryDirectoryPath,
+                item: createTelemetryItemForTest(1),
+                nowMs: Date.now(),
+            });
+
+            const exitCode = await executeCli({
+                argv: [telemetryInternalCommand],
+                cwd: sandbox.cwd,
+                env: {
+                    ...sandbox.env,
+                    [telemetryInternalEnvKey]: "1",
+                },
+                fetcher: async () => {
+                    requestCount += 1;
+                    return new Response("");
+                },
+                stderr: stderr.writer,
+                stdout: stdout.writer,
+                systemLocale: "en-US",
+            });
+
+            expect(exitCode).toBe(0);
+            expect(requestCount).toBe(1);
+            expect(stdout.read()).toBe("");
+            expect(stderr.read()).toBe("");
+            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not treat the telemetry internal env alone as a flusher invocation", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            sandbox.env[telemetryInternalEnvKey] = "1";
+
+            const result = await sandbox.run(["config", "list"]);
+            const rows = readTelemetryRowsForTest(
+                resolveSandboxTelemetryDirectory(sandbox),
+            );
+            const payload = parseTelemetryRowPayload(rows[0]!);
+
+            expect(result.exitCode).toBe(0);
+            expect(rows).toHaveLength(1);
+            expect(payload).toMatchObject({
+                properties: {
+                    command_full: "config.list",
+                    success: true,
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("tags bootstrap user errors with the user_error category", async () => {
         const sandbox = await createCliSandbox();
         const stdout = createTextBuffer();
@@ -356,6 +462,10 @@ describe("runCli bootstrap", () => {
                 stdout: stdout.writer,
                 systemLocale: "en-US",
             });
+            const rows = readTelemetryRowsForTest(
+                resolveSandboxTelemetryDirectory(sandbox),
+            );
+            const payload = parseTelemetryRowPayload(rows[0]!);
 
             expect(exitCode).toBe(1);
             expect(closeOrder).toEqual([
@@ -366,6 +476,50 @@ describe("runCli bootstrap", () => {
             expect(stderr.read()).toBe(
                 "Unexpected error: settings read failed\n",
             );
+            expect(rows).toHaveLength(1);
+            expect(payload).toMatchObject({
+                properties: {
+                    command_full: "__parse__.__root__",
+                    command_group: "__parse__",
+                    error_category: "system_error",
+                    exit_code: 1,
+                    success: false,
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("honors telemetry opt-out when unrelated settings are invalid", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const settingsFilePath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).settingsFilePath;
+
+            await mkdir(dirname(settingsFilePath), { recursive: true });
+            await Bun.write(
+                settingsFilePath,
+                [
+                    "lang = 1",
+                    "",
+                    "[telemetry]",
+                    "enabled = false",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["config", "list"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(readTelemetryRowsForTest(
+                resolveSandboxTelemetryDirectory(sandbox),
+            )).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -629,6 +783,12 @@ function createFailingSettingsStore(error: Error): SettingsStore {
             throw new Error("write should not be called");
         },
     };
+}
+
+function resolveSandboxTelemetryDirectory(sandbox: {
+    env: Record<string, string | undefined>;
+}): string {
+    return join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry");
 }
 
 describe("createLazyInput", () => {

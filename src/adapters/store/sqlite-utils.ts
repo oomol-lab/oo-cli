@@ -19,14 +19,23 @@ export function openSqliteDatabase(
         create: true,
         strict: true,
     });
+    let configured = false;
 
-    if (options?.busyTimeoutMs !== undefined) {
-        database.run(`PRAGMA busy_timeout = ${options.busyTimeoutMs};`);
+    try {
+        if (options?.busyTimeoutMs !== undefined) {
+            database.run(`PRAGMA busy_timeout = ${options.busyTimeoutMs};`);
+        }
+
+        database.run("PRAGMA journal_mode = WAL;");
+        configured = true;
+
+        return database;
     }
-
-    database.run("PRAGMA journal_mode = WAL;");
-
-    return database;
+    finally {
+        if (!configured) {
+            database.close();
+        }
+    }
 }
 
 export function closeSqliteDatabase(

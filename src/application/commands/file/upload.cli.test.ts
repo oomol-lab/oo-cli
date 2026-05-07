@@ -1,5 +1,6 @@
-import { join } from "node:path";
+import { truncate } from "node:fs/promises";
 
+import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 
@@ -11,6 +12,11 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
+import { maxFileUploadSizeBytes } from "./shared.ts";
 
 describe("file upload CLI", () => {
     test("supports file upload and persists the uploaded record", async () => {
@@ -71,6 +77,11 @@ describe("file upload CLI", () => {
             const database = new Database(uploadsFilePath, {
                 strict: true,
             });
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
 
             try {
                 expect(createFileUploadSnapshot(result)).toMatchSnapshot();
@@ -88,6 +99,15 @@ describe("file upload CLI", () => {
                     file_name: "sample",
                     size: 11,
                 });
+                expect(telemetryPayload).toMatchObject({
+                    properties: {
+                        bytes_total_bucket: "<1KB",
+                        command_full: "file.upload",
+                        rejected_too_large: false,
+                    },
+                });
+                expect(telemetryPayload?.properties).not.toHaveProperty("file_name");
+                expect(telemetryPayload?.properties).not.toHaveProperty("path");
                 expect(
                     database.query(
                         [
@@ -199,6 +219,40 @@ describe("file upload CLI", () => {
         finally {
             await Bun.file(firstFilePath).delete();
             await Bun.file(secondFilePath).delete();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records rejected too large telemetry without file identity", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "large-upload.bin");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "");
+            await truncate(localFilePath, maxFileUploadSizeBytes + 1);
+
+            const result = await sandbox.run(["file", "upload", localFilePath]);
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    bytes_total_bucket: "100MB+",
+                    command_full: "file.upload",
+                    error_category: "user_error",
+                    rejected_too_large: true,
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("file_name");
+            expect(telemetryPayload?.properties).not.toHaveProperty("path");
+        }
+        finally {
+            await Bun.file(localFilePath).delete();
             await sandbox.cleanup();
         }
     });

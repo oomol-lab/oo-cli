@@ -45,8 +45,14 @@ export const packageInfoCommand: CliCommandDefinition<PackageInfoInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentAccount(context);
         const packageSpecifier = parsePackageSpecifier(input.packageSpecifier);
+
+        context.telemetry?.recordProperties({
+            package_name: packageSpecifier.packageName,
+            package_version: packageSpecifier.packageVersion,
+        });
+
+        const account = await requireCurrentAccount(context);
         const response = await loadPackageInfo(
             packageSpecifier,
             account,

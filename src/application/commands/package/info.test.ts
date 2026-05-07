@@ -5,6 +5,7 @@ import type {
 import type {
     CliCatalog,
     CliExecutionContext,
+    CliTelemetryPropertyValue,
     Fetcher,
     InteractiveInput,
     SupportedLocale,
@@ -144,12 +145,35 @@ describe("packageInfoCommand", () => {
 
         expect(fetchCount).toBe(2);
     });
+
+    test("records package identity as command telemetry properties", async () => {
+        const telemetryProperties: Record<string, CliTelemetryPropertyValue> = {};
+        const context = createPackageInfoContext({
+            cacheStore: createCacheStore(),
+            fetcher: async () => new Response(JSON.stringify({
+                packageName: "pdf",
+                packageVersion: "1.0.0",
+                title: "PDF Toolkit",
+                description: "Inspect PDF files",
+                blocks: [],
+            })),
+            telemetryProperties,
+        });
+
+        await packageInfoHandler({ packageSpecifier: "pdf@1.0.0" }, context);
+
+        expect(telemetryProperties).toEqual({
+            package_name: "pdf",
+            package_version: "1.0.0",
+        });
+    });
 });
 
 function createPackageInfoContext(options: {
     cacheStore: CacheStore;
     fetcher: Fetcher;
     locale?: SupportedLocale;
+    telemetryProperties?: Record<string, CliTelemetryPropertyValue>;
 }): CliExecutionContext {
     const stdout = createTextBuffer();
     const stderr = createTextBuffer();
@@ -178,6 +202,15 @@ function createPackageInfoContext(options: {
         settingsStore: createSettingsStore({}),
         stdout: stdout.writer,
         stderr: stderr.writer,
+        telemetry: options.telemetryProperties === undefined
+            ? undefined
+            : {
+                    directoryPath: "",
+                    recordProperties(properties) {
+                        Object.assign(options.telemetryProperties!, properties);
+                    },
+                    suppressCurrentInvocation() {},
+                },
         translator,
         completionRenderer: {
             render: () => "",

@@ -14,6 +14,10 @@ import { resolveSelfUpdateShowPathShadowingWarning } from "../self-update/path-s
 import { isSemver } from "../semver.ts";
 import { writeSelfUpdatePathNoteIfNeeded } from "./self-update-output.ts";
 import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
+import {
+    classifyTelemetryVersionKind,
+    recordSelfUpdatePathTelemetry,
+} from "./self-update-telemetry.ts";
 import { writeLine } from "./shared/output.ts";
 
 const installCommandInputSchema = z.object({
@@ -50,6 +54,14 @@ export const installCommand: CliCommandDefinition<
     ],
     inputSchema: installCommandInputSchema,
     handler: async (input, context) => {
+        context.telemetry?.recordProperties({
+            force: input.force,
+            path_modified: false,
+            version_kind: classifyTelemetryVersionKind(
+                input.version ?? context.version,
+            ),
+        });
+
         if (context.version === selfUpdateDevelopmentVersion) {
             writeLine(
                 context.stdout,
@@ -85,6 +97,11 @@ export const installCommand: CliCommandDefinition<
                     fetcher: context.fetcher,
                     logger: context.logger,
                 });
+
+            context.telemetry?.recordProperties({
+                update_available: targetVersion !== context.version,
+                version_kind: classifyTelemetryVersionKind(targetVersion),
+            });
 
             if (input.version === undefined) {
                 progressReporter?.setStage("resolve", {
@@ -124,6 +141,11 @@ export const installCommand: CliCommandDefinition<
                 );
                 return;
             }
+
+            recordSelfUpdatePathTelemetry(
+                context.telemetry,
+                result.pathConfiguration,
+            );
 
             progressReporter?.finish();
 

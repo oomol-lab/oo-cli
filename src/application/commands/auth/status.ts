@@ -1,6 +1,7 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
 import type { AuthAccount } from "../../schemas/auth.ts";
+import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { isNetworkRestrictedSandboxError } from "../shared/request.ts";
 import {
     emptyAuthCommandInputSchema,
@@ -28,6 +29,10 @@ export const authStatusCommand: CliCommandDefinition = {
     inputSchema: emptyAuthCommandInputSchema,
     handler: async (_, context) => {
         const { authFile, currentAccount } = await readCurrentAuth(context);
+
+        context.telemetry?.recordProperties({
+            account_count_bucket: bucketTelemetryCount(authFile.auth.length),
+        });
 
         if (!currentAccount) {
             const hasStaleId = authFile.id !== "";

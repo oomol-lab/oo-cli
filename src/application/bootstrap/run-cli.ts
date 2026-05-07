@@ -4,6 +4,7 @@ import type { CacheStore } from "../contracts/cache.ts";
 
 import type {
     CliExecutionContext,
+    CliTelemetryPropertyValue,
     Fetcher,
     InteractiveInput,
     Writer,
@@ -12,6 +13,7 @@ import type { FileDownloadSessionStore } from "../contracts/file-download-sessio
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 import type { LogCategory } from "../logging/log-categories.ts";
+import type { AppSettings } from "../schemas/settings.ts";
 import process from "node:process";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { SqliteCacheStore } from "../../adapters/cache/sqlite-cache.ts";
@@ -41,6 +43,13 @@ import { logCategory } from "../logging/log-categories.ts";
 import { withCategory, withErrorKey } from "../logging/log-fields.ts";
 import { initializeCurrentVersionProcessLock } from "../self-update/core.ts";
 import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
+import {
+    telemetryInternalCommand,
+    telemetryInternalEnvKey,
+} from "../telemetry/constants.ts";
+import { emitCliCommandTelemetry } from "../telemetry/emitter.ts";
+import { flushTelemetryOutbox } from "../telemetry/flusher.ts";
+import { createTelemetryInvocationRecorder } from "../telemetry/invocation.ts";
 
 export interface CliInvocation {
     argv: readonly string[];
@@ -83,7 +92,12 @@ interface CreateCliExecutionContextOptions {
     logger: Logger;
     logFilePath: string;
     packageName: string;
+    recordTelemetryProperties: (
+        properties: Record<string, CliTelemetryPropertyValue>,
+    ) => void;
     settingsStore: SettingsStore;
+    suppressTelemetry: () => void;
+    telemetryDirectoryPath: string;
     translator: ReturnType<typeof createTranslator>;
     version: string;
 }
@@ -111,6 +125,9 @@ export async function runCli(argv: string[]): Promise<number> {
 }
 
 export async function executeCli(invocation: CliInvocation): Promise<number> {
+    const startTimeMs = Date.now();
+    const sessionId = Bun.randomUUIDv7();
+    const telemetryRecorder = createTelemetryInvocationRecorder();
     const debugPathEnabled = hasCliDebugFlag(invocation.argv);
     const rawCliLanguage = detectCliLanguageFlag(invocation.argv);
     const parsedCliLanguage = parseExplicitLocale(rawCliLanguage);
@@ -119,6 +136,19 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         env: invocation.env,
         platform: process.platform,
     });
+
+    if (isTelemetryFlushInvocation(invocation)) {
+        await flushTelemetryOutbox({
+            directoryPath: storePaths.telemetryDirectory,
+            env: invocation.env,
+            fetcher: invocation.fetcher,
+            settingsFilePath: storePaths.settingsFilePath,
+        });
+        return 0;
+    }
+
+    const buildInfo = resolveCliBuildInfo(packageManifest.version);
+    const version = invocation.version ?? buildInfo.version;
     const bootstrapTranslator = createTranslator(
         resolvePreferredLocale({
             cliFlag: parsedCliLanguage,
@@ -128,9 +158,11 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     );
     let translator = bootstrapTranslator;
     let exitCode = 0;
+    let authStore: AuthStore | undefined;
     let cacheStore: CacheStore | undefined;
     let fileDownloadSessionStore: FileDownloadSessionStore | undefined;
     let fileUploadStore: FileUploadRecordStore | undefined;
+    let settingsForTelemetry: AppSettings | undefined;
     let currentVersionLockResource:
         | Awaited<ReturnType<typeof initializeCurrentVersionProcessLock>>
         | undefined;
@@ -160,6 +192,11 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             );
 
             exitCode = 2;
+            telemetryRecorder.observer.onCommandFailed?.({
+                errorKey: "errors.lang.invalidFlag",
+                exitCode,
+                parseErrorKind: "invalid_argument",
+            });
             return exitCode;
         }
 
@@ -169,10 +206,12 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             storePaths,
         );
 
+        authStore = initializedStores.authStore;
         cacheStore = initializedStores.cacheStore;
         fileUploadStore = initializedStores.fileUploadStore;
         fileDownloadSessionStore = initializedStores.fileDownloadSessionStore;
         const settings = await initializedStores.settingsStore.read();
+        settingsForTelemetry = settings;
 
         translator = createTranslator(
             resolvePreferredLocale({
@@ -185,8 +224,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         const catalog = createCliCatalog();
         const completionRenderer = new StaticCompletionRenderer(translator);
         const packageName = invocation.packageName ?? packageManifest.name;
-        const buildInfo = resolveCliBuildInfo(packageManifest.version);
-        const version = invocation.version ?? buildInfo.version;
 
         logger.debug(
             {
@@ -225,7 +262,10 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             logger,
             logFilePath,
             packageName,
+            recordTelemetryProperties: telemetryRecorder.recordProperties,
             settingsStore: initializedStores.settingsStore,
+            suppressTelemetry: telemetryRecorder.suppress,
+            telemetryDirectoryPath: storePaths.telemetryDirectory,
             translator,
             version,
         });
@@ -238,6 +278,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             argv: invocation.argv,
             catalog,
             context,
+            observer: telemetryRecorder.observer,
         });
     }
     catch (error) {
@@ -263,6 +304,10 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         }
 
         exitCode = writeBootstrapError(error, translator, invocation.stderr);
+        telemetryRecorder.observer.onCommandFailed?.({
+            errorKey: error instanceof CliUserError ? error.key : "errors.unexpected",
+            exitCode,
+        });
     }
     finally {
         exitCode = await closeCleanupResources(
@@ -284,6 +329,36 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             },
             "CLI invocation completed.",
         );
+
+        try {
+            await emitCliCommandTelemetry({
+                authStore,
+                buildCommit: buildInfo.commitHash ?? "unknown",
+                env: invocation.env,
+                execPath: currentExecPath,
+                exitCode,
+                invocation,
+                logger,
+                recorder: telemetryRecorder,
+                sessionId,
+                settings: settingsForTelemetry,
+                settingsFilePath: storePaths.settingsFilePath,
+                startTimeMs,
+                telemetryDirectoryPath: storePaths.telemetryDirectory,
+                translatorLocale: translator.locale,
+                version,
+            });
+        }
+        catch (error) {
+            logger.warn(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                },
+                "Failed to emit CLI command telemetry.",
+            );
+        }
+
         loggerHandle.close();
 
         if (debugPathEnabled) {
@@ -348,6 +423,11 @@ function createCliExecutionContext(
         translator: options.translator,
         completionRenderer: options.completionRenderer,
         catalog: options.catalog,
+        telemetry: {
+            recordProperties: options.recordTelemetryProperties,
+            directoryPath: options.telemetryDirectoryPath,
+            suppressCurrentInvocation: options.suppressTelemetry,
+        },
         version: options.version,
         versionText: formatCliVersionText(
             {
@@ -357,6 +437,11 @@ function createCliExecutionContext(
             options.translator,
         ),
     };
+}
+
+function isTelemetryFlushInvocation(invocation: CliInvocation): boolean {
+    return invocation.argv[0] === telemetryInternalCommand
+        && invocation.env[telemetryInternalEnvKey] === "1";
 }
 
 function hasCliDebugFlag(argv: readonly string[]): boolean {

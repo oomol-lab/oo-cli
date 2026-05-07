@@ -5,6 +5,7 @@ import type {
 import type {
     CliCatalog,
     CliExecutionContext,
+    CliTelemetryPropertyValue,
     Fetcher,
     InteractiveInput,
 } from "../../contracts/cli.ts";
@@ -182,11 +183,38 @@ describe("packageSearchCommand", () => {
         expect(fetchCount).toBe(2);
         expect(setCount).toBe(0);
     });
+
+    test("records search telemetry buckets without the query text", async () => {
+        const telemetryProperties: Record<string, CliTelemetryPropertyValue> = {};
+        const context = createSearchContext({
+            cacheStore: createCacheStore(),
+            fetcher: async () => new Response(JSON.stringify({
+                packages: [
+                    {
+                        displayName: "Image Tools",
+                        name: "@oomol/image-tools",
+                        version: "1.2.3",
+                    },
+                ],
+            })),
+            telemetryProperties,
+        });
+
+        await searchHandler({ text: "image processing" }, context);
+
+        expect(telemetryProperties).toEqual({
+            query_length_bucket: "6-20",
+            result_count_bucket: "1-5",
+        });
+        expect(telemetryProperties).not.toHaveProperty("query");
+        expect(telemetryProperties).not.toHaveProperty("text");
+    });
 });
 
 function createSearchContext(options: {
     cacheStore: CacheStore;
     fetcher: Fetcher;
+    telemetryProperties?: Record<string, CliTelemetryPropertyValue>;
 }): CliExecutionContext {
     const stdout = createTextBuffer();
     const stderr = createTextBuffer();
@@ -209,6 +237,15 @@ function createSearchContext(options: {
         settingsStore: createSettingsStore({}),
         stdout: stdout.writer,
         stderr: stderr.writer,
+        telemetry: options.telemetryProperties === undefined
+            ? undefined
+            : {
+                    directoryPath: "",
+                    recordProperties(properties) {
+                        Object.assign(options.telemetryProperties!, properties);
+                    },
+                    suppressCurrentInvocation() {},
+                },
         translator,
         completionRenderer: {
             render: () => "",

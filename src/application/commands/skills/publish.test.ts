@@ -1,6 +1,6 @@
 import type { CliCatalog, CliExecutionContext, Fetcher } from "../../contracts/cli.ts";
 
-import { lstat, mkdir, readFile, stat, symlink } from "node:fs/promises";
+import { lstat, mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
@@ -24,6 +24,11 @@ import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import { defaultSettings } from "../../schemas/settings.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
+import { createSymbolicLinkForTest } from "./__tests__/helpers.ts";
 import {
     resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
@@ -102,6 +107,22 @@ describe("skills publish command", () => {
             expect(parsed.data.metadata).toMatchObject({
                 packageName: "@alice/demo-skill",
                 version: "0.0.1",
+            });
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    adopted: false,
+                    command_full: "skills.publish",
+                    package_name: "@alice/demo-skill",
+                    skill_id: "demo-skill",
+                    source_kind: "local",
+                    visibility: "private",
+                },
             });
         }
         finally {
@@ -426,6 +447,22 @@ describe("skills publish command", () => {
                 version: "0.3.0",
             });
             expect((await lstat(agentSkillDirectoryPath)).isSymbolicLink()).toBeTrue();
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    adopted: true,
+                    command_full: "skills.publish",
+                    package_name: "@alice/agent-skill",
+                    skill_id: "agent-skill",
+                    source_kind: "adoptable",
+                    visibility: "private",
+                },
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -500,19 +537,12 @@ describe("skills publish command", () => {
     test("rejects adopting a skill directory that contains symlinks", async () => {
         const cases = [
             {
-                createLinkedPath: async (targetPath: string, linkPath: string) => {
-                    await Bun.write(targetPath, "secret\n");
-                    await symlink(targetPath, linkPath);
-                },
+                linkKind: "file",
                 linkPath: join("nested", "linked-secret.txt"),
                 name: "file",
             },
             {
-                createLinkedPath: async (targetPath: string, linkPath: string) => {
-                    await mkdir(targetPath, { recursive: true });
-                    await Bun.write(join(targetPath, "secret.txt"), "secret\n");
-                    await symlink(targetPath, linkPath, "dir");
-                },
+                linkKind: "directory",
                 linkPath: join("nested", "linked-secret"),
                 name: "directory",
             },
@@ -561,9 +591,10 @@ describe("skills publish command", () => {
                 "",
             ].join("\n"));
             await mkdir(join(sourceSkillDirectoryPath, "nested"), { recursive: true });
-            await testCase.createLinkedPath(
+            await createSymbolicLinkForTest(
                 join(externalPath, "secret"),
                 join(sourceSkillDirectoryPath, testCase.linkPath),
+                testCase.linkKind,
             );
 
             stdin.feed("yes\n");

@@ -7,6 +7,11 @@ import {
     createCliSandbox,
     createCliSnapshot,
 } from "../../../../__tests__/helpers.ts";
+import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
 
 describe("file download CLI", () => {
     test("supports file download, creates missing directories, and prints the labeled saved path", async () => {
@@ -45,6 +50,11 @@ describe("file download CLI", () => {
                 },
             );
             const downloadedFilePath = join(outputDirectoryPath, "report.tar.gz");
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
 
             expect(createCliSnapshot(
                 result,
@@ -54,6 +64,16 @@ describe("file download CLI", () => {
                 },
             )).toMatchSnapshot();
             await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("hello world");
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    bytes_total_bucket: "<1KB",
+                    command_full: "file.download",
+                    resumed: false,
+                    url_scheme: "https",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("url");
+            expect(telemetryPayload?.properties).not.toHaveProperty("host");
         }
         finally {
             await sandbox.cleanup();

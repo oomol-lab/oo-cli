@@ -20,6 +20,10 @@ import { resolveSelfUpdateModifyPath } from "../self-update/modify-path-preferen
 import { resolveSelfUpdateShowPathShadowingWarning } from "../self-update/path-shadowing-warning-preference.ts";
 import { writeSelfUpdatePathNoteIfNeeded } from "./self-update-output.ts";
 import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
+import {
+    classifyTelemetryVersionKind,
+    recordSelfUpdatePathTelemetry,
+} from "./self-update-telemetry.ts";
 import { writeLine } from "./shared/output.ts";
 
 const updateCommandInputSchema = z.object({
@@ -42,6 +46,12 @@ export const updateCommand: CliCommandDefinition<
     ],
     inputSchema: updateCommandInputSchema,
     handler: async (input, context) => {
+        context.telemetry?.recordProperties({
+            force: true,
+            path_modified: false,
+            version_kind: classifyTelemetryVersionKind(context.version),
+        });
+
         const effectiveModifyPath = resolveSelfUpdateModifyPath({
             env: context.env,
             modifyPathFlag: input.modifyPath,
@@ -91,6 +101,10 @@ export const updateCommand: CliCommandDefinition<
             progressReporter?.setStage("resolve", {
                 version: latestVersion,
             });
+            context.telemetry?.recordProperties({
+                update_available: latestVersion !== context.version,
+                version_kind: classifyTelemetryVersionKind(latestVersion),
+            });
 
             if (
                 latestVersion === context.version
@@ -127,6 +141,7 @@ export const updateCommand: CliCommandDefinition<
                             ...context.selfUpdateRuntime,
                         },
                     });
+                recordSelfUpdatePathTelemetry(context.telemetry, pathConfiguration);
                 progressReporter?.finish();
                 writeLine(
                     context.stdout,
@@ -171,6 +186,11 @@ export const updateCommand: CliCommandDefinition<
                 );
                 return;
             }
+
+            recordSelfUpdatePathTelemetry(
+                context.telemetry,
+                result.pathConfiguration,
+            );
 
             progressReporter?.finish();
 

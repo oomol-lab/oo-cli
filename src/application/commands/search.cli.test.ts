@@ -10,6 +10,10 @@ import {
     writeAuthFile,
 } from "../../../__tests__/helpers.ts";
 import { APP_NAME } from "../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../telemetry/outbox.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
 import { resolveConnectorActionSchemaPath } from "./connector/schema-cache.ts";
 import { mixedSearchKindColor } from "./search.ts";
@@ -78,6 +82,11 @@ describe("mixedSearchCommand CLI", () => {
                 },
             );
             const logContent = await readLatestLogContent(sandbox);
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
 
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(requests.map(request => request.url).sort()).toEqual([
@@ -86,6 +95,16 @@ describe("mixedSearchCommand CLI", () => {
                 "https://search.oomol.com/v1/packages/-/intent-search?q=send+mail&lang=en&excludeScopes=connector&excludePackages=llm",
             ]);
             expect(logContent).toContain(`"path":"/v1/packages/-/intent-search"`);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "search",
+                    keyword_count_bucket: "1-5",
+                    query_length_bucket: "6-20",
+                    result_count_bucket: "1-5",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("query");
+            expect(telemetryPayload?.properties).not.toHaveProperty("text");
         }
         finally {
             await sandbox.cleanup();

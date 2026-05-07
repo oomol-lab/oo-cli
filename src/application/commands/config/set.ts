@@ -1,8 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
-import type { AppSettings } from "../../schemas/settings.ts";
-
 import type { ConfigKey } from "./shared.ts";
 import { z } from "zod";
+import { disableTelemetryForCurrentInvocation } from "../../telemetry/control.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     configDefinitions,
@@ -10,12 +9,10 @@ import {
     configKeySchema,
     createInvalidConfigKeyError,
     isConfigKey,
+    telemetryEnabledConfigKey,
 } from "./shared.ts";
 
 interface ResolvedConfigSetInput {
-    definition: {
-        setValue: (settings: AppSettings, value: string) => AppSettings;
-    };
     key: ConfigKey;
     value: string;
 }
@@ -23,25 +20,6 @@ interface ResolvedConfigSetInput {
 const configSetInputSchema = z.object({
     key: configKeySchema,
     value: z.string(),
-}).transform((input, ctx) => {
-    const definition = configDefinitions[input.key];
-    const valueResult = definition.valueSchema.safeParse(input.value);
-
-    if (!valueResult.success) {
-        ctx.addIssue({
-            code: "custom",
-            message: valueResult.error.message,
-            path: ["value"],
-        });
-
-        return z.NEVER;
-    }
-
-    return {
-        definition,
-        key: input.key,
-        value: valueResult.data,
-    } as ResolvedConfigSetInput;
 });
 
 export const configSetCommand: CliCommandDefinition<ResolvedConfigSetInput> = {
@@ -63,23 +41,40 @@ export const configSetCommand: CliCommandDefinition<ResolvedConfigSetInput> = {
     ],
     inputSchema: configSetInputSchema,
     mapInputError: (_, rawInput) => {
-        const definition = isConfigKey(rawInput.key) ? configDefinitions[rawInput.key] : undefined;
-
-        if (!definition) {
-            return createInvalidConfigKeyError(rawInput);
-        }
-
-        return definition.createInvalidValueError(rawInput.value);
+        return createInvalidConfigKeyError(rawInput);
     },
     handler: async (input, context) => {
+        context.telemetry?.recordProperties({ config_key: input.key });
+
+        const definition = isConfigKey(input.key)
+            ? configDefinitions[input.key]
+            : undefined;
+
+        if (!definition) {
+            throw createInvalidConfigKeyError({ key: input.key });
+        }
+
+        const parsedValue = definition.parseRawValue(input.value);
+
+        if (!parsedValue) {
+            throw definition.createInvalidValueError(input.value);
+        }
+
         await context.settingsStore.update(
-            settings => input.definition.setValue(settings, input.value),
+            settings => parsedValue.apply(settings),
         );
+
+        if (
+            input.key === telemetryEnabledConfigKey
+            && parsedValue.renderedValue === "false"
+        ) {
+            disableTelemetryForCurrentInvocation(context);
+        }
 
         context.logger.info(
             {
                 key: input.key,
-                value: input.value,
+                value: parsedValue.renderedValue,
             },
             "Config value persisted.",
         );
@@ -87,7 +82,7 @@ export const configSetCommand: CliCommandDefinition<ResolvedConfigSetInput> = {
             context.stdout,
             context.translator.t("config.set.success", {
                 key: input.key,
-                value: input.value,
+                value: parsedValue.renderedValue,
             }),
         );
     },

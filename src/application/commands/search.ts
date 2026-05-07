@@ -8,6 +8,10 @@ import type {
 
 import { z } from "zod";
 
+import {
+    bucketTelemetryCount,
+    bucketTelemetryStringLength,
+} from "../telemetry/buckets.ts";
 import { createWriterColors } from "../terminal-colors.ts";
 import {
     formatConnectorSearchResultAsText,
@@ -84,8 +88,14 @@ export const mixedSearchCommand: CliCommandDefinition<MixedSearchInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentAccount(context);
         const keywords = parseCommaSeparatedKeywords(input.keywords);
+
+        context.telemetry?.recordProperties({
+            keyword_count_bucket: bucketTelemetryCount(keywords.length),
+            query_length_bucket: bucketTelemetryStringLength(input.text),
+        });
+
+        const account = await requireCurrentAccount(context);
         const [packageResponse, connectorResults] = await Promise.all([
             loadPackageSearchResponse(
                 {
@@ -105,6 +115,11 @@ export const mixedSearchCommand: CliCommandDefinition<MixedSearchInput> = {
                 context,
             ),
         ]);
+        context.telemetry?.recordProperties({
+            result_count_bucket: bucketTelemetryCount(
+                packageResponse.packages.length + connectorResults.length,
+            ),
+        });
 
         if (input.format === "json") {
             writeJsonOutput(

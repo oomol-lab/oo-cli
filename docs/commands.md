@@ -81,7 +81,7 @@ List persisted configuration values that are currently set.
 Read one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`.
 
 ### `oo config path`
 
@@ -92,19 +92,75 @@ Print the path to the persisted configuration file.
 Persist one configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
 - Value rules: for `file.download.out_dir`, use any non-empty path string. Relative
   paths resolve from the current working directory when `oo file download` runs. A
   leading `~` expands to the current user's home directory.
+- Value rules: for `telemetry.enabled`, supported values are lowercase `true`
+  and `false`. Other boolean-like spellings such as `1`, `0`, `True`, and `yes`
+  are rejected. Setting `telemetry.enabled` to `false` also attempts to purge
+  pending telemetry events immediately and the current `config set` invocation is
+  not recorded as telemetry.
 
 ### `oo config unset <key>`
 
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`.
+
+## Telemetry
+
+The CLI records privacy-constrained command usage telemetry by default. Events do
+not include free-form input text, paths, usernames, hostnames, IP addresses,
+error messages, real OOMOL account ids, account names, `$set`, or `$identify`.
+Each event uses a local random device id and sets `$process_person_profile` to
+`false`. Package names and skill ids can be included in telemetry events,
+including private package names, because they are treated as published product
+artifacts.
+
+- Environment: setting `OO_TELEMETRY_DISABLED` to a truthy value (`1`, `true`,
+  `yes`, `on`, case-insensitive) disables telemetry for the current invocation.
+- Environment: setting `DO_NOT_TRACK` to a truthy value (`1`, `true`, `yes`,
+  `on`, case-insensitive) also disables telemetry for the current invocation.
+- Persistence: `oo telemetry disable` and
+  `oo config set telemetry.enabled false` persist telemetry disablement in
+  `settings.toml`.
+- Boundary: disabling telemetry prevents future telemetry sends and attempts to
+  purge pending local telemetry events immediately. If the local telemetry store
+  is temporarily unavailable, disabling still takes effect before future sends.
+  It cannot retract bytes that were already sent over an active TCP connection.
+
+### `oo telemetry status`
+
+Show the effective telemetry state, local device id prefix if one already
+exists, pending event count, and last successful flush time.
+
+- Output: `enabled: true` when telemetry is enabled.
+- Output: `enabled: false (env)` when disabled by `OO_TELEMETRY_DISABLED` or
+  `DO_NOT_TRACK`.
+- Output: `enabled: false (config)` when disabled by persisted
+  `telemetry.enabled = false`.
+- Output: `device_id` is `none` until telemetry has created a local device id.
+- Output: `pending` is the number of local telemetry events queued for sending,
+  including events already being sent but not yet confirmed.
+- Notes: `status` does not create a device id and is not recorded as telemetry.
+
+### `oo telemetry enable`
+
+Persist `telemetry.enabled = true`.
+
+- Notes: enabling telemetry does not purge pending events and is not recorded as
+  telemetry.
+
+### `oo telemetry disable`
+
+Persist `telemetry.enabled = false` and attempt to purge all pending local
+telemetry events immediately.
+
+- Notes: disabling telemetry is not recorded as telemetry.
 
 ## Updates
 

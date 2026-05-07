@@ -1,10 +1,14 @@
 import type { Stats } from "node:fs";
-import type { CliCommandDefinition } from "../../contracts/cli.ts";
+import type {
+    CliCommandDefinition,
+    CliExecutionContext,
+} from "../../contracts/cli.ts";
 
 import { stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
@@ -22,6 +26,10 @@ interface FileUploadInput {
     format?: string;
     filePath: string;
 }
+
+type RecordTelemetryProperties = NonNullable<
+    CliExecutionContext["telemetry"]
+>["recordProperties"];
 
 export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
     name: "upload",
@@ -44,7 +52,17 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
     handler: async (input, context) => {
         const format = parseFileFormat(input.format);
         const account = await requireCurrentAccount(context);
-        const sourceFile = await readSourceFile(input.filePath, context.cwd);
+        const sourceFile = await readSourceFile(
+            input.filePath,
+            context.cwd,
+            context.telemetry?.recordProperties,
+        );
+
+        context.telemetry?.recordProperties({
+            bytes_total_bucket: bucketTelemetryBytes(sourceFile.fileSize),
+            rejected_too_large: false,
+        });
+
         const uploadSession = await initFileUpload(
             account,
             sourceFile.fileName,
@@ -92,6 +110,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
 async function readSourceFile(
     filePath: string,
     cwd: string,
+    recordTelemetryProperties: RecordTelemetryProperties | undefined,
 ): Promise<{
     file: {
         size: number;
@@ -120,6 +139,10 @@ async function readSourceFile(
     }
 
     if (metadata.size > maxFileUploadSizeBytes) {
+        recordTelemetryProperties?.({
+            bytes_total_bucket: bucketTelemetryBytes(metadata.size),
+            rejected_too_large: true,
+        });
         throw new CliUserError("errors.fileUpload.tooLarge", 2, {
             max: maxFileUploadSizeBytes,
             path: resolvedPath,

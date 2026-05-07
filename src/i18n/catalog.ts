@@ -73,6 +73,17 @@ export const enMessages = {
     "commands.config.set.summary": "Persist a configuration value",
     "commands.config.unset.description": "Remove a persisted configuration value.",
     "commands.config.unset.summary": "Remove a configuration value",
+    "commands.telemetry.description":
+        "Inspect and update privacy-constrained CLI telemetry settings.",
+    "commands.telemetry.summary": "Manage CLI telemetry",
+    "commands.telemetry.disable.description":
+        "Disable CLI telemetry and synchronously purge pending telemetry events.",
+    "commands.telemetry.disable.summary": "Disable CLI telemetry",
+    "commands.telemetry.enable.description": "Enable CLI telemetry.",
+    "commands.telemetry.enable.summary": "Enable CLI telemetry",
+    "commands.telemetry.status.description":
+        "Show the effective telemetry state, device id prefix, pending count, and last flush time.",
+    "commands.telemetry.status.summary": "Show telemetry status",
     "commands.file.cleanup.description":
         "Delete expired upload records from the local sqlite store.",
     "commands.file.cleanup.summary": "Clean expired upload records",
@@ -161,6 +172,13 @@ export const enMessages = {
     "commands.skills.uninstall.summary": "Remove a managed skill",
     "config.set.success": "Set {key} to {value}.",
     "config.unset.success": "Removed {key}.",
+    "telemetry.disable.success": "Telemetry disabled.",
+    "telemetry.enable.success": "Telemetry enabled.",
+    "telemetry.status.deviceId": "device_id: {value}",
+    "telemetry.status.enabled": "enabled: {value}",
+    "telemetry.status.lastFlush": "last_flush: {value}",
+    "telemetry.status.none": "none",
+    "telemetry.status.pending": "pending: {value}",
     "errors.commander.excessArguments": "Too many arguments were provided.",
     "errors.commander.invalidArgument": "Invalid argument: {value}.",
     "errors.commander.missingArgument": "Missing required argument: {value}.",
@@ -303,6 +321,8 @@ export const enMessages = {
         "Invalid lang value: {value}. Use en or zh.",
     "errors.config.invalidFileDownloadOutDirValue":
         "Invalid file.download.out_dir value: {value}. Use a non-empty path.",
+    "errors.config.invalidTelemetryEnabledValue":
+        "Invalid telemetry.enabled value: {value}. Use true or false.",
     "errors.skills.invalidName":
         "Unsupported skill: {value}. Use {choices}.",
     "errors.skills.invalidPath":
@@ -856,6 +876,17 @@ export const zhMessages = {
     "commands.config.set.summary": "持久化配置值",
     "commands.config.unset.description": "移除一个持久化配置值。",
     "commands.config.unset.summary": "移除配置值",
+    "commands.telemetry.description":
+        "查看并更新受隐私约束的 CLI telemetry 设置。",
+    "commands.telemetry.summary": "管理 CLI telemetry",
+    "commands.telemetry.disable.description":
+        "关闭 CLI telemetry，并同步清空待发送 telemetry 事件。",
+    "commands.telemetry.disable.summary": "关闭 CLI telemetry",
+    "commands.telemetry.enable.description": "开启 CLI telemetry。",
+    "commands.telemetry.enable.summary": "开启 CLI telemetry",
+    "commands.telemetry.status.description":
+        "显示 telemetry 的实际开关状态、device id 前缀、待发送数量和最后 flush 时间。",
+    "commands.telemetry.status.summary": "显示 telemetry 状态",
     "commands.file.cleanup.description": "删除本地 sqlite 中已过期的上传记录。",
     "commands.file.cleanup.summary": "清理已过期上传记录",
     "commands.file.description": "管理临时文件传输。",
@@ -931,6 +962,13 @@ export const zhMessages = {
     "commands.skills.uninstall.summary": "移除一个受管理的 skill",
     "config.set.success": "已将 {key} 设置为 {value}。",
     "config.unset.success": "已移除 {key}。",
+    "telemetry.disable.success": "已关闭 telemetry。",
+    "telemetry.enable.success": "已开启 telemetry。",
+    "telemetry.status.deviceId": "device_id: {value}",
+    "telemetry.status.enabled": "enabled: {value}",
+    "telemetry.status.lastFlush": "last_flush: {value}",
+    "telemetry.status.none": "none",
+    "telemetry.status.pending": "pending: {value}",
     "errors.commander.excessArguments": "提供了过多的参数。",
     "errors.commander.invalidArgument": "参数无效：{value}。",
     "errors.commander.missingArgument": "缺少必填参数：{value}。",
@@ -1062,6 +1100,8 @@ export const zhMessages = {
         "无效的 lang 值：{value}。请使用 en 或 zh。",
     "errors.config.invalidFileDownloadOutDirValue":
         "无效的 file.download.out_dir 值：{value}。请使用非空路径。",
+    "errors.config.invalidTelemetryEnabledValue":
+        "无效的 telemetry.enabled 值：{value}。请使用 true 或 false。",
     "errors.skills.invalidName":
         "不支持的 skill：{value}。请使用 {choices}。",
     "errors.skills.invalidPath":

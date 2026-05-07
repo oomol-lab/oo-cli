@@ -1,7 +1,9 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
+import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
@@ -88,6 +90,16 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             connectorRunDataErrorKeys,
             {},
         );
+
+        context.telemetry?.recordProperties({
+            action: actionName,
+            data_size_bucket: bucketTelemetryBytes(
+                Buffer.byteLength(JSON.stringify(inputData)),
+            ),
+            dry_run: input.dryRun === true,
+            service: input.serviceName,
+        });
+
         const actionReference = await ensureConnectorActionSchemaReference(
             {
                 actionName,
@@ -120,16 +132,24 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             return;
         }
 
-        const response = await runConnectorAction(
-            {
-                actionName,
-                apiKey: account.apiKey,
-                endpoint: account.endpoint,
-                inputData,
-                serviceName: input.serviceName,
-            },
-            context,
-        );
+        let response: Awaited<ReturnType<typeof runConnectorAction>>;
+
+        try {
+            response = await runConnectorAction(
+                {
+                    actionName,
+                    apiKey: account.apiKey,
+                    endpoint: account.endpoint,
+                    inputData,
+                    serviceName: input.serviceName,
+                },
+                context,
+            );
+        }
+        catch (error) {
+            recordConnectorRunFailureTelemetry(error, context.telemetry);
+            throw error;
+        }
 
         if (input.format === "json") {
             writeJsonOutput(context.stdout, response);
@@ -160,4 +180,27 @@ function formatConnectorRunResultData(
     colors: ReturnType<typeof createWriterColors>,
 ): string {
     return colors.cyan(JSON.stringify(value, null, 2) ?? "null");
+}
+
+function recordConnectorRunFailureTelemetry(
+    error: unknown,
+    telemetry: CliExecutionContext["telemetry"],
+): void {
+    if (!(error instanceof CliUserError)) {
+        return;
+    }
+
+    const status = error.params?.status;
+    if (typeof status === "number") {
+        telemetry?.recordProperties({
+            http_status: status,
+        });
+    }
+
+    const errorCode = error.params?.errorCode;
+    if (typeof errorCode === "string" && errorCode !== "") {
+        telemetry?.recordProperties({
+            error_code: errorCode,
+        });
+    }
 }

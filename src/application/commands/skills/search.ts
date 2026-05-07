@@ -3,6 +3,10 @@ import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/
 import type { TerminalColors } from "../../terminal-colors.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import {
+    bucketTelemetryCount,
+    bucketTelemetryStringLength,
+} from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
@@ -73,15 +77,26 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
+        const keywords = parseCommaSeparatedKeywords(input.keywords);
+
+        context.telemetry?.recordProperties({
+            keyword_count_bucket: bucketTelemetryCount(keywords.length),
+            query_length_bucket: bucketTelemetryStringLength(input.text),
+        });
+
         const account = await requireCurrentAccount(context);
         const requestUrl = createSkillsSearchRequestUrl(
             account.endpoint,
             input.text,
-            parseCommaSeparatedKeywords(input.keywords),
+            keywords,
         );
         const response = parseSkillsSearchResponse(
             await requestSkillsSearch(requestUrl, account.apiKey, context),
         );
+
+        context.telemetry?.recordProperties({
+            result_count_bucket: bucketTelemetryCount(response.data.length),
+        });
 
         if (input.format === "json") {
             writeJsonOutput(context.stdout, response.data);

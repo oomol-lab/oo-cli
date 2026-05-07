@@ -66,6 +66,7 @@ export type CliCommandHandler<TInput> = {
 export interface CliCommandDefinition<TInput = unknown> {
     name: string;
     aliases?: readonly string[];
+    excludeFromTelemetry?: boolean;
     hidden?: boolean;
     summaryKey: string;
     descriptionKey?: string;
@@ -88,6 +89,51 @@ export interface CliCatalog {
     commands: readonly CliCommandDefinition<any>[];
 }
 
+export type CliParseErrorKind
+    = | "excess_arguments"
+        | "help"
+        | "invalid_argument"
+        | "missing_argument"
+        | "missing_option_value"
+        | "unknown_command"
+        | "unknown_option"
+        | "version";
+
+export interface CliCommandResolvedEvent {
+    argCount: number;
+    commandPath: readonly string[];
+    excludeFromTelemetry: boolean;
+    flagsCount: number;
+    outputFormat: "json" | "text";
+}
+
+export interface CliCommandCompletedEvent {
+    exitCode: number;
+}
+
+export interface CliCommandFailedEvent {
+    commanderCode?: string;
+    errorKey?: string;
+    exitCode: number;
+    parseErrorKind?: CliParseErrorKind;
+}
+
+export interface CliCommandObserver {
+    onCommandCompleted?: (event: CliCommandCompletedEvent) => void;
+    onCommandFailed?: (event: CliCommandFailedEvent) => void;
+    onCommandResolved?: (event: CliCommandResolvedEvent) => void;
+    onParseError?: (event: {
+        commanderCode?: string;
+        parseErrorKind: CliParseErrorKind;
+    }) => void;
+}
+
+export type CliTelemetryPropertyValue
+    = | boolean
+        | number
+        | readonly string[]
+        | string;
+
 export interface CompletionRenderer {
     render: (shell: SupportedShell, catalog: CliCatalog) => string;
 }
@@ -109,6 +155,13 @@ export interface CliExecutionContext {
     selfUpdateRuntime?: SelfUpdateRuntimeOverrides;
     stdout: Writer;
     stderr: Writer;
+    telemetry?: {
+        recordProperties: (
+            properties: Record<string, CliTelemetryPropertyValue>,
+        ) => void;
+        directoryPath: string;
+        suppressCurrentInvocation: () => void;
+    };
     translator: Translator;
     completionRenderer: CompletionRenderer;
     catalog: CliCatalog;

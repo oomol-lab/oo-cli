@@ -44,6 +44,10 @@ export const cloudTaskResultCommand: CliCommandDefinition<CloudTaskResultInput> 
             ),
         );
 
+        context.telemetry?.recordProperties({
+            final_status: response.status,
+        });
+
         if (format === "json") {
             writeJsonOutput(context.stdout, response);
             return;

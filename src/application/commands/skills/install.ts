@@ -8,6 +8,7 @@ import { writeManagedSkillInstallSummary } from "./install-output.ts";
 import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 import { installBundledSkill, isBundledSkillName } from "./shared.ts";
+import { createSkillIdsTelemetryProperties } from "./telemetry.ts";
 
 interface SkillsInstallInput {
     all?: boolean;
@@ -58,6 +59,12 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         await migrateLegacyCanonicalSkillLayout(context);
 
         if (input.packageName === undefined) {
+            context.telemetry?.recordProperties({
+                bundled_skill: "__all__",
+                package_kind: "bundled",
+                ...createSkillIdsTelemetryProperties(availableBundledSkillNames),
+            });
+
             const summaries: ManagedSkillInstallSummary[] = [];
 
             for (const skillName of availableBundledSkillNames) {
@@ -69,6 +76,12 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         }
 
         if (isBundledSkillName(input.packageName)) {
+            context.telemetry?.recordProperties({
+                bundled_skill: input.packageName,
+                package_kind: "bundled",
+                ...createSkillIdsTelemetryProperties([input.packageName]),
+            });
+
             const summary = await installBundledSkill(
                 input.packageName as BundledSkillName,
                 context,

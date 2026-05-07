@@ -1,0 +1,103 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`telemetry CLI shows default status without creating a device id or telemetry event 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"enabled: true
+device_id: none
+pending: 0
+last_flush: none
+"
+,
+}
+`;
+
+exports[`telemetry CLI supports telemetry enable and disable commands 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Telemetry disabled.
+"
+,
+}
+`;
+
+exports[`telemetry CLI supports telemetry enable and disable commands 2`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Telemetry enabled.
+"
+,
+}
+`;
+
+exports[`telemetry CLI supports telemetry.enabled through config commands 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Set telemetry.enabled to false.
+"
+,
+}
+`;
+
+exports[`telemetry CLI supports telemetry.enabled through config commands 2`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"false
+"
+,
+}
+`;
+
+exports[`telemetry CLI supports telemetry.enabled through config commands 3`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"telemetry.enabled=false
+"
+,
+}
+`;
+
+exports[`telemetry CLI supports telemetry.enabled through config commands 4`] = `
+{
+  "exitCode": 2,
+  "stderr": 
+"Invalid telemetry.enabled value: True. Use true or false.
+"
+,
+  "stdout": "",
+}
+`;
+
+exports[`telemetry CLI supports telemetry.enabled through config commands 5`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Set telemetry.enabled to true.
+"
+,
+}
+`;
+
+exports[`telemetry CLI supports telemetry.enabled through config commands 6`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Removed telemetry.enabled.
+"
+,
+}
+`;

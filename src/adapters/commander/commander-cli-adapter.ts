@@ -1,7 +1,13 @@
 import type { OptionValues } from "commander";
 import type { ZodError, ZodType } from "zod";
 
-import type { CliCatalog, CliCommandDefinition, CliExecutionContext } from "../../application/contracts/cli.ts";
+import type {
+    CliCatalog,
+    CliCommandDefinition,
+    CliCommandObserver,
+    CliExecutionContext,
+    CliParseErrorKind,
+} from "../../application/contracts/cli.ts";
 import type { Translator } from "../../application/contracts/translator.ts";
 import process from "node:process";
 import {
@@ -19,6 +25,7 @@ interface CommanderCliRunRequest {
     argv: readonly string[];
     catalog: CliCatalog;
     context: CliExecutionContext;
+    observer?: CliCommandObserver;
 }
 
 interface CommandOutputConfiguration {
@@ -51,20 +58,20 @@ class LocalizedCommand extends Command {
 export class CommanderCliAdapter {
     async run(request: CommanderCliRunRequest): Promise<number> {
         try {
-            const program = this.buildProgram(request.catalog, request.context);
+            const program = this.buildProgram(request);
 
             await program.parseAsync(request.argv, { from: "user" });
             return 0;
         }
         catch (error) {
-            return this.handleError(error, request.context);
+            return this.handleError(error, request.context, request.observer);
         }
     }
 
     private buildProgram(
-        catalog: CliCatalog,
-        context: CliExecutionContext,
+        request: CommanderCliRunRequest,
     ): Command {
+        const { catalog, context } = request;
         const program = new LocalizedCommand(context.translator, catalog.name);
 
         program
@@ -91,7 +98,7 @@ export class CommanderCliAdapter {
         }
 
         for (const command of catalog.commands) {
-            this.addCommand(program, command, context);
+            this.addCommand(program, command, request);
         }
 
         return program;
@@ -100,16 +107,16 @@ export class CommanderCliAdapter {
     private addCommand(
         parent: Command,
         definition: CliCommandDefinition,
-        context: CliExecutionContext,
+        request: CommanderCliRunRequest,
     ): void {
         const command = parent.command(
             definition.name,
             definition.hidden ? { hidden: true } : undefined,
         );
-        configureCommand(command, definition, context.translator);
+        configureCommand(command, definition, request.context.translator);
 
         for (const child of definition.children ?? []) {
-            this.addCommand(command, child, context);
+            this.addCommand(command, child, request);
         }
 
         const handler = definition.handler;
@@ -120,14 +127,19 @@ export class CommanderCliAdapter {
 
         const inputSchema = ensureCommandInputSchema(definition);
 
-        bindCommandHandler(command, definition, inputSchema, context);
+        bindCommandHandler(command, definition, inputSchema, request);
     }
 
     private handleError(
         error: unknown,
         context: CliExecutionContext,
+        observer?: CliCommandObserver,
     ): number {
         if (error instanceof CliUserError) {
+            observer?.onCommandFailed?.({
+                errorKey: error.key,
+                exitCode: error.exitCode,
+            });
             context.stderr.write(
                 `${context.translator.t(error.key, error.params)}\n`,
             );
@@ -136,11 +148,21 @@ export class CommanderCliAdapter {
         }
 
         if (error instanceof CommanderError) {
+            const parseErrorKind = resolveParseErrorKind(error);
+
+            if (parseErrorKind !== undefined) {
+                observer?.onParseError?.({
+                    commanderCode: error.code,
+                    parseErrorKind,
+                });
+            }
+
             if (
                 error.code === "commander.help"
                 || error.code === "commander.helpDisplayed"
                 || error.code === "commander.version"
             ) {
+                observer?.onCommandCompleted?.({ exitCode: 0 });
                 return 0;
             }
 
@@ -151,9 +173,18 @@ export class CommanderCliAdapter {
 
             context.stderr.write(`${localizedMessage}\n`);
 
+            observer?.onCommandFailed?.({
+                commanderCode: error.code,
+                exitCode: 2,
+                parseErrorKind,
+            });
+
             return 2;
         }
 
+        observer?.onCommandFailed?.({
+            exitCode: 1,
+        });
         context.stderr.write(
             `${context.translator.t("errors.unexpected", {
                 message: toErrorMessage(error),
@@ -224,24 +255,35 @@ function bindCommandHandler<TInput>(
     command: Command,
     definition: CliCommandDefinition<TInput>,
     inputSchema: ZodType<TInput>,
-    context: CliExecutionContext,
+    request: CommanderCliRunRequest,
 ): void {
     const handler = definition.handler!;
 
     command.action(async (...actionArguments) => {
         const commandInstance = actionArguments.at(-1) as Command;
+        const optionValues = commandInstance.optsWithGlobals<OptionValues>();
         const rawInput = collectRawInput(
             definition,
             actionArguments,
-            commandInstance.optsWithGlobals<OptionValues>(),
+            optionValues,
         );
+
+        request.observer?.onCommandResolved?.({
+            argCount: countRawPositionalArguments(rawInput, definition),
+            commandPath: resolveCommandPath(commandInstance),
+            excludeFromTelemetry: definition.excludeFromTelemetry === true,
+            flagsCount: countFlagArguments(request.argv),
+            outputFormat: resolveOutputFormat(optionValues),
+        });
+
         const parsedInput = parseInput(
             definition,
             inputSchema,
             rawInput,
         );
 
-        await handler(parsedInput, context);
+        await handler(parsedInput, request.context);
+        request.observer?.onCommandCompleted?.({ exitCode: 0 });
     });
 }
 
@@ -442,6 +484,77 @@ function localizeCommanderError(
     return `${message}\n${translator.t("errors.commander.suggestion", {
         value: suggestion,
     })}`;
+}
+
+function resolveCommandPath(command: Command): string[] {
+    const path: string[] = [];
+    let current: Command | null = command;
+
+    while (current.parent !== null) {
+        path.unshift(current.name());
+        current = current.parent;
+    }
+
+    return path;
+}
+
+function countRawPositionalArguments<TInput>(
+    rawInput: Record<string, unknown>,
+    definition: CliCommandDefinition<TInput>,
+): number {
+    let count = 0;
+
+    for (const argument of definition.arguments ?? []) {
+        const value = rawInput[argument.name];
+
+        if (Array.isArray(value)) {
+            count += value.length;
+            continue;
+        }
+
+        if (value !== undefined) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+function countFlagArguments(argv: readonly string[]): number {
+    return argv.filter(argument => argument.startsWith("-") && argument !== "--").length;
+}
+
+function resolveOutputFormat(optionValues: OptionValues): "json" | "text" {
+    return optionValues.format === "json" || optionValues.json === true
+        ? "json"
+        : "text";
+}
+
+function resolveParseErrorKind(
+    error: CommanderError,
+): CliParseErrorKind | undefined {
+    switch (error.code) {
+        case "commander.excessArguments":
+            return "excess_arguments";
+        case "commander.help":
+        case "commander.helpDisplayed":
+            return "help";
+        case "commander.invalidArgument":
+            return "invalid_argument";
+        case "commander.missingArgument":
+            return "missing_argument";
+        case "commander.missingMandatoryOptionValue":
+        case "commander.optionMissingArgument":
+            return "missing_option_value";
+        case "commander.unknownCommand":
+            return "unknown_command";
+        case "commander.unknownOption":
+            return "unknown_option";
+        case "commander.version":
+            return "version";
+        default:
+            return undefined;
+    }
 }
 
 function extractQuotedValue(message: string): string | undefined {
