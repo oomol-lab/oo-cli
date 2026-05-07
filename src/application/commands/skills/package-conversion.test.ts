@@ -5,7 +5,6 @@ import { join, posix } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { describe, expect, test } from "bun:test";
 
-import matter from "gray-matter";
 import pino from "pino";
 
 import {
@@ -30,6 +29,7 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
+import { parseSkillMarkdownMatter } from "./skill-frontmatter.ts";
 
 describe("skill package conversion", () => {
     const cleanup = useTemporaryDirectoryCleanup();
@@ -822,7 +822,7 @@ describe("skill package conversion", () => {
             "Body stays here.",
             "",
         ].join("\n");
-        const originalContent = matter(originalSkillMarkdown).content;
+        const originalContent = parseSkillMarkdownMatter(originalSkillMarkdown).content;
 
         await writeSkillFile(sourceDirectoryPath, originalSkillMarkdown);
 
@@ -832,7 +832,7 @@ describe("skill package conversion", () => {
             version: "0.2.0",
         });
 
-        const parsed = matter(
+        const parsed = parseSkillMarkdownMatter(
             await readFile(join(sourceDirectoryPath, "SKILL.md"), "utf8"),
         );
 

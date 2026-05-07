@@ -1,6 +1,7 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 
+import type { SkillMarkdownMatter } from "./skill-frontmatter.ts";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { cp, lstat, mkdir, readdir, readFile, rm } from "node:fs/promises";
@@ -8,7 +9,6 @@ import { join, posix, relative, sep } from "node:path";
 import process from "node:process";
 import { gzipSync } from "node:zlib";
 import { isPlainObject } from "@wopjs/cast";
-import matter from "gray-matter";
 import ignore from "ignore";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isSemver } from "../../semver.ts";
@@ -22,6 +22,9 @@ import { removeManagedOoSkillArtifacts } from "./registry-skill-markdown.ts";
 import {
     hasFrontmatter,
     isNonBlankString,
+    isSkillFrontmatterRecord,
+    parseSkillMarkdownMatter,
+    stringifySkillMarkdownMatter,
 } from "./skill-frontmatter.ts";
 import { renderSkillTitle } from "./skill-title.ts";
 
@@ -200,7 +203,7 @@ export async function readLocalSkillPackageMetadata(
     const frontmatter = parsed.data;
     const metadata = frontmatter.metadata;
 
-    if (metadata !== undefined && !isPlainObject(metadata)) {
+    if (metadata !== undefined && !isSkillFrontmatterRecord(metadata)) {
         throw createInvalidSkillFileError(
             skillFilePath,
             "Frontmatter metadata must be an object.",
@@ -291,7 +294,7 @@ export async function writeSkillFrontmatterMetadata(
     const parsed = await readSkillMarkdownMatter(skillFilePath);
     const metadata = parsed.data.metadata;
 
-    if (metadata !== undefined && !isPlainObject(metadata)) {
+    if (metadata !== undefined && !isSkillFrontmatterRecord(metadata)) {
         throw createInvalidSkillFileError(
             skillFilePath,
             "Frontmatter metadata must be an object.",
@@ -308,7 +311,7 @@ export async function writeSkillFrontmatterMetadata(
 
     await Bun.write(
         skillFilePath,
-        matter.stringify(parsed.content, nextFrontmatter),
+        stringifySkillMarkdownMatter(parsed.content, nextFrontmatter),
     );
 }
 
@@ -1011,7 +1014,7 @@ async function removeManagedOoArtifactsFromSkillFile(
 
 async function readSkillMarkdownMatter(
     skillFilePath: string,
-): Promise<matter.GrayMatterFile<string> & { data: Record<string, unknown> }> {
+): Promise<SkillMarkdownMatter & { data: Record<string, unknown> }> {
     let content: string;
 
     try {
@@ -1028,10 +1031,10 @@ async function readSkillMarkdownMatter(
         throw error;
     }
 
-    let parsed: matter.GrayMatterFile<string>;
+    let parsed: SkillMarkdownMatter;
 
     try {
-        parsed = matter(content);
+        parsed = parseSkillMarkdownMatter(content);
     }
     catch {
         throw createInvalidSkillFileError(
@@ -1040,14 +1043,14 @@ async function readSkillMarkdownMatter(
         );
     }
 
-    if (!hasFrontmatter(content) || !isPlainObject(parsed.data)) {
+    if (!hasFrontmatter(content) || !isSkillFrontmatterRecord(parsed.data)) {
         throw createInvalidSkillFileError(
             skillFilePath,
             "Frontmatter must be a YAML dictionary.",
         );
     }
 
-    return parsed as matter.GrayMatterFile<string> & {
+    return parsed as SkillMarkdownMatter & {
         data: Record<string, unknown>;
     };
 }

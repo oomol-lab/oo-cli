@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
     hasFrontmatter,
     isNonBlankString,
+    parseSkillMarkdownMatter,
+    stringifySkillMarkdownMatter,
     toNonBlankString,
 } from "./skill-frontmatter.ts";
 
@@ -18,5 +20,21 @@ describe("skill frontmatter helpers", () => {
         expect(isNonBlankString("   ")).toBeFalse();
         expect(toNonBlankString(" demo ")).toBe("demo");
         expect(toNonBlankString(undefined)).toBeUndefined();
+    });
+
+    test("serializes long frontmatter scalars without folded block markers", () => {
+        const description
+            = "Use a known package workflow to prepare reusable release notes for product launches across several teams.";
+        const rendered = stringifySkillMarkdownMatter("\n# Demo\n", {
+            description,
+            name: "demo",
+        });
+
+        expect(rendered).not.toContain(">-");
+        expect(rendered).toContain(`description: ${description}`);
+        expect(parseSkillMarkdownMatter(rendered).data).toMatchObject({
+            description,
+            name: "demo",
+        });
     });
 });

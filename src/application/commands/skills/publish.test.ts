@@ -4,7 +4,6 @@ import { lstat, mkdir, readFile, stat, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
-import matter from "gray-matter";
 import pino from "pino";
 
 import {
@@ -36,6 +35,7 @@ import {
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
 import { publishLocalSkillPackage, publishSkillPackage } from "./publish.ts";
+import { parseSkillMarkdownMatter } from "./skill-frontmatter.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
 const emptyCatalog: CliCatalog = {
@@ -95,7 +95,7 @@ describe("skills publish command", () => {
                 access: "restricted",
             });
 
-            const parsed = matter(
+            const parsed = parseSkillMarkdownMatter(
                 await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
             );
 
@@ -225,7 +225,7 @@ describe("skills publish command", () => {
                 "PUT https://registry.oomol.com/@alice%2fregistry-skill",
             ]);
 
-            const parsed = matter(
+            const parsed = parseSkillMarkdownMatter(
                 await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
             );
 
@@ -416,7 +416,7 @@ describe("skills publish command", () => {
                 .rejects
                 .toMatchObject({ code: "ENOENT" });
 
-            const parsed = matter(
+            const parsed = parseSkillMarkdownMatter(
                 await readFile(join(localSkillDirectoryPath, "SKILL.md"), "utf8"),
             );
 
@@ -854,7 +854,7 @@ describe("skills publish command", () => {
 
         expect(result.version).toBe("0.0.4");
 
-        const parsed = matter(
+        const parsed = parseSkillMarkdownMatter(
             await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
         );
 
@@ -927,7 +927,7 @@ describe("skills publish command", () => {
             "Remote package @alice/blocked-skill@1.2.3 contains blocks. Continue publishing skill blocked-skill as @alice/blocked-skill? [y/N] ",
         );
 
-        const parsed = matter(
+        const parsed = parseSkillMarkdownMatter(
             await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
         );
 
@@ -983,7 +983,7 @@ describe("skills publish command", () => {
                 "Published skill blocked-skill as private package @alice/blocked-skill@1.2.4. View it at https://hub.oomol.com/package/@alice/blocked-skill.\n",
             );
 
-            const parsed = matter(
+            const parsed = parseSkillMarkdownMatter(
                 await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
             );
 
@@ -1057,7 +1057,7 @@ describe("skills publish command", () => {
             },
         });
 
-        const parsed = matter(
+        const parsed = parseSkillMarkdownMatter(
             await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
         );
 
@@ -1172,7 +1172,7 @@ describe("skills publish command", () => {
             code: "ENOENT",
         });
 
-        const parsed = matter(
+        const parsed = parseSkillMarkdownMatter(
             await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
         );
 
@@ -1220,7 +1220,7 @@ describe("skills publish command", () => {
             code: "ENOENT",
         });
 
-        const parsed = matter(
+        const parsed = parseSkillMarkdownMatter(
             await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
         );
 

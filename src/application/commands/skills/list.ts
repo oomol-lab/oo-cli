@@ -7,10 +7,9 @@ import type {
 } from "./managed-skill-hosts.ts";
 
 import type { ManagedSkillMetadata } from "./managed-skill-metadata.ts";
+import type { SkillMarkdownMatter } from "./skill-frontmatter.ts";
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
-import { isPlainObject } from "@wopjs/cast";
-import matter from "gray-matter";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver } from "../../semver.ts";
@@ -38,6 +37,8 @@ import {
 import { isBundledSkillName } from "./shared.ts";
 import {
     hasFrontmatter,
+    isSkillFrontmatterRecord,
+    parseSkillMarkdownMatter,
     toNonBlankString,
 } from "./skill-frontmatter.ts";
 
@@ -441,16 +442,16 @@ function parseLocalSkillListItem(
     content: string,
     skillName: string,
 ): Pick<LocalSkillListItem, "metadata"> | undefined {
-    let parsed: matter.GrayMatterFile<string>;
+    let parsed: SkillMarkdownMatter;
 
     try {
-        parsed = matter(content);
+        parsed = parseSkillMarkdownMatter(content);
     }
     catch {
         return undefined;
     }
 
-    if (!hasFrontmatter(content) || !isPlainObject(parsed.data)) {
+    if (!hasFrontmatter(content) || !isSkillFrontmatterRecord(parsed.data)) {
         return undefined;
     }
 
@@ -463,7 +464,7 @@ function parseLocalSkillListItem(
 
     const metadata = parsed.data.metadata;
 
-    if (metadata !== undefined && !isPlainObject(metadata)) {
+    if (metadata !== undefined && !isSkillFrontmatterRecord(metadata)) {
         return undefined;
     }
 
