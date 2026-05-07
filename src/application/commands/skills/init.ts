@@ -3,7 +3,6 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
 import { lstat, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import matter from "gray-matter";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
@@ -47,18 +46,6 @@ export interface LocalSkillHostPublicationTarget {
 export interface LocalSkillHostPublicationResult {
     mode: "copy" | "symlink";
     path: string;
-}
-
-interface OOSkillFrontmatter {
-    compatibility: string;
-    description: string;
-    metadata?: OOSkillFrontmatterMetadata;
-    name: string;
-}
-
-interface OOSkillFrontmatterMetadata {
-    icon?: string;
-    title?: string;
 }
 
 export const skillsInitCommand: CliCommandDefinition<SkillsInitInput> = {
@@ -314,25 +301,28 @@ function renderInitializedSkillMarkdown(
     icon: string | undefined,
     title: string | undefined,
 ): string {
-    const frontmatter: OOSkillFrontmatter = {
-        name: skillName,
-        description,
-        compatibility: installedRegistrySkillCompatibility,
-    };
+    const frontmatterLines = [
+        "---",
+        `name: ${renderYamlString(skillName)}`,
+        `description: ${renderYamlString(description)}`,
+        `compatibility: ${renderYamlString(installedRegistrySkillCompatibility)}`,
+    ];
 
     if (icon !== undefined || title !== undefined) {
-        frontmatter.metadata = {};
+        frontmatterLines.push("metadata:");
 
         if (icon !== undefined) {
-            frontmatter.metadata.icon = icon;
+            frontmatterLines.push(`  icon: ${renderYamlString(icon)}`);
         }
 
         if (title !== undefined) {
-            frontmatter.metadata.title = title;
+            frontmatterLines.push(`  title: ${renderYamlString(title)}`);
         }
     }
 
-    const body = [
+    return [
+        ...frontmatterLines,
+        "---",
         "",
         `# ${title ?? renderSkillTitle(skillName)}`,
         "",
@@ -341,8 +331,85 @@ function renderInitializedSkillMarkdown(
         "TODO: Describe the workflow this skill should follow.",
         "",
     ].join("\n");
+}
 
-    return matter.stringify(body, frontmatter);
+function renderYamlString(value: string): string {
+    if (canRenderPlainYamlString(value)) {
+        return value;
+    }
+
+    return JSON.stringify(value);
+}
+
+function canRenderPlainYamlString(value: string): boolean {
+    if (value === "" || value !== value.trim()) {
+        return false;
+    }
+
+    if (value.includes("\n") || value.includes("\r") || value.includes("\t")) {
+        return false;
+    }
+
+    if (startsWithYamlIndicator(value) || value.includes(": ") || containsYamlComment(value)) {
+        return false;
+    }
+
+    return !isYamlKeyword(value) && !isYamlNumberLike(value);
+}
+
+function startsWithYamlIndicator(value: string): boolean {
+    const firstChar = value[0];
+
+    return firstChar === "-"
+        || firstChar === "?"
+        || firstChar === ":"
+        || firstChar === ","
+        || firstChar === "["
+        || firstChar === "]"
+        || firstChar === "{"
+        || firstChar === "}"
+        || firstChar === "#"
+        || firstChar === "&"
+        || firstChar === "*"
+        || firstChar === "!"
+        || firstChar === "|"
+        || firstChar === ">"
+        || firstChar === "'"
+        || firstChar === "\""
+        || firstChar === "%"
+        || firstChar === "@"
+        || firstChar === "`";
+}
+
+function containsYamlComment(value: string): boolean {
+    for (let index = 0; index < value.length; index += 1) {
+        if (value[index] === "#" && (index === 0 || value[index - 1] === " ")) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isYamlKeyword(value: string): boolean {
+    const normalized = value.toLowerCase();
+
+    return normalized === "true"
+        || normalized === "false"
+        || normalized === "null"
+        || normalized === "~"
+        || normalized === "nan"
+        || normalized === ".nan"
+        || normalized === "inf"
+        || normalized === ".inf"
+        || normalized === "-inf"
+        || normalized === "-.inf";
+}
+
+function isYamlNumberLike(value: string): boolean {
+    const parsed = Number(value);
+
+    return value !== "" && !Number.isNaN(parsed);
 }
 
 function normalizeSkillName(value: string): string {

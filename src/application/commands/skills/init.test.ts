@@ -74,7 +74,7 @@ describe("skills init command", () => {
                 "description: Write campaign briefs using a known package workflow.",
                 `compatibility: ${installedRegistrySkillCompatibility}`,
                 "metadata:",
-                "  icon: ':lucide:wrench:'",
+                "  icon: \":lucide:wrench:\"",
                 "  title: Campaign Writer",
                 "---",
                 "",
@@ -132,6 +132,46 @@ describe("skills init command", () => {
                 "TODO: Describe the workflow this skill should follow.",
                 "",
             ].join("\n"));
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("writes a long description as a single-line frontmatter string", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "gpt-image-2",
+        );
+        const description = "Generate new images or edit existing images with GPT Image 2. Use when the user asks for GPT text-to-image, image generation, image-to-image editing, replacing objects, preserving a person or product, or turning local reference images into edited PNG JPEG or WebP outputs.";
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "init",
+                "gpt-image-2",
+                "--description",
+                description,
+            ]);
+
+            expect(result.exitCode).toBe(0);
+
+            const content = await readFile(
+                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                "utf8",
+            );
+
+            expect(content).toContain(`description: ${description}`);
+            expect(content).not.toContain("description: >-");
         }
         finally {
             await sandbox.cleanup();
