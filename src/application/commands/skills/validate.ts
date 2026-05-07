@@ -1,19 +1,22 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
+import type { SkillMarkdownMatter } from "./skill-frontmatter.ts";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
     isDefined,
     isNonEmptyString,
-    isPlainObject,
     isString,
 } from "@wopjs/cast";
-import matter from "gray-matter";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
-import { isNonBlankString } from "./skill-frontmatter.ts";
+import {
+    isNonBlankString,
+    isSkillFrontmatterRecord,
+    parseSkillMarkdownMatter,
+} from "./skill-frontmatter.ts";
 
 interface SkillsValidateInput {
     path: string;
@@ -105,22 +108,22 @@ export async function validateSkillDirectory(
 }
 
 function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
-    let parsedMatter: matter.GrayMatterFile<string>;
+    let parsedMatter: SkillMarkdownMatter;
 
     try {
-        parsedMatter = matter(content);
+        parsedMatter = parseSkillMarkdownMatter(content);
     }
     catch {
         return "Frontmatter must be a YAML dictionary.";
     }
 
-    if (!isPlainObject(parsedMatter.data)) {
+    if (!isSkillFrontmatterRecord(parsedMatter.data)) {
         return "Frontmatter must be a YAML dictionary.";
     }
 
     const metadata = parsedMatter.data.metadata;
 
-    if (isDefined(metadata) && !isPlainObject(metadata)) {
+    if (isDefined(metadata) && !isSkillFrontmatterRecord(metadata)) {
         return "Frontmatter metadata must be an object.";
     }
 

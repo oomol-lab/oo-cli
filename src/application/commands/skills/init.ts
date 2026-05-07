@@ -3,7 +3,6 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
 import { lstat, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import matter from "gray-matter";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
@@ -29,6 +28,7 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
+import { stringifySkillMarkdownMatter } from "./skill-frontmatter.ts";
 import { renderSkillTitle } from "./skill-title.ts";
 
 interface SkillsInitInput {
@@ -342,7 +342,7 @@ function renderInitializedSkillMarkdown(
         "",
     ].join("\n");
 
-    return matter.stringify(body, frontmatter);
+    return stringifySkillMarkdownMatter(body, frontmatter);
 }
 
 function normalizeSkillName(value: string): string {
