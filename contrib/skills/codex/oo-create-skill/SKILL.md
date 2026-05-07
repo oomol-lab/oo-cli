@@ -52,11 +52,13 @@ this constitution, not a separate checklist.
    credentials. Ask the user to choose only when provider, account, cost,
    compliance, data-routing, or output-contract differences are material.
 5. Preserve the local/cloud boundary. Generated skills must tell future agents
-   to use the agent-provided `oo-upload` helper for local attachments sent to
-   cloud processing and `oo-download` for cloud artifacts saved locally. Do not
-   treat these helpers as capabilities to rediscover, do not hand-roll transfer
-   logic, and do not pass local filesystem paths to cloud actions unless the
-   schema explicitly supports local paths.
+   to upload local attachments with `oo file upload "<filePath>" --json`, pass
+   the returned `downloadUrl` into cloud payloads, and save remote artifacts
+   with `oo file download "<url>" [outDir] [--name "<name>"] [--ext "<ext>"]`.
+   `oo file download` prints `Saved to: <path>` and does not support `--json`.
+   Do not treat these file-transfer commands as capabilities to rediscover, do
+   not hand-roll transfer logic, and do not pass local filesystem paths to cloud
+   actions unless the schema explicitly supports local paths.
 6. Make file artifacts visible to the user. When a generated skill can produce
    images, documents, archives, media, or other files, it must tell future
    agents to preview the artifact when practical, or otherwise deliver it with
@@ -239,7 +241,7 @@ field paths; do not present the local `schemaPath` as a stable contract for
 future agents.
 
 When the workflow crosses the local/cloud file boundary, include the
-`oo-upload` and `oo-download` helper guidance from the Constitution in the
+`oo file upload` and `oo file download` guidance from the Constitution in the
 generated skill.
 
 Review the frontmatter `description` before finishing: user-visible outcome
