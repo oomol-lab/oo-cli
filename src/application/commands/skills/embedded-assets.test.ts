@@ -579,7 +579,7 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("guides oo-create-skill generated workflows to use managed attachment transfer helpers", async () => {
+    test("guides oo-create-skill generated workflows to use oo file transfer commands", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
                 file => file.relativePath === "SKILL.md",
@@ -595,10 +595,12 @@ describe("embedded skill assets", () => {
 
             expect(content).toContain("Preserve the local/cloud boundary");
             expect(content).toContain("Make file artifacts visible to the user");
-            expect(content).toContain("agent-provided `oo-upload` helper");
-            expect(content).toContain("local attachments sent to");
-            expect(content).toContain("`oo-download` for cloud artifacts");
-            expect(content).toContain("treat these helpers as capabilities");
+            expect(content).toContain("`oo file upload \"<filePath>\" --json`");
+            expect(content).toContain("the returned `downloadUrl`");
+            expect(content).toContain("`oo file download \"<url>\" [outDir]");
+            expect(content).toContain("`Saved to: <path>`");
+            expect(content).toContain("does not support `--json`");
+            expect(content).toContain("file-transfer commands as capabilities");
             expect(content).toContain("hand-roll transfer");
             expect(content).toContain("logic");
             expect(content).toContain(
@@ -607,6 +609,8 @@ describe("embedded skill assets", () => {
             expect(content).toContain("A successful");
             expect(content).toContain("file path alone is not enough");
             expect(content).toContain("local/cloud file boundary");
+            expect(content).not.toContain("oo-upload");
+            expect(content).not.toContain("oo-download");
         }
     });
 
