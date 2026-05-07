@@ -19,7 +19,6 @@ import {
 } from "./constants.ts";
 import { resolveTelemetryStatusFromSettingsFile } from "./control.ts";
 import {
-    closeTelemetryDatabase,
     countTelemetryEvents,
     enqueueTelemetryBatchItem,
     openTelemetryDatabase,
@@ -170,11 +169,7 @@ function spawnTelemetryFlusherIfDue(
         );
     }
     finally {
-        closeTelemetryDatabase(database);
-    }
-
-    if (!shouldSpawn) {
-        return;
+        database.close();
     }
 
     try {

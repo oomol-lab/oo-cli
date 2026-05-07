@@ -172,7 +172,7 @@ export function enqueueTelemetryBatchItem(options: {
         return true;
     }
     finally {
-        closeTelemetryDatabase(database);
+        database.close();
     }
 }
 
@@ -193,7 +193,7 @@ export function readTelemetryOutboxSummary(
         };
     }
     finally {
-        closeTelemetryDatabase(database);
+        database.close();
     }
 }
 
@@ -211,7 +211,7 @@ export function purgeTelemetryOutboxIfExists(
         database.run(`DELETE FROM ${telemetryEventsTableName}`);
     }
     finally {
-        closeTelemetryDatabase(database);
+        database.close();
     }
 }
 
@@ -315,6 +315,7 @@ export function leaseReadyTelemetryRows(
     const leasedRows: TelemetryEventRow[] = [];
 
     database.run("BEGIN IMMEDIATE");
+    let committed = false;
 
     try {
         const rows = database.query<TelemetryEventRow, {
@@ -365,10 +366,12 @@ export function leaseReadyTelemetryRows(
         }
 
         database.run("COMMIT");
+        committed = true;
     }
-    catch (error) {
-        database.run("ROLLBACK");
-        throw error;
+    finally {
+        if (!committed) {
+            database.run("ROLLBACK");
+        }
     }
 
     return leasedRows;
@@ -468,7 +471,7 @@ export function readTelemetryRowsForTest(
         ).all(null);
     }
     finally {
-        closeTelemetryDatabase(database);
+        database.close();
     }
 }
 
@@ -484,10 +487,6 @@ export function countTelemetryEvents(database: Database): number {
     ).get(null);
 
     return row?.count ?? 0;
-}
-
-export function closeTelemetryDatabase(database: Database): void {
-    database.close();
 }
 
 function initializeTelemetryDatabase(database: Database): void {
@@ -540,7 +539,7 @@ function openInitializedTelemetryDatabase(filePath: string): Database {
     }
     finally {
         if (!initialized) {
-            closeTelemetryDatabase(database);
+            database.close();
         }
     }
 }

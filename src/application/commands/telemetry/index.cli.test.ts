@@ -15,7 +15,6 @@ import {
     telemetrySpawnThresholdEvents,
 } from "../../telemetry/constants.ts";
 import {
-    closeTelemetryDatabase,
     enqueueTelemetryBatchItem,
     leaseReadyTelemetryRows,
     openTelemetryDatabase,
@@ -65,7 +64,7 @@ describe("telemetry CLI", () => {
                 );
             }
             finally {
-                closeTelemetryDatabase(database);
+                database.close();
             }
 
             const status = await sandbox.run(["telemetry", "status"]);
@@ -436,7 +435,7 @@ describe("telemetry CLI", () => {
                 expect(leaseReadyTelemetryRows(database, Date.now())).toHaveLength(1);
             }
             finally {
-                closeTelemetryDatabase(database);
+                database.close();
             }
 
             const disable = await sandbox.run([
@@ -484,7 +483,7 @@ describe("telemetry CLI", () => {
                 }
                 finally {
                     database.run("ROLLBACK");
-                    closeTelemetryDatabase(database);
+                    database.close();
                 }
 
                 const status = await sandbox.run(["telemetry", "status"]);
@@ -590,7 +589,7 @@ describe("telemetry CLI", () => {
                 expect(leaseReadyTelemetryRows(database, Date.now())).toHaveLength(1);
             }
             finally {
-                closeTelemetryDatabase(database);
+                database.close();
             }
 
             const status = await sandbox.run(["telemetry", "status"]);
@@ -619,7 +618,7 @@ describe("telemetry CLI", () => {
             }
             finally {
                 database.run("ROLLBACK");
-                closeTelemetryDatabase(database);
+                database.close();
             }
 
             expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toEqual([]);
@@ -698,7 +697,7 @@ describe("telemetry CLI", () => {
                 )).toBeUndefined();
             }
             finally {
-                closeTelemetryDatabase(database);
+                database.close();
             }
 
             await Bun.sleep(50);
@@ -746,7 +745,7 @@ describe("telemetry CLI", () => {
                 expect(await waitForFile(markerPath)).toBeTrue();
             }
             finally {
-                closeTelemetryDatabase(nextDatabase);
+                nextDatabase.close();
             }
         }
         finally {
@@ -793,7 +792,7 @@ describe("telemetry CLI", () => {
                 expect(await waitForFile(markerPath)).toBeTrue();
             }
             finally {
-                closeTelemetryDatabase(nextDatabase);
+                nextDatabase.close();
             }
         }
         finally {
@@ -853,7 +852,7 @@ describe("telemetry CLI", () => {
                 );
             }
             finally {
-                closeTelemetryDatabase(database);
+                database.close();
             }
 
             const command = await sandbox.run(["config", "list"]);
@@ -867,7 +866,7 @@ describe("telemetry CLI", () => {
                 )).toBe(futureSpawnAfterMs);
             }
             finally {
-                closeTelemetryDatabase(nextDatabase);
+                nextDatabase.close();
             }
         }
         finally {

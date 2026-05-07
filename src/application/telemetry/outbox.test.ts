@@ -16,6 +16,7 @@ import {
     resolveTelemetryDatabaseFilePath,
     resolveTelemetryDeviceIdFilePath,
 } from "./outbox.ts";
+import { isUuidV7 } from "./uuid.ts";
 
 describe("telemetry outbox", () => {
     const temporaryDirectories = useTemporaryDirectoryCleanup();
@@ -89,7 +90,7 @@ describe("telemetry outbox", () => {
         const next = await readOrCreateTelemetryDeviceId(directoryPath);
 
         expect(created.isFirstRun).toBe(true);
-        expect(isUuidV7ForTest(created.deviceId)).toBe(true);
+        expect(isUuidV7(created.deviceId)).toBe(true);
         expect(await readTelemetryDeviceIdIfExists(directoryPath)).toBe(
             created.deviceId,
         );
@@ -99,16 +100,3 @@ describe("telemetry outbox", () => {
         });
     });
 });
-
-function isUuidV7ForTest(value: string): boolean {
-    const parts = value.split("-");
-
-    return parts.length === 5
-        && parts[0]?.length === 8
-        && parts[1]?.length === 4
-        && parts[2]?.length === 4
-        && parts[2]?.[0] === "7"
-        && parts[3]?.length === 4
-        && ["8", "9", "a", "b"].includes(parts[3]?.[0] ?? "")
-        && parts[4]?.length === 12;
-}

@@ -16,7 +16,6 @@ import {
 } from "./constants.ts";
 import { flushTelemetryOutbox } from "./flusher.ts";
 import {
-    closeTelemetryDatabase,
     enqueueTelemetryBatchItem,
     leaseReadyTelemetryRows,
     openTelemetryDatabase,
@@ -292,7 +291,7 @@ describe("telemetry flusher", () => {
             });
         }
         finally {
-            closeTelemetryDatabase(database);
+            database.close();
         }
 
         await flushTelemetryOutbox({
@@ -406,7 +405,7 @@ describe("telemetry flusher", () => {
             expect(leaseReadyTelemetryRows(database, leasedAtMs)).toHaveLength(1);
         }
         finally {
-            closeTelemetryDatabase(database);
+            database.close();
         }
 
         await flushTelemetryOutbox({

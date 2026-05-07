@@ -1769,9 +1769,11 @@ describe("skills commands", () => {
             expect(requests).toHaveLength(2);
             expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
             expect(requests[1]!.headers.get("Authorization")).toBe("secret-1");
-            expect(parseTelemetryRowPayload(
+            const telemetryPayload = parseTelemetryRowPayload(
                 readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
-            )).toMatchObject({
+            );
+
+            expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "skills.install",
                     package_kind: "registry",

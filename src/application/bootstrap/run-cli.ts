@@ -330,23 +330,34 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             "CLI invocation completed.",
         );
 
-        await emitCliCommandTelemetry({
-            authStore,
-            buildCommit: buildInfo.commitHash ?? "unknown",
-            env: invocation.env,
-            execPath: currentExecPath,
-            exitCode,
-            invocation,
-            logger,
-            recorder: telemetryRecorder,
-            sessionId,
-            settings: settingsForTelemetry,
-            settingsFilePath: storePaths.settingsFilePath,
-            startTimeMs,
-            telemetryDirectoryPath: storePaths.telemetryDirectory,
-            translatorLocale: translator.locale,
-            version,
-        });
+        try {
+            await emitCliCommandTelemetry({
+                authStore,
+                buildCommit: buildInfo.commitHash ?? "unknown",
+                env: invocation.env,
+                execPath: currentExecPath,
+                exitCode,
+                invocation,
+                logger,
+                recorder: telemetryRecorder,
+                sessionId,
+                settings: settingsForTelemetry,
+                settingsFilePath: storePaths.settingsFilePath,
+                startTimeMs,
+                telemetryDirectoryPath: storePaths.telemetryDirectory,
+                translatorLocale: translator.locale,
+                version,
+            });
+        }
+        catch (error) {
+            logger.warn(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                },
+                "Failed to emit CLI command telemetry.",
+            );
+        }
 
         loggerHandle.close();
 

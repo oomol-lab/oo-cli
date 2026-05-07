@@ -102,7 +102,7 @@ const commandTelemetryDecisions = {
     "cloud-task.run": {
         kind: "properties",
         properties: ["block_id", "dry_run", "package_name", "package_version"],
-        reason: "Records published artifact identity and execution mode.",
+        reason: "Records product-domain package, version, and block dimensions for usage analytics.",
     },
     "cloud-task.wait": {
         kind: "properties",
@@ -122,7 +122,7 @@ const commandTelemetryDecisions = {
     "cloud-task.list": {
         kind: "properties",
         properties: ["block_id", "package_name", "result_count_bucket"],
-        reason: "Records safe filters and bounded result count.",
+        reason: "Records product-domain filter dimensions and bounded result count.",
     },
     "completion": {
         kind: "properties",
@@ -170,7 +170,7 @@ const commandTelemetryDecisions = {
             "http_status",
             "service",
         ],
-        reason: "Records connector identity and bucketed payload size without payload content.",
+        reason: "Records connector product dimensions, bucketed payload size, and stable error code.",
     },
     "connector.search": {
         kind: "properties",
@@ -242,7 +242,7 @@ const commandTelemetryDecisions = {
     "packages.info": {
         kind: "properties",
         properties: ["package_name", "package_version"],
-        reason: "Records published package artifact identity.",
+        reason: "Records product-domain package and version dimensions for usage analytics.",
     },
     "packages.search": {
         kind: "properties",
@@ -276,7 +276,7 @@ const commandTelemetryDecisions = {
             "skill_ids_sample",
             "skill_ids_truncated",
         ],
-        reason: "Records artifact identity and bounded skill samples.",
+        reason: "Records install source, product-domain package dimension, and bounded skill samples.",
     },
     "skills.list": {
         kind: "generic",
@@ -295,7 +295,7 @@ const commandTelemetryDecisions = {
             "source_kind",
             "visibility",
         ],
-        reason: "Records published skill artifact identity and publication mode.",
+        reason: "Records publication mode plus product-domain package and skill dimensions.",
     },
     "skills.search": {
         kind: "properties",

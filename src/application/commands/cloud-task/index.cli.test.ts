@@ -201,6 +201,7 @@ describe("cloudTaskCommand CLI", () => {
             expect(telemetryPayload?.properties).not.toHaveProperty("data");
             expect(telemetryPayload?.properties).not.toHaveProperty("input");
             expect(telemetryPayload?.properties).not.toHaveProperty("taskID");
+            expect(telemetryPayload?.properties).not.toHaveProperty("task_id");
         }
         finally {
             await sandbox.cleanup();
@@ -469,9 +470,11 @@ describe("cloudTaskCommand CLI", () => {
             expect(logTelemetryPayload?.properties).not.toHaveProperty("task_id");
             expect(logTelemetryPayload?.properties).not.toHaveProperty("taskID");
             expect(logTelemetryPayload?.properties).not.toHaveProperty("logs");
-            expect(telemetryPayloads.find(
+            const listTelemetryPayload = telemetryPayloads.find(
                 payload => payload?.properties.command_full === "cloud-task.list",
-            )).toMatchObject({
+            );
+
+            expect(listTelemetryPayload).toMatchObject({
                 properties: {
                     block_id: "main",
                     package_name: "foo",

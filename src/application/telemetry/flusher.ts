@@ -16,7 +16,6 @@ import {
 } from "./constants.ts";
 import { resolveTelemetryStatusFromSettingsFile } from "./control.ts";
 import {
-    closeTelemetryDatabase,
     deleteExpiredTelemetryEvents,
     deleteTelemetryRows,
     leaseReadyTelemetryRows,
@@ -134,7 +133,7 @@ export async function flushTelemetryOutbox(
         }
     }
     finally {
-        closeTelemetryDatabase(database);
+        database.close();
     }
 }
 

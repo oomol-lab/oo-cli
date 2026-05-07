@@ -108,11 +108,13 @@ describe("skills publish command", () => {
                 packageName: "@alice/demo-skill",
                 version: "0.0.1",
             });
-            expect(parseTelemetryRowPayload(
+            const telemetryPayload = parseTelemetryRowPayload(
                 readTelemetryRowsForTest(
                     join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
                 )[0]!,
-            )).toMatchObject({
+            );
+
+            expect(telemetryPayload).toMatchObject({
                 properties: {
                     adopted: false,
                     command_full: "skills.publish",
@@ -445,11 +447,13 @@ describe("skills publish command", () => {
                 version: "0.3.0",
             });
             expect((await lstat(agentSkillDirectoryPath)).isSymbolicLink()).toBeTrue();
-            expect(parseTelemetryRowPayload(
+            const telemetryPayload = parseTelemetryRowPayload(
                 readTelemetryRowsForTest(
                     join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
                 )[0]!,
-            )).toMatchObject({
+            );
+
+            expect(telemetryPayload).toMatchObject({
                 properties: {
                     adopted: true,
                     command_full: "skills.publish",
