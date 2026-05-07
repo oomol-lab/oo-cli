@@ -390,18 +390,29 @@ describe("embedded skill assets", () => {
             expect(content).toContain("recommended option");
             expect(content).toContain("free-form input");
             expect(content).toContain("concrete choices");
-            expect(content).toContain("`oo` metadata defines execution facts");
-            expect(content).toContain("Do not ask the user to resolve facts");
+            expect(content).toContain("`oo` metadata and command output define execution facts");
+            expect(content).toContain("Do not ask");
+            expect(content).toContain("resolve facts");
             expect(content).toContain("package/block references");
             expect(content).toContain("connector service/action identifiers");
             expect(content).toContain("field names");
             expect(content).toContain("result field paths");
             expect(content).toContain("authentication state");
             expect(content).toContain("defaults");
-            expect(content).toContain("Resolve once, then shorten future executions");
+            expect(content).toContain("current command output");
+            expect(content).toContain("safe invocation");
+            expect(content).toContain("observed result paths");
+            expect(content).toContain("Resolve and test before writing the runbook");
+            expect(content).toContain("observed");
+            expect(content).toContain("facts");
+            expect(content).toContain("future agents");
+            expect(content).toContain("do not run discovery");
+            expect(content).toContain("again");
             expect(content).toContain("do not ask only for cosmetic details");
             expect(content).toContain("facts that `oo` metadata can resolve");
-            expect(content).toContain("future agents do not run discovery again");
+            expect(content).toContain("future agents");
+            expect(content).toContain("do not run discovery");
+            expect(content).toContain("again");
             expect(content).not.toContain("Operating Principles");
             expect(content).not.toContain("Work like a confident authoring agent");
             expect(content).not.toContain("interrupt the user only for true blockers");
@@ -503,6 +514,14 @@ describe("embedded skill assets", () => {
             expect(content).toContain(
                 "Resolve concrete package, block, and connector references",
             );
+            expect(content).toContain("Resolve and test before writing the runbook");
+            expect(content).toContain("Do not predesign the whole");
+            expect(content).toContain("execution process");
+            expect(content).toContain("Discover");
+            expect(content).toContain("the capability");
+            expect(content).toContain("run the smallest safe test");
+            expect(content).toContain("observed");
+            expect(content).toContain("facts");
             expect(content).toContain("Choose the most direct capability");
             expect(content).toContain("domain fit over result ordering");
             expect(content).toContain("Treat Fusion API, connector, and package/block results");
@@ -514,15 +533,46 @@ describe("embedded skill assets", () => {
             expect(content).toContain("choose Fusion API by default");
             expect(content).toContain("account, cost, compliance");
             expect(content).toContain("output-contract differences");
+            expect(content).toContain("Treat local `schemaPath` files");
+            expect(content).toContain("supporting");
+            expect(content).toContain("metadata");
+            expect(content).toContain("current command output");
+            expect(content).toContain("safe invocation");
+            expect(content).toContain("confirm connector");
+            expect(content).toContain("action availability");
             expect(content).toContain("Apply the Constitution");
             expect(content).toContain("Blocks are flexible");
             expect(content).toContain("weaker performance and higher execution friction");
+            expect(content).toContain(
+                "Do not choose a connector action just because a local schema file exists",
+            );
+            expect(content).toContain("non-destructive test");
+            expect(content).toContain("unknown action");
+            expect(content).toContain("choose an exposed action");
+            expect(content).toContain("async submission plus polling replacing a synchronous call");
+            expect(content).toContain("When result shape");
+            expect(content).toContain("status transitions");
+            expect(content).toContain("file return format");
+            expect(content).toContain("envelope structure");
+            expect(content).toContain("minimal representative invocation");
+            expect(content).toContain("status/result poll");
+            expect(content).toContain("safe and proportionate");
+            expect(content).toContain("Do not spend");
+            expect(content).toContain("meaningful user money");
+            expect(content).toContain("mutate external state");
+            expect(content).toContain("disclose sensitive data");
+            expect(content).toContain("documented dry-run");
+            expect(content).toContain("read-only paths");
+            expect(content).toContain("inferred from schema rather than observed");
+            expect(content).toContain("label it as untested");
             expect(content).toContain("Do not force a package or block reference");
             expect(content).toContain("when the chosen reusable workflow is connector-backed.");
             expect(content).toContain(
                 "connector service/action identifiers",
             );
-            expect(content).toContain("future agents do not run discovery again");
+            expect(content).toContain("future agents");
+            expect(content).toContain("do not run discovery");
+            expect(content).toContain("again");
             expect(content).not.toContain("default preference order");
             expect(content).not.toContain("If Fusion API and an ordinary connector action both match");
             expect(content).not.toContain("Apply the capability principle above");
@@ -593,14 +643,20 @@ describe("embedded skill assets", () => {
             expect(content).toContain("files, images, documents");
             expect(content).toContain("preview them or deliver them to the user");
             expect(content).toContain("reporting a local path");
+            expect(content).toContain("inline base64 or `data:` URI artifacts");
+            expect(content).toContain("save and preview the artifact");
+            expect(content).toContain("printing the full");
+            expect(content).toContain("encoded payload");
             expect(content).toContain("Failure handling");
             expect(content).toContain("action-specific stop conditions");
             expect(content).toContain("schema rejection");
-            expect(content).toContain(
-                "only when the selected action metadata, output shape, or documented oo workflow exposes",
-            );
-            expect(content).toContain("shorten future executions");
-            expect(content).toContain("reach the selected capability without rediscovery");
+            expect(content).toContain("async or");
+            expect(content).toContain("idempotency guidance");
+            expect(content).toContain("observed metadata");
+            expect(content).toContain("documented oo");
+            expect(content).toContain("Before finishing");
+            expect(content).toContain("future agent can reach the selected capability");
+            expect(content).toContain("without rediscovery");
             expect(content).toContain("stop on common failures");
             expect(content).not.toContain("Use whatever structure fits the domain");
             expect(content).not.toContain("async polling/idempotency when needed");
