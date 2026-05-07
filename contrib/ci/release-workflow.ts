@@ -7,6 +7,7 @@ import {
 } from "./npm-packages.ts";
 import {
     buildCreateReleaseCommand,
+    buildFeishuReleaseFollowupNotification,
     buildFeishuReleaseNotification,
     preparePackageManifest,
 } from "./release-steps.ts";
@@ -41,11 +42,13 @@ async function runCreateGitHubRelease(assets: readonly string[]): Promise<void> 
 }
 
 async function runNotifyFeishuRelease(): Promise<void> {
+    const releaseVersion = readRequiredEnv("RELEASE_VERSION");
+    const releaseTag = readRequiredEnv("RELEASE_TAG");
     const webhookUrl = readRequiredEnv("FEISHU_RELEASE_WEBHOOK");
     const feishuSignature = createFeishuSignature(process.env.FEISHU_RELEASE_SECRET ?? "");
     const payload = buildFeishuReleaseNotification({
-        releaseVersion: readRequiredEnv("RELEASE_VERSION"),
-        releaseTag: readRequiredEnv("RELEASE_TAG"),
+        releaseVersion,
+        releaseTag,
         repository: readRequiredEnv("GITHUB_REPOSITORY"),
         serverUrl: readRequiredEnv("GITHUB_SERVER_URL"),
         runId: readRequiredEnv("GITHUB_RUN_ID"),
@@ -53,6 +56,24 @@ async function runNotifyFeishuRelease(): Promise<void> {
         sign: feishuSignature?.sign,
     });
 
+    await sendFeishuCustomBotMessage(webhookUrl, payload, "Feishu release group");
+
+    const atUserId = process.env.FEISHU_RELEASE_FOLLOWUP_AT_USER_ID;
+    if (atUserId === undefined || atUserId === "") {
+        return;
+    }
+
+    const followupSignature = createFeishuSignature(process.env.FEISHU_RELEASE_SECRET ?? "");
+    const followupPayload = buildFeishuReleaseFollowupNotification({
+        atUserId,
+        timestamp: followupSignature?.timestamp,
+        sign: followupSignature?.sign,
+    });
+
+    await sendFeishuCustomBotMessage(webhookUrl, followupPayload, "Feishu release follow-up bot");
+}
+
+async function sendFeishuCustomBotMessage(webhookUrl: string, payload: string, targetName: string): Promise<void> {
     const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
@@ -64,13 +85,13 @@ async function runNotifyFeishuRelease(): Promise<void> {
     const responseText = await response.text();
 
     if (!response.ok) {
-        throw new Error(`Failed to notify Feishu release group: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to notify ${targetName}: ${response.status} ${response.statusText}\n${responseText}`);
     }
 
     const responseBody = JSON.parse(responseText) as Record<string, unknown>;
     const errorCode = responseBody.code ?? responseBody.StatusCode;
     if (errorCode !== 0) {
-        throw new Error(`Failed to notify Feishu release group: ${responseText}`);
+        throw new Error(`Failed to notify ${targetName}: ${responseText}`);
     }
 }
 
