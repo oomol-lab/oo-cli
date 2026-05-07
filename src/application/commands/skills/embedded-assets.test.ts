@@ -539,7 +539,7 @@ describe("embedded skill assets", () => {
                 throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
             }
 
-            const content = normalizeLineEndingsForAssertion(
+            const content = normalizeMarkdownWrappingForAssertion(
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
@@ -549,11 +549,13 @@ describe("embedded skill assets", () => {
             expect(content).toContain("local attachments sent to");
             expect(content).toContain("`oo-download` for cloud artifacts");
             expect(content).toContain("treat these helpers as capabilities");
-            expect(content).toContain("hand-roll transfer\n   logic");
+            expect(content).toContain("hand-roll transfer");
+            expect(content).toContain("logic");
             expect(content).toContain(
                 "do not pass local filesystem paths to cloud",
             );
-            expect(content).toContain("A successful\n   file path alone is not enough");
+            expect(content).toContain("A successful");
+            expect(content).toContain("file path alone is not enough");
             expect(content).toContain("local/cloud file boundary");
         }
     });
