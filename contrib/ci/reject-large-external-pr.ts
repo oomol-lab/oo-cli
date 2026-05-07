@@ -1,0 +1,243 @@
+import process from "node:process";
+
+const DEFAULT_GITHUB_API_URL = "https://api.github.com";
+const DEFAULT_EXTERNAL_PR_DIFF_LIMIT = 200;
+const REJECTION_COMMENT_MARKER = "<!-- oo-cli-large-external-pr-guard -->";
+const INTERNAL_AUTHOR_ASSOCIATIONS = new Set(["MEMBER", "OWNER"]);
+
+interface PullRequestGuardInput {
+    additions: number;
+    authorAssociation: string;
+    authorType?: string;
+    deletions: number;
+    diffLimit?: number;
+}
+
+interface PullRequestGuardDecision {
+    authorIsBot: boolean;
+    authorIsExternal: boolean;
+    diffSize: number;
+    diffLimit: number;
+    shouldReject: boolean;
+}
+
+interface RejectionCommentInput {
+    additions: number;
+    deletions: number;
+    diffLimit: number;
+}
+
+interface PullRequestRef {
+    owner: string;
+    pullNumber: number;
+    repo: string;
+}
+
+interface PullRequestEvent extends PullRequestRef {
+    pullRequest: PullRequestGuardInput;
+}
+
+interface GitHubApiClientOptions {
+    apiUrl: string;
+    token: string;
+}
+
+type GitHubRequestOptions = GitHubApiClientOptions & {
+    body?: unknown;
+    method: string;
+    path: string;
+};
+
+interface GitHubIssueComment {
+    body?: string;
+}
+
+export function evaluateLargeExternalPullRequest(input: PullRequestGuardInput): PullRequestGuardDecision {
+    const diffLimit = input.diffLimit ?? DEFAULT_EXTERNAL_PR_DIFF_LIMIT;
+    const diffSize = Math.abs(input.additions) + Math.abs(input.deletions);
+    const authorIsBot = input.authorType === "Bot";
+    const authorIsExternal = !authorIsBot && !INTERNAL_AUTHOR_ASSOCIATIONS.has(input.authorAssociation);
+
+    return {
+        authorIsBot,
+        authorIsExternal,
+        diffSize,
+        diffLimit,
+        shouldReject: authorIsExternal && diffSize >= diffLimit,
+    };
+}
+
+export function buildLargeExternalPullRequestRejectionComment(input: RejectionCommentInput): string {
+    const additions = Math.abs(input.additions);
+    const deletions = Math.abs(input.deletions);
+    const diffSize = additions + deletions;
+    return [
+        REJECTION_COMMENT_MARKER,
+        "Thanks for your contribution. This repository is primarily maintained internally, and we are not able to reliably review large pull requests from external contributors.",
+        "",
+        `This pull request changes ${diffSize} lines (${additions} additions and ${deletions} deletions), which is at or above our external pull request limit of ${input.diffLimit}. We are closing it automatically.`,
+        "",
+        "Please open an issue instead with the problem, expected behavior, and any relevant context. That gives the maintainers a better path to evaluate and plan the change.",
+    ].join("\n");
+}
+
+function readRequiredEnv(environment: NodeJS.ProcessEnv, name: string): string {
+    const value = environment[name];
+    if (value === undefined || value === "") {
+        throw new Error(`${name} is required.`);
+    }
+
+    return value;
+}
+
+async function readPullRequestEvent(eventPath: string): Promise<PullRequestEvent> {
+    const eventPayload = parseObject(JSON.parse(await Bun.file(eventPath).text()), "GitHub event payload");
+    const repository = parseObject(eventPayload.repository, "repository");
+    const repositoryOwner = parseObject(repository.owner, "repository.owner");
+    const pullRequest = parseObject(eventPayload.pull_request, "pull_request");
+    const pullRequestAuthor = parseObject(pullRequest.user, "pull_request.user");
+
+    return {
+        owner: parseString(repositoryOwner.login, "repository.owner.login"),
+        repo: parseString(repository.name, "repository.name"),
+        pullNumber: parseNumber(pullRequest.number, "pull_request.number"),
+        pullRequest: {
+            additions: parseNumber(pullRequest.additions, "pull_request.additions"),
+            deletions: parseNumber(pullRequest.deletions, "pull_request.deletions"),
+            authorAssociation: parseString(pullRequest.author_association, "pull_request.author_association"),
+            authorType: parseString(pullRequestAuthor.type, "pull_request.user.type"),
+        },
+    };
+}
+
+function parseObject(value: unknown, fieldName: string): Record<string, unknown> {
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+        return value as Record<string, unknown>;
+    }
+
+    throw new TypeError(`${fieldName} must be an object.`);
+}
+
+function parseString(value: unknown, fieldName: string): string {
+    if (typeof value === "string" && value !== "") {
+        return value;
+    }
+
+    throw new TypeError(`${fieldName} must be a non-empty string.`);
+}
+
+function parseNumber(value: unknown, fieldName: string): number {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+
+    throw new TypeError(`${fieldName} must be a finite number.`);
+}
+
+function buildRepoPath(ref: PullRequestRef, suffix: string): string {
+    return `/repos/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}/${suffix}`;
+}
+
+async function ensureRejectionComment(
+    options: GitHubApiClientOptions & PullRequestRef & { body: string },
+): Promise<void> {
+    const existingComments = await requestGitHubJson<GitHubIssueComment[]>({
+        ...options,
+        method: "GET",
+        path: buildRepoPath(options, `issues/${options.pullNumber}/comments?per_page=100`),
+    });
+
+    if (existingComments.some(comment => comment.body?.includes(REJECTION_COMMENT_MARKER) === true)) {
+        return;
+    }
+
+    await requestGitHubJson({
+        ...options,
+        method: "POST",
+        path: buildRepoPath(options, `issues/${options.pullNumber}/comments`),
+        body: {
+            body: options.body,
+        },
+    });
+}
+
+async function closePullRequest(
+    options: GitHubApiClientOptions & PullRequestRef,
+): Promise<void> {
+    await requestGitHubJson({
+        ...options,
+        method: "PATCH",
+        path: buildRepoPath(options, `pulls/${options.pullNumber}`),
+        body: {
+            state: "closed",
+        },
+    });
+}
+
+async function requestGitHubJson<Value>(options: GitHubRequestOptions): Promise<Value> {
+    const response = await fetch(`${trimTrailingSlash(options.apiUrl)}${options.path}`, {
+        method: options.method,
+        headers: {
+            "accept": "application/vnd.github+json",
+            "authorization": `Bearer ${options.token}`,
+            "content-type": "application/json",
+            "x-github-api-version": "2022-11-28",
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: AbortSignal.timeout(15_000),
+    });
+    const responseText = await response.text();
+
+    if (!response.ok) {
+        throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}\n${responseText}`);
+    }
+
+    if (responseText === "") {
+        return undefined as Value;
+    }
+
+    return JSON.parse(responseText) as Value;
+}
+
+function trimTrailingSlash(value: string): string {
+    return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+export async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void> {
+    const event = await readPullRequestEvent(readRequiredEnv(environment, "GITHUB_EVENT_PATH"));
+    const decision = evaluateLargeExternalPullRequest(event.pullRequest);
+
+    if (!decision.shouldReject) {
+        process.stdout.write(`Pull request allowed: bot=${decision.authorIsBot}, external=${decision.authorIsExternal}, diff=${decision.diffSize}, limit=${decision.diffLimit}.\n`);
+        return;
+    }
+
+    const apiClientOptions = {
+        apiUrl: environment.GITHUB_API_URL ?? DEFAULT_GITHUB_API_URL,
+        token: readRequiredEnv(environment, "GITHUB_TOKEN"),
+    };
+    const commentBody = buildLargeExternalPullRequestRejectionComment({
+        additions: event.pullRequest.additions,
+        deletions: event.pullRequest.deletions,
+        diffLimit: decision.diffLimit,
+    });
+
+    await ensureRejectionComment({
+        ...apiClientOptions,
+        body: commentBody,
+        owner: event.owner,
+        pullNumber: event.pullNumber,
+        repo: event.repo,
+    });
+    await closePullRequest({
+        ...apiClientOptions,
+        owner: event.owner,
+        pullNumber: event.pullNumber,
+        repo: event.repo,
+    });
+    process.stdout.write(`Closed external pull request #${event.pullNumber}: diff=${decision.diffSize}, limit=${decision.diffLimit}.\n`);
+}
+
+if (import.meta.main) {
+    await main();
+}

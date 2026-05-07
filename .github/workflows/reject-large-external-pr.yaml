@@ -1,0 +1,38 @@
+name: Reject Large External Pull Requests
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: reject-large-external-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  reject-large-external-pr:
+    name: Reject Large External Pull Request
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Base
+        uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Reject Large External Pull Request
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run contrib/ci/reject-large-external-pr.ts
