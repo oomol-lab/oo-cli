@@ -30,21 +30,21 @@ this constitution, not a separate checklist.
    metadata ambiguity with multiple user-visible outcomes. Prefer a short
    choice prompt with a recommended option when asking; add a free-form input
    option only when the decision cannot be covered by concrete choices.
-2. `oo` metadata defines execution facts. Do not ask the user to resolve facts
-   that metadata, schemas, or command output can answer: package/block
-   references, connector service/action identifiers, payload field names,
-   result field paths, command shape, authentication state, defaults, or schema
-   constraints. Treat local `schemaPath` files as supporting metadata, not proof
-   that a connector action is currently exposed by `oo`; pin only actions whose
-   service/action identity is confirmed by current command output.
+2. `oo` metadata and command output define execution facts. Do not ask the user
+   to resolve facts that metadata, schemas, or command output can answer:
+   package/block references, connector service/action identifiers, payload
+   field names, result field paths, command shape, authentication state,
+   defaults, or schema constraints. Treat local `schemaPath` files as supporting
+   metadata; current command output or a safe invocation must confirm connector
+   action availability and observed result paths.
 3. Resolve and test before writing the runbook. Do not predesign the whole
    execution process and then look for metadata that seems to fit it. Discover
-   the capability, inspect metadata, run the smallest safe test when command
-   shape or result shape matters, and then write the generated skill from those
-   observed facts. The generated skill must contain concrete package/block
-   references or connector service/action identifiers, plus the minimum payload,
-   result, and failure guidance needed so future agents do not run discovery
-   again.
+   the capability, inspect metadata, run the smallest safe test when command,
+   result, status, file, or envelope shape matters, and write from observed
+   facts. Mark schema-only inferences as untested. The generated skill must
+   contain concrete package/block references or connector service/action
+   identifiers plus the minimum payload, result, and failure guidance needed so
+   future agents do not run discovery again.
 4. Choose the most direct capability for the user's outcome. Treat Fusion API,
    ordinary connectors, packages, and blocks as first-class candidates. Prefer
    domain fit over result ordering. When choices are otherwise equivalent,
@@ -156,20 +156,19 @@ Use `oo connector search "<goal>" --json` only to refine a shortlisted connector
 path, not to restart broad discovery. Do not force a package or block reference
 when the chosen reusable workflow is connector-backed.
 
-Do not write a connector action into a generated skill just because a local
-schema file exists. If command output does not expose the candidate action, or a
-non-destructive invocation reports `unknown action`, choose an exposed action
-that satisfies the workflow instead and document any important runtime shape
-change, such as async submission plus polling replacing a synchronous call.
+Do not choose a connector action just because a local schema file exists. If
+command output does not expose the candidate action, or a non-destructive test
+reports `unknown action`, choose an exposed action and document any runtime
+shape change, such as async submission plus polling replacing a synchronous
+call.
 
 When result shape, status transitions, file return format, or envelope structure
 will affect the runbook, run a minimal representative invocation or status/result
-poll during authoring whenever it is safe and proportionate. Do not spend
-meaningful user money, mutate external state, disclose sensitive data, or trigger
-large jobs only to learn a response shape; ask the user or use documented dry-run
-or read-only paths when those risks are material. If a field path is inferred
-from schema rather than observed, label that uncertainty in the generated skill
-instead of presenting it as tested fact.
+poll during authoring when safe and proportionate. Do not spend meaningful user
+money, mutate external state, disclose sensitive data, or trigger large jobs
+only to learn a response shape; ask the user or use documented dry-run or
+read-only paths when those risks are material. If a field path is inferred from
+schema rather than observed, label it as untested.
 
 Keep chosen packages, blocks, or connector actions concrete in the generated
 skill.
@@ -253,22 +252,16 @@ Preserve `metadata.title` when it exists. If you change the displayed title or
 first heading, update `metadata.title` to match. If `metadata.title` or
 `metadata.icon` is absent, add a suitable value.
 
-The final skill must contain concrete package/block references or connector
-service/action identifiers. It must not instruct future agents to run `oo
-search`, `oo connector search`, or discover capabilities at execution time.
+The final skill must not instruct future agents to run `oo search`, `oo
+connector search`, or discover capabilities at execution time. Include only the
+selected package/block references or connector service/action identity, command
+shape, payload rules, result extraction, common stop conditions, and async or
+idempotency guidance that observed metadata, output shape, or documented oo
+workflow exposes.
 
-Do not duplicate broad oo execution mechanics. For connector-backed workflows,
-include only the selected service/action identity, the small connector command
-shape, payload rules, result extraction, and common stop conditions such as
-missing inputs, inaccessible files, schema rejection, auth, billing,
-permission, timeout, or not-found blockers. Include async polling, status
-checks, or idempotency guidance only when the selected action metadata, output
-shape, or documented oo workflow exposes those behaviors.
-
-Before finishing, check whether the generated skill will shorten future
-executions: a future agent should reach the selected capability without
-rediscovery, build a valid payload, read the useful result, and stop on common
-failures. If not, add only the missing execution guidance.
+Before finishing, check that a future agent can reach the selected capability
+without rediscovery, build a valid payload, read the useful result, and stop on
+common failures. If not, add only the missing execution guidance.
 
 Keep `SKILL.md` concise. Use `references/workflow.md` only when the workflow
 has several steps, decision rules, or examples. Use `references/packages.json`
