@@ -256,13 +256,7 @@ export function openTelemetryDatabase(
     const filePath = resolveTelemetryDatabaseFilePath(directoryPath);
 
     try {
-        const database = openSqliteDatabase(filePath, {
-            busyTimeoutMs: telemetrySqliteBusyTimeoutMs,
-        });
-
-        initializeTelemetryDatabase(database);
-
-        return database;
+        return openInitializedTelemetryDatabase(filePath);
     }
     catch (error) {
         if (!isRecoverableTelemetrySqliteError(error)) {
@@ -279,13 +273,7 @@ export function openTelemetryDatabase(
         );
         resetTelemetryDatabaseFiles(filePath);
 
-        const database = openSqliteDatabase(filePath, {
-            busyTimeoutMs: telemetrySqliteBusyTimeoutMs,
-        });
-
-        initializeTelemetryDatabase(database);
-
-        return database;
+        return openInitializedTelemetryDatabase(filePath);
     }
 }
 
@@ -536,6 +524,25 @@ function initializeTelemetryDatabase(database: Database): void {
             ")",
         ].join(" "),
     );
+}
+
+function openInitializedTelemetryDatabase(filePath: string): Database {
+    const database = openSqliteDatabase(filePath, {
+        busyTimeoutMs: telemetrySqliteBusyTimeoutMs,
+    });
+    let initialized = false;
+
+    try {
+        initializeTelemetryDatabase(database);
+        initialized = true;
+
+        return database;
+    }
+    finally {
+        if (!initialized) {
+            closeTelemetryDatabase(database);
+        }
+    }
 }
 
 function isTelemetryDatabaseOverHardLimit(directoryPath: string): boolean {

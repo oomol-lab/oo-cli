@@ -1,6 +1,6 @@
 import type { CliCatalog, CliExecutionContext, Fetcher } from "../../contracts/cli.ts";
 
-import { lstat, mkdir, readFile, stat, symlink } from "node:fs/promises";
+import { lstat, mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
@@ -28,6 +28,7 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
+import { createSymbolicLinkForTest } from "./__tests__/helpers.ts";
 import {
     resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
@@ -532,19 +533,12 @@ describe("skills publish command", () => {
     test("rejects adopting a skill directory that contains symlinks", async () => {
         const cases = [
             {
-                createLinkedPath: async (targetPath: string, linkPath: string) => {
-                    await Bun.write(targetPath, "secret\n");
-                    await symlink(targetPath, linkPath);
-                },
+                linkKind: "file",
                 linkPath: join("nested", "linked-secret.txt"),
                 name: "file",
             },
             {
-                createLinkedPath: async (targetPath: string, linkPath: string) => {
-                    await mkdir(targetPath, { recursive: true });
-                    await Bun.write(join(targetPath, "secret.txt"), "secret\n");
-                    await symlink(targetPath, linkPath, "dir");
-                },
+                linkKind: "directory",
                 linkPath: join("nested", "linked-secret"),
                 name: "directory",
             },
@@ -593,9 +587,10 @@ describe("skills publish command", () => {
                 "",
             ].join("\n"));
             await mkdir(join(sourceSkillDirectoryPath, "nested"), { recursive: true });
-            await testCase.createLinkedPath(
+            await createSymbolicLinkForTest(
                 join(externalPath, "secret"),
                 join(sourceSkillDirectoryPath, testCase.linkPath),
+                testCase.linkKind,
             );
 
             stdin.feed("yes\n");

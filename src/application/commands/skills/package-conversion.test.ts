@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, stat, symlink } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { join, posix } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { describe, expect, test } from "bun:test";
@@ -15,6 +15,7 @@ import {
     useTemporaryDirectoryCleanup,
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
+import { createSymbolicLinkForTest } from "./__tests__/helpers.ts";
 import {
     convertSkillDirectoryToPackage,
     publishConvertedSkillPackage,
@@ -444,21 +445,14 @@ describe("skill package conversion", () => {
     test("rejects symlinks while creating publish tarballs", async () => {
         const cases = [
             {
-                createLinkedPath: async (targetPath: string, linkPath: string) => {
-                    await Bun.write(targetPath, "secret\n");
-                    await symlink(targetPath, linkPath);
-                },
                 expectedPath: posix.join("package", "skills", "demo-skill", "linked-secret.txt"),
+                linkKind: "file",
                 linkName: "linked-secret.txt",
                 name: "file",
             },
             {
-                createLinkedPath: async (targetPath: string, linkPath: string) => {
-                    await mkdir(targetPath, { recursive: true });
-                    await Bun.write(join(targetPath, "secret.txt"), "secret\n");
-                    await symlink(targetPath, linkPath, "dir");
-                },
                 expectedPath: posix.join("package", "skills", "demo-skill", "linked-secret"),
+                linkKind: "directory",
                 linkName: "linked-secret",
                 name: "directory",
             },
@@ -496,7 +490,7 @@ describe("skill package conversion", () => {
                 version: "0.0.2",
             });
 
-            await testCase.createLinkedPath(
+            await createSymbolicLinkForTest(
                 join(externalPath, "secret"),
                 join(
                     packageRootDirectoryPath,
@@ -505,6 +499,7 @@ describe("skill package conversion", () => {
                     "demo-skill",
                     testCase.linkName,
                 ),
+                testCase.linkKind,
             );
 
             const error = await expectCliUserError(publishConvertedSkillPackage({
