@@ -481,6 +481,32 @@ describe("embedded skill assets", () => {
         }
     });
 
+    test("guides oo-create-skill generated workflows to use managed attachment transfer helpers", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
+                file => file.relativePath === "SKILL.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
+            }
+
+            const content = normalizeLineEndingsForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+
+            expect(content).toContain("local attachments to cloud processing");
+            expect(content).toContain("`oo-upload` helper");
+            expect(content).toContain("returned cloud-accessible reference");
+            expect(content).toContain("`oo-download` helper");
+            expect(content).toContain("Do not leave attachment transfer implicit");
+            expect(content).toContain("do not hand-roll upload or download");
+            expect(content).toContain(
+                "do not pass local filesystem paths to cloud actions unless",
+            );
+        }
+    });
+
     test("guides oo-publish-skill agents to publish agent skills", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const skillFile = getBundledSkillFiles("oo-publish-skill", agentName).find(

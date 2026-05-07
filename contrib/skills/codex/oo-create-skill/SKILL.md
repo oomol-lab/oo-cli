@@ -189,6 +189,15 @@ packages with `oo::packageName` and stable blocks with
 input and output concepts. Do not present a local `schemaPath` as a stable
 contract for future agents.
 
+When the workflow sends local attachments to cloud processing, explicitly tell
+future agents to use the `oo-upload` helper to upload the file and pass the
+returned cloud-accessible reference into the package, block, connector, or
+Fusion API payload. When the workflow returns a cloud artifact that must be
+saved locally, explicitly tell future agents to use the `oo-download` helper.
+Do not leave attachment transfer implicit, do not hand-roll upload or download
+logic, and do not pass local filesystem paths to cloud actions unless the
+schema explicitly supports local paths.
+
 Review the generated frontmatter `description` before finishing. It must say
 the user-visible outcome first, include common verbs or phrases users would
 actually say, name the domain objects or input/output artifacts, and include
