@@ -19,34 +19,48 @@ If the user only wants to discover or install existing published skills, use
 `oo-find-skills`. If the user wants to publish a finished skill, use
 `oo-publish-skill`.
 
-## Operating Principles
+## Constitution
 
-Work like a confident authoring agent: gather facts from `oo` metadata, make
-reasonable choices, write the skill, validate it, and interrupt the user only
-for true blockers.
+Use these rules to decide confidently. The workflow below is an application of
+this constitution, not a separate checklist.
 
-- Ask only for true blockers: an underivable skill name, a material service,
-  cost/account, or output-destination choice, a blocked `oo` command or target
-  conflict, or required inputs/outputs that metadata cannot answer.
-- Otherwise decide and proceed. Derive the display title, icon, trigger
-  description, capability selection, and workflow wording from the user's
-  purpose and resolved metadata.
-- Resolve capabilities once before authoring. The finished skill must contain
-  concrete package/block references or connector service/action identifiers,
-  not instructions for future agents to run discovery.
-- Choose the capability that most directly satisfies the reusable workflow.
-  Prefer domain fit over result ordering. When options are otherwise
-  equivalent, choose Fusion API by default because it avoids user-managed
-  provider credentials. Ask about an ordinary connector only when the user has
-  stated provider, account, cost, compliance, or data-routing constraints.
-- Treat local/cloud file transfer as a boundary. Generated skills must tell
-  future agents to use the agent-provided `oo-upload` helper for local
-  attachments sent to cloud processing and `oo-download` for cloud artifacts
-  saved locally. Do not treat these helpers as capabilities to rediscover, do
-  not hand-roll transfer logic, and do not pass local filesystem paths to cloud
-  actions unless the schema explicitly supports local paths.
-- Keep generated skills concise and domain-focused. Do not duplicate broad oo
-  execution mechanics that the managed OO notice already provides.
+1. User intent defines the reusable contract. Ask the user when a business
+   decision would change the skill's repeated-use behavior: skill name or
+   scope, workflow ordering, required user inputs, expected outputs, target
+   service, account, cost, compliance, data routing, output destination, or a
+   metadata ambiguity with multiple user-visible outcomes. Prefer a short
+   choice prompt with a recommended option when asking; add a free-form input
+   option only when the decision cannot be covered by concrete choices.
+2. `oo` metadata defines execution facts. Do not ask the user to resolve facts
+   that metadata, schemas, or command output can answer: package/block
+   references, connector service/action identifiers, payload field names,
+   result field paths, command shape, authentication state, defaults, or schema
+   constraints.
+3. Resolve once, then shorten future executions. The generated skill must
+   contain concrete package/block references or connector service/action
+   identifiers, plus the minimum payload, result, and failure guidance needed
+   so future agents do not run discovery again.
+4. Choose the most direct capability for the user's outcome. Treat Fusion API,
+   ordinary connectors, packages, and blocks as first-class candidates. Prefer
+   domain fit over result ordering. When choices are otherwise equivalent,
+   choose Fusion API by default because it avoids user-managed provider
+   credentials. Ask the user to choose only when provider, account, cost,
+   compliance, data-routing, or output-contract differences are material.
+5. Preserve the local/cloud boundary. Generated skills must tell future agents
+   to use the agent-provided `oo-upload` helper for local attachments sent to
+   cloud processing and `oo-download` for cloud artifacts saved locally. Do not
+   treat these helpers as capabilities to rediscover, do not hand-roll transfer
+   logic, and do not pass local filesystem paths to cloud actions unless the
+   schema explicitly supports local paths.
+6. Make file artifacts visible to the user. When a generated skill can produce
+   images, documents, archives, media, or other files, it must tell future
+   agents to preview the artifact when practical, or otherwise deliver it with
+   a clear path, attachment, link, or user-appropriate handoff. A successful
+   file path alone is not enough if the user cannot see or access the result.
+7. Write a runbook, not API documentation. Keep generated skills concise and
+   domain-focused. Include the facts needed to execute reliably; omit broad oo
+   mechanics, full schema dumps, and implementation details that the managed OO
+   notice already covers.
 
 ## Workflow
 
@@ -64,9 +78,10 @@ metadata:
 - likely user requests that should trigger the generated skill
 - optional display title and icon preference
 
-Follow the Operating Principles for when to ask. Do not ask only for cosmetic
-details. Use a concise title and fitting icon reference: an emoji, an image URL,
-or `:collection:icon:` from https://icones.js.org/.
+Follow the Constitution for when to ask. Ask when business intent would change
+the reusable workflow; do not ask only for cosmetic details or facts that `oo`
+metadata can resolve. Use a concise title and fitting icon reference: an emoji,
+an image URL, or `:collection:icon:` from https://icones.js.org/.
 
 ### 2. Resolve concrete package, block, and connector references
 
@@ -93,15 +108,15 @@ oo search "<goal>" --json
 
 Shape `<goal>` as one short English outcome sentence for the current external
 step, preserving the user's decisive constraints such as target service,
-language pair, file type, and output format. Inspect the first result set
-before refining.
+language pair, file type, and output format. If those decisive business
+constraints are missing and would change the reusable skill contract, ask the
+user before discovery. Inspect the first result set before refining.
 
 Treat Fusion API, connector, and package/block results as first-class authoring
 candidates. Classify service `fusion-api` as OOMOL built-in Fusion API, which
-does not require the user to provide their own API key. Apply the capability
-principle above; use a package/block only when no suitable Fusion API or
-ordinary connector action exists. Blocks are flexible, but usually have weaker
-performance and higher execution friction.
+does not require the user to provide their own API key. Apply the Constitution
+to select the most direct capability. Blocks are flexible, but usually have
+weaker performance and higher execution friction.
 
 For connector-backed choices, capture the exact `service`, action `name`,
 description, authentication state, and schema-derived input/output concepts.
@@ -139,18 +154,41 @@ phrases> for <domain objects or input artifacts>, especially when they need
 
 ### 4. Author the workflow instructions
 
-Write the generated skill in domain terms: when to use it, what to ask the
-user, which workflow steps to follow, and what outputs to report. Reference
-packages with `oo::packageName` and stable blocks with
-`oo::packageName::blockName`. For connector-backed workflows, name the exact
-`service.action` and include the minimal `oo connector run "<service>"
---action "<action>" --data '<json>' --json` command shape with schema-derived
-input and output concepts. Do not present a local `schemaPath` as a stable
-contract for future agents.
+Write the generated skill as a compact execution runbook, not API
+documentation: enough for future agents to call the selected capability without
+rediscovery, but not a full schema dump. Reference packages with
+`oo::packageName` and stable blocks with `oo::packageName::blockName`.
+
+For connector-backed or Fusion API-backed workflows, use domain-appropriate
+headings but include these execution facts when metadata provides them:
+
+- Runtime input policy: when to use the skill, required inputs, inputs that can
+  be inferred or defaulted, optional inputs to omit when absent, and the exact
+  missing runtime values that justify asking the user.
+- Invocation: the exact `service.action` and minimal
+  `oo connector run "<service>" --action "<action>" --data ... --json` command
+  shape. Include a small payload skeleton with schema-derived field names. For
+  long text, nested JSON, or quote/newline-heavy values, tell future agents to
+  use `--data @payload.json` instead of inline shell JSON.
+- Payload rules: required fields, defaultable fields, accepted file or URL
+  forms, and schema constraints that affect user-visible behavior.
+- Result handling: JSON field paths that contain the useful result,
+  downloadable artifact URL, status, id, or human-readable output. State what
+  to report on success and what not to treat as the final result. For generated
+  files, images, documents, archives, media, or other artifacts, state how
+  future agents should preview them or deliver them to the user instead of only
+  reporting a local path.
+- Failure handling: action-specific stop conditions from schema or metadata,
+  plus common auth, permission, billing, schema rejection, inaccessible file,
+  timeout, and not-found branches.
+
+Distill any `schemaPath` metadata into required/defaultable inputs and output
+field paths; do not present the local `schemaPath` as a stable contract for
+future agents.
 
 When the workflow crosses the local/cloud file boundary, include the
-`oo-upload` and `oo-download` helper guidance from the Operating Principles in
-the generated skill.
+`oo-upload` and `oo-download` helper guidance from the Constitution in the
+generated skill.
 
 Review the frontmatter `description` before finishing: user-visible outcome
 first, common request language, relevant artifacts, and user-visible services,
@@ -168,7 +206,16 @@ search`, `oo connector search`, or discover capabilities at execution time.
 
 Do not duplicate broad oo execution mechanics. For connector-backed workflows,
 include only the selected service/action identity, the small connector command
-shape, and schema-derived payload rules.
+shape, payload rules, result extraction, and common stop conditions such as
+missing inputs, inaccessible files, schema rejection, auth, billing,
+permission, timeout, or not-found blockers. Include async polling, status
+checks, or idempotency guidance only when the selected action metadata, output
+shape, or documented oo workflow exposes those behaviors.
+
+Before finishing, check whether the generated skill will shorten future
+executions: a future agent should reach the selected capability without
+rediscovery, build a valid payload, read the useful result, and stop on common
+failures. If not, add only the missing execution guidance.
 
 Keep `SKILL.md` concise. Use `references/workflow.md` only when the workflow
 has several steps, decision rules, or examples. Use `references/packages.json`
