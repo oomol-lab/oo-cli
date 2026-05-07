@@ -26,6 +26,10 @@ import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
+import {
+    isManagedSkillPublicationCurrent,
+    resolveManagedSkillPublicationMode,
+} from "./managed-skill-publication.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
     findPackageSkillOrThrow,
@@ -632,15 +636,22 @@ async function isRegistrySkillCurrentInAllHosts(
                 return undefined;
             }
 
-            return await readManagedSkillMetadata(
-                installation.installedSkillDirectoryPath,
-            );
+            return {
+                metadata: await readManagedSkillMetadata(
+                    installation.installedSkillDirectoryPath,
+                ),
+                publicationCurrent: await isManagedSkillPublicationCurrent(
+                    installation.installedSkillDirectoryPath,
+                    resolveManagedSkillPublicationMode(installation.agentName),
+                ),
+            };
         }),
     );
 
-    return targetStates.every(metadata =>
-        metadata?.packageName === packageName
-        && metadata.version === packageVersion,
+    return targetStates.every(state =>
+        state?.metadata?.packageName === packageName
+        && state.metadata.version === packageVersion
+        && state.publicationCurrent,
     );
 }
 

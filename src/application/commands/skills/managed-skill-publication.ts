@@ -1,6 +1,8 @@
 import type { BundledSkillPublicationMode } from "./bundled-skill-filesystem.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
+import { lstat } from "node:fs/promises";
+
 const symlinkCapableManagedSkillAgentNames: ReadonlySet<BundledSkillAgentName> = new Set([
     "claude",
     "codex",
@@ -13,4 +15,16 @@ export function resolveManagedSkillPublicationMode(
     return symlinkCapableManagedSkillAgentNames.has(agentName)
         ? "symlink-or-copy"
         : "copy";
+}
+
+export async function isManagedSkillPublicationCurrent(
+    skillDirectoryPath: string,
+    publicationMode: BundledSkillPublicationMode,
+): Promise<boolean> {
+    switch (publicationMode) {
+        case "copy":
+            return !(await lstat(skillDirectoryPath)).isSymbolicLink();
+        case "symlink-or-copy":
+            return true;
+    }
 }

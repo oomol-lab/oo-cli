@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, stat, symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -15,6 +15,7 @@ import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     resolveBundledSkillMetadataFilePath,
     resolveClaudeHomeDirectory,
+    resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
@@ -234,6 +235,67 @@ describe("skills CLI", () => {
             expect(result.stdout).toContain("Options:");
             expect(result.stdout).not.toContain("Installed skill");
             expect(await readFile(join(claudeSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                "# ChatGPT\n",
+            );
+            expect(content).toContain(
+                `"msg":"Registry skill synchronized during CLI startup."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("converts synchronized registry skill targets to copies for copy-only hosts", async () => {
+        const sandbox = await createCliSandbox();
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codeBuddySkillsDirectory = join(codeBuddyHomeDirectory, "skills");
+        const codeBuddySkillDirectoryPath = join(codeBuddySkillsDirectory, "chatgpt");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await mkdir(codeBuddySkillsDirectory, { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                "# ChatGPT\n",
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: "openai",
+                    version: "0.0.3",
+                }),
+            );
+            await symlink(
+                canonicalSkillDirectoryPath,
+                codeBuddySkillDirectoryPath,
+                process.platform === "win32" ? "junction" : "dir",
+            );
+
+            const result = await sandbox.run(["--help"], {
+                fetcher: async () => {
+                    throw new Error("startup synchronization should not fetch");
+                },
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Options:");
+            expect(await realpath(codeBuddySkillDirectoryPath)).not.toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect((await lstat(codeBuddySkillDirectoryPath)).isSymbolicLink()).toBeFalse();
+            expect(await readFile(join(codeBuddySkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 "# ChatGPT\n",
             );
             expect(content).toContain(
