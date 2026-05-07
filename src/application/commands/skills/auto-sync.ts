@@ -39,7 +39,10 @@ import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
-import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
+import {
+    isManagedSkillPublicationCurrent,
+    resolveManagedSkillPublicationMode,
+} from "./managed-skill-publication.ts";
 import { publishManagedBundledSkill } from "./shared.ts";
 
 interface ManagedSkillTargetState<Metadata> {
@@ -272,6 +275,9 @@ async function synchronizeRegistrySkill(
             installation.installedSkillDirectoryPath,
             readManagedSkillMetadata,
         );
+        const publicationMode = resolveManagedSkillPublicationMode(
+            installation.agentName,
+        );
 
         if (targetState.kind === "unmanaged") {
             context.logger.warn(
@@ -287,33 +293,38 @@ async function synchronizeRegistrySkill(
 
         if (targetState.kind === "managed") {
             if (
-                targetState.metadata?.packageName === skill.metadata.packageName
-                && targetState.metadata.version === skill.metadata.version
+                targetState.metadata?.packageName !== skill.metadata.packageName
+                || targetState.metadata.version !== skill.metadata.version
             ) {
+                context.logger.warn(
+                    {
+                        agentName: installation.agentName,
+                        canonicalPackageName: skill.metadata.packageName,
+                        canonicalVersion: skill.metadata.version,
+                        path: installation.installedSkillDirectoryPath,
+                        skillName: skill.name,
+                        targetPackageName: targetState.metadata?.packageName,
+                        targetVersion: targetState.metadata?.version,
+                    },
+                    "Registry skill startup synchronization skipped because the target metadata does not match canonical metadata.",
+                );
                 return;
             }
 
-            context.logger.warn(
-                {
-                    agentName: installation.agentName,
-                    canonicalPackageName: skill.metadata.packageName,
-                    canonicalVersion: skill.metadata.version,
-                    path: installation.installedSkillDirectoryPath,
-                    skillName: skill.name,
-                    targetPackageName: targetState.metadata?.packageName,
-                    targetVersion: targetState.metadata?.version,
-                },
-                "Registry skill startup synchronization skipped because the target metadata does not match canonical metadata.",
-            );
-            return;
+            if (
+                await isManagedSkillPublicationCurrent(
+                    installation.installedSkillDirectoryPath,
+                    publicationMode,
+                )
+            ) {
+                return;
+            }
         }
 
         const publication = await publishBundledSkillInstallation({
             canonicalSkillDirectoryPath: skill.path,
             installedSkillDirectoryPath: installation.installedSkillDirectoryPath,
-            publicationMode: resolveManagedSkillPublicationMode(
-                installation.agentName,
-            ),
+            publicationMode,
         });
 
         context.logger.info(
