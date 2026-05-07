@@ -340,7 +340,7 @@ describe("embedded skill assets", () => {
                 throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
             }
 
-            const content = normalizeLineEndingsForAssertion(
+            const content = normalizeMarkdownWrappingForAssertion(
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
@@ -348,19 +348,43 @@ describe("embedded skill assets", () => {
             expect(content).toContain(
                 "derive a concise display title and suitable icon reference",
             );
-            expect(content).toContain(
-                "The icon may be an emoji, an image URL, or\n`:collection:icon:`",
-            );
+            expect(content).toContain("The icon may be an emoji, an image URL");
+            expect(content).toContain("`:collection:icon:`");
             expect(content).toContain("https://icones.js.org/");
             expect(content).toContain(
-                "If `metadata.title` or\n`metadata.icon` is absent",
+                "If `metadata.title` or `metadata.icon` is absent",
             );
             expect(content).not.toContain(
                 "Pass `--title` only when the user provided or confirmed",
             );
             expect(content).not.toContain(
-                "do\nnot add it by deriving a title from the skill name",
+                "do not add it by deriving a title from the skill name",
             );
+        }
+    });
+
+    test("guides oo-create-skill agents to act confidently and ask only for blockers", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
+                file => file.relativePath === "SKILL.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
+            }
+
+            const content = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+
+            expect(content).toContain("Operating Principles");
+            expect(content).toContain("Work like a confident authoring agent");
+            expect(content).toContain("interrupt the user only for true blockers");
+            expect(content).toContain("Ask only when the skill name cannot be safely derived");
+            expect(content).toContain("Otherwise decide and proceed");
+            expect(content).toContain("Do not ask only for cosmetic details");
+            expect(content).toContain("Resolve capabilities once before authoring");
+            expect(content).toContain("not instructions for future agents to run discovery");
         }
     });
 
@@ -374,7 +398,7 @@ describe("embedded skill assets", () => {
                 throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
             }
 
-            const content = normalizeLineEndingsForAssertion(
+            const content = normalizeMarkdownWrappingForAssertion(
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
@@ -430,10 +454,10 @@ describe("embedded skill assets", () => {
             expect(content).toContain("Use this description shape when helpful");
             expect(content).toContain("negative conditions in the workflow body");
             expect(content).toContain(
-                "the user-visible outcome first",
+                "user-visible outcome first",
             );
             expect(content).toContain(
-                "Move caveats, execution details, negative guidance, and boundary cases into the workflow body",
+                "Move caveats, execution details, negative guidance, and boundary cases into",
             );
             expect(content).not.toContain("one short positive trigger sentence");
             expect(content).not.toContain("Keep implementation plumbing out of the description");
@@ -450,25 +474,23 @@ describe("embedded skill assets", () => {
                 throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
             }
 
-            const content = normalizeLineEndingsForAssertion(
+            const content = normalizeMarkdownWrappingForAssertion(
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
             expect(content).toContain(
                 "Resolve concrete package, block, and connector references",
             );
+            expect(content).toContain("Choose the capability that most directly satisfies");
+            expect(content).toContain("Prefer domain fit over result ordering");
             expect(content).toContain("Treat Fusion API, connector, and package/block results");
             expect(content).toContain("first-class authoring");
-            expect(content).toContain("Business fit comes before convenience");
-            expect(content).toContain("choose the better-matched capability");
-            expect(content).toContain("default preference order");
-            expect(content).toContain("service is\n`fusion-api`");
+            expect(content).toContain("service is `fusion-api`");
             expect(content).toContain("do not require the user");
             expect(content).toContain("to provide their own API key");
-            expect(content).toContain("Prefer Fusion API when otherwise equivalent");
-            expect(content).toContain("If Fusion API and an ordinary connector action both match");
-            expect(content).toContain("ordinary connector uses the user's own key");
-            expect(content).toContain("If no suitable Fusion API or ordinary");
+            expect(content).toContain("choose Fusion API by default");
+            expect(content).toContain("account, cost, compliance");
+            expect(content).toContain("no suitable Fusion API or ordinary connector");
             expect(content).toContain("Blocks are the most flexible path");
             expect(content).toContain("weakest performance and highest execution friction");
             expect(content).toContain("Do not force a package or block reference");
@@ -476,8 +498,9 @@ describe("embedded skill assets", () => {
             expect(content).toContain(
                 "concrete connector service/action identifiers",
             );
-            expect(content).toContain("run `oo search`, `oo connector search`");
-            expect(content).toContain("discover capabilities at execution time");
+            expect(content).toContain("not instructions for future agents to run discovery");
+            expect(content).not.toContain("default preference order");
+            expect(content).not.toContain("If Fusion API and an ordinary connector action both match");
         }
     });
 
@@ -495,15 +518,16 @@ describe("embedded skill assets", () => {
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
-            expect(content).toContain("local attachments to cloud processing");
-            expect(content).toContain("`oo-upload` helper");
-            expect(content).toContain("returned cloud-accessible reference");
-            expect(content).toContain("`oo-download` helper");
-            expect(content).toContain("Do not leave attachment transfer implicit");
-            expect(content).toContain("do not hand-roll upload or download");
+            expect(content).toContain("Treat local/cloud file transfer as a boundary");
+            expect(content).toContain("agent-provided `oo-upload` helper");
+            expect(content).toContain("local\n  attachments sent to cloud processing");
+            expect(content).toContain("`oo-download` for cloud artifacts");
+            expect(content).toContain("Do not treat these helpers as capabilities");
+            expect(content).toContain("do\n  not hand-roll transfer logic");
             expect(content).toContain(
-                "do not pass local filesystem paths to cloud actions unless",
+                "do not pass local filesystem paths to cloud",
             );
+            expect(content).toContain("local/cloud file boundary");
         }
     });
 

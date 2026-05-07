@@ -21,11 +21,43 @@ If the user only wants to discover or install existing published skills, use
 `oo-find-skills`. If the user wants to publish a finished skill, use
 `oo-publish-skill`.
 
+## Operating Principles
+
+Work like a confident authoring agent: gather facts from `oo` metadata, make
+reasonable choices, write the skill, validate it, and interrupt the user only
+for true blockers.
+
+- Ask only when the skill name cannot be safely derived, the user must choose
+  between materially different external services, cost/account ownership, or
+  output destinations, an `oo` command is blocked by permissions or target
+  conflicts, or required workflow inputs and outputs cannot be inferred from
+  package or connector metadata.
+- Otherwise decide and proceed. Derive the display title, icon, trigger
+  description, capability selection, and workflow wording from the user's
+  purpose and resolved metadata.
+- Resolve capabilities once before authoring. The finished skill must contain
+  concrete package/block references or connector service/action identifiers,
+  not instructions for future agents to run discovery.
+- Choose the capability that most directly satisfies the reusable workflow.
+  Prefer domain fit over result ordering. When otherwise equivalent, choose
+  Fusion API by default because it avoids user-managed provider credentials.
+  Ask about an ordinary connector only when the user has stated provider,
+  account, cost, compliance, or data-routing constraints.
+- Treat local/cloud file transfer as a boundary. Generated skills must tell
+  future agents to use the agent-provided `oo-upload` helper for local
+  attachments sent to cloud processing and `oo-download` for cloud artifacts
+  saved locally. Do not treat these helpers as capabilities to rediscover, do
+  not hand-roll transfer logic, and do not pass local filesystem paths to cloud
+  actions unless the schema explicitly supports local paths.
+- Keep generated skills concise and domain-focused. Do not duplicate broad oo
+  execution mechanics that the managed OO notice already provides.
+
 ## Workflow
 
 ### 1. Collect only the information needed
 
-Ask for missing authoring inputs only when they are needed:
+Collect these inputs from the user or infer them from existing context and `oo`
+metadata:
 
 - skill name
 - workflow purpose
@@ -36,12 +68,10 @@ Ask for missing authoring inputs only when they are needed:
 - likely user requests that should trigger the generated skill
 - optional display title and icon preference
 
-If the user does not provide a display title or icon preference, choose them
-yourself from the workflow purpose and package or connector metadata instead of
-asking only for cosmetic details. Use a concise human-readable title and an
-icon reference that fits the workflow. The icon may be an emoji, an image URL, or
-`:collection:icon:` where `collection` and `icon` are names from
-https://icones.js.org/.
+Follow the Operating Principles for when to ask. Do not ask only for cosmetic
+details. Use a concise human-readable title and an icon reference that fits the
+workflow. The icon may be an emoji, an image URL, or `:collection:icon:` where
+`collection` and `icon` are names from https://icones.js.org/.
 
 ### 2. Resolve concrete package, block, and connector references
 
@@ -72,22 +102,13 @@ language pair, file type, and output format. Inspect the first result set
 before refining.
 
 Treat Fusion API, connector, and package/block results as first-class authoring
-candidates. Prefer the capability that directly matches the intended reusable
-workflow. Business fit comes before convenience: if one capability matches the
-user's domain, inputs, outputs, or required workflow more directly than the
-others, choose the better-matched capability even when it is not first in the
-default preference order. Classify connector results whose service is
-`fusion-api` as OOMOL built-in Fusion API actions that do not require the user
-to provide their own API key. Prefer Fusion API when otherwise equivalent options
-match the workflow because it is usually the most convenient path.
-
-If Fusion API and an ordinary connector action both match, either choose Fusion
-API by default or ask one concise question when the user's cost or account
-preference matters. Explain that Fusion API is the most convenient option, while
-an ordinary connector uses the user's own key and may be most cost-effective if
-they already pay for that provider. If no suitable Fusion API or ordinary
-connector action exists, use a package/block. Blocks are the most flexible path,
-but usually have the weakest performance and highest execution friction.
+candidates. Classify connector results whose service is `fusion-api` as OOMOL
+built-in Fusion API actions that do not require the user to provide their own
+API key. Apply the capability-selection principle above: choose by domain fit
+first, choose Fusion API by default when options are otherwise equivalent, and
+fall back to a package/block when no suitable Fusion API or ordinary connector
+action exists. Blocks are the most flexible path, but usually have the weakest
+performance and highest execution friction.
 
 For connector-backed choices, capture the exact `service`, action `name`,
 description, authentication state, and schema-derived input/output concepts.
@@ -95,8 +116,8 @@ Use `oo connector search "<goal>" --json` only to refine a shortlisted connector
 path, not to restart broad discovery. Do not force a package or block reference
 when the chosen reusable workflow is connector-backed.
 
-After choosing packages, blocks, or connector actions, do not leave capability
-discovery to the generated skill.
+After choosing packages, blocks, or connector actions, keep that choice concrete
+in the generated skill.
 
 ### 3. Initialize the local skill
 
@@ -139,24 +160,17 @@ packages with `oo::packageName` and stable blocks with
 input and output concepts. Do not present a local `schemaPath` as a stable
 contract for future agents.
 
-When the workflow sends local attachments to cloud processing, explicitly tell
-future agents to use the `oo-upload` helper to upload the file and pass the
-returned cloud-accessible reference into the package, block, connector, or
-Fusion API payload. When the workflow returns a cloud artifact that must be
-saved locally, explicitly tell future agents to use the `oo-download` helper.
-Do not leave attachment transfer implicit, do not hand-roll upload or download
-logic, and do not pass local filesystem paths to cloud actions unless the
-schema explicitly supports local paths.
+When the workflow crosses the local/cloud file boundary, include the
+`oo-upload` and `oo-download` helper guidance from the Operating Principles in
+the generated skill.
 
-Review the generated frontmatter `description` before finishing. It must say
-the user-visible outcome first, include common verbs or phrases users would
-actually say, name the domain objects or input/output artifacts, and include
+Review the generated frontmatter `description` before finishing. It must still
+follow the trigger-summary principle from initialization: user-visible outcome
+first, common request language, relevant domain objects or artifacts, and
 user-visible services, models, products, or workflow names when they improve
-matching. Avoid generic descriptions such as "use an OOMOL package workflow"
-unless they are paired with the concrete user outcome. Move caveats, execution
-details, negative guidance, and boundary cases into the workflow body instead of
-the frontmatter unless they are needed to prevent direct sibling-skill routing
-conflicts.
+matching. Move caveats, execution details, negative guidance, and boundary cases
+into the workflow body unless they are needed to prevent direct sibling-skill
+routing conflicts.
 
 Preserve the generated frontmatter `metadata.title` field when it exists. If
 you change the skill's displayed title or first heading, update
