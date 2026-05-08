@@ -62,11 +62,11 @@ jobs:
       matrix:
         include:
           - platform_name: Linux
-            runs_on: ubuntu-latest
+            runs_on: blacksmith-4vcpu-ubuntu-2404
             artifact_name: release-packages-linux
             build_script: build:linux
           - platform_name: macOS
-            runs_on: macos-latest
+            runs_on: blacksmith-6vcpu-macos-latest
             artifact_name: release-packages-macos
             build_script: build:macos
           - platform_name: Win32 x64
@@ -120,7 +120,7 @@ jobs:
     needs:
       - compute-version
       - build-platform-packages
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_VERSION: ${{ needs.compute-version.outputs.version }}
