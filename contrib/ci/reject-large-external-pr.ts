@@ -139,13 +139,12 @@ function buildRepoPath(ref: PullRequestRef, suffix: string): string {
 }
 
 async function ensureRejectionComment(
-    options: GitHubApiClientOptions & PullRequestRef & { commentBody: string },
+    options: GitHubApiClientOptions & PullRequestRef & { body: string },
 ): Promise<void> {
-    const { commentBody, ...requestOptions } = options;
     const existingComments = await requestGitHubJson<GitHubIssueComment[]>({
-        ...requestOptions,
+        ...options,
         method: "GET",
-        path: buildRepoPath(requestOptions, `issues/${requestOptions.pullNumber}/comments?per_page=100`),
+        path: buildRepoPath(options, `issues/${options.pullNumber}/comments?per_page=100`),
     });
 
     if (existingComments.some(comment => comment.body?.includes(REJECTION_COMMENT_MARKER) === true)) {
@@ -153,11 +152,11 @@ async function ensureRejectionComment(
     }
 
     await requestGitHubJson({
-        ...requestOptions,
+        ...options,
         method: "POST",
-        path: buildRepoPath(requestOptions, `issues/${requestOptions.pullNumber}/comments`),
+        path: buildRepoPath(options, `issues/${options.pullNumber}/comments`),
         body: {
-            body: commentBody,
+            body: options.body,
         },
     });
 }
@@ -225,7 +224,7 @@ export async function main(environment: NodeJS.ProcessEnv = process.env): Promis
 
     await ensureRejectionComment({
         ...apiClientOptions,
-        commentBody,
+        body: commentBody,
         owner: event.owner,
         pullNumber: event.pullNumber,
         repo: event.repo,
