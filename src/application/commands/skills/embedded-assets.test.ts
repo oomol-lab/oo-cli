@@ -330,6 +330,28 @@ describe("embedded skill assets", () => {
         }
     });
 
+    test("guides oo search selection toward ready and high-quality candidates", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const searchGuide = getBundledSkillFiles("oo", agentName).find(
+                file => file.relativePath === "references/search-and-selection.md",
+            );
+
+            if (searchGuide === undefined) {
+                throw new Error(`Missing ${agentName} oo search-and-selection guide`);
+            }
+
+            const content = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(searchGuide.sourcePath).text(),
+            );
+
+            expect(content).toContain("Treat authenticated connectors and Fusion API candidates");
+            expect(content).toContain("out-of-box");
+            expect(content).toContain("If the user did not name a model or product");
+            expect(content).toContain("prefer more capable, modern, reputable candidates");
+            expect(content).toContain("older or obscure equivalents");
+        }
+    });
+
     test("guides oo-create-skill agents to fill presentation metadata", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
@@ -494,6 +516,32 @@ describe("embedded skill assets", () => {
             );
             expect(content).not.toContain("one short positive trigger sentence");
             expect(content).not.toContain("Keep implementation plumbing out of the description");
+        }
+    });
+
+    test("guides oo-create-skill generated skills to stay in English", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
+                file => file.relativePath === "SKILL.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
+            }
+
+            const content = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+
+            expect(content).toContain(
+                "Write generated skills in English regardless of the user's language",
+            );
+            expect(content).toContain("including `--description`, `--title`");
+            expect(content).toContain("frontmatter, headings, examples, and reference files");
+            expect(content).toContain("Preserve non-English only for literal runtime values");
+            expect(content).toContain("language-pair requirements");
+            expect(content).not.toContain("Write all generated prose in English");
+            expect(content).not.toContain("Do not mirror the user's language into the skill body");
         }
     });
 
@@ -690,7 +738,7 @@ describe("embedded skill assets", () => {
             expect(content).toContain("oo skills publish");
             expect(content).toContain("When publishing by skill id");
             expect(content).toContain("include `--agent");
-            expect(content).toContain("Add `--visibility public` only");
+            expect(content).toContain("Pass `--visibility` only");
             expect(content).toContain("The publish command performs its own");
             expect(content).toContain("Do not ask whether to publish to the current account");
             expect(content).toContain("Do not package manually");

@@ -410,7 +410,8 @@ skills。
 - 参数：`<skill-id>` 通常是 skill id。当没有匹配到由 oo 管理的 skill 时，也可以
   是包含 `SKILL.md` 的 skill 目录路径。相对路径会从当前工作目录解析。
 - 选项：`--visibility <visibility>` 设置 registry 包可见性。可选值为
-  `private` 和 `public`，默认值为 `private`。
+  `private` 和 `public`。省略时，已有包会沿用当前 registry 可见性。如果无法读取
+  已有可见性，交互式终端会询问发布为 `private` 还是 `public`。
 - 选项：`--agent <agent>` 仅在 local、bundled 和 registry 存储中都没有匹配时
   作为来源提示。可选值为 `codex`、`claude`、`hermes`、`codebuddy`、
   `workbuddy`、`trae`、`trae-cn`、`openclaw` 和 `qoderwork`。
@@ -445,6 +446,10 @@ skills。
   包含 blocks，交互式终端会按既有 `[y/N]` 确认风格询问是否继续。回答 no、
   直接回车，或在没有交互式 stdin 的环境中运行，都会在转换、PUT 和本地 metadata
   回写前停止；提供 `-y, --yes` 时会跳过该确认。
+- 可见性解析：显式传入 `--visibility` 时使用该值。未传入时，如果 latest 远端包
+  是 `public`，继续以公开包发布；如果是 private/restricted，则继续以私有包发布。
+  如果 latest 包元数据不存在或不包含可见性，命令会询问 `private` 或 `public`；
+  非交互式运行必须传入 `--visibility`。
 - 版本解析：如果请求版本不大于远端 latest 包版本，命令会发布下一个 patch 版本。
 - 回写：发布步骤成功后，命令会把最终的 `metadata.packageName` 和
   `metadata.version` 写回 `SKILL.md` frontmatter。

@@ -474,7 +474,9 @@ Convert one skill into an OOMOL package and run the publish step.
   it may also be a path to a skill directory containing `SKILL.md`. Relative
   paths resolve from the current working directory.
 - Options: `--visibility <visibility>` sets the registry package visibility.
-  Accepted values are `private` and `public`. The default is `private`.
+  Accepted values are `private` and `public`. When omitted, an existing package
+  keeps its current registry visibility. If no existing visibility can be read,
+  an interactive terminal prompts for `private` or `public`.
 - Options: `--agent <agent>` is a source hint used only when the skill is not
   found in local, bundled, or registry storage. Accepted values are `codex`,
   `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `trae-cn`,
@@ -521,6 +523,11 @@ Convert one skill into an OOMOL package and run the publish step.
   confirmation style unless `-y, --yes` is provided. Answering no, pressing
   Enter, or running without an interactive stdin stops before conversion, PUT,
   or local metadata writeback.
+- Visibility resolution: explicit `--visibility` is used as-is. Without it, the
+  command preserves a latest remote package marked `public` as public and a
+  private/restricted remote package as private. If the latest package metadata
+  is missing or does not include visibility, the command asks for `private` or
+  `public`; non-interactive runs must pass `--visibility`.
 - Version resolution: if the requested version is not greater than the latest
   remote package version, the command publishes the next patch version.
 - Writeback: after the publish step succeeds, `SKILL.md` frontmatter is updated

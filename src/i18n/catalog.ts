@@ -369,6 +369,8 @@ export const enMessages = {
         "The skill package publish request returned HTTP {status}: {message}",
     "errors.skills.publish.skillNotFound":
         "Cannot find skill {name} in local, bundled, registry, requested agent, or path sources.",
+    "errors.skills.publish.visibilityRequired":
+        "Package {packageName} does not have an existing visibility to preserve. Run in an interactive terminal or pass --visibility private or --visibility public.",
     "errors.fileDownload.downloadFailed":
         "Failed to download the file at {path}: {message}",
     "errors.fileDownload.invalidExt":
@@ -577,7 +579,7 @@ export const enMessages = {
     "options.icon": "Set the generated skill icon reference",
     "options.title": "Set the generated skill display title",
     "options.visibility":
-        "Set package visibility (private or public; default private)",
+        "Set package visibility (private or public)",
     "options.skill":
         "Specify skill names to install (use * for all skills)",
     "options.onlyPackageId": "Return only package ids",
@@ -670,7 +672,11 @@ export const enMessages = {
         "Skill {name} was found at {path}. Move it into local storage at {localPath} and publish it as {packageName}? [y/N] ",
     "skills.publish.confirm.invalid":
         "Invalid choice. Enter y/yes or n/no.",
+    "skills.publish.visibility.invalid":
+        "Invalid choice. Enter private or public.",
     "skills.publish.visibility.private": "private",
+    "skills.publish.visibility.prompt":
+        "Publish skill {name} as package {packageName} with which visibility? [private/public] ",
     "skills.publish.visibility.public": "public",
     "skills.publish.registryPackage.prompt":
         "Skill {name} is installed from {packageName}. Publish it as {targetPackageName}? [y/N] ",
@@ -1146,6 +1152,8 @@ export const zhMessages = {
         "skill 包发布请求失败：{message}",
     "errors.skills.publish.requestFailed":
         "skill 包发布请求返回了 HTTP {status}：{message}",
+    "errors.skills.publish.visibilityRequired":
+        "包 {packageName} 没有可沿用的已有可见性。请在交互式终端中运行，或传入 --visibility private / --visibility public。",
     "errors.skills.publish.skillNotFound":
         "无法在 local、bundled、registry、指定 Agent 或路径来源中找到 skill {name}。",
     "errors.fileDownload.downloadFailed":
@@ -1351,7 +1359,7 @@ export const zhMessages = {
     "options.icon": "设置生成的 skill icon 引用",
     "options.title": "设置生成的 skill 显示标题",
     "options.visibility":
-        "设置包可见性（private 或 public，默认 private）",
+        "设置包可见性（private 或 public）",
     "options.skill":
         "指定要安装的 skill 名称（使用 * 表示全部）",
     "options.onlyPackageId": "仅返回 package id",
@@ -1443,7 +1451,11 @@ export const zhMessages = {
         "在 {path} 找到 skill {name}。是否将它移入本地存储 {localPath} 并发布为 {packageName}？[y/N] ",
     "skills.publish.confirm.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
+    "skills.publish.visibility.invalid":
+        "输入无效。请输入 private 或 public。",
     "skills.publish.visibility.private": "私有包",
+    "skills.publish.visibility.prompt":
+        "要以哪种可见性发布 skill {name} 为包 {packageName}？[private/public] ",
     "skills.publish.visibility.public": "公开包",
     "skills.publish.registryPackage.prompt":
         "skill {name} 安装自 {packageName}。是否发布为 {targetPackageName}？[y/N] ",

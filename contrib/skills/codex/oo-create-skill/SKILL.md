@@ -63,6 +63,10 @@ this constitution, not a separate checklist.
    domain-focused. Include the facts needed to execute reliably; omit broad oo
    mechanics, full schema dumps, and implementation details that the managed OO
    notice already covers.
+8. Write generated skills in English regardless of the user's language,
+   including `--description`, `--title`, frontmatter, headings, examples, and
+   reference files. Preserve non-English only for literal runtime values,
+   product names, language-pair requirements, or necessary sample I/O.
 
 ## Workflow
 

@@ -1,5 +1,6 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type { PackageInfoResponse } from "../package/shared.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import type { LocalSkillHostPublicationTarget } from "./init.ts";
 
@@ -34,7 +35,10 @@ import {
     resolveLocalSkillPublicationTargets,
     resolveSkillInitPublicationMessageKey,
 } from "./init.ts";
-import { confirmInteractiveValue } from "./interactive-prompts.ts";
+import {
+    confirmInteractiveValue,
+    selectInteractiveValue,
+} from "./interactive-prompts.ts";
 import { createMissingManagedSkillHostError } from "./managed-skill-hosts.ts";
 import {
     parseManagedSkillMetadataContent,
@@ -50,7 +54,6 @@ import {
 import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 import {
     convertSkillDirectoryToPackage,
-    defaultSkillPublishVisibility,
     publishConvertedSkillPackage,
     readLocalSkillPackageMetadata,
     skillPublishVisibilityValues,
@@ -70,6 +73,7 @@ interface PublishLocalSkillPackageResult {
     packageName: string;
     skillDirectoryPath: string;
     skillId: string;
+    visibility: SkillPublishVisibility;
     version: string;
 }
 
@@ -114,6 +118,15 @@ interface ResolveSkillPublishVersionRequest {
     yes: boolean;
 }
 
+interface ResolveSkillPublishPlanRequest extends ResolveSkillPublishVersionRequest {
+    requestedVisibility?: SkillPublishVisibility;
+}
+
+interface ResolvedSkillPublishPlan {
+    version: string;
+    visibility: SkillPublishVisibility;
+}
+
 interface PublishLocalSkillPackageDependencies {
     checkAuthoringEnvironment?: typeof checkLocalSkillAuthoringEnvironment;
     convertSkillDirectoryToPackage?: typeof convertSkillDirectoryToPackage;
@@ -124,6 +137,9 @@ interface PublishLocalSkillPackageDependencies {
     resolveFinalPublishVersion?: (
         request: ResolveSkillPublishVersionRequest,
     ) => Promise<string>;
+    resolveFinalPublishPlan?: (
+        request: ResolveSkillPublishPlanRequest,
+    ) => Promise<ResolvedSkillPublishPlan>;
     writePublishedSkillMetadata?: typeof writePublishedSkillMetadata;
 }
 
@@ -166,12 +182,7 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
     }),
     handler: async (input, context) => {
         const agentName = parseSkillPublishAgent(input.agent);
-        const visibility = parseSkillPublishVisibility(input.visibility)
-            ?? defaultSkillPublishVisibility;
-
-        context.telemetry?.recordProperties({
-            visibility,
-        });
+        const visibility = parseSkillPublishVisibility(input.visibility);
 
         const result = await publishSkillPackage(
             input.skill,
@@ -190,7 +201,7 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
                 name: result.skillId,
                 packageName: result.packageName,
                 visibility: context.translator.t(
-                    `skills.publish.visibility.${visibility}`,
+                    `skills.publish.visibility.${result.visibility}`,
                 ),
                 version: result.version,
             }),
@@ -201,7 +212,7 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
 export async function publishLocalSkillPackage(
     skillId: string,
     context: CliExecutionContext,
-    visibility: SkillPublishVisibility = defaultSkillPublishVisibility,
+    visibility?: SkillPublishVisibility,
     dependencies: PublishLocalSkillPackageDependencies = {},
 ): Promise<PublishLocalSkillPackageResult> {
     const checkAuthoringEnvironment
@@ -229,7 +240,6 @@ export async function publishLocalSkillPackage(
         package_name: packageName,
         skill_id: skillId,
         source_kind: "local",
-        visibility,
     });
 
     return await publishResolvedSkillPackage(
@@ -249,7 +259,7 @@ export async function publishLocalSkillPackage(
 export async function publishSkillPackage(
     skillReference: string,
     context: CliExecutionContext,
-    visibility: SkillPublishVisibility = defaultSkillPublishVisibility,
+    visibility?: SkillPublishVisibility,
     options: PublishSkillPackageOptions = {},
     dependencies: PublishLocalSkillPackageDependencies = {},
 ): Promise<PublishLocalSkillPackageResult> {
@@ -270,7 +280,6 @@ export async function publishSkillPackage(
         package_name: packageName,
         skill_id: source.skillId,
         source_kind: source.kind,
-        visibility,
     });
 
     const publishSource = await confirmAndPrepareSkillPublishSource(
@@ -305,11 +314,15 @@ async function publishResolvedSkillPackage(
         yes: boolean;
     },
     context: CliExecutionContext,
-    visibility: SkillPublishVisibility,
+    requestedVisibility: SkillPublishVisibility | undefined,
     dependencies: PublishLocalSkillPackageDependencies,
 ): Promise<PublishLocalSkillPackageResult> {
-    const resolveFinalPublishVersion = dependencies.resolveFinalPublishVersion
-        ?? resolveRequestedSkillPublishVersion;
+    const resolveFinalPublishPlan = dependencies.resolveFinalPublishPlan
+        ?? ((planRequest: ResolveSkillPublishPlanRequest) =>
+            resolveRequestedSkillPublishPlan(
+                planRequest,
+                dependencies.resolveFinalPublishVersion,
+            ));
     const createTemporaryPackageRoot = dependencies.createTemporaryPackageRoot
         ?? createDefaultTemporaryPackageRoot;
     const removeTemporaryPackageRoot = dependencies.removeTemporaryPackageRoot
@@ -328,13 +341,17 @@ async function publishResolvedSkillPackage(
         skillDirectoryPath: request.skillDirectoryPath,
         skillId: request.skillId,
     });
-    const version = await resolveFinalPublishVersion({
+    const publishPlan = await resolveFinalPublishPlan({
         account: request.account,
         context,
         packageName: request.packageName,
         requestedVersion: skillMetadata.requestedVersion,
+        requestedVisibility,
         skillId: request.skillId,
         yes: request.yes,
+    });
+    context.telemetry?.recordProperties({
+        visibility: publishPlan.visibility,
     });
     let packageRootDirectoryPath: string | undefined;
 
@@ -346,18 +363,18 @@ async function publishResolvedSkillPackage(
             packageRootDirectoryPath,
             skillDirectoryPath: request.skillDirectoryPath,
             skillId: request.skillId,
-            version,
+            version: publishPlan.version,
         });
         await publishPackage({
             account: request.account,
             context,
             packageRootDirectoryPath,
-            visibility,
+            visibility: publishPlan.visibility,
         });
         await writeMetadata({
             packageName: request.packageName,
             skillDirectoryPath: request.skillDirectoryPath,
-            version,
+            version: publishPlan.version,
         });
     }
     finally {
@@ -371,7 +388,8 @@ async function publishResolvedSkillPackage(
         packageName: request.packageName,
         skillDirectoryPath: request.skillDirectoryPath,
         skillId: request.skillId,
-        version,
+        visibility: publishPlan.visibility,
+        version: publishPlan.version,
     };
 }
 
@@ -1160,12 +1178,34 @@ function createSkillPublishSourceMissingError(skillReference: string): CliUserEr
     });
 }
 
+async function resolveRequestedSkillPublishPlan(
+    request: ResolveSkillPublishPlanRequest,
+    resolveFinalPublishVersion?: (
+        request: ResolveSkillPublishVersionRequest,
+    ) => Promise<string>,
+): Promise<ResolvedSkillPublishPlan> {
+    const packageSpecifier = parsePackageSpecifier(request.packageName);
+    const packageInfo = resolveFinalPublishVersion === undefined
+        ? await loadLatestPackageInfoOrUndefined(request, packageSpecifier)
+        : undefined;
+    const version = resolveFinalPublishVersion === undefined
+        ? await resolveRequestedSkillPublishVersion(request, packageInfo)
+        : await resolveFinalPublishVersion(request);
+    const visibility = await resolveRequestedSkillPublishVisibility(
+        request,
+        packageInfo,
+    );
+
+    return {
+        version,
+        visibility,
+    };
+}
+
 async function resolveRequestedSkillPublishVersion(
     request: ResolveSkillPublishVersionRequest,
+    packageInfo: PackageInfoResponse | undefined,
 ): Promise<string> {
-    const packageSpecifier = parsePackageSpecifier(request.packageName);
-    const packageInfo = await loadLatestPackageInfoOrUndefined(request);
-
     if (packageInfo === undefined) {
         return request.requestedVersion;
     }
@@ -1187,26 +1227,86 @@ async function resolveRequestedSkillPublishVersion(
     }
 
     return incrementSemverPatch(packageInfo.packageVersion);
+}
 
-    async function loadLatestPackageInfoOrUndefined(
-        versionRequest: ResolveSkillPublishVersionRequest,
-    ) {
-        try {
-            return await loadPackageInfo(
-                packageSpecifier,
-                versionRequest.account,
-                resolveRequestLanguage(versionRequest.context.translator.locale),
-                versionRequest.context,
-            );
-        }
-        catch (error) {
-            if (isPackageInfoNotFoundError(error)) {
-                return undefined;
-            }
-
-            throw error;
-        }
+async function loadLatestPackageInfoOrUndefined(
+    request: ResolveSkillPublishVersionRequest,
+    packageSpecifier: ReturnType<typeof parsePackageSpecifier>,
+): Promise<PackageInfoResponse | undefined> {
+    try {
+        return await loadPackageInfo(
+            packageSpecifier,
+            request.account,
+            resolveRequestLanguage(request.context.translator.locale),
+            request.context,
+        );
     }
+    catch (error) {
+        if (isPackageInfoNotFoundError(error)) {
+            return undefined;
+        }
+
+        throw error;
+    }
+}
+
+async function resolveRequestedSkillPublishVisibility(
+    request: ResolveSkillPublishPlanRequest,
+    packageInfo: PackageInfoResponse | undefined,
+): Promise<SkillPublishVisibility> {
+    if (request.requestedVisibility !== undefined) {
+        return request.requestedVisibility;
+    }
+
+    const existingVisibility = readExistingSkillPublishVisibility(packageInfo);
+
+    if (existingVisibility !== undefined) {
+        return existingVisibility;
+    }
+
+    return await selectNewSkillPublishVisibility(request);
+}
+
+function readExistingSkillPublishVisibility(
+    packageInfo: PackageInfoResponse | undefined,
+): SkillPublishVisibility | undefined {
+    switch (packageInfo?.access) {
+        case "public":
+            return "public";
+        case "private":
+        case "restricted":
+            return "private";
+        case undefined:
+            return undefined;
+    }
+}
+
+async function selectNewSkillPublishVisibility(
+    request: ResolveSkillPublishPlanRequest,
+): Promise<SkillPublishVisibility> {
+    const params = {
+        name: request.skillId,
+        packageName: request.packageName,
+    };
+
+    if (request.context.stdin.isTTY !== true) {
+        throw new CliUserError(
+            "errors.skills.publish.visibilityRequired",
+            1,
+            params,
+        );
+    }
+
+    return await selectInteractiveValue(request.context, {
+        invalidMessage: request.context.translator.t(
+            "skills.publish.visibility.invalid",
+        ),
+        prompt: request.context.translator.t(
+            "skills.publish.visibility.prompt",
+            params,
+        ),
+        values: skillPublishVisibilityValues,
+    });
 }
 
 async function confirmRemotePackageBlocksPublish(

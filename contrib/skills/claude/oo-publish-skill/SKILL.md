@@ -34,8 +34,8 @@ publishing by filesystem path, pass the path directly and omit `--agent`.
 The publish command performs its own environment, authentication, and account
 checks, so run it directly.
 
-Use the default private visibility unless the user explicitly asks for a public
-package. Add `--visibility public` only for that explicit public request.
+Let `oo skills publish` resolve visibility unless the user explicitly asks for
+`private` or `public`. Pass `--visibility` only for that explicit request.
 
 Do not ask whether to publish to the current account. `oo skills publish`
 resolves the account and asks any necessary ownership questions itself.

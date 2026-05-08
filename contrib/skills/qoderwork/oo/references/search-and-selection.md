@@ -136,9 +136,12 @@ Rank mixed results in this order:
 2. Whether the target service, destination, or output is explicitly named or
    strongly implied
 3. Whether the candidate is ready to run, especially authenticated connector
-   readiness
+   readiness. Treat authenticated connectors and Fusion API candidates as
+   out-of-box.
 4. How many required inputs and follow-up questions it adds
 5. How closely the documented output matches the user's desired outcome
+6. If the user did not name a model or product, prefer more capable, modern,
+   reputable candidates over older or obscure equivalents.
 
 Tie-breakers:
 
