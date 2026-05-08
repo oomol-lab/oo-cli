@@ -42,7 +42,7 @@ concurrency:
 
 jobs:
   upload_release_binaries:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     outputs:
       oss_uri: ${{ steps.prepare.outputs.oss_uri }}
       release_tag: ${{ steps.prepare.outputs.release_tag }}
