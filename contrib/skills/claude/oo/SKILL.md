@@ -56,14 +56,17 @@ These rules override every local heuristic.
    explicit artifact URLs documented by the selected path. Browse links, edit
    links, folder links, console URLs, and metadata are not downloadable
    artifacts.
-8. External effects require confidence. If an action is externally visible,
-   destructive, or sends content to another person or service, execute only when
-   the user's intent and required payload are unambiguous. Otherwise ask one
-   focused question or confirmation.
+8. External effects need enough confidence. For non-destructive send, post,
+   create, or invite actions, an explicit user instruction plus complete
+   required payload values is enough to proceed. Ask one focused question before
+   destructive actions, broad sharing, or ambiguous recipient, content,
+   destination, or timing choices.
 9. Stop at real blockers. Stop and report clearly on auth, billing, catalog
    miss, unsupported input shape, missing required values, terminal task
-   failure, or an unsafe side effect. Do not retry blindly, and do not replace a
-   remote `oo` capability with local code or direct third-party APIs.
+   failure, or an unsafe side effect. If a shortlisted fallback directly avoids
+   the named blocker without changing the user's intent, try that fallback once.
+   Otherwise do not retry blindly, and do not replace a remote `oo` capability
+   with local code or direct third-party APIs.
 
 ## Operating state machine
 
@@ -92,6 +95,8 @@ proves its output.
    at most one materially different fallback. Prefer directness, named target
    service or output, authenticated connector readiness, low required-input
    burden, and output fit.
+   Use the fallback only when the primary path hits a named blocker the fallback
+   avoids without changing the user's intent.
 5. Inspect contract
    Package-backed: read
    [references/package-execution.md](references/package-execution.md), then
@@ -103,7 +108,8 @@ proves its output.
 6. Build payload
    Use only fields exposed by the selected contract. Prefer user-provided values
    over defaults, samples, and placeholders. Ask one focused follow-up only when
-   a required value is missing, risky, or externally visible.
+   a required value is missing, risky to infer, destructive, broadly shared, or
+   externally visible but ambiguous.
 7. Execute
    Execute the selected package or connector path through `oo`. For package
    tasks, `oo cloud-task run` returns a task handle, not the final result; after
@@ -120,20 +126,24 @@ proves its output.
 
 ## Capability contract
 
-Before execution, hold the contract in working memory:
+Before execution, hold the minimum viable contract in working memory.
 
-- `kind`: `package` or `connector`
-- `evidence`: search result plus package metadata or connector schema
-- `callable`: `packageName@packageVersion` plus `blockName`, or `service` plus
-  `action`
-- `requiredInputs`: names, types, and missing values
-- `payload`: the smallest sufficient JSON object
-- `outputSemantics`: task handle, structured data, download URL, or metadata
-- `lifecycle`: task waiting, file upload, file download, connector
-  re-authorization, or none
+Package contract:
 
-If any required contract field is unknown, inspect further or stop at the
-appropriate blocker.
+- `callable`: resolved `packageName@packageVersion` plus `blockName`
+- `inputs`: selected block input handles, required values, and payload
+- `outputs`: task handle plus result or artifact expectation
+
+Connector contract:
+
+- `callable`: exact `service` plus `action` from schema
+- `inputs`: schema-declared required values and payload
+- `effects`: read-only, create/send/post/invite, destructive, or broad sharing
+- `outputs`: structured data, metadata, explicit download URL, or none
+
+If the minimum contract is complete and no unsafe effect is ambiguous, execute.
+Inspect further only for missing required fields, unclear output semantics,
+unsupported input shape, or a blocker-specific fallback.
 
 ## Reference routing
 

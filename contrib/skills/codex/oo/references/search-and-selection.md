@@ -127,6 +127,8 @@ one primary candidate and at most one materially different fallback.
 A good direct first result is enough. Do not keep searching for a theoretically
 better option unless the first result misses a decisive constraint, has unclear
 output semantics, or adds unsafe or missing required inputs.
+Treat the fallback as a reserved path for a named blocker, not as another option
+to inspect by default.
 
 Rank mixed results in this order:
 
@@ -151,14 +153,17 @@ Tie-breakers:
 
 After selecting a candidate, do not execute yet.
 
-- Package-backed candidate: inspect with
-  `oo packages info "<packageSpecifier>" --json`, then read
-  [package-execution.md](package-execution.md).
-- Connector-backed candidate: read the cached schema file at `schemaPath`, then
-  read [connector-execution.md](connector-execution.md).
+- Package-backed candidate: read
+  [package-execution.md](package-execution.md), then inspect with
+  `oo packages info "<packageId from the selected search result>" --json`.
+- Connector-backed candidate: read
+  [connector-execution.md](connector-execution.md), then read the cached schema
+  file at `schemaPath`.
 
-Use the inspected metadata or schema to fill the capability contract fields:
-callable id, required inputs, output semantics, and lifecycle.
+Use the inspected metadata or schema to complete the minimum viable contract:
+exact callable id, required input names, payload shape, output meaning, and
+side-effect class when relevant. Do not inspect extra candidates once this is
+complete.
 
 ## Refinement policy
 
