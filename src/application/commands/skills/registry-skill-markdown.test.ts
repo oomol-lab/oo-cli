@@ -10,6 +10,15 @@ import {
 describe("registry skill markdown", () => {
     const guidance = renderOoPackageExecutionGuidance();
 
+    test("renders compact oo execution guidance for package-backed skills", () => {
+        expect(guidance).toContain("minimum viable execution contract");
+        expect(guidance).toContain("Do not search for extra packages");
+        expect(guidance).toContain("preserve the user's concrete constraints");
+        expect(guidance).toContain("Download only an explicit `resultURL`");
+        expect(guidance).toContain("structured `resultData` without `resultURL`");
+        expect(guidance).toContain("do not guess parameters and do not run yet");
+    });
+
     test("adds compatibility and places the guidance immediately after the title", () => {
         const content = [
             "---",

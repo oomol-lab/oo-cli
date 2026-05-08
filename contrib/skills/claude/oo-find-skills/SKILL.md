@@ -12,9 +12,9 @@ allowed-tools: ["Bash(oo *)"]
 
 # oo Find Skills
 
-Use this skill when the user wants to discover and install existing published
-skills from the OOMOL or `oo` skill catalog through `oo skills search` and
-`oo skills install`.
+Use this skill when the user wants to discover, compare, recommend, or install
+existing published skills from the OOMOL or `oo` skill catalog through
+`oo skills search` and `oo skills install`.
 
 Read [references/oo-cli-contract.md](references/oo-cli-contract.md) when you
 need exact `oo skills search` or `oo skills install` command forms, JSON
@@ -93,16 +93,18 @@ available right now and stop. Do not present a menu.
 
 ### 4. Rank the installable results
 
-6. Rank the installable JSON items using only the fields in the response.
-7. Pick one primary skill and, only if credible, one fallback skill.
+- Rank the installable JSON items using only the fields in the response.
+- Pick one primary skill and, only if credible, one fallback skill.
 
-### 5. Ask the user to choose
+### 5. Report or ask the user to choose
 
-8. Only when at least one installable result exists, ask the user to choose
-   between the available actions.
-   Do not stop at a plain existence summary when installable results exist.
-   Even if the user first asks whether a matching skill exists, this skill
-   should still continue into the chooser step after confirming the matches.
+- If the user asked to find, compare, recommend, or check whether a skill exists,
+  report the primary skill and any credible fallback, briefly explain why they
+  match, and ask whether the user wants to install one. Do not install yet.
+- If the user explicitly asked to install, add, set up, or choose and install a
+  matching skill, ask the user to choose between the available install actions.
+- If the user later names or selects one of the reported installable skills,
+  treat that as confirmation for that exact install action.
 
 Interaction rules:
 
@@ -149,22 +151,22 @@ with one of the displayed numbers.
 
 ### 6. Install after confirmation
 
-9. After the user chooses, install only the selected skill or skills with
-   `oo skills install`.
-   If the user chooses `Install neither` or the UI returns `None of the above`,
-   do not install anything. Reply with exactly one short acknowledgement in the
-   user's language that no skill was installed, then stop. Do not continue with
-   extra result explanation, matched-result recap, ranking recap, package names,
-   skill names, descriptions, or repeated summaries.
-10. Batch by package:
-   - If both selected skills come from the same package, install them with one
-     command and multiple `-s` flags.
-   - If they come from different packages, run one install command per package.
-   If `Install both` requires multiple `oo skills install` commands across
-   different packages and a later command fails after an earlier one succeeded,
-   report the partial completion accurately: say which package/skill
-   installation(s) succeeded, say which command failed, say that no rollback
-   was attempted, and then stop.
+- After the user chooses an install action, install only the selected skill or
+  skills with `oo skills install`.
+- If the user chooses `Install neither`, declines installation, or the UI returns
+  `None of the above`, do not install anything. Reply with exactly one short
+  acknowledgement in the user's language that no skill was installed, then stop.
+  Do not continue with extra result explanation, matched-result recap, ranking
+  recap, package names, skill names, descriptions, or repeated summaries.
+- Batch by package:
+  - If both selected skills come from the same package, install them with one
+    command and multiple `-s` flags.
+  - If they come from different packages, run one install command per package.
+  If `Install both` requires multiple `oo skills install` commands across
+  different packages and a later command fails after an earlier one succeeded,
+  report the partial completion accurately: say which package/skill
+  installation(s) succeeded, say which command failed, say that no rollback was
+  attempted, and then stop.
 
 Install examples:
 
