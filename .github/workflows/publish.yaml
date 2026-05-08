@@ -120,7 +120,7 @@ jobs:
     needs:
       - compute-version
       - build-platform-packages
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_VERSION: ${{ needs.compute-version.outputs.version }}
