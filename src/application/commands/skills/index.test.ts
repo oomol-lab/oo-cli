@@ -41,6 +41,7 @@ import {
     availableBundledSkillAgentNames,
     getBundledSkillFiles,
 } from "./embedded-assets.ts";
+import { presetSkillPackageNames } from "./install.ts";
 import {
     resolveLocalSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalDirectoryPath,
@@ -173,6 +174,77 @@ describe("skills commands", () => {
             expect(await readFile(publishSkillMetadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
             );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("includes successful preset package skills in the bundled install summary", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const firstPresetSkillDirectoryPath = join(codexHomeDirectory, "skills", "gpt-image-2");
+        const secondPresetSkillDirectoryPath = join(codexHomeDirectory, "skills", "gpt-image-2-edit");
+        const requests: Request[] = [];
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["skills", "add"], {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+
+                    requests.push(request);
+
+                    if (request.url.includes("/package-info/")) {
+                        return new Response(JSON.stringify({
+                            packageName: presetSkillPackageNames[0],
+                            version: "0.0.3",
+                            skills: [
+                                {
+                                    description: "Generate images",
+                                    name: "gpt-image-2",
+                                    title: "GPT Image 2",
+                                },
+                                {
+                                    description: "Edit images",
+                                    name: "gpt-image-2-edit",
+                                    title: "GPT Image 2 Edit",
+                                },
+                            ],
+                        }));
+                    }
+
+                    if (request.url.endsWith("/@alwaysmavs/gpt-image-2/-/meta/gpt-image-2-0.0.3.tgz")) {
+                        return new Response(await createRegistrySkillArchiveBytes({
+                            "package/package/skills/gpt-image-2/SKILL.md": "# GPT Image 2\n",
+                            "package/package/skills/gpt-image-2-edit/SKILL.md": "# GPT Image 2 Edit\n",
+                        }));
+                    }
+
+                    throw new Error(`Unexpected request: ${request.url}`);
+                },
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                [
+                    "Installed 6 skills to Codex.",
+                    "Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill, gpt-image-2, gpt-image-2-edit",
+                    "",
+                ].join("\n"),
+            );
+            expect(result.stdout).not.toContain(presetSkillPackageNames[0]!);
+            expect(result.stderr).toBe("");
+            await expect(stat(firstPresetSkillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
+            await expect(stat(secondPresetSkillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
+            expect(requests).toHaveLength(2);
         }
         finally {
             await sandbox.cleanup();

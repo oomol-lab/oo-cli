@@ -210,7 +210,8 @@ Install one managed `oo` release into the local self-managed runtime.
   then decide whether to update the failed profiles manually.
 - Notes: after a successful install workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
-  installed CLI version.
+  installed CLI version. That command also includes any successfully installed
+  preset registry skills in the same skill summary.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 
@@ -238,8 +239,8 @@ Update the managed `oo` install to the latest published release.
 - Notes: `oo update` ensures the managed install is current and usable, and
   does not expose a separate `--force` flag.
 - Notes: when the latest published release matches the current version, update
-  still refreshes bundled skills for the active managed version before printing
-  the up-to-date message.
+  still runs `oo skills add` for the active managed version before printing the
+  up-to-date message.
 - Notes: after a successful update, the CLI best-effort removes legacy global
   `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
   when `PATH` yields no `oo` candidates, the CLI falls back to the current
@@ -262,7 +263,8 @@ Update the managed `oo` install to the latest published release.
   then decide whether to update the failed profiles manually.
 - Notes: after a successful update workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
-  installed CLI version.
+  installed CLI version. That command also includes any successfully installed
+  preset registry skills in the same skill summary.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 
@@ -560,7 +562,8 @@ Install bundled or published skills into supported local skill directories.
 
 - Alias: `oo skills add [packageName]`.
 - Arguments: `[packageName]` is optional.
-- Arguments: when omitted, the command installs all bundled skills.
+- Arguments: when omitted, the command installs all bundled skills, then
+  best-effort installs all skills from preset registry skill packages.
 - Arguments: when `[packageName]` is `oo`, `oo-find-skills`,
   `oo-create-skill`, or `oo-publish-skill`, the command installs the
   corresponding bundled skill.
@@ -577,8 +580,13 @@ Install bundled or published skills into supported local skill directories.
 - Output: successful non-interactive installs print a compact summary grouped by
   installed skills and target AI agents. When exactly one target is written, the
   summary includes that target path.
+- Output: when omitted `[packageName]` also installs preset registry skills
+  successfully, those skill names are included in the same `Installed ...`
+  summary and `Skills:` list.
 - Notes: when a package publishes exactly one skill and no `--skill` is
   provided, the command installs that skill automatically.
+- Notes: preset registry skill package failures are ignored and do not change
+  the command result.
 - Notes: when a package publishes multiple skills and no `--skill`, `--all`, or
   `-y` is provided, the command opens an interactive picker in a TTY.
 - Notes: in the interactive picker, skills already installed from the same

@@ -54,7 +54,9 @@ export interface RegistrySkillInstallRequest {
     all: boolean;
     packageName: string;
     packageVersion?: string;
+    recordTelemetry?: boolean;
     skillNames: string[];
+    writeOutput?: boolean;
     yes: boolean;
 }
 
@@ -80,9 +82,11 @@ type RegistrySkillInstallStatus = "conflict" | "installed" | "new";
 export async function installRegistrySkills(
     request: RegistrySkillInstallRequest,
     context: CliExecutionContext,
-): Promise<void> {
+): Promise<ManagedSkillInstallSummary[]> {
     const account = await requireCurrentAccount(context);
     const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
+    const shouldRecordTelemetry = request.recordTelemetry !== false;
+    const shouldWriteOutput = request.writeOutput !== false;
 
     if (availableHosts.length === 0) {
         throw createMissingManagedSkillHostError(context.env);
@@ -94,11 +98,13 @@ export async function installRegistrySkills(
         context,
         request.packageVersion,
     );
-    context.telemetry?.recordProperties({
-        package_kind: "registry",
-        package_name: packageInfo.packageName,
-        ...createSkillIdsTelemetryProperties([]),
-    });
+    if (shouldRecordTelemetry) {
+        context.telemetry?.recordProperties({
+            package_kind: "registry",
+            package_name: packageInfo.packageName,
+            ...createSkillIdsTelemetryProperties([]),
+        });
+    }
 
     if (packageInfo.skills.length === 0) {
         throw new CliUserError("errors.skills.install.noPublishedSkills", 1, {
@@ -114,14 +120,16 @@ export async function installRegistrySkills(
     );
 
     if (selectionActions.actions.length === 0) {
-        return;
+        return [];
     }
 
-    context.telemetry?.recordProperties(createSkillIdsTelemetryProperties(
-        selectionActions.actions
-            .filter(action => action.type === "install")
-            .map(action => action.skillName),
-    ));
+    if (shouldRecordTelemetry) {
+        context.telemetry?.recordProperties(createSkillIdsTelemetryProperties(
+            selectionActions.actions
+                .filter(action => action.type === "install")
+                .map(action => action.skillName),
+        ));
+    }
 
     const settingsFilePath = context.settingsStore.getFilePath();
 
@@ -153,6 +161,7 @@ export async function installRegistrySkills(
     const progressReporter = selectionActions.isInteractive
         ? new SkillsInstallProgressReporter(context.stdout, context.translator)
         : undefined;
+    const installedSummaries: ManagedSkillInstallSummary[] = [];
 
     try {
         if (installActions.length > 0) {
@@ -168,8 +177,9 @@ export async function installRegistrySkills(
                     settingsFilePath,
                     context,
                 );
+                installedSummaries.push(...summaries);
 
-                if (!selectionActions.isInteractive) {
+                if (shouldWriteOutput && !selectionActions.isInteractive) {
                     writeManagedSkillInstallSummary(context, summaries);
                 }
             }
@@ -213,6 +223,8 @@ export async function installRegistrySkills(
     finally {
         progressReporter?.stop();
     }
+
+    return installedSummaries;
 }
 
 async function executeInstallActions(
@@ -303,13 +315,12 @@ async function resolveSelectionActions(
         "settingsStore" | "stdin" | "stdout" | "translator"
     >,
 ): Promise<RegistrySkillSelectionResolution> {
+    const shouldWriteOutput = request.writeOutput !== false;
+
     if (request.all || request.skillNames.includes("*")) {
-        writeLine(
-            context.stdout,
-            context.translator.t("skills.install.allSelected", {
-                count: packageInfo.skills.length,
-            }),
-        );
+        writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.allSelected", {
+            count: packageInfo.skills.length,
+        });
 
         return {
             actions: createInstallActions(packageInfo.skills.map(skill => skill.name)),
@@ -329,6 +340,7 @@ async function resolveSelectionActions(
                     request.skillNames,
                     availableHosts,
                     context,
+                    shouldWriteOutput,
                 ),
             ),
             isInteractive: false,
@@ -338,12 +350,9 @@ async function resolveSelectionActions(
     if (packageInfo.skills.length === 1) {
         const firstSkill = packageInfo.skills[0]!;
 
-        writeLine(
-            context.stdout,
-            context.translator.t("skills.install.singleSelected", {
-                name: firstSkill.name,
-            }),
-        );
+        writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.singleSelected", {
+            name: firstSkill.name,
+        });
 
         return {
             actions: createInstallActions([firstSkill.name]),
@@ -352,12 +361,9 @@ async function resolveSelectionActions(
     }
 
     if (request.yes) {
-        writeLine(
-            context.stdout,
-            context.translator.t("skills.install.allSelected", {
-                count: packageInfo.skills.length,
-            }),
-        );
+        writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.allSelected", {
+            count: packageInfo.skills.length,
+        });
 
         return {
             actions: createInstallActions(packageInfo.skills.map(skill => skill.name)),
@@ -423,6 +429,7 @@ async function filterConfirmedSkillNames(
         CliExecutionContext,
         "settingsStore" | "stdin" | "stdout" | "translator"
     >,
+    shouldWriteOutput: boolean,
 ): Promise<string[]> {
     const confirmedSkillNames: string[] = [];
 
@@ -465,12 +472,9 @@ async function filterConfirmedSkillNames(
         );
 
         if (!confirmed) {
-            writeLine(
-                context.stdout,
-                context.translator.t("skills.install.skipped", {
-                    name: skillName,
-                }),
-            );
+            writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.skipped", {
+                name: skillName,
+            });
             continue;
         }
 
@@ -478,6 +482,19 @@ async function filterConfirmedSkillNames(
     }
 
     return confirmedSkillNames;
+}
+
+function writeInstallSelectionLine(
+    context: Pick<CliExecutionContext, "stdout" | "translator">,
+    shouldWriteOutput: boolean,
+    key: string,
+    params: Record<string, string | number>,
+): void {
+    if (!shouldWriteOutput) {
+        return;
+    }
+
+    writeLine(context.stdout, context.translator.t(key, params));
 }
 
 export function findPackageSkillOrThrow(

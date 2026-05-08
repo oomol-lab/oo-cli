@@ -1,4 +1,7 @@
-import type { CliCommandDefinition } from "../../contracts/cli.ts";
+import type {
+    CliCommandDefinition,
+    CliExecutionContext,
+} from "../../contracts/cli.ts";
 import type { BundledSkillName } from "./embedded-assets.ts";
 
 import type { ManagedSkillInstallSummary } from "./install-output.ts";
@@ -16,6 +19,8 @@ interface SkillsInstallInput {
     skill?: string[];
     yes?: boolean;
 }
+
+export const presetSkillPackageNames = ["@alwaysmavs/gpt-image-2"] as const;
 
 export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
     name: "install",
@@ -71,6 +76,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
                 summaries.push(await installBundledSkill(skillName, context));
             }
 
+            summaries.push(...await installPresetSkillPackages(context));
             writeManagedSkillInstallSummary(context, summaries);
             return;
         }
@@ -102,3 +108,36 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         );
     },
 };
+
+async function installPresetSkillPackages(
+    context: CliExecutionContext,
+): Promise<ManagedSkillInstallSummary[]> {
+    const summaries: ManagedSkillInstallSummary[] = [];
+
+    for (const packageName of presetSkillPackageNames) {
+        try {
+            summaries.push(...await installRegistrySkills(
+                {
+                    all: true,
+                    packageName,
+                    recordTelemetry: false,
+                    skillNames: [],
+                    writeOutput: false,
+                    yes: true,
+                },
+                context,
+            ));
+        }
+        catch (error) {
+            context.logger.warn(
+                {
+                    err: error,
+                    packageName,
+                },
+                "Preset skill package install skipped.",
+            );
+        }
+    }
+
+    return summaries;
+}
