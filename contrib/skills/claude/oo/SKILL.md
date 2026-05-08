@@ -2,168 +2,164 @@
 name: oo
 description: >-
   First-choice router for tasks whose outcome lives outside this
-  workspace — a connected third-party account (email, calendar, drive,
+  workspace: a connected third-party account (email, calendar, drive,
   chat, notes, issue tracker, code host, CRM, storage, etc.), an external
   API, or a managed AI pipeline (OCR, translation, transcription,
-  TTS, text-to-image, subtitles, long-document understanding) — as long
-  as the user is not asking for a local implementation. Concrete
-  capabilities are discovered at runtime, so no package or action names
-  are listed here. Match intent across languages. SKIP only for pure
-  local coding, shell glue, edits to this repo, text-only work an LLM
-  can do alone, or an explicit "do it locally" request.
+  TTS, text-to-image, subtitles, long-document understanding). Use only
+  when the user wants an existing hosted capability or connector workflow,
+  not a local implementation. Concrete capabilities are discovered at
+  runtime, so no package, block, connector, or action names are assumed
+  in advance. Match intent across languages.
 allowed-tools: ["Bash(oo *)"]
 ---
 
 # oo
 
-Use `oo` to complete a hosted task through an existing `oo` capability, not to
-build a local workaround.
+Use `oo` as a hosted capability router. Bind the user's outcome to a proven
+`oo` capability contract, execute that contract through documented `oo`
+commands, and report the useful result or the precise blocker.
 
 If the user wants to find, compare, or install published OOMOL/oo skills, use
 `oo-find-skills` instead of this skill.
 
-Read only the reference file needed for the current step.
-
-## When to use this skill
-
-- When the user wants a hosted capability `oo` likely already exposes: OCR,
-  document or image translation, transcription, speech synthesis, text-to-image,
-  subtitle generation, archive-based media processing, or an authenticated
-  connector action.
-- When the user wants a short `read -> transform -> write` workflow that `oo`
-  can stitch together across existing capabilities or connectors.
-- Not for ordinary coding, shell glue, or requests that explicitly ask for a
-  local implementation.
-
-## Mission
-
-Aim for the highest one-pass success rate. Understand the user's actual
-outcome first, then pick the shortest documented `oo` path that can plausibly
-succeed. Expand evidence only as far as the next decision needs. Keep every
-claim grounded in actual `oo` metadata, schema files, and command output.
-
-## Default path
-
-1. Decide whether `oo` is the right path, then run the intended `oo` command
-   directly. Do not probe for `oo` with `which`, `command -v`, `--version`,
-   `--help`, or any other existence or availability precheck — assume it is
-   installed and let the real command surface any problem. Read
-   [references/auth-and-billing.md](references/auth-and-billing.md) only when
-   auth or billing signals actually appear in command output.
-2. Shape the task before discovery.
-   - Single-step task: turn it into one short English goal sentence
-     (`action + object + key constraint`).
-   - Multi-step task: break it into 2 to 4 ordered subgoals and start from the
-     first unresolved external step. Do not force one broad search to cover
-     the whole chain.
-3. Discover the most direct capability.
-   - Read
-     [references/search-and-selection.md](references/search-and-selection.md)
-     before the first `oo search`.
-   - If current context already proves a narrower documented path, use it
-     instead of rediscovering.
-   - Inspect the first result set before refining. Keep one primary candidate
-     and, only if useful, one materially different fallback.
-4. Inspect only the chosen path.
-   - Package-backed: [references/package-execution.md](references/package-execution.md).
-   - Connector-backed: [references/connector-execution.md](references/connector-execution.md).
-   - File-like inputs or artifact downloads: [references/file-transfer.md](references/file-transfer.md).
-5. Build the smallest payload that expresses the user's real intent. Prefer
-   concrete user values over defaults, samples, and placeholders. Reuse a
-   user-provided remote URL when it already satisfies the input. Ask one
-   focused follow-up only when a required value is missing or risky to infer.
-6. Expand evidence gradually. For list, inbox, or browse style steps, start
-   with the lightest output that reveals scale, identifiers, and the next
-   decision; hydrate bodies only when the current step needs them.
-7. Execute the selected path. For package tasks, read
-   [references/task-lifecycle.md](references/task-lifecycle.md) only after a
-   `taskID` exists.
-8. Materialize outputs only when a local copy helps the user and the selected
-   path exposes an explicit artifact URL.
-9. Report in task terms. Lead with the useful result on success; on a running
-   task, share the `taskID` and the next sensible action; on failure, name the
-   concrete blocker and the next best move. If you group or summarize by some
-   attribute, make sure the payload actually used it.
-
-## Selection heuristics
-
-- Prefer the capability that directly matches the user's outcome over a
-  multi-step decomposition.
-- Prefer preserving decisive user constraints (language pair, file type,
-  output format, target service) in both the search goal and the payload.
-- In a tie, prefer an already-authenticated connector — lower friction, no
-  package cost.
-- Prefer one targeted follow-up question over guessing a risky required value.
-- Prefer reporting a precise blocker over inventing a workaround inside this
-  skill.
+Read only the reference file needed for the current state.
 
 ## Constitution
 
-Three rules that override every heuristic above:
+These rules override every local heuristic.
 
-1. Never invent package IDs, versions, block IDs, connector services, action
-   names, defaults, required fields, or task results. Every claim must come
-   from actual `oo` output or a cached schema file.
-2. Remote capability execution stays inside documented `oo` commands for this
-   skill run. Do not substitute ad hoc HTTP calls, alternate SDKs, or direct
-   third-party APIs. Between `oo` steps, local work is limited to filtering,
-   grouping, ranking, deduplicating, summarizing, or shaping the next `oo`
-   payload — never replacing a remote capability with custom code.
-3. If auth, billing, or input-shape limits block the current path, stop the
-   path, explain the blocker, and offer the next useful action — do not retry
-   blindly or pretend a workaround will succeed.
+1. Outcome first. Route from the user's desired result, not from guessed
+   implementation steps. Preserve decisive constraints such as target service,
+   language pair, file type, output format, destination, time range, recipients,
+   and externally visible side effects.
+2. Capability contract before execution. Do not execute from a search result
+   alone. A callable path exists only after package metadata or connector schema
+   proves the exact callable id, required inputs, and output semantics.
+3. Evidence over invention. Do not invent package IDs, versions, block IDs,
+   connector services, action names, schema fields, defaults, artifact URLs,
+   task status, or task results. Claims must come from `oo` command output,
+   package metadata, connector schema, or task result snapshots.
+4. Smallest sufficient payload. Build the smallest payload that fully expresses
+   the user's real intent. "Smallest" means no invented fields or irrelevant
+   options; it does not mean dropping user constraints.
+5. Current-step discovery. For multi-step workflows, discover only the current
+   unresolved external step. Between `oo` steps, local work is limited to
+   filtering, grouping, ranking, deduplicating, summarizing, or shaping the next
+   payload.
+6. Explicit artifact rule. Upload only for URI-compatible inputs. Download only
+   explicit artifact URLs documented by the selected path. Browse links, edit
+   links, folder links, console URLs, and metadata are not downloadable
+   artifacts.
+7. External effects require confidence. If an action is externally visible,
+   destructive, or sends content to another person or service, execute only when
+   the user's intent and required payload are unambiguous. Otherwise ask one
+   focused question or confirmation.
+8. Stop at real blockers. Stop and report clearly on auth, billing, catalog
+   miss, unsupported input shape, missing required values, terminal task
+   failure, or an unsafe side effect. Do not retry blindly, and do not replace a
+   remote `oo` capability with local code or direct third-party APIs.
 
-## Worked cases
+## Operating state machine
 
-These illustrate the three execution shapes. Use them as templates for
-shaping the goal, picking the reference to open next, and framing the result.
+Move through these states. Skip a state only when current evidence already
+proves its output.
 
-### Single package: extract text from a scanned PDF
+1. Intake
+   Decide whether `oo` is the right router. Extract the outcome, hard
+   constraints, side effects, and any supplied files or remote URLs. Do not run
+   `which`, `command -v`, `oo --version`, `oo --help`, or routine auth
+   prechecks; let the first substantive `oo` command surface availability or
+   account problems.
+2. Search goal
+   For a single-step task, write one concise English goal sentence. For a
+   short multi-step task, write 2 to 4 ordered subgoals and activate only the
+   current unresolved external step.
+3. Discover
+   Read [references/search-and-selection.md](references/search-and-selection.md)
+   before the first search. Run `oo search "<goal>" --json` unless a complete
+   capability contract is already known from current evidence.
+4. Select
+   Inspect the first result set before refining. Keep one primary candidate and
+   at most one materially different fallback. Prefer directness, named target
+   service or output, authenticated connector readiness, low required-input
+   burden, and output fit.
+5. Inspect contract
+   Package-backed: read
+   [references/package-execution.md](references/package-execution.md), then
+   inspect package metadata. Connector-backed: read
+   [references/connector-execution.md](references/connector-execution.md), then
+   inspect the cached schema at `schemaPath`. File-like inputs or artifact
+   downloads may require
+   [references/file-transfer.md](references/file-transfer.md).
+6. Build payload
+   Use only fields exposed by the selected contract. Prefer user-provided values
+   over defaults, samples, and placeholders. Ask one focused follow-up only when
+   a required value is missing, risky, or externally visible.
+7. Execute
+   Execute the selected package or connector path through `oo`. For package
+   tasks, `oo cloud-task run` returns a task handle, not the final result; after
+   a `taskID` exists, read
+   [references/task-lifecycle.md](references/task-lifecycle.md).
+8. Materialize
+   Save outputs locally only when doing so helps the user and the selected path
+   exposes an explicit artifact URL.
+9. Report
+   Lead with the useful result. For running tasks, share the `taskID` and next
+   sensible action. For blockers, name the exact blocker and the next useful
+   move. If you group or summarize by an attribute, make sure the payload or
+   result actually used that attribute.
 
-- User request: `Extract text from this scanned Chinese PDF and save it as Markdown.`
-- Search goal: `extract text from a scanned Chinese PDF and save it as Markdown`
-- Why this shape: one capability turns the input into the final artifact.
-- Inspect next: `search-and-selection`, then `package-execution`; add
-  `file-transfer` if the PDF is local, `task-lifecycle` if the task is async.
-- Payload mindset: preserve the user's source language and output format;
-  override placeholders with the real file.
+## Capability contract
 
-### Single connector: send an email
+Before execution, hold the contract in working memory:
 
-- User request: `Send this summary to alice@example.com with Gmail.`
-- Search goal: `send an email through Gmail`
-- Why this shape: a direct connector send action is a better match than a
-  generic messaging package.
-- Inspect next: `search-and-selection`, then `connector-execution`.
-- Payload mindset: ask one follow-up only when a required field such as
-  recipients, subject, or body is genuinely missing; otherwise send the
-  smallest payload that satisfies the schema.
+- `kind`: `package` or `connector`
+- `evidence`: search result plus package metadata or connector schema
+- `callable`: `packageName@packageVersion` plus `blockName`, or `service` plus
+  `action`
+- `requiredInputs`: names, types, and missing values
+- `payload`: the smallest sufficient JSON object
+- `outputSemantics`: task handle, structured data, download URL, or metadata
+- `lifecycle`: task waiting, file upload, file download, connector
+  re-authorization, or none
 
-### Short orchestration: read, transform, write
+If any required contract field is unknown, inspect further or stop at the
+appropriate blocker.
 
-- User request: a `read -> transform -> write` across two services (for
-  example, collect items from a source connector, organize them locally, then
-  create an entry in a destination connector).
-- Ordered subgoals:
-  1. `locate or collect the source items`
-  2. `organize the result set locally` (filter, rank, summarize, dedupe)
-  3. `write the digest into the destination`
-- Discovery mindset: search the current unresolved external step only. Switch
-  to the destination service when the write step becomes active.
-- Data mindset: start with the lightest source output that reveals scale and
-  stable identifiers; hydrate full bodies only when the transform really needs
-  them.
-- Reporting mindset: describe the basis of the digest in terms of the field
-  the payload actually used (message id, file id, row id — not display text).
+## Reference routing
 
-## Repair a weak search goal
+- Search or choose between package and connector:
+  [references/search-and-selection.md](references/search-and-selection.md)
+- Package metadata, block choice, payload, and run:
+  [references/package-execution.md](references/package-execution.md)
+- Connector schema, payload, run, storage-style actions, and re-authorization:
+  [references/connector-execution.md](references/connector-execution.md)
+- Local files, URI-compatible inputs, and explicit artifact downloads:
+  [references/file-transfer.md](references/file-transfer.md)
+- Cloud task wait/result semantics:
+  [references/task-lifecycle.md](references/task-lifecycle.md)
+- Auth and billing blockers:
+  [references/auth-and-billing.md](references/auth-and-billing.md)
 
-Before running `oo search`, check whether the goal sentence carries the
-user's real constraints. Weak goals cost extra searches.
+## Decision sketches
 
-- Weak: `translate image` → Better: `translate text in a Japanese image to English`
-- Weak: `gmail` → Better: `send an email through Gmail`
-- Weak: `ocr pdf then markdown` → Better: `extract text from a scanned PDF and save it as Markdown`
+### Single package
 
-The repair pattern: add the missing medium, language pair, target service, or
-output format; replace implementation guesses with the user's desired outcome.
+User wants a managed transform such as OCR, translation, transcription, image
+generation, or document conversion. Search the outcome, inspect package info,
+choose the matching block, build the payload from declared handles, run the
+cloud task, then follow task lifecycle.
+
+### Single connector
+
+User wants an action in a connected account such as Gmail, Drive, Calendar,
+Slack, Notion, or GitHub. Search the outcome with the target service, read the
+chosen connector schema, build the payload from required fields, confirm if the
+effect is externally visible, then run the action.
+
+### Short orchestration
+
+For `read -> transform -> write`, discover only the current external step. Use
+local reasoning only to filter, group, rank, summarize, dedupe, or shape the
+next payload. Switch discovery to the destination service only when the write
+step becomes active.
