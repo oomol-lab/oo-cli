@@ -1,6 +1,7 @@
+import type { TelemetryBatchItem } from "./payload.ts";
 import { Buffer } from "node:buffer";
-import { join } from "node:path";
 
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
     createTemporaryDirectory,
@@ -21,6 +22,7 @@ import {
     openTelemetryDatabase,
     readTelemetryRowsForTest,
 } from "./outbox.ts";
+import { serializeTelemetryBatchItem } from "./payload.ts";
 
 describe("telemetry flusher", () => {
     const temporaryDirectories = useTemporaryDirectoryCleanup();
@@ -70,19 +72,17 @@ describe("telemetry flusher", () => {
         const directoryPath = join(root, "telemetry");
         const settingsFilePath = join(root, "settings.toml");
         const eventCount = 1500;
+        const items: TelemetryBatchItem[] = [];
         const requestSizes: number[] = [];
 
         for (let index = 0; index < eventCount; index += 1) {
             const item = createTelemetryItemForTest(index);
 
             item.properties.large_value = "x".repeat(3000);
-
-            expect(enqueueTelemetryBatchItem({
-                directoryPath,
-                item,
-                nowMs: 1000 + index,
-            })).toBeTrue();
+            items.push(item);
         }
+
+        writeTelemetryBatchItemsForTest(directoryPath, items, 1000);
 
         const rowsBefore = readTelemetryRowsForTest(directoryPath);
         const totalPayloadBytes = rowsBefore.reduce(
@@ -442,3 +442,63 @@ describe("telemetry flusher", () => {
         expect(readTelemetryRowsForTest(directoryPath)).toEqual([]);
     });
 });
+
+function writeTelemetryBatchItemsForTest(
+    directoryPath: string,
+    items: readonly TelemetryBatchItem[],
+    firstNowMs: number,
+): void {
+    const database = openTelemetryDatabase(directoryPath);
+
+    try {
+        database.run("BEGIN IMMEDIATE");
+        let committed = false;
+
+        try {
+            const statement = database.query(
+                [
+                    "INSERT INTO telemetry_events (",
+                    "id,",
+                    "created_at_ms,",
+                    "available_at_ms,",
+                    "payload_json,",
+                    "payload_bytes",
+                    ") VALUES (",
+                    "$id,",
+                    "$createdAtMs,",
+                    "$availableAtMs,",
+                    "$payloadJson,",
+                    "$payloadBytes",
+                    ")",
+                ].join(" "),
+            );
+
+            for (const [index, item] of items.entries()) {
+                const payloadJson = serializeTelemetryBatchItem(item);
+                if (payloadJson === undefined) {
+                    throw new Error("Expected telemetry test item to be serializable.");
+                }
+
+                const nowMs = firstNowMs + index;
+                statement.run({
+                    availableAtMs: nowMs,
+                    createdAtMs: nowMs,
+                    id: item.uuid,
+                    payloadBytes: Buffer.byteLength(payloadJson, "utf8"),
+                    payloadJson,
+                });
+            }
+
+            database.run("COMMIT");
+            committed = true;
+        }
+        finally {
+            if (!committed) {
+                database.run("ROLLBACK");
+            }
+        }
+    }
+    finally {
+        database.close();
+    }
+}

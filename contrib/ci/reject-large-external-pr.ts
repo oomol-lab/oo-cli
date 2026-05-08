@@ -9,8 +9,10 @@ interface PullRequestGuardInput {
     additions: number;
     authorAssociation: string;
     authorType?: string;
+    baseRepositoryFullName?: string;
     deletions: number;
     diffLimit?: number;
+    headRepositoryFullName?: string;
 }
 
 interface PullRequestGuardDecision {
@@ -19,6 +21,7 @@ interface PullRequestGuardDecision {
     diffSize: number;
     diffLimit: number;
     shouldReject: boolean;
+    sourceIsExternal: boolean;
 }
 
 interface RejectionCommentInput {
@@ -56,7 +59,10 @@ export function evaluateLargeExternalPullRequest(input: PullRequestGuardInput): 
     const diffLimit = input.diffLimit ?? DEFAULT_EXTERNAL_PR_DIFF_LIMIT;
     const diffSize = Math.abs(input.additions) + Math.abs(input.deletions);
     const authorIsBot = input.authorType === "Bot";
-    const authorIsExternal = !authorIsBot && !INTERNAL_AUTHOR_ASSOCIATIONS.has(input.authorAssociation);
+    const sourceIsExternal = evaluateSourceIsExternal(input);
+    const authorIsExternal = !authorIsBot
+        && sourceIsExternal
+        && !INTERNAL_AUTHOR_ASSOCIATIONS.has(input.authorAssociation);
 
     return {
         authorIsBot,
@@ -64,6 +70,7 @@ export function evaluateLargeExternalPullRequest(input: PullRequestGuardInput): 
         diffSize,
         diffLimit,
         shouldReject: authorIsExternal && diffSize >= diffLimit,
+        sourceIsExternal,
     };
 }
 
@@ -96,6 +103,8 @@ async function readPullRequestEvent(eventPath: string): Promise<PullRequestEvent
     const repositoryOwner = parseObject(repository.owner, "repository.owner");
     const pullRequest = parseObject(eventPayload.pull_request, "pull_request");
     const pullRequestAuthor = parseObject(pullRequest.user, "pull_request.user");
+    const baseRepositoryFullName = parsePullRequestRepositoryFullName(pullRequest, "base");
+    const headRepositoryFullName = parsePullRequestRepositoryFullName(pullRequest, "head");
 
     return {
         owner: parseString(repositoryOwner.login, "repository.owner.login"),
@@ -106,6 +115,8 @@ async function readPullRequestEvent(eventPath: string): Promise<PullRequestEvent
             deletions: parseNumber(pullRequest.deletions, "pull_request.deletions"),
             authorAssociation: parseString(pullRequest.author_association, "pull_request.author_association"),
             authorType: parseString(pullRequestAuthor.type, "pull_request.user.type"),
+            baseRepositoryFullName,
+            headRepositoryFullName,
         },
     };
 }
@@ -134,17 +145,61 @@ function parseNumber(value: unknown, fieldName: string): number {
     throw new TypeError(`${fieldName} must be a finite number.`);
 }
 
+function parsePullRequestRepositoryFullName(
+    pullRequest: Record<string, unknown>,
+    refName: "base" | "head",
+): string | undefined {
+    const pullRequestRef = parseOptionalObject(pullRequest[refName]);
+    if (pullRequestRef === undefined) {
+        return undefined;
+    }
+
+    const repository = parseOptionalObject(pullRequestRef.repo);
+    if (repository === undefined) {
+        return undefined;
+    }
+
+    const fullName = repository.full_name;
+    if (typeof fullName !== "string") {
+        return undefined;
+    }
+
+    const normalizedFullName = fullName.trim();
+    return normalizedFullName === "" ? undefined : normalizedFullName;
+}
+
+function parseOptionalObject(value: unknown): Record<string, unknown> | undefined {
+    return typeof value === "object" && value !== null && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : undefined;
+}
+
+function evaluateSourceIsExternal(input: PullRequestGuardInput): boolean {
+    const baseRepositoryFullName = input.baseRepositoryFullName?.trim();
+    const headRepositoryFullName = input.headRepositoryFullName?.trim();
+
+    if (baseRepositoryFullName === undefined || baseRepositoryFullName === "") {
+        return true;
+    }
+    if (headRepositoryFullName === undefined || headRepositoryFullName === "") {
+        return true;
+    }
+
+    return baseRepositoryFullName !== headRepositoryFullName;
+}
+
 function buildRepoPath(ref: PullRequestRef, suffix: string): string {
     return `/repos/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}/${suffix}`;
 }
 
 async function ensureRejectionComment(
-    options: GitHubApiClientOptions & PullRequestRef & { body: string },
+    options: GitHubApiClientOptions & PullRequestRef & { commentBody: string },
 ): Promise<void> {
+    const { commentBody, ...requestOptions } = options;
     const existingComments = await requestGitHubJson<GitHubIssueComment[]>({
-        ...options,
+        ...requestOptions,
         method: "GET",
-        path: buildRepoPath(options, `issues/${options.pullNumber}/comments?per_page=100`),
+        path: buildRepoPath(requestOptions, `issues/${requestOptions.pullNumber}/comments?per_page=100`),
     });
 
     if (existingComments.some(comment => comment.body?.includes(REJECTION_COMMENT_MARKER) === true)) {
@@ -152,11 +207,11 @@ async function ensureRejectionComment(
     }
 
     await requestGitHubJson({
-        ...options,
+        ...requestOptions,
         method: "POST",
-        path: buildRepoPath(options, `issues/${options.pullNumber}/comments`),
+        path: buildRepoPath(requestOptions, `issues/${requestOptions.pullNumber}/comments`),
         body: {
-            body: options.body,
+            body: commentBody,
         },
     });
 }
@@ -206,9 +261,10 @@ function trimTrailingSlash(value: string): string {
 export async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void> {
     const event = await readPullRequestEvent(readRequiredEnv(environment, "GITHUB_EVENT_PATH"));
     const decision = evaluateLargeExternalPullRequest(event.pullRequest);
+    const decisionSummary = `association=${event.pullRequest.authorAssociation}, bot=${decision.authorIsBot}, sourceExternal=${decision.sourceIsExternal}, authorExternal=${decision.authorIsExternal}, diff=${decision.diffSize}, limit=${decision.diffLimit}`;
 
     if (!decision.shouldReject) {
-        process.stdout.write(`Pull request allowed: bot=${decision.authorIsBot}, external=${decision.authorIsExternal}, diff=${decision.diffSize}, limit=${decision.diffLimit}.\n`);
+        process.stdout.write(`Pull request allowed: ${decisionSummary}.\n`);
         return;
     }
 
@@ -222,20 +278,22 @@ export async function main(environment: NodeJS.ProcessEnv = process.env): Promis
         diffLimit: decision.diffLimit,
     });
 
-    await ensureRejectionComment({
-        ...apiClientOptions,
-        body: commentBody,
-        owner: event.owner,
-        pullNumber: event.pullNumber,
-        repo: event.repo,
-    });
-    await closePullRequest({
-        ...apiClientOptions,
-        owner: event.owner,
-        pullNumber: event.pullNumber,
-        repo: event.repo,
-    });
-    process.stdout.write(`Closed external pull request #${event.pullNumber}: diff=${decision.diffSize}, limit=${decision.diffLimit}.\n`);
+    await Promise.all([
+        ensureRejectionComment({
+            ...apiClientOptions,
+            commentBody,
+            owner: event.owner,
+            pullNumber: event.pullNumber,
+            repo: event.repo,
+        }),
+        closePullRequest({
+            ...apiClientOptions,
+            owner: event.owner,
+            pullNumber: event.pullNumber,
+            repo: event.repo,
+        }),
+    ]);
+    process.stdout.write(`Closed external pull request #${event.pullNumber}: ${decisionSummary}.\n`);
 }
 
 if (import.meta.main) {
