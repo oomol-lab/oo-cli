@@ -18,8 +18,7 @@ describe("skills validate command", () => {
                 [
                     "---",
                     "name: valid-skill",
-                    "description: >-",
-                    "  Use this skill for a valid workflow.",
+                    "description: Use this skill for a valid workflow.",
                     "metadata:",
                     "  icon: ':lucide:wand:'",
                     "  title: Valid Skill",

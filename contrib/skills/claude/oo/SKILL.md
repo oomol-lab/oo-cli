@@ -1,18 +1,7 @@
 ---
 name: oo
-description: >-
-  First-choice router for tasks whose outcome lives outside this
-  workspace: a connected third-party account (email, calendar, drive,
-  chat, notes, issue tracker, code host, CRM, storage, etc.), an external
-  API, or a managed AI pipeline (OCR, translation, transcription,
-  TTS, text-to-image, subtitles, long-document understanding). Use only
-  when the user wants an existing hosted capability or connector workflow,
-  not a local implementation. Concrete capabilities are discovered at
-  runtime, so no package, block, connector, or action names are assumed
-  in advance. Match intent across languages. Skip pure local coding, shell
-  glue, repo edits, and text-only answers an LLM can complete without
-  hosted capability execution.
-allowed-tools: ["Bash(oo *)"]
+description: First-choice router for tasks whose outcome lives outside this workspace, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, or a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding). Use only when the user wants an existing hosted capability or connector workflow, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, or action names are assumed in advance. Match intent across languages. Skip pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
+allowed-tools: [Bash(oo *)]
 ---
 
 # oo

@@ -1,12 +1,7 @@
 ---
 name: oo-create-skill
-description: >-
-  Author, generate, scaffold, or update a local AI agent skill that turns an
-  OOMOL/oo package, connector action, block, or selected workflow into reusable
-  instructions. Use when the user asks to create a skill, write a skill, make a
-  Codex/Claude/agent skill, or refine an existing local skill for an oo-powered
-  workflow, even if capability discovery is needed first.
-allowed-tools: ["Bash(oo *)"]
+description: Author, generate, scaffold, or update a local AI agent skill that turns an OOMOL/oo package, connector action, block, or selected workflow into reusable instructions. Use when the user asks to create a skill, write a skill, make a Codex/Claude/agent skill, or refine an existing local skill for an oo-powered workflow, even if capability discovery is needed first.
+allowed-tools: [Bash(oo *)]
 ---
 
 # oo Create Skill
@@ -38,17 +33,14 @@ this constitution, not a separate checklist.
    defaults, or schema constraints. Treat local `schemaPath` files as supporting
    metadata; current command output or a safe invocation must confirm connector
    action availability and observed result paths.
-3. Resolve before writing; test only for ambiguity. Do not predesign the whole
+3. Resolve and test before writing the runbook. Do not predesign the whole
    execution process and then look for metadata that seems to fit it. Discover
-   the capability, inspect metadata, and build the minimum viable execution
-   contract first. If metadata, schema, and current command output already prove
-   the callable, required inputs, useful output, and failure boundaries, write the
-   runbook without an extra test. Run the smallest safe test only when command,
-   result, status, file, or envelope shape would otherwise be ambiguous. Mark
-   schema-only inferences as untested. The generated skill must contain concrete
-   package/block references or connector service/action identifiers plus the
-   minimum payload, result, and failure guidance needed so future agents do not
-   run discovery again.
+   the capability, inspect metadata, run the smallest safe test when command,
+   result, status, file, or envelope shape matters, and write from observed
+   facts. Mark schema-only inferences as untested. The generated skill must
+   contain concrete package/block references or connector service/action
+   identifiers plus the minimum payload, result, and failure guidance needed so
+   future agents do not run discovery again.
 4. Choose the most direct capability for the user's outcome. Treat Fusion API,
    ordinary connectors, packages, and blocks as first-class candidates. Prefer
    domain fit over result ordering. When choices are otherwise equivalent,
@@ -142,14 +134,12 @@ shape change, such as async submission plus polling replacing a synchronous
 call.
 
 When result shape, status transitions, file return format, or envelope structure
-cannot be determined from metadata, schema, or current command output and will
-affect the runbook, run a minimal representative invocation or status/result poll
-during authoring when safe and proportionate. Do not test merely to increase
-confidence after the minimum viable contract is already clear. Do not spend
-meaningful user money, mutate external state, disclose sensitive data, or trigger
-large jobs only to learn a response shape; ask the user or use documented dry-run
-or read-only paths when those risks are material. If a field path is inferred
-from schema rather than observed, label it as untested.
+will affect the runbook, run a minimal representative invocation or status/result
+poll during authoring when safe and proportionate. Do not spend meaningful user
+money, mutate external state, disclose sensitive data, or trigger large jobs
+only to learn a response shape; ask the user or use documented dry-run or
+read-only paths when those risks are material. If a field path is inferred from
+schema rather than observed, label it as untested.
 
 Keep chosen packages, blocks, or connector actions concrete in the generated
 skill.

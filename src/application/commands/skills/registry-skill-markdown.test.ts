@@ -23,8 +23,7 @@ describe("registry skill markdown", () => {
         const content = [
             "---",
             "name: chatgpt",
-            "description: >-",
-            "  Chat with a model",
+            "description: Chat with a model",
             "metadata:",
             "  title: ChatGPT",
             "---",
@@ -49,8 +48,7 @@ describe("registry skill markdown", () => {
             [
                 "---",
                 "name: chatgpt",
-                "description: >-",
-                "  Chat with a model",
+                "description: Chat with a model",
                 `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
                 "metadata:",
                 "  title: ChatGPT",

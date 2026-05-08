@@ -402,17 +402,16 @@ describe("embedded skill assets", () => {
             expect(content).toContain("current command output");
             expect(content).toContain("safe invocation");
             expect(content).toContain("observed result paths");
-            expect(content).toContain("Resolve before writing; test only for ambiguity");
-            expect(content).toContain("minimum viable");
-            expect(content).toContain("contract first");
-            expect(content).toContain("runbook without an extra test");
+            expect(content).toContain("Resolve and test before writing the runbook");
+            expect(content).toContain("observed");
+            expect(content).toContain("facts");
             expect(content).toContain("future agents");
-            expect(content).toContain("run discovery");
+            expect(content).toContain("do not run discovery");
             expect(content).toContain("again");
             expect(content).toContain("do not ask only for cosmetic details");
             expect(content).toContain("facts that `oo` metadata can resolve");
             expect(content).toContain("future agents");
-            expect(content).toContain("run discovery");
+            expect(content).toContain("do not run discovery");
             expect(content).toContain("again");
             expect(content).not.toContain("Operating Principles");
             expect(content).not.toContain("Work like a confident authoring agent");
@@ -515,15 +514,14 @@ describe("embedded skill assets", () => {
             expect(content).toContain(
                 "Resolve concrete package, block, and connector references",
             );
-            expect(content).toContain("Resolve before writing; test only for ambiguity");
+            expect(content).toContain("Resolve and test before writing the runbook");
             expect(content).toContain("Do not predesign the whole");
             expect(content).toContain("execution process");
             expect(content).toContain("Discover");
             expect(content).toContain("the capability");
-            expect(content).toContain("minimum viable");
-            expect(content).toContain("contract first");
-            expect(content).toContain("Run the smallest safe");
-            expect(content).toContain("test only");
+            expect(content).toContain("run the smallest safe test");
+            expect(content).toContain("observed");
+            expect(content).toContain("facts");
             expect(content).toContain("Choose the most direct capability");
             expect(content).toContain("domain fit over result ordering");
             expect(content).toContain("Treat Fusion API, connector, and package/block results");
@@ -556,11 +554,9 @@ describe("embedded skill assets", () => {
             expect(content).toContain("status transitions");
             expect(content).toContain("file return format");
             expect(content).toContain("envelope structure");
-            expect(content).toContain("cannot be determined from metadata");
             expect(content).toContain("minimal representative invocation");
             expect(content).toContain("status/result poll");
             expect(content).toContain("safe and proportionate");
-            expect(content).toContain("Do not test merely to increase confidence");
             expect(content).toContain("Do not spend");
             expect(content).toContain("meaningful user money");
             expect(content).toContain("mutate external state");
@@ -575,7 +571,7 @@ describe("embedded skill assets", () => {
                 "connector service/action identifiers",
             );
             expect(content).toContain("future agents");
-            expect(content).toContain("run discovery");
+            expect(content).toContain("do not run discovery");
             expect(content).toContain("again");
             expect(content).not.toContain("default preference order");
             expect(content).not.toContain("If Fusion API and an ordinary connector action both match");

@@ -30,7 +30,7 @@ describe("skill frontmatter helpers", () => {
             name: "demo",
         });
 
-        expect(rendered).not.toContain(">-");
+        expect(rendered).not.toContain([">", "-"].join(""));
         expect(rendered).toContain(`description: ${description}`);
         expect(parseSkillMarkdownMatter(rendered).data).toMatchObject({
             description,
