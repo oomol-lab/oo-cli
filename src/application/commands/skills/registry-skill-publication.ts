@@ -1,4 +1,3 @@
-import type { BundledSkillPublicationResult } from "./bundled-skill-filesystem.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
 import type { ExtractedRegistryPackageArchive } from "./registry-skill-archive.ts";
@@ -19,7 +18,6 @@ import {
 import {
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
-import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 import { requireExtractedRegistrySkillDirectory } from "./registry-skill-archive.ts";
 import { rewriteInstalledRegistrySkillMarkdown } from "./registry-skill-markdown.ts";
 
@@ -31,8 +29,9 @@ export interface PreparedRegistrySkillPublication {
     skillName: string;
 }
 
-export interface RegistrySkillPublicationResult extends BundledSkillPublicationResult {
+export interface RegistrySkillPublicationResult {
     agentName: BundledSkillAgentName;
+    path: string;
 }
 
 export async function prepareRegistrySkillPublication(options: {
@@ -91,17 +90,14 @@ export async function publishPreparedRegistrySkillPublication(
 
     return Promise.all(
         preparedPublication.hostInstallations.map(async (installation) => {
-            const publication = await publishBundledSkillInstallation({
+            await publishBundledSkillInstallation({
                 canonicalSkillDirectoryPath: preparedPublication.canonicalSkillDirectoryPath,
                 installedSkillDirectoryPath: installation.installedSkillDirectoryPath,
-                publicationMode: resolveManagedSkillPublicationMode(
-                    installation.agentName,
-                ),
             });
 
             return {
-                ...publication,
                 agentName: installation.agentName,
+                path: installation.installedSkillDirectoryPath,
             };
         }),
     );

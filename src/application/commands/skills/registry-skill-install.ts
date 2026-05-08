@@ -290,7 +290,6 @@ async function executeInstallActions(
                             packageInfo.packageVersion,
                         ),
                         agentName: publication.agentName,
-                        installMode: publication.mode,
                         path: publication.path,
                         skillName,
                     },

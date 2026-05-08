@@ -20,6 +20,7 @@ import {
 } from "./bundled-skill-paths.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import {
+    resolveLocalSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
@@ -246,7 +247,7 @@ describe("skills CLI", () => {
         }
     });
 
-    test("converts synchronized registry skill targets to copies for copy-only hosts", async () => {
+    test("converts synchronized registry symlink targets to copies", async () => {
         const sandbox = await createCliSandbox();
         const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
         const codeBuddySkillsDirectory = join(codeBuddyHomeDirectory, "skills");
@@ -300,6 +301,127 @@ describe("skills CLI", () => {
             );
             expect(content).toContain(
                 `"msg":"Registry skill synchronized during CLI startup."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("converts synchronized local symlink targets to copies", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexSkillsDirectory = join(codexHomeDirectory, "skills");
+        const codexSkillDirectoryPath = join(codexSkillsDirectory, "campaign-writer");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "campaign-writer",
+        );
+
+        try {
+            await mkdir(codexSkillsDirectory, { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                "# Campaign Writer\n",
+            );
+            await symlink(
+                canonicalSkillDirectoryPath,
+                codexSkillDirectoryPath,
+                process.platform === "win32" ? "junction" : "dir",
+            );
+
+            const result = await sandbox.run(["--help"], {
+                fetcher: async () => {
+                    throw new Error("startup synchronization should not fetch");
+                },
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Options:");
+            expect(await realpath(codexSkillDirectoryPath)).not.toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect((await lstat(codexSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
+            expect(await readFile(join(codexSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                "# Campaign Writer\n",
+            );
+            expect(content).toContain(
+                `"msg":"Local skill synchronized during CLI startup."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not overwrite synchronized registry targets with same-name local skills", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexSkillsDirectory = join(codexHomeDirectory, "skills");
+        const codexSkillDirectoryPath = join(codexSkillsDirectory, "chatgpt");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const registryCanonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+        const localCanonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await mkdir(codexSkillsDirectory, { recursive: true });
+            await mkdir(registryCanonicalSkillDirectoryPath, { recursive: true });
+            await mkdir(localCanonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(registryCanonicalSkillDirectoryPath, "SKILL.md"),
+                "# Registry ChatGPT\n",
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(registryCanonicalSkillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: "openai",
+                    version: "0.0.3",
+                }),
+            );
+            await Bun.write(
+                join(localCanonicalSkillDirectoryPath, "SKILL.md"),
+                "# Local ChatGPT\n",
+            );
+
+            const result = await sandbox.run(["--help"], {
+                fetcher: async () => {
+                    throw new Error("startup synchronization should not fetch");
+                },
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(await readFile(join(codexSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                "# Registry ChatGPT\n",
+            );
+            expect(await readFile(
+                resolveManagedSkillMetadataFilePath(codexSkillDirectoryPath),
+                "utf8",
+            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }));
+            expect(content).toContain(
+                `"msg":"Registry skill synchronized during CLI startup."`,
+            );
+            expect(content).not.toContain(
+                `"msg":"Local skill synchronized during CLI startup."`,
             );
         }
         finally {

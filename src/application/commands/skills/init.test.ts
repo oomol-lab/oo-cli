@@ -53,14 +53,15 @@ describe("skills init command", () => {
             expect(result.stdout).toBe(
                 [
                     `Initialized skill campaign-writer in canonical storage at ${canonicalSkillDirectoryPath}.`,
-                    `Linked skill campaign-writer to ${skillDirectoryPath}.`,
+                    `Copied skill campaign-writer to ${skillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
             expect(result.stderr).toBe("");
-            expect(await realpath(skillDirectoryPath)).toBe(
+            expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             await expect(
                 stat(join(canonicalSkillDirectoryPath, ".oo-metadata.json")),
             ).rejects.toMatchObject({
@@ -176,7 +177,7 @@ describe("skills init command", () => {
         }
     });
 
-    test("initializes a local skill by copying for non-symlink hosts", async () => {
+    test("initializes a local skill by copying for CodeBuddy", async () => {
         const sandbox = await createCliSandbox();
         const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
         const skillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "copy-skill");
@@ -460,7 +461,7 @@ describe("skills init command", () => {
             expect(result.stdout).toBe(
                 [
                     `Initialized skill ${normalizedSkillName} in canonical storage at ${canonicalSkillDirectoryPath}.`,
-                    `Linked skill ${normalizedSkillName} to ${join(codexHomeDirectory, "skills", normalizedSkillName)}.`,
+                    `Copied skill ${normalizedSkillName} to ${join(codexHomeDirectory, "skills", normalizedSkillName)}.`,
                     "",
                 ].join("\n"),
             );

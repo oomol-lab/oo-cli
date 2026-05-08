@@ -33,7 +33,6 @@ import {
 } from "./embedded-assets.ts";
 import {
     resolveLocalSkillPublicationTargets,
-    resolveSkillInitPublicationMessageKey,
 } from "./init.ts";
 import {
     confirmInteractiveValue,
@@ -51,7 +50,6 @@ import {
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 import {
     convertSkillDirectoryToPackage,
     publishConvertedSkillPackage,
@@ -828,10 +826,9 @@ async function adoptSkillPublishSource(
             options.source.skillDirectoryPath,
         )) {
             activePublicationTarget = target;
-            const published = await publishBundledSkillInstallation({
+            await publishBundledSkillInstallation({
                 canonicalSkillDirectoryPath: options.localSkillDirectoryPath,
                 installedSkillDirectoryPath: target.installedSkillDirectoryPath,
-                publicationMode: resolveManagedSkillPublicationMode(target.agentName),
             });
 
             publishedTargets.push(target);
@@ -839,13 +836,10 @@ async function adoptSkillPublishSource(
 
             writeLine(
                 options.context.stdout,
-                options.context.translator.t(
-                    resolveSkillInitPublicationMessageKey(published.mode),
-                    {
-                        name: options.source.skillId,
-                        path: published.path,
-                    },
-                ),
+                options.context.translator.t("skills.init.copied", {
+                    name: options.source.skillId,
+                    path: target.installedSkillDirectoryPath,
+                }),
             );
         }
 

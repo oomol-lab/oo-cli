@@ -268,7 +268,7 @@ describe("skills update command", () => {
         }
     });
 
-    test("updates a published managed skill by copying for non-symlink hosts", async () => {
+    test("updates a published managed skill by copying to the host target", async () => {
         const sandbox = await createCliSandbox();
         const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
         const storePaths = resolveStorePaths({
