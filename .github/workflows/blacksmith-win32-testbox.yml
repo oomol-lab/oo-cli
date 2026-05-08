@@ -4,11 +4,11 @@ on:
     inputs:
       testbox_id:
         type: string
-        description: "Testbox session ID"
+        description: Testbox session ID
         required: true
   pull_request:
     paths:
-      - '.github/workflows/**'
+      - ".github/workflows/**"
 permissions:
   contents: read
 concurrency:
