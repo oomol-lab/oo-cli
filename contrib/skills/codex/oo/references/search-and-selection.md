@@ -124,6 +124,10 @@ Representative JSON example:
 Inspect the first result set before trying alternative searches. Usually keep
 one primary candidate and at most one materially different fallback.
 
+A good direct first result is enough. Do not keep searching for a theoretically
+better option unless the first result misses a decisive constraint, has unclear
+output semantics, or adds unsafe or missing required inputs.
+
 Rank mixed results in this order:
 
 1. Directness of the action or block relative to the user's goal

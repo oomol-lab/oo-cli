@@ -20,6 +20,8 @@ smallest sufficient JSON payload that matches the user's real intent.
   and `outputSchema` to confirm the action fit.
 - Prefer the action whose description most directly matches the user's desired
   outcome, especially when the user named the target service.
+- If the selected schema directly satisfies the outcome and required inputs are
+  available, build the payload and execute; do not rediscover adjacent actions.
 - If schema evidence does not prove the action can satisfy the user outcome,
   refine discovery or stop with a catalog miss.
 
@@ -57,6 +59,11 @@ Proceed directly only when the user's intent and all required payload values are
 unambiguous. Otherwise ask one focused question or confirmation. Do not use
 `--dry-run` as a substitute for completing an explicitly requested action, but
 honor user requests to validate without executing.
+
+An explicit user instruction plus complete required payload values is sufficient
+confidence for non-destructive send, post, create, or invite actions. Ask before
+destructive actions, broad sharing, or ambiguous recipient, content, or
+destination choices.
 
 ## Execute the connector path
 
@@ -120,6 +127,8 @@ State model:
    Discover or choose an action whose description identifies it as download or
    export and whose `outputSchema` exposes a download URL field, such as
    `transitUrl` on `googledrive.download_file`.
+   Prefer refining within the same connector service first, using the selected
+   service as a keyword or constraint.
 4. Save
    Feed that documented download URL to `oo file download`. Do not feed
    `webViewLink`, edit URLs, folder URLs, or console URLs to file download.

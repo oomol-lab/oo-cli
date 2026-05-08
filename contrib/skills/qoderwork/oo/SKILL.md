@@ -9,7 +9,9 @@ description: >-
   when the user wants an existing hosted capability or connector workflow,
   not a local implementation. Concrete capabilities are discovered at
   runtime, so no package, block, connector, or action names are assumed
-  in advance. Match intent across languages.
+  in advance. Match intent across languages. Skip pure local coding, shell
+  glue, repo edits, and text-only answers an LLM can complete without
+  hosted capability execution.
 ---
 
 # oo
@@ -27,33 +29,37 @@ Read only the reference file needed for the current state.
 
 These rules override every local heuristic.
 
-1. Outcome first. Route from the user's desired result, not from guessed
+1. Optimize for fast accuracy. Take the shortest path that can prove a safe,
+   callable contract. Once evidence is sufficient to choose and execute, do not
+   broaden discovery, inspect extra candidates, hydrate extra data, or ask
+   non-blocking questions.
+2. Outcome first. Route from the user's desired result, not from guessed
    implementation steps. Preserve decisive constraints such as target service,
    language pair, file type, output format, destination, time range, recipients,
    and externally visible side effects.
-2. Capability contract before execution. Do not execute from a search result
+3. Capability contract before execution. Do not execute from a search result
    alone. A callable path exists only after package metadata or connector schema
    proves the exact callable id, required inputs, and output semantics.
-3. Evidence over invention. Do not invent package IDs, versions, block IDs,
+4. Evidence over invention. Do not invent package IDs, versions, block IDs,
    connector services, action names, schema fields, defaults, artifact URLs,
    task status, or task results. Claims must come from `oo` command output,
    package metadata, connector schema, or task result snapshots.
-4. Smallest sufficient payload. Build the smallest payload that fully expresses
+5. Smallest sufficient payload. Build the smallest payload that fully expresses
    the user's real intent. "Smallest" means no invented fields or irrelevant
    options; it does not mean dropping user constraints.
-5. Current-step discovery. For multi-step workflows, discover only the current
+6. Current-step discovery. For multi-step workflows, discover only the current
    unresolved external step. Between `oo` steps, local work is limited to
    filtering, grouping, ranking, deduplicating, summarizing, or shaping the next
    payload.
-6. Explicit artifact rule. Upload only for URI-compatible inputs. Download only
+7. Explicit artifact rule. Upload only for URI-compatible inputs. Download only
    explicit artifact URLs documented by the selected path. Browse links, edit
    links, folder links, console URLs, and metadata are not downloadable
    artifacts.
-7. External effects require confidence. If an action is externally visible,
+8. External effects require confidence. If an action is externally visible,
    destructive, or sends content to another person or service, execute only when
    the user's intent and required payload are unambiguous. Otherwise ask one
    focused question or confirmation.
-8. Stop at real blockers. Stop and report clearly on auth, billing, catalog
+9. Stop at real blockers. Stop and report clearly on auth, billing, catalog
    miss, unsupported input shape, missing required values, terminal task
    failure, or an unsafe side effect. Do not retry blindly, and do not replace a
    remote `oo` capability with local code or direct third-party APIs.
@@ -77,6 +83,9 @@ proves its output.
    Read [references/search-and-selection.md](references/search-and-selection.md)
    before the first search. Run `oo search "<goal>" --json` unless a complete
    capability contract is already known from current evidence.
+   A complete contract means package metadata or connector schema already
+   proves the callable id, required inputs, output semantics, and lifecycle; a
+   user-named service or guessed package name is not enough.
 4. Select
    Inspect the first result set before refining. Keep one primary candidate and
    at most one materially different fallback. Prefer directness, named target

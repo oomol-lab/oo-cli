@@ -76,6 +76,9 @@ Expected JSON shape:
 
 - Prefer the block whose description, input handles, and expected output most
   directly match the user's requested result.
+- Choose the first block whose metadata directly satisfies the user outcome;
+  inspect alternatives only when the primary block is ambiguous, unsafe, or
+  output-mismatched.
 - Do not assume `main` is the right block unless metadata supports that.
 - If two blocks are plausible, keep one primary block and at most one fallback.
 - If metadata is insufficient to choose safely, stop and report the ambiguity
