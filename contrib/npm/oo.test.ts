@@ -1,71 +1,97 @@
 import { createRequire } from "node:module";
-import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
+interface RuntimeStub {
+    argv: string[];
+    exit: (code: number) => void;
+    kill: (pid: number, signal: string) => void;
+    pid: number;
+}
+
+interface ChildProcessStub {
+    on: (event: "error" | "exit", handler: (...args: unknown[]) => void) => ChildProcessStub;
+}
+
 const require = createRequire(import.meta.url);
 const wrapperModule = require("./oo.cjs") as {
-    detectPackageManagerFromOoPath: (paths: unknown[]) => string | undefined;
-    resolveChildEnvironment: (
-        env?: Record<string, string | undefined>,
-        options?: {
-            installContextFilePath?: string;
-            ooPathCandidates?: unknown[];
-        },
-    ) => Record<string, string | undefined>;
+    run: (options?: {
+        resolveExecutablePath?: () => string;
+        runtime?: RuntimeStub;
+        spawn?: (
+            executablePath: string,
+            args: string[],
+            options: { stdio: "inherit" },
+        ) => ChildProcessStub;
+        writeError?: (message: string) => void;
+    }) => void;
 };
 
 describe("oo wrapper", () => {
-    test("detects bun from the installed oo path", () => {
-        expect(wrapperModule.detectPackageManagerFromOoPath([
-            "/Users/demo/.bun/install/global/node_modules/@oomol-lab/oo-cli/bin/oo.cjs",
-        ])).toBe("bun");
-    });
+    test("spawns the resolved executable with forwarded arguments", () => {
+        const runtime = createRuntimeStub(["node", "oo.cjs", "config", "list"]);
+        const spawnCalls: Array<{
+            args: string[];
+            executablePath: string;
+            options: { stdio: "inherit" };
+        }> = [];
+        const handlers = new Map<string, (...args: unknown[]) => void>();
 
-    test("detects pnpm from the installed oo path", () => {
-        expect(wrapperModule.detectPackageManagerFromOoPath([
-            "/Users/demo/Library/pnpm/global/5/node_modules/@oomol-lab/oo-cli/bin/oo.cjs",
-        ])).toBe("pnpm");
-    });
-
-    test("detects npm from the installed oo path under fnm_multishells", () => {
-        expect(wrapperModule.detectPackageManagerFromOoPath([
-            "/Users/demo/.local/state/fnm_multishells/12345/bin/oo",
-        ])).toBe("npm");
-    });
-
-    test("detects npm from the installed oo path under npm-global", () => {
-        expect(wrapperModule.detectPackageManagerFromOoPath([
-            join(
-                "Users",
-                "demo",
-                "Library",
-                "Application Support",
-                "QClaw",
-                "npm-global",
-                "bin",
-                "oo",
-            ),
-        ])).toBe("npm");
-    });
-
-    test("does not match unrelated path segments by substring", () => {
-        expect(wrapperModule.detectPackageManagerFromOoPath([
-            "/Users/demo/aabunxx/install/global/node_modules/@oomol-lab/oo-cli/bin/oo.cjs",
-            "/Users/demo/projects/pnpm-tools/bin/oo",
-            "/Users/demo/cache/fnm_multishells_backup/bin/oo",
-        ])).toBeUndefined();
-    });
-
-    test("falls back to npm when install context and path hints are missing", () => {
-        expect(wrapperModule.resolveChildEnvironment(
-            {},
-            {
-                installContextFilePath: "/tmp/oo-missing-install-context.json",
-                ooPathCandidates: ["/Users/demo/bin/oo"],
+        wrapperModule.run({
+            resolveExecutablePath: () => "/mock/bin/oo",
+            runtime,
+            spawn: (executablePath, args, options) => {
+                spawnCalls.push({ args, executablePath, options });
+                const child: ChildProcessStub = {
+                    on: (event, handler) => {
+                        handlers.set(event, handler);
+                        return child;
+                    },
+                };
+                return child;
             },
-        )).toMatchObject({
-            OO_INSTALL_PACKAGE_MANAGER: "npm",
         });
+
+        expect(spawnCalls).toEqual([{
+            args: ["config", "list"],
+            executablePath: "/mock/bin/oo",
+            options: { stdio: "inherit" },
+        }]);
+
+        handlers.get("exit")?.(0, null);
+        expect(runtime.exits).toEqual([0]);
+    });
+
+    test("exits when executable resolution fails", () => {
+        const runtime = createRuntimeStub(["node", "oo.cjs"]);
+        const errors: string[] = [];
+
+        wrapperModule.run({
+            resolveExecutablePath: () => {
+                throw new Error("No binary");
+            },
+            runtime,
+            spawn: () => {
+                throw new Error("spawn should not be called");
+            },
+            writeError: message => errors.push(message),
+        });
+
+        expect(errors).toEqual(["No binary"]);
+        expect(runtime.exits).toEqual([1]);
     });
 });
+
+function createRuntimeStub(argv: string[]): RuntimeStub & { exits: number[]; signals: string[] } {
+    const exits: number[] = [];
+    const signals: string[] = [];
+
+    return {
+        argv,
+        exit: code => exits.push(code),
+        exits,
+        kill: (_pid, signal) => signals.push(signal),
+        pid: 123,
+        signals,
+    };
+}
