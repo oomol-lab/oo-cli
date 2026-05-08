@@ -107,7 +107,6 @@ describe("npm-packages", () => {
             bin: Record<string, string>;
             files: string[];
             optionalDependencies: Record<string, string>;
-            scripts: Record<string, string>;
             type: string;
             version: string;
         };
@@ -117,11 +116,8 @@ describe("npm-packages", () => {
         expect(wrapperManifest.bin).toEqual({
             oo: "./bin/oo.cjs",
         });
-        expect(wrapperManifest.files).toContain("bin/postinstall.cjs");
+        expect(wrapperManifest.files).not.toContain("bin/postinstall.cjs");
         expect(wrapperManifest.files).toContain("bin/platform-targets.json");
-        expect(wrapperManifest.scripts).toEqual({
-            postinstall: "node ./bin/postinstall.cjs",
-        });
         expect(wrapperManifest.optionalDependencies).toEqual(
             Object.fromEntries(
                 getPlatformTargets().map(target => [target.packageName, "1.2.3"]),
@@ -139,7 +135,6 @@ describe("npm-packages", () => {
             "keywords",
             "bin",
             "files",
-            "scripts",
             "main",
             "engines",
             "optionalDependencies",
@@ -217,7 +212,6 @@ describe("npm-packages", () => {
             "keywords",
             "bin",
             "files",
-            "scripts",
             "main",
             "engines",
             "optionalDependencies",

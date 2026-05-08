@@ -55,7 +55,6 @@ export type BuildTargetPreset = (typeof buildTargetPresets)[number];
 
 const wrapperFiles = [
     "bin/oo.cjs",
-    "bin/postinstall.cjs",
     "bin/platform-runtime.cjs",
     "bin/platform-targets.json",
     "README.md",
@@ -145,9 +144,6 @@ export function buildWrapperPackageManifest(
             access: "public",
         },
         repository: baseManifest.repository,
-        scripts: {
-            postinstall: "node ./bin/postinstall.cjs",
-        },
         type: "commonjs",
         version: releaseVersion,
     };
@@ -459,10 +455,6 @@ function stageWrapperPackage(options: {
     copyFile(
         join(options.rootDir, "contrib/npm/oo.cjs"),
         join(wrapperDir, "bin/oo.cjs"),
-    );
-    copyFile(
-        join(options.rootDir, "contrib/npm/postinstall.cjs"),
-        join(wrapperDir, "bin/postinstall.cjs"),
     );
     copyFile(
         join(options.rootDir, "contrib/npm/platform-runtime.cjs"),
