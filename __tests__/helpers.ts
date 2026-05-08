@@ -455,18 +455,24 @@ export async function readLatestLogContent(sandbox: CliSandbox): Promise<string>
     const logFilesWithMetadata = await Promise.all(
         logFileNames.map(async fileName => ({
             fileName,
-            metadata: await stat(join(logDirectoryPath, fileName)),
+            metadata: await stat(join(logDirectoryPath, fileName), { bigint: true }),
         })),
     );
+    // Sort by nanosecond-precision mtime so the "latest" file is unambiguous
+    // even when multiple log files are produced within the same millisecond.
+    // When timestamps tie, fall back to the rolling-file-destination naming
+    // convention: a sessionCounter suffix (e.g. "-01") indicates a newer file
+    // that was created when the base file name was already taken.
     const latestLogFileName = logFilesWithMetadata
         .sort((left, right) => {
-            const modifiedAtDelta = left.metadata.mtimeMs - right.metadata.mtimeMs;
+            const modifiedAtDelta = left.metadata.mtimeNs - right.metadata.mtimeNs;
 
-            if (modifiedAtDelta !== 0) {
-                return modifiedAtDelta;
+            if (modifiedAtDelta !== 0n) {
+                return modifiedAtDelta < 0n ? -1 : 1;
             }
 
-            return left.fileName.localeCompare(right.fileName);
+            return left.fileName.length - right.fileName.length
+                || left.fileName.localeCompare(right.fileName);
         })
         .at(-1)
         ?.fileName;
