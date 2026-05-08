@@ -446,10 +446,7 @@ describe("performSelfUpdateOperation", () => {
 
             expect(result.status).toBe("installed");
             expect(invokedCommands).toEqual([
-                {
-                    commandArguments: ["skills", "add"],
-                    commandPath: targetVersionPath,
-                },
+                ...createExpectedManagedSkillInstallCommands(targetVersionPath),
                 {
                     commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
                     commandPath: "/mock/bin/pnpm",
@@ -530,10 +527,7 @@ describe("performSelfUpdateOperation", () => {
 
             expect(result.status).toBe("installed");
             expect(invokedCommands).toEqual([
-                {
-                    commandArguments: ["skills", "add"],
-                    commandPath: targetVersionPath,
-                },
+                ...createExpectedManagedSkillInstallCommands(targetVersionPath),
                 {
                     commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
                     commandPath: "/mock/bin/bun",
@@ -1024,4 +1018,16 @@ function createSuccessfulSelfUpdateCommandRunner(
             stdout: "",
         };
     };
+}
+
+function createExpectedManagedSkillInstallCommands(commandPath: string): Array<{
+    commandArguments: readonly string[];
+    commandPath: string;
+}> {
+    return [
+        {
+            commandArguments: ["skills", "add"],
+            commandPath,
+        },
+    ];
 }

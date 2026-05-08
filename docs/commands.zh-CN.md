@@ -181,7 +181,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
   决定是否手动补全未配置的 profile。
 - 说明：install 成功后，CLI 会使用托管的可执行文件静默执行一次
-  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。该命令也会把
+  安装成功的预设 registry skills 合并进同一份 skill 摘要。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
@@ -205,7 +206,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：`oo update` 会确保托管安装保持为当前可用状态，不额外暴露
   `--force`。
 - 说明：当最新发布版本与当前版本一致时，update 仍会先为当前激活的托管版本
-  刷新 bundled skills，再输出“已是最新版本”的消息。
+  执行 `oo skills add`，再输出“已是最新版本”的消息。
 - 说明：update 成功后，CLI 会尽力移除在 `PATH` 中任意位置出现的旧全局
   package-manager `@oomol-lab/oo-cli` 安装；如果 `PATH` 中没有找到 `oo`
   候选项，CLI 会回退到当前命令路径进行判断。对于 npm 安装，清理命令会在可推断时
@@ -221,7 +222,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
   决定是否手动补全未配置的 profile。
 - 说明：update 成功后，CLI 会使用托管的可执行文件静默执行一次
-  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。该命令也会把
+  安装成功的预设 registry skills 合并进同一份 skill 摘要。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
@@ -479,7 +481,8 @@ skills。
 
 - 别名：`oo skills add [packageName]`。
 - 参数：`[packageName]` 可选。
-- 参数：未提供时，该命令会安装全部内置 skill。
+- 参数：未提供时，该命令会安装全部内置 skill，然后尽力安装预设 registry
+  skill packages 里的全部 skill。
 - 参数：当 `[packageName]` 为 `oo`、`oo-find-skills`、`oo-create-skill` 或
   `oo-publish-skill` 时，命令安装对应的内置 skill。
 - 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
@@ -492,8 +495,11 @@ skills。
   提供 `--skill` 时，`-y` 会安装全部 skill。
 - 输出：非交互安装成功时，会按已安装 skill 和目标 AI Agent 聚合输出精简摘要；
   当实际只写入一个目标时，摘要会包含该目标路径。
+- 输出：未提供 `[packageName]` 且有预设 registry skills 安装成功时，这些
+  skill 名称会合并到同一份 `Installed ...` 摘要和 `Skills:` 列表里。
 - 说明：如果 package 只发布了一个 skill，且未提供 `--skill`，命令会自动
   安装这个唯一的 skill。
+- 说明：预设 registry skill package 安装失败会被忽略，不改变命令结果。
 - 说明：如果 package 发布了多个 skill，且未提供 `--skill`、`--all` 或
   `-y`，命令会在 TTY 中打开交互选择页面。
 - 说明：在交互选择页面中，同一 package 下已安装的 skill 会默认保持勾选；

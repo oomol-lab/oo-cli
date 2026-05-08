@@ -19,7 +19,7 @@ import {
     fetchLatestCliReleaseVersion,
     parseLatestCliSemverReleaseVersion,
 } from "../update/release-metadata.ts";
-import { attemptBundledSkillRefreshAfterSelfUpdate } from "./bundled-skills.ts";
+import { attemptManagedSkillInstall } from "./bundled-skills.ts";
 import { resolveSelfUpdateCommandResolution } from "./command-resolution.ts";
 import { attemptLegacyPackageManagerUninstall } from "./legacy-installation.ts";
 import {
@@ -195,7 +195,7 @@ export async function performSelfUpdateOperation(options: {
             platform: options.runtime.platform,
             targetVersion: options.targetVersion,
         });
-        await attemptBundledSkillRefreshAfterSelfUpdate({
+        await attemptManagedSkillInstall({
             commandPath: resolveSelfUpdateVersionExecutablePath(
                 paths,
                 options.targetVersion,

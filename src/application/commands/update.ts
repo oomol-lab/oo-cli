@@ -4,9 +4,9 @@ import type { SelfUpdateCommandResolutionResult, SelfUpdatePathConfigurationResu
 import process from "node:process";
 import { z } from "zod";
 import {
-    attemptBundledSkillRefreshAfterSelfUpdate,
+    attemptManagedSkillInstall,
     isManagedVersionExecutableInstalled,
-    resolveBundledSkillRefreshCommandPath,
+    resolveManagedSkillInstallCommandPath,
 } from "../self-update/bundled-skills.ts";
 import {
     ensureSelfUpdateExecutableDirectoryOnPath,
@@ -119,8 +119,8 @@ export const updateCommand: CliCommandDefinition<
                     version: context.version,
                 })
             ) {
-                await attemptBundledSkillRefreshAfterSelfUpdate({
-                    commandPath: await resolveBundledSkillRefreshCommandPath({
+                await attemptManagedSkillInstall({
+                    commandPath: await resolveManagedSkillInstallCommandPath({
                         env: context.env,
                         platform: process.platform,
                         version: context.version,

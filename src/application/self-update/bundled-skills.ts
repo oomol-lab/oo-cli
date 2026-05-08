@@ -9,13 +9,9 @@ import {
     resolveSelfUpdateVersionExecutablePath,
 } from "./paths.ts";
 
-const selfUpdateBundledSkillRefreshCommandArguments = [
-    "skills",
-    "add",
-] as const;
-const selfUpdateBundledSkillRefreshTimeoutMs = 10_000;
+const managedSkillInstallTimeoutMs = 40_000;
 
-export async function resolveBundledSkillRefreshCommandPath(options: {
+export async function resolveManagedSkillInstallCommandPath(options: {
     env: Record<string, string | undefined>;
     platform: NodeJS.Platform;
     version: string;
@@ -71,19 +67,19 @@ export async function isManagedVersionExecutableInstalled(options: {
     }
 }
 
-export async function attemptBundledSkillRefreshAfterSelfUpdate(options: {
+export async function attemptManagedSkillInstall(options: {
     commandPath: string;
     runtime: SelfUpdateCommandRuntime;
 }): Promise<void> {
     await runSelfUpdateCommandWithLogging({
-        commandArguments: selfUpdateBundledSkillRefreshCommandArguments,
+        commandArguments: ["skills", "add"],
         commandPath: options.commandPath,
-        failureMessage: "Bundled skill refresh after self-update failed.",
+        failureMessage: "Managed skill install failed.",
         logContext: {
-            timeoutMs: selfUpdateBundledSkillRefreshTimeoutMs,
+            timeoutMs: managedSkillInstallTimeoutMs,
         },
         runtime: options.runtime,
-        successMessage: "Bundled skill refresh after self-update completed.",
-        timeoutMs: selfUpdateBundledSkillRefreshTimeoutMs,
+        successMessage: "Managed skill install completed.",
+        timeoutMs: managedSkillInstallTimeoutMs,
     });
 }
