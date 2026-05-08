@@ -777,7 +777,12 @@ function normalizeLineEndingsForAssertion(text: string): string {
 }
 
 function normalizeMarkdownWrappingForAssertion(text: string): string {
-    return normalizeLineEndingsForAssertion(text).replaceAll("\n", " ");
+    const lines = normalizeLineEndingsForAssertion(text).split("\n");
+    // Strip leading whitespace from continuation lines so soft-wrapped list
+    // items and indented prose match assertions written as flat sentences.
+    return lines
+        .map((line, index) => (index === 0 ? line : line.trimStart()))
+        .join(" ");
 }
 
 function readBundledSkillSourceAgentName(
