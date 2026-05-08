@@ -99,7 +99,6 @@ interface PackageIgnoreContext {
 const defaultRequestedPackageVersion = "0.0.1";
 export const skillPublishVisibilityValues = ["private", "public"] as const;
 export type SkillPublishVisibility = (typeof skillPublishVisibilityValues)[number];
-export const defaultSkillPublishVisibility: SkillPublishVisibility = "private";
 
 const skillPackageFiles = [
     "package/.gitattributes",
