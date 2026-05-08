@@ -11,6 +11,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
 
+    "types": ["bun"],
     "allowImportingTsExtensions": true,
     "allowJs": true,
     // Best practices
