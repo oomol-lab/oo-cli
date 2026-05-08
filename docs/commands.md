@@ -352,10 +352,15 @@ supported host directory that already exists.
   Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, and QoderWork host.
   Existing oo-managed bundled skill targets are refreshed to the current `oo`
   version, except that `0.0.0-development` startup runs do not refresh
-  existing bundled targets.
+  existing copied bundled targets.
 - Published skills: when a published skill already has a local canonical copy
   under `<config-dir>/skills/registry/<skill-id>`, `oo` publishes that copy to
   any newly detected supported host that is missing it.
+- Local skills: when a local skill already has a canonical copy under
+  `<config-dir>/skills/local/<skill-id>`, `oo` publishes that copy to any newly
+  detected supported host that is missing it.
+- Migration: existing oo-managed symlink targets from older releases are
+  replaced with copied directories during startup synchronization.
 - Safety: startup synchronization does not fetch registry data, does not
   require authentication, does not print additional command output, and does
   not overwrite same-name targets that are not managed by `oo`.
@@ -442,16 +447,12 @@ directory that already exists.
   `~/.trae-cn/skills/<skill-id>`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`, and
   `~/.qoderwork/skills/<skill-id>`.
-- Publication mode: Codex, Claude Code, and QoderWork targets are
-  published as symlinks to the canonical directory when the current platform
-  and environment allow it. Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, and
-  OpenClaw targets are copied.
+- Publication mode: all target directories receive copied skill files.
 - Failure behavior: if no supported agent home exists, or if the canonical
   local directory or any target directory already exists, the command exits
   non-zero before writing the skill.
 - Output: text output first prints the canonical storage directory, then prints
-  one success line per target path with the actual publication mode
-  (`Linked` or `Copied`).
+  one copied-success line per target path.
 
 ### `oo skills validate <path>`
 
@@ -620,13 +621,10 @@ Install bundled or published skills into supported local skill directories.
   the command creates that root before publishing the selected skill.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
-- Installation mode: bundled and published Codex, Claude Code, and QoderWork
-  skills are published to the target directory as a symlink to the
-  canonical directory when the current platform and environment allow it. When
-  symlink creation fails, `oo` falls back to copying the canonical files into
-  the target skills directory.
-- Installation mode: bundled and published Hermes, CodeBuddy, WorkBuddy, Trae,
-  Trae CN, and OpenClaw skills are copied into the target skills directory.
+- Installation mode: bundled and published skills are copied into every target
+  skills directory. Existing oo-managed symlink targets from older releases are
+  replaced with copied directories when the skill is synchronized, installed,
+  or updated.
 - Metadata: bundled skills write a hidden `.oo-metadata.json` file whose
   `version` field matches the current `oo` version.
 - Metadata: published skills write a hidden `.oo-metadata.json` file whose

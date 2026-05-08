@@ -500,7 +500,7 @@ describe("skills publish command", () => {
                 packageName: "@alice/agent-skill",
                 version: "0.3.0",
             });
-            expect((await lstat(agentSkillDirectoryPath)).isSymbolicLink()).toBeTrue();
+            expect((await lstat(agentSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
             const telemetryPayload = parseTelemetryRowPayload(
                 readTelemetryRowsForTest(
                     join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),

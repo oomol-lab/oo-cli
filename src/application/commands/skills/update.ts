@@ -28,7 +28,6 @@ import {
 } from "./managed-skill-paths.ts";
 import {
     isManagedSkillPublicationCurrent,
-    resolveManagedSkillPublicationMode,
 } from "./managed-skill-publication.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
@@ -642,7 +641,6 @@ async function isRegistrySkillCurrentInAllHosts(
                 ),
                 publicationCurrent: await isManagedSkillPublicationCurrent(
                     installation.installedSkillDirectoryPath,
-                    resolveManagedSkillPublicationMode(installation.agentName),
                 ),
             };
         }),

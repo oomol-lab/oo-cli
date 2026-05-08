@@ -1,6 +1,5 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
-import type { BundledSkillPublicationResult } from "./bundled-skill-filesystem.ts";
 import type {
     BundledSkillAgentName,
     BundledSkillName,
@@ -36,7 +35,6 @@ import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallation,
 } from "./managed-skill-hosts.ts";
-import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 
 export interface BundledSkillHostInstallation extends ManagedSkillHostInstallation {
     canonicalSkillDirectoryPath: string;
@@ -66,7 +64,7 @@ export async function installBundledSkill(
     const publications: ManagedSkillInstallPublication[] = [];
 
     for (const installation of installations) {
-        const publishedInstallation = await publishManagedBundledSkill({
+        const installedSkillDirectoryPath = await publishManagedBundledSkill({
             agentName: installation.agentName,
             homeDirectory: installation.homeDirectory,
             settingsFilePath: context.settingsStore.getFilePath(),
@@ -76,14 +74,13 @@ export async function installBundledSkill(
 
         publications.push({
             agentName: installation.agentName,
-            path: publishedInstallation.path,
+            path: installedSkillDirectoryPath,
         });
         context.logger.info(
             {
                 agentName: installation.agentName,
                 canonicalPath: installation.canonicalSkillDirectoryPath,
-                installMode: publishedInstallation.mode,
-                path: publishedInstallation.path,
+                path: installedSkillDirectoryPath,
                 skillName,
                 version: context.version,
             },
@@ -103,13 +100,12 @@ export async function publishManagedBundledSkill(options: {
     settingsFilePath: string;
     skillName: BundledSkillName;
     version: string;
-}): Promise<BundledSkillPublicationResult> {
+}): Promise<string> {
     const installationPaths = await writeBundledSkillCanonicalInstallation(options);
 
-    return publishBundledSkillInstallation({
-        ...installationPaths,
-        publicationMode: resolveManagedSkillPublicationMode(options.agentName),
-    });
+    await publishBundledSkillInstallation(installationPaths);
+
+    return installationPaths.installedSkillDirectoryPath;
 }
 
 export async function resolveAvailableBundledSkillHostInstallations(

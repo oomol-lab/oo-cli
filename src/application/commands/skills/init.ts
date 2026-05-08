@@ -23,7 +23,6 @@ import {
     isLocalSkillPathContained,
     resolveLocalSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
-import { resolveManagedSkillPublicationMode } from "./managed-skill-publication.ts";
 import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
@@ -42,11 +41,6 @@ export interface LocalSkillHostPublicationTarget {
     agentName: BundledSkillAgentName;
     homeDirectory: string;
     installedSkillDirectoryPath: string;
-}
-
-export interface LocalSkillHostPublicationResult {
-    mode: "copy" | "symlink";
-    path: string;
 }
 
 interface OOSkillFrontmatter {
@@ -165,7 +159,6 @@ async function initializeLocalSkill(
     await mkdir(canonicalSkillDirectoryPath, { recursive: true });
 
     const publishedTargets: LocalSkillHostPublicationTarget[] = [];
-    const publishedResults: LocalSkillHostPublicationResult[] = [];
 
     try {
         await Bun.write(
@@ -174,26 +167,18 @@ async function initializeLocalSkill(
         );
 
         for (const target of targets) {
-            const published = await publishBundledSkillInstallation({
+            await publishBundledSkillInstallation({
                 canonicalSkillDirectoryPath,
                 installedSkillDirectoryPath: target.installedSkillDirectoryPath,
-                publicationMode: resolveManagedSkillPublicationMode(
-                    target.agentName,
-                ),
             });
 
             publishedTargets.push(target);
-            publishedResults.push({
-                mode: published.mode,
-                path: published.path,
-            });
 
             context.logger.info(
                 {
                     agentName: target.agentName,
                     canonicalPath: canonicalSkillDirectoryPath,
-                    installMode: published.mode,
-                    path: published.path,
+                    path: target.installedSkillDirectoryPath,
                     skillName,
                 },
                 "Local skill initialized.",
@@ -208,12 +193,12 @@ async function initializeLocalSkill(
             }),
         );
 
-        for (const publishedResult of publishedResults) {
+        for (const target of publishedTargets) {
             writeLine(
                 context.stdout,
-                context.translator.t(resolveSkillInitPublicationMessageKey(publishedResult.mode), {
+                context.translator.t("skills.init.copied", {
                     name: skillName,
-                    path: publishedResult.path,
+                    path: target.installedSkillDirectoryPath,
                 }),
             );
         }
@@ -224,17 +209,6 @@ async function initializeLocalSkill(
             removePath(canonicalSkillDirectoryPath),
         ]);
         throw error;
-    }
-}
-
-export function resolveSkillInitPublicationMessageKey(
-    mode: LocalSkillHostPublicationResult["mode"],
-): "skills.init.linked" | "skills.init.copied" {
-    switch (mode) {
-        case "symlink":
-            return "skills.init.linked";
-        case "copy":
-            return "skills.init.copied";
     }
 }
 

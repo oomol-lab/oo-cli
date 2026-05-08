@@ -129,17 +129,21 @@ describe("skills commands", () => {
                     skill_ids_truncated: false,
                 },
             });
-            expect(await realpath(ooSkillDirectoryPath)).toBe(
-                await realpath(ooCanonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                ooSkillDirectoryPath,
+                ooCanonicalSkillDirectoryPath,
             );
-            expect(await realpath(findSkillsDirectoryPath)).toBe(
-                await realpath(findSkillsCanonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                findSkillsDirectoryPath,
+                findSkillsCanonicalSkillDirectoryPath,
             );
-            expect(await realpath(createSkillDirectoryPath)).toBe(
-                await realpath(createSkillCanonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                createSkillDirectoryPath,
+                createSkillCanonicalSkillDirectoryPath,
             );
-            expect(await realpath(publishSkillDirectoryPath)).toBe(
-                await realpath(publishSkillCanonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                publishSkillDirectoryPath,
+                publishSkillCanonicalSkillDirectoryPath,
             );
 
             for (const file of getBundledSkillFiles("oo")) {
@@ -306,8 +310,9 @@ describe("skills commands", () => {
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
-            expect(await realpath(skillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                skillDirectoryPath,
+                canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
@@ -357,8 +362,9 @@ describe("skills commands", () => {
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
-            expect(await realpath(skillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                skillDirectoryPath,
+                canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
@@ -400,8 +406,9 @@ describe("skills commands", () => {
                 `Installed skill oo-find-skills to ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
-            expect(await realpath(skillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                skillDirectoryPath,
+                canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
@@ -440,8 +447,9 @@ describe("skills commands", () => {
                 `Installed skill oo-publish-skill to ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
-            expect(await realpath(skillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                skillDirectoryPath,
+                canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: resultVersion }),
@@ -508,11 +516,13 @@ describe("skills commands", () => {
             expect(result.stdout).toBe(
                 "Installed skill oo to 2 agents: Codex, Claude Code.\n",
             );
-            expect(await realpath(codexOoSkillDirectoryPath)).toBe(
-                await realpath(codexCanonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                codexOoSkillDirectoryPath,
+                codexCanonicalSkillDirectoryPath,
             );
-            expect(await realpath(claudeOoSkillDirectoryPath)).toBe(
-                await realpath(claudeCanonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                claudeOoSkillDirectoryPath,
+                claudeCanonicalSkillDirectoryPath,
             );
 
             for (const file of getBundledSkillFiles("oo", "codex")) {
@@ -565,8 +575,9 @@ describe("skills commands", () => {
             expect(result.stdout).toBe(
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
-            expect(await realpath(skillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                skillDirectoryPath,
+                canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
@@ -723,8 +734,9 @@ describe("skills commands", () => {
                 `Installed skill oo to ${skillDirectoryPath}.\n`,
             );
             expect((await stat(qoderWorkSkillsDirectoryPath)).isDirectory()).toBeTrue();
-            expect(await realpath(skillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                skillDirectoryPath,
+                canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson({ version: "9.9.9" }),
@@ -1804,8 +1816,9 @@ describe("skills commands", () => {
             expect(result.stdout).toBe(
                 `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
             );
-            expect(await realpath(skillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                skillDirectoryPath,
+                canonicalSkillDirectoryPath,
             );
             expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 [
@@ -2273,14 +2286,16 @@ describe("skills commands", () => {
             );
             const canonicalSkillRealPath = await realpath(canonicalSkillDirectoryPath);
 
-            for (const linkedSkillDirectoryPath of [
+            for (const copiedSkillDirectoryPath of [
                 codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
             ]) {
-                expect(await realpath(linkedSkillDirectoryPath)).toBe(
+                expect(await realpath(copiedSkillDirectoryPath)).not.toBe(
                     canonicalSkillRealPath,
                 );
+                expect((await lstat(copiedSkillDirectoryPath)).isSymbolicLink())
+                    .toBeFalse();
             }
 
             for (const copiedSkillDirectoryPath of [
@@ -2377,8 +2392,9 @@ describe("skills commands", () => {
             expect(result.stdout).toBe(
                 `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
             );
-            expect(await realpath(skillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
+            await expectCopiedSkillDirectory(
+                skillDirectoryPath,
+                canonicalSkillDirectoryPath,
             );
         }
         finally {
@@ -2923,8 +2939,9 @@ describe("skills commands", () => {
             await expect(stat(legacyRegistryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
-            expect(await realpath(ooSkillDirectoryPath)).toBe(
-                await realpath(newOoCanonicalPath),
+            await expectCopiedSkillDirectory(
+                ooSkillDirectoryPath,
+                newOoCanonicalPath,
             );
         }
         finally {
@@ -2932,3 +2949,13 @@ describe("skills commands", () => {
         }
     });
 });
+
+async function expectCopiedSkillDirectory(
+    skillDirectoryPath: string,
+    canonicalSkillDirectoryPath: string,
+): Promise<void> {
+    expect(await realpath(skillDirectoryPath)).not.toBe(
+        await realpath(canonicalSkillDirectoryPath),
+    );
+    expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
+}

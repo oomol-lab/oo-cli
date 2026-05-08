@@ -306,11 +306,15 @@ skills。
   CodeBuddy、WorkBuddy、Trae、Trae CN、OpenClaw 和 QoderWork Agent 都安装了 `oo`、
   `oo-find-skills`、`oo-create-skill` 与 `oo-publish-skill`。已经由 oo 管理的
   内置 skill 目标会刷新到当前 `oo` 版本；
-  但当启动中的当前版本为 `0.0.0-development` 时，不会刷新已存在的内置 skill
-  目标。
+  但当启动中的当前版本为 `0.0.0-development` 时，不会刷新已存在的复制版内置
+  skill 目标。
 - 已发布 skill：如果某个已发布 skill 已经有本地 canonical 副本
   `<config-dir>/skills/registry/<skill-id>`，`oo` 会把该副本发布到任何新检测
   到且尚未安装它的受支持 Agent。
+- 本地 skill：如果某个本地 skill 已经有 canonical 副本
+  `<config-dir>/skills/local/<skill-id>`，`oo` 会把该副本发布到任何新检测到且尚未
+  安装它的受支持 Agent。
+- 迁移：旧版本留下的 oo-managed 软链接目标，会在启动同步期间替换为复制目录。
 - 安全规则：启动同步不会请求 registry，不要求登录，不会产生额外命令输出，也
   不会覆盖不由 `oo` 管理的同名目标。
 
@@ -385,13 +389,10 @@ skills。
   `~/.trae-cn/skills/<skill-id>`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`，以及
   `~/.qoderwork/skills/<skill-id>`。
-- 发布方式：Codex、Claude Code 和 QoderWork 目标会在当前平台和环境允许时发布为
-  指向 canonical 目录的软连接；Hermes、CodeBuddy、WorkBuddy、Trae、Trae CN 和
-  OpenClaw 目标会复制。
+- 发布方式：所有目标目录都会收到复制后的 skill 文件。
 - 失败行为：如果没有受支持的 Agent home，或 canonical 本地目录、任意目标目录
   已存在，命令会在写入 skill 前以非零状态退出。
-- 输出：文本输出会先打印 canonical 存储目录，然后为每个目标路径打印一行带实际发布
-  方式（软链接或复制）的成功消息。
+- 输出：文本输出会先打印 canonical 存储目录，然后为每个目标路径打印一行复制成功消息。
 
 ### `oo skills validate <path>`
 
@@ -527,11 +528,8 @@ skills。
   `~/.qoderwork/skills/<skill-id>`。
 - 目标目录：当已存在的受支持 Agent 缺少 `skills` 根目录时，命令会先创建该目录，
   再发布所选 skill。
-- 安装方式：内置和已发布的 Codex / Claude Code / QoderWork skill 会优先把
-  目标目录发布为指向 canonical 目录的软连接。如果当前平台或环境下创建软连接失败，
-  则会回退为把 canonical 目录内容复制到目标 skills 目录。
-- 安装方式：内置和已发布的 Hermes / CodeBuddy / WorkBuddy / Trae / Trae CN /
-  OpenClaw skill 会直接复制到目标 skills 目录。
+- 安装方式：内置和已发布 skill 会复制到每个目标 skills 目录。旧版本留下的
+  oo-managed 软链接目标，会在同步、安装或更新该 skill 时替换为复制目录。
 - 元数据：内置 skill 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
   `version` 字段记录当前 `oo` 版本。
 - 元数据：已发布 skill 也会写入一个隐藏的 `.oo-metadata.json` 文件，

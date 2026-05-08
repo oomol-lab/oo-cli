@@ -662,7 +662,6 @@ export const enMessages = {
     "labels.status": "Status",
     "labels.version": "Version",
     "skills.init.success": "Initialized skill {name} in canonical storage at {path}.",
-    "skills.init.linked": "Linked skill {name} to {path}.",
     "skills.init.copied": "Copied skill {name} to {path}.",
     "skills.publish.success":
         "Published skill {name} as {visibility} package {packageName}@{version}. View it at {hubUrl}.",
@@ -1441,7 +1440,6 @@ export const zhMessages = {
     "labels.status": "状态",
     "labels.version": "版本",
     "skills.init.success": "已在 canonical 存储 {path} 初始化 skill {name}。",
-    "skills.init.linked": "已将 skill {name} 软链接到 {path}。",
     "skills.init.copied": "已将 skill {name} 复制到 {path}。",
     "skills.publish.success":
         "已将 skill {name} 以{visibility}发布为 {packageName}@{version}。可在 {hubUrl} 查看。",
