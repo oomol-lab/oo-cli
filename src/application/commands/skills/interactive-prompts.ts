@@ -66,6 +66,26 @@ export async function confirmInteractiveValue(
     }
 }
 
+export async function selectInteractiveValue<Value extends string>(
+    context: InteractivePromptContext,
+    options: {
+        invalidMessage: string;
+        prompt: string;
+        values: readonly Value[];
+    },
+): Promise<Value> {
+    while (true) {
+        context.stdout.write(options.prompt);
+        const value = normalizePromptValue(await readPromptLine(context.stdin));
+
+        if (isInteractiveValueOption(value, options.values)) {
+            return value;
+        }
+
+        context.stdout.write(`${options.invalidMessage}\n`);
+    }
+}
+
 export async function selectInteractiveSkills(
     context: InteractivePromptContext,
     options: {
@@ -377,6 +397,13 @@ async function readPromptLine(stdin: InteractiveInput): Promise<string> {
 
 function normalizePromptValue(value: string): string {
     return value.trim().toLowerCase();
+}
+
+function isInteractiveValueOption<Value extends string>(
+    value: string,
+    values: readonly Value[],
+): value is Value {
+    return values.includes(value as Value);
 }
 
 function resolveLineBreakIndex(value: string): number {

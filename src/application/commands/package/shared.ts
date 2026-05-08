@@ -53,11 +53,13 @@ const packageInfoBlockSchema = z.object({
 }).passthrough();
 
 const packageInfoResponseSchema = z.object({
+    access: z.enum(["private", "public", "restricted"]).optional(),
     blocks: z.array(packageInfoBlockSchema).optional().default([]),
     description: z.string().optional().default(""),
     packageName: z.string().min(1),
     packageVersion: z.string().min(1),
     title: z.string().optional().default(""),
+    visibility: z.enum(["private", "public", "restricted"]).optional(),
 }).passthrough();
 
 const transformedInputHandleSchema = z.object({
@@ -83,6 +85,7 @@ const transformedBlockSchema = z.object({
 }).strict();
 
 const transformedPackageInfoResponseSchema = z.object({
+    access: z.enum(["private", "public", "restricted"]).optional(),
     blocks: z.array(transformedBlockSchema),
     description: z.string(),
     displayName: z.string(),
@@ -409,6 +412,7 @@ function parseRawPackageInfoResponse(rawResponse: string): PackageInfoResponse {
         );
 
         return transformedPackageInfoResponseSchema.parse({
+            access: parsedResponse.visibility ?? parsedResponse.access,
             packageName: parsedResponse.packageName,
             packageVersion: parsedResponse.packageVersion,
             description: parsedResponse.description,

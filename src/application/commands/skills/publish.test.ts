@@ -68,7 +68,9 @@ describe("skills publish command", () => {
         );
 
         try {
+            const stdin = createInteractiveInput();
             const requests: Request[] = [];
+            stdin.feed("private\n");
             const result = await sandbox.run(
                 ["skills", "publish", "demo-skill"],
                 {
@@ -83,12 +85,13 @@ describe("skills publish command", () => {
 
                         return new Response("", { status: 201 });
                     },
+                    stdin,
                 },
             );
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                "Published skill demo-skill as private package @alice/demo-skill@0.0.1. View it at https://hub.oomol.com/package/@alice/demo-skill.\n",
+                "Publish skill demo-skill as package @alice/demo-skill with which visibility? [private/public] Published skill demo-skill as private package @alice/demo-skill@0.0.1. View it at https://hub.oomol.com/package/@alice/demo-skill.\n",
             );
             expect(result.stderr).toBe("");
             expect(requests.map(request => `${request.method} ${request.url}`)).toEqual([
@@ -186,6 +189,57 @@ describe("skills publish command", () => {
         }
     });
 
+    test("preserves public visibility from an existing package", async () => {
+        const { sandbox } = await createCliPublishSkillSandbox(
+            "existing-public-skill",
+            [
+                "---",
+                "name: existing-public-skill",
+                "description: Use a known package workflow.",
+                "---",
+                "",
+            ].join("\n"),
+        );
+
+        try {
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["skills", "publish", "existing-public-skill"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/-/oomol/package-info/")) {
+                            return new Response(JSON.stringify({
+                                access: "public",
+                                blocks: [],
+                                description: "Existing public skill package.",
+                                packageName: "@alice/existing-public-skill",
+                                packageVersion: "0.0.3",
+                                title: "Existing Public Skill",
+                            }));
+                        }
+
+                        return new Response("", { status: 201 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                "Published skill existing-public-skill as public package @alice/existing-public-skill@0.0.4. View it at https://hub.oomol.com/package/@alice/existing-public-skill.\n",
+            );
+            await expect(requests[1]!.json()).resolves.toMatchObject({
+                access: "public",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("publishes a registry skill when the installed package matches the target package", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -221,7 +275,7 @@ describe("skills publish command", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["skills", "publish", "registry-skill"],
+                ["skills", "publish", "registry-skill", "--visibility", "private"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -346,7 +400,7 @@ describe("skills publish command", () => {
             );
 
             const result = await sandbox.run(
-                ["skills", "publish", "forked-skill", "--yes"],
+                ["skills", "publish", "forked-skill", "--yes", "--visibility", "private"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -411,7 +465,7 @@ describe("skills publish command", () => {
             stdin.feed("yes\n");
 
             const result = await sandbox.run(
-                ["skills", "publish", "agent-skill", "--agent", "codex"],
+                ["skills", "publish", "agent-skill", "--agent", "codex", "--visibility", "private"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -989,6 +1043,7 @@ describe("skills publish command", () => {
 
                         if (request.url.includes("/-/oomol/package-info/")) {
                             return new Response(JSON.stringify({
+                                access: "restricted",
                                 blocks: [
                                     {
                                         blockName: "main",
