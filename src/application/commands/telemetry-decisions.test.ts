@@ -290,6 +290,7 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "adopted",
+            "force",
             "package_name",
             "skill_id",
             "source_kind",

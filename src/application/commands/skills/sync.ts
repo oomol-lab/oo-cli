@@ -216,17 +216,14 @@ async function collectRegistrySkillSyncRecords(
 function createSkillSyncRecord(
     skill: Pick<ManagedSkillListItem, "metadata" | "name">,
 ): SkillSyncRecord | undefined {
-    const packageName = skill.metadata?.packageName;
-    const version = skill.metadata?.version;
-
-    if (packageName === undefined || version === undefined) {
+    if (skill.metadata?.kind !== "registry") {
         return undefined;
     }
 
     return {
-        packageName,
+        packageName: skill.metadata.packageName,
         skillName: skill.name,
-        version,
+        version: skill.metadata.version,
     };
 }
 

@@ -15,6 +15,9 @@ import { isSemver } from "../../semver.ts";
 import { isFileMissingError } from "../../shared/fs-errors.ts";
 import { getUnexpectedRequestErrorMessage } from "../shared/request.ts";
 import {
+    managedSkillMetadataFileName,
+} from "./managed-skill-paths.ts";
+import {
     skillPackageGitAttributesTemplate,
     skillPackageGitIgnoreTemplate,
 } from "./package-templates.ts";
@@ -147,6 +150,10 @@ export async function convertSkillDirectoryToPackage(
 
             if (sourceRelativePath === "") {
                 return true;
+            }
+
+            if (sourceRelativePath === managedSkillMetadataFileName) {
+                return false;
             }
 
             const metadata = await lstat(sourcePath);
@@ -668,6 +675,10 @@ async function isIgnoredPackageSkillPath(
 
     if (skillPath === undefined || skillPath.relativePath === "") {
         return false;
+    }
+
+    if (skillPath.relativePath === managedSkillMetadataFileName) {
+        return true;
     }
 
     const skillPackageIgnore = await readPackageSkillIgnore(

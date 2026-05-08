@@ -3,20 +3,20 @@ import { describe, expect, test } from "bun:test";
 import {
     parseManagedSkillMetadataContent,
 } from "./managed-skill-metadata.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import {
+    createRegistrySkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 describe("managed skill metadata", () => {
-    test("parses version-only metadata", () => {
+    test("rejects version-only bundled metadata", () => {
         expect(
             parseManagedSkillMetadataContent(
                 JSON.stringify({
                     version: "1.2.3",
                 }),
             ),
-        ).toEqual({
-            packageName: undefined,
-            version: "1.2.3",
-        });
+        ).toBeUndefined();
     });
 
     test("parses package-backed metadata", () => {
@@ -27,10 +27,10 @@ describe("managed skill metadata", () => {
                     version: "1.2.3",
                 }),
             ),
-        ).toEqual({
+        ).toEqual(createRegistrySkillMetadata({
             packageName: "@foo/bar",
             version: "1.2.3",
-        });
+        }));
     });
 
     test("rejects metadata with an empty version", () => {
@@ -57,13 +57,17 @@ describe("managed skill metadata", () => {
     test("renders metadata with packageName when present", () => {
         expect(
             renderSkillMetadataJson({
+                kind: "registry",
                 packageName: "openai",
+                schemaVersion: 1,
                 version: "0.0.3",
             }),
         ).toBe(
             [
                 "{",
+                "  \"kind\": \"registry\",",
                 "  \"packageName\": \"openai\",",
+                "  \"schemaVersion\": 1,",
                 "  \"version\": \"0.0.3\"",
                 "}",
                 "",

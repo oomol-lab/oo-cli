@@ -1,63 +1,31 @@
+import type { RegistrySkillMetadata } from "./skill-metadata.ts";
+
 import { readFile } from "node:fs/promises";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import { resolveManagedSkillMetadataFilePath } from "./managed-skill-paths.ts";
 import {
-    parseSkillMetadataWithVersion,
+    createRegistrySkillMetadata,
+    parseSkillMetadataContent,
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
 
-export interface ManagedSkillMetadata {
-    icon?: string;
-    packageName?: string;
-    version: string;
-}
+export type { RegistrySkillMetadata as ManagedSkillMetadata } from "./skill-metadata.ts";
 
 export function parseManagedSkillMetadataContent(
     content: string,
-): ManagedSkillMetadata | undefined {
-    const parsedMetadata = parseSkillMetadataWithVersion(content);
+): RegistrySkillMetadata | undefined {
+    const parsedMetadata = parseSkillMetadataContent(content);
 
-    if (parsedMetadata === undefined) {
+    if (parsedMetadata?.kind !== "registry") {
         return undefined;
     }
-    const rawPackageName = parsedMetadata.fields.packageName;
-    const rawIcon = parsedMetadata.fields.icon;
-    let icon: string | undefined;
-    let packageName: string | undefined;
 
-    if (rawIcon !== undefined) {
-        if (typeof rawIcon !== "string" || rawIcon.trim() === "") {
-            return undefined;
-        }
-
-        icon = rawIcon;
-    }
-
-    if (rawPackageName !== undefined) {
-        if (typeof rawPackageName !== "string" || rawPackageName.trim() === "") {
-            return undefined;
-        }
-
-        packageName = rawPackageName;
-    }
-
-    if (icon !== undefined) {
-        return {
-            icon,
-            packageName,
-            version: parsedMetadata.version,
-        };
-    }
-
-    return {
-        packageName,
-        version: parsedMetadata.version,
-    };
+    return parsedMetadata;
 }
 
 export async function readManagedSkillMetadata(
     skillDirectoryPath: string,
-): Promise<ManagedSkillMetadata | undefined> {
+): Promise<RegistrySkillMetadata | undefined> {
     try {
         return parseManagedSkillMetadataContent(
             await readFile(
@@ -77,10 +45,10 @@ export async function readManagedSkillMetadata(
 
 export async function writeManagedSkillMetadata(
     skillDirectoryPath: string,
-    metadata: ManagedSkillMetadata,
+    metadata: Pick<RegistrySkillMetadata, "icon" | "packageName" | "version">,
 ): Promise<void> {
     await Bun.write(
         resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-        renderSkillMetadataJson(metadata),
+        renderSkillMetadataJson(createRegistrySkillMetadata(metadata)),
     );
 }

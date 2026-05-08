@@ -9,6 +9,9 @@ import { z } from "zod";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { writeManagedSkillInstallSummary } from "./install-output.ts";
 import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
+import {
+    publishCanonicalLocalSkillsToAvailableHosts,
+} from "./local-skill-publication.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 import { installBundledSkill, isBundledSkillName } from "./shared.ts";
 import { createSkillIdsTelemetryProperties } from "./telemetry.ts";
@@ -77,6 +80,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             }
 
             summaries.push(...await installPresetSkillPackages(context));
+            summaries.push(...await publishCanonicalLocalSkillsToAvailableHosts(context));
             writeManagedSkillInstallSummary(context, summaries);
             return;
         }

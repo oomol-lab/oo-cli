@@ -18,6 +18,7 @@ import {
 } from "./bundled-skill-model.ts";
 import {
     directoryExists,
+    fileExists,
     isManagedBundledSkillInstallation,
     readInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
@@ -27,7 +28,13 @@ import {
 import {
     availableBundledSkillNames,
 } from "./embedded-assets.ts";
-import { readSkillFileContent } from "./local-skill-ownership.ts";
+import {
+    hasMatchingSkillFileHash,
+    isForeignManagedMetadataState,
+    readSkillFileHash,
+    readSkillMetadataFileState,
+    writeLocalSkillMetadata,
+} from "./local-skill-ownership.ts";
 import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallation,
@@ -53,9 +60,7 @@ interface ManagedSkillTargetState<Metadata> {
 }
 
 interface CanonicalRegistrySkill {
-    metadata: ManagedSkillMetadata & {
-        packageName: string;
-    };
+    metadata: ManagedSkillMetadata;
     name: string;
     path: string;
 }
@@ -398,6 +403,12 @@ async function synchronizeLocalSkill(
             return;
         }
 
+        // Canonical without SKILL.md indicates an aborted init; do not
+        // publish that incomplete state.
+        if (!(await fileExists(join(skill.path, "SKILL.md")))) {
+            return;
+        }
+
         if (await pathExists(installation.installedSkillDirectoryPath)) {
             if (!(await directoryExists(installation.installedSkillDirectoryPath))) {
                 context.logger.warn(
@@ -411,26 +422,30 @@ async function synchronizeLocalSkill(
                 return;
             }
 
-            const [canonicalContent, targetContent] = await Promise.all([
-                readSkillFileContent(skill.path),
-                readSkillFileContent(installation.installedSkillDirectoryPath),
-            ]);
+            const canonicalHash = await readSkillFileHash(skill.path);
 
-            // Canonical without SKILL.md indicates an aborted init; do not
-            // overwrite an existing target with that incomplete state.
-            if (canonicalContent === undefined) {
+            if (canonicalHash === undefined) {
                 return;
             }
 
-            if (canonicalContent !== targetContent) {
-                const metadata = await readManagedSkillMetadata(
-                    installation.installedSkillDirectoryPath,
-                );
+            const metadataState = await readSkillMetadataFileState(
+                installation.installedSkillDirectoryPath,
+            );
+            const targetMatchesCanonical = await hasMatchingSkillFileHash({
+                expectedHash: canonicalHash,
+                skillDirectoryPath: installation.installedSkillDirectoryPath,
+            });
 
-                // Registry-managed installations under the same skill name are
-                // owned by the registry sync path; local sync must not overwrite
-                // them.
-                if (metadata?.packageName !== undefined) {
+            if (!targetMatchesCanonical) {
+                if (metadataState.metadata?.kind === "local") {
+                    context.logger.warn(
+                        {
+                            agentName: installation.agentName,
+                            path: installation.installedSkillDirectoryPath,
+                            skillName: skill.name,
+                        },
+                        "Local skill startup synchronization skipped because the local target differs from canonical storage.",
+                    );
                     return;
                 }
 
@@ -444,16 +459,44 @@ async function synchronizeLocalSkill(
                 );
                 return;
             }
+            else if (isForeignManagedMetadataState(metadataState)) {
+                context.logger.warn(
+                    {
+                        agentName: installation.agentName,
+                        path: installation.installedSkillDirectoryPath,
+                        skillName: skill.name,
+                    },
+                    "Local skill startup synchronization skipped because the target belongs to another oo-managed source.",
+                );
+                return;
+            }
+            else if (metadataState.metadata?.kind === "local") {
+                if (
+                    await isManagedSkillPublicationCurrent(
+                        installation.installedSkillDirectoryPath,
+                    )
+                ) {
+                    return;
+                }
+            }
 
             if (
-                await isManagedSkillPublicationCurrent(
-                    installation.installedSkillDirectoryPath,
-                )
+                targetMatchesCanonical
+                && metadataState.metadata === undefined
+                && !metadataState.exists
             ) {
-                return;
+                context.logger.info(
+                    {
+                        agentName: installation.agentName,
+                        path: installation.installedSkillDirectoryPath,
+                        skillName: skill.name,
+                    },
+                    "Local skill startup synchronization adopted a legacy matching copy.",
+                );
             }
         }
 
+        await writeLocalSkillMetadata(skill.path);
         await publishBundledSkillInstallation({
             canonicalSkillDirectoryPath: skill.path,
             installedSkillDirectoryPath: installation.installedSkillDirectoryPath,
@@ -499,10 +542,7 @@ async function listCanonicalRegistrySkills(
             }
 
             return {
-                metadata: {
-                    packageName: metadata.packageName,
-                    version: metadata.version,
-                },
+                metadata,
                 name: entryName,
                 path: canonicalSkillDirectoryPath,
             } satisfies CanonicalRegistrySkill;

@@ -24,7 +24,10 @@ import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import {
+    createBundledSkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 describe("skills CLI", () => {
     test("requires login before installing published skills", async () => {
@@ -122,9 +125,7 @@ describe("skills CLI", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toContain("Options:");
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({
-                    version: "9.9.9",
-                }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await readFile(getBundledSkillSourcePath("oo", "SKILL.md"), "utf8"),
@@ -181,7 +182,9 @@ describe("skills CLI", () => {
                         resolveBundledSkillMetadataFilePath(skillTarget.directoryPath),
                         "utf8",
                     ),
-                ).toBe(renderSkillMetadataJson({ version: installedVersion }));
+                ).toBe(renderSkillMetadataJson({
+                    version: installedVersion,
+                }));
             }
             expect(content).toContain(
                 `"msg":"Bundled skill startup synchronization skipped because the current CLI version is a development version."`,
@@ -416,7 +419,10 @@ describe("skills CLI", () => {
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(codexSkillDirectoryPath),
                 "utf8",
-            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }));
+            )).toBe(renderSkillMetadataJson({
+                packageName: "openai",
+                version: "0.0.3",
+            }));
             expect(content).toContain(
                 `"msg":"Registry skill synchronized during CLI startup."`,
             );

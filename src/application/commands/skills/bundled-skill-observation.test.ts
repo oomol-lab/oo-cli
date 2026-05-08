@@ -17,6 +17,10 @@ import {
     resolveTraeCnHomeDirectory,
     resolveTraeHomeDirectory,
 } from "./bundled-skill-paths.ts";
+import {
+    createBundledSkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 describe("bundled skill observation", () => {
     test("reports directory and file existence from stat-backed wrappers", async () => {
@@ -57,11 +61,11 @@ describe("bundled skill observation", () => {
             await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
                 version: "1.2.3",
             });
-            expect(await readInstalledBundledSkillMetadata(skillDirectoryPath)).toEqual({
-                version: "1.2.3",
-            });
+            expect(await readInstalledBundledSkillMetadata(skillDirectoryPath)).toEqual(
+                createBundledSkillMetadata("1.2.3"),
+            );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                "{\n  \"version\": \"1.2.3\"\n}\n",
+                renderSkillMetadataJson(createBundledSkillMetadata("1.2.3")),
             );
         }
         finally {

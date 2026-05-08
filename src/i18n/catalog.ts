@@ -351,6 +351,8 @@ export const enMessages = {
         "Bundled skill {name} cannot be published directly because it is managed by the oo CLI release. Create or adopt a local copy before publishing.",
     "errors.skills.publish.localSkillMissing":
         "Local skill {name} does not exist at {path}.",
+    "errors.skills.publish.localCopyDrift":
+        "Local skill {name} has modified agent copies at {paths}. Publishing uses canonical storage at {localPath}; pass --force to ignore agent-side changes.",
     "errors.skills.publish.registryMetadataMissing":
         "Registry skill {name} cannot be published because its metadata file at {path} does not identify a packageName.",
     "errors.skills.publish.registryPackageConfirmationRequired":
@@ -683,6 +685,10 @@ export const enMessages = {
         "Invalid choice. Enter y/yes or n/no.",
     "skills.publish.remoteBlocks.prompt":
         "Remote package {packageName}@{version} contains blocks. Continue publishing skill {name} as {packageName}? [y/N] ",
+    "warnings.skills.localCopyDriftOverwritten":
+        "Warning: Local skill {name} copy at {path} differs from canonical storage and was overwritten.",
+    "warnings.skills.publishLocalCopyDriftIgnored":
+        "Warning: Local skill {name} has modified agent copies at {paths}; publishing canonical storage at {localPath} and ignoring agent-side changes.",
     "skills.install.success": "Installed skill {name} to {path}.",
     "skills.install.summary.agentsLabel": "Agents",
     "skills.install.summary.detailLine": "{label}: {values}",
@@ -1135,6 +1141,8 @@ export const zhMessages = {
         "不能直接发布内置 skill {name}，因为它由 oo CLI 版本管理。请先创建或接管一个本地副本再发布。",
     "errors.skills.publish.localSkillMissing":
         "本地 skill {name} 不存在于 {path}。",
+    "errors.skills.publish.localCopyDrift":
+        "本地 skill {name} 的 Agent 副本在 {paths} 存在修改。发布只使用 canonical 存储 {localPath}；如需忽略 Agent 侧修改，请传入 --force。",
     "errors.skills.publish.registryMetadataMissing":
         "无法发布 registry skill {name}，因为它位于 {path} 的元数据文件没有标识 packageName。",
     "errors.skills.publish.registryPackageConfirmationRequired":
@@ -1461,6 +1469,10 @@ export const zhMessages = {
         "输入无效。请输入 y/yes 或 n/no。",
     "skills.publish.remoteBlocks.prompt":
         "远端包 {packageName}@{version} 中存在区块。是否继续将 skill {name} 发布为 {packageName}？[y/N] ",
+    "warnings.skills.localCopyDriftOverwritten":
+        "Warning: 本地 skill {name} 位于 {path} 的副本与 canonical 存储不一致，已被覆盖。",
+    "warnings.skills.publishLocalCopyDriftIgnored":
+        "Warning: 本地 skill {name} 的 Agent 副本在 {paths} 存在修改；将发布 canonical 存储 {localPath} 并忽略 Agent 侧修改。",
     "skills.install.success": "已将 skill {name} 安装到 {path}。",
     "skills.install.summary.agentsLabel": "Agents",
     "skills.install.summary.detailLine": "{label}：{values}",

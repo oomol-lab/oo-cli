@@ -18,6 +18,10 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
+import {
+    createLocalSkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 describe("skills init command", () => {
     test("initializes a local skill and publishes it to existing supported hosts", async () => {
@@ -62,11 +66,12 @@ describe("skills init command", () => {
                 await realpath(canonicalSkillDirectoryPath),
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
-            await expect(
-                stat(join(canonicalSkillDirectoryPath, ".oo-metadata.json")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(await readFile(join(canonicalSkillDirectoryPath, ".oo-metadata.json"), "utf8")).toBe(
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
+            expect(await readFile(join(skillDirectoryPath, ".oo-metadata.json"), "utf8")).toBe(
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
             expect(
                 await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8"),
             ).toBe([

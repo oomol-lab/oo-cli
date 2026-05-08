@@ -268,6 +268,45 @@ describe("skill package conversion", () => {
         ).not.toContain("icon:");
     });
 
+    test("excludes oo metadata even when a skill gitignore does not exclude it", async () => {
+        const sourceDirectoryPath = await createTemporaryDirectory("metadata-skill");
+        const packageRootDirectoryPath = await createTemporaryDirectory("metadata-package");
+
+        cleanup.track(sourceDirectoryPath);
+        cleanup.track(packageRootDirectoryPath);
+
+        await writeSkillFile(sourceDirectoryPath, [
+            "---",
+            "name: metadata-skill",
+            "description: Use a known package workflow.",
+            "---",
+            "",
+            "# Metadata",
+            "",
+        ].join("\n"));
+        await Bun.write(join(sourceDirectoryPath, ".gitignore"), "debug.local\n");
+        await Bun.write(
+            join(sourceDirectoryPath, ".oo-metadata.json"),
+            "{ \"kind\": \"local\", \"schemaVersion\": 1 }\n",
+        );
+
+        await convertSkillDirectoryToPackage({
+            packageName: "@alice/metadata-skill",
+            packageRootDirectoryPath,
+            skillDirectoryPath: sourceDirectoryPath,
+            skillId: "metadata-skill",
+            version: "0.0.1",
+        });
+
+        await expectPathMissing(join(
+            packageRootDirectoryPath,
+            "package",
+            "skills",
+            "metadata-skill",
+            ".oo-metadata.json",
+        ));
+    });
+
     test("uses source gitignore rules when converting a skill package", async () => {
         const sourceDirectoryPath = await createTemporaryDirectory("gitignore-skill");
         const packageRootDirectoryPath = await createTemporaryDirectory("gitignore-package");
