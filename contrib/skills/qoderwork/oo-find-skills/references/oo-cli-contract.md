@@ -66,13 +66,15 @@ Facts:
 
 Output shape:
 
+- For find, compare, recommend, or existence-check requests, report the primary
+  installable skill and any credible fallback with a short reason, then ask
+  whether the user wants to install one. Do not install until the user chooses.
+- For explicit install requests, ask the user to choose from the applicable
+  install actions before running `oo skills install`.
 - When a credible fallback exists, show four numbered choices:
   `Install <primarySkillName> (<primaryPackageName>)`,
   `Install <fallbackSkillName> (<fallbackPackageName>)`,
   `Install both`, `Install neither`.
-- Do not stop at a plain existence confirmation when installable results exist.
-  Even if the user's first question is only whether a matching skill exists,
-  continue into the chooser step after confirming the matches.
 - When no credible fallback exists, show only two numbered choices:
 
 ```text
@@ -96,10 +98,10 @@ Failure handling:
   the explicit HTTP `402` billing case, stop immediately and report the exact
   command failure. Do not invent recommendations, do not claim an install
   succeeded, and do not continue silently.
-- If the user chooses `Install neither` or the UI returns `None of the above`,
-  do not install anything. Reply with exactly one short acknowledgement in the
-  user's language that no skill was installed, then stop without extra result
-  recap, package names, skill names, or descriptions.
+- If the user chooses `Install neither`, declines installation, or the UI returns
+  `None of the above`, do not install anything. Reply with exactly one short
+  acknowledgement in the user's language that no skill was installed, then stop
+  without extra result recap, package names, skill names, or descriptions.
 - If any `oo` output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop
   immediately, tell the user their current account has insufficient credit or
   is overdue, and direct them to

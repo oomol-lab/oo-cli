@@ -366,6 +366,8 @@ skills。
 - 选项：`--description <text>` 为必填项，并写入生成的 `SKILL.md`
   frontmatter description。
 - 生成的 `SKILL.md` frontmatter 包含 `compatibility: "Requires the oo CLI."`。
+- 生成的 `SKILL.md` 正文包含受管理的 oo 执行说明，以及用于描述适用场景、输入、
+  执行、结果处理和失败处理的可编辑占位章节。
 - 选项：`--icon <icon>` 将非空 icon 引用写入生成的 `SKILL.md` frontmatter
   `metadata.icon`。值可以是 emoji、图片 URL，或 `:collection:icon:` 格式，
   其中 `collection` 和 `icon` 是 <https://icones.js.org/> 上的名称。

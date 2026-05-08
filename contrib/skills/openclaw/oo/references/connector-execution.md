@@ -2,21 +2,28 @@
 
 Read this file only after selecting a connector-backed candidate.
 
+This page inherits the constitution from `SKILL.md`: connector schema is the
+only source of service names, action names, input fields, output fields, and
+artifact semantics.
+
 ## Goal
 
-Confirm the connector action from the cached schema, then send the smallest
-JSON payload that matches the user's real intent.
+Turn a connector candidate into a callable connector contract, then send the
+smallest sufficient JSON payload that matches the user's real intent.
 
-## Confirm the action from the cached schema
+## Confirm the action contract
 
 - Use the chosen search result's `service`, `name`, and `schemaPath` as the
   starting point.
 - Read the cached JSON file at `schemaPath` before building any payload.
 - Use the cache file's exact `service`, `name`, `description`, `inputSchema`,
   and `outputSchema` to confirm the action fit.
-- Never invent connector names, action names, defaults, or task results.
 - Prefer the action whose description most directly matches the user's desired
   outcome, especially when the user named the target service.
+- If the selected schema directly satisfies the outcome and required inputs are
+  available, build the payload and execute; do not rediscover adjacent actions.
+- If schema evidence does not prove the action can satisfy the user outcome,
+  refine discovery or stop with a catalog miss.
 
 Representative cache file shape:
 
@@ -30,16 +37,33 @@ Representative cache file shape:
 }
 ```
 
-## Build the smallest valid payload
+## Build connector payload
 
-- Use the action's cached `inputSchema` and normal JSON Schema required-field
-  semantics before submitting data.
-- Prefer concrete user values over broad placeholders or guessed defaults.
+- Use the cached `inputSchema` and normal JSON Schema required-field semantics.
+- Use only declared input fields.
+- Prefer concrete user values over placeholders, broad guesses, or defaults.
+- Preserve service-specific constraints such as recipient, folder, file id,
+  time range, calendar, channel, label, format, or destination.
 - If an input can accept a URI and the user only has a local file, read
   [file-transfer.md](file-transfer.md) before executing.
 - If the task depends on raw file bytes, local paths, or unsupported
   special-media handles that cannot be submitted safely through normal JSON,
-  stop the current `oo` path instead of pretending it will work.
+  stop the current `oo` path.
+
+## External side effects
+
+Actions that send, post, invite, update, delete, move, share, or otherwise
+change third-party state need high confidence before execution.
+
+Proceed directly only when the user's intent and all required payload values are
+unambiguous. Otherwise ask one focused question or confirmation. Do not use
+`--dry-run` as a substitute for completing an explicitly requested action, but
+honor user requests to validate without executing.
+
+An explicit user instruction plus complete required payload values is sufficient
+confidence for non-destructive send, post, create, or invite actions. Ask before
+destructive actions, broad sharing, or ambiguous recipient, content, or
+destination choices.
 
 ## Execute the connector path
 
@@ -59,8 +83,6 @@ Facts:
 - `--data` must be a JSON object string or `@path/to/file.json`.
 - If `--data` is omitted, the CLI uses `{}`.
 - `--json` returns a stable JSON object for execution output.
-- Once the payload is ready, execute the action directly instead of stopping at
-  a validation-only preflight.
 - In execution responses, the execution id is nested under
   `meta.executionId`, not a top-level field.
 
@@ -75,47 +97,45 @@ Expected execution JSON:
 }
 ```
 
-## Known connector caveats
+## Interpret outputs by schema semantics
 
-- Unknown input handles, missing required values, wrong types, or non-object
-  `--data` payloads are rejected.
-- If an input schema contains `contentMediaType` and the value is not
-  `oomol/secret`, current local validation rejects it.
-
-## Interpret outputs by meaning, not by URL shape
-
-- If a handle is URI-compatible, a previously uploaded file's `downloadUrl`
-  may be submitted as the JSON value.
 - Interpret connector output fields by their documented meaning, not by URL
   shape alone.
+- If an output field is documented as a download URL, read
+  [file-transfer.md](file-transfer.md) before saving it locally.
 - Treat browse metadata such as `webViewLink`, edit URLs, folder URLs, or
   console URLs as non-downloadable unless the schema or action description says
   they return file content.
-- For authenticated storage connectors, if the user wants a local copy of a
-  private file, prefer a dedicated action whose `description` identifies it as
-  a download or export action and whose `outputSchema` exposes a download URL
-  field before `oo file download`.
+- If only metadata came back, report metadata as metadata. Do not synthesize a
+  download URL.
 
 ## Storage-style connectors
 
-### Goal
+Storage connectors such as Google Drive, Dropbox, and OneDrive often separate
+locating a file from materializing its bytes.
 
-When the connector manages user files (for example Google Drive, Dropbox,
-OneDrive), separate locating the target from materializing its bytes so the
-download step receives a real file URL, not a browse link.
+State model:
 
-### Heuristics
+1. Locate
+   Use a `find_*`, `list_*`, or similarly described action when the user needs
+   to identify a file or folder. Treat the result as metadata.
+2. Select
+   If the locate action returns multiple candidates and the user's target is
+   ambiguous, ask one focused question. If the locator clearly identifies one
+   item, use its stable id or documented locator field.
+3. Materialize
+   Discover or choose an action whose description identifies it as download or
+   export and whose `outputSchema` exposes a download URL field, such as
+   `transitUrl` on `googledrive.download_file`.
+   Prefer refining within the same connector service first, using the selected
+   service as a keyword or constraint.
+4. Save
+   Feed that documented download URL to `oo file download`. Do not feed
+   `webViewLink`, edit URLs, folder URLs, or console URLs to file download.
 
-- Treat `find_*` and `list_*` outputs as metadata: they answer "which file",
-  not "give me the bytes".
-- Reach for a dedicated download or export action whose `description` says it
-  returns file content and whose `outputSchema` exposes a download URL field
-  (for example `transitUrl` on `googledrive.download_file`).
-- Feed that download URL — not `webViewLink`, edit URLs, or folder URLs — to
-  `oo file download`.
-- If the same connector offers several find-style actions, prefer the one whose
-  filters match the user's locator (by name, by id, by folder) so the result is
-  a single file rather than a list to pick from later.
+If the same connector offers several find-style actions, prefer the one whose
+filters match the user's locator by name, id, folder, type, or time range so
+the result is as narrow as possible.
 
 ## Re-authorization branches
 
@@ -135,3 +155,10 @@ https://console.oomol.com/app-connections?provider=${serviceName}
 ```
 
 Replace `${serviceName}` with the selected connector service.
+
+## Known connector caveats
+
+- Unknown input handles, missing required values, wrong types, or non-object
+  `--data` payloads are rejected.
+- If an input schema contains `contentMediaType` and the value is not
+  `oomol/secret`, current local validation rejects it.

@@ -2,13 +2,16 @@
 
 Read this file only after selecting a package-backed candidate.
 
+This page inherits the constitution from `SKILL.md`: package metadata is the
+only source of package names, versions, block names, handles, defaults, and
+output semantics.
+
 ## Goal
 
-Use package metadata to confirm that the package and block really match the
-user's requested outcome, then build the smallest payload that expresses the
-real user inputs.
+Turn a package candidate into a callable package contract, run it through
+`oo cloud-task`, then continue through task lifecycle.
 
-## Confirm the package and block fit
+## Inspect package metadata
 
 Canonical form:
 
@@ -31,7 +34,6 @@ Facts:
 - For execution, always use the resolved `packageVersion`.
 - Use `blocks[].blockName` for `--block-id`.
 - Do not confuse block `title` with `blockName`.
-- Never invent package IDs, versions, block IDs, defaults, or task results.
 - Use the package and block descriptions to confirm fit before building data.
 
 Expected JSON shape:
@@ -70,15 +72,19 @@ Expected JSON shape:
 }
 ```
 
-## Choose the right block
+## Choose the block
 
-- Prefer the block whose description and expected output most directly match the
-  user's requested result.
-- Do not assume `main` is automatically the right block unless the metadata
-  supports that.
+- Prefer the block whose description, input handles, and expected output most
+  directly match the user's requested result.
+- Choose the first block whose metadata directly satisfies the user outcome;
+  inspect alternatives only when the primary block is ambiguous, unsafe, or
+  output-mismatched.
+- Do not assume `main` is the right block unless metadata supports that.
 - If two blocks are plausible, keep one primary block and at most one fallback.
+- If metadata is insufficient to choose safely, stop and report the ambiguity
+  instead of guessing.
 
-## Build the smallest valid payload
+## Build package payload
 
 Treat an input handle as optional only when metadata proves it:
 
@@ -89,15 +95,17 @@ Treat an input handle as optional only when metadata proves it:
 These signals only show that omission may pass local validation. They do not
 prove that the package-provided value is correct for the current user request.
 
-- Override sample values, placeholders, empty strings, and defaults whenever
-  the user request implies a specific input.
-- Use only fields the selected block actually exposes.
-- Prefer the user's exact file type, language pair, target format, or style
-  constraint over generic defaults.
+Rules:
+
+- Use only fields exposed by the selected block's `inputHandle`.
+- Preserve user constraints such as exact file type, language pair, target
+  format, destination, style, or time range.
+- Override sample values, placeholders, empty strings, and defaults whenever the
+  user request implies a specific input.
+- Do not submit a local file path where the handle expects a URI-compatible
+  string. Read [file-transfer.md](file-transfer.md) first.
 - Stop when the selected block depends on an input shape that `oo-cli` cannot
   safely submit.
-- If a file-like handle expects a URI-compatible string, read
-  [file-transfer.md](file-transfer.md) before building the payload.
 
 ## Execute the package path
 
@@ -116,6 +124,7 @@ Facts:
 - `--block-id` is required.
 - `--data` must be a JSON object string or `@path/to/file.json`.
 - If `--data` is omitted, the CLI uses `{}`.
+- `oo cloud-task run` returns a task handle, not the final task result.
 
 Expected success JSON:
 
@@ -125,6 +134,11 @@ Expected success JSON:
 }
 ```
 
+After success, read [task-lifecycle.md](task-lifecycle.md). Continue with a
+bounded wait or result inspection when the user needs the final result or
+artifact, instead of stopping at the `taskID` unless the user only asked to
+start the task.
+
 ## Known package caveats
 
 - Unknown input handles, missing required values, wrong types, or non-object
@@ -133,5 +147,3 @@ Expected success JSON:
   bytes.
 - If an input handle schema contains `contentMediaType` and the value is not
   `oomol/secret`, current local validation rejects it.
-- After a successful run returns `taskID`, read
-  [task-lifecycle.md](task-lifecycle.md).

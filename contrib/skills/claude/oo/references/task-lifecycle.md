@@ -4,8 +4,9 @@ Read this file only after `oo cloud-task run` returns a `taskID`.
 
 ## Goal
 
-Make progress without recreating work: wait in bounded windows, inspect the
-latest result snapshot, and only materialize artifacts after success.
+Treat `taskID` as a task handle, not as the final result. Make progress without
+recreating work: wait in bounded windows, inspect the latest result snapshot,
+and materialize artifacts only after success.
 
 ## Wait with a bounded window first
 
@@ -31,10 +32,13 @@ Facts:
 ## Waiting policy
 
 - Prefer a short bounded wait window first instead of a single long wait.
+- Choose a window based on the task type when no user preference exists: about
+  `2m` to `10m` for short tasks, `15m` to `30m` for medium tasks, and `30m` to
+  `60m` for long or unknown tasks.
 - Do not treat timeout as task failure.
 - Never re-create a task just because a wait window ended.
-- If wait output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop and send
-  the user to https://console.oomol.com/billing/recharge.
+- If wait output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop and read
+  [auth-and-billing.md](auth-and-billing.md).
 
 ## Inspect the latest result snapshot
 
@@ -43,6 +47,9 @@ Canonical form:
 ```bash
 oo cloud-task result "<taskId>" --json
 ```
+
+Use this after a non-zero wait exit, when the user asks for status, or when a
+previous wait window may have timed out before a late success.
 
 Possible JSON shapes:
 
@@ -73,11 +80,14 @@ Possible JSON shapes:
 - In-progress statuses include `queued`, `scheduling`, `scheduled`, and
   `running`. Treat any of them as non-terminal.
 - Use `oo cloud-task result` after a non-zero wait exit to distinguish timeout,
-  failure, and a late success.
+  failure, and late success.
 - If the result snapshot contains HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
   treat it as a billing problem and stop instead of retrying.
 - If the task succeeded and `resultURL` is present, read
   [file-transfer.md](file-transfer.md) before downloading the artifact.
 - If the task succeeded and `resultURL` is missing or `null`, do not invent a
   download URL from `resultData` or logs. Report the success using the returned
-  structured result instead.
+  structured result.
+- If the task failed, report the failure state and useful error details from the
+  result snapshot without creating a replacement task unless the user asks to
+  retry with changed inputs.

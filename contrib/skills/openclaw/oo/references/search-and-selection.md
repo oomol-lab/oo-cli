@@ -1,30 +1,37 @@
 # Search and Selection
 
-Read this file before the first `oo search` call and whenever choosing between a
-package path and a connector path.
+Read this file before the first `oo search` call and whenever choosing between
+a package path and a connector path.
+
+This page inherits the constitution from `SKILL.md`: search results are
+evidence for candidates, not permission to execute. Execution requires a
+capability contract.
 
 ## Goal
 
 Find the most direct documented `oo` capability with as little search churn as
 possible.
 
-## Start with one English goal sentence for the current external step
+## Search goal sentence
 
-Turn the user request into one short English sentence that describes the
-desired outcome for the current search step.
+Turn the current external step into one short English sentence that describes
+the desired outcome.
 
-For short multi-step workflows, do not force the whole workflow into one search
-query. Break the task into a short ordered chain of subgoals and search the
-current unresolved external step first.
+Use this shape:
+
+```text
+action + object + key constraint or target service
+```
 
 Guidance:
 
-- Prefer `action + object + key constraint or target service`.
-- Keep the first search intent outcome-oriented rather than implementation-led.
-- Preserve useful constraint words such as language pair, file type, output
-  format, or target service.
+- Prefer outcome words over implementation guesses.
+- Preserve decisive constraints: language pair, file type, output format,
+  target service, destination, time range, or attachment.
 - Avoid meta words such as `oo`, `CLI`, `search`, or `skill` unless the user
   actually asked about them.
+- For a short multi-step workflow, search only the current unresolved external
+  step, not the whole chain.
 
 Examples:
 
@@ -35,17 +42,18 @@ Examples:
 - `collect Gmail messages from yesterday`
 - `create a Notion page from prepared content`
 
-## Repair a weak first query
+## Repair weak first queries
 
-Revise the first query when the result set shows that the query was too broad,
-too implementation-led, or missing a decisive constraint.
+Revise the query only when the first result set shows that the query was too
+broad, too implementation-led, or missing a decisive constraint.
 
-Common repair moves:
+Repair moves:
 
 - Add the missing medium or file type.
-- Add the missing language pair, target service, or output format.
-- Replace implementation guesses with the user's actual desired outcome.
-- Remove filler words that do not narrow the capability choice.
+- Add the missing language pair, target service, destination, time range, or
+  output format.
+- Replace implementation guesses with the user's desired outcome.
+- Remove filler words that do not narrow capability choice.
 
 Examples:
 
@@ -60,7 +68,7 @@ Examples:
 - Missing format constraint: `translate contract PDF`
   Better: `translate a scanned German contract PDF into English and return a DOCX`
 
-## Mixed discovery entrypoint
+## Mixed discovery command
 
 Canonical form:
 
@@ -111,44 +119,58 @@ Representative JSON example:
 ]
 ```
 
-## How to rank the first result set
+## Rank the first result set
 
-- Use `oo search` as the default first substantive lookup.
-- The first search call should use one quoted free-form query string plus
-  `--json`.
-- For short multi-step workflows, the query should describe the current
-  external step, not the whole chain.
-- Inspect the first result set before trying alternative searches.
-- Revise the query only when the first result set clearly missed a decisive
-  constraint or pulled the search toward the wrong capability family.
-- Usually keep one primary candidate and at most one materially different
-  fallback.
-- If a package and a connector are equally direct, prefer the authenticated
-  connector as a tie-breaker because it is usually lower friction and cheaper.
-- If the returned array is empty or no candidate clearly fits, explain that the
-  current `oo` catalog does not expose a good match and stop the current `oo`
-  path.
+Inspect the first result set before trying alternative searches. Usually keep
+one primary candidate and at most one materially different fallback.
+
+A good direct first result is enough. Do not keep searching for a theoretically
+better option unless the first result misses a decisive constraint, has unclear
+output semantics, or adds unsafe or missing required inputs.
+Treat the fallback as a reserved path for a named blocker, not as another option
+to inspect by default.
 
 Rank mixed results in this order:
 
 1. Directness of the action or block relative to the user's goal
-2. Whether the service or output target is explicitly named or strongly implied
-3. Whether the candidate is already authenticated and ready to run
+2. Whether the target service, destination, or output is explicitly named or
+   strongly implied
+3. Whether the candidate is ready to run, especially authenticated connector
+   readiness
 4. How many required inputs and follow-up questions it adds
-5. How closely the expected output matches the user's desired outcome
+5. How closely the documented output matches the user's desired outcome
 
-## Refinement moves
+Tie-breakers:
 
-- Inspect only the shortlisted candidates.
-- For package-backed candidates, inspect with `oo packages info` before
-  execution.
-- For connector-backed candidates, read the cached schema file at `schemaPath`
-  before building any payload.
-- If extra refinement is needed, use `--keywords` or a later follow-up search
-  after inspecting the first result set.
+- Prefer a direct connector over a package when the user named a connected
+  service and the connector is authenticated.
+- Prefer a package when the user wants a managed transform that is not tied to
+  an account service.
+- If the returned array is empty or no candidate clearly fits, stop the current
+  `oo` path and report that the catalog does not expose a good match.
+
+## Build the next contract step
+
+After selecting a candidate, do not execute yet.
+
+- Package-backed candidate: read
+  [package-execution.md](package-execution.md), then inspect with
+  `oo packages info "<packageId from the selected search result>" --json`.
+- Connector-backed candidate: read
+  [connector-execution.md](connector-execution.md), then read the cached schema
+  file at `schemaPath`.
+
+Use the inspected metadata or schema to complete the minimum viable contract:
+exact callable id, required input names, payload shape, output meaning, and
+side-effect class when relevant. Do not inspect extra candidates once this is
+complete.
+
+## Refinement policy
+
+- Refine only after inspecting the first result set.
+- Use `--keywords` when the first search captured the general task but missed
+  an important connector service, format, language, or destination constraint.
 - Do not pass normalized keywords as extra positional arguments.
-- Use `--keywords` when the first search captured the general task but missed an
-  important service, format, or language constraint.
 - If connector signal is still ambiguous after shortlisting, refine with:
 
 ```bash

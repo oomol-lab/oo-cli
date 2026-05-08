@@ -1,11 +1,6 @@
 ---
 name: oo-create-skill
-description: >-
-  Author, generate, scaffold, or update a local AI agent skill that turns an
-  OOMOL/oo package, connector action, block, or selected workflow into reusable
-  instructions. Use when the user asks to create a skill, write a skill, make a
-  Codex/Claude/agent skill, or refine an existing local skill for an oo-powered
-  workflow, even if capability discovery is needed first.
+description: Author, generate, scaffold, or update a local AI agent skill that turns an OOMOL/oo package, connector action, block, or selected workflow into reusable instructions. Use when the user asks to create a skill, write a skill, make a Codex/Claude/agent skill, or refine an existing local skill for an oo-powered workflow, even if capability discovery is needed first.
 ---
 
 # oo Create Skill

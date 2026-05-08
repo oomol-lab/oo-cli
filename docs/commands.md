@@ -419,6 +419,9 @@ directory that already exists.
   `SKILL.md` frontmatter description.
 - Generated `SKILL.md` frontmatter includes `compatibility: "Requires the oo
   CLI."`.
+- Generated `SKILL.md` body includes the managed oo execution notice and
+  editable placeholder sections for when to use the skill, inputs, execution,
+  result handling, and failure handling.
 - Options: `--icon <icon>` writes a non-empty icon reference to `metadata.icon`
   in the generated `SKILL.md` frontmatter. The value may be an emoji, an image
   URL, or `:collection:icon:` where `collection` and `icon` are names from
