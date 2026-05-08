@@ -113,100 +113,133 @@ describe("reject-large-external-pr", () => {
     });
 
     test("allows same-repository pull requests before requiring a GitHub token", async () => {
-        const directory = await mkdtemp(join(tmpdir(), "oo-large-pr-"));
-        const eventPath = join(directory, "event.json");
-
-        try {
-            await writePullRequestEvent(eventPath, {
-                additions: 500,
-                authorAssociation: "NONE",
-                baseRepositoryFullName: "oomol-lab/oo-cli",
-                deletions: 500,
-                headRepositoryFullName: "oomol-lab/oo-cli",
-            });
-
+        await withTempPullRequestEvent({
+            additions: 500,
+            authorAssociation: "NONE",
+            baseRepositoryFullName: "oomol-lab/oo-cli",
+            deletions: 500,
+            headRepositoryFullName: "oomol-lab/oo-cli",
+        }, async (eventPath) => {
             await main({
                 GITHUB_EVENT_PATH: eventPath,
             });
-        }
-        finally {
-            await rm(directory, { force: true, recursive: true });
-        }
+        });
     });
 
-    test("comments and closes large external pull requests without a GET body", async () => {
-        const directory = await mkdtemp(join(tmpdir(), "oo-large-pr-"));
-        const eventPath = join(directory, "event.json");
-        const requests: Array<{ init: FetchInit; url: string }> = [];
-        // Bun's fetch type requires a `preconnect` property; preserve the original.
-        globalThis.fetch = Object.assign(async (
-            input: Parameters<typeof fetch>[0],
-            init?: FetchInit,
-        ): Promise<Response> => {
-            requests.push({
-                init,
-                url: String(input),
-            });
+    test("treats missing repository names as external when reading events", async () => {
+        const requests = installGitHubApiFetchStub();
 
-            if (init?.method === "GET") {
-                return Response.json([]);
-            }
-
-            return Response.json({});
-        }, {
-            preconnect: originalFetch.preconnect,
-        });
-
-        try {
-            await writePullRequestEvent(eventPath, {
-                additions: 120,
-                authorAssociation: "CONTRIBUTOR",
-                baseRepositoryFullName: "oomol-lab/oo-cli",
-                deletions: 80,
-                headRepositoryFullName: "external-user/oo-cli",
-            });
-
+        await withTempPullRequestEvent({
+            additions: 120,
+            authorAssociation: "CONTRIBUTOR",
+            baseRepositoryFullName: "oomol-lab/oo-cli",
+            deletions: 80,
+        }, async (eventPath) => {
             await main({
                 GITHUB_API_URL: "https://api.example.test/",
                 GITHUB_EVENT_PATH: eventPath,
                 GITHUB_TOKEN: "token",
             });
+        });
 
-            expect(requests).toHaveLength(3);
-            const commentListRequest = requests.find(request => request.init?.method === "GET");
-            const commentCreateRequest = requests.find(request => request.init?.method === "POST");
-            const closeRequest = requests.find(request => request.init?.method === "PATCH");
-            if (
-                commentListRequest === undefined
-                || commentCreateRequest === undefined
-                || closeRequest === undefined
-            ) {
-                throw new Error("Expected comment list, comment create, and close requests.");
-            }
+        expect(requests).toHaveLength(3);
+        expect(requests.some(request => request.init?.method === "PATCH")).toBeTrue();
+    });
 
-            expect(commentListRequest).toMatchObject({
-                url: "https://api.example.test/repos/oomol-lab/oo-cli/issues/157/comments?per_page=100",
+    test("comments and closes large external pull requests without a GET body", async () => {
+        const requests = installGitHubApiFetchStub();
+
+        await withTempPullRequestEvent({
+            additions: 120,
+            authorAssociation: "CONTRIBUTOR",
+            baseRepositoryFullName: "oomol-lab/oo-cli",
+            deletions: 80,
+            headRepositoryFullName: "external-user/oo-cli",
+        }, async (eventPath) => {
+            await main({
+                GITHUB_API_URL: "https://api.example.test/",
+                GITHUB_EVENT_PATH: eventPath,
+                GITHUB_TOKEN: "token",
             });
-            expect(commentListRequest.init?.body).toBeUndefined();
-            expect(JSON.parse(String(commentCreateRequest.init?.body))).toMatchObject({
-                body: expect.stringContaining("oo-cli-large-external-pr-guard"),
-            });
-            expect(JSON.parse(String(closeRequest.init?.body))).toEqual({
-                state: "closed",
-            });
+        });
+
+        expect(requests).toHaveLength(3);
+        const commentListRequest = requests.find(request => request.init?.method === "GET");
+        const commentCreateRequest = requests.find(request => request.init?.method === "POST");
+        const closeRequest = requests.find(request => request.init?.method === "PATCH");
+        if (
+            commentListRequest === undefined
+            || commentCreateRequest === undefined
+            || closeRequest === undefined
+        ) {
+            throw new Error("Expected comment list, comment create, and close requests.");
         }
-        finally {
-            await rm(directory, { force: true, recursive: true });
-        }
+
+        expect(commentListRequest).toMatchObject({
+            url: "https://api.example.test/repos/oomol-lab/oo-cli/issues/157/comments?per_page=100",
+        });
+        expect(commentListRequest.init?.body).toBeUndefined();
+        expect(JSON.parse(String(commentCreateRequest.init?.body))).toMatchObject({
+            body: expect.stringContaining("oo-cli-large-external-pr-guard"),
+        });
+        expect(JSON.parse(String(closeRequest.init?.body))).toEqual({
+            state: "closed",
+        });
     });
 });
 
 interface PullRequestEventOptions {
     additions: number;
     authorAssociation: string;
-    baseRepositoryFullName: string;
+    baseRepositoryFullName?: string;
     deletions: number;
-    headRepositoryFullName: string;
+    headRepositoryFullName?: string;
+}
+
+interface CapturedFetchRequest {
+    init: FetchInit;
+    url: string;
+}
+
+function installGitHubApiFetchStub(): CapturedFetchRequest[] {
+    const requests: CapturedFetchRequest[] = [];
+
+    // Bun's fetch type requires a `preconnect` property; preserve the original.
+    globalThis.fetch = Object.assign(async (
+        input: Parameters<typeof fetch>[0],
+        init?: FetchInit,
+    ): Promise<Response> => {
+        requests.push({
+            init,
+            url: String(input),
+        });
+
+        if (init?.method === "GET") {
+            return Response.json([]);
+        }
+
+        return Response.json({});
+    }, {
+        preconnect: originalFetch.preconnect,
+    });
+
+    return requests;
+}
+
+async function withTempPullRequestEvent(
+    options: PullRequestEventOptions,
+    run: (eventPath: string) => Promise<void>,
+): Promise<void> {
+    const directory = await mkdtemp(join(tmpdir(), "oo-large-pr-"));
+    const eventPath = join(directory, "event.json");
+
+    try {
+        await writePullRequestEvent(eventPath, options);
+        await run(eventPath);
+    }
+    finally {
+        await rm(directory, { force: true, recursive: true });
+    }
 }
 
 async function writePullRequestEvent(eventPath: string, options: PullRequestEventOptions): Promise<void> {
@@ -221,15 +254,11 @@ async function writePullRequestEvent(eventPath: string, options: PullRequestEven
             additions: options.additions,
             author_association: options.authorAssociation,
             base: {
-                repo: {
-                    full_name: options.baseRepositoryFullName,
-                },
+                repo: createPullRequestRepositoryPayload(options.baseRepositoryFullName),
             },
             deletions: options.deletions,
             head: {
-                repo: {
-                    full_name: options.headRepositoryFullName,
-                },
+                repo: createPullRequestRepositoryPayload(options.headRepositoryFullName),
             },
             number: 157,
             user: {
@@ -237,4 +266,14 @@ async function writePullRequestEvent(eventPath: string, options: PullRequestEven
             },
         },
     }));
+}
+
+function createPullRequestRepositoryPayload(
+    repositoryFullName: string | undefined,
+): Record<string, string> {
+    return repositoryFullName === undefined
+        ? {}
+        : {
+                full_name: repositoryFullName,
+            };
 }

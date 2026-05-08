@@ -148,21 +148,44 @@ function parseNumber(value: unknown, fieldName: string): number {
 function parsePullRequestRepositoryFullName(
     pullRequest: Record<string, unknown>,
     refName: "base" | "head",
-): string {
-    const pullRequestRef = parseObject(pullRequest[refName], `pull_request.${refName}`);
-    const repository = parseObject(pullRequestRef.repo, `pull_request.${refName}.repo`);
+): string | undefined {
+    const pullRequestRef = parseOptionalObject(pullRequest[refName]);
+    if (pullRequestRef === undefined) {
+        return undefined;
+    }
 
-    return parseString(repository.full_name, `pull_request.${refName}.repo.full_name`);
+    const repository = parseOptionalObject(pullRequestRef.repo);
+    if (repository === undefined) {
+        return undefined;
+    }
+
+    const fullName = repository.full_name;
+    if (typeof fullName !== "string") {
+        return undefined;
+    }
+
+    const normalizedFullName = fullName.trim();
+    return normalizedFullName === "" ? undefined : normalizedFullName;
+}
+
+function parseOptionalObject(value: unknown): Record<string, unknown> | undefined {
+    return typeof value === "object" && value !== null && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : undefined;
 }
 
 function evaluateSourceIsExternal(input: PullRequestGuardInput): boolean {
-    // Fail closed when callers omit repo names: the rejection guard should err toward "external".
-    // readPullRequestEvent always populates both fields in production.
-    if (input.baseRepositoryFullName === undefined || input.headRepositoryFullName === undefined) {
+    const baseRepositoryFullName = input.baseRepositoryFullName?.trim();
+    const headRepositoryFullName = input.headRepositoryFullName?.trim();
+
+    if (baseRepositoryFullName === undefined || baseRepositoryFullName === "") {
+        return true;
+    }
+    if (headRepositoryFullName === undefined || headRepositoryFullName === "") {
         return true;
     }
 
-    return input.baseRepositoryFullName !== input.headRepositoryFullName;
+    return baseRepositoryFullName !== headRepositoryFullName;
 }
 
 function buildRepoPath(ref: PullRequestRef, suffix: string): string {
