@@ -38,6 +38,8 @@ Facts:
   `fileSize`, `id`, `status`, and `uploadedAt`.
 - The uploaded file expires after one day.
 - Files larger than `512 MiB` are rejected.
+- Local `file://...` URIs are local filesystem references, not cloud-accessible
+  artifacts.
 
 Use this command when:
 
@@ -46,7 +48,11 @@ Use this command when:
 
 Rules:
 
-- Submit the returned `downloadUrl` in `--data`.
+- Submit the returned `downloadUrl` in the cloud payload.
+- Do not submit local absolute paths or local `file://...` URIs in cloud
+  payloads unless the selected schema explicitly supports local paths; they may
+  pass URI validation but fail when the cloud task tries to fetch or upload the
+  file.
 - Do not treat file upload as a way to pass raw bytes or bypass unsupported
   `contentMediaType` validation.
 - If the selected input does not accept a URI-compatible string, stop at an
@@ -102,4 +108,5 @@ Stop and report the blocker when transfer fails because of:
 - non-directory `outDir`
 - non-success HTTP response
 - local file missing or too large
+- `oo file upload` did not return a usable `downloadUrl`
 - selected input not accepting URI-compatible values

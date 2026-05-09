@@ -102,8 +102,10 @@ Rules:
   format, destination, style, or time range.
 - Override sample values, placeholders, empty strings, and defaults whenever the
   user request implies a specific input.
-- Do not submit a local file path where the handle expects a URI-compatible
-  string. Read [file-transfer.md](file-transfer.md) first.
+- Do not submit a local file path or local `file://...` URI where the handle
+  expects a URI-compatible string. Read [file-transfer.md](file-transfer.md)
+  first, upload the file with `oo file upload`, and submit the returned
+  `downloadUrl`.
 - Stop when the selected block depends on an input shape that `oo-cli` cannot
   safely submit.
 

@@ -401,6 +401,56 @@ describe("embedded skill assets", () => {
         }
     });
 
+    test("guides oo runtime to upload local files before cloud payloads", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFiles = getBundledSkillFiles("oo", agentName);
+            const skillFile = skillFiles.find(file => file.relativePath === "SKILL.md");
+            const packageGuide = skillFiles.find(
+                file => file.relativePath === "references/package-execution.md",
+            );
+            const fileTransferGuide = skillFiles.find(
+                file => file.relativePath === "references/file-transfer.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo SKILL.md`);
+            }
+
+            if (packageGuide === undefined) {
+                throw new Error(`Missing ${agentName} oo package-execution guide`);
+            }
+
+            if (fileTransferGuide === undefined) {
+                throw new Error(`Missing ${agentName} oo file-transfer guide`);
+            }
+
+            const skillContent = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+            const packageContent = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(packageGuide.sourcePath).text(),
+            );
+            const fileTransferContent = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(fileTransferGuide.sourcePath).text(),
+            );
+
+            expect(skillContent).toContain("Local `file://...` URIs");
+            expect(skillContent).toContain("not cloud-accessible artifacts");
+            expect(skillContent).toContain("`oo file upload \"<filePath>\" --json`");
+            expect(skillContent).toContain("returned `downloadUrl`");
+            expect(packageContent).toContain("local file path or local `file://...` URI");
+            expect(packageContent).toContain("upload the file with `oo file upload`");
+            expect(packageContent).toContain("submit the returned `downloadUrl`");
+            expect(fileTransferContent).toContain("Local `file://...` URIs");
+            expect(fileTransferContent).toContain("local filesystem references");
+            expect(fileTransferContent).toContain("Do not submit local absolute paths");
+            expect(fileTransferContent).toContain("cloud payloads");
+            expect(fileTransferContent).toContain("explicitly supports local paths");
+            expect(fileTransferContent).toContain("fail when the cloud task tries");
+            expect(fileTransferContent).toContain("`oo file upload` did not return");
+        }
+    });
+
     test("guides oo-create-skill agents to fill presentation metadata", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(

@@ -14,6 +14,11 @@ describe("registry skill markdown", () => {
         expect(guidance).toContain("minimum viable execution contract");
         expect(guidance).toContain("Do not search for extra packages");
         expect(guidance).toContain("preserve the user's concrete constraints");
+        expect(guidance).toContain("Do not pass local absolute paths");
+        expect(guidance).toContain("local `file://...` URIs");
+        expect(guidance).toContain("explicitly supports local paths");
+        expect(guidance).toContain("not cloud-accessible");
+        expect(guidance).toContain("artifacts");
         expect(guidance).toContain("Download only an explicit `resultURL`");
         expect(guidance).toContain("structured `resultData` without `resultURL`");
         expect(guidance).toContain("do not guess parameters and do not run yet");

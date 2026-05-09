@@ -40,10 +40,12 @@ These rules override every local heuristic.
    unresolved external step. Between `oo` steps, local work is limited to
    filtering, grouping, ranking, deduplicating, summarizing, or shaping the next
    payload.
-7. Explicit artifact rule. Upload only for URI-compatible inputs. Download only
-   explicit artifact URLs documented by the selected path. Browse links, edit
-   links, folder links, console URLs, and metadata are not downloadable
-   artifacts.
+7. Explicit artifact rule. Upload only for URI-compatible inputs. Local
+   `file://...` URIs are not cloud-accessible artifacts; for local files, run
+   `oo file upload "<filePath>" --json` and pass the returned `downloadUrl`
+   instead. Download only explicit artifact URLs documented by the selected
+   path. Browse links, edit links, folder links, console URLs, and metadata are
+   not downloadable artifacts.
 8. External effects need enough confidence. For non-destructive send, post,
    create, or invite actions, an explicit user instruction plus complete
    required payload values is enough to proceed. Ask one focused question before
