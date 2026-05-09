@@ -64,6 +64,42 @@ describe("loadPackageInfo", () => {
         expect(fetchCount).toBe(1);
     });
 
+    test("converts raw isPrivate visibility into normalized access", async () => {
+        for (const { access, isPrivate } of [
+            { access: "private", isPrivate: true },
+            { access: "public", isPrivate: false },
+        ] as const) {
+            const cacheValues = new Map<string, string>();
+            const context = createPackageInfoContext(
+                createCache<string>({
+                    delete(key) {
+                        return cacheValues.delete(key);
+                    },
+                    get(key) {
+                        return cacheValues.get(key) ?? null;
+                    },
+                    set(key, value) {
+                        cacheValues.set(key, value);
+                    },
+                }),
+                (async () => new Response(JSON.stringify({
+                    ...createRawPackageInfoResponse(),
+                    isPrivate,
+                }))) satisfies Fetcher,
+            );
+
+            const response = await loadPackageInfo(
+                parsePackageSpecifier(`qrcode-${access}`),
+                packageInfoAccount,
+                packageInfoRequestLanguage,
+                context,
+            );
+
+            expect(response.access).toBe(access);
+            expect(response).not.toHaveProperty("isPrivate");
+        }
+    });
+
     test("preserves array ext placeholders and omits empty ext objects in input schemas", async () => {
         const cacheValues = new Map<string, string>();
         const cache = createCache<string>({

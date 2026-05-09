@@ -87,7 +87,7 @@ describe("packageInfoCommand", () => {
         expect(fetchCount).toBe(1);
         expect(cacheOptions).toHaveLength(2);
         expect(cacheOptions[0]).toEqual({
-            id: "package.info.v6",
+            id: "package.info.v7",
             defaultTtlMs: 2_592_000_000,
             maxEntries: 300,
         });

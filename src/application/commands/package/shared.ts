@@ -13,7 +13,7 @@ import { patchHandleSchema } from "../shared/handle-schema.ts";
 import { requestText } from "../shared/request.ts";
 import { isStoragePathWidget } from "../shared/schema-utils.ts";
 
-const PACKAGE_INFO_CACHE_ID = "package.info.v6";
+const PACKAGE_INFO_CACHE_ID = "package.info.v7";
 const PACKAGE_INFO_CACHE_MAX_ENTRIES = 300;
 const PACKAGE_INFO_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LATEST_PACKAGE_VERSION = "latest";
@@ -57,6 +57,7 @@ const packageInfoResponseSchema = z.object({
     access: z.enum(["private", "public", "restricted"]).optional(),
     blocks: z.array(packageInfoBlockSchema).optional().default([]),
     description: z.string().optional().default(""),
+    isPrivate: z.boolean().optional(),
     packageName: z.string().min(1),
     packageVersion: z.string().min(1),
     title: z.string().optional().default(""),
@@ -413,7 +414,7 @@ function parseRawPackageInfoResponse(rawResponse: string): PackageInfoResponse {
         );
 
         return transformedPackageInfoResponseSchema.parse({
-            access: parsedResponse.visibility ?? parsedResponse.access,
+            access: resolvePackageInfoAccess(parsedResponse),
             packageName: parsedResponse.packageName,
             packageVersion: parsedResponse.packageVersion,
             description: parsedResponse.description,
@@ -430,6 +431,16 @@ function parseRawPackageInfoResponse(rawResponse: string): PackageInfoResponse {
     catch {
         throw new CliUserError("errors.packageInfo.invalidResponse", 1);
     }
+}
+
+function resolvePackageInfoAccess(
+    parsedResponse: z.output<typeof packageInfoResponseSchema>,
+): z.output<typeof transformedPackageInfoResponseSchema>["access"] {
+    if (parsedResponse.isPrivate !== undefined) {
+        return parsedResponse.isPrivate ? "private" : "public";
+    }
+
+    return parsedResponse.visibility ?? parsedResponse.access;
 }
 
 function transformInputHandleDefinitions(

@@ -1,6 +1,6 @@
 ---
 name: oo-publish-skill
-description: Publish, release, upload, or submit an existing AI agent skill directory with SKILL.md to the OOMOL registry by running oo skills publish, or generate a share prompt for an already-public published skill by running oo skills share. Use when the user asks to publish a skill, share a published skill, make a skill available in the OOMOL skill catalog, release a registry skill package, resolve publish visibility, version, adoption, package-name, or overwrite prompts, or publish from a local, agent-installed, registry-installed, or path-based skill source. Do not use for finding, installing, creating, or editing skills unless the final goal is publication or sharing.
+description: Publish, release, upload, or submit an existing AI agent skill directory with SKILL.md to the OOMOL registry by running oo skills publish, or generate a share prompt for a published skill by running oo skills share, including temporary shares for private packages. Use when the user asks to publish a skill, share a published skill, make a skill available in the OOMOL skill catalog, release a registry skill package, resolve publish visibility, version, adoption, package-name, or overwrite prompts, or publish from a local, agent-installed, registry-installed, or path-based skill source. Do not use for finding, installing, creating, or editing skills unless the final goal is publication or sharing.
 allowed-tools: [Bash(oo *)]
 ---
 
@@ -12,18 +12,22 @@ directory with a `SKILL.md`; it does not need to be an oo-specific skill.
 
 ## Workflow
 
-### Share an already-public published skill
+### Share a published skill
 
-If the user asks to share a skill that has already been published publicly, run:
+If the user asks to share a published skill, run:
 
 ```bash
-oo skills share <skill-id>
+oo skills share <skill-id> -y
 ```
 
 Use the skill id from the current context when the user has just created,
 published, or used a specific skill. If no likely skill id is available, ask the
-user which skill to share. `oo skills share` will confirm the resolved id and
-package, verify that the package is public, and print the copyable share prompt.
+user which skill or package to share. `oo skills share` will confirm the
+resolved id and package, then print the copyable share prompt. Public packages
+are shared directly. Private packages create a temporary share id and the
+prompt must use `<packageName>#<shareID>`. Private package shares support optional limits:
+`--days <days>` sets the share duration, defaults to 7, and cannot exceed 7;
+`--downloads <downloads>` limits install count; omitting `--downloads` leaves installs unlimited.
 That prompt is meant for recipients who may not have OO CLI installed yet: it
 must guide them through installing OO CLI, running `oo login`, signing in or
 creating an OO account, and then installing the skill in one continuous flow.

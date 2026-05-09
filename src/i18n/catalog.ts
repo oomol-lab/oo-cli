@@ -165,7 +165,7 @@ export const enMessages = {
         "Convert one skill into an OOMOL package and publish it.",
     "commands.skills.publish.summary": "Publish a skill",
     "commands.skills.share.description":
-        "Verify a public published skill and print a share prompt.",
+        "Share a published skill, including private packages through temporary shares.",
     "commands.skills.share.summary": "Share a published skill",
     "commands.skills.install.description":
         "Install bundled or published skills into supported local skill directories.",
@@ -385,12 +385,18 @@ export const enMessages = {
         "Share cancelled for skill {name}.",
     "errors.skills.share.confirmationRequired":
         "Confirm the skill before sharing. Run again with -y to share skill {name} from package {packageName}.",
-    "errors.skills.share.notPublic":
-        "Package {packageName} is not public (current visibility: {visibility}). Publish it with --visibility public before sharing.",
+    "errors.skills.share.invalidNumberOption":
+        "Invalid value for {option}: {value}. Use a number.",
+    "errors.skills.share.invalidResponse":
+        "The skill package share response was invalid.",
     "errors.skills.share.notPublished":
-        "Skill {name} is not published yet. Publish it publicly before sharing.",
+        "Package or skill {name} is not published yet.",
     "errors.skills.share.referenceRequired":
         "Provide a skill id, package name, or skill directory path to share.",
+    "errors.skills.share.requestError":
+        "The skill package share request failed: {message}",
+    "errors.skills.share.requestFailed":
+        "The skill package share request returned HTTP {status}.",
     "errors.fileDownload.downloadFailed":
         "Failed to download the file at {path}: {message}",
     "errors.fileDownload.invalidExt":
@@ -579,6 +585,10 @@ export const enMessages = {
     "options.dryRun": "Validate the request without creating a task",
     "options.debug": "Print the current log file path when the CLI exits",
     "options.description": "Set the required generated skill description",
+    "options.days":
+        "Set temporary private share duration in days (default 7, maximum 7)",
+    "options.downloads":
+        "Limit temporary private share installs",
     "options.fileDownloadExt": "Specify the saved file extension",
     "options.fileDownloadName": "Specify the saved file name without the extension",
     "options.fileStatus": "Filter by upload status",
@@ -709,11 +719,11 @@ export const enMessages = {
     "skills.share.confirm.invalid":
         "Invalid choice. Enter y/yes or n/no.",
     "skills.share.confirm.prompt":
-        "Share skill {name} from public package {packageName}? [y/N] ",
+        "Share skill {name} from package {packageName}? [y/N] ",
     "skills.share.reference.prompt":
         "Which skill id, package name, or skill directory path do you want to share? ",
     "skills.share.success":
-        "Share prompt for public skill {skillName} from {packageName}:",
+        "Share prompt for skill {skillName} in {visibility} package {packageName}:",
     "warnings.skills.localCopyDriftOverwritten":
         "Warning: Local skill {name} copy at {path} differs from canonical storage and was overwritten.",
     "warnings.skills.publishLocalCopyDriftIgnored":
@@ -997,7 +1007,7 @@ export const zhMessages = {
         "将一个 skill 转换为 OOMOL 包并发布。",
     "commands.skills.publish.summary": "发布 skill",
     "commands.skills.share.description":
-        "确认已发布的公开 skill，并输出分享提示词。",
+        "分享已发布 skill，私有包会生成临时分享。",
     "commands.skills.share.summary": "分享已发布 skill",
     "commands.skills.install.description":
         "将内置或已发布 skill 安装到受支持的本地 skill 目录。",
@@ -1205,12 +1215,18 @@ export const zhMessages = {
         "已取消分享 skill {name}。",
     "errors.skills.share.confirmationRequired":
         "分享前需要确认 skill。请重新运行并传入 -y，以分享来自 {packageName} 的 skill {name}。",
-    "errors.skills.share.notPublic":
-        "包 {packageName} 不是公开包（当前可见性：{visibility}）。请先用 --visibility public 发布后再分享。",
+    "errors.skills.share.invalidNumberOption":
+        "{option} 的值无效：{value}。请使用数字。",
+    "errors.skills.share.invalidResponse":
+        "skill 包分享响应无效。",
     "errors.skills.share.notPublished":
-        "skill {name} 尚未发布。请先公开发布后再分享。",
+        "package 或 skill {name} 尚未发布。",
     "errors.skills.share.referenceRequired":
         "请提供要分享的 skill id、package 名称或 skill 目录路径。",
+    "errors.skills.share.requestError":
+        "skill 包分享请求失败：{message}",
+    "errors.skills.share.requestFailed":
+        "skill 包分享请求返回了 HTTP {status}。",
     "errors.fileDownload.downloadFailed":
         "下载文件到 {path} 失败：{message}",
     "errors.fileDownload.invalidExt":
@@ -1394,6 +1410,8 @@ export const zhMessages = {
     "options.dryRun": "仅校验请求，不真正创建任务",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
     "options.description": "设置必填的生成 skill 描述",
+    "options.days": "设置私有包临时分享天数（默认 7，最长 7）",
+    "options.downloads": "限制私有包临时分享安装次数",
     "options.fileDownloadExt": "指定保存文件的扩展名",
     "options.fileDownloadName": "指定不带扩展名的保存文件名",
     "options.fileStatus": "按上传状态过滤",
@@ -1523,11 +1541,11 @@ export const zhMessages = {
     "skills.share.confirm.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
     "skills.share.confirm.prompt":
-        "是否分享来自公开包 {packageName} 的 skill {name}？[y/N] ",
+        "是否分享来自包 {packageName} 的 skill {name}？[y/N] ",
     "skills.share.reference.prompt":
         "要分享哪个 skill id、package 名称或 skill 目录路径？",
     "skills.share.success":
-        "来自 {packageName} 的公开 skill {skillName} 分享提示词：",
+        "skill {skillName} 在 {visibility} package {packageName} 中的分享提示词：",
     "warnings.skills.localCopyDriftOverwritten":
         "Warning: 本地 skill {name} 位于 {path} 的副本与 canonical 存储不一致，已被覆盖。",
     "warnings.skills.publishLocalCopyDriftIgnored":
