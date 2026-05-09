@@ -9,6 +9,7 @@ import {
 import { createTranslator } from "../../../i18n/translator.ts";
 import {
     createRegistryPackageInfoRequestUrl,
+    createRegistryPackageShareDownloadMetaRequestUrl,
     createRegistryPackageTarballRequestUrl,
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
@@ -47,6 +48,17 @@ describe("registry skill source", () => {
             ).toString(),
         ).toBe(
             "https://registry.oomol.com/openai/-/meta/openai-1.2.3.tgz",
+        );
+    });
+
+    test("creates the package share download meta URL", () => {
+        expect(
+            createRegistryPackageShareDownloadMetaRequestUrl(
+                "oomol.com",
+                "share/id",
+            ).toString(),
+        ).toBe(
+            "https://registry.oomol.com/-/oomol/package-shares/download-meta/share%2Fid",
         );
     });
 
@@ -117,6 +129,35 @@ describe("registry skill source", () => {
             ),
         ).resolves.toEqual(new Uint8Array([1, 2, 3]));
         expect(requests).toHaveLength(1);
+        expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
+    });
+
+    test("downloads a shared package tarball with authorization", async () => {
+        const requests: Request[] = [];
+        const context = createRegistrySkillSourceContext({
+            fetcher: async (input, init) => {
+                requests.push(toRequest(input, init));
+
+                return new Response(new Uint8Array([4, 5, 6]));
+            },
+        });
+
+        await expect(
+            downloadRegistryPackageTarball(
+                "openai",
+                "0.0.3",
+                {
+                    apiKey: "secret-1",
+                    endpoint: "oomol.com",
+                },
+                context,
+                "share-1",
+            ),
+        ).resolves.toEqual(new Uint8Array([4, 5, 6]));
+        expect(requests).toHaveLength(1);
+        expect(requests[0]!.url).toBe(
+            "https://registry.oomol.com/-/oomol/package-shares/download-meta/share-1",
+        );
         expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
     });
 });

@@ -636,6 +636,9 @@ Install bundled or published skills into supported local skill directories.
   corresponding bundled skill.
 - Arguments: when `[packageName]` is a published package name, the command
   installs skills from that package.
+- Arguments: `[packageName]` may also use `<packageName>#<sharedID>`. In that
+  form, the command reads the package skill list from `<packageName>` and
+  downloads the package archive through the share identified by `<sharedID>`.
 - Options: `-s, --skill <skills...>` installs one or more named published
   skills from the package.
 - Options: `-s, --skill '*'` installs all published skills from the package.

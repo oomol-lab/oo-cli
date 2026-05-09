@@ -2119,6 +2119,71 @@ describe("skills commands", () => {
         }
     });
 
+    test("installs a shared registry package by package share id", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
+        const requests: Request[] = [];
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "add", "openai#share-1", "--skill", "chatgpt"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/package-shares/download-meta/share-1")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
+            );
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
+            );
+            expect(requests.map(request => request.url)).toEqual([
+                "https://registry.oomol.com/-/oomol/package-info/openai/latest",
+                "https://registry.oomol.com/-/oomol/package-shares/download-meta/share-1",
+            ]);
+            expect(requests.every(request =>
+                request.headers.get("Authorization") === "secret-1",
+            )).toBeTrue();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("uploads installed registry skills while excluding bundled and local skills", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
