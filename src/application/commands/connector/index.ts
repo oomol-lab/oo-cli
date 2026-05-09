@@ -1,6 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { connectorRunCommand } from "./run.ts";
+import { connectorSchemaCommand } from "./schema.ts";
 import { connectorSearchCommand } from "./search.ts";
 
 export const connectorCommand: CliCommandDefinition = {
@@ -9,6 +10,7 @@ export const connectorCommand: CliCommandDefinition = {
     descriptionKey: "commands.connector.description",
     children: [
         connectorSearchCommand,
+        connectorSchemaCommand,
         connectorRunCommand,
     ],
 };

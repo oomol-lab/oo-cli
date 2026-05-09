@@ -30,7 +30,7 @@ describe("test helpers", () => {
                 stdout: [
                     "C:\\Users\\Tester\\.config\\oo-cli\\settings.toml",
                     outputFilePath,
-                    `{"schemaPath":"C:\\\\Users\\\\Tester\\\\.config\\\\oo-cli\\\\connector-actions\\\\gmail\\\\send_mail.json"}`,
+                    `{"configPath":"C:\\\\Users\\\\Tester\\\\.config\\\\oo-cli\\\\settings.toml"}`,
                 ].join("\r\n"),
                 stderr: `${colors.green("ok")} ${outputFilePath}\r`,
             },
@@ -49,7 +49,7 @@ describe("test helpers", () => {
             stdout: [
                 "<XDG_CONFIG_HOME>/oo-cli/settings.toml",
                 "<OUTPUT_FILE>",
-                "{\"schemaPath\":\"<XDG_CONFIG_HOME>/oo-cli/connector-actions/gmail/send_mail.json\"}",
+                "{\"configPath\":\"<XDG_CONFIG_HOME>/oo-cli/settings.toml\"}",
             ].join("\n"),
             stderr: "ok <OUTPUT_FILE>\n",
         });

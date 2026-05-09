@@ -13,6 +13,13 @@ export const connectorActionDefinitionSchema = z.object({
     service: z.string().min(1),
 });
 
+export const connectorActionMetadataSchema = connectorActionDefinitionSchema.extend({
+    followUpActions: z.unknown().optional(),
+    id: z.string().optional(),
+    providerPermissions: z.array(z.string()).optional().default([]),
+    requiredScopes: z.array(z.string()).optional().default([]),
+}).passthrough();
+
 const connectorActionSearchResponseSchema = z.object({
     data: z.array(connectorActionDefinitionSchema).optional().default([]),
 });
@@ -22,22 +29,7 @@ const authenticatedConnectorServicesResponseSchema = z.object({
 });
 
 const connectorActionMetadataResponseSchema = z.object({
-    data: z.object({
-        description: z.string().optional().default(""),
-        id: z.string(),
-        inputSchema: z.unknown(),
-        name: z.string().min(1),
-        outputSchema: z.unknown(),
-        providerPermissions: z.array(z.string()),
-        requiredScopes: z.array(z.string()),
-        service: z.string().min(1),
-    }).transform(action => ({
-        description: action.description,
-        inputSchema: action.inputSchema,
-        name: action.name,
-        outputSchema: action.outputSchema,
-        service: action.service,
-    })),
+    data: connectorActionMetadataSchema,
 });
 
 const connectorActionRunResponseSchema = z.object({
@@ -62,7 +54,18 @@ const connectorActionFailureResponseSchema = z.object({
 
 export const connectorFormatValues = ["json"] as const;
 
+export function requireConnectorActionName(rawAction: string | undefined): string {
+    const trimmed = rawAction?.trim();
+
+    if (trimmed === undefined || trimmed === "") {
+        throw new CliUserError("errors.connectorRun.actionRequired", 2);
+    }
+
+    return trimmed;
+}
+
 export type ConnectorActionDefinition = z.output<typeof connectorActionDefinitionSchema>;
+export type ConnectorActionMetadata = z.output<typeof connectorActionMetadataSchema>;
 export type ConnectorActionRunResponse = z.output<typeof connectorActionRunResponseSchema>;
 type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResponseSchema>;
 
@@ -196,7 +199,7 @@ export async function getConnectorActionMetadata(
         serviceName: string;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<ConnectorActionDefinition> {
+): Promise<ConnectorActionMetadata> {
     const requestUrl = createConnectorActionRequestUrl(
         options.endpoint,
         options.serviceName,

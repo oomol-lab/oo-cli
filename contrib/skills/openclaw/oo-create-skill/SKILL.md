@@ -29,9 +29,9 @@ this constitution, not a separate checklist.
    to resolve facts that metadata, schemas, or command output can answer:
    package/block references, connector service/action identifiers, payload
    field names, result field paths, command shape, authentication state,
-   defaults, or schema constraints. Treat local `schemaPath` files as supporting
-   metadata; current command output or a safe invocation must confirm connector
-   action availability and observed result paths.
+   defaults, or schema constraints. Use `oo connector schema` for connector
+   contracts; current command output or a safe invocation must confirm
+   connector action availability and observed result paths.
 3. Resolve and test before writing the runbook. Do not predesign the whole
    execution process and then look for metadata that seems to fit it. Discover
    the capability, inspect metadata, run the smallest safe test when command,
@@ -139,7 +139,7 @@ If the task looks like an OOMOL built-in managed API capability but the mixed
 result set has no Fusion API connector candidate, run one connector refinement
 before accepting a package-only path.
 
-Do not choose a connector action just because a local schema file exists. If
+Do not choose a connector action unless current command output exposes it. If
 command output does not expose the candidate action, or a non-destructive test
 reports `unknown action`, choose an exposed action and document any runtime
 shape change, such as async submission plus polling replacing a synchronous
@@ -213,9 +213,9 @@ headings but include these execution facts when metadata provides them:
   plus common auth, permission, billing, schema rejection, inaccessible file,
   timeout, and not-found branches.
 
-Distill any `schemaPath` metadata into required/defaultable inputs and output
-field paths; do not present the local `schemaPath` as a stable contract for
-future agents.
+Distill schema metadata into required/defaultable inputs and output field
+paths; do not present any local cache path as a stable contract for future
+agents.
 
 When the workflow crosses the local/cloud file boundary, include the
 `oo file upload` and `oo file download` guidance from the Constitution in the

@@ -9,9 +9,14 @@ import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
-import { ensureConnectorActionSchemaReference } from "./schema-cache.ts";
+import {
+    deleteConnectorActionSchemaCache,
+    isConnectorActionSchemaNotFoundError,
+    loadConnectorActionSchema,
+} from "./schema-cache.ts";
 import {
     connectorFormatValues,
+    requireConnectorActionName,
     runConnectorAction,
 } from "./shared.ts";
 import { validateConnectorActionInput } from "./validation.ts";
@@ -77,11 +82,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const actionName = input.action?.trim();
-
-        if (actionName === undefined || actionName === "") {
-            throw new CliUserError("errors.connectorRun.actionRequired", 2);
-        }
+        const actionName = requireConnectorActionName(input.action);
 
         const account = await requireCurrentAccount(context);
         const inputData = await readJsonInputValue(
@@ -100,11 +101,10 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             service: input.serviceName,
         });
 
-        const actionReference = await ensureConnectorActionSchemaReference(
+        const actionSchema = await loadConnectorActionSchema(
             {
                 actionName,
-                apiKey: account.apiKey,
-                endpoint: account.endpoint,
+                account,
                 serviceName: input.serviceName,
             },
             context,
@@ -112,7 +112,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 
         validateConnectorActionInput(
             inputData,
-            actionReference.inputSchema,
+            actionSchema.inputSchema,
             context.translator,
         );
 
@@ -121,7 +121,6 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
                 writeJsonOutput(context.stdout, {
                     dryRun: true,
                     ok: true,
-                    schemaPath: actionReference.schemaPath,
                 });
                 return;
             }
@@ -148,6 +147,17 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         }
         catch (error) {
             recordConnectorRunFailureTelemetry(error, context.telemetry);
+            if (isConnectorActionSchemaNotFoundError(error)) {
+                deleteConnectorActionSchemaCache(
+                    {
+                        accountId: account.id,
+                        actionName,
+                        endpoint: account.endpoint,
+                        serviceName: input.serviceName,
+                    },
+                    context,
+                );
+            }
             throw error;
         }
 
@@ -191,16 +201,18 @@ function recordConnectorRunFailureTelemetry(
     }
 
     const status = error.params?.status;
+    const errorCode = error.params?.errorCode;
+    const properties: { error_code?: string; http_status?: number } = {};
+
     if (typeof status === "number") {
-        telemetry?.recordProperties({
-            http_status: status,
-        });
+        properties.http_status = status;
     }
 
-    const errorCode = error.params?.errorCode;
     if (typeof errorCode === "string" && errorCode !== "") {
-        telemetry?.recordProperties({
-            error_code: errorCode,
-        });
+        properties.error_code = errorCode;
+    }
+
+    if (Object.keys(properties).length > 0) {
+        telemetry?.recordProperties(properties);
     }
 }

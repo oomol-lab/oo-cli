@@ -15,7 +15,6 @@ import {
     readTelemetryRowsForTest,
 } from "../telemetry/outbox.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
-import { resolveConnectorActionSchemaPath } from "./connector/schema-cache.ts";
 import { mixedSearchKindColor } from "./search.ts";
 
 describe("mixedSearchCommand CLI", () => {
@@ -189,11 +188,6 @@ describe("mixedSearchCommand CLI", () => {
                     description: "Send a Gmail message.",
                     kind: "connector",
                     name: "send_mail",
-                    schemaPath: resolveConnectorActionSchemaPath(
-                        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-                        "gmail",
-                        "send_mail",
-                    ),
                     service: "gmail",
                 },
             ]);

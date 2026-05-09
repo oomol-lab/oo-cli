@@ -93,7 +93,7 @@ Facts:
 - Package entries include stable fields such as `packageId`, `displayName`,
   `description`, and `blocks`.
 - Connector entries include stable fields such as `service`, `name`,
-  `description`, `authenticated`, and `schemaPath`.
+  `description`, and `authenticated`.
 - Connector entries whose `service` is `fusion-api` are OOMOL built-in
   Fusion API capabilities. Treat them as first-class managed API candidates,
   not as ordinary third-party account connectors.
@@ -125,7 +125,6 @@ Representative JSON example:
     "description": "Send an email through Gmail.",
     "kind": "connector",
     "name": "send_mail",
-    "schemaPath": "<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json",
     "service": "gmail"
   }
 ]
@@ -197,8 +196,8 @@ After selecting a candidate, do not execute yet.
   [package-execution.md](package-execution.md), then inspect with
   `oo packages info "<packageId from the selected search result>" --json`.
 - Connector-backed candidate: read
-  [connector-execution.md](connector-execution.md), then read the cached schema
-  file at `schemaPath`.
+  [connector-execution.md](connector-execution.md), then run
+  `oo connector schema "<service>" --action "<name>"`.
 
 Use the inspected metadata or schema to complete the minimum viable contract:
 exact callable id, required input names, payload shape, output meaning, and

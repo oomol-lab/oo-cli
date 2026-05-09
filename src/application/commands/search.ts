@@ -53,7 +53,6 @@ interface MixedConnectorSearchItem {
     description: string;
     kind: "connector";
     name: string;
-    schemaPath: string;
     service: string;
 }
 
@@ -107,8 +106,7 @@ export const mixedSearchCommand: CliCommandDefinition<MixedSearchInput> = {
             ),
             loadConnectorSearchResults(
                 {
-                    apiKey: account.apiKey,
-                    endpoint: account.endpoint,
+                    account,
                     keywords,
                     text: input.text,
                 },
@@ -186,7 +184,6 @@ function createMixedConnectorSearchItem(
         description: result.description,
         kind: "connector",
         name: result.name,
-        schemaPath: result.schemaPath,
         service: result.service,
     };
 }

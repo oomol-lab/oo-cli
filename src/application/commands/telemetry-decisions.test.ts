@@ -181,6 +181,11 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records query and result buckets without query text.",
     },
+    "connector.schema": {
+        kind: "properties",
+        properties: ["refresh"],
+        reason: "Records whether the user requested a fresh schema lookup without service or action identity.",
+    },
     "file": {
         kind: "generic",
         reason: "Command group; child commands record file dimensions where safe.",

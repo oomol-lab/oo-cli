@@ -59,8 +59,7 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
         const account = await requireCurrentAccount(context);
         const results = await loadConnectorSearchResults(
             {
-                apiKey: account.apiKey,
-                endpoint: account.endpoint,
+                account,
                 keywords,
                 text: input.text,
             },

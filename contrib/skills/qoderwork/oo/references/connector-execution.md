@@ -13,11 +13,11 @@ smallest sufficient JSON payload that matches the user's real intent.
 
 ## Confirm the action contract
 
-- Use the chosen search result's `service`, `name`, and `schemaPath` as the
-  starting point.
-- Read the cached JSON file at `schemaPath` before building any payload.
-- Use the cache file's exact `service`, `name`, `description`, `inputSchema`,
-  and `outputSchema` to confirm the action fit.
+- Use the chosen search result's `service` and `name` as the starting point.
+- Run `oo connector schema "<service>" --action "<name>"` before
+  building any payload.
+- Use the returned exact `service`, `name`, `description`, `inputSchema`, and
+  `outputSchema` to confirm the action fit.
 - Prefer the action whose description most directly matches the user's desired
   outcome, especially when the user named the target service.
 - If the selected schema directly satisfies the outcome and required inputs are
@@ -25,7 +25,13 @@ smallest sufficient JSON payload that matches the user's real intent.
 - If schema evidence does not prove the action can satisfy the user outcome,
   refine discovery or stop with a catalog miss.
 
-Representative cache file shape:
+Representative schema command:
+
+```bash
+oo connector schema "gmail" --action "send_mail"
+```
+
+Representative schema JSON shape:
 
 ```json
 {
@@ -39,7 +45,8 @@ Representative cache file shape:
 
 ## Build connector payload
 
-- Use the cached `inputSchema` and normal JSON Schema required-field semantics.
+- Use the returned `inputSchema` and normal JSON Schema required-field
+  semantics.
 - Use only declared input fields.
 - Prefer concrete user values over placeholders, broad guesses, or defaults.
 - Preserve service-specific constraints such as recipient, folder, file id,

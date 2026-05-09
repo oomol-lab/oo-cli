@@ -701,9 +701,9 @@ describe("embedded skill assets", () => {
             expect(content).toContain("choose Fusion API by default");
             expect(content).toContain("account, cost, compliance");
             expect(content).toContain("output-contract differences");
-            expect(content).toContain("Treat local `schemaPath` files");
-            expect(content).toContain("supporting");
-            expect(content).toContain("metadata");
+            expect(content).toContain("Use `oo connector schema`");
+            expect(content).toContain("for connector");
+            expect(content).toContain("contracts");
             expect(content).toContain("current command output");
             expect(content).toContain("safe invocation");
             expect(content).toContain("confirm connector");
@@ -712,7 +712,7 @@ describe("embedded skill assets", () => {
             expect(content).toContain("Blocks are flexible");
             expect(content).toContain("weaker performance and higher execution friction");
             expect(content).toContain(
-                "Do not choose a connector action just because a local schema file exists",
+                "Do not choose a connector action unless current command output exposes it",
             );
             expect(content).toContain("non-destructive test");
             expect(content).toContain("unknown action");

@@ -1,138 +1,260 @@
+import type { Cache } from "../../contracts/cache.ts";
 import type { CliExecutionContext } from "../../contracts/cli.ts";
+import type { AuthAccount } from "../../schemas/auth.ts";
 
-import type { ConnectorActionDefinition } from "./shared.ts";
-import { mkdir, readFile } from "node:fs/promises";
+import type {
+    ConnectorActionDefinition,
+    ConnectorActionMetadata,
+} from "./shared.ts";
+import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
-import { isFileMissingError } from "../../shared/fs-errors.ts";
-import { connectorActionDefinitionSchema, getConnectorActionMetadata } from "./shared.ts";
 
-const connectorActionSchemaCacheDirectoryName = "connector-actions";
+import {
+    connectorActionMetadataSchema,
+    getConnectorActionMetadata,
+} from "./shared.ts";
 
-export interface ConnectorActionSchemaReference
-    extends ConnectorActionDefinition {
-    schemaPath: string;
+const connectorActionSchemaCacheId = "connector-action-schema";
+const connectorActionSchemaCacheTtlMs = 60 * 60 * 1000;
+const connectorActionSchemaCacheMaxEntries = 1000;
+const legacyConnectorActionSchemaCacheDirectoryName = "connector-actions";
+
+interface ConnectorActionSchemaIdentity {
+    accountId: string;
+    actionName: string;
+    endpoint: string;
+    serviceName: string;
 }
 
-export async function ensureConnectorActionSchemaReference(
+type ConnectorActionSchemaCacheContext = Pick<
+    CliExecutionContext,
+    "cacheStore" | "logger" | "settingsStore"
+>;
+
+type ConnectorActionSchemaLoaderContext = Pick<
+    CliExecutionContext,
+    "cacheStore" | "fetcher" | "logger" | "settingsStore" | "translator"
+>;
+
+export interface ConnectorActionSchemaOutput {
+    description: string;
+    inputSchema: unknown;
+    name: string;
+    outputSchema: unknown;
+    service: string;
+}
+
+export async function loadConnectorActionSchema(
     options: {
+        account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">;
         actionName: string;
-        apiKey: string;
-        endpoint: string;
+        refresh?: boolean;
         serviceName: string;
     },
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "settingsStore" | "translator">,
-): Promise<ConnectorActionSchemaReference> {
-    const schemaPath = resolveConnectorActionSchemaPath(
-        context.settingsStore.getFilePath(),
-        options.serviceName,
-        options.actionName,
-    );
-    const cachedSchema = await tryReadConnectorActionSchemaCache(
-        schemaPath,
-        context,
-    );
+    context: ConnectorActionSchemaLoaderContext,
+): Promise<ConnectorActionMetadata> {
+    await cleanupLegacyConnectorActionSchemaCache(context);
 
-    if (cachedSchema !== undefined) {
-        return {
-            ...cachedSchema,
-            schemaPath,
-        };
+    const cache = openConnectorActionSchemaCache(context);
+    const cacheKey = createConnectorActionSchemaCacheKey({
+        accountId: options.account.id,
+        actionName: options.actionName,
+        endpoint: options.account.endpoint,
+        serviceName: options.serviceName,
+    });
+
+    if (options.refresh !== true) {
+        const cached = tryReadConnectorActionSchemaCache(cache, cacheKey, context);
+
+        if (cached !== undefined) {
+            return cached;
+        }
+    }
+    else {
+        context.logger.debug(
+            {
+                accountId: options.account.id,
+                actionName: options.actionName,
+                endpoint: options.account.endpoint,
+                serviceName: options.serviceName,
+            },
+            "Connector action schema cache bypassed for refresh.",
+        );
     }
 
-    const metadata = await getConnectorActionMetadata(options, context);
+    try {
+        const metadata = await getConnectorActionMetadata(
+            {
+                actionName: options.actionName,
+                apiKey: options.account.apiKey,
+                endpoint: options.account.endpoint,
+                serviceName: options.serviceName,
+            },
+            context,
+        );
 
-    await writeConnectorActionSchemaCache(schemaPath, metadata);
+        cache.set(cacheKey, metadata);
+        context.logger.debug(
+            {
+                accountId: options.account.id,
+                actionName: options.actionName,
+                endpoint: options.account.endpoint,
+                serviceName: options.serviceName,
+            },
+            "Connector action schema response cached.",
+        );
 
+        return metadata;
+    }
+    catch (error) {
+        if (isConnectorActionSchemaNotFoundError(error)) {
+            cache.delete(cacheKey);
+        }
+
+        throw error;
+    }
+}
+
+export async function cacheConnectorActionSchemas(
+    actions: readonly ConnectorActionDefinition[],
+    account: Pick<AuthAccount, "endpoint" | "id">,
+    context: ConnectorActionSchemaCacheContext,
+): Promise<void> {
+    await cleanupLegacyConnectorActionSchemaCache(context);
+
+    const cache = openConnectorActionSchemaCache(context);
+
+    for (const action of actions) {
+        cache.set(
+            createConnectorActionSchemaCacheKey({
+                accountId: account.id,
+                actionName: action.name,
+                endpoint: account.endpoint,
+                serviceName: action.service,
+            }),
+            connectorActionMetadataSchema.parse(action),
+        );
+    }
+}
+
+export function deleteConnectorActionSchemaCache(
+    identity: ConnectorActionSchemaIdentity,
+    context: Pick<CliExecutionContext, "cacheStore">,
+): boolean {
+    return openConnectorActionSchemaCache(context).delete(
+        createConnectorActionSchemaCacheKey(identity),
+    );
+}
+
+export function createConnectorActionSchemaOutput(
+    schema: ConnectorActionDefinition,
+): ConnectorActionSchemaOutput {
     return {
-        ...metadata,
-        schemaPath,
+        description: schema.description,
+        inputSchema: schema.inputSchema,
+        name: schema.name,
+        outputSchema: schema.outputSchema,
+        service: schema.service,
     };
 }
 
-export async function persistConnectorActionSchemaCache(
-    action: ConnectorActionDefinition,
-    context: Pick<CliExecutionContext, "settingsStore">,
-): Promise<string> {
-    const schemaPath = resolveConnectorActionSchemaPath(
-        context.settingsStore.getFilePath(),
-        action.service,
-        action.name,
-    );
-
-    await writeConnectorActionSchemaCache(schemaPath, action);
-
-    return schemaPath;
+export function createConnectorActionSchemaCacheKey(
+    identity: ConnectorActionSchemaIdentity,
+): string {
+    return JSON.stringify({
+        accountId: identity.accountId,
+        endpoint: identity.endpoint,
+        serviceName: identity.serviceName,
+        actionName: identity.actionName,
+    });
 }
 
-export function renderConnectorActionSchemaCache(
-    action: ConnectorActionDefinition,
-): string {
-    return `${JSON.stringify(action, null, 2)}\n`;
+export function isConnectorActionSchemaNotFoundError(error: unknown): boolean {
+    if (!(error instanceof CliUserError)) {
+        return false;
+    }
+
+    if (error.params?.status === 404) {
+        return true;
+    }
+
+    return error.params?.errorCode === "action_not_found";
 }
 
-export function resolveConnectorActionSchemaPath(
-    settingsFilePath: string,
-    serviceName: string,
-    actionName: string,
-): string {
-    return join(
+// Tracks settings paths whose legacy on-disk cache directory has already been
+// cleaned in the current process so we issue at most one rm per CLI invocation.
+const legacyConnectorActionSchemaCacheCleanedPaths = new Set<string>();
+
+async function cleanupLegacyConnectorActionSchemaCache(
+    context: Pick<CliExecutionContext, "logger" | "settingsStore">,
+): Promise<void> {
+    const settingsFilePath = context.settingsStore.getFilePath();
+
+    if (settingsFilePath === "") {
+        return;
+    }
+
+    if (legacyConnectorActionSchemaCacheCleanedPaths.has(settingsFilePath)) {
+        return;
+    }
+
+    legacyConnectorActionSchemaCacheCleanedPaths.add(settingsFilePath);
+
+    const directoryPath = join(
         dirname(settingsFilePath),
-        connectorActionSchemaCacheDirectoryName,
-        encodeURIComponent(serviceName),
-        `${encodeURIComponent(actionName)}.json`,
+        legacyConnectorActionSchemaCacheDirectoryName,
     );
-}
-
-async function tryReadConnectorActionSchemaCache(
-    schemaPath: string,
-    context: Pick<CliExecutionContext, "logger">,
-): Promise<ConnectorActionDefinition | undefined> {
-    let content: string;
 
     try {
-        content = await readFile(schemaPath, "utf8");
+        await rm(directoryPath, { force: true, recursive: true });
     }
     catch (error) {
-        if (isFileMissingError(error)) {
-            return undefined;
-        }
+        context.logger.warn(
+            {
+                err: error,
+                path: directoryPath,
+            },
+            "Legacy connector action schema cache cleanup failed.",
+        );
+    }
+}
 
-        throw new CliUserError("errors.connectorSchema.readFailed", 1, {
-            message: error instanceof Error ? error.message : String(error),
-            path: schemaPath,
-        });
+function openConnectorActionSchemaCache(
+    context: Pick<CliExecutionContext, "cacheStore">,
+) {
+    return context.cacheStore.getCache<ConnectorActionMetadata>({
+        defaultTtlMs: connectorActionSchemaCacheTtlMs,
+        id: connectorActionSchemaCacheId,
+        maxEntries: connectorActionSchemaCacheMaxEntries,
+    });
+}
+
+function tryReadConnectorActionSchemaCache(
+    cache: Cache<ConnectorActionMetadata>,
+    cacheKey: string,
+    context: Pick<CliExecutionContext, "logger">,
+): ConnectorActionMetadata | undefined {
+    const cached = cache.get(cacheKey);
+
+    if (cached === null) {
+        return undefined;
     }
 
     try {
-        return connectorActionDefinitionSchema.parse(
-            JSON.parse(content) as unknown,
-        );
+        return connectorActionMetadataSchema.parse(cached);
     }
-    catch {
+    catch (error) {
+        const deleted = cache.delete(cacheKey);
+
         context.logger.warn(
             {
-                path: schemaPath,
+                deleted,
+                err: error,
             },
-            "Connector action schema cache was invalid and will be refreshed.",
+            "Connector action schema cache entry was invalidated after a parse failure.",
         );
 
         return undefined;
-    }
-}
-
-async function writeConnectorActionSchemaCache(
-    schemaPath: string,
-    action: ConnectorActionDefinition,
-): Promise<void> {
-    try {
-        await mkdir(dirname(schemaPath), { recursive: true });
-        await Bun.write(schemaPath, renderConnectorActionSchemaCache(action));
-    }
-    catch (error) {
-        throw new CliUserError("errors.connectorSchema.writeFailed", 1, {
-            message: error instanceof Error ? error.message : String(error),
-            path: schemaPath,
-        });
     }
 }

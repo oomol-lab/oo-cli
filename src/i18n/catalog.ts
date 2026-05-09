@@ -53,6 +53,9 @@ export const enMessages = {
     "commands.connector.search.description":
         "Search connector actions and cache their schemas locally.",
     "commands.connector.search.summary": "Search connector actions",
+    "commands.connector.schema.description":
+        "Show the schema contract for one connector action.",
+    "commands.connector.schema.summary": "Show connector action schema",
     "commands.connector.run.description":
         "Validate input data and run one connector action synchronously.",
     "commands.connector.run.summary": "Run a connector action",
@@ -564,6 +567,7 @@ export const enMessages = {
     "options.fileStatus": "Filter by upload status",
     "options.force":
         "Force reinstallation even when the target version already exists",
+    "options.refresh": "Bypass any cached response and fetch fresh data",
     "options.help": "Show help for command",
     "options.noModifyPath":
         "Do not add the executable directory to PATH automatically",
@@ -785,7 +789,6 @@ export const enMessages = {
     "connector.search.text.authenticated.yes": "yes",
     "connector.search.text.noResults":
         "No matching connector actions were found.",
-    "connector.search.text.schemaPath": "Schema path",
     "mixedSearch.text.kind": "Kind",
     "mixedSearch.text.kind.connector": "connector",
     "mixedSearch.text.kind.package": "package",
@@ -869,6 +872,10 @@ export const zhMessages = {
         "搜索 connector action，并将 schema 缓存到本地。",
     "commands.connector.search.summary":
         "搜索 connector action",
+    "commands.connector.schema.description":
+        "显示一个 connector action 的 schema contract。",
+    "commands.connector.schema.summary":
+        "显示 connector action schema",
     "commands.connector.run.description":
         "校验输入数据，并同步运行一个 connector action。",
     "commands.connector.run.summary":
@@ -1349,6 +1356,7 @@ export const zhMessages = {
     "options.fileStatus": "按上传状态过滤",
     "options.force":
         "即使目标版本已存在也强制重新安装",
+    "options.refresh": "绕过缓存并获取最新数据",
     "options.help": "显示命令帮助",
     "options.noModifyPath":
         "不要自动将可执行目录加入 PATH",
@@ -1567,7 +1575,6 @@ export const zhMessages = {
     "connector.search.text.authenticated.no": "否",
     "connector.search.text.authenticated.yes": "是",
     "connector.search.text.noResults": "未找到匹配的 connector action。",
-    "connector.search.text.schemaPath": "Schema 路径",
     "mixedSearch.text.kind": "类型",
     "mixedSearch.text.kind.connector": "connector",
     "mixedSearch.text.kind.package": "包",

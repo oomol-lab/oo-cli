@@ -90,7 +90,7 @@ describe("connector shared requests", () => {
         expect(fetchCount).toBe(0);
     });
 
-    test("getConnectorActionMetadata strips metadata-only fields", async () => {
+    test("getConnectorActionMetadata preserves metadata-only fields", async () => {
         const action = await getConnectorActionMetadata(
             {
                 actionName: "get_message",
@@ -120,6 +120,7 @@ describe("connector shared requests", () => {
 
         expect(action).toEqual({
             description: "Get one Gmail message.",
+            id: "action-1",
             inputSchema: {
                 type: "object",
             },
@@ -127,6 +128,8 @@ describe("connector shared requests", () => {
             outputSchema: {
                 type: "object",
             },
+            providerPermissions: ["gmail.readonly"],
+            requiredScopes: ["gmail.readonly"],
             service: "gmail",
         });
     });
