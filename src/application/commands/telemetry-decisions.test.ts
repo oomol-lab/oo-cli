@@ -316,7 +316,7 @@ const commandTelemetryDecisions = {
     },
     "skills.share": {
         kind: "generic",
-        reason: "Generic command telemetry is enough; generated share prompts are not recorded.",
+        reason: "Generic command telemetry is enough; generated share prompts, package names, share ids, and temporary share limits are not recorded.",
     },
     "skills.sync": {
         kind: "generic",

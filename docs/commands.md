@@ -576,34 +576,49 @@ Convert one skill into an OOMOL package and run the publish step.
 
 ### `oo skills share [skill]`
 
-Verify that a published skill package is public, confirm the exact skill being
-shared, and print a prompt that can be copied to another user.
+Share a published skill package, confirm the exact skill being shared, and
+print a prompt that can be copied to another user. Public packages are shared
+directly. Private or restricted packages are shared through a temporary
+registry share id.
 
 - Arguments: `[skill]` is optional in an interactive terminal. It may be a local
   skill id, an installed registry skill id, a path to a skill directory
   containing `SKILL.md`, or a package name. When omitted, the command prompts for
   the skill id, package name, or path.
+- Options: `--downloads <downloads>` limits temporary private-package installs.
+  When omitted, installs are unlimited. Non-numeric values fail. Numeric values
+  that are not positive safe integers use the default unlimited value.
+- Options: `--days <days>` sets the temporary private-package share duration.
+  The default is `7` days and the maximum is `7` days. Non-numeric values fail.
+  Numeric values outside the valid range use the default `7`.
 - Options: `-y, --yes` skips the final `[y/N]` confirmation after the command
   resolves the skill id and package name.
-- Resolution: local skills are read from `<config-dir>/skills/local/<skill-id>`
-  and must have `metadata.packageName` in `SKILL.md` frontmatter, which is
-  written by a successful publish. Installed registry skills are read from
-  `<config-dir>/skills/registry/<skill-id>` and use their oo metadata
-  `packageName`. Paths read `SKILL.md` frontmatter directly. If none of those
-  sources match, the argument is treated as a package name and the skill id is
-  derived from the package name.
-- Public check: the command requests latest package metadata for the resolved
-  package and requires its visibility/access to be `public`. Private,
-  restricted, missing, or unpublished packages are rejected before any share
-  prompt is printed.
+- Resolution: the argument may identify a local skill, an installed registry
+  skill, a skill directory path, or a package name. Skill ids are resolved by
+  checking local skills first, then installed registry skills. Path-like
+  references are resolved as skill directories. If no skill or path can be
+  resolved, or if the resolved skill does not identify a package, the argument
+  is treated as a package name.
+- Package check: the command requests latest package metadata for the resolved
+  package. Public packages use `<packageName>` directly in the prompt. Private
+  packages create a temporary share and display the share token as
+  `<packageName>#<shareID>`. Missing visibility metadata is treated as public.
+  Unpublished packages are rejected before any share prompt is printed.
 - Output: on success, text output prints a copyable prompt that states the skill
-  is already published and public, assumes the recipient may not have OO CLI
+  or package is already published, assumes the recipient may not have OO CLI
   installed yet, instructs them to install OO CLI, run `oo login`, sign in or
-  create an OO account, and then install the skill. It includes macOS/Linux and
-  Windows PowerShell command sequences that continue through
-  `oo skills install <packageName> --skill <skill-id> -y`. The prompt explicitly
-  tells the recipient to complete OO installation, login, and skill installation
-  in one continuous setup flow.
+  create an OO account, and then install the shared target. It includes
+  macOS/Linux and Windows PowerShell command sequences. Skill-target prompts
+  continue through `oo skills install <packageName> --skill <skill-id> -y` for
+  public packages, or
+  `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for private
+  packages. Package-target prompts continue through
+  `oo skills install <packageName> -y` for public packages, or
+  `oo skills install <packageName>#<shareID> -y` for private packages.
+  Private-package prompts identify the exact temporary install specifier
+  `<packageName>#<shareID>` and do not present the target as already public.
+  The prompt explicitly tells the recipient to complete OO installation, login,
+  and target installation in one continuous setup flow.
 
 ### `oo skills search <text>`
 
@@ -636,9 +651,9 @@ Install bundled or published skills into supported local skill directories.
   corresponding bundled skill.
 - Arguments: when `[packageName]` is a published package name, the command
   installs skills from that package.
-- Arguments: `[packageName]` may also use `<packageName>#<sharedID>`. In that
+- Arguments: `[packageName]` may also use `<packageName>#<shareID>`. In that
   form, the command reads the package skill list from `<packageName>` and
-  downloads the package archive through the share identified by `<sharedID>`.
+  downloads the package archive through the share identified by `<shareID>`.
 - Options: `-s, --skill <skills...>` installs one or more named published
   skills from the package.
 - Options: `-s, --skill '*'` installs all published skills from the package.

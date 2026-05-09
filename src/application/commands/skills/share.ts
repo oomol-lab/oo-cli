@@ -7,9 +7,11 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
+import { withPackageIdentity } from "../../logging/log-fields.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
+import { requestText } from "../shared/request.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import {
@@ -29,15 +31,26 @@ import {
 } from "./skill-frontmatter.ts";
 
 interface SkillsShareInput {
+    days?: string;
+    downloads?: string;
     skill?: string;
     yes?: boolean;
 }
 
 interface SkillShareTarget {
-    packageName: string;
+    packageName?: string;
+    packageNameFallback: string;
     skillId: string;
     sourceKind: "local" | "package" | "path" | "registry";
 }
+
+interface SkillShareLimits {
+    days: number;
+    downloads?: number;
+}
+
+type SkillShareKind = "package" | "skill";
+type SkillShareVisibility = "private" | "public";
 
 type SkillShareContext = Pick<
     CliExecutionContext,
@@ -50,6 +63,13 @@ type SkillShareContext = Pick<
     | "stdout"
     | "translator"
 >;
+
+const defaultSkillShareDays = 7;
+const maxSkillShareDays = 7;
+
+const packageShareResponseSchema = z.object({
+    shareID: z.string().trim().min(1),
+}).passthrough();
 
 export const skillsShareCommand: CliCommandDefinition<SkillsShareInput> = {
     name: "share",
@@ -64,6 +84,18 @@ export const skillsShareCommand: CliCommandDefinition<SkillsShareInput> = {
     ],
     options: [
         {
+            name: "downloads",
+            longFlag: "--downloads",
+            valueName: "downloads",
+            descriptionKey: "options.downloads",
+        },
+        {
+            name: "days",
+            longFlag: "--days",
+            valueName: "days",
+            descriptionKey: "options.days",
+        },
+        {
             name: "yes",
             longFlag: "--yes",
             shortFlag: "-y",
@@ -71,6 +103,8 @@ export const skillsShareCommand: CliCommandDefinition<SkillsShareInput> = {
         },
     ],
     inputSchema: z.object({
+        days: z.string().optional(),
+        downloads: z.string().optional(),
         skill: z.string().optional(),
         yes: z.boolean().optional(),
     }),
@@ -83,27 +117,50 @@ async function shareSkill(
     input: SkillsShareInput,
     context: CliExecutionContext,
 ): Promise<void> {
+    const limits = parseSkillShareLimits(input);
     const account = await requireCurrentAccount(context);
     const target = await resolveSkillShareTarget(input.skill, context);
-    const packageInfo = await loadPublicSharePackageInfo(target, account, context);
+    const packageInfo = await loadSharePackageInfo(target, account, context);
+    const shareKind = resolveSkillShareKind(target);
+    const visibility = resolveSkillShareVisibility(packageInfo);
 
-    await confirmSkillShareTarget(target, context, input.yes === true);
+    await confirmSkillShareTarget(
+        {
+            ...target,
+            packageName: packageInfo.packageName,
+        },
+        context,
+        input.yes === true,
+        shareKind,
+    );
+
+    const installPackageSpecifier = visibility === "public"
+        ? packageInfo.packageName
+        : await createPrivateSkillPackageShareSpecifier(
+                packageInfo.packageName,
+                limits,
+                account,
+                context,
+            );
 
     context.logger.info(
         {
             packageName: packageInfo.packageName,
             packageVersion: packageInfo.packageVersion,
+            shareKind,
             skillId: target.skillId,
             sourceKind: target.sourceKind,
+            visibility,
         },
-        "Skill share prompt generated.",
+        "Share prompt generated.",
     );
 
     writeLine(
         context.stdout,
-        context.translator.t("skills.share.success", {
+        context.translator.t(resolveSkillShareSuccessMessageKey(shareKind), {
             packageName: packageInfo.packageName,
             skillName: target.skillId,
+            visibility,
         }),
     );
     writeLine(context.stdout, "");
@@ -111,8 +168,16 @@ async function shareSkill(
         context.stdout,
         renderSkillSharePrompt({
             hubUrl: createSkillPackageHubUrl(account.endpoint, packageInfo.packageName),
+            installCommand: createSkillShareInstallCommand(
+                installPackageSpecifier,
+                shareKind,
+                target.skillId,
+            ),
+            installPackageSpecifier,
             packageName: packageInfo.packageName,
+            shareKind,
             skillId: target.skillId,
+            visibility,
         }),
     );
 }
@@ -144,6 +209,7 @@ async function resolveSkillShareTarget(
 
     return {
         packageName: packageSpecifier.packageName,
+        packageNameFallback: packageSpecifier.packageName,
         skillId: resolveSkillIdFromPackageName(packageSpecifier.packageName),
         sourceKind: "package",
     };
@@ -166,12 +232,13 @@ async function readSkillShareReference(
     const promptedReference = await requestInteractiveText(context, {
         prompt: context.translator.t("skills.share.reference.prompt"),
     });
+    const trimmedPromptedReference = promptedReference.trim();
 
-    if (promptedReference === "") {
+    if (trimmedPromptedReference === "") {
         throw new CliUserError("errors.skills.share.referenceRequired", 1);
     }
 
-    return promptedReference;
+    return trimmedPromptedReference;
 }
 
 async function resolveManagedSkillShareTarget(
@@ -187,8 +254,8 @@ async function resolveManagedSkillShareTarget(
         return {
             packageName: await readPublishedSkillPackageName(
                 localSkillDirectoryPath,
-                skillId,
             ),
+            packageNameFallback: skillId,
             skillId,
             sourceKind: "local",
         };
@@ -205,14 +272,9 @@ async function resolveManagedSkillShareTarget(
 
     const metadata = await readManagedSkillMetadata(registrySkillDirectoryPath);
 
-    if (metadata === undefined) {
-        throw new CliUserError("errors.skills.share.notPublished", 1, {
-            name: skillId,
-        });
-    }
-
     return {
-        packageName: metadata.packageName,
+        packageName: metadata?.packageName,
+        packageNameFallback: skillId,
         skillId,
         sourceKind: "registry",
     };
@@ -245,8 +307,8 @@ async function resolvePathSkillShareTarget(
     return {
         packageName: readPublishedSkillPackageNameFromFrontmatter(
             parsed.data,
-            skillId,
         ),
+        packageNameFallback: skillId,
         skillId,
         sourceKind: "path",
     };
@@ -254,53 +316,32 @@ async function resolvePathSkillShareTarget(
 
 async function readPublishedSkillPackageName(
     skillDirectoryPath: string,
-    skillId: string,
-): Promise<string> {
+): Promise<string | undefined> {
     const skillFilePath = join(skillDirectoryPath, "SKILL.md");
-    const parsed = parseSkillMarkdownMatter(await readFile(skillFilePath, "utf8"));
+    try {
+        const parsed = parseSkillMarkdownMatter(
+            await readFile(skillFilePath, "utf8"),
+        );
 
-    return readPublishedSkillPackageNameFromFrontmatter(parsed.data, skillId);
+        return readPublishedSkillPackageNameFromFrontmatter(parsed.data);
+    }
+    catch (error) {
+        if (isNodeNotFoundError(error)) {
+            return undefined;
+        }
+
+        throw error;
+    }
 }
 
 function readPublishedSkillPackageNameFromFrontmatter(
     frontmatter: Readonly<Record<PropertyKey, unknown>>,
-    skillId: string,
-): string {
+): string | undefined {
     if (!isSkillFrontmatterRecord(frontmatter.metadata)) {
-        throw new CliUserError("errors.skills.share.notPublished", 1, {
-            name: skillId,
-        });
+        return undefined;
     }
 
-    const packageName = toNonBlankString(frontmatter.metadata.packageName);
-
-    if (packageName === undefined) {
-        throw new CliUserError("errors.skills.share.notPublished", 1, {
-            name: skillId,
-        });
-    }
-
-    return packageName;
-}
-
-async function loadPublicSharePackageInfo(
-    target: SkillShareTarget,
-    account: AuthAccount,
-    context: Pick<
-        CliExecutionContext,
-        "cacheStore" | "fetcher" | "logger" | "translator"
-    >,
-): Promise<PackageInfoResponse> {
-    const packageInfo = await loadSharePackageInfo(target, account, context);
-
-    if (packageInfo.access !== "public") {
-        throw new CliUserError("errors.skills.share.notPublic", 1, {
-            packageName: target.packageName,
-            visibility: packageInfo.access ?? "unknown",
-        });
-    }
-
-    return packageInfo;
+    return toNonBlankString(frontmatter.metadata.packageName);
 }
 
 async function loadSharePackageInfo(
@@ -311,9 +352,11 @@ async function loadSharePackageInfo(
         "cacheStore" | "fetcher" | "logger" | "translator"
     >,
 ): Promise<PackageInfoResponse> {
+    const packageName = resolveSkillSharePackageName(target);
+
     try {
         return await loadPackageInfo(
-            parsePackageSpecifier(target.packageName),
+            parsePackageSpecifier(packageName),
             account,
             resolveRequestLanguage(context.translator.locale),
             context,
@@ -326,7 +369,7 @@ async function loadSharePackageInfo(
             && error.params?.status === 404
         ) {
             throw new CliUserError("errors.skills.share.notPublished", 1, {
-                name: target.skillId,
+                name: packageName,
             });
         }
 
@@ -334,10 +377,182 @@ async function loadSharePackageInfo(
     }
 }
 
+function resolveSkillSharePackageName(target: SkillShareTarget): string {
+    return parsePackageSpecifier(
+        target.packageName ?? target.packageNameFallback,
+    ).packageName;
+}
+
+function resolveSkillShareKind(target: SkillShareTarget): SkillShareKind {
+    if (target.sourceKind === "package" || target.packageName === undefined) {
+        return "package";
+    }
+
+    return "skill";
+}
+
+function resolveSkillShareSuccessMessageKey(shareKind: SkillShareKind): string {
+    return shareKind === "skill"
+        ? "skills.share.success"
+        : "skills.share.packageSuccess";
+}
+
+function resolveSkillShareVisibility(
+    packageInfo: PackageInfoResponse,
+): SkillShareVisibility {
+    if (packageInfo.access === "private" || packageInfo.access === "restricted") {
+        return "private";
+    }
+
+    return "public";
+}
+
+function parseSkillShareLimits(input: SkillsShareInput): SkillShareLimits {
+    return {
+        days: parseSkillShareNumberOption(input.days, {
+            defaultValue: defaultSkillShareDays,
+            max: maxSkillShareDays,
+            optionName: "--days",
+        }) ?? defaultSkillShareDays,
+        downloads: parseSkillShareNumberOption(input.downloads, {
+            defaultValue: undefined,
+            optionName: "--downloads",
+        }),
+    };
+}
+
+function parseSkillShareNumberOption(
+    value: string | undefined,
+    options: {
+        defaultValue?: number;
+        max?: number;
+        optionName: string;
+    },
+): number | undefined {
+    if (value === undefined) {
+        return options.defaultValue;
+    }
+
+    const trimmedValue = value.trim();
+
+    if (trimmedValue === "") {
+        return options.defaultValue;
+    }
+
+    const parsedValue = Number(trimmedValue);
+
+    if (Number.isNaN(parsedValue)) {
+        throw createInvalidSkillShareNumberError(options.optionName, value);
+    }
+
+    if (
+        !Number.isSafeInteger(parsedValue)
+        || parsedValue < 1
+        || (options.max !== undefined && parsedValue > options.max)
+    ) {
+        return options.defaultValue;
+    }
+
+    return parsedValue;
+}
+
+function createInvalidSkillShareNumberError(
+    optionName: string,
+    value: string,
+): CliUserError {
+    return new CliUserError("errors.skills.share.invalidNumberOption", 2, {
+        option: optionName,
+        value,
+    });
+}
+
+async function createPrivateSkillPackageShareSpecifier(
+    packageName: string,
+    limits: SkillShareLimits,
+    account: AuthAccount,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<string> {
+    const shareId = await requestPrivateSkillPackageShare(
+        packageName,
+        limits,
+        account,
+        context,
+    );
+
+    return `${packageName}#${shareId}`;
+}
+
+async function requestPrivateSkillPackageShare(
+    packageName: string,
+    limits: SkillShareLimits,
+    account: AuthAccount,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<string> {
+    const rawResponse = await requestText({
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.skills.share.requestFailed",
+            1,
+            { status },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.skills.share.requestError",
+            1,
+            {
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ),
+        fields: {
+            common: withPackageIdentity(packageName),
+        },
+        init: {
+            body: JSON.stringify(createPrivateSkillPackageShareRequestBody(limits)),
+            headers: {
+                "Authorization": account.apiKey,
+                "Content-Type": "application/json",
+            },
+            method: "POST",
+        },
+        requestLabel: "Skills private package share",
+        requestUrl: createPrivateSkillPackageShareRequestUrl(
+            account.endpoint,
+            packageName,
+        ),
+    });
+
+    try {
+        return packageShareResponseSchema.parse(
+            JSON.parse(rawResponse) as unknown,
+        ).shareID;
+    }
+    catch {
+        throw new CliUserError("errors.skills.share.invalidResponse", 1);
+    }
+}
+
+function createPrivateSkillPackageShareRequestBody(
+    limits: SkillShareLimits,
+): { days: number; downloads?: number } {
+    return {
+        ...(limits.downloads === undefined ? {} : { downloads: limits.downloads }),
+        days: limits.days,
+    };
+}
+
+function createPrivateSkillPackageShareRequestUrl(
+    endpoint: string,
+    packageName: string,
+): URL {
+    return new URL(
+        `https://registry.${endpoint}/-/oomol/package-shares/share/${encodeURIComponent(packageName)}`,
+    );
+}
+
 async function confirmSkillShareTarget(
-    target: SkillShareTarget,
+    target: SkillShareTarget & { packageName: string },
     context: SkillShareContext,
     yes: boolean,
+    shareKind: SkillShareKind,
 ): Promise<void> {
     const params = {
         name: target.skillId,
@@ -358,7 +573,12 @@ async function confirmSkillShareTarget(
 
     const confirmed = await confirmInteractiveValue(context, {
         invalidMessage: context.translator.t("skills.share.confirm.invalid"),
-        prompt: context.translator.t("skills.share.confirm.prompt", params),
+        prompt: context.translator.t(
+            shareKind === "skill"
+                ? "skills.share.confirm.prompt"
+                : "skills.share.confirm.packagePrompt",
+            params,
+        ),
     });
 
     if (!confirmed) {
@@ -368,37 +588,92 @@ async function confirmSkillShareTarget(
 
 function renderSkillSharePrompt(options: {
     hubUrl: string;
+    installCommand: string;
+    installPackageSpecifier: string;
     packageName: string;
+    shareKind: SkillShareKind;
     skillId: string;
+    visibility: SkillShareVisibility;
 }): string {
+    const packageLines = createSkillSharePackageLines(options);
+    const subject = options.shareKind === "skill" ? "skill" : "package";
+
     return [
-        `Please help me install this public OO skill. Assume I may not have OO CLI installed yet, and guide me from installing OO CLI through logging in and installing the skill.`,
+        `Please help me install this OO ${subject}. Assume I may not have OO CLI installed yet, and guide me from installing OO CLI through logging in and installing the ${subject}.`,
         "",
-        `The skill is already published and public:`,
-        `Package: ${options.packageName}`,
-        `Skill: ${options.skillId}`,
-        `Hub: ${options.hubUrl}`,
+        ...packageLines,
         "",
-        `Complete these steps in one continuous setup flow. Do not stop after installing OO CLI; continue through login and skill installation in the same session.`,
+        `Complete these steps in one continuous setup flow. Do not stop after installing OO CLI; continue through login and ${subject} installation in the same session.`,
         "",
         `1. Install OO CLI.`,
         `2. Run \`oo login\` and sign in or create an OO account.`,
-        `3. Install the skill with the command below.`,
+        `3. Install the ${subject} with the command below.`,
         "",
         `macOS / Linux:`,
         "```bash",
         "curl -fsSL https://cli.oomol.com/install.sh | bash",
         "oo login",
-        `oo skills install ${options.packageName} --skill ${options.skillId} -y`,
+        options.installCommand,
         "```",
         "",
         `Windows PowerShell:`,
         "```powershell",
         "irm https://cli.oomol.com/install.ps1 | iex",
         "oo login",
-        `oo skills install ${options.packageName} --skill ${options.skillId} -y`,
+        options.installCommand,
         "```",
     ].join("\n");
+}
+
+function createSkillSharePackageLines(options: {
+    hubUrl: string;
+    installPackageSpecifier: string;
+    packageName: string;
+    shareKind: SkillShareKind;
+    skillId: string;
+    visibility: SkillShareVisibility;
+}): string[] {
+    if (options.visibility === "public" && options.shareKind === "skill") {
+        return [
+            `The skill is already published and public:`,
+            `Package: ${options.packageName}`,
+            `Skill: ${options.skillId}`,
+            `Hub: ${options.hubUrl}`,
+        ];
+    }
+
+    if (options.visibility === "public") {
+        return [
+            `The package is already published and public:`,
+            `Package: ${options.packageName}`,
+            `Hub: ${options.hubUrl}`,
+        ];
+    }
+
+    if (options.shareKind === "skill") {
+        return [
+            `This private OO skill must be installed with this exact temporary share specifier:`,
+            `Install package specifier: ${options.installPackageSpecifier}`,
+            `Skill: ${options.skillId}`,
+        ];
+    }
+
+    return [
+        `This private OO package must be installed with this exact temporary share specifier:`,
+        `Install package specifier: ${options.installPackageSpecifier}`,
+    ];
+}
+
+function createSkillShareInstallCommand(
+    installPackageSpecifier: string,
+    shareKind: SkillShareKind,
+    skillId: string,
+): string {
+    if (shareKind === "package") {
+        return `oo skills install ${installPackageSpecifier} -y`;
+    }
+
+    return `oo skills install ${installPackageSpecifier} --skill ${skillId} -y`;
 }
 
 function isSkillIdReference(value: string): boolean {

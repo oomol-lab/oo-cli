@@ -855,7 +855,12 @@ describe("embedded skill assets", () => {
 
             expect(content).toContain("Publish, release, upload, or submit");
             expect(content).toContain("oo skills share");
-            expect(content).toContain("already-public published skill");
+            expect(content).toContain("oo skills share <skill-id> -y");
+            expect(content).toContain("Share a published skill");
+            expect(content).toContain("temporary shares for private packages");
+            expect(content).toContain("Private package shares support optional limits");
+            expect(content).toContain("`--days <days>` sets the share duration");
+            expect(content).toContain("omitting `--downloads` leaves installs unlimited");
             expect(content).toContain("may not have OO CLI installed yet");
             expect(content).toContain("creating an OO account");
             expect(content).toContain("existing AI agent skill");
