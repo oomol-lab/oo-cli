@@ -8,6 +8,7 @@ import type { ManagedSkillInstallSummary } from "./install-output.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
+import { parsePackageSpecifier } from "../package/shared.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { writeManagedSkillInstallSummary } from "./install-output.ts";
 import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
@@ -26,8 +27,10 @@ interface SkillsInstallInput {
 }
 
 interface SkillsInstallPackageSpecifier {
+    hasExplicitPackageVersion: boolean;
     packageName: string;
     packageShareId?: string;
+    packageVersion: string;
 }
 
 export const presetSkillPackageNames = ["@alwaysmavs/gpt-image-2"] as const;
@@ -107,6 +110,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
 
         if (
             packageSpecifier.packageShareId === undefined
+            && !packageSpecifier.hasExplicitPackageVersion
             && isBundledSkillName(packageSpecifier.packageName)
         ) {
             context.telemetry?.recordProperties({
@@ -129,6 +133,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
                 all: input.all === true,
                 packageName: packageSpecifier.packageName,
                 packageShareId: packageSpecifier.packageShareId,
+                packageVersion: packageSpecifier.packageVersion,
                 skillNames: input.skill ?? [],
                 yes: input.yes === true,
             },
@@ -184,16 +189,14 @@ function parseSkillsInstallPackageSpecifier(
     const shareSeparatorIndex = trimmedSpecifier.indexOf("#");
 
     if (shareSeparatorIndex < 0) {
-        return {
-            packageName: trimmedSpecifier,
-        };
+        return parseSkillsInstallPackageIdentity(trimmedSpecifier);
     }
 
-    const packageName = trimmedSpecifier.slice(0, shareSeparatorIndex).trim();
+    const packageIdentity = trimmedSpecifier.slice(0, shareSeparatorIndex).trim();
     const packageShareId = trimmedSpecifier.slice(shareSeparatorIndex + 1).trim();
 
     if (
-        packageName === ""
+        packageIdentity === ""
         || packageShareId === ""
         || packageShareId.includes("#")
     ) {
@@ -203,7 +206,21 @@ function parseSkillsInstallPackageSpecifier(
     }
 
     return {
-        packageName,
+        ...parseSkillsInstallPackageIdentity(packageIdentity),
         packageShareId,
+    };
+}
+
+function parseSkillsInstallPackageIdentity(
+    packageIdentity: string,
+): Omit<SkillsInstallPackageSpecifier, "packageShareId"> {
+    const packageSpecifier = parsePackageSpecifier(packageIdentity, {
+        errorKey: "errors.skills.install.invalidPackageSpecifier",
+    });
+
+    return {
+        hasExplicitPackageVersion: packageIdentity !== packageSpecifier.packageName,
+        packageName: packageSpecifier.packageName,
+        packageVersion: packageSpecifier.packageVersion,
     };
 }

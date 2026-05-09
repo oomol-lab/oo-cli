@@ -549,7 +549,9 @@ skills。
 - 参数：当 `[packageName]` 为 `oo`、`oo-find-skills`、`oo-create-skill` 或
   `oo-publish-skill` 时，命令安装对应的内置 skill。
 - 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
-  安装 skill。
+  安装 skill。`[packageName]` 可以包含显式版本，格式为
+  `<packageName>@<version>`，也支持 `@scope/name@1.2.3` 这类 scoped package
+  形式。
 - 参数：`[packageName]` 也可以使用 `<packageName>#<shareID>`。这种形式会从
   `<packageName>` 读取 package 的 skill 列表，并通过 `<shareID>` 对应的 share
   下载 package 归档。
