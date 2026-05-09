@@ -761,8 +761,10 @@ Remove oo-managed skills from supported local skill directories.
   that host's installed directory has a `.oo-metadata.json` file that
   identifies bundled ownership.
 - Ownership rule: a local skill published by copying is removable from a
-  supported host only when that host's installed directory identifies local
+  supported host when that host's installed directory identifies local
   ownership and its `SKILL.md` content matches the local canonical `SKILL.md`.
+  A same-name legacy local copy without metadata is also removable when its
+  `SKILL.md` content matches the local canonical `SKILL.md`.
 - Canonical directory removed: bundled skills remove
   `<config-dir>/skills/bundled/<agent>/<skill>` for each installed agent, and
   local skills remove `<config-dir>/skills/local/<skill>`. Published skills

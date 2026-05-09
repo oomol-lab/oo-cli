@@ -201,8 +201,8 @@ async function listSkillOutputItems(
     );
 
     return groupSkillListInstallationsByIdentity([
-        ...managedInstallations.map(createManagedSkillOutputItem),
         ...localOutputItems,
+        ...managedInstallations.map(createManagedSkillOutputItem),
     ]);
 }
 
@@ -290,7 +290,10 @@ function groupSkillListInstallationsByIdentity(
         }
 
         appendUniqueValues(group.hostNames, installation.hostNames);
-        appendUniqueValues(group.paths, installation.paths);
+
+        if (group.source !== "local") {
+            appendUniqueValues(group.paths, installation.paths);
+        }
     }
 
     return groups.sort(compareSkillListOutputItems);
@@ -557,6 +560,10 @@ function readManagedSkillListSource(
     skill: Pick<ManagedSkillListItem, "metadata" | "name" | "source">,
 ): SkillListSource {
     if (skill.source === "local") {
+        return "local";
+    }
+
+    if (skill.metadata?.kind === "local") {
         return "local";
     }
 

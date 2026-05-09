@@ -123,6 +123,8 @@ describe("skills commands", () => {
                 properties: {
                     bundled_skill: "__all__",
                     command_full: "skills.install",
+                    local_refresh_count_bucket: "0",
+                    local_refresh_performed: false,
                     package_kind: "bundled",
                     skill_ids_count_bucket: "1-5",
                     skill_ids_sample: [
@@ -354,6 +356,45 @@ describe("skills commands", () => {
             expect(await readFile(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "utf8")).toBe(
                 renderSkillMetadataJson(createLocalSkillMetadata()),
             );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("refuses to overwrite a file at a local agent target during install", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillName = "file-target-helper";
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+
+        try {
+            await mkdir(join(codexHomeDirectory, "skills"), { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                createLocalSkillMarkdown(skillName, "Canonical helper.", "Canonical"),
+            );
+            await Bun.write(skillDirectoryPath, "occupied\n");
+
+            const result = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toBe(
+                `Skill name ${skillName} is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
+            );
+            expect(await readFile(skillDirectoryPath, "utf8")).toBe("occupied\n");
         }
         finally {
             await sandbox.cleanup();

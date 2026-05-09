@@ -5,8 +5,9 @@ import type {
 
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
+import { CliUserError } from "../../contracts/cli.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import { resolveManagedSkillMetadataFilePath } from "./managed-skill-paths.ts";
 import {
@@ -114,7 +115,17 @@ export async function writeLocalSkillMetadata(
     const desiredContent = renderSkillMetadataJson(createLocalSkillMetadata());
 
     try {
-        if (await readFile(metadataFilePath, "utf8") === desiredContent) {
+        const currentContent = await readFile(metadataFilePath, "utf8");
+        const currentMetadata = parseSkillMetadataContent(currentContent);
+
+        if (currentMetadata?.kind !== "local") {
+            throw new CliUserError("errors.skills.nameConflict", 1, {
+                name: basename(skillDirectoryPath),
+                path: skillDirectoryPath,
+            });
+        }
+
+        if (currentContent === desiredContent) {
             return;
         }
     }

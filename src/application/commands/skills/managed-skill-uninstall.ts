@@ -19,8 +19,8 @@ import {
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import {
     hasMatchingSkillFileHash,
-    readLocalSkillMetadata,
     readSkillFileHash,
+    readSkillMetadataFileState,
 } from "./local-skill-ownership.ts";
 import {
     createMissingManagedSkillHostError,
@@ -496,16 +496,22 @@ async function resolveLocalSkillUninstallTargets(options: {
             continue;
         }
 
-        if (
-            localSkillFileHash !== undefined
-            && await readLocalSkillMetadata(
-                installation.installedSkillDirectoryPath,
-            ) !== undefined
-            && await hasMatchingSkillFileHash({
-                expectedHash: localSkillFileHash,
-                skillDirectoryPath: installation.installedSkillDirectoryPath,
-            })
-        ) {
+        if (localSkillFileHash === undefined) {
+            continue;
+        }
+
+        const metadataState = await readSkillMetadataFileState(
+            installation.installedSkillDirectoryPath,
+        );
+
+        if (metadataState.exists && metadataState.metadata?.kind !== "local") {
+            continue;
+        }
+
+        if (await hasMatchingSkillFileHash({
+            expectedHash: localSkillFileHash,
+            skillDirectoryPath: installation.installedSkillDirectoryPath,
+        })) {
             targets.push(installation);
         }
     }

@@ -10,6 +10,7 @@ import type {
 
 import { readdir } from "node:fs/promises";
 import { CliUserError } from "../../contracts/cli.ts";
+import { pathExists } from "../../shared/fs-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     isNodeNotFoundError,
@@ -213,8 +214,15 @@ async function shouldPublishLocalSkillToTarget(options: {
     installation: ManagedSkillHostInstallation;
     skillName: string;
 }): Promise<boolean> {
-    if (!(await directoryExists(options.installation.installedSkillDirectoryPath))) {
+    if (!(await pathExists(options.installation.installedSkillDirectoryPath))) {
         return true;
+    }
+
+    if (!(await directoryExists(options.installation.installedSkillDirectoryPath))) {
+        throw new CliUserError("errors.skills.nameConflict", 1, {
+            name: options.skillName,
+            path: options.installation.installedSkillDirectoryPath,
+        });
     }
 
     const metadataState = await readSkillMetadataFileState(

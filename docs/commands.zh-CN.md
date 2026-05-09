@@ -640,9 +640,10 @@ skills。
   本地安装移除。
 - 所有权规则：对内置 skill 来说，只有当某个受支持 Agent 中的安装目录包含能识别
   bundled 所有权的 `.oo-metadata.json` 时，才允许从该 Agent 移除。
-- 所有权规则：通过复制发布的本地 skill，只有当受支持 Agent 中的安装目录能识别
-  local 所有权，并且 `SKILL.md` 内容与本地 canonical `SKILL.md` 一致时，才会被视
-  为可移除的本地安装。
+- 所有权规则：通过复制发布的本地 skill，当受支持 Agent 中的安装目录能识别
+  local 所有权，并且 `SKILL.md` 内容与本地 canonical `SKILL.md` 一致时，会被视为
+  可移除的本地安装。同名 legacy local 副本即使没有 metadata，只要 `SKILL.md`
+  内容与本地 canonical `SKILL.md` 一致，也会被视为可移除的本地安装。
 - 会同时移除 canonical 目录：内置 skill 会移除
   `<config-dir>/skills/bundled/<agent>/<skill>`（每个已安装 Agent 各一份），
   本地 skill 会移除 `<config-dir>/skills/local/<skill>`，已发布 skill 会移除
