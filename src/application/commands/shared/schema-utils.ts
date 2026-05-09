@@ -17,3 +17,11 @@ export function readWidgetName(ext: unknown): string | undefined {
 
     return ext.widget;
 }
+
+export const storagePathWidgets: ReadonlySet<string> = new Set(["dir", "save"]);
+
+export function isStoragePathWidget(ext: unknown): boolean {
+    const widgetName = readWidgetName(ext);
+
+    return widgetName !== undefined && storagePathWidgets.has(widgetName);
+}

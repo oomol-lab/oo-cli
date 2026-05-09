@@ -11,8 +11,9 @@ import {
 import { isAsciiDigit, isSemver as isValidSemver } from "../../semver.ts";
 import { patchHandleSchema } from "../shared/handle-schema.ts";
 import { requestText } from "../shared/request.ts";
+import { isStoragePathWidget } from "../shared/schema-utils.ts";
 
-const PACKAGE_INFO_CACHE_ID = "package.info.v5";
+const PACKAGE_INFO_CACHE_ID = "package.info.v6";
 const PACKAGE_INFO_CACHE_MAX_ENTRIES = 300;
 const PACKAGE_INFO_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LATEST_PACKAGE_VERSION = "latest";
@@ -444,6 +445,12 @@ function transformInputHandleDefinitions(
             }
 
             const normalizedSchema = splitPackageInfoHandleSchema(handleDef.json_schema);
+
+            // Storage-path widgets target cloud paths the CLI surface cannot address.
+            if (isStoragePathWidget(normalizedSchema.ext)) {
+                return [];
+            }
+
             const transformedHandle: z.output<typeof transformedInputHandleSchema> = {
                 description: handleDef.description,
                 schema: patchHandleSchema(

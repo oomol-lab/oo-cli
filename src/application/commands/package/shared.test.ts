@@ -183,6 +183,95 @@ describe("loadPackageInfo", () => {
         expect(response.blocks[0]?.inputHandle.plainObjectInput).not.toHaveProperty("ext");
     });
 
+    test("removes input handles whose ui widget targets cloud storage", async () => {
+        const cacheValues = new Map<string, string>();
+        const cache = createCache<string>({
+            delete(key) {
+                return cacheValues.delete(key);
+            },
+            get(key) {
+                return cacheValues.get(key) ?? null;
+            },
+            set(key, value) {
+                cacheValues.set(key, value);
+            },
+        });
+        const context = createPackageInfoContext(
+            cache,
+            (async () => new Response(JSON.stringify({
+                packageName: "storage-lab",
+                packageVersion: "1.0.0",
+                title: "Storage Lab",
+                description: "Cloud storage handle filter.",
+                blocks: [
+                    {
+                        blockName: "Run",
+                        title: "Run",
+                        description: "Mixed widgets.",
+                        inputHandleDefs: [
+                            {
+                                handle: "savePath",
+                                description: "Save path",
+                                json_schema: {
+                                    "type": "string",
+                                    "ui:widget": "save",
+                                },
+                            },
+                            {
+                                handle: "dirPath",
+                                description: "Directory path",
+                                json_schema: {
+                                    "type": "string",
+                                    "ui:widget": "dir",
+                                },
+                            },
+                            {
+                                handle: "filePath",
+                                description: "File path",
+                                json_schema: {
+                                    "type": "string",
+                                    "ui:widget": "file",
+                                },
+                            },
+                            {
+                                handle: "freeText",
+                                description: "Free text",
+                                json_schema: {
+                                    type: "string",
+                                },
+                            },
+                        ],
+                        outputHandleDefs: [
+                            {
+                                handle: "savedTo",
+                                description: "Save target",
+                                json_schema: {
+                                    "type": "string",
+                                    "ui:widget": "save",
+                                },
+                            },
+                        ],
+                    },
+                ],
+            }))) satisfies Fetcher,
+        );
+
+        const response = await loadPackageInfo(
+            parsePackageSpecifier("storage-lab@1.0.0"),
+            packageInfoAccount,
+            packageInfoRequestLanguage,
+            context,
+        );
+
+        const block = response.blocks[0];
+
+        expect(Object.keys(block?.inputHandle ?? {})).toEqual([
+            "filePath",
+            "freeText",
+        ]);
+        expect(Object.keys(block?.outputHandle ?? {})).toEqual(["savedTo"]);
+    });
+
     test("deserializes preloaded cached normalized responses without fetching", async () => {
         const cacheValues = new Map<string, string>();
         let fetchCount = 0;
