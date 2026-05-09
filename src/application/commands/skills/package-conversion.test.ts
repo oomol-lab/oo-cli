@@ -437,9 +437,10 @@ describe("skill package conversion", () => {
 
         const metadata = await requests[0]!.json() as PublishMetadataForTest;
         const versionManifest = metadata.versions["0.0.2"]!;
-        const attachment = metadata._attachments["@alice/demo-skill-0.0.2.tgz"]!;
+        const attachment = metadata._attachments["demo-skill-0.0.2.tgz"]!;
         const tarballBytes = Buffer.from(attachment.data, "base64");
 
+        expect(metadata._attachments["@alice/demo-skill-0.0.2.tgz"]).toBeUndefined();
         expect(metadata).toMatchObject({
             "_id": "@alice/demo-skill",
             "name": "@alice/demo-skill",

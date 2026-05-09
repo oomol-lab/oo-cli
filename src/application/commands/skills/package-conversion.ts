@@ -839,7 +839,8 @@ function createPublishMetadata(
     registry: string,
     visibility: SkillPublishVisibility,
 ): unknown {
-    const tarballName = `${manifest.name}-${manifest.version}.tgz`;
+    const tarballPackageName = resolveRegistryPackageTarballPackageName(manifest.name);
+    const tarballName = `${tarballPackageName}-${manifest.version}.tgz`;
     const versionManifest = {
         ...manifest,
         _id: `${manifest.name}@${manifest.version}`,
