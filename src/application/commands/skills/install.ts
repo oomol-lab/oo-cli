@@ -6,6 +6,7 @@ import type { BundledSkillName } from "./embedded-assets.ts";
 
 import type { ManagedSkillInstallSummary } from "./install-output.ts";
 import { z } from "zod";
+import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { writeManagedSkillInstallSummary } from "./install-output.ts";
@@ -22,6 +23,11 @@ interface SkillsInstallInput {
     packageName?: string;
     skill?: string[];
     yes?: boolean;
+}
+
+interface SkillsInstallPackageSpecifier {
+    packageName: string;
+    packageShareId?: string;
 }
 
 export const presetSkillPackageNames = ["@alwaysmavs/gpt-image-2"] as const;
@@ -97,15 +103,20 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             return;
         }
 
-        if (isBundledSkillName(input.packageName)) {
+        const packageSpecifier = parseSkillsInstallPackageSpecifier(input.packageName);
+
+        if (
+            packageSpecifier.packageShareId === undefined
+            && isBundledSkillName(packageSpecifier.packageName)
+        ) {
             context.telemetry?.recordProperties({
-                bundled_skill: input.packageName,
+                bundled_skill: packageSpecifier.packageName,
                 package_kind: "bundled",
-                ...createSkillIdsTelemetryProperties([input.packageName]),
+                ...createSkillIdsTelemetryProperties([packageSpecifier.packageName]),
             });
 
             const summary = await installBundledSkill(
-                input.packageName as BundledSkillName,
+                packageSpecifier.packageName as BundledSkillName,
                 context,
             );
 
@@ -116,7 +127,8 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         await installRegistrySkills(
             {
                 all: input.all === true,
-                packageName: input.packageName,
+                packageName: packageSpecifier.packageName,
+                packageShareId: packageSpecifier.packageShareId,
                 skillNames: input.skill ?? [],
                 yes: input.yes === true,
             },
@@ -156,4 +168,42 @@ async function installPresetSkillPackages(
     }
 
     return summaries;
+}
+
+function parseSkillsInstallPackageSpecifier(
+    packageSpecifier: string,
+): SkillsInstallPackageSpecifier {
+    const trimmedSpecifier = packageSpecifier.trim();
+
+    if (trimmedSpecifier === "") {
+        throw new CliUserError("errors.skills.install.invalidPackageSpecifier", 2, {
+            value: packageSpecifier,
+        });
+    }
+
+    const shareSeparatorIndex = trimmedSpecifier.indexOf("#");
+
+    if (shareSeparatorIndex < 0) {
+        return {
+            packageName: trimmedSpecifier,
+        };
+    }
+
+    const packageName = trimmedSpecifier.slice(0, shareSeparatorIndex).trim();
+    const packageShareId = trimmedSpecifier.slice(shareSeparatorIndex + 1).trim();
+
+    if (
+        packageName === ""
+        || packageShareId === ""
+        || packageShareId.includes("#")
+    ) {
+        throw new CliUserError("errors.skills.install.invalidPackageSpecifier", 2, {
+            value: packageSpecifier,
+        });
+    }
+
+    return {
+        packageName,
+        packageShareId,
+    };
 }

@@ -53,6 +53,7 @@ interface ManagedSkillPathState {
 export interface RegistrySkillInstallRequest {
     all: boolean;
     packageName: string;
+    packageShareId?: string;
     packageVersion?: string;
     recordTelemetry?: boolean;
     skillNames: string[];
@@ -172,6 +173,7 @@ export async function installRegistrySkills(
                 const summaries = await executeInstallActions(
                     installActions,
                     packageInfo,
+                    request.packageShareId,
                     account,
                     availableHosts,
                     settingsFilePath,
@@ -230,6 +232,7 @@ export async function installRegistrySkills(
 async function executeInstallActions(
     installActions: readonly RegistrySkillSelectionAction[],
     packageInfo: RegistryPackageSkillInfo,
+    packageShareId: string | undefined,
     account: AuthAccount,
     availableHosts: readonly ManagedSkillHost[],
     settingsFilePath: string,
@@ -250,6 +253,7 @@ async function executeInstallActions(
         packageInfo.packageVersion,
         account,
         context,
+        packageShareId,
     );
     const extractedPackage = await extractRegistryPackageArchive(packageBytes);
 

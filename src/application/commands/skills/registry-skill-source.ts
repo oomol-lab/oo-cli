@@ -54,6 +54,15 @@ export function createRegistryPackageTarballRequestUrl(
     );
 }
 
+export function createRegistryPackageShareDownloadMetaRequestUrl(
+    endpoint: string,
+    packageShareId: string,
+): URL {
+    return new URL(
+        `https://registry.${endpoint}/-/oomol/package-shares/download-meta/${encodeURIComponent(packageShareId)}`,
+    );
+}
+
 export async function loadRegistryPackageSkillInfo(
     packageName: string,
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
@@ -101,12 +110,18 @@ export async function downloadRegistryPackageTarball(
     packageVersion: string,
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+    packageShareId?: string,
 ): Promise<Uint8Array<ArrayBuffer>> {
-    const requestUrl = createRegistryPackageTarballRequestUrl(
-        account.endpoint,
-        packageName,
-        packageVersion,
-    );
+    const requestUrl = packageShareId === undefined
+        ? createRegistryPackageTarballRequestUrl(
+                account.endpoint,
+                packageName,
+                packageVersion,
+            )
+        : createRegistryPackageShareDownloadMetaRequestUrl(
+                account.endpoint,
+                packageShareId,
+            );
     const response = await performLoggedRequest({
         context,
         createRequestFailedError: status => new CliUserError(

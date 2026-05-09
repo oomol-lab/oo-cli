@@ -469,6 +469,8 @@ export const enMessages = {
         "Downloaded package archive does not contain a valid skill directory for {name}.",
     "errors.skills.install.invalidPackageInfo":
         "The skills install package info service returned an unsupported response body.",
+    "errors.skills.install.invalidPackageSpecifier":
+        "Invalid skills package specifier: {value}.",
     "errors.skills.install.noPublishedSkills":
         "Package {packageName} does not publish any skills.",
     "errors.skills.install.nonInteractiveSelection":
@@ -1287,6 +1289,8 @@ export const zhMessages = {
         "下载的包归档中不包含 {name} 对应的有效 skill 目录。",
     "errors.skills.install.invalidPackageInfo":
         "skills install 使用的包信息服务返回了不受支持的响应内容。",
+    "errors.skills.install.invalidPackageSpecifier":
+        "无效的 skills 包标识：{value}。",
     "errors.skills.install.noPublishedSkills":
         "包 {packageName} 没有发布任何 skill。",
     "errors.skills.install.nonInteractiveSelection":

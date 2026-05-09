@@ -542,6 +542,9 @@ skills。
   `oo-publish-skill` 时，命令安装对应的内置 skill。
 - 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
   安装 skill。
+- 参数：`[packageName]` 也可以使用 `<packageName>#<sharedID>`。这种形式会
+  从 `<packageName>` 读取 package 的 skill 列表，并通过 `<sharedID>` 对应的
+  share 下载 package 归档。
 - 选项：`-s, --skill <skills...>` 用于安装 package 中一个或多个指定的
   skill。
 - 选项：`-s, --skill '*'` 用于安装该 package 中全部已发布 skill。
