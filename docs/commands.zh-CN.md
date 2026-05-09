@@ -515,13 +515,16 @@ skills。
   `POST https://registry.oomol.com/-/oomol/package-shares/share/<packageName>`
   创建临时分享，并在提示词中使用 `<packageName>#<shareID>`。缺少可见性元数据时
   按公开包处理；尚未发布的包会在输出分享提示词前被拒绝。
-- 输出：成功时，文本输出会打印一段可复制提示词。提示词会说明该 skill 已经发布且
-  默认对方可能还没有安装 OO CLI，引导对方先安装 OO CLI，再运行 `oo login` 登录或
-  注册 OO 账号，然后安装 skill。提示词包含 macOS/Linux 和 Windows PowerShell 命令
-  序列。对于公开包，提示词会给出 `oo skills install <packageName> --skill <skill-id> -y`；
-  对于私有包，提示词会给出 `oo skills install <packageName>#<shareID> --skill <skill-id> -y`，
-  并突出展示必须精确使用的临时安装标识 `<packageName>#<shareID>`，不会把它描述为
-  已公开发布的 skill。提示词会明确要求对方从安装 OO、登录到安装 skill 一气呵成。
+- 输出：成功时，文本输出会打印一段可复制提示词。提示词会说明该 skill 或 package
+  已经发布，默认对方可能还没有安装 OO CLI，引导对方先安装 OO CLI，再运行
+  `oo login` 登录或注册 OO 账号，然后安装被分享的目标。提示词包含 macOS/Linux 和
+  Windows PowerShell 命令序列。对于 skill 目标，公开包会给出
+  `oo skills install <packageName> --skill <skill-id> -y`，私有包会给出
+  `oo skills install <packageName>#<shareID> --skill <skill-id> -y`。对于
+  package 目标，公开包会给出 `oo skills install <packageName> -y`，私有包会给出
+  `oo skills install <packageName>#<shareID> -y`。私有包提示词会突出展示必须精确
+  使用的临时安装标识 `<packageName>#<shareID>`，不会把分享目标描述为已公开发布。
+  提示词会明确要求对方从安装 OO、登录到安装目标一气呵成。
 
 ### `oo skills search <text>`
 

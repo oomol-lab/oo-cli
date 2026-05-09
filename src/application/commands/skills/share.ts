@@ -49,6 +49,7 @@ interface SkillShareLimits {
     downloads?: number;
 }
 
+type SkillShareKind = "package" | "skill";
 type SkillShareVisibility = "private" | "public";
 
 type SkillShareContext = Pick<
@@ -120,6 +121,7 @@ async function shareSkill(
     const account = await requireCurrentAccount(context);
     const target = await resolveSkillShareTarget(input.skill, context);
     const packageInfo = await loadSharePackageInfo(target, account, context);
+    const shareKind = resolveSkillShareKind(target);
     const visibility = resolveSkillShareVisibility(packageInfo);
 
     await confirmSkillShareTarget(
@@ -129,6 +131,7 @@ async function shareSkill(
         },
         context,
         input.yes === true,
+        shareKind,
     );
 
     const installPackageSpecifier = visibility === "public"
@@ -144,16 +147,17 @@ async function shareSkill(
         {
             packageName: packageInfo.packageName,
             packageVersion: packageInfo.packageVersion,
+            shareKind,
             skillId: target.skillId,
             sourceKind: target.sourceKind,
             visibility,
         },
-        "Skill share prompt generated.",
+        "Share prompt generated.",
     );
 
     writeLine(
         context.stdout,
-        context.translator.t("skills.share.success", {
+        context.translator.t(resolveSkillShareSuccessMessageKey(shareKind), {
             packageName: packageInfo.packageName,
             skillName: target.skillId,
             visibility,
@@ -164,8 +168,14 @@ async function shareSkill(
         context.stdout,
         renderSkillSharePrompt({
             hubUrl: createSkillPackageHubUrl(account.endpoint, packageInfo.packageName),
+            installCommand: createSkillShareInstallCommand(
+                installPackageSpecifier,
+                shareKind,
+                target.skillId,
+            ),
             installPackageSpecifier,
             packageName: packageInfo.packageName,
+            shareKind,
             skillId: target.skillId,
             visibility,
         }),
@@ -372,6 +382,20 @@ function resolveSkillSharePackageName(target: SkillShareTarget): string {
     ).packageName;
 }
 
+function resolveSkillShareKind(target: SkillShareTarget): SkillShareKind {
+    if (target.sourceKind === "package" || target.packageName === undefined) {
+        return "package";
+    }
+
+    return "skill";
+}
+
+function resolveSkillShareSuccessMessageKey(shareKind: SkillShareKind): string {
+    return shareKind === "skill"
+        ? "skills.share.success"
+        : "skills.share.packageSuccess";
+}
+
 function resolveSkillShareVisibility(
     packageInfo: PackageInfoResponse,
 ): SkillShareVisibility {
@@ -527,6 +551,7 @@ async function confirmSkillShareTarget(
     target: SkillShareTarget & { packageName: string },
     context: SkillShareContext,
     yes: boolean,
+    shareKind: SkillShareKind,
 ): Promise<void> {
     const params = {
         name: target.skillId,
@@ -547,7 +572,12 @@ async function confirmSkillShareTarget(
 
     const confirmed = await confirmInteractiveValue(context, {
         invalidMessage: context.translator.t("skills.share.confirm.invalid"),
-        prompt: context.translator.t("skills.share.confirm.prompt", params),
+        prompt: context.translator.t(
+            shareKind === "skill"
+                ? "skills.share.confirm.prompt"
+                : "skills.share.confirm.packagePrompt",
+            params,
+        ),
     });
 
     if (!confirmed) {
@@ -557,49 +587,92 @@ async function confirmSkillShareTarget(
 
 function renderSkillSharePrompt(options: {
     hubUrl: string;
+    installCommand: string;
     installPackageSpecifier: string;
     packageName: string;
+    shareKind: SkillShareKind;
     skillId: string;
     visibility: SkillShareVisibility;
 }): string {
-    const packageLines = options.visibility === "public"
-        ? [
-                `The skill is already published and public:`,
-                `Package: ${options.packageName}`,
-                `Skill: ${options.skillId}`,
-                `Hub: ${options.hubUrl}`,
-            ]
-        : [
-                `This private OO skill must be installed with this exact temporary share specifier:`,
-                `Install package specifier: ${options.installPackageSpecifier}`,
-                `Skill: ${options.skillId}`,
-            ];
+    const packageLines = createSkillSharePackageLines(options);
+    const subject = options.shareKind === "skill" ? "skill" : "package";
 
     return [
-        `Please help me install this OO skill. Assume I may not have OO CLI installed yet, and guide me from installing OO CLI through logging in and installing the skill.`,
+        `Please help me install this OO ${subject}. Assume I may not have OO CLI installed yet, and guide me from installing OO CLI through logging in and installing the ${subject}.`,
         "",
         ...packageLines,
         "",
-        `Complete these steps in one continuous setup flow. Do not stop after installing OO CLI; continue through login and skill installation in the same session.`,
+        `Complete these steps in one continuous setup flow. Do not stop after installing OO CLI; continue through login and ${subject} installation in the same session.`,
         "",
         `1. Install OO CLI.`,
         `2. Run \`oo login\` and sign in or create an OO account.`,
-        `3. Install the skill with the command below.`,
+        `3. Install the ${subject} with the command below.`,
         "",
         `macOS / Linux:`,
         "```bash",
         "curl -fsSL https://cli.oomol.com/install.sh | bash",
         "oo login",
-        `oo skills install ${options.installPackageSpecifier} --skill ${options.skillId} -y`,
+        options.installCommand,
         "```",
         "",
         `Windows PowerShell:`,
         "```powershell",
         "irm https://cli.oomol.com/install.ps1 | iex",
         "oo login",
-        `oo skills install ${options.installPackageSpecifier} --skill ${options.skillId} -y`,
+        options.installCommand,
         "```",
     ].join("\n");
+}
+
+function createSkillSharePackageLines(options: {
+    hubUrl: string;
+    installPackageSpecifier: string;
+    packageName: string;
+    shareKind: SkillShareKind;
+    skillId: string;
+    visibility: SkillShareVisibility;
+}): string[] {
+    if (options.visibility === "public" && options.shareKind === "skill") {
+        return [
+            `The skill is already published and public:`,
+            `Package: ${options.packageName}`,
+            `Skill: ${options.skillId}`,
+            `Hub: ${options.hubUrl}`,
+        ];
+    }
+
+    if (options.visibility === "public") {
+        return [
+            `The package is already published and public:`,
+            `Package: ${options.packageName}`,
+            `Hub: ${options.hubUrl}`,
+        ];
+    }
+
+    if (options.shareKind === "skill") {
+        return [
+            `This private OO skill must be installed with this exact temporary share specifier:`,
+            `Install package specifier: ${options.installPackageSpecifier}`,
+            `Skill: ${options.skillId}`,
+        ];
+    }
+
+    return [
+        `This private OO package must be installed with this exact temporary share specifier:`,
+        `Install package specifier: ${options.installPackageSpecifier}`,
+    ];
+}
+
+function createSkillShareInstallCommand(
+    installPackageSpecifier: string,
+    shareKind: SkillShareKind,
+    skillId: string,
+): string {
+    if (shareKind === "package") {
+        return `oo skills install ${installPackageSpecifier} -y`;
+    }
+
+    return `oo skills install ${installPackageSpecifier} --skill ${skillId} -y`;
 }
 
 function isSkillIdReference(value: string): boolean {

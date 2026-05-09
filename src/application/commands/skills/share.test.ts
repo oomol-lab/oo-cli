@@ -283,7 +283,22 @@ describe("skills share command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toContain(
-                "oo skills install fallback-registry-skill --skill fallback-registry-skill -y",
+                "Share prompt for public package fallback-registry-skill:",
+            );
+            expect(result.stdout).toContain(
+                "The package is already published and public:",
+            );
+            expect(result.stdout).toContain(
+                "Please help me install this OO package.",
+            );
+            expect(result.stdout).toContain(
+                "oo skills install fallback-registry-skill -y",
+            );
+            expect(result.stdout).not.toContain(
+                "--skill fallback-registry-skill",
+            );
+            expect(result.stdout).not.toContain(
+                "Skill: fallback-registry-skill",
             );
             expect(requests.map(request => request.url)).toEqual([
                 "https://registry.oomol.com/-/oomol/package-info/fallback-registry-skill/latest?lang=en",
@@ -387,6 +402,75 @@ describe("skills share command", () => {
         }
     });
 
+    test("shares a private package reference without adding a skill selector", async () => {
+        const sandbox = await createCliSandbox();
+        const requests: Request[] = [];
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "share", "@alice/private-package", "--days", "1", "--yes"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                blocks: [],
+                                description: "Private package",
+                                isPrivate: true,
+                                packageName: "@alice/private-package",
+                                packageVersion: "0.0.1",
+                                title: "Private Package",
+                            }));
+                        }
+
+                        if (request.url.includes("/package-shares/share/")) {
+                            return new Response(JSON.stringify({
+                                shareID: "share-package-1",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain(
+                "Share prompt for private package @alice/private-package:",
+            );
+            expect(result.stdout).toContain(
+                "This private OO package must be installed with this exact temporary share specifier:",
+            );
+            expect(result.stdout).toContain(
+                "Install package specifier: @alice/private-package#share-package-1",
+            );
+            expect(result.stdout).toContain(
+                "Please help me install this OO package.",
+            );
+            expect(result.stdout).toContain(
+                "oo skills install @alice/private-package#share-package-1 -y",
+            );
+            expect(result.stdout).not.toContain("--skill private-package");
+            expect(result.stdout).not.toContain("Skill: private-package");
+            expect(requests.map(request => `${request.method} ${request.url}`)).toEqual([
+                "GET https://registry.oomol.com/-/oomol/package-info/%40alice%2Fprivate-package/latest?lang=en",
+                "POST https://registry.oomol.com/-/oomol/package-shares/share/%40alice%2Fprivate-package",
+            ]);
+            await expect(requests[1]!.json()).resolves.toEqual({
+                days: 1,
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("falls back to treating the reference as a package name when matched skill metadata has no package name", async () => {
         const sandbox = await createCliSandbox();
         const skillDirectoryPath = resolveLocalSkillDirectoryPath(
@@ -428,7 +512,16 @@ describe("skills share command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toContain(
-                "oo skills install fallback-skill --skill fallback-skill -y",
+                "Share prompt for public package fallback-skill:",
+            );
+            expect(result.stdout).toContain(
+                "oo skills install fallback-skill -y",
+            );
+            expect(result.stdout).not.toContain(
+                "--skill fallback-skill",
+            );
+            expect(result.stdout).not.toContain(
+                "Skill: fallback-skill",
             );
             expect(requests.map(request => request.url)).toEqual([
                 "https://registry.oomol.com/-/oomol/package-info/fallback-skill/latest?lang=en",

@@ -610,17 +610,20 @@ registry share id.
   treated as public. Unpublished packages are rejected before any share prompt
   is printed.
 - Output: on success, text output prints a copyable prompt that states the skill
-  is already published, assumes the recipient may not have OO CLI installed
-  yet, instructs them to install OO CLI, run `oo login`, sign in or create an
-  OO account, and then install the skill. It includes macOS/Linux and Windows
-  PowerShell command sequences that continue through
-  `oo skills install <packageName> --skill <skill-id> -y` for public packages,
-  or `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for
-  private packages. Private-package prompts identify the exact temporary
-  install specifier `<packageName>#<shareID>` and do not present the package as
-  an already-public skill.
+  or package is already published, assumes the recipient may not have OO CLI
+  installed yet, instructs them to install OO CLI, run `oo login`, sign in or
+  create an OO account, and then install the shared target. It includes
+  macOS/Linux and Windows PowerShell command sequences. Skill-target prompts
+  continue through `oo skills install <packageName> --skill <skill-id> -y` for
+  public packages, or
+  `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for private
+  packages. Package-target prompts continue through
+  `oo skills install <packageName> -y` for public packages, or
+  `oo skills install <packageName>#<shareID> -y` for private packages.
+  Private-package prompts identify the exact temporary install specifier
+  `<packageName>#<shareID>` and do not present the target as already public.
   The prompt explicitly tells the recipient to complete OO installation, login,
-  and skill installation in one continuous setup flow.
+  and target installation in one continuous setup flow.
 
 ### `oo skills search <text>`
 

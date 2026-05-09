@@ -718,10 +718,14 @@ export const enMessages = {
         "Remote package {packageName}@{version} contains blocks. Continue publishing skill {name} as {packageName}? [y/N] ",
     "skills.share.confirm.invalid":
         "Invalid choice. Enter y/yes or n/no.",
+    "skills.share.confirm.packagePrompt":
+        "Share package {packageName}? [y/N] ",
     "skills.share.confirm.prompt":
         "Share skill {name} from package {packageName}? [y/N] ",
     "skills.share.reference.prompt":
         "Which skill id, package name, or skill directory path do you want to share? ",
+    "skills.share.packageSuccess":
+        "Share prompt for {visibility} package {packageName}:",
     "skills.share.success":
         "Share prompt for skill {skillName} in {visibility} package {packageName}:",
     "warnings.skills.localCopyDriftOverwritten":
@@ -1540,10 +1544,14 @@ export const zhMessages = {
         "远端包 {packageName}@{version} 中存在区块。是否继续将 skill {name} 发布为 {packageName}？[y/N] ",
     "skills.share.confirm.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
+    "skills.share.confirm.packagePrompt":
+        "是否分享 package {packageName}？[y/N] ",
     "skills.share.confirm.prompt":
         "是否分享来自包 {packageName} 的 skill {name}？[y/N] ",
     "skills.share.reference.prompt":
         "要分享哪个 skill id、package 名称或 skill 目录路径？",
+    "skills.share.packageSuccess":
+        "{visibility} package {packageName} 的分享提示词：",
     "skills.share.success":
         "skill {skillName} 在 {visibility} package {packageName} 中的分享提示词：",
     "warnings.skills.localCopyDriftOverwritten":
