@@ -38,6 +38,10 @@ import {
     confirmInteractiveValue,
     selectInteractiveValue,
 } from "./interactive-prompts.ts";
+import { writeLocalSkillMetadata } from "./local-skill-ownership.ts";
+import {
+    findDriftedLocalSkillCopies,
+} from "./local-skill-publication.ts";
 import { createMissingManagedSkillHostError } from "./managed-skill-hosts.ts";
 import {
     parseManagedSkillMetadataContent,
@@ -61,6 +65,7 @@ import {
 
 interface SkillsPublishInput {
     agent?: string;
+    force?: boolean;
     skill: string;
     visibility?: string;
     yes?: boolean;
@@ -77,6 +82,7 @@ interface PublishLocalSkillPackageResult {
 
 interface PublishSkillPackageOptions {
     agentName?: BundledSkillAgentName;
+    force?: boolean;
     yes?: boolean;
 }
 
@@ -160,6 +166,11 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
             descriptionKey: "options.agent",
         },
         {
+            name: "force",
+            longFlag: "--force",
+            descriptionKey: "options.force",
+        },
+        {
             name: "visibility",
             longFlag: "--visibility",
             valueName: "visibility",
@@ -174,6 +185,7 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
     ],
     inputSchema: z.object({
         agent: z.string().optional(),
+        force: z.boolean().optional(),
         skill: z.string(),
         visibility: z.string().optional(),
         yes: z.boolean().optional(),
@@ -188,6 +200,7 @@ export const skillsPublishCommand: CliCommandDefinition<SkillsPublishInput> = {
             visibility,
             {
                 agentName,
+                force: input.force === true,
                 yes: input.yes === true,
             },
         );
@@ -235,6 +248,7 @@ export async function publishLocalSkillPackage(
     const packageName = resolveCanonicalSkillPackageName(account.name, skillId);
     context.telemetry?.recordProperties({
         adopted: false,
+        force: false,
         package_name: packageName,
         skill_id: skillId,
         source_kind: "local",
@@ -243,9 +257,11 @@ export async function publishLocalSkillPackage(
     return await publishResolvedSkillPackage(
         {
             account,
+            force: false,
             packageName,
             skillDirectoryPath,
             skillId,
+            sourceKind: "local",
             yes: false,
         },
         context,
@@ -265,6 +281,7 @@ export async function publishSkillPackage(
         agentName: options.agentName,
     });
     const yes = options.yes === true;
+    const force = options.force === true;
     const checkAuthoringEnvironment
         = dependencies.checkAuthoringEnvironment ?? checkLocalSkillAuthoringEnvironment;
     const requireAccount = dependencies.requireCurrentAccount ?? requireCurrentAccount;
@@ -275,6 +292,7 @@ export async function publishSkillPackage(
     const packageName = resolveCanonicalSkillPackageName(account.name, source.skillId);
     context.telemetry?.recordProperties({
         adopted: source.kind === "adoptable",
+        force,
         package_name: packageName,
         skill_id: source.skillId,
         source_kind: source.kind,
@@ -292,9 +310,11 @@ export async function publishSkillPackage(
     return await publishResolvedSkillPackage(
         {
             account,
+            force,
             packageName,
             skillDirectoryPath: publishSource.skillDirectoryPath,
             skillId: publishSource.skillId,
+            sourceKind: publishSource.kind,
             yes,
         },
         context,
@@ -306,9 +326,11 @@ export async function publishSkillPackage(
 async function publishResolvedSkillPackage(
     request: {
         account: AuthAccount;
+        force: boolean;
         packageName: string;
         skillDirectoryPath: string;
         skillId: string;
+        sourceKind: "local" | "registry";
         yes: boolean;
     },
     context: CliExecutionContext,
@@ -339,6 +361,16 @@ async function publishResolvedSkillPackage(
         skillDirectoryPath: request.skillDirectoryPath,
         skillId: request.skillId,
     });
+    if (request.sourceKind === "local") {
+        await validateLocalSkillCopiesBeforePublish({
+            context,
+            force: request.force,
+            localSkillDirectoryPath: request.skillDirectoryPath,
+            skillId: request.skillId,
+        });
+        await writeLocalSkillMetadata(request.skillDirectoryPath);
+    }
+
     const publishPlan = await resolveFinalPublishPlan({
         account: request.account,
         context,
@@ -389,6 +421,49 @@ async function publishResolvedSkillPackage(
         visibility: publishPlan.visibility,
         version: publishPlan.version,
     };
+}
+
+async function validateLocalSkillCopiesBeforePublish(options: {
+    context: CliExecutionContext;
+    force: boolean;
+    localSkillDirectoryPath: string;
+    skillId: string;
+}): Promise<void> {
+    const driftedCopies = await findDriftedLocalSkillCopies({
+        context: options.context,
+        skillName: options.skillId,
+    });
+
+    if (driftedCopies.length === 0) {
+        return;
+    }
+
+    const paths = driftedCopies.map(copy => copy.path).join(", ");
+
+    options.context.logger.warn(
+        {
+            paths: driftedCopies.map(copy => copy.path),
+            skillName: options.skillId,
+        },
+        "Local skill publish found agent copies that differ from canonical storage.",
+    );
+
+    if (!options.force) {
+        throw new CliUserError("errors.skills.publish.localCopyDrift", 1, {
+            localPath: options.localSkillDirectoryPath,
+            name: options.skillId,
+            paths,
+        });
+    }
+
+    writeLine(
+        options.context.stderr,
+        options.context.translator.t("warnings.skills.publishLocalCopyDriftIgnored", {
+            localPath: options.localSkillDirectoryPath,
+            name: options.skillId,
+            paths,
+        }),
+    );
 }
 
 function parseSkillPublishAgent(
@@ -811,6 +886,7 @@ async function adoptSkillPublishSource(
             options.source.skillId,
         );
         await importManagedMetadataToSkillFrontmatter(options.localSkillDirectoryPath);
+        await writeLocalSkillMetadata(options.localSkillDirectoryPath);
         await validateAdoptedLocalSkill(options.localSkillDirectoryPath, options.source.skillId);
 
         writeLine(

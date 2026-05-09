@@ -1,5 +1,5 @@
-import type { BundledSkillMetadata } from "./bundled-skill-model.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
+import type { BundledSkillMetadata } from "./skill-metadata.ts";
 
 import { readFile, stat } from "node:fs/promises";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -12,7 +12,10 @@ import {
     resolveBundledSkillMetadataFilePath,
 } from "./bundled-skill-paths.ts";
 import { resolveManagedSkillHostMissingErrorKey } from "./managed-skill-host-errors.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import {
+    createBundledSkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 export async function requireBundledSkillHomeDirectory(
     context: Pick<{ env: Record<string, string | undefined> }, "env">,
@@ -98,10 +101,10 @@ export async function readInstalledBundledSkillMetadata(
 
 export async function writeInstalledBundledSkillMetadata(
     skillDirectoryPath: string,
-    metadata: BundledSkillMetadata,
+    metadata: Pick<BundledSkillMetadata, "version">,
 ): Promise<void> {
     await Bun.write(
         resolveBundledSkillMetadataFilePath(skillDirectoryPath),
-        renderSkillMetadataJson(metadata),
+        renderSkillMetadataJson(createBundledSkillMetadata(metadata.version)),
     );
 }

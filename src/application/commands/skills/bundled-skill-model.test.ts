@@ -6,15 +6,16 @@ import {
     parseBundledSkillMetadataContent,
     resolveBundledSkillInstallConflict,
 } from "./bundled-skill-model.ts";
+import { createBundledSkillMetadata } from "./skill-metadata.ts";
 
 describe("bundled skill model", () => {
     test("parses bundled skill metadata content", () => {
         expect(parseBundledSkillMetadataContent(
             `{"version":"${bundledSkillDevelopmentVersion}"}\n`,
-        )).toEqual({
-            version: bundledSkillDevelopmentVersion,
-        });
+        )).toEqual(createBundledSkillMetadata(bundledSkillDevelopmentVersion));
         expect(parseBundledSkillMetadataContent("{\"version\":\" 1.2.3 \"}\n")).toEqual({
+            kind: "bundled",
+            schemaVersion: 1,
             version: "1.2.3",
         });
         expect(parseBundledSkillMetadataContent("{\"version\":\"\"}\n")).toBeUndefined();

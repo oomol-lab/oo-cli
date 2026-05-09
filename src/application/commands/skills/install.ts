@@ -6,9 +6,13 @@ import type { BundledSkillName } from "./embedded-assets.ts";
 
 import type { ManagedSkillInstallSummary } from "./install-output.ts";
 import { z } from "zod";
+import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { writeManagedSkillInstallSummary } from "./install-output.ts";
 import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
+import {
+    publishCanonicalLocalSkillsToAvailableHosts,
+} from "./local-skill-publication.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 import { installBundledSkill, isBundledSkillName } from "./shared.ts";
 import { createSkillIdsTelemetryProperties } from "./telemetry.ts";
@@ -77,6 +81,18 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             }
 
             summaries.push(...await installPresetSkillPackages(context));
+            const localRefreshSummaries = await publishCanonicalLocalSkillsToAvailableHosts(
+                context,
+            );
+
+            context.telemetry?.recordProperties({
+                local_refresh_count_bucket: bucketTelemetryCount(
+                    localRefreshSummaries.length,
+                ),
+                local_refresh_performed: localRefreshSummaries.length > 0,
+            });
+
+            summaries.push(...localRefreshSummaries);
             writeManagedSkillInstallSummary(context, summaries);
             return;
         }

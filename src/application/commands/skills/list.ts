@@ -6,8 +6,11 @@ import type {
     ManagedSkillHostInstallation,
 } from "./managed-skill-hosts.ts";
 
-import type { ManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import type { SkillMarkdownMatter } from "./skill-frontmatter.ts";
+import type {
+    RegistrySkillMetadata,
+    SkillMetadata,
+} from "./skill-metadata.ts";
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -27,7 +30,6 @@ import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
-import { parseManagedSkillMetadataContent } from "./managed-skill-metadata.ts";
 import {
     isPathWithinDirectory,
     resolveLocalSkillCanonicalRootDirectoryPath,
@@ -41,6 +43,7 @@ import {
     parseSkillMarkdownMatter,
     toNonBlankString,
 } from "./skill-frontmatter.ts";
+import { parseSkillMetadataContent } from "./skill-metadata.ts";
 
 const managedSkillNameColor = "#59F78D";
 const managedSkillSourceColor = "#CAA8FA";
@@ -69,7 +72,7 @@ const managedSkillHostOrder = {
 type SkillListSource = (typeof skillListSourceValues)[number];
 
 export interface ManagedSkillListItem {
-    metadata?: ManagedSkillMetadata;
+    metadata?: SkillMetadata;
     name: string;
     path: string;
     source?: "local";
@@ -81,22 +84,29 @@ export interface ManagedSkillHostListItem extends ManagedSkillListItem {
 
 interface SkillListOutputItem {
     hostNames: BundledSkillAgentName[];
-    metadata?: ManagedSkillMetadata;
+    metadata?: SkillListDisplayMetadata;
     name: string;
     paths: string[];
     source: SkillListSource;
 }
 
 interface SkillListSortableItem {
-    metadata?: ManagedSkillMetadata;
+    metadata?: SkillListDisplayMetadata;
     name: string;
     source?: SkillListSource;
 }
 
 export interface LocalSkillListItem {
-    metadata?: ManagedSkillMetadata;
+    metadata?: SkillListDisplayMetadata;
     name: string;
     path: string;
+}
+
+interface SkillListDisplayMetadata {
+    icon?: string;
+    kind?: SkillMetadata["kind"];
+    packageName?: string;
+    version?: string;
 }
 
 type ManagedSkillListTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
@@ -191,8 +201,8 @@ async function listSkillOutputItems(
     );
 
     return groupSkillListInstallationsByIdentity([
-        ...managedInstallations.map(createManagedSkillOutputItem),
         ...localOutputItems,
+        ...managedInstallations.map(createManagedSkillOutputItem),
     ]);
 }
 
@@ -203,7 +213,7 @@ function createManagedSkillOutputItem(
 
     return {
         hostNames: [installation.hostName],
-        metadata: installation.metadata,
+        metadata: createSkillListDisplayMetadata(installation.metadata),
         name: installation.name,
         paths: [installation.path],
         source,
@@ -280,7 +290,10 @@ function groupSkillListInstallationsByIdentity(
         }
 
         appendUniqueValues(group.hostNames, installation.hostNames);
-        appendUniqueValues(group.paths, installation.paths);
+
+        if (group.source !== "local") {
+            appendUniqueValues(group.paths, installation.paths);
+        }
     }
 
     return groups.sort(compareSkillListOutputItems);
@@ -331,7 +344,7 @@ export async function listManagedSkillInstallations(
             }
 
             return {
-                metadata: parseManagedSkillMetadataContent(metadataContent),
+                metadata: parseSkillMetadataContent(metadataContent),
                 name: entryName,
                 path: skillDirectoryPath,
                 source: await readManagedSkillLocalSource(
@@ -550,11 +563,19 @@ function readManagedSkillListSource(
         return "local";
     }
 
-    if (skill.metadata?.packageName === undefined && isBundledSkillName(skill.name)) {
+    if (skill.metadata?.kind === "local") {
+        return "local";
+    }
+
+    if (skill.metadata?.kind === "bundled") {
         return "bundled";
     }
 
-    return "registry";
+    if (skill.metadata?.kind === "registry") {
+        return "registry";
+    }
+
+    return isBundledSkillName(skill.name) ? "bundled" : "registry";
 }
 
 function readSkillListHostName(
@@ -649,6 +670,39 @@ function readBundledSkillNameOrder(
     }
 
     return availableBundledSkillNames.indexOf(skill.name);
+}
+
+function createSkillListDisplayMetadata(
+    metadata: SkillMetadata | undefined,
+): SkillListDisplayMetadata | undefined {
+    if (metadata === undefined) {
+        return undefined;
+    }
+
+    switch (metadata.kind) {
+        case "bundled":
+            return {
+                kind: metadata.kind,
+                version: metadata.version,
+            };
+        case "local":
+            return {
+                kind: metadata.kind,
+            };
+        case "registry":
+            return createRegistrySkillListDisplayMetadata(metadata);
+    }
+}
+
+function createRegistrySkillListDisplayMetadata(
+    metadata: RegistrySkillMetadata,
+): SkillListDisplayMetadata {
+    return {
+        ...(metadata.icon === undefined ? {} : { icon: metadata.icon }),
+        kind: metadata.kind,
+        packageName: metadata.packageName,
+        version: metadata.version,
+    };
 }
 
 async function readManagedSkillLocalSource(

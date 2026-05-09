@@ -270,6 +270,8 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "bundled_skill",
+            "local_refresh_count_bucket",
+            "local_refresh_performed",
             "package_kind",
             "package_name",
             "skill_ids_count_bucket",
@@ -290,6 +292,7 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "adopted",
+            "force",
             "package_name",
             "skill_id",
             "source_kind",

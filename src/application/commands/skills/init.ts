@@ -19,6 +19,7 @@ import {
     resolveBundledSkillHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
+import { writeLocalSkillMetadata } from "./local-skill-ownership.ts";
 import {
     isLocalSkillPathContained,
     resolveLocalSkillCanonicalDirectoryPath,
@@ -165,6 +166,7 @@ async function initializeLocalSkill(
             join(canonicalSkillDirectoryPath, "SKILL.md"),
             renderInitializedSkillMarkdown(skillName, description, icon, title),
         );
+        await writeLocalSkillMetadata(canonicalSkillDirectoryPath);
 
         for (const target of targets) {
             await publishBundledSkillInstallation({

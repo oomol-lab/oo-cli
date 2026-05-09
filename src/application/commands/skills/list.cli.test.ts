@@ -114,23 +114,30 @@ describe("skills list CLI", () => {
             expect(initResult.exitCode).toBe(0);
             expect(allSourcesResult.exitCode).toBe(0);
             expect(allSourcesResult.stderr).toBe("");
-            expect(allSourcesResult.stdout).toContain("campaign-writer\n");
-            expect(allSourcesResult.stdout).toContain("  Source: local\n");
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 1 skills.",
-                    "",
-                    "campaign-writer",
-                    "  Host: CodeBuddy",
-                    "  Source: local",
-                    "  Package: <local>",
-                    "  Version: unknown",
-                    `  Path: ${canonicalSkillDirectoryPath}`,
-                    "",
-                ].join("\n"),
-            );
+            const expectedOutput = [
+                "✓ Found 1 skills.",
+                "",
+                "campaign-writer",
+                "  Host: CodeBuddy",
+                "  Source: local",
+                "  Package: <local>",
+                "  Version: unknown",
+                `  Path: ${canonicalSkillDirectoryPath}`,
+                "",
+            ].join("\n");
+
+            expect(allSourcesResult.stdout.split("\ncampaign-writer\n")).toHaveLength(2);
+            expect(allSourcesResult.stdout).toContain([
+                "campaign-writer",
+                "  Host: CodeBuddy",
+                "  Source: local",
+                "  Package: <local>",
+                "  Version: unknown",
+                `  Path: ${canonicalSkillDirectoryPath}`,
+            ].join("\n"));
+            expect(result.stdout).toBe(expectedOutput);
         }
         finally {
             await sandbox.cleanup();

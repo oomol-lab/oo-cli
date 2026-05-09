@@ -8,7 +8,11 @@ import {
     listLocalSkillInstallations,
     listManagedSkillInstallations,
 } from "./list.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import {
+    createBundledSkillMetadata,
+    createRegistrySkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 describe("skills list command helpers", () => {
     test("lists bundled skills before the remaining sorted names", async () => {
@@ -29,10 +33,10 @@ describe("skills list command helpers", () => {
 
             await Bun.write(
                 join(zebraSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/zebra",
                     version: "2.0.0",
-                }),
+                })),
             );
             await Bun.write(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
@@ -40,15 +44,11 @@ describe("skills list command helpers", () => {
             );
             await Bun.write(
                 join(ooSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
-                    version: "9.9.9",
-                }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             await Bun.write(
                 join(ooFindSkillsDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
-                    version: "9.9.9",
-                }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
 
             await expect(
@@ -56,7 +56,8 @@ describe("skills list command helpers", () => {
             ).resolves.toEqual([
                 {
                     metadata: {
-                        packageName: undefined,
+                        kind: "bundled",
+                        schemaVersion: 1,
                         version: "9.9.9",
                     },
                     name: "oo",
@@ -64,7 +65,8 @@ describe("skills list command helpers", () => {
                 },
                 {
                     metadata: {
-                        packageName: undefined,
+                        kind: "bundled",
+                        schemaVersion: 1,
                         version: "9.9.9",
                     },
                     name: "oo-find-skills",
@@ -77,7 +79,9 @@ describe("skills list command helpers", () => {
                 },
                 {
                     metadata: {
+                        kind: "registry",
                         packageName: "@oomol/zebra",
+                        schemaVersion: 1,
                         version: "2.0.0",
                     },
                     name: "zebra-skill",
@@ -102,17 +106,17 @@ describe("skills list command helpers", () => {
 
             await Bun.write(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.0.0",
-                }),
+                })),
             );
             await Bun.write(
                 join(ooFindSkillsDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/find-skills",
                     version: "1.0.0",
-                }),
+                })),
             );
 
             await expect(
@@ -120,7 +124,9 @@ describe("skills list command helpers", () => {
             ).resolves.toEqual([
                 {
                     metadata: {
+                        kind: "registry",
                         packageName: "@oomol/alpha",
+                        schemaVersion: 1,
                         version: "1.0.0",
                     },
                     name: "alpha-skill",
@@ -128,7 +134,9 @@ describe("skills list command helpers", () => {
                 },
                 {
                     metadata: {
+                        kind: "registry",
                         packageName: "@oomol/find-skills",
+                        schemaVersion: 1,
                         version: "1.0.0",
                     },
                     name: "oo-find-skills",

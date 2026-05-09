@@ -358,7 +358,9 @@ supported host directory that already exists.
   any newly detected supported host that is missing it.
 - Local skills: when a local skill already has a canonical copy under
   `<config-dir>/skills/local/<skill-id>`, `oo` publishes that copy to any newly
-  detected supported host that is missing it.
+  detected supported host that is missing it. Existing same-name local copies
+  with different `SKILL.md` content are left untouched during silent startup
+  synchronization; run `oo skills add` to refresh them explicitly.
 - Migration: existing oo-managed symlink targets from older releases are
   replaced with copied directories during startup synchronization.
 - Safety: startup synchronization does not fetch registry data, does not
@@ -376,8 +378,9 @@ List bundled, registry, and local skills.
   `${HERMES_HOME:-~/.hermes}/skills`, `~/.codebuddy/skills`,
   `~/.workbuddy/skills`, `~/.trae/skills`, `~/.trae-cn/skills`,
   `${OPENCLAW_HOME:-~/.openclaw}/skills`, and `~/.qoderwork/skills`. It keeps
-  only child directories whose
-  `.oo-metadata.json` can be parsed and contains a non-empty `version`.
+  only child directories whose `.oo-metadata.json` identifies an oo-managed
+  bundled, registry, or local skill. Existing legacy bundled and registry
+  metadata remains readable.
 - Local ownership rule: the command scans `<config-dir>/skills/local` and keeps
   child directories whose `SKILL.md` frontmatter includes a matching non-empty
   `name` and a non-empty `description`.
@@ -429,6 +432,8 @@ directory that already exists.
 - Generated `SKILL.md` body includes the managed oo execution notice and
   editable placeholder sections for when to use the skill, inputs, execution,
   result handling, and failure handling.
+- Metadata: the canonical directory and each copied agent target include
+  `.oo-metadata.json` identifying the skill as a local skill managed by `oo`.
 - Options: `--icon <icon>` writes a non-empty icon reference to `metadata.icon`
   in the generated `SKILL.md` frontmatter. The value may be an emoji, an image
   URL, or `:collection:icon:` where `collection` and `icon` are names from
@@ -485,9 +490,23 @@ Convert one skill into an OOMOL package and run the publish step.
   `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `trae-cn`,
   `openclaw`, and `qoderwork`.
 - Options: `-y, --yes` answers publish confirmation prompts with yes.
+- Options: `--force` allows publishing a local canonical skill even when an
+  oo-managed local copy in an agent directory has different `SKILL.md` content.
+  `--force` is independent from `-y, --yes`; answering prompts automatically
+  does not ignore local copy drift.
 - Source resolution: the command first checks
   `<config-dir>/skills/local/<skill-id>`. If present, that local skill is
   published.
+- Local source rule: `<config-dir>/skills/local/<skill-id>` is the only trusted
+  source for a local skill. Agent directories contain copied consumer targets
+  and are never used as the publish source while a canonical local source
+  exists.
+- Local copy drift: before publishing a local skill, the command checks
+  same-name oo-managed local copies in existing supported agent directories. If
+  any copy has different `SKILL.md` content, publishing fails by default and
+  tells you to retry with `--force`. With `--force`, the command publishes the
+  canonical local source and prints a warning that agent-side changes were
+  ignored.
 - Source resolution: bundled skills are rejected because they are managed by the
   oo CLI release.
 - Source resolution: registry skills under
@@ -502,11 +521,11 @@ Convert one skill into an OOMOL package and run the publish step.
   a filesystem path. A matching skill directory is adopted into local canonical
   storage before publishing.
 - Adoption: adopting a skill moves it to `<config-dir>/skills/local/<skill-id>`,
-  imports any managed `.oo-metadata.json` fields into `SKILL.md` frontmatter,
-  removes `.oo-metadata.json`, and publishes the local canonical copy to
-  supported agent skill directories. Adoption requires an interactive `[y/N]`
-  confirmation unless `-y, --yes` is provided. Adopted source directories must
-  not contain symbolic links.
+  imports any registry `.oo-metadata.json` package fields into `SKILL.md`
+  frontmatter, writes local ownership metadata, and publishes the local
+  canonical copy to supported agent skill directories. Adoption requires an
+  interactive `[y/N]` confirmation unless `-y, --yes` is provided. Adopted
+  source directories must not contain symbolic links.
 - Authentication: the command requires the current OOMOL account. The package
   name is always `@<lowercase-account.name>/<lowercase-skill-id>`.
 - Validation: the source directory must contain `SKILL.md` with frontmatter
@@ -519,7 +538,8 @@ Convert one skill into an OOMOL package and run the publish step.
 - Package contents: the skill directory's `.gitignore` controls which local
   files are excluded from the published package. When the skill has no
   `.gitignore`, the built-in package template is used. Symbolic links are
-  rejected during packaging.
+  rejected during packaging. `.oo-metadata.json` is always excluded from the
+  published package.
 - Registry safety: before publishing, the command looks up the latest remote
   package metadata. If the remote package already contains blocks, an
   interactive terminal prompts for confirmation with the standard `[y/N]`
@@ -534,7 +554,9 @@ Convert one skill into an OOMOL package and run the publish step.
 - Version resolution: if the requested version is not greater than the latest
   remote package version, the command publishes the next patch version.
 - Writeback: after the publish step succeeds, `SKILL.md` frontmatter is updated
-  with the final `metadata.packageName` and `metadata.version`.
+  with the final `metadata.packageName` and `metadata.version`. Local canonical
+  sources keep local ownership metadata; registry sources keep registry
+  ownership metadata.
 - Output: on success, text output prints the skill id, final package specifier,
   selected visibility (`private` or `public`), and the Hub package URL
   for the current account endpoint, for example
@@ -564,7 +586,9 @@ Install bundled or published skills into supported local skill directories.
 - Alias: `oo skills add [packageName]`.
 - Arguments: `[packageName]` is optional.
 - Arguments: when omitted, the command installs all bundled skills, then
-  best-effort installs all skills from preset registry skill packages.
+  best-effort installs all skills from preset registry skill packages, then
+  refreshes canonical local skills from `<config-dir>/skills/local` to existing
+  supported hosts.
 - Arguments: when `[packageName]` is `oo`, `oo-find-skills`,
   `oo-create-skill`, or `oo-publish-skill`, the command installs the
   corresponding bundled skill.
@@ -600,14 +624,17 @@ Install bundled or published skills into supported local skill directories.
   `qoderwork`.
 - Canonical directory: published skills are materialized to
   `<config-dir>/skills/registry/<skill-id>`.
+- Canonical directory: local skills are read from
+  `<config-dir>/skills/local/<skill-id>`. This canonical local directory is the
+  source of truth; agent directories contain copied consumer targets.
 - Migration: on first run after upgrading, `oo skills install` removes legacy
   canonical directories left over from earlier releases (`claude-skills/`,
   `openclaw-skills/`, and any Codex-bundled or registry skill directory that
   lived directly under `skills/`). Bundled skills are rebuilt automatically in
   the new layout; previously-installed published skills must be reinstalled
   with `oo skills install <packageName>`.
-- Target directory: bundled and published skills are published to each existing
-  supported host directory, currently
+- Target directory: bundled, published, and refreshed local skills are
+  published to each existing supported host directory, currently
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>`,
   `~/.claude/skills/<skill-id>`,
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`,
@@ -621,15 +648,22 @@ Install bundled or published skills into supported local skill directories.
   the command creates that root before publishing the selected skill.
 - Path rule: published skill names are accepted only when their resolved
   canonical and target directories remain under those local `skills` roots.
-- Installation mode: bundled and published skills are copied into every target
-  skills directory. Existing oo-managed symlink targets from older releases are
-  replaced with copied directories when the skill is synchronized, installed,
-  or updated.
-- Metadata: bundled skills write a hidden `.oo-metadata.json` file whose
-  `version` field matches the current `oo` version.
-- Metadata: published skills write a hidden `.oo-metadata.json` file whose
-  `version` field matches the package version and whose `packageName` field
-  records the source package.
+- Installation mode: bundled, published, and refreshed local skills are copied
+  into every target skills directory. Existing oo-managed symlink targets from
+  older releases are replaced with copied directories when the skill is
+  synchronized, installed, or updated.
+- Local refresh: for local skills, the canonical source wins. Existing
+  oo-managed local copies are overwritten from the canonical source; if their
+  `SKILL.md` content differs, the command prints a warning before overwriting
+  them. A same-name target without metadata is adopted only when its `SKILL.md`
+  content already matches the canonical local source. A target without metadata
+  and different content, or a target owned by bundled or registry metadata, is
+  treated as a conflict and is not overwritten by the local refresh path.
+- Metadata: new bundled, registry, and local writes include a hidden
+  `.oo-metadata.json` file with an oo source marker and schema version.
+  Bundled metadata records the current `oo` version; registry metadata records
+  the source package and package version; local metadata records local
+  ownership. Existing legacy bundled and registry metadata remains readable.
 - Notes: all registry requests for published skills send the active account's
   `Authorization` header.
 - Notes: when a package publishes multiple skills and the command runs outside
@@ -638,16 +672,16 @@ Install bundled or published skills into supported local skill directories.
   existing same-name skill, the command asks for `yes` or `no` before
   overwriting it in an interactive terminal.
 - Notes: existing target directories without valid `oo` metadata are treated as
-  non-OOMOL skills and are not overwritten.
+  non-OOMOL skills and are not overwritten, except for the local refresh
+  adoption case where the target has matching `SKILL.md` content.
 - Notes: in the interactive picker, conflicting skills are marked in the list;
   selecting one means it will be overwritten.
 - Notes: the command exits with an error when none of the supported Codex,
   Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, or
   QoderWork home directories exists.
-- Notes: an existing bundled skill installation is considered managed by `oo`
-  only when its `.oo-metadata.json` file can be parsed and contains a
-  non-empty `version`. Otherwise `oo` treats it as a different skill and will
-  not overwrite it.
+- Notes: an existing bundled or registry skill installation is considered
+  managed by `oo` only when its `.oo-metadata.json` identifies that source.
+  Otherwise `oo` treats it as a different skill and will not overwrite it.
 
 ### `oo skills sync upload`
 
@@ -660,8 +694,8 @@ Upload installed oo-managed registry skills to the skills sync service.
   be repeated, and each value may contain comma-separated patterns. Patterns use
   gitignore-style matching.
 - Scope: the command uploads only installed published registry skills whose
-  `.oo-metadata.json` contains both `packageName` and `version`; bundled and
-  local skills are never uploaded.
+  `.oo-metadata.json` identifies registry ownership and package identity.
+  Bundled and local skills are never uploaded.
 - Request: the command sends `PUT https://api.<endpoint>/v1/skills` with a JSON
   array of `{ "packageName": string, "version": string, "skillName": string }`.
   The active account's `Authorization` header is included.
@@ -700,8 +734,8 @@ Update installed oo-managed published skills.
   Refresh them with `oo skills add`, or let a
   successful `oo install` or `oo update` refresh them automatically.
 - Ownership rule: a skill is considered managed for update only when its
-  `.oo-metadata.json` file can be parsed and contains a non-empty `version`;
-  otherwise the command treats the existing target as unmanaged.
+  `.oo-metadata.json` identifies registry ownership and package identity;
+  bundled and local metadata are ignored by this command.
 - Published skills: registry-backed skills derive their package identity from
   `.oo-metadata.json`, then fetch package info without an explicit version to
   determine the latest available package version.
@@ -724,11 +758,13 @@ Remove oo-managed skills from supported local skill directories.
   match, both are removed. Registry installations are removed before local
   installations.
 - Ownership rule: a bundled skill is removable from a supported host only when
-  that host's installed directory has a `.oo-metadata.json` file that can be
-  parsed and contains a non-empty `version`.
+  that host's installed directory has a `.oo-metadata.json` file that
+  identifies bundled ownership.
 - Ownership rule: a local skill published by copying is removable from a
-  supported host when its `SKILL.md` content matches the local canonical
-  `SKILL.md`.
+  supported host when that host's installed directory identifies local
+  ownership and its `SKILL.md` content matches the local canonical `SKILL.md`.
+  A same-name legacy local copy without metadata is also removable when its
+  `SKILL.md` content matches the local canonical `SKILL.md`.
 - Canonical directory removed: bundled skills remove
   `<config-dir>/skills/bundled/<agent>/<skill>` for each installed agent, and
   local skills remove `<config-dir>/skills/local/<skill>`. Published skills

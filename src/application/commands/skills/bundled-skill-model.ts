@@ -1,8 +1,6 @@
-import { parseSkillMetadataWithVersion } from "./skill-metadata.ts";
+import type { BundledSkillMetadata } from "./skill-metadata.ts";
 
-export interface BundledSkillMetadata {
-    version: string;
-}
+import { parseSkillMetadataContent } from "./skill-metadata.ts";
 
 export const bundledSkillDevelopmentVersion = "0.0.0-development";
 
@@ -35,13 +33,11 @@ export function canUninstallManagedBundledSkillInstallation(input: {
 export function parseBundledSkillMetadataContent(
     content: string,
 ): BundledSkillMetadata | undefined {
-    const parsedMetadata = parseSkillMetadataWithVersion(content);
+    const parsedMetadata = parseSkillMetadataContent(content);
 
-    if (parsedMetadata === undefined) {
+    if (parsedMetadata?.kind !== "bundled") {
         return undefined;
     }
 
-    return {
-        version: parsedMetadata.version,
-    };
+    return parsedMetadata;
 }

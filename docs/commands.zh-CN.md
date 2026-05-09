@@ -313,7 +313,8 @@ skills。
   到且尚未安装它的受支持 Agent。
 - 本地 skill：如果某个本地 skill 已经有 canonical 副本
   `<config-dir>/skills/local/<skill-id>`，`oo` 会把该副本发布到任何新检测到且尚未
-  安装它的受支持 Agent。
+  安装它的受支持 Agent。静默启动同步不会覆盖 `SKILL.md` 内容不同的同名本地副本；
+  如需显式刷新，请运行 `oo skills add`。
 - 迁移：旧版本留下的 oo-managed 软链接目标，会在启动同步期间替换为复制目录。
 - 安全规则：启动同步不会请求 registry，不要求登录，不会产生额外命令输出，也
   不会覆盖不由 `oo` 管理的同名目标。
@@ -328,8 +329,9 @@ skills。
   `${CODEX_HOME:-~/.codex}/skills`、`~/.claude/skills`，以及
   `${HERMES_HOME:-~/.hermes}/skills`、`~/.codebuddy/skills`、
   `~/.workbuddy/skills`、`~/.trae/skills`、`~/.trae-cn/skills`、
-  `${OPENCLAW_HOME:-~/.openclaw}/skills`、`~/.qoderwork/skills`。只保留包含
-  可解析 `.oo-metadata.json` 且其中包含非空 `version` 的子目录。
+  `${OPENCLAW_HOME:-~/.openclaw}/skills`、`~/.qoderwork/skills`。只保留
+  `.oo-metadata.json` 能识别为由 oo 管理的 bundled、registry 或 local skill 的
+  子目录；已有的 legacy bundled 和 registry metadata 仍可读取。
 - local 所有权规则：命令会扫描 `<config-dir>/skills/local`，只保留
   `SKILL.md` frontmatter 中包含匹配的非空 `name` 和非空 `description` 的子目录。
 - 输出：文本输出会先打印摘要行，再为每个唯一的可见 skill 身份打印一个块。
@@ -374,6 +376,8 @@ skills。
 - 生成的 `SKILL.md` frontmatter 包含 `compatibility: "Requires the oo CLI."`。
 - 生成的 `SKILL.md` 正文包含受管理的 oo 执行说明，以及用于描述适用场景、输入、
   执行、结果处理和失败处理的可编辑占位章节。
+- 元数据：canonical 目录和每个复制到 Agent 的目标目录都会包含
+  `.oo-metadata.json`，用于标记该 skill 是由 `oo` 管理的 local skill。
 - 选项：`--icon <icon>` 将非空 icon 引用写入生成的 `SKILL.md` frontmatter
   `metadata.icon`。值可以是 emoji、图片 URL，或 `:collection:icon:` 格式，
   其中 `collection` 和 `icon` 是 <https://icones.js.org/> 上的名称。
@@ -419,8 +423,18 @@ skills。
   作为来源提示。可选值为 `codex`、`claude`、`hermes`、`codebuddy`、
   `workbuddy`、`trae`、`trae-cn`、`openclaw` 和 `qoderwork`。
 - 选项：`-y, --yes` 会对发布过程中的确认提示自动回答 yes。
+- 选项：`--force` 允许在 Agent 目录中存在 `SKILL.md` 内容不同的 oo-managed local
+  副本时，仍继续发布本地 canonical skill。`--force` 与 `-y, --yes` 相互独立；
+  自动回答确认提示并不代表忽略本地副本漂移。
 - 来源解析：命令会先检查 `<config-dir>/skills/local/<skill-id>`。如果存在，则发布
   这个本地 skill。
+- 本地来源规则：`<config-dir>/skills/local/<skill-id>` 是 local skill 的唯一可信
+  来源。Agent 目录中的内容只是复制出去的消费副本；只要 canonical 本地来源存在，
+  发布就不会把 Agent 目录当成来源。
+- 本地副本漂移：发布 local skill 前，命令会检查所有已存在受支持 Agent 目录中的
+  同名 oo-managed local 副本。如果任一副本的 `SKILL.md` 内容不同，默认会失败并
+  提示使用 `--force`。传入 `--force` 时，命令会继续发布 canonical 本地来源，并
+  打印 warning 说明 Agent 侧变更已被忽略。
 - 来源解析：内置 skill 会被拒绝发布，因为它们由 oo CLI 版本管理。
 - 来源解析：可以发布 `<config-dir>/skills/registry/<skill-id>` 下的 registry
   skill。如果已安装元数据中的包名和目标包名不同，命令会使用交互式 `[y/N]`
@@ -431,9 +445,10 @@ skills。
 - 来源解析：如果仍未匹配，`<skill-id>` 会按文件系统路径解析。匹配到的 skill
   目录会先被接管到本地 canonical 存储，再继续发布。
 - 接管：接管会把 skill 移动到 `<config-dir>/skills/local/<skill-id>`，将已有
-  `.oo-metadata.json` 字段导入 `SKILL.md` frontmatter，删除 `.oo-metadata.json`，
-  并把本地 canonical 副本发布到受支持的 Agent skill 目录。接管需要交互式 `[y/N]`
-  确认；提供 `-y, --yes` 时会跳过该确认。被接管的源目录不能包含符号链接。
+  registry `.oo-metadata.json` 中的包字段导入 `SKILL.md` frontmatter，写入 local
+  所有权 metadata，并把本地 canonical 副本发布到受支持的 Agent skill 目录。接管
+  需要交互式 `[y/N]` 确认；提供 `-y, --yes` 时会跳过该确认。被接管的源目录不能
+  包含符号链接。
 - 认证：命令要求存在当前 OOMOL 账号。包名始终为
   `@<小写 account.name>/<小写 skill-id>`。
 - 校验：源目录必须包含 `SKILL.md`，其 frontmatter `name` 必须匹配
@@ -445,6 +460,7 @@ skills。
   `metadata.version` 时，默认使用 `0.0.1`。
 - 包内容：skill 目录中的 `.gitignore` 决定哪些本地文件不会进入发布包。如果
   skill 没有 `.gitignore`，则使用内置的包模板规则。打包时会拒绝符号链接。
+  `.oo-metadata.json` 永远不会进入发布包。
 - Registry 安全检查：发布前，命令会查询远端 latest 包元数据。如果远端包已经
   包含 blocks，交互式终端会按既有 `[y/N]` 确认风格询问是否继续。回答 no、
   直接回车，或在没有交互式 stdin 的环境中运行，都会在转换、PUT 和本地 metadata
@@ -455,7 +471,8 @@ skills。
   非交互式运行必须传入 `--visibility`。
 - 版本解析：如果请求版本不大于远端 latest 包版本，命令会发布下一个 patch 版本。
 - 回写：发布步骤成功后，命令会把最终的 `metadata.packageName` 和
-  `metadata.version` 写回 `SKILL.md` frontmatter。
+  `metadata.version` 写回 `SKILL.md` frontmatter。local canonical 来源会保留 local
+  所有权 metadata；registry 来源会保留 registry 所有权 metadata。
 - 输出：成功时，文本输出会打印 skill id、最终包标识、所选可见性（`private`
   或 `public`）以及当前账号 endpoint 对应的 Hub 包页面 URL，例如生产账号使用
   `https://hub.oomol.com/package/<packageName>`。失败时命令以非零状态退出，并保持
@@ -483,7 +500,8 @@ skills。
 - 别名：`oo skills add [packageName]`。
 - 参数：`[packageName]` 可选。
 - 参数：未提供时，该命令会安装全部内置 skill，然后尽力安装预设 registry
-  skill packages 里的全部 skill。
+  skill packages 里的全部 skill，最后把 `<config-dir>/skills/local` 中的
+  canonical local skills 刷新到已存在的受支持 Agent。
 - 参数：当 `[packageName]` 为 `oo`、`oo-find-skills`、`oo-create-skill` 或
   `oo-publish-skill` 时，命令安装对应的内置 skill。
 - 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
@@ -512,11 +530,14 @@ skills。
   `qoderwork`。
 - canonical 目录：已发布 skill 会先释放到
   `<config-dir>/skills/registry/<skill-id>`。
+- canonical 目录：local skill 从 `<config-dir>/skills/local/<skill-id>` 读取。这个
+  canonical 本地目录是唯一可信来源；Agent 目录中的内容只是复制出去的消费副本。
 - 迁移：升级后首次运行 `oo skills install` 时，命令会清理历史遗留的 canonical
   目录（`claude-skills/`、`openclaw-skills/`，以及直接位于 `skills/` 下的旧
   Codex 内置 / 已发布 skill 目录）。内置 skill 会自动以新布局重建；之前安装
   的已发布 skill 需要通过 `oo skills install <packageName>` 重新安装。
-- 目标目录：内置和已发布 skill 会发布到所有已存在的受支持 Agent 目录，目前包括
+- 目标目录：内置、已发布以及被刷新的 local skill 会发布到所有已存在的受支持
+  Agent 目录，目前包括
   `${CODEX_HOME:-~/.codex}/skills/<skill-id>` 和
   `~/.claude/skills/<skill-id>`，以及
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`、
@@ -528,13 +549,19 @@ skills。
   `~/.qoderwork/skills/<skill-id>`。
 - 目标目录：当已存在的受支持 Agent 缺少 `skills` 根目录时，命令会先创建该目录，
   再发布所选 skill。
-- 安装方式：内置和已发布 skill 会复制到每个目标 skills 目录。旧版本留下的
-  oo-managed 软链接目标，会在同步、安装或更新该 skill 时替换为复制目录。
-- 元数据：内置 skill 会写入一个隐藏的 `.oo-metadata.json` 文件，其中
-  `version` 字段记录当前 `oo` 版本。
-- 元数据：已发布 skill 也会写入一个隐藏的 `.oo-metadata.json` 文件，
-  其中 `version` 字段记录 package 版本，`packageName` 字段记录来源
-  package。
+- 安装方式：内置、已发布以及被刷新的 local skill 会复制到每个目标 skills 目录。
+  旧版本留下的 oo-managed 软链接目标，会在同步、安装或更新该 skill 时替换为复制
+  目录。
+- local 刷新：对 local skill 来说，canonical 来源优先。已有的 oo-managed local
+  副本会被 canonical 来源覆盖；如果其 `SKILL.md` 内容不同，命令会先打印 warning。
+  没有 metadata 的同名目标只有在 `SKILL.md` 内容已经与 canonical local 来源一致时
+  才会被纳入管理并刷新。没有 metadata 且内容不同的目标，或由 bundled/registry
+  metadata 标记所有权的目标，都会被视为冲突，不会被 local 刷新路径覆盖。
+- 元数据：新写入的 bundled、registry 和 local skill 都会包含隐藏的
+  `.oo-metadata.json` 文件，记录 oo 来源标记和 schema version。bundled metadata
+  记录当前 `oo` 版本；registry metadata 记录来源 package 与 package 版本；
+  local metadata 记录 local 所有权。已有的 legacy bundled 和 registry metadata
+  仍可读取。
 - 说明：安装已发布 skill 时，所有 registry 请求都会携带当前激活账号的
   `Authorization` header。
 - 说明：如果 package 下有多个 skill，且当前不是交互终端，则必须提供
@@ -542,14 +569,14 @@ skills。
 - 说明：如果显式安装的已发布 skill 与现有同名 skill 冲突，命令会在交互终
   端中要求用户输入 `yes` 或 `no` 决定是否覆盖。
 - 说明：如果目标目录已存在但没有有效的 `oo` 元数据，会被视为非 OOMOL
-  skill，命令不会覆盖它。
+  skill，命令不会覆盖它；唯一例外是 local 刷新时，目标 `SKILL.md` 内容已经与
+  canonical 来源一致，可以被纳入管理。
 - 说明：在交互选择页面中，存在重名冲突的 skill 会在列表中显示状态标记；
   只要用户仍然选择该项，就会执行覆盖。
 - 说明：当 Codex、Claude Code、Hermes、CodeBuddy、WorkBuddy、Trae、Trae CN、
   OpenClaw 和 QoderWork 的受支持根目录都不存在时，命令会直接报错退出。
-- 说明：只有当 bundled skill 的 `.oo-metadata.json` 可以被解析，且其中包
-  含非空的 `version` 时，`oo` 才会认为这是自己管理的内置 skill；否则会视
-  为其他 skill，并拒绝覆盖。
+- 说明：只有当 bundled 或 registry skill 的 `.oo-metadata.json` 能识别对应来源
+  时，`oo` 才会认为这是自己管理的安装；否则会视为其他 skill，并拒绝覆盖。
 
 ### `oo skills sync upload`
 
@@ -560,8 +587,8 @@ skills。
 - 选项：`-i, --ignore <patterns...>` 会按 `packageName` 或 skill 名称匹配并排除
   部分 registry skill。该选项可以重复使用，每个值也可以包含逗号分隔的多个模式。
   模式使用 gitignore 风格匹配。
-- 范围：命令只上传 `.oo-metadata.json` 中同时包含 `packageName` 和 `version`
-  的已发布 registry skill；bundled 和 local skill 永远不会被上传。
+- 范围：命令只上传 `.oo-metadata.json` 能识别 registry 所有权和包身份的已发布
+  registry skill；bundled 和 local skill 永远不会被上传。
 - 请求：命令会发送 `PUT https://api.<endpoint>/v1/skills`，请求体是
   `{ "packageName": string, "version": string, "skillName": string }` 的 JSON
   数组，并携带当前账号的 `Authorization` header。
@@ -592,8 +619,8 @@ skills。
 - 内置 skill：bundled `oo`、`oo-find-skills`、`oo-create-skill`、
   `oo-publish-skill` 等内置 skill 不在此命令处理范围内。请使用
   `oo skills add` 刷新，或让成功的 `oo install` / `oo update` 自动刷新它们。
-- 所有权规则：只有当 skill 的 `.oo-metadata.json` 可以被解析，且包含非空
-  `version` 时，update 才会认为它由 oo 管理；否则会把现有目标视为非托管。
+- 所有权规则：只有当 skill 的 `.oo-metadata.json` 能识别 registry 所有权和包身份
+  时，update 才会认为它由 oo 管理；bundled 和 local metadata 会被该命令忽略。
 - 已发布 skill：registry skill 会从 `.oo-metadata.json` 读取所属包名，再通过
   不带显式版本的 package info 请求判断最新可用版本。
 - 更新顺序：命令会先刷新 canonical 目录
@@ -611,9 +638,11 @@ skills。
 - 参数：提供 `[skill]` 时，命令会同时检查本地 canonical 存储和已发布的
   registry 安装；如果两者都匹配同一个名称，会同时移除。registry 安装会先于
   本地安装移除。
-- 所有权规则：对内置 skill 来说，只有当某个受支持 Agent 中的安装目录包含可解
-  析且带有非空 `version` 的 `.oo-metadata.json` 时，才允许从该 Agent 移除。
-- 所有权规则：通过复制发布的本地 skill，如果受支持 Agent 中的 `SKILL.md`
+- 所有权规则：对内置 skill 来说，只有当某个受支持 Agent 中的安装目录包含能识别
+  bundled 所有权的 `.oo-metadata.json` 时，才允许从该 Agent 移除。
+- 所有权规则：通过复制发布的本地 skill，当受支持 Agent 中的安装目录能识别
+  local 所有权，并且 `SKILL.md` 内容与本地 canonical `SKILL.md` 一致时，会被视为
+  可移除的本地安装。同名 legacy local 副本即使没有 metadata，只要 `SKILL.md`
   内容与本地 canonical `SKILL.md` 一致，也会被视为可移除的本地安装。
 - 会同时移除 canonical 目录：内置 skill 会移除
   `<config-dir>/skills/bundled/<agent>/<skill>`（每个已安装 Agent 各一份），

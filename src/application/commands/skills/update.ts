@@ -148,7 +148,7 @@ export async function updateManagedSkills(
         : undefined;
     const registrySkillGroups = groupRegistrySkills(selectedSkills);
     const unresolvedSkills = selectedSkills.filter(skill =>
-        !isBundledSkillName(skill.name) && skill.metadata?.packageName === undefined,
+        !isBundledSkillName(skill.name) && skill.metadata?.kind !== "registry",
     );
     const packageNames = registrySkillGroups.map(group => group.packageName);
     context.telemetry?.recordProperties({
@@ -323,7 +323,7 @@ function mergeManagedSkillInstallationsByName(
     const skillsByName = new Map<string, ManagedSkillUpdateItem>();
 
     for (const skill of skills) {
-        if (skill.metadata === undefined) {
+        if (skill.metadata?.kind !== "registry") {
             continue;
         }
 
@@ -338,17 +338,6 @@ function mergeManagedSkillInstallationsByName(
             existingSkill.hostNames,
             skill.hostNames,
         );
-
-        if (
-            existingSkill.metadata?.packageName === undefined
-            && skill.metadata.packageName !== undefined
-        ) {
-            skillsByName.set(skill.name, {
-                ...skill,
-                hostNames,
-            });
-            continue;
-        }
 
         skillsByName.set(skill.name, {
             ...existingSkill,
@@ -488,12 +477,11 @@ function groupRegistrySkills(
     const groups = new Map<string, ManagedSkillUpdateItem[]>();
 
     for (const skill of skills) {
-        const packageName = skill.metadata?.packageName;
-
-        if (packageName === undefined) {
+        if (skill.metadata?.kind !== "registry") {
             continue;
         }
 
+        const packageName = skill.metadata.packageName;
         const group = groups.get(packageName);
 
         if (group === undefined) {

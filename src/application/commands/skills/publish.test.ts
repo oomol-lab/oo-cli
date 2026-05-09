@@ -41,7 +41,10 @@ import {
 } from "./managed-skill-paths.ts";
 import { publishLocalSkillPackage, publishSkillPackage } from "./publish.ts";
 import { parseSkillMarkdownMatter } from "./skill-frontmatter.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import {
+    createLocalSkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 const emptyCatalog: CliCatalog = {
     name: "oo",
@@ -127,6 +130,134 @@ describe("skills publish command", () => {
                     visibility: "private",
                 },
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails before publishing when a local agent copy has drifted", async () => {
+        const skillId = "drifted-skill";
+        const { sandbox, skillDirectoryPath } = await createCliPublishSkillSandbox(
+            skillId,
+            [
+                "---",
+                `name: ${skillId}`,
+                "description: Use the canonical workflow.",
+                "---",
+                "",
+                "# Canonical",
+                "",
+            ].join("\n"),
+        );
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const agentSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            skillId,
+        );
+        const requests: Request[] = [];
+
+        try {
+            await writeSkillFile(agentSkillDirectoryPath, [
+                "---",
+                `name: ${skillId}`,
+                "description: Use the drifted workflow.",
+                "---",
+                "",
+                "# Agent",
+                "",
+            ].join("\n"));
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(agentSkillDirectoryPath),
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
+
+            const result = await sandbox.run(
+                ["skills", "publish", skillId, "--visibility", "private"],
+                {
+                    fetcher: (input, init) => {
+                        requests.push(toRequest(input, init));
+                        return Promise.resolve(new Response("", { status: 201 }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                `Local skill ${skillId} has modified agent copies at ${agentSkillDirectoryPath}. Publishing uses canonical storage at ${skillDirectoryPath}; pass --force to ignore agent-side changes.\n`,
+            );
+            expect(requests).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("publishes canonical local content with --force when a local agent copy has drifted", async () => {
+        const skillId = "force-drifted-skill";
+        const { sandbox, skillDirectoryPath } = await createCliPublishSkillSandbox(
+            skillId,
+            [
+                "---",
+                `name: ${skillId}`,
+                "description: Use the canonical workflow.",
+                "---",
+                "",
+                "# Canonical",
+                "",
+            ].join("\n"),
+        );
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const agentSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            skillId,
+        );
+        const requests: Request[] = [];
+
+        try {
+            await writeSkillFile(agentSkillDirectoryPath, [
+                "---",
+                `name: ${skillId}`,
+                "description: Use the drifted workflow.",
+                "---",
+                "",
+                "# Agent",
+                "",
+            ].join("\n"));
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(agentSkillDirectoryPath),
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
+
+            const result = await sandbox.run(
+                ["skills", "publish", skillId, "--visibility", "private", "--force"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/-/oomol/package-info/")) {
+                            return new Response("not found", { status: 404 });
+                        }
+
+                        return new Response("", { status: 201 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                `Published skill ${skillId} as private package @alice/${skillId}@0.0.1.`,
+            );
+            expect(result.stderr).toBe(
+                `Warning: Local skill ${skillId} has modified agent copies at ${agentSkillDirectoryPath}; publishing canonical storage at ${skillDirectoryPath} and ignoring agent-side changes.\n`,
+            );
+            expect(requests.map(request => request.method)).toEqual(["GET", "PUT"]);
+            expect(
+                await readFile(join(agentSkillDirectoryPath, "SKILL.md"), "utf8"),
+            ).toContain("# Agent");
         }
         finally {
             await sandbox.cleanup();
@@ -487,9 +618,9 @@ describe("skills publish command", () => {
             expect(result.stdout).toContain(
                 "Published skill agent-skill as private package @alice/agent-skill@0.3.0.",
             );
-            await expect(stat(resolveManagedSkillMetadataFilePath(localSkillDirectoryPath)))
-                .rejects
-                .toMatchObject({ code: "ENOENT" });
+            expect(await readFile(resolveManagedSkillMetadataFilePath(localSkillDirectoryPath), "utf8")).toBe(
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
 
             const parsed = parseSkillMarkdownMatter(
                 await readFile(join(localSkillDirectoryPath, "SKILL.md"), "utf8"),

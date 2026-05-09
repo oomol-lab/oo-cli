@@ -51,7 +51,12 @@ import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import {
+    createBundledSkillMetadata,
+    createLocalSkillMetadata,
+    createRegistrySkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 describe("skills commands", () => {
     const guidance = renderOoPackageExecutionGuidance();
@@ -118,6 +123,8 @@ describe("skills commands", () => {
                 properties: {
                     bundled_skill: "__all__",
                     command_full: "skills.install",
+                    local_refresh_count_bucket: "0",
+                    local_refresh_performed: false,
                     package_kind: "bundled",
                     skill_ids_count_bucket: "1-5",
                     skill_ids_sample: [
@@ -167,16 +174,16 @@ describe("skills commands", () => {
                 ).toBe(await Bun.file(file.sourcePath).text());
             }
             expect(await readFile(ooMetadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: resultVersion }),
+                renderSkillMetadataJson(createBundledSkillMetadata(resultVersion)),
             );
             expect(await readFile(findSkillsMetadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: resultVersion }),
+                renderSkillMetadataJson(createBundledSkillMetadata(resultVersion)),
             );
             expect(await readFile(createSkillMetadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: resultVersion }),
+                renderSkillMetadataJson(createBundledSkillMetadata(resultVersion)),
             );
             expect(await readFile(publishSkillMetadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: resultVersion }),
+                renderSkillMetadataJson(createBundledSkillMetadata(resultVersion)),
             );
         }
         finally {
@@ -255,6 +262,244 @@ describe("skills commands", () => {
         }
     });
 
+    test("refreshes local canonical skills and overwrites drifted local agent copies", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillName = "local-helper";
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+        const canonicalSkillMarkdown = createLocalSkillMarkdown(
+            skillName,
+            "Canonical local helper.",
+            "Canonical",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), canonicalSkillMarkdown);
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                createLocalSkillMarkdown(skillName, "Agent local helper.", "Agent"),
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
+
+            const result = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe(
+                `Warning: Local skill ${skillName} copy at ${skillDirectoryPath} differs from canonical storage and was overwritten.\n`,
+            );
+            expect(result.stdout).toContain(`Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill, ${skillName}`);
+            expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                canonicalSkillMarkdown,
+            );
+            expect(await readFile(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "utf8")).toBe(
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
+            expect(await readFile(resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath), "utf8")).toBe(
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("adopts a matching legacy local agent copy during install", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillName = "legacy-local-helper";
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+        const skillMarkdown = createLocalSkillMarkdown(
+            skillName,
+            "Legacy local helper.",
+            "Legacy",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), skillMarkdown);
+            await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillMarkdown);
+
+            const result = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(await readFile(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "utf8")).toBe(
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("refuses to overwrite a file at a local agent target during install", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillName = "file-target-helper";
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+
+        try {
+            await mkdir(join(codexHomeDirectory, "skills"), { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                createLocalSkillMarkdown(skillName, "Canonical helper.", "Canonical"),
+            );
+            await Bun.write(skillDirectoryPath, "occupied\n");
+
+            const result = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toBe(
+                `Skill name ${skillName} is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
+            );
+            expect(await readFile(skillDirectoryPath, "utf8")).toBe("occupied\n");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("refuses to overwrite an unmanaged conflicting local agent copy during install", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillName = "conflicting-local-helper";
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                createLocalSkillMarkdown(skillName, "Canonical helper.", "Canonical"),
+            );
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                createLocalSkillMarkdown(skillName, "Unmanaged helper.", "Unmanaged"),
+            );
+
+            const result = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toBe(
+                `Skill name ${skillName} is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
+            );
+            expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toContain(
+                "Unmanaged helper.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("refuses to overwrite a registry-owned local agent target during install", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillName = "registry-owned-helper";
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            skillName,
+        );
+        const skillMarkdown = createLocalSkillMarkdown(
+            skillName,
+            "Canonical helper.",
+            "Canonical",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), skillMarkdown);
+            await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillMarkdown);
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+                renderSkillMetadataJson(createRegistrySkillMetadata({
+                    packageName: "registry-owned-helper",
+                    version: "1.0.0",
+                })),
+            );
+
+            const result = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toBe(
+                `Skill name ${skillName} is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
+            );
+            expect(await readFile(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "utf8")).toBe(
+                renderSkillMetadataJson(createRegistrySkillMetadata({
+                    packageName: "registry-owned-helper",
+                    version: "1.0.0",
+                })),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("colors compact bundled install summaries when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -315,7 +560,7 @@ describe("skills commands", () => {
                 canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: resultVersion }),
+                renderSkillMetadataJson(createBundledSkillMetadata(resultVersion)),
             );
         }
         finally {
@@ -367,7 +612,7 @@ describe("skills commands", () => {
                 canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: resultVersion }),
+                renderSkillMetadataJson(createBundledSkillMetadata(resultVersion)),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 expectedSkillContent,
@@ -411,7 +656,7 @@ describe("skills commands", () => {
                 canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: resultVersion }),
+                renderSkillMetadataJson(createBundledSkillMetadata(resultVersion)),
             );
         }
         finally {
@@ -452,7 +697,7 @@ describe("skills commands", () => {
                 canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: resultVersion }),
+                renderSkillMetadataJson(createBundledSkillMetadata(resultVersion)),
             );
         }
         finally {
@@ -580,7 +825,7 @@ describe("skills commands", () => {
                 canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: "9.9.9" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             await expect(
                 stat(join(skillDirectoryPath, "agents", "openai.yaml")),
@@ -632,7 +877,7 @@ describe("skills commands", () => {
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: "9.9.9" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             const installedSkillMarkdown = await readFile(skillFilePath, "utf8");
 
@@ -682,7 +927,7 @@ describe("skills commands", () => {
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: "9.9.9" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             await expect(
                 stat(join(skillDirectoryPath, "agents", "openai.yaml")),
@@ -739,7 +984,7 @@ describe("skills commands", () => {
                 canonicalSkillDirectoryPath,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: "9.9.9" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             const installedSkillMarkdown = await readFile(skillFilePath, "utf8");
 
@@ -797,7 +1042,7 @@ describe("skills commands", () => {
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: "9.9.9" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await Bun.file(codeBuddySkillFile.sourcePath).text(),
@@ -852,7 +1097,7 @@ describe("skills commands", () => {
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: "9.9.9" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await Bun.file(workBuddySkillFile.sourcePath).text(),
@@ -912,7 +1157,7 @@ describe("skills commands", () => {
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: "9.9.9" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await Bun.file(traeSkillFile.sourcePath).text(),
@@ -972,7 +1217,7 @@ describe("skills commands", () => {
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ version: "9.9.9" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await Bun.file(traeCnSkillFile.sourcePath).text(),
@@ -1205,7 +1450,7 @@ describe("skills commands", () => {
             ]) {
                 await Bun.write(
                     resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-                    renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                    renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
                 );
                 await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
             }
@@ -1292,7 +1537,7 @@ describe("skills commands", () => {
             ]);
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(claudeSkillDirectoryPath),
-                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
             );
             await Bun.write(join(claudeSkillDirectoryPath, "SKILL.md"), "# Registry\n");
             await Bun.write(join(registryCanonicalSkillDirectoryPath, "SKILL.md"), "# Registry\n");
@@ -1364,7 +1609,7 @@ describe("skills commands", () => {
             ]);
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
             );
             await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillContent);
             await Bun.write(join(localCanonicalSkillDirectoryPath, "SKILL.md"), skillContent);
@@ -1472,7 +1717,7 @@ describe("skills commands", () => {
             await mkdir(escapedCanonicalSkillDirectoryPath, { recursive: true });
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(escapedSkillDirectoryPath),
-                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
             );
             await Bun.write(installedSentinelPath, "installed\n");
             await Bun.write(canonicalSentinelPath, "canonical\n");
@@ -1713,7 +1958,7 @@ describe("skills commands", () => {
             });
             await Bun.write(
                 metadataFilePath,
-                renderSkillMetadataJson({ version: "9.9.9" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             await Bun.write(ownershipFilePath, "# OOMOL\n");
             await Bun.write(
@@ -1849,7 +2094,7 @@ describe("skills commands", () => {
                 ].join("\n"),
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
-                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
             );
             expect(requests).toHaveLength(2);
             expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
@@ -2329,7 +2574,7 @@ describe("skills commands", () => {
                     resolveManagedSkillMetadataFilePath(skillDirectoryPath),
                     "utf8",
                 )).toBe(
-                    renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                    renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
                 );
             }
         }
@@ -2631,11 +2876,11 @@ describe("skills commands", () => {
             });
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
-                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
             );
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
-                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
             );
             await Bun.write(join(installedSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
             await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
@@ -2958,4 +3203,20 @@ async function expectCopiedSkillDirectory(
         await realpath(canonicalSkillDirectoryPath),
     );
     expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
+}
+
+function createLocalSkillMarkdown(
+    skillName: string,
+    description: string,
+    heading: string,
+): string {
+    return [
+        "---",
+        `name: ${skillName}`,
+        `description: ${description}`,
+        "---",
+        "",
+        `# ${heading}`,
+        "",
+    ].join("\n");
 }

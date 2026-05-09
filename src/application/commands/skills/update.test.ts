@@ -29,7 +29,10 @@ import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import {
+    createRegistrySkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
 describe("skills update command", () => {
     test("skips bundled oo when no explicit skill names are provided", async () => {
@@ -190,7 +193,7 @@ describe("skills update command", () => {
             );
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(claudeInstalledSkillDirectoryPath),
-                renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }),
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
             );
 
             const result = await sandbox.run(
@@ -251,14 +254,14 @@ describe("skills update command", () => {
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(codexInstalledSkillDirectoryPath),
                 "utf8",
-            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }));
+            )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.4" })));
             expect(await readFile(join(codexInstalledSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
                 "# ChatGPT fresh",
             );
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(claudeInstalledSkillDirectoryPath),
                 "utf8",
-            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }));
+            )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.4" })));
             expect(await readFile(join(claudeInstalledSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
                 "# ChatGPT fresh",
             );
@@ -336,7 +339,7 @@ describe("skills update command", () => {
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
                 "utf8",
-            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }));
+            )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.4" })));
             expect(await readFile(join(installedSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
                 "# ChatGPT fresh",
             );
@@ -372,7 +375,7 @@ describe("skills update command", () => {
             });
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
-                renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }),
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.4" })),
             );
 
             const result = await sandbox.run(
@@ -414,7 +417,7 @@ describe("skills update command", () => {
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
                 "utf8",
-            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }));
+            )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.4" })));
             expect(await readFile(join(installedSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
                 "# ChatGPT fresh",
             );
@@ -630,11 +633,11 @@ describe("skills update command", () => {
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(chatgptInstalledDirectoryPath),
                 "utf8",
-            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.4" }));
+            )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.4" })));
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(visionInstalledDirectoryPath),
                 "utf8",
-            )).toBe(renderSkillMetadataJson({ packageName: "openai", version: "0.0.3" }));
+            )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })));
         }
         finally {
             await sandbox.cleanup();
@@ -741,7 +744,7 @@ describe("skills update command", () => {
         }
     });
 
-    test("fails when a non-bundled managed skill is missing package metadata", async () => {
+    test("does not consume legacy bundled metadata as a registry update target", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
@@ -793,11 +796,9 @@ describe("skills update command", () => {
             const result = await sandbox.run(["skills", "update", "custom"]);
 
             expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe(
-                "Failed to update skill custom: Managed skill custom cannot be updated in codex, claude because its package metadata is missing.\n",
-            );
+            expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Managed skill custom cannot be updated in codex, claude because its package metadata is missing.\n",
+                "Skill custom in host codex is not managed by oo and cannot be updated.\n",
             );
         }
         finally {
@@ -825,11 +826,17 @@ async function writeManagedRegistrySkillInstallation(options: {
     );
     await Bun.write(
         resolveManagedSkillMetadataFilePath(options.canonicalSkillDirectoryPath),
-        renderSkillMetadataJson({ packageName: options.packageName, version: options.version }),
+        renderSkillMetadataJson(createRegistrySkillMetadata({
+            packageName: options.packageName,
+            version: options.version,
+        })),
     );
     await Bun.write(
         resolveManagedSkillMetadataFilePath(options.installedSkillDirectoryPath),
-        renderSkillMetadataJson({ packageName: options.packageName, version: options.version }),
+        renderSkillMetadataJson(createRegistrySkillMetadata({
+            packageName: options.packageName,
+            version: options.version,
+        })),
     );
 }
 
