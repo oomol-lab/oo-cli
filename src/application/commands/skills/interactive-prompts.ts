@@ -66,6 +66,17 @@ export async function confirmInteractiveValue(
     }
 }
 
+export async function requestInteractiveText(
+    context: InteractivePromptContext,
+    options: {
+        prompt: string;
+    },
+): Promise<string> {
+    context.stdout.write(options.prompt);
+
+    return (await readPromptLine(context.stdin)).trim();
+}
+
 export async function selectInteractiveValue<Value extends string>(
     context: InteractivePromptContext,
     options: {

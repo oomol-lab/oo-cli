@@ -1426,7 +1426,7 @@ function resolveCanonicalSkillPackageName(
     return `@${accountName.trim().toLowerCase()}/${skillId.trim().toLowerCase()}`;
 }
 
-function createSkillPackageHubUrl(endpoint: string, packageName: string): string {
+export function createSkillPackageHubUrl(endpoint: string, packageName: string): string {
     return `https://hub.${endpoint}/package/${packageName}`;
 }
 
