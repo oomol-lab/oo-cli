@@ -314,6 +314,10 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records query and result buckets without query text.",
     },
+    "skills.share": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; generated share prompts are not recorded.",
+    },
     "skills.sync": {
         kind: "generic",
         reason: "Command group; sync children do not record local file paths.",

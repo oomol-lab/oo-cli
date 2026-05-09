@@ -488,6 +488,32 @@ skills。
   `https://hub.oomol.com/package/<packageName>`。失败时命令以非零状态退出，并保持
   `SKILL.md` 不变。
 
+### `oo skills share [skill]`
+
+确认已发布的 skill package 是公开包，确认要分享的具体 skill，并输出一段可复制给
+其他用户的提示词。
+
+- 参数：`[skill]` 在交互式终端中可省略。它可以是本地 skill id、已安装 registry
+  skill id、包含 `SKILL.md` 的 skill 目录路径，或 package 名称。省略时，命令会
+  询问要分享的 skill id、package 名称或路径。
+- 选项：`-y, --yes` 会在命令解析出 skill id 和 package 名称后，跳过最终的
+  `[y/N]` 确认。
+- 解析：local skill 会从 `<config-dir>/skills/local/<skill-id>` 读取，并要求
+  `SKILL.md` frontmatter 中存在 `metadata.packageName`；这个字段由成功发布写入。
+  已安装 registry skill 会从 `<config-dir>/skills/registry/<skill-id>` 读取，并
+  使用 oo metadata 中的 `packageName`。路径来源会直接读取 `SKILL.md` frontmatter。
+  如果这些来源都没有匹配，参数会被当作 package 名称，并从 package 名称推导
+  skill id。
+- 公开检查：命令会请求解析后 package 的 latest 元数据，并要求 visibility/access
+  为 `public`。private、restricted、缺少元数据或尚未发布的包都会在输出分享提示词
+  前被拒绝。
+- 输出：成功时，文本输出会打印一段可复制提示词。提示词会说明该 skill 已经发布且
+  是公开包，并默认对方可能还没有安装 OO CLI，引导对方先安装 OO CLI，再运行
+  `oo login` 登录或注册 OO 账号，然后安装 skill。提示词包含 macOS/Linux 和
+  Windows PowerShell 命令序列，直到执行
+  `oo skills install <packageName> --skill <skill-id> -y`，并明确要求对方从安装
+  OO、登录到安装 skill 一气呵成。
+
 ### `oo skills search <text>`
 
 使用自由文本搜索已发布的 skill。

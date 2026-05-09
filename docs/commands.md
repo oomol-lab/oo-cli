@@ -574,6 +574,37 @@ Convert one skill into an OOMOL package and run the publish step.
   `https://hub.oomol.com/package/<packageName>` for production accounts. On
   failure, the command exits non-zero and leaves `SKILL.md` unchanged.
 
+### `oo skills share [skill]`
+
+Verify that a published skill package is public, confirm the exact skill being
+shared, and print a prompt that can be copied to another user.
+
+- Arguments: `[skill]` is optional in an interactive terminal. It may be a local
+  skill id, an installed registry skill id, a path to a skill directory
+  containing `SKILL.md`, or a package name. When omitted, the command prompts for
+  the skill id, package name, or path.
+- Options: `-y, --yes` skips the final `[y/N]` confirmation after the command
+  resolves the skill id and package name.
+- Resolution: local skills are read from `<config-dir>/skills/local/<skill-id>`
+  and must have `metadata.packageName` in `SKILL.md` frontmatter, which is
+  written by a successful publish. Installed registry skills are read from
+  `<config-dir>/skills/registry/<skill-id>` and use their oo metadata
+  `packageName`. Paths read `SKILL.md` frontmatter directly. If none of those
+  sources match, the argument is treated as a package name and the skill id is
+  derived from the package name.
+- Public check: the command requests latest package metadata for the resolved
+  package and requires its visibility/access to be `public`. Private,
+  restricted, missing, or unpublished packages are rejected before any share
+  prompt is printed.
+- Output: on success, text output prints a copyable prompt that states the skill
+  is already published and public, assumes the recipient may not have OO CLI
+  installed yet, instructs them to install OO CLI, run `oo login`, sign in or
+  create an OO account, and then install the skill. It includes macOS/Linux and
+  Windows PowerShell command sequences that continue through
+  `oo skills install <packageName> --skill <skill-id> -y`. The prompt explicitly
+  tells the recipient to complete OO installation, login, and skill installation
+  in one continuous setup flow.
+
 ### `oo skills search <text>`
 
 Search published skills with free-form text.

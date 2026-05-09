@@ -853,9 +853,11 @@ describe("embedded skill assets", () => {
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
-            expect(content).toContain(
-                "Publish, release, upload, submit, or share",
-            );
+            expect(content).toContain("Publish, release, upload, or submit");
+            expect(content).toContain("oo skills share");
+            expect(content).toContain("already-public published skill");
+            expect(content).toContain("may not have OO CLI installed yet");
+            expect(content).toContain("creating an OO account");
             expect(content).toContain("existing AI agent skill");
             expect(content).toContain("it does not need to be an oo-specific skill");
             expect(content).toContain("oo skills publish");

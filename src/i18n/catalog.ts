@@ -164,6 +164,9 @@ export const enMessages = {
     "commands.skills.publish.description":
         "Convert one skill into an OOMOL package and publish it.",
     "commands.skills.publish.summary": "Publish a skill",
+    "commands.skills.share.description":
+        "Verify a public published skill and print a share prompt.",
+    "commands.skills.share.summary": "Share a published skill",
     "commands.skills.install.description":
         "Install bundled or published skills into supported local skill directories.",
     "commands.skills.install.summary": "Install skills",
@@ -214,6 +217,8 @@ export const enMessages = {
         "Failed to read the auth file at {path}.",
     "errors.authStore.writeFailed":
         "Failed to write the auth file at {path}.",
+    "errors.billing.insufficientCredit":
+        "Your OOMOL account balance is insufficient. Recharge before retrying: {url}",
     "errors.shared.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.shared.invalidPositiveIntegerOption":
@@ -376,6 +381,16 @@ export const enMessages = {
         "Cannot find skill {name} in local, bundled, registry, requested agent, or path sources.",
     "errors.skills.publish.visibilityRequired":
         "Package {packageName} does not have an existing visibility to preserve. Run in an interactive terminal or pass --visibility private or --visibility public.",
+    "errors.skills.share.cancelled":
+        "Share cancelled for skill {name}.",
+    "errors.skills.share.confirmationRequired":
+        "Confirm the skill before sharing. Run again with -y to share skill {name} from package {packageName}.",
+    "errors.skills.share.notPublic":
+        "Package {packageName} is not public (current visibility: {visibility}). Publish it with --visibility public before sharing.",
+    "errors.skills.share.notPublished":
+        "Skill {name} is not published yet. Publish it publicly before sharing.",
+    "errors.skills.share.referenceRequired":
+        "Provide a skill id, package name, or skill directory path to share.",
     "errors.fileDownload.downloadFailed":
         "Failed to download the file at {path}: {message}",
     "errors.fileDownload.invalidExt":
@@ -689,6 +704,14 @@ export const enMessages = {
         "Invalid choice. Enter y/yes or n/no.",
     "skills.publish.remoteBlocks.prompt":
         "Remote package {packageName}@{version} contains blocks. Continue publishing skill {name} as {packageName}? [y/N] ",
+    "skills.share.confirm.invalid":
+        "Invalid choice. Enter y/yes or n/no.",
+    "skills.share.confirm.prompt":
+        "Share skill {name} from public package {packageName}? [y/N] ",
+    "skills.share.reference.prompt":
+        "Which skill id, package name, or skill directory path do you want to share? ",
+    "skills.share.success":
+        "Share prompt for public skill {skillName} from {packageName}:",
     "warnings.skills.localCopyDriftOverwritten":
         "Warning: Local skill {name} copy at {path} differs from canonical storage and was overwritten.",
     "warnings.skills.publishLocalCopyDriftIgnored":
@@ -763,6 +786,7 @@ export const enMessages = {
     "arguments.url": "URL",
     "arguments.value": "Configuration value",
     "cloudTask.text.dryRunPassed": "Validation passed.",
+    "cloudTask.text.billing": "Billing",
     "cloudTask.text.error": "Error",
     "cloudTask.text.inputValues": "Input values",
     "cloudTask.text.nextToken": "Next token",
@@ -970,6 +994,9 @@ export const zhMessages = {
     "commands.skills.publish.description":
         "将一个 skill 转换为 OOMOL 包并发布。",
     "commands.skills.publish.summary": "发布 skill",
+    "commands.skills.share.description":
+        "确认已发布的公开 skill，并输出分享提示词。",
+    "commands.skills.share.summary": "分享已发布 skill",
     "commands.skills.install.description":
         "将内置或已发布 skill 安装到受支持的本地 skill 目录。",
     "commands.skills.install.summary": "安装 skill",
@@ -1004,6 +1031,8 @@ export const zhMessages = {
     "errors.auth.required":
         "使用此命令前请先登录。",
     "errors.auth.sessionTokenRequired": "session token 不能为空。",
+    "errors.billing.insufficientCredit":
+        "你的 OOMOL 账户余额不足。请充值后再重试：{url}",
     "errors.authStore.invalidToml": "认证文件 {path} 不是有效的 TOML。",
     "errors.authStore.invalidSchema": "认证文件 {path} 的结构不受支持。",
     "errors.authStore.readFailed": "读取认证文件 {path} 失败。",
@@ -1170,6 +1199,16 @@ export const zhMessages = {
         "包 {packageName} 没有可沿用的已有可见性。请在交互式终端中运行，或传入 --visibility private / --visibility public。",
     "errors.skills.publish.skillNotFound":
         "无法在 local、bundled、registry、指定 Agent 或路径来源中找到 skill {name}。",
+    "errors.skills.share.cancelled":
+        "已取消分享 skill {name}。",
+    "errors.skills.share.confirmationRequired":
+        "分享前需要确认 skill。请重新运行并传入 -y，以分享来自 {packageName} 的 skill {name}。",
+    "errors.skills.share.notPublic":
+        "包 {packageName} 不是公开包（当前可见性：{visibility}）。请先用 --visibility public 发布后再分享。",
+    "errors.skills.share.notPublished":
+        "skill {name} 尚未发布。请先公开发布后再分享。",
+    "errors.skills.share.referenceRequired":
+        "请提供要分享的 skill id、package 名称或 skill 目录路径。",
     "errors.fileDownload.downloadFailed":
         "下载文件到 {path} 失败：{message}",
     "errors.fileDownload.invalidExt":
@@ -1477,6 +1516,14 @@ export const zhMessages = {
         "输入无效。请输入 y/yes 或 n/no。",
     "skills.publish.remoteBlocks.prompt":
         "远端包 {packageName}@{version} 中存在区块。是否继续将 skill {name} 发布为 {packageName}？[y/N] ",
+    "skills.share.confirm.invalid":
+        "输入无效。请输入 y/yes 或 n/no。",
+    "skills.share.confirm.prompt":
+        "是否分享来自公开包 {packageName} 的 skill {name}？[y/N] ",
+    "skills.share.reference.prompt":
+        "要分享哪个 skill id、package 名称或 skill 目录路径？",
+    "skills.share.success":
+        "来自 {packageName} 的公开 skill {skillName} 分享提示词：",
     "warnings.skills.localCopyDriftOverwritten":
         "Warning: 本地 skill {name} 位于 {path} 的副本与 canonical 存储不一致，已被覆盖。",
     "warnings.skills.publishLocalCopyDriftIgnored":
@@ -1551,6 +1598,7 @@ export const zhMessages = {
     "arguments.url": "URL",
     "arguments.value": "配置值",
     "cloudTask.text.dryRunPassed": "校验通过。",
+    "cloudTask.text.billing": "账单",
     "cloudTask.text.error": "错误",
     "cloudTask.text.inputValues": "输入参数",
     "cloudTask.text.nextToken": "下一页令牌",

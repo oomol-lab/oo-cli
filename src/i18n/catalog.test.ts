@@ -16,6 +16,9 @@ describe("message catalog", () => {
         expect(enMessages["errors.shared.invalidPositiveIntegerOption"]).toBe(
             "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
         );
+        expect(enMessages["errors.billing.insufficientCredit"]).toBe(
+            "Your OOMOL account balance is insufficient. Recharge before retrying: {url}",
+        );
         expect(enMessages["errors.skills.list.invalidSource"]).toBe(
             "Invalid source: {value}. Use bundled, registry, or local.",
         );
@@ -33,6 +36,9 @@ describe("message catalog", () => {
         );
         expect(zhMessages["errors.shared.invalidPositiveIntegerOption"]).toBe(
             "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
+        );
+        expect(zhMessages["errors.billing.insufficientCredit"]).toBe(
+            "你的 OOMOL 账户余额不足。请充值后再重试：{url}",
         );
         expect(zhMessages["errors.skills.list.invalidSource"]).toBe(
             "无效的 source：{value}。请使用 bundled、registry 或 local。",
