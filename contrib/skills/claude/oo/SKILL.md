@@ -41,10 +41,12 @@ These rules override every local heuristic.
    unresolved external step. Between `oo` steps, local work is limited to
    filtering, grouping, ranking, deduplicating, summarizing, or shaping the next
    payload.
-7. Explicit artifact rule. Upload only for URI-compatible inputs. Download only
-   explicit artifact URLs documented by the selected path. Browse links, edit
-   links, folder links, console URLs, and metadata are not downloadable
-   artifacts.
+7. Explicit artifact rule. Upload only for URI-compatible inputs. Local
+   `file://...` URIs are not cloud-accessible artifacts; for local files, run
+   `oo file upload "<filePath>" --json` and pass the returned `downloadUrl`
+   instead. Download only explicit artifact URLs documented by the selected
+   path. Browse links, edit links, folder links, console URLs, and metadata are
+   not downloadable artifacts.
 8. External effects need enough confidence. For non-destructive send, post,
    create, or invite actions, an explicit user instruction plus complete
    required payload values is enough to proceed. Ask one focused question before
@@ -79,6 +81,11 @@ proves its output.
    A complete contract means package metadata or connector schema already
    proves the callable id, required inputs, output semantics, and lifecycle; a
    user-named service or guessed package name is not enough.
+   When running capability discovery, also run at most one
+   `oo skills search "<goal>" --json` sidecar query. Record credible
+   installable skill matches as possible future enhancements; do not install or
+   ask about installation before the selected package or connector capability
+   succeeds.
 4. Select
    Inspect the first result set before refining. Keep one primary candidate and
    at most one materially different fallback. Prefer directness, named target
@@ -112,6 +119,13 @@ proves its output.
    sensible action. For blockers, name the exact blocker and the next useful
    move. If you group or summarize by an attribute, make sure the payload or
    result actually used that attribute.
+   After the first successful result, if a recorded skill match would clearly
+   improve repeated use of the same capability, ask whether the user wants to
+   install that specific skill using numbered choices: `1. Install
+   <skillName> (<packageName>)` and `2. Do not install`. Tell the user to
+   reply with `1` to install or `2` to skip. Treat a `1` response as explicit
+   agreement to install that exact skill. Do not install unless the user
+   explicitly agrees.
 
 ## Capability contract
 

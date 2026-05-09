@@ -344,11 +344,120 @@ describe("embedded skill assets", () => {
                 await Bun.file(searchGuide.sourcePath).text(),
             );
 
-            expect(content).toContain("Treat authenticated connectors and Fusion API candidates");
+            expect(content).toContain("Scan all package and connector entries");
+            expect(content).toContain("do not let array order");
+            expect(content).toContain("prefer Fusion API");
+            expect(content).toContain("connector actions first");
+            expect(content).toContain("then authenticated connector actions");
             expect(content).toContain("out-of-box");
+            expect(content).toContain("Prefer Fusion API over package/block");
+            expect(content).toContain("OOMOL built-in API capabilities");
+            expect(content).toContain("Prefer an authenticated connector over a package");
+            expect(content).toContain("Prefer a package/block only when");
+            expect(content).toContain("run one connector refinement");
+            expect(content).toContain("before accepting a package-only path");
+            expect(content).toContain("Skill sidecar");
+            expect(content).toContain("oo skills search");
+            expect(content).toContain("sidecar discovery branch");
+            expect(content).toContain("not a callable capability contract");
+            expect(content).toContain("Skill sidecar policy");
+            expect(content).toContain("best credible installable skill match");
+            expect(content).toContain("Do not install a skill");
+            expect(content).toContain("do not ask about installation before");
+            expect(content).toContain("first successful useful result");
+            expect(content).toContain("numbered choices");
+            expect(content).toContain("`1. Install <skillName> (<packageName>)`");
+            expect(content).toContain("`2. Do not install`");
+            expect(content).toContain("reply with `1` to install or `2` to skip");
+            expect(content).toContain("Treat a `1` response as explicit agreement");
+            expect(content).toContain("use the `oo-find-skills` installation flow");
             expect(content).toContain("If the user did not name a model or product");
             expect(content).toContain("prefer more capable, modern, reputable candidates");
             expect(content).toContain("older or obscure equivalents");
+            expect(content).not.toContain("Prefer a package when the user wants a managed transform");
+        }
+    });
+
+    test("guides oo runtime to defer sidecar skill installation", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFile = getBundledSkillFiles("oo", agentName).find(
+                file => file.relativePath === "SKILL.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo SKILL.md`);
+            }
+
+            const content = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+
+            expect(content).toContain("When running capability discovery");
+            expect(content).toContain("also run at most one");
+            expect(content).toContain("sidecar query");
+            expect(content).toContain("Record credible installable skill matches");
+            expect(content).toContain("possible future enhancements");
+            expect(content).toContain("do not install or ask about installation before");
+            expect(content).toContain("capability succeeds");
+            expect(content).toContain("After the first successful result");
+            expect(content).toContain("ask whether the user wants to");
+            expect(content).toContain("install that specific skill");
+            expect(content).toContain("numbered choices");
+            expect(content).toContain("`1. Install <skillName> (<packageName>)`");
+            expect(content).toContain("`2. Do not install`");
+            expect(content).toContain("reply with `1` to install or `2` to skip");
+            expect(content).toContain("Treat a `1` response as explicit agreement");
+            expect(content).toContain("Do not install unless the user explicitly agrees");
+        }
+    });
+
+    test("guides oo runtime to upload local files before cloud payloads", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFiles = getBundledSkillFiles("oo", agentName);
+            const skillFile = skillFiles.find(file => file.relativePath === "SKILL.md");
+            const packageGuide = skillFiles.find(
+                file => file.relativePath === "references/package-execution.md",
+            );
+            const fileTransferGuide = skillFiles.find(
+                file => file.relativePath === "references/file-transfer.md",
+            );
+
+            if (skillFile === undefined) {
+                throw new Error(`Missing ${agentName} oo SKILL.md`);
+            }
+
+            if (packageGuide === undefined) {
+                throw new Error(`Missing ${agentName} oo package-execution guide`);
+            }
+
+            if (fileTransferGuide === undefined) {
+                throw new Error(`Missing ${agentName} oo file-transfer guide`);
+            }
+
+            const skillContent = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+            const packageContent = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(packageGuide.sourcePath).text(),
+            );
+            const fileTransferContent = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(fileTransferGuide.sourcePath).text(),
+            );
+
+            expect(skillContent).toContain("Local `file://...` URIs");
+            expect(skillContent).toContain("not cloud-accessible artifacts");
+            expect(skillContent).toContain("`oo file upload \"<filePath>\" --json`");
+            expect(skillContent).toContain("returned `downloadUrl`");
+            expect(packageContent).toContain("local file path or local `file://...` URI");
+            expect(packageContent).toContain("upload the file with `oo file upload`");
+            expect(packageContent).toContain("submit the returned `downloadUrl`");
+            expect(fileTransferContent).toContain("Local `file://...` URIs");
+            expect(fileTransferContent).toContain("local filesystem references");
+            expect(fileTransferContent).toContain("Do not submit local absolute paths");
+            expect(fileTransferContent).toContain("cloud payloads");
+            expect(fileTransferContent).toContain("explicitly supports local paths");
+            expect(fileTransferContent).toContain("fail when the cloud task tries");
+            expect(fileTransferContent).toContain("`oo file upload` did not return");
         }
     });
 
@@ -575,9 +684,17 @@ describe("embedded skill assets", () => {
             expect(content).toContain("facts");
             expect(content).toContain("Choose the most direct capability");
             expect(content).toContain("domain fit over result ordering");
+            expect(content).toContain("Fusion API first");
+            expect(content).toContain("already authenticated connectors second");
+            expect(content).toContain("packages or blocks after those");
+            expect(content).toContain("Capability discovery is mixed by default");
+            expect(content).toContain("complete package/block contract");
+            expect(content).toContain("complete package-level contract");
+            expect(content).toContain("Do this even when the user mentions");
+            expect(content).toContain("model, product, package-like name");
             expect(content).toContain("Treat Fusion API, connector, and package/block results");
             expect(content).toContain("first-class authoring");
-            expect(content).toContain("ordinary connectors, packages, and blocks");
+            expect(content).toContain("connector actions, packages, and blocks");
             expect(content).toContain("Classify service `fusion-api`");
             expect(content).toContain("does not require the user");
             expect(content).toContain("to provide their own API key");
@@ -618,6 +735,8 @@ describe("embedded skill assets", () => {
             expect(content).toContain("label it as untested");
             expect(content).toContain("Do not force a package or block reference");
             expect(content).toContain("when the chosen reusable workflow is connector-backed.");
+            expect(content).toContain("run one connector refinement");
+            expect(content).toContain("before accepting a package-only path");
             expect(content).toContain(
                 "connector service/action identifiers",
             );
@@ -627,6 +746,7 @@ describe("embedded skill assets", () => {
             expect(content).not.toContain("default preference order");
             expect(content).not.toContain("If Fusion API and an ordinary connector action both match");
             expect(content).not.toContain("Apply the capability principle above");
+            expect(content).not.toContain("If the user provides only package-level information");
         }
     });
 
