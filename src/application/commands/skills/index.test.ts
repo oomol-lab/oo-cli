@@ -568,6 +568,64 @@ describe("skills commands", () => {
         }
     });
 
+    test("installs a registry package when a bundled skill name has an explicit version", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "runtime");
+        const requests: Request[] = [];
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "oo@0.0.2", "--skill", "runtime"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "oo",
+                                version: "0.0.2",
+                                skills: [
+                                    {
+                                        description: "Run OO workflows",
+                                        name: "runtime",
+                                        title: "Runtime",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/oo/-/meta/oo-0.0.2.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/runtime/SKILL.md": "# Runtime\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Installed skill runtime to ${skillDirectoryPath}.\n`,
+            );
+            expect(requests.map(request => request.url)).toEqual([
+                "https://registry.oomol.com/-/oomol/package-info/oo/0.0.2",
+                "https://registry.oomol.com/oo/-/meta/oo-0.0.2.tgz",
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("explicit bundled skill install overwrites a managed development-version installation", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -2113,6 +2171,68 @@ describe("skills commands", () => {
                     skill_ids_truncated: false,
                 },
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs a scoped registry skill by explicit package version", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
+        const requests: Request[] = [];
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "@alice/openai@0.0.2", "--skill", "chatgpt"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "@alice/openai",
+                                version: "0.0.2",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/@alice/openai/-/meta/openai-0.0.2.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
+            );
+            expect(requests.map(request => request.url)).toEqual([
+                "https://registry.oomol.com/-/oomol/package-info/%40alice%2Fopenai/0.0.2",
+                "https://registry.oomol.com/@alice/openai/-/meta/openai-0.0.2.tgz",
+            ]);
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "@alice/openai", version: "0.0.2" })),
+            );
         }
         finally {
             await sandbox.cleanup();

@@ -650,7 +650,9 @@ Install bundled or published skills into supported local skill directories.
   `oo-create-skill`, or `oo-publish-skill`, the command installs the
   corresponding bundled skill.
 - Arguments: when `[packageName]` is a published package name, the command
-  installs skills from that package.
+  installs skills from that package. `[packageName]` may include an explicit
+  version as `<packageName>@<version>`, including scoped package forms such as
+  `@scope/name@1.2.3`.
 - Arguments: `[packageName]` may also use `<packageName>#<shareID>`. In that
   form, the command reads the package skill list from `<packageName>` and
   downloads the package archive through the share identified by `<shareID>`.
