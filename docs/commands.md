@@ -593,22 +593,17 @@ registry share id.
   Numeric values outside the valid range use the default `7`.
 - Options: `-y, --yes` skips the final `[y/N]` confirmation after the command
   resolves the skill id and package name.
-- Resolution: local skills are read from `<config-dir>/skills/local/<skill-id>`
-  and use `metadata.packageName` from `SKILL.md` frontmatter when present;
-  that field is written by a successful publish. Installed registry skills are
-  read from `<config-dir>/skills/registry/<skill-id>` and use their oo metadata
-  `packageName` when present. Paths read `SKILL.md` frontmatter directly. If a
-  matched skill does not provide a package name, or if no local, registry, or
-  path source matches, the argument is treated as a package name and the skill
-  id is derived from the package name.
+- Resolution: the argument may identify a local skill, an installed registry
+  skill, a skill directory path, or a package name. Skill ids are resolved by
+  checking local skills first, then installed registry skills. Path-like
+  references are resolved as skill directories. If no skill or path can be
+  resolved, or if the resolved skill does not identify a package, the argument
+  is treated as a package name.
 - Package check: the command requests latest package metadata for the resolved
-  package. If visibility/access is `public`, the prompt uses
-  `<packageName>` directly. If visibility/access is `private` or `restricted`,
-  the command creates a temporary share with
-  `POST https://registry.oomol.com/-/oomol/package-shares/share/<packageName>`
-  and the prompt uses `<packageName>#<shareID>`. Missing visibility metadata is
-  treated as public. Unpublished packages are rejected before any share prompt
-  is printed.
+  package. Public packages use `<packageName>` directly in the prompt. Private
+  packages create a temporary share and display the share token as
+  `<packageName>#<shareID>`. Missing visibility metadata is treated as public.
+  Unpublished packages are rejected before any share prompt is printed.
 - Output: on success, text output prints a copyable prompt that states the skill
   or package is already published, assumes the recipient may not have OO CLI
   installed yet, instructs them to install OO CLI, run `oo login`, sign in or

@@ -503,18 +503,14 @@ skills。
   非数字会报错；超出有效范围的数字会退回默认值 `7`。
 - 选项：`-y, --yes` 会在命令解析出 skill id 和 package 名称后，跳过最终的
   `[y/N]` 确认。
-- 解析：local skill 会从 `<config-dir>/skills/local/<skill-id>` 读取，并在存在时
-  使用 `SKILL.md` frontmatter 中的 `metadata.packageName`；这个字段由成功发布写入。
-  已安装 registry skill 会从 `<config-dir>/skills/registry/<skill-id>` 读取，并
-  在存在时使用 oo metadata 中的 `packageName`。路径来源会直接读取 `SKILL.md` frontmatter。
-  如果命中的 skill 没有提供 package 名称，或这些来源都没有匹配，参数会被当作
-  package 名称，并从 package 名称推导 skill id。
-- 包检查：命令会请求解析后 package 的 latest 元数据。如果 visibility/access 是
-  `public`，提示词直接使用 `<packageName>`；如果 visibility/access 是 `private`
-  或 `restricted`，命令会请求
-  `POST https://registry.oomol.com/-/oomol/package-shares/share/<packageName>`
-  创建临时分享，并在提示词中使用 `<packageName>#<shareID>`。缺少可见性元数据时
-  按公开包处理；尚未发布的包会在输出分享提示词前被拒绝。
+- 解析：参数可以是 local skill id、已安装 registry skill id、skill 目录路径，
+  或 package 名称。skill id 会优先按 local skill 解析，然后按已安装 registry
+  skill 解析；看起来像路径的输入会按 skill 目录解析。如果无法解析为 skill 或路径，
+  或解析出的 skill 没有关联 package，参数会被当作 package 名称。
+- 包检查：命令会请求解析后 package 的 latest 元数据。公开包会在提示词中直接使用
+  `<packageName>`；私有包会创建临时分享，并在提示词中显示分享 token，格式为
+  `<packageName>#<shareID>`。缺少可见性元数据时按公开包处理；尚未发布的包会在输出
+  分享提示词前被拒绝。
 - 输出：成功时，文本输出会打印一段可复制提示词。提示词会说明该 skill 或 package
   已经发布，默认对方可能还没有安装 OO CLI，引导对方先安装 OO CLI，再运行
   `oo login` 登录或注册 OO 账号，然后安装被分享的目标。提示词包含 macOS/Linux 和

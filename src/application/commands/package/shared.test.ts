@@ -22,19 +22,8 @@ const packageInfoRequestLanguage = "en" as const;
 
 describe("loadPackageInfo", () => {
     test("normalizes input ui widget keys, applies input schema patches, and keeps output schema raw", async () => {
-        const cacheValues = new Map<string, string>();
         let fetchCount = 0;
-        const cache = createCache<string>({
-            delete(key) {
-                return cacheValues.delete(key);
-            },
-            get(key) {
-                return cacheValues.get(key) ?? null;
-            },
-            set(key, value) {
-                cacheValues.set(key, value);
-            },
-        });
+        const { cache } = createInMemoryStringCache();
         const context = createPackageInfoContext(
             cache,
             (async () => {
@@ -69,19 +58,8 @@ describe("loadPackageInfo", () => {
             { access: "private", isPrivate: true },
             { access: "public", isPrivate: false },
         ] as const) {
-            const cacheValues = new Map<string, string>();
             const context = createPackageInfoContext(
-                createCache<string>({
-                    delete(key) {
-                        return cacheValues.delete(key);
-                    },
-                    get(key) {
-                        return cacheValues.get(key) ?? null;
-                    },
-                    set(key, value) {
-                        cacheValues.set(key, value);
-                    },
-                }),
+                createInMemoryStringCache().cache,
                 (async () => new Response(JSON.stringify({
                     ...createRawPackageInfoResponse(),
                     isPrivate,
@@ -101,18 +79,7 @@ describe("loadPackageInfo", () => {
     });
 
     test("preserves array ext placeholders and omits empty ext objects in input schemas", async () => {
-        const cacheValues = new Map<string, string>();
-        const cache = createCache<string>({
-            delete(key) {
-                return cacheValues.delete(key);
-            },
-            get(key) {
-                return cacheValues.get(key) ?? null;
-            },
-            set(key, value) {
-                cacheValues.set(key, value);
-            },
-        });
+        const { cache } = createInMemoryStringCache();
         const context = createPackageInfoContext(
             cache,
             (async () => new Response(JSON.stringify({
@@ -220,18 +187,7 @@ describe("loadPackageInfo", () => {
     });
 
     test("removes input handles whose ui widget targets cloud storage", async () => {
-        const cacheValues = new Map<string, string>();
-        const cache = createCache<string>({
-            delete(key) {
-                return cacheValues.delete(key);
-            },
-            get(key) {
-                return cacheValues.get(key) ?? null;
-            },
-            set(key, value) {
-                cacheValues.set(key, value);
-            },
-        });
+        const { cache } = createInMemoryStringCache();
         const context = createPackageInfoContext(
             cache,
             (async () => new Response(JSON.stringify({
@@ -309,23 +265,12 @@ describe("loadPackageInfo", () => {
     });
 
     test("deserializes preloaded cached normalized responses without fetching", async () => {
-        const cacheValues = new Map<string, string>();
+        const { cache, values } = createInMemoryStringCache();
         let fetchCount = 0;
-        const cache = createCache<string>({
-            delete(key) {
-                return cacheValues.delete(key);
-            },
-            get(key) {
-                return cacheValues.get(key) ?? null;
-            },
-            set(key, value) {
-                cacheValues.set(key, value);
-            },
-        });
         const packageSpecifier = parsePackageSpecifier("qrcode@1.0.4");
         const expectedResponse = createNormalizedPackageInfoResponse();
 
-        cacheValues.set(
+        values.set(
             createPackageInfoCacheKeyForTest(
                 packageInfoAccount,
                 expectedResponse.packageName,
@@ -506,6 +451,28 @@ function createPackageInfoContext(
             enabled: false,
         }),
         translator: createTranslator("en"),
+    };
+}
+
+function createInMemoryStringCache(): {
+    cache: Cache<string>;
+    values: Map<string, string>;
+} {
+    const values = new Map<string, string>();
+
+    return {
+        cache: createCache<string>({
+            delete(key) {
+                return values.delete(key);
+            },
+            get(key) {
+                return values.get(key) ?? null;
+            },
+            set(key, value) {
+                values.set(key, value);
+            },
+        }),
+        values,
     };
 }
 

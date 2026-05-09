@@ -232,12 +232,13 @@ async function readSkillShareReference(
     const promptedReference = await requestInteractiveText(context, {
         prompt: context.translator.t("skills.share.reference.prompt"),
     });
+    const trimmedPromptedReference = promptedReference.trim();
 
-    if (promptedReference === "") {
+    if (trimmedPromptedReference === "") {
         throw new CliUserError("errors.skills.share.referenceRequired", 1);
     }
 
-    return promptedReference;
+    return trimmedPromptedReference;
 }
 
 async function resolveManagedSkillShareTarget(
