@@ -41,7 +41,7 @@ export async function loadConnectorSearchResults(
         return [];
     }
 
-    const [authenticatedServices] = await Promise.all([
+    const [authenticatedServicesResult, schemaCacheResult] = await Promise.allSettled([
         listAuthenticatedConnectorServices(
             {
                 apiKey: options.account.apiKey,
@@ -53,8 +53,21 @@ export async function loadConnectorSearchResults(
         cacheConnectorActionSchemas(actions, options.account, context),
     ]);
 
+    if (authenticatedServicesResult.status === "rejected") {
+        throw authenticatedServicesResult.reason;
+    }
+
+    if (schemaCacheResult.status === "rejected") {
+        context.logger.warn(
+            {
+                err: schemaCacheResult.reason,
+            },
+            "Failed to warm connector action schemas during search.",
+        );
+    }
+
     return actions.map(action => ({
-        authenticated: authenticatedServices.has(action.service),
+        authenticated: authenticatedServicesResult.value.has(action.service),
         description: action.description,
         name: action.name,
         service: action.service,

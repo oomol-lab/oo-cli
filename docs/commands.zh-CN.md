@@ -257,7 +257,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `authenticated`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
   描述和认证状态。
-- 说明：命令会在本地缓存已发现的 action schema，但缓存位置属于内部实现细节。
+- 说明：使用 `oo connector schema "<service>" --action "<action>"` 查看选中
+  action 的 contract。
 
 ### `oo connector schema <serviceName>`
 
@@ -265,12 +266,10 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 参数：`<serviceName>` 为服务名。
 - 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
-- 选项：`--refresh` 会绕过本地缓存，直接从 connector metadata API 获取最新
-  schema。
+- 选项：`--refresh` 会直接从 connector metadata API 获取最新 schema。
 - 输出：命令默认输出 JSON 对象，包含稳定 CLI 字段 `service`、`name`、
   `description`、`inputSchema` 和 `outputSchema`。
-- 说明：不使用 `--refresh` 时，命令可以使用仍有效的本地缓存；缓存缺失、过期
-  或无效时会自动刷新。
+- 说明：`--refresh` 会强制为选中的 action 重新获取 schema。
 
 ### `oo connector run <serviceName>`
 
@@ -286,8 +285,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 输出：dry-run 的 JSON 输出返回 `{ dryRun, ok }`。
 - 错误：stderr 会打印 HTTP 状态；如果失败响应包含服务端 `message` 或
   `errorCode`，也会一并输出。
-- 说明：如果本地 schema cache 不可用或无法使用，命令会自动刷新后再继续校验
-  和运行。
+- 说明：命令会在执行前根据选中 action 的 contract 校验输入。
 
 ## Search
 
@@ -306,8 +304,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `name`、`description` 和 `authenticated`。
 - 输出：文本输出会为每个结果打印一个块，并额外包含一行 `类型` 字段，而不
   再输出来源分组标题。
-- 说明：connector 命中结果仍会在本地缓存 schema，但缓存位置属于内部实现细节。
-  使用 `oo connector schema` 获取完整 connector action contract。
+- 说明：使用 `oo connector schema "<service>" --action "<action>"` 获取完整
+  connector action contract。
 
 ## AI Agent Skill
 
