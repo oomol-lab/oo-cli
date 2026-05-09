@@ -183,7 +183,10 @@ Do not install a skill, do not select it instead of a package or connector
 capability, and do not ask about installation before the selected package or
 connector path has produced its first successful useful result. After success,
 if the recorded skill would clearly make repeated use easier or stronger, ask
-whether the user wants to install that specific skill. If they agree, use the
+whether the user wants to install that specific skill using numbered choices:
+`1. Install <skillName> (<packageName>)` and `2. Do not install`. Tell the user
+to reply with `1` to install or `2` to skip. Treat a `1` response as explicit
+agreement to install that exact skill. If they choose install, use the
 `oo-find-skills` installation flow. If they decline, continue without installing.
 
 ## Build the next contract step

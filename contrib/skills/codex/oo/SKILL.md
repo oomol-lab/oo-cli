@@ -128,7 +128,11 @@ proves its output.
    result actually used that attribute.
    After the first successful result, if a recorded skill match would clearly
    improve repeated use of the same capability, ask whether the user wants to
-   install that specific skill. Do not install unless the user explicitly agrees.
+   install that specific skill using numbered choices: `1. Install
+   <skillName> (<packageName>)` and `2. Do not install`. Tell the user to
+   reply with `1` to install or `2` to skip. Treat a `1` response as explicit
+   agreement to install that exact skill. Do not install unless the user
+   explicitly agrees.
 
 ## Capability contract
 

@@ -365,6 +365,11 @@ describe("embedded skill assets", () => {
             expect(content).toContain("Do not install a skill");
             expect(content).toContain("do not ask about installation before");
             expect(content).toContain("first successful useful result");
+            expect(content).toContain("numbered choices");
+            expect(content).toContain("`1. Install <skillName> (<packageName>)`");
+            expect(content).toContain("`2. Do not install`");
+            expect(content).toContain("reply with `1` to install or `2` to skip");
+            expect(content).toContain("Treat a `1` response as explicit agreement");
             expect(content).toContain("use the `oo-find-skills` installation flow");
             expect(content).toContain("If the user did not name a model or product");
             expect(content).toContain("prefer more capable, modern, reputable candidates");
@@ -397,6 +402,11 @@ describe("embedded skill assets", () => {
             expect(content).toContain("After the first successful result");
             expect(content).toContain("ask whether the user wants to");
             expect(content).toContain("install that specific skill");
+            expect(content).toContain("numbered choices");
+            expect(content).toContain("`1. Install <skillName> (<packageName>)`");
+            expect(content).toContain("`2. Do not install`");
+            expect(content).toContain("reply with `1` to install or `2` to skip");
+            expect(content).toContain("Treat a `1` response as explicit agreement");
             expect(content).toContain("Do not install unless the user explicitly agrees");
         }
     });
