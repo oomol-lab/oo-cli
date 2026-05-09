@@ -586,11 +586,13 @@ shared, and print a prompt that can be copied to another user.
   restricted, missing, or unpublished packages are rejected before any share
   prompt is printed.
 - Output: on success, text output prints a copyable prompt that states the skill
-  is already published and public, instructs the recipient to install and log in
-  to `oo`, and includes macOS/Linux and Windows PowerShell command sequences
-  that continue through `oo skills install <packageName> --skill <skill-id> -y`.
-  The prompt explicitly tells the recipient to complete OO installation, login,
-  and skill installation in one continuous setup flow.
+  is already published and public, assumes the recipient may not have OO CLI
+  installed yet, instructs them to install OO CLI, run `oo login`, sign in or
+  create an OO account, and then install the skill. It includes macOS/Linux and
+  Windows PowerShell command sequences that continue through
+  `oo skills install <packageName> --skill <skill-id> -y`. The prompt explicitly
+  tells the recipient to complete OO installation, login, and skill installation
+  in one continuous setup flow.
 
 ### `oo skills search <text>`
 

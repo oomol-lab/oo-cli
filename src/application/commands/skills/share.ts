@@ -372,12 +372,18 @@ function renderSkillSharePrompt(options: {
     skillId: string;
 }): string {
     return [
-        `Please install this public OO skill in one continuous setup flow, from installing OO through installing the skill. Do not stop after installing OO.`,
+        `Please help me install this public OO skill. Assume I may not have OO CLI installed yet, and guide me from installing OO CLI through logging in and installing the skill.`,
         "",
         `The skill is already published and public:`,
         `Package: ${options.packageName}`,
         `Skill: ${options.skillId}`,
         `Hub: ${options.hubUrl}`,
+        "",
+        `Complete these steps in one continuous setup flow. Do not stop after installing OO CLI; continue through login and skill installation in the same session.`,
+        "",
+        `1. Install OO CLI.`,
+        `2. Run \`oo login\` and sign in or create an OO account.`,
+        `3. Install the skill with the command below.`,
         "",
         `macOS / Linux:`,
         "```bash",

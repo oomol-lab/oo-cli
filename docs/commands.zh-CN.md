@@ -498,10 +498,11 @@ skills。
   为 `public`。private、restricted、缺少元数据或尚未发布的包都会在输出分享提示词
   前被拒绝。
 - 输出：成功时，文本输出会打印一段可复制提示词。提示词会说明该 skill 已经发布且
-  是公开包，引导对方安装并登录 `oo`，并包含 macOS/Linux 和 Windows PowerShell
-  命令序列，直到执行
-  `oo skills install <packageName> --skill <skill-id> -y`。提示词会明确要求对方从
-  安装 OO、登录到安装 skill 一气呵成。
+  是公开包，并默认对方可能还没有安装 OO CLI，引导对方先安装 OO CLI，再运行
+  `oo login` 登录或注册 OO 账号，然后安装 skill。提示词包含 macOS/Linux 和
+  Windows PowerShell 命令序列，直到执行
+  `oo skills install <packageName> --skill <skill-id> -y`，并明确要求对方从安装
+  OO、登录到安装 skill 一气呵成。
 
 ### `oo skills search <text>`
 

@@ -23,6 +23,9 @@ Use the skill id from the current context when the user has just created,
 published, or used a specific skill. If no likely skill id is available, ask the
 user which skill to share. `oo skills share` will confirm the resolved id and
 package, verify that the package is public, and print the copyable share prompt.
+That prompt is meant for recipients who may not have OO CLI installed yet: it
+must guide them through installing OO CLI, running `oo login`, signing in or
+creating an OO account, and then installing the skill in one continuous flow.
 
 ### 1. Identify the publish source
 

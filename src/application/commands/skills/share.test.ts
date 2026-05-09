@@ -61,6 +61,21 @@ describe("skills share command", () => {
                 "The skill is already published and public:",
             );
             expect(result.stdout).toContain(
+                "Assume I may not have OO CLI installed yet",
+            );
+            expect(result.stdout).toContain(
+                "Run `oo login` and sign in or create an OO account.",
+            );
+            expect(result.stdout).toContain(
+                "Do not stop after installing OO CLI; continue through login and skill installation in the same session.",
+            );
+            expect(result.stdout).toContain(
+                "curl -fsSL https://cli.oomol.com/install.sh | bash",
+            );
+            expect(result.stdout).toContain(
+                "irm https://cli.oomol.com/install.ps1 | iex",
+            );
+            expect(result.stdout).toContain(
                 "oo skills install @alice/demo-skill --skill demo-skill -y",
             );
             expect(requests.map(request => request.url)).toEqual([
