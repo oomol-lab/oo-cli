@@ -105,8 +105,8 @@ proves its output.
    [references/package-execution.md](references/package-execution.md), then
    inspect package metadata. Connector-backed: read
    [references/connector-execution.md](references/connector-execution.md), then
-   inspect the cached schema at `schemaPath`. File-like inputs or artifact
-   downloads may require
+   inspect the contract with `oo connector schema "<service>" --action
+   "<action>"`. File-like inputs or artifact downloads may require
    [references/file-transfer.md](references/file-transfer.md).
 6. Build payload
    Use only fields exposed by the selected contract. Prefer user-provided values

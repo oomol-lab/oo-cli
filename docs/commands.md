@@ -297,13 +297,26 @@ Search connector actions with free-form text.
   trimming empty and duplicate entries.
 - Options: `--format=json` and `--json` print a JSON array of matching action
   entries.
-- Output: every match is enriched with `authenticated` and `schemaPath`.
+- Output: every match is enriched with `authenticated`.
 - Output: JSON entries include the stable CLI fields `service`, `name`,
-  `description`, `authenticated`, and `schemaPath`.
+  `description`, and `authenticated`.
 - Output: text output prints one block per action with the service/action
-  label, optional description, authenticated state, and schema cache path.
-- Notes: the command caches discovered action schemas locally and reports the
-  cache path for each result.
+  label, optional description, and authenticated state.
+- Notes: the command caches discovered action schemas locally, but the cache
+  location is an internal implementation detail.
+
+### `oo connector schema <serviceName>`
+
+Show the stable schema contract for one connector action.
+
+- Arguments: `<serviceName>` is the service name.
+- Options: `-a, --action <action>` selects the action name and is required.
+- Options: `--refresh` bypasses any cached schema and fetches fresh metadata
+  from the connector metadata API.
+- Output: the command always prints a JSON object with the stable CLI fields
+  `service`, `name`, `description`, `inputSchema`, and `outputSchema`.
+- Notes: without `--refresh`, the command may use a fresh local cache entry;
+  missing, expired, or invalid cache entries are refreshed automatically.
 
 ### `oo connector run <serviceName>`
 
@@ -316,7 +329,7 @@ Validate input data and run one connector action synchronously.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.
-- Output: dry-run JSON output returns `{ dryRun, ok, schemaPath }`.
+- Output: dry-run JSON output returns `{ dryRun, ok }`.
 - Errors: stderr prints the HTTP status and includes the server `message`
   and `errorCode` when the failure response provides them.
 - Notes: when local schema cache is unavailable or unusable, the command
@@ -336,11 +349,12 @@ Search packages and connector actions with one free-form query.
 - Output: package JSON entries include the stable CLI fields `kind`,
   `packageId`, `displayName`, `description`, and `blocks`.
 - Output: connector JSON entries include the stable CLI fields `kind`,
-  `service`, `name`, `description`, `authenticated`, and `schemaPath`.
+  `service`, `name`, `description`, and `authenticated`.
 - Output: text output prints one block per result and includes a `Kind` line
   for each block instead of source section headers.
-- Notes: connector matches still cache their schemas locally and report the
-  cache path in text and JSON output.
+- Notes: connector matches still cache their schemas locally, but the cache
+  location is an internal implementation detail. Use `oo connector schema` to
+  inspect the full connector action contract.
 
 ## AI Agent Skills
 

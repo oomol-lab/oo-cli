@@ -1,6 +1,9 @@
+import type { AppSettings } from "../../schemas/settings.ts";
+
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
+import pino from "pino";
 
 import {
     createCliSandbox,
@@ -10,16 +13,14 @@ import {
     toRequest,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
+import { SqliteCacheStore } from "../../../adapters/cache/sqlite-cache.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
-import {
-    renderConnectorActionSchemaCache,
-    resolveConnectorActionSchemaPath,
-} from "./schema-cache.ts";
+import { cacheConnectorActionSchemas } from "./schema-cache.ts";
 import {
     connectorSearchActionColor,
     connectorSearchServiceColor,
@@ -78,10 +79,13 @@ describe("connectorCommand CLI", () => {
                     },
                 },
             );
-            const schemaPath = resolveConnectorActionSchemaPath(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-                "gmail",
-                "send_mail",
+            const schemaResult = await sandbox.run(
+                ["connector", "schema", "gmail", "--action", "send_mail"],
+                {
+                    fetcher: async () => {
+                        throw new Error("Unexpected schema metadata request");
+                    },
+                },
             );
 
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
@@ -90,46 +94,37 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("gmail.send_mail");
             expect(result.stdout).toContain("Send a Gmail message.");
             expect(result.stdout).toContain("Authenticated: yes");
-            expect(result.stdout).toContain(`Schema path: ${schemaPath}`);
+            expect(result.stdout).not.toContain("Schema path");
+            expect(JSON.parse(schemaResult.stdout)).toEqual({
+                description: "Send a Gmail message.",
+                inputSchema: {
+                    properties: {
+                        to: {
+                            format: "email",
+                            type: "string",
+                        },
+                    },
+                    required: ["to"],
+                    type: "object",
+                },
+                name: "send_mail",
+                outputSchema: {
+                    properties: {
+                        messageId: {
+                            type: "string",
+                        },
+                    },
+                    required: ["messageId"],
+                    type: "object",
+                },
+                service: "gmail",
+            });
             expect(requests).toHaveLength(2);
             expect(requests[0]?.url).toBe(
                 "https://search.oomol.com/v1/connector-actions?q=send+mail&keywords=gmail%2Cemail",
             );
             expect(requests[1]?.url).toBe(
                 "https://connector.oomol.com/v1/apps/authenticated?service=gmail",
-            );
-            await expect(Bun.file(schemaPath).text()).resolves.toBe(
-                [
-                    "{",
-                    "  \"description\": \"Send a Gmail message.\",",
-                    "  \"inputSchema\": {",
-                    "    \"properties\": {",
-                    "      \"to\": {",
-                    "        \"format\": \"email\",",
-                    "        \"type\": \"string\"",
-                    "      }",
-                    "    },",
-                    "    \"required\": [",
-                    "      \"to\"",
-                    "    ],",
-                    "    \"type\": \"object\"",
-                    "  },",
-                    "  \"name\": \"send_mail\",",
-                    "  \"outputSchema\": {",
-                    "    \"properties\": {",
-                    "      \"messageId\": {",
-                    "        \"type\": \"string\"",
-                    "      }",
-                    "    },",
-                    "    \"required\": [",
-                    "      \"messageId\"",
-                    "    ],",
-                    "    \"type\": \"object\"",
-                    "  },",
-                    "  \"service\": \"gmail\"",
-                    "}",
-                    "",
-                ].join("\n"),
             );
         }
         finally {
@@ -180,11 +175,6 @@ describe("connectorCommand CLI", () => {
                     authenticated: false,
                     description: "Send a Gmail message.",
                     name: "send_mail",
-                    schemaPath: resolveConnectorActionSchemaPath(
-                        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-                        "gmail",
-                        "send_mail",
-                    ),
                     service: "gmail",
                 },
             ]);
@@ -286,21 +276,29 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("renders connector schema help without json options", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["connector", "schema", "--help"]);
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(result.stdout).not.toContain("--format");
+            expect(result.stdout).not.toContain("--json");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports connector run with cached schema and json output", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
-
-            const schemaPath = resolveConnectorActionSchemaPath(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-                "gmail",
-                "send_mail",
-            );
-
-            await Bun.write(
-                schemaPath,
-                renderConnectorActionSchemaCache({
+            await seedConnectorActionSchema(
+                sandbox,
+                {
                     description: "Send a Gmail message.",
                     inputSchema: {
                         properties: {
@@ -323,7 +321,7 @@ describe("connectorCommand CLI", () => {
                         type: "object",
                     },
                     service: "gmail",
-                }),
+                },
             );
 
             const requests: Request[] = [];
@@ -404,7 +402,7 @@ describe("connectorCommand CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const schemaPath = await seedConnectorActionSchema(
+            await seedConnectorActionSchema(
                 sandbox,
                 createConnectorActionFixture(),
             );
@@ -446,13 +444,6 @@ describe("connectorCommand CLI", () => {
                     executionId: "exec-1",
                 },
             });
-            expect(schemaPath).toBe(
-                resolveConnectorActionSchemaPath(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-                    "gmail",
-                    "send_mail",
-                ),
-            );
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
@@ -468,16 +459,9 @@ describe("connectorCommand CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-
-            const schemaPath = resolveConnectorActionSchemaPath(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-                "gmail",
-                "send_mail",
-            );
-
-            await Bun.write(
-                schemaPath,
-                renderConnectorActionSchemaCache({
+            await seedConnectorActionSchema(
+                sandbox,
+                {
                     description: "Send a Gmail message.",
                     inputSchema: {
                         properties: {
@@ -494,7 +478,7 @@ describe("connectorCommand CLI", () => {
                         type: "object",
                     },
                     service: "gmail",
-                }),
+                },
             );
 
             const result = await sandbox.run(
@@ -588,24 +572,15 @@ describe("connectorCommand CLI", () => {
                     },
                 },
             );
-            const schemaPath = resolveConnectorActionSchemaPath(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-                "gmail",
-                "send_mail",
-            );
 
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(JSON.parse(result.stdout)).toEqual({
                 dryRun: true,
                 ok: true,
-                schemaPath,
             });
             expect(requests).toHaveLength(1);
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
-            );
-            await expect(Bun.file(schemaPath).text()).resolves.toContain(
-                "\"service\": \"gmail\"",
             );
         }
         finally {
@@ -618,16 +593,9 @@ describe("connectorCommand CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-
-            const schemaPath = resolveConnectorActionSchemaPath(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-                "gmail",
-                "send_mail",
-            );
-
-            await Bun.write(
-                schemaPath,
-                renderConnectorActionSchemaCache({
+            await seedConnectorActionSchema(
+                sandbox,
+                {
                     description: "Send a Gmail message.",
                     inputSchema: {
                         properties: {
@@ -644,7 +612,7 @@ describe("connectorCommand CLI", () => {
                         type: "object",
                     },
                     service: "gmail",
-                }),
+                },
             );
 
             let requestCount = 0;
@@ -688,16 +656,9 @@ describe("connectorCommand CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-
-            const schemaPath = resolveConnectorActionSchemaPath(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-                "gmail",
-                "get_message",
-            );
-
-            await Bun.write(
-                schemaPath,
-                renderConnectorActionSchemaCache({
+            await seedConnectorActionSchema(
+                sandbox,
+                {
                     description: "Get a Gmail message by id.",
                     inputSchema: {
                         properties: {
@@ -713,7 +674,7 @@ describe("connectorCommand CLI", () => {
                         type: "object",
                     },
                     service: "gmail",
-                }),
+                },
             );
 
             const result = await sandbox.run(
@@ -776,6 +737,243 @@ describe("connectorCommand CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("supports connector schema with default json output and hides internal metadata fields", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "schema", "gmail", "--action", "send_mail"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                description: "Send a Gmail message.",
+                                followUpActions: [
+                                    {
+                                        name: "get_message",
+                                    },
+                                ],
+                                id: "gmail.send_mail",
+                                inputSchema: {
+                                    properties: {
+                                        to: {
+                                            type: "string",
+                                        },
+                                    },
+                                    required: ["to"],
+                                    type: "object",
+                                },
+                                name: "send_mail",
+                                outputSchema: {
+                                    type: "object",
+                                },
+                                providerPermissions: ["gmail.send"],
+                                requiredScopes: ["gmail.send"],
+                                service: "gmail",
+                            },
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+            const cachedResult = await sandbox.run(
+                ["connector", "schema", "gmail", "--action", "send_mail"],
+                {
+                    fetcher: async () => {
+                        throw new Error("Unexpected schema metadata request");
+                    },
+                },
+            );
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+            expect(JSON.parse(result.stdout)).toEqual({
+                description: "Send a Gmail message.",
+                inputSchema: {
+                    properties: {
+                        to: {
+                            type: "string",
+                        },
+                    },
+                    required: ["to"],
+                    type: "object",
+                },
+                name: "send_mail",
+                outputSchema: {
+                    type: "object",
+                },
+                service: "gmail",
+            });
+            expect(result.stdout).not.toContain("providerPermissions");
+            expect(result.stdout).not.toContain("requiredScopes");
+            expect(result.stdout).not.toContain("followUpActions");
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
+            );
+            expect(JSON.parse(cachedResult.stdout)).toEqual(JSON.parse(result.stdout));
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.schema",
+                    refresh: false,
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("action");
+            expect(telemetryPayload?.properties).not.toHaveProperty("service");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports connector schema refresh by bypassing cached metadata", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                createConnectorActionFixture({
+                    description: "Cached schema.",
+                }),
+            );
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "schema",
+                    "gmail",
+                    "--action",
+                    "send_mail",
+                    "--refresh",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                description: "Fresh schema.",
+                                id: "gmail.send_mail",
+                                inputSchema: {
+                                    type: "object",
+                                },
+                                name: "send_mail",
+                                outputSchema: {
+                                    type: "object",
+                                },
+                                providerPermissions: [],
+                                requiredScopes: [],
+                                service: "gmail",
+                            },
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(JSON.parse(result.stdout)).toMatchObject({
+                description: "Fresh schema.",
+                name: "send_mail",
+                service: "gmail",
+            });
+            expect(requests).toHaveLength(1);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.schema",
+                    refresh: true,
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("removes cached schema after connector run reports action_not_found", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+
+            const runResult = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "--action",
+                    "send_mail",
+                    "--data",
+                    "{}",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        errorCode: "action_not_found",
+                        success: false,
+                    }), {
+                        status: 404,
+                    }),
+                },
+            );
+
+            let metadataRequestCount = 0;
+            const schemaResult = await sandbox.run(
+                ["connector", "schema", "gmail", "--action", "send_mail"],
+                {
+                    fetcher: async () => {
+                        metadataRequestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                description: "Fresh schema after stale cache removal.",
+                                id: "gmail.send_mail",
+                                inputSchema: {
+                                    type: "object",
+                                },
+                                name: "send_mail",
+                                outputSchema: {
+                                    type: "object",
+                                },
+                                providerPermissions: [],
+                                requiredScopes: [],
+                                service: "gmail",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(runResult.exitCode).toBe(1);
+            expect(runResult.stderr).toContain(
+                "The connector action run request returned HTTP 404 (errorCode: action_not_found).",
+            );
+            expect(metadataRequestCount).toBe(1);
+            expect(JSON.parse(schemaResult.stdout)).toMatchObject({
+                description: "Fresh schema after stale cache removal.",
+                name: "send_mail",
+                service: "gmail",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
 
 async function seedConnectorActionSchema(
@@ -783,14 +981,49 @@ async function seedConnectorActionSchema(
         env: Record<string, string | undefined>;
     },
     action = createConnectorActionFixture(),
-): Promise<string> {
-    const schemaPath = resolveConnectorActionSchemaPath(
-        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml"),
-        action.service,
-        action.name,
+): Promise<void> {
+    const cacheStore = new SqliteCacheStore(
+        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "data", "cache.sqlite"),
+        pino({
+            enabled: false,
+        }),
     );
 
-    await Bun.write(schemaPath, renderConnectorActionSchemaCache(action));
+    try {
+        await cacheConnectorActionSchemas(
+            [action],
+            {
+                endpoint: "oomol.com",
+                id: "user-1",
+            },
+            {
+                cacheStore,
+                logger: pino({
+                    enabled: false,
+                }),
+                settingsStore: createSettingsStoreForSandbox(sandbox),
+            },
+        );
+    }
+    finally {
+        cacheStore.close();
+    }
+}
 
-    return schemaPath;
+function createSettingsStoreForSandbox(sandbox: {
+    env: Record<string, string | undefined>;
+}) {
+    const emptySettings = {} as AppSettings;
+
+    return {
+        getFilePath: () => join(
+            sandbox.env.XDG_CONFIG_HOME!,
+            APP_NAME,
+            "settings.toml",
+        ),
+        read: async () => emptySettings,
+        update: async (updater: (settings: AppSettings) => AppSettings) =>
+            updater(emptySettings),
+        write: async (value: AppSettings) => value,
+    };
 }

@@ -8,7 +8,6 @@ exports[`connectorCommand CLI supports connector search with text output and wri
 "gmail.send_mail
 Send a Gmail message.
 Authenticated: yes
-Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json
 "
 ,
 }
@@ -19,7 +18,7 @@ exports[`connectorCommand CLI supports connector search with json output and omi
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"[{"authenticated":false,"description":"Send a Gmail message.","name":"send_mail","schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json","service":"gmail"}]
+"[{"authenticated":false,"description":"Send a Gmail message.","name":"send_mail","service":"gmail"}]
 "
 ,
 }
@@ -33,7 +32,6 @@ exports[`connectorCommand CLI renders connector search output with field-specifi
 "gmail.send_mail
 Send a Gmail message.
 Authenticated: yes
-Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json
 "
 ,
 }
@@ -101,6 +99,30 @@ Global Options:
 }
 `;
 
+exports[`connectorCommand CLI renders connector schema help without json options 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Show the schema contract for one connector action.
+
+Arguments:
+  serviceName            Service name
+
+Options:
+  -a, --action <action>  Specify the target action name
+  --refresh              Bypass any cached response and fetch fresh data
+  -h, --help             Show help for command
+
+Global Options:
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
+"
+,
+}
+`;
+
 exports[`connectorCommand CLI supports connector run with cached schema and json output 1`] = `
 {
   "exitCode": 0,
@@ -117,7 +139,7 @@ exports[`connectorCommand CLI loads connector action metadata and supports dry-r
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"{"dryRun":true,"ok":true,"schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json"}
+"{"dryRun":true,"ok":true}
 "
 ,
 }
@@ -131,5 +153,16 @@ exports[`connectorCommand CLI validates connector run payloads before sending th
 "
 ,
   "stdout": "",
+}
+`;
+
+exports[`connectorCommand CLI supports connector schema with default json output and hides internal metadata fields 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"{"description":"Send a Gmail message.","inputSchema":{"properties":{"to":{"type":"string"}},"required":["to"],"type":"object"},"name":"send_mail","outputSchema":{"type":"object"},"service":"gmail"}
+"
+,
 }
 `;

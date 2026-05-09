@@ -16,7 +16,6 @@ gmail.send_mail
 Send a Gmail message.
 Kind: connector
 Authenticated: yes
-Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json
 "
 ,
 }
@@ -27,7 +26,7 @@ exports[`mixedSearchCommand CLI supports mixed search with json output 1`] = `
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"[{"blocks":[{"description":"","name":"","title":"Send Email"}],"description":"Email automation package.","displayName":"Mail Tools","kind":"package","packageId":"@oomol/mail-tools@1.2.3"},{"authenticated":false,"description":"Send a Gmail message.","kind":"connector","name":"send_mail","schemaPath":"<XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json","service":"gmail"}]
+"[{"blocks":[{"description":"","name":"","title":"Send Email"}],"description":"Email automation package.","displayName":"Mail Tools","kind":"package","packageId":"@oomol/mail-tools@1.2.3"},{"authenticated":false,"description":"Send a Gmail message.","kind":"connector","name":"send_mail","service":"gmail"}]
 "
 ,
 }
@@ -46,7 +45,6 @@ gmail.send_mail
 Send a Gmail message.
 Kind: connector
 Authenticated: no
-Schema path: <XDG_CONFIG_HOME>/oo/connector-actions/gmail/send_mail.json
 "
 ,
 }
