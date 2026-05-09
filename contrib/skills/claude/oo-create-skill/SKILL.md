@@ -42,11 +42,13 @@ this constitution, not a separate checklist.
    identifiers plus the minimum payload, result, and failure guidance needed so
    future agents do not run discovery again.
 4. Choose the most direct capability for the user's outcome. Treat Fusion API,
-   ordinary connectors, packages, and blocks as first-class candidates. Prefer
-   domain fit over result ordering. When choices are otherwise equivalent,
-   choose Fusion API by default because it avoids user-managed provider
-   credentials. Ask the user to choose only when provider, account, cost,
-   compliance, data-routing, or output-contract differences are material.
+   connector actions, packages, and blocks as first-class candidates. Prefer
+   domain fit over result ordering, then prefer Fusion API first, already
+   authenticated connectors second, and packages or blocks after those. When
+   choices are otherwise equivalent, choose Fusion API by default because it
+   avoids user-managed provider credentials. Ask the user to choose only when
+   provider, account, cost, compliance, data-routing, or output-contract
+   differences are material.
 5. Preserve the local/cloud boundary. Generated skills must tell future agents
    to upload local attachments with `oo file upload "<filePath>" --json`, pass
    the returned `downloadUrl` into cloud payloads, and save remote artifacts
@@ -92,8 +94,32 @@ an image URL, or `:collection:icon:` from https://icones.js.org/.
 
 ### 2. Resolve concrete package, block, and connector references
 
-If the user provides only package-level information, inspect the package before
-writing the skill:
+Capability discovery is mixed by default. If the user has not provided a
+complete package/block contract or connector action contract, use mixed
+discovery before authoring:
+
+```bash
+oo search "<goal>" --json
+```
+
+Do this even when the user mentions a model, product, package-like name, or
+managed API capability, unless the user explicitly requires a known package or
+block workflow. Shape `<goal>` as one short English outcome sentence for the
+current external step, preserving the user's decisive constraints such as target
+service, language pair, file type, and output format. If those decisive business
+constraints are missing and would change the reusable skill contract, ask the
+user before discovery. Inspect the first result set before refining.
+
+Treat Fusion API, connector, and package/block results as first-class authoring
+candidates. Classify service `fusion-api` as OOMOL built-in Fusion API, which
+does not require the user to provide their own API key. Apply the Constitution
+to select the most direct capability. When domain fit is comparable, choose
+Fusion API first, already authenticated connectors second, and packages or
+blocks after those. Blocks are flexible, but usually have weaker performance
+and higher execution friction.
+
+If the user provides a complete package-level contract, or the selected
+candidate is package-backed, inspect the package before writing the skill:
 
 ```bash
 oo packages info "<packageName>" --json
@@ -105,31 +131,14 @@ and output concepts. Prefer the most specific safe reference:
 workflow, or `oo::packageName` only when the block must remain a deliberate
 runtime choice based on user intent.
 
-If the user does not know the package name, the connector action, or the
-workflow clearly needs an additional capability, use mixed discovery before
-authoring:
-
-```bash
-oo search "<goal>" --json
-```
-
-Shape `<goal>` as one short English outcome sentence for the current external
-step, preserving the user's decisive constraints such as target service,
-language pair, file type, and output format. If those decisive business
-constraints are missing and would change the reusable skill contract, ask the
-user before discovery. Inspect the first result set before refining.
-
-Treat Fusion API, connector, and package/block results as first-class authoring
-candidates. Classify service `fusion-api` as OOMOL built-in Fusion API, which
-does not require the user to provide their own API key. Apply the Constitution
-to select the most direct capability. Blocks are flexible, but usually have
-weaker performance and higher execution friction.
-
 For connector-backed choices, capture the exact `service`, action `name`,
 description, authentication state, and schema-derived input/output concepts.
 Use `oo connector search "<goal>" --json` only to refine a shortlisted connector
 path, not to restart broad discovery. Do not force a package or block reference
 when the chosen reusable workflow is connector-backed.
+If the task looks like an OOMOL built-in managed API capability but the mixed
+result set has no Fusion API connector candidate, run one connector refinement
+before accepting a package-only path.
 
 Do not choose a connector action just because a local schema file exists. If
 command output does not expose the candidate action, or a non-destructive test

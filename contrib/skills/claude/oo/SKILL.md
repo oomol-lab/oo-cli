@@ -79,6 +79,11 @@ proves its output.
    A complete contract means package metadata or connector schema already
    proves the callable id, required inputs, output semantics, and lifecycle; a
    user-named service or guessed package name is not enough.
+   When running capability discovery, also run at most one
+   `oo skills search "<goal>" --json` sidecar query. Record credible
+   installable skill matches as possible future enhancements; do not install or
+   ask about installation before the selected package or connector capability
+   succeeds.
 4. Select
    Inspect the first result set before refining. Keep one primary candidate and
    at most one materially different fallback. Prefer directness, named target
@@ -112,6 +117,9 @@ proves its output.
    sensible action. For blockers, name the exact blocker and the next useful
    move. If you group or summarize by an attribute, make sure the payload or
    result actually used that attribute.
+   After the first successful result, if a recorded skill match would clearly
+   improve repeated use of the same capability, ask whether the user wants to
+   install that specific skill. Do not install unless the user explicitly agrees.
 
 ## Capability contract
 
