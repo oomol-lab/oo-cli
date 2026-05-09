@@ -3,6 +3,10 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withRequestTarget } from "../../logging/log-fields.ts";
+import {
+    createInsufficientCreditError,
+    isInsufficientCreditFailure,
+} from "../shared/billing.ts";
 import { getUnexpectedRequestErrorMessage, requestText } from "../shared/request.ts";
 
 export const connectorActionDefinitionSchema = z.object({
@@ -408,6 +412,14 @@ function createConnectorRunRequestFailedError(
 ): CliUserError {
     const responseMessage = failureResponse?.message;
     const errorCode = failureResponse?.errorCode;
+
+    if (isInsufficientCreditFailure({
+        errorCode,
+        message: responseMessage,
+        status,
+    })) {
+        return createInsufficientCreditError();
+    }
 
     if (responseMessage !== undefined && responseMessage !== "") {
         if (errorCode !== undefined && errorCode !== "") {

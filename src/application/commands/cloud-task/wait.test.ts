@@ -21,6 +21,10 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { enMessages } from "../../../i18n/catalog.ts";
 import {
+    billingTokenRechargeUrl,
+    insufficientCreditErrorCode,
+} from "../shared/billing.ts";
+import {
     createCloudTaskWaitHandler,
     parseCloudTaskWaitTimeout,
     readCloudTaskWaitPrintIntervalMs,
@@ -222,6 +226,59 @@ describe("cloudTaskWaitCommand", () => {
                 "X failed",
                 "  Task ID: task-1",
                 "  Error: boom",
+                "",
+            ].join("\n"),
+        );
+    });
+
+    test("prints the recharge link and exits with a billing error for insufficient credit", async () => {
+        let now = 0;
+        const fetcher = createSequentialFetcher([
+            {
+                progress: 25,
+                status: "running",
+            },
+            {
+                error: insufficientCreditErrorCode,
+                status: "failed",
+            },
+        ]);
+        const { context, stdout } = createWaitContext({
+            fetcher,
+        });
+        const handler = createCloudTaskWaitHandler({
+            now: () => now,
+            sleep: async (durationMs) => {
+                now += durationMs;
+            },
+        });
+
+        await expect(
+            handler(
+                {
+                    taskId: "task-1",
+                    timeout: "10m",
+                },
+                context,
+            ),
+        ).rejects.toMatchObject({
+            key: "errors.billing.insufficientCredit",
+            params: {
+                url: billingTokenRechargeUrl,
+            },
+        });
+
+        expect(stdout.read()).toBe(
+            [
+                "Waiting for completion after 0s.",
+                "▶ running",
+                "  Task ID: task-1",
+                "  Progress: [===-------] 25%",
+                "",
+                "X failed",
+                "  Task ID: task-1",
+                `  Error: ${insufficientCreditErrorCode}`,
+                `  Billing: Your OOMOL account balance is insufficient. Recharge before retrying: ${billingTokenRechargeUrl}`,
                 "",
             ].join("\n"),
         );

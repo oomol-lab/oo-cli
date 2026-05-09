@@ -8,6 +8,10 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
+    createInsufficientCreditError,
+    isInsufficientCreditSignal,
+} from "../shared/billing.ts";
+import {
     createCloudTaskTaskUrl,
     parseCloudTaskResultResponse,
     parseDurationOption,
@@ -119,6 +123,10 @@ export function createCloudTaskWaitHandler(
                 );
 
                 if (response.status === "failed") {
+                    if (isInsufficientCreditSignal(response.error ?? undefined)) {
+                        throw createInsufficientCreditError();
+                    }
+
                     throw new CliUserError("errors.cloudTaskWait.failed", 1, {
                         taskId: input.taskId,
                     });

@@ -7,6 +7,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import { CliUserError } from "../../contracts/cli.ts";
+import { billingTokenRechargeUrl } from "./billing.ts";
 import { executeCliRequest } from "./request.ts";
 
 describe("executeCliRequest", () => {
@@ -127,6 +128,46 @@ describe("executeCliRequest", () => {
                 key: "errors.shared.requestFailed",
                 params: {
                     status: 404,
+                },
+            });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("maps HTTP 402 responses to the billing recharge error", async () => {
+        const logCapture = createLogCapture();
+
+        try {
+            await expect(executeCliRequest({
+                context: {
+                    fetcher: async () => new Response("payment required", {
+                        status: 402,
+                    }),
+                    logger: logCapture.logger,
+                    translator: createTranslator("en"),
+                },
+                createRequestError: error => new CliUserError(
+                    "errors.shared.requestError",
+                    1,
+                    {
+                        message: error instanceof Error ? error.message : String(error),
+                    },
+                ),
+                createRequestFailedError: status => new CliUserError(
+                    "errors.shared.requestFailed",
+                    1,
+                    {
+                        status,
+                    },
+                ),
+                label: "Shared",
+                requestUrl: new URL("https://example.com/items/1"),
+            })).rejects.toMatchObject({
+                key: "errors.billing.insufficientCredit",
+                params: {
+                    url: billingTokenRechargeUrl,
                 },
             });
         }

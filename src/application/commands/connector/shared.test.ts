@@ -10,6 +10,10 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import {
+    billingTokenRechargeUrl,
+    insufficientCreditErrorCode,
+} from "../shared/billing.ts";
+import {
     getConnectorActionMetadata,
     listAuthenticatedConnectorServices,
     runConnectorAction,
@@ -202,6 +206,34 @@ describe("connector shared requests", () => {
         expect(error.params).toEqual({
             errorCode: "invalid_input",
             status: 400,
+        });
+    });
+
+    test("runConnectorAction maps insufficient credit responses to the billing error", async () => {
+        const error = await expectCliUserError(runConnectorAction(
+            {
+                actionName: "send_mail",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                inputData: {
+                    to: "foo@bar.com",
+                },
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    errorCode: insufficientCreditErrorCode,
+                    message: "insufficient credit",
+                    success: false,
+                }), {
+                    status: 402,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.billing.insufficientCredit");
+        expect(error.params).toEqual({
+            url: billingTokenRechargeUrl,
         });
     });
 

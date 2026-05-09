@@ -2,6 +2,10 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
 import { withRequestTarget } from "../../logging/log-fields.ts";
+import {
+    createInsufficientCreditError,
+    isInsufficientCreditHttpStatus,
+} from "./billing.ts";
 
 type RequestContext = Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
 type LogFields = Record<string, unknown>;
@@ -85,6 +89,10 @@ export async function executeCliRequest(
                 },
                 `${options.label} request returned a non-success status.`,
             );
+            if (isInsufficientCreditHttpStatus(response.status)) {
+                throw createInsufficientCreditError();
+            }
+
             throw options.createRequestFailedError(response.status);
         }
 

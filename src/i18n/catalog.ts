@@ -211,6 +211,8 @@ export const enMessages = {
         "Failed to read the auth file at {path}.",
     "errors.authStore.writeFailed":
         "Failed to write the auth file at {path}.",
+    "errors.billing.insufficientCredit":
+        "Your OOMOL account balance is insufficient. Recharge before retrying: {url}",
     "errors.shared.invalidFormat":
         "Invalid format: {value}. Use json.",
     "errors.shared.invalidPositiveIntegerOption":
@@ -759,6 +761,7 @@ export const enMessages = {
     "arguments.url": "URL",
     "arguments.value": "Configuration value",
     "cloudTask.text.dryRunPassed": "Validation passed.",
+    "cloudTask.text.billing": "Billing",
     "cloudTask.text.error": "Error",
     "cloudTask.text.inputValues": "Input values",
     "cloudTask.text.nextToken": "Next token",
@@ -997,6 +1000,8 @@ export const zhMessages = {
     "errors.auth.required":
         "使用此命令前请先登录。",
     "errors.auth.sessionTokenRequired": "session token 不能为空。",
+    "errors.billing.insufficientCredit":
+        "你的 OOMOL 账户余额不足。请充值后再重试：{url}",
     "errors.authStore.invalidToml": "认证文件 {path} 不是有效的 TOML。",
     "errors.authStore.invalidSchema": "认证文件 {path} 的结构不受支持。",
     "errors.authStore.readFailed": "读取认证文件 {path} 失败。",
@@ -1543,6 +1548,7 @@ export const zhMessages = {
     "arguments.url": "URL",
     "arguments.value": "配置值",
     "cloudTask.text.dryRunPassed": "校验通过。",
+    "cloudTask.text.billing": "账单",
     "cloudTask.text.error": "错误",
     "cloudTask.text.inputValues": "输入参数",
     "cloudTask.text.nextToken": "下一页令牌",

@@ -7,6 +7,10 @@ import type {
     CloudTaskStatus,
 } from "./shared.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
+import {
+    billingTokenRechargeUrl,
+    isInsufficientCreditSignal,
+} from "../shared/billing.ts";
 
 const cloudTaskPackageColor = "#59F78D";
 const cloudTaskBlockColor = "#CAA8FA";
@@ -108,6 +112,17 @@ function formatCloudTaskResultLines(
                     formatCloudTaskDetailLine(
                         context.translator.t("cloudTask.text.error"),
                         colors.red(response.error),
+                        colors,
+                    ),
+                );
+            }
+            if (isInsufficientCreditSignal(response.error ?? undefined)) {
+                lines.push(
+                    formatCloudTaskDetailLine(
+                        context.translator.t("cloudTask.text.billing"),
+                        context.translator.t("errors.billing.insufficientCredit", {
+                            url: billingTokenRechargeUrl,
+                        }),
                         colors,
                     ),
                 );
