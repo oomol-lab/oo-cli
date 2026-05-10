@@ -54,7 +54,10 @@ describe("createWriteDownloadPlanFromResponse", () => {
                     requestUrl: "https://example.com/files/report.txt",
                 }),
                 response,
-                sessionStore.store,
+                {
+                    execPath: process.execPath,
+                    sessionStore: sessionStore.store,
+                },
             );
 
             expect(plan.kind).toBe("write-response");
@@ -64,7 +67,9 @@ describe("createWriteDownloadPlanFromResponse", () => {
                 baseName: "report",
                 extension: "txt",
             });
-            expect(plan.tempFilePath).toBe(join(directoryPath, "report_1.oodownload"));
+            expect(plan.tempFilePath).toBe(join(directoryPath, plan.session.tempFileName));
+            expect(plan.session.tempFileName.startsWith("report.")).toBeTrue();
+            expect(plan.session.tempFileName.endsWith(".oodownload")).toBeTrue();
             expect(plan.totalBytes).toBe(5);
             expect(sessionStore.savedSessions).toHaveLength(1);
             expect(sessionStore.savedSessions[0]).toMatchObject({
@@ -73,9 +78,10 @@ describe("createWriteDownloadPlanFromResponse", () => {
                 requestUrl: "https://example.com/files/report.txt",
                 resolvedBaseName: "report",
                 resolvedExtension: "txt",
-                tempFileName: "report_1.oodownload",
+                tempFileName: plan.session.tempFileName,
                 totalBytes: 5,
             });
+            await plan.tempLock.close();
         }
         finally {
             await rm(directoryPath, { force: true, recursive: true });
@@ -97,7 +103,10 @@ describe("loadExistingDownloadSession", () => {
                     outDirPath: directoryPath,
                     requestUrl: "https://example.com/files/report.txt",
                 }),
-                sessionStore.store,
+                {
+                    execPath: process.execPath,
+                    fileDownloadSessionStore: sessionStore.store,
+                },
             );
 
             expect(result).toBeUndefined();
@@ -126,7 +135,10 @@ describe("loadExistingDownloadSession", () => {
                     outDirPath: directoryPath,
                     requestUrl: "https://example.com/files/report.txt",
                 }),
-                sessionStore.store,
+                {
+                    execPath: process.execPath,
+                    fileDownloadSessionStore: sessionStore.store,
+                },
             );
 
             expect(result).toBeUndefined();
@@ -157,7 +169,10 @@ describe("loadExistingDownloadSession", () => {
                     outDirPath: directoryPath,
                     requestUrl: "https://example.com/files/report.txt",
                 }),
-                sessionStore.store,
+                {
+                    execPath: process.execPath,
+                    fileDownloadSessionStore: sessionStore.store,
+                },
             );
 
             expect(result).toBeUndefined();
@@ -189,15 +204,58 @@ describe("loadExistingDownloadSession", () => {
                     outDirPath: directoryPath,
                     requestUrl: "https://example.com/files/report.txt",
                 }),
-                sessionStore.store,
+                {
+                    execPath: process.execPath,
+                    fileDownloadSessionStore: sessionStore.store,
+                },
             );
 
-            expect(result).toEqual({
+            expect(result).toMatchObject({
                 localBytes: 7,
                 session,
                 tempFilePath,
             });
+            await result?.tempLock.close();
             expect(sessionStore.deletedSessionIds).toEqual([]);
+        }
+        finally {
+            await rm(directoryPath, { force: true, recursive: true });
+        }
+    });
+
+    test("skips partial files owned by an active lock", async () => {
+        const directoryPath = await createTemporaryDirectory("download-session-active-lock");
+        const tempFilePath = join(directoryPath, "report.oodownload");
+        const sessionStore = createDownloadSessionStoreSpy(createDownloadSessionRecordFixture({
+            outDirPath: directoryPath,
+            tempFileName: "report.oodownload",
+            totalBytes: 10,
+        }));
+
+        try {
+            await Bun.write(tempFilePath, "partial");
+            await Bun.write(`${tempFilePath}.lock`, `${JSON.stringify({
+                acquiredAt: new Date(0).toISOString(),
+                execPath: process.execPath,
+                pid: process.pid,
+                sessionId: "active-session",
+                tempFileName: "report.oodownload",
+            })}\n`);
+
+            const result = await loadExistingDownloadSession(
+                createDownloadSessionKey({
+                    outDirPath: directoryPath,
+                    requestUrl: "https://example.com/files/report.txt",
+                }),
+                {
+                    execPath: process.execPath,
+                    fileDownloadSessionStore: sessionStore.store,
+                },
+            );
+
+            expect(result).toBeUndefined();
+            expect(sessionStore.deletedSessionIds).toEqual([]);
+            await expect(Bun.file(tempFilePath).text()).resolves.toBe("partial");
         }
         finally {
             await rm(directoryPath, { force: true, recursive: true });

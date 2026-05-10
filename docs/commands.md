@@ -903,11 +903,15 @@ Download one file from `http` or `https` and save it locally.
   preserved as one full extension when they can be inferred automatically.
 - Notes: downloads are written through a temporary file in the target directory,
   then promoted to the final path only after the transfer completes.
+- Notes: each in-progress download owns an isolated temporary file in the target
+  directory. Concurrent downloads of the same URL and output directory do not
+  merge or append to one another's partial files.
 - Notes: if a download stops partway through, rerunning the same command against
   the same output directory will attempt to resume with HTTP Range. If the
   server does not resume safely, the CLI restarts the transfer from byte `0`.
-- Notes: resume sessions older than 14 days are discarded when `oo file download`
-  starts, so very old `.oodownload` files are no longer resumed automatically.
+- Notes: resume metadata is best-effort. If local resume metadata cannot be
+  read or written, the current download can still complete, but later resume may
+  not be available.
 - Notes: if the final target path already exists, the CLI never overwrites it
   and instead appends `_1`, `_2`, and so on before the full extension.
 - Notes: `oo file download` does not support `--format=json` or `--json`.
@@ -943,12 +947,14 @@ List previously uploaded files from the local sqlite store.
 
 ### `oo file cleanup`
 
-Delete expired upload records from the local sqlite store.
+Delete expired or stale file transfer records.
 
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.
 - Options: `--json` is an alias for `--format=json`.
-- Notes: only local records with `expiresAt <= now` are deleted.
+- Notes: local upload records with `expiresAt <= now` are deleted.
+- Notes: download resume sessions older than 14 days are deleted when they are
+  not owned by an active download process.
 - Notes: the JSON response shape is `{ "deletedCount": number }`.
 
 ## Package Discovery

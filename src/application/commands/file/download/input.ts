@@ -5,7 +5,8 @@ import { resolve } from "node:path";
 
 import { CliUserError } from "../../../contracts/cli.ts";
 import { expandHomeDirectoryPath } from "../../../path/home-directory.ts";
-import { createOutputDirectoryError, isErrorCode } from "./errors.ts";
+import { isFileMissingError } from "../../../shared/fs-errors.ts";
+import { createOutputDirectoryError } from "./errors.ts";
 
 export function parseFileDownloadNameOption(value: string | undefined): string | undefined {
     if (value === undefined) {
@@ -89,7 +90,7 @@ export async function ensureOutputDirectory(
         metadata = await stat(outputDirectoryPath);
     }
     catch (error) {
-        if (!isErrorCode(error, "ENOENT")) {
+        if (!isFileMissingError(error)) {
             throw createOutputDirectoryError(outputDirectoryPath, error);
         }
     }

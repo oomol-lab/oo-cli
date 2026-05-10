@@ -8,11 +8,11 @@ import { createTranslator } from "../../../i18n/translator.ts";
 import { fileCleanupCommand } from "./cleanup.ts";
 
 describe("file cleanup command", () => {
-    test("writes a localized text summary when json output is not requested", () => {
+    test("writes a localized text summary when json output is not requested", async () => {
         const stdout = createTextBuffer();
         let deletedAt: number | undefined;
 
-        fileCleanupCommand.handler!(
+        await fileCleanupCommand.handler!(
             {},
             {
                 fileUploadStore: {
@@ -21,19 +21,24 @@ describe("file cleanup command", () => {
                         return 3;
                     },
                 },
+                fileDownloadSessionStore: {
+                    deleteDownloadSessionsUpdatedBefore() {
+                        return Promise.resolve(1);
+                    },
+                },
                 stdout: stdout.writer,
                 translator: createTranslator("en"),
             } as unknown as CliExecutionContext,
         );
 
         expect(typeof deletedAt).toBe("number");
-        expect(stdout.read()).toBe("Deleted 3 expired upload records.\n");
+        expect(stdout.read()).toBe("Deleted 4 expired or stale file transfer records.\n");
     });
 
-    test("writes json output when the format is json", () => {
+    test("writes json output when the format is json", async () => {
         const stdout = createTextBuffer();
 
-        fileCleanupCommand.handler!(
+        await fileCleanupCommand.handler!(
             {
                 format: "json",
             },
@@ -41,6 +46,11 @@ describe("file cleanup command", () => {
                 fileUploadStore: {
                     deleteExpired() {
                         return 2;
+                    },
+                },
+                fileDownloadSessionStore: {
+                    deleteDownloadSessionsUpdatedBefore() {
+                        return Promise.resolve(0);
                     },
                 },
                 stdout: stdout.writer,

@@ -10,6 +10,7 @@ import {
 import {
     createDownloadSessionRecordFixture,
     createDownloadSessionStoreSpy,
+    createDownloadTempLockHandleFixture,
     expectCliUserError,
 } from "./__tests__/helpers.ts";
 import {
@@ -54,12 +55,13 @@ describe("resolveTemporaryDownloadFileName", () => {
             const fileName = await resolveTemporaryDownloadFileName(
                 directoryPath,
                 "report",
+                "0195f5fe-ec30-7000-8000-000000000011",
                 [
-                    "report_1.oodownload",
+                    "report.000000000011.oodownload",
                 ],
             );
 
-            expect(fileName).toBe("report_2.oodownload");
+            expect(fileName).toBe("report.000000000011_1.oodownload");
         }
         finally {
             await rm(directoryPath, { force: true, recursive: true });
@@ -84,6 +86,7 @@ describe("deleteDownloadSessionArtifacts", () => {
                         outDirPath: directoryPath,
                         tempFileName: "report.oodownload",
                     }),
+                    tempLock: createDownloadTempLockHandleFixture(),
                     tempFilePath,
                 },
                 sessionStore.store,

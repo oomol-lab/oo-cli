@@ -8,6 +8,8 @@ interface FileCleanupInput {
     format?: string;
 }
 
+const staleDownloadSessionTtlMs = 14 * 24 * 60 * 60 * 1000;
+
 export const fileCleanupCommand: CliCommandDefinition<FileCleanupInput> = {
     name: "cleanup",
     summaryKey: "commands.file.cleanup.summary",
@@ -17,9 +19,15 @@ export const fileCleanupCommand: CliCommandDefinition<FileCleanupInput> = {
         format: z.string().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
-    handler: (input, context) => {
+    handler: async (input, context) => {
         const format = parseFileFormat(input.format);
-        const deletedCount = context.fileUploadStore.deleteExpired(Date.now());
+        const now = Date.now();
+        const deletedUploadCount = context.fileUploadStore.deleteExpired(now);
+        const deletedDownloadSessionCount
+            = await context.fileDownloadSessionStore.deleteDownloadSessionsUpdatedBefore(
+                now - staleDownloadSessionTtlMs,
+            );
+        const deletedCount = deletedUploadCount + deletedDownloadSessionCount;
 
         if (format === "json") {
             writeJsonOutput(context.stdout, {

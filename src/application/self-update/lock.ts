@@ -1,14 +1,13 @@
 import { unlinkSync } from "node:fs";
 import { open, readdir, readFile, rm } from "node:fs/promises";
-import { basename, join } from "node:path";
-import process from "node:process";
+import { join } from "node:path";
 import { z } from "zod";
 import {
     isDirectoryReadError,
     isFileAlreadyExistsError,
     isFileMissingError,
-    isProcessMissingError,
 } from "../shared/fs-errors.ts";
+import { isProcessLockOwnerActive } from "../shared/process-owner.ts";
 
 const versionLockSchema = z.object({
     acquiredAt: z.string().trim().min(1),
@@ -342,132 +341,7 @@ function isVersionLockActive(
     lockData: VersionLockData,
     platform: NodeJS.Platform,
 ): boolean {
-    if (!isProcessAlive(lockData.pid)) {
-        return false;
-    }
-
-    const commandLine = readProcessCommandLine(lockData.pid, platform);
-
-    if (commandLine === null) {
-        return true;
-    }
-
-    return commandLineReferencesExecutable(commandLine, lockData.execPath);
-}
-
-function isProcessAlive(pid: number): boolean {
-    try {
-        process.kill(pid, 0);
-        return true;
-    }
-    catch (error) {
-        return !isProcessMissingError(error);
-    }
-}
-
-function readProcessCommandLine(
-    pid: number,
-    platform: NodeJS.Platform,
-): string | null {
-    if (platform === "win32") {
-        return null;
-    }
-
-    try {
-        const result = Bun.spawnSync(
-            [
-                "ps",
-                "-p",
-                String(pid),
-                "-o",
-                "command=",
-            ],
-            {
-                stderr: "pipe",
-                stdin: "ignore",
-                stdout: "pipe",
-            },
-        );
-
-        if (result.exitCode !== 0) {
-            return null;
-        }
-
-        const commandLine = new TextDecoder().decode(result.stdout).trim();
-
-        return commandLine === "" ? null : commandLine;
-    }
-    catch {
-        return null;
-    }
-}
-
-function commandLineReferencesExecutable(
-    commandLine: string,
-    execPath: string,
-): boolean {
-    const normalizedCommandLine = commandLine.toLowerCase();
-    const normalizedExecPath = execPath.toLowerCase();
-
-    if (normalizedCommandLine.includes(normalizedExecPath)) {
-        return true;
-    }
-
-    const executableName = basename(normalizedExecPath);
-
-    return readCommandLineTokens(normalizedCommandLine)
-        .some(token => basename(stripWrappingQuotes(token)) === executableName);
-}
-
-function readCommandLineTokens(commandLine: string): string[] {
-    const tokens: string[] = [];
-    let currentToken = "";
-    let quoteCharacter: "\"" | "'" | undefined;
-
-    for (const character of commandLine) {
-        if (quoteCharacter !== undefined) {
-            if (character === quoteCharacter) {
-                quoteCharacter = undefined;
-                continue;
-            }
-
-            currentToken += character;
-            continue;
-        }
-
-        if (character === "\"" || character === "'") {
-            quoteCharacter = character;
-            continue;
-        }
-
-        if (character === " " || character === "\t") {
-            if (currentToken !== "") {
-                tokens.push(currentToken);
-                currentToken = "";
-            }
-            continue;
-        }
-
-        currentToken += character;
-    }
-
-    if (currentToken !== "") {
-        tokens.push(currentToken);
-    }
-
-    return tokens;
-}
-
-function stripWrappingQuotes(value: string): string {
-    if (
-        value.length >= 2
-        && ((value.startsWith("\"") && value.endsWith("\""))
-            || (value.startsWith("'") && value.endsWith("'")))
-    ) {
-        return value.slice(1, -1);
-    }
-
-    return value;
+    return isProcessLockOwnerActive(lockData.pid, lockData.execPath, platform);
 }
 
 async function readDirectoryEntries(path: string): Promise<string[]> {

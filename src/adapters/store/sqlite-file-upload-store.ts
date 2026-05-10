@@ -8,7 +8,8 @@ import type {
     FileUploadStatus,
 } from "../../application/contracts/file-upload-store.ts";
 import { withStorePath } from "../../application/logging/log-fields.ts";
-import { closeSqliteDatabase, openSqliteDatabase, validateQueryTimestamp } from "./sqlite-utils.ts";
+import { validateMillisecondTimestamp } from "../../application/shared/timestamps.ts";
+import { closeSqliteDatabase, openSqliteDatabase } from "./sqlite-utils.ts";
 
 interface FileUploadRow {
     downloadUrl: string;
@@ -82,7 +83,7 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
         };
         const whereClauses: string[] = [];
 
-        validateQueryTimestamp(options.now, "File upload record");
+        validateMillisecondTimestamp(options.now, "File upload record");
         validateLimit(options.limit);
 
         if (options.status === "active") {
@@ -137,7 +138,7 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
     }
 
     deleteExpired(now: number): number {
-        validateQueryTimestamp(now, "File upload record");
+        validateMillisecondTimestamp(now, "File upload record");
 
         const result = this.getDatabase().query(
             [
@@ -242,8 +243,8 @@ function validateFileUploadRecord(record: FileUploadRecord): void {
         throw new Error("File upload record downloadUrl cannot be empty.");
     }
 
-    validateQueryTimestamp(record.uploadedAtMs, "File upload record");
-    validateQueryTimestamp(record.expiresAtMs, "File upload record");
+    validateMillisecondTimestamp(record.uploadedAtMs, "File upload record");
+    validateMillisecondTimestamp(record.expiresAtMs, "File upload record");
 }
 
 function validateLimit(limit: number | undefined): void {

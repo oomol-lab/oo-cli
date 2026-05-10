@@ -4,13 +4,11 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import {
-    countDownloadResumeSessions,
+    countDownloadSidecarSessions,
     createCliSandbox,
     createCliSnapshot,
 } from "../../../../__tests__/helpers.ts";
-import {
-    SqliteFileDownloadSessionStore,
-} from "../../../adapters/store/sqlite-file-download-session-store.ts";
+import { SidecarFileDownloadSessionStore } from "../../../adapters/store/sidecar-file-download-session-store.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 
@@ -18,11 +16,11 @@ describe("file download resume CLI", () => {
     test("preserves the temporary file and resume session when file download fails mid-download", async () => {
         const sandbox = await createCliSandbox();
         const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
-        const downloadSessionsFilePath = resolveStorePaths({
+        const downloadSessionsDirectoryPath = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
-        }).downloadSessionsFilePath;
+        }).downloadSessionsDirectoryPath;
 
         try {
             await mkdir(outputDirectoryPath, { recursive: true });
@@ -68,41 +66,41 @@ describe("file download resume CLI", () => {
             );
 
             expect(result.exitCode).toBe(1);
-            expect(createCliSnapshot(
-                result,
-                {
-                    sandbox,
-                    stripAnsi: true,
-                },
-            )).toMatchSnapshot();
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(createCliSnapshot(result, {
+                sandbox,
+                stripAnsi: true,
+            }).stderr).toContain(
+                "Failed to download the file at <HOME>/downloads/broken.",
+            );
             const outputEntries = await readdir(outputDirectoryPath);
 
             expect(outputEntries).toHaveLength(1);
-            expect(outputEntries).toEqual([
-                "broken.oodownload",
-            ]);
-            expect(countDownloadResumeSessions(downloadSessionsFilePath)).toBe(1);
+            expect(outputEntries[0]?.startsWith("broken.")).toBeTrue();
+            expect(outputEntries[0]?.endsWith(".oodownload")).toBeTrue();
+            expect(await countDownloadSidecarSessions(downloadSessionsDirectoryPath)).toBe(1);
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("cleans up download resume sessions older than 14 days when file download starts", async () => {
+    test("cleans up download resume sessions older than 14 days when file cleanup runs", async () => {
         const sandbox = await createCliSandbox();
         const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
-        const downloadSessionsFilePath = resolveStorePaths({
+        const downloadSessionsDirectoryPath = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
-        }).downloadSessionsFilePath;
-        const sessionStore = new SqliteFileDownloadSessionStore(
-            downloadSessionsFilePath,
+        }).downloadSessionsDirectoryPath;
+        const sessionStore = new SidecarFileDownloadSessionStore(
+            downloadSessionsDirectoryPath,
         );
 
         try {
             await mkdir(outputDirectoryPath, { recursive: true });
-            sessionStore.saveDownloadSession({
+            await sessionStore.saveDownloadSession({
                 entityTag: "\"stale-1\"",
                 finalUrl: "https://cdn.example.com/stale.txt",
                 id: "0195f5fe-ec30-7000-8000-000000000011",
@@ -117,27 +115,21 @@ describe("file download resume CLI", () => {
                 totalBytes: 64,
                 updatedAtMs: Date.now() - (15 * 24 * 60 * 60 * 1000),
             });
+            await Bun.write(join(outputDirectoryPath, "stale.oodownload"), "stale");
 
             const result = await sandbox.run(
                 [
                     "file",
-                    "download",
-                    "https://example.com/fresh.txt",
-                    outputDirectoryPath,
+                    "cleanup",
+                    "--json",
                 ],
-                {
-                    fetcher: async () => new Response("fresh", {
-                        headers: {
-                            "Content-Disposition": "attachment; filename=\"fresh.txt\"",
-                            "Content-Length": "5",
-                        },
-                        status: 200,
-                    }),
-                },
             );
 
-            expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
-            expect(countDownloadResumeSessions(downloadSessionsFilePath)).toBe(0);
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                deletedCount: 1,
+            });
+            expect(await countDownloadSidecarSessions(downloadSessionsDirectoryPath)).toBe(0);
         }
         finally {
             sessionStore.close();
@@ -148,11 +140,11 @@ describe("file download resume CLI", () => {
     test("resumes file download with HTTP Range after a mid-download failure", async () => {
         const sandbox = await createCliSandbox();
         const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
-        const downloadSessionsFilePath = resolveStorePaths({
+        const downloadSessionsDirectoryPath = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
-        }).downloadSessionsFilePath;
+        }).downloadSessionsDirectoryPath;
         let requestCount = 0;
 
         try {
@@ -240,16 +232,20 @@ describe("file download resume CLI", () => {
 
             expect(firstResult.exitCode).toBe(1);
             expect(secondResult.exitCode).toBe(0);
-            expect({
-                firstResult: createCliSnapshot(firstResult, { sandbox }),
-                secondResult: createCliSnapshot(secondResult, { sandbox }),
-            }).toMatchSnapshot();
+            expect(createCliSnapshot(firstResult, { sandbox }).stderr).toContain(
+                "Failed to download the file at <HOME>/downloads/broken.",
+            );
+            expect(createCliSnapshot(secondResult, { sandbox })).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: "Saved to: <HOME>/downloads/broken.txt\n",
+            });
             expect(requestCount).toBe(2);
             await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("partial-payload");
             expect(await readdir(outputDirectoryPath)).toEqual([
                 "broken.txt",
             ]);
-            expect(countDownloadResumeSessions(downloadSessionsFilePath)).toBe(0);
+            expect(await countDownloadSidecarSessions(downloadSessionsDirectoryPath)).toBe(0);
         }
         finally {
             await sandbox.cleanup();
@@ -259,11 +255,11 @@ describe("file download resume CLI", () => {
     test("restarts file download from the beginning when the server ignores Range", async () => {
         const sandbox = await createCliSandbox();
         const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
-        const downloadSessionsFilePath = resolveStorePaths({
+        const downloadSessionsDirectoryPath = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
-        }).downloadSessionsFilePath;
+        }).downloadSessionsDirectoryPath;
         let requestCount = 0;
 
         try {
@@ -349,16 +345,20 @@ describe("file download resume CLI", () => {
 
             expect(firstResult.exitCode).toBe(1);
             expect(secondResult.exitCode).toBe(0);
-            expect({
-                firstResult: createCliSnapshot(firstResult, { sandbox }),
-                secondResult: createCliSnapshot(secondResult, { sandbox }),
-            }).toMatchSnapshot();
+            expect(createCliSnapshot(firstResult, { sandbox }).stderr).toContain(
+                "Failed to download the file at <HOME>/downloads/restart.",
+            );
+            expect(createCliSnapshot(secondResult, { sandbox })).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout: "Saved to: <HOME>/downloads/restart.txt\n",
+            });
             expect(requestCount).toBe(2);
             await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("stale-payload");
             expect(await readdir(outputDirectoryPath)).toEqual([
                 "restart.txt",
             ]);
-            expect(countDownloadResumeSessions(downloadSessionsFilePath)).toBe(0);
+            expect(await countDownloadSidecarSessions(downloadSessionsDirectoryPath)).toBe(0);
         }
         finally {
             await sandbox.cleanup();

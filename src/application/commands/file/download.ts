@@ -23,7 +23,10 @@ import {
 } from "./download/input.ts";
 import { resolveDownloadPlan } from "./download/plan.ts";
 import { createDownloadProgressReporter } from "./download/progress.ts";
-import { createDownloadSessionKey } from "./download/session.ts";
+import {
+    createDownloadSessionKey,
+    deleteDownloadSessionBestEffort,
+} from "./download/session.ts";
 
 interface FileDownloadInput {
     ext?: string;
@@ -31,8 +34,6 @@ interface FileDownloadInput {
     outDir?: string;
     url: string;
 }
-
-const staleDownloadSessionTtlMs = 14 * 24 * 60 * 60 * 1000;
 
 export const fileDownloadCommand: CliCommandDefinition<FileDownloadInput> = {
     name: "download",
@@ -80,10 +81,6 @@ export const fileDownloadCommand: CliCommandDefinition<FileDownloadInput> = {
 
         const requestedName = parseFileDownloadNameOption(input.name);
         const requestedExtension = parseFileDownloadExtensionOption(input.ext);
-
-        context.fileDownloadSessionStore.deleteDownloadSessionsUpdatedBefore(
-            Date.now() - staleDownloadSessionTtlMs,
-        );
 
         const outputDirectoryInput
             = input.outDir
@@ -133,30 +130,39 @@ async function executeDownloadPlan(
         "fileDownloadSessionStore" | "logger" | "stderr" | "stdout" | "translator"
     >,
 ): Promise<void> {
-    if (downloadPlan.kind === "write-response") {
-        await writePlannedDownload(downloadPlan, context.stderr);
+    try {
+        if (downloadPlan.kind === "write-response") {
+            await writePlannedDownload(downloadPlan, context.stderr);
+        }
+
+        const finalFilePath = await finalizeDownloadedFile(
+            downloadPlan.tempFilePath,
+            outputDirectoryPath,
+            downloadPlan.resolvedFileName.baseName,
+            downloadPlan.resolvedFileName.extension,
+        );
+
+        await deleteDownloadSessionBestEffort(
+            downloadPlan.session.id,
+            context.fileDownloadSessionStore,
+            context.logger,
+        );
+        context.logger.info(
+            {
+                finalFilePath,
+                temporaryFilePath: downloadPlan.tempFilePath,
+            },
+            "File download completed.",
+        );
+        context.stdout.write(
+            `${context.translator.t("file.download.savedTo", {
+                path: finalFilePath,
+            })}\n`,
+        );
     }
-
-    const finalFilePath = await finalizeDownloadedFile(
-        downloadPlan.tempFilePath,
-        outputDirectoryPath,
-        downloadPlan.resolvedFileName.baseName,
-        downloadPlan.resolvedFileName.extension,
-    );
-
-    context.fileDownloadSessionStore.deleteDownloadSession(downloadPlan.session.id);
-    context.logger.info(
-        {
-            finalFilePath,
-            temporaryFilePath: downloadPlan.tempFilePath,
-        },
-        "File download completed.",
-    );
-    context.stdout.write(
-        `${context.translator.t("file.download.savedTo", {
-            path: finalFilePath,
-        })}\n`,
-    );
+    finally {
+        await downloadPlan.tempLock.close();
+    }
 }
 
 async function writePlannedDownload(

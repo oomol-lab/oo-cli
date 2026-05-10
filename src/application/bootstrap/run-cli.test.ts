@@ -3,7 +3,7 @@ import type { FileDownloadSessionStore } from "../contracts/file-download-sessio
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 
-import { mkdir, readdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { describe, expect, test } from "bun:test";
@@ -152,6 +152,36 @@ describe("runCli bootstrap", () => {
             await expect(stat(cacheFilePath)).resolves.toMatchObject({
                 isFile: expect.any(Function),
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("deletes legacy sqlite download session files during cli startup", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const legacyDownloadSessionsFilePath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).legacyDownloadSessionsFilePath;
+            const legacyFilePaths = [
+                legacyDownloadSessionsFilePath,
+                `${legacyDownloadSessionsFilePath}-shm`,
+                `${legacyDownloadSessionsFilePath}-wal`,
+            ];
+
+            await mkdir(dirname(legacyDownloadSessionsFilePath), { recursive: true });
+            await Promise.all(legacyFilePaths.map(path => writeFile(path, "legacy")));
+
+            const result = await sandbox.run(["--help"]);
+
+            expect(result.exitCode).toBe(0);
+            await Promise.all(legacyFilePaths.map(async (path) => {
+                await expect(Bun.file(path).exists()).resolves.toBeFalse();
+            }));
         }
         finally {
             await sandbox.cleanup();
@@ -753,18 +783,23 @@ function createCleanupFileDownloadSessionStore(
             }
         },
         deleteDownloadSession() {
-            return false;
+            return Promise.resolve(false);
         },
         deleteDownloadSessionsUpdatedBefore() {
-            return 0;
+            return Promise.resolve(0);
         },
         findDownloadSession() {
-            return undefined;
+            return Promise.resolve(undefined);
+        },
+        findDownloadSessions() {
+            return Promise.resolve([]);
         },
         getFilePath() {
             return "";
         },
-        saveDownloadSession() {},
+        saveDownloadSession() {
+            return Promise.resolve();
+        },
     };
 }
 

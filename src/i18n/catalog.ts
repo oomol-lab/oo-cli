@@ -88,8 +88,8 @@ export const enMessages = {
         "Show the effective telemetry state, device id prefix, pending count, and last flush time.",
     "commands.telemetry.status.summary": "Show telemetry status",
     "commands.file.cleanup.description":
-        "Delete expired upload records from the local sqlite store.",
-    "commands.file.cleanup.summary": "Clean expired upload records",
+        "Delete expired or stale file transfer records.",
+    "commands.file.cleanup.summary": "Clean file transfer records",
     "commands.file.description": "Manage temporary file transfers.",
     "commands.file.list.description":
         "List locally recorded temporary file uploads.",
@@ -844,7 +844,7 @@ export const enMessages = {
     "connector.run.text.executionId": "Execution ID",
     "connector.run.text.resultData": "Result data",
     "file.cleanup.success":
-        "Deleted {deletedCount} expired upload records.",
+        "Deleted {deletedCount} expired or stale file transfer records.",
     "file.download.savedTo": "Saved to: {path}",
     "file.list.noResults": "No uploaded files were found.",
     "file.list.noResultsForStatus":
@@ -951,8 +951,8 @@ export const zhMessages = {
     "commands.telemetry.status.description":
         "显示 telemetry 的实际开关状态、device id 前缀、待发送数量和最后 flush 时间。",
     "commands.telemetry.status.summary": "显示 telemetry 状态",
-    "commands.file.cleanup.description": "删除本地 sqlite 中已过期的上传记录。",
-    "commands.file.cleanup.summary": "清理已过期上传记录",
+    "commands.file.cleanup.description": "删除过期或陈旧的文件传输记录。",
+    "commands.file.cleanup.summary": "清理文件传输记录",
     "commands.file.description": "管理临时文件传输。",
     "commands.file.list.description": "查看本地记录的临时文件上传记录。",
     "commands.file.list.summary": "查看上传文件列表",
@@ -1672,7 +1672,7 @@ export const zhMessages = {
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.run.text.executionId": "执行 ID",
     "connector.run.text.resultData": "结果数据",
-    "file.cleanup.success": "已删除 {deletedCount} 条过期上传记录。",
+    "file.cleanup.success": "已删除 {deletedCount} 条过期或陈旧的文件传输记录。",
     "file.download.savedTo": "已保存到：{path}",
     "file.list.noResults": "未找到任何上传记录。",
     "file.list.noResultsForStatus": "未找到状态为 {status} 的上传记录。",

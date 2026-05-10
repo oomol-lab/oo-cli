@@ -10,23 +10,34 @@ import type { ExistingDownloadSession, ParsedContentRange, WriteDownloadPlan } f
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 
+import {
+    acquireDownloadTempLock,
+    resolveDownloadTempLockFilePath,
+} from "../../../shared/download-temp-lock.ts";
+import { isFileMissingError } from "../../../shared/fs-errors.ts";
 import { resolveDownloadFileName, splitFileNameParts } from "../file-name-utils.ts";
-import { createDownloadFailedError, isErrorCode } from "./errors.ts";
+import { createDownloadFailedError } from "./errors.ts";
 import {
     deleteDownloadSessionArtifacts,
-    resolveAvailableFileName,
+    reserveTemporaryDownloadFile,
     resolveTemporaryDownloadFileName,
 } from "./file-system.ts";
 
 type DownloadSessionLookupStore = Pick<
     CliExecutionContext["fileDownloadSessionStore"],
-    "deleteDownloadSession" | "findDownloadSession"
+    "deleteDownloadSession" | "findDownloadSessions"
 >;
 
 type DownloadSessionSaveStore = Pick<
     CliExecutionContext["fileDownloadSessionStore"],
     "saveDownloadSession"
 >;
+
+interface DownloadSessionLookupContext {
+    execPath: string;
+    fileDownloadSessionStore: DownloadSessionLookupStore;
+    logger?: CliExecutionContext["logger"];
+}
 
 export function createDownloadSessionKey(options: {
     outDirPath: string;
@@ -46,77 +57,136 @@ export async function createWriteDownloadPlanFromResponse(
     requestUrl: URL,
     sessionKey: FileDownloadSessionKey,
     response: Response,
-    sessionStore: DownloadSessionSaveStore,
+    context: {
+        execPath: string;
+        logger?: CliExecutionContext["logger"];
+        sessionStore: DownloadSessionSaveStore;
+    },
     reservedTempFileNames: readonly string[] = [],
 ): Promise<WriteDownloadPlan> {
-    const session = await createDownloadSessionRecord(
-        requestUrl,
-        sessionKey,
-        response,
-        reservedTempFileNames,
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        const session = await createDownloadSessionRecord(
+            requestUrl,
+            sessionKey,
+            response,
+            reservedTempFileNames,
+        );
+        const tempFilePath = join(session.outDirPath, session.tempFileName);
+        const tempLock = await acquireDownloadTempLock({
+            execPath: context.execPath,
+            lockFilePath: resolveDownloadTempLockFilePath(tempFilePath),
+            sessionId: session.id,
+            tempFileName: session.tempFileName,
+        });
+
+        if (tempLock.status !== "acquired") {
+            continue;
+        }
+
+        const reserved = await reserveTemporaryDownloadFile(tempFilePath);
+
+        if (!reserved) {
+            await tempLock.handle.close();
+            continue;
+        }
+
+        await saveDownloadSessionBestEffort(
+            session,
+            context.sessionStore,
+            context.logger,
+        );
+
+        return {
+            initialBytes: 0,
+            kind: "write-response",
+            mode: "fresh",
+            resolvedFileName: readResolvedFileName(session),
+            response,
+            session,
+            tempLock: tempLock.handle,
+            tempFilePath,
+            totalBytes: session.totalBytes,
+        };
+    }
+
+    throw createDownloadFailedError(
+        sessionKey.outDirPath,
+        "Unable to reserve a unique temporary download file.",
     );
-
-    sessionStore.saveDownloadSession(session);
-
-    return {
-        initialBytes: 0,
-        kind: "write-response",
-        mode: "fresh",
-        resolvedFileName: readResolvedFileName(session),
-        response,
-        session,
-        tempFilePath: join(session.outDirPath, session.tempFileName),
-        totalBytes: session.totalBytes,
-    };
 }
 
 export async function loadExistingDownloadSession(
     sessionKey: FileDownloadSessionKey,
-    sessionStore: DownloadSessionLookupStore,
+    context: DownloadSessionLookupContext,
 ): Promise<ExistingDownloadSession | undefined> {
-    const session = sessionStore.findDownloadSession(sessionKey);
+    const sessions = await context.fileDownloadSessionStore.findDownloadSessions(sessionKey);
 
-    if (session === undefined) {
+    if (sessions.length === 0) {
         return undefined;
     }
 
-    const tempFilePath = join(session.outDirPath, session.tempFileName);
-    let metadata: Stats;
+    for (const session of sessions) {
+        const tempFilePath = join(session.outDirPath, session.tempFileName);
+        let metadata: Stats;
 
-    try {
-        metadata = await stat(tempFilePath);
-    }
-    catch (error) {
-        if (isErrorCode(error, "ENOENT")) {
-            sessionStore.deleteDownloadSession(session.id);
-            return undefined;
+        try {
+            metadata = await stat(tempFilePath);
+        }
+        catch (error) {
+            if (isFileMissingError(error)) {
+                await deleteDownloadSessionBestEffort(
+                    session.id,
+                    context.fileDownloadSessionStore,
+                    context.logger,
+                );
+                continue;
+            }
+
+            throw createDownloadFailedError(
+                tempFilePath,
+                error instanceof Error ? error.message : String(error),
+            );
         }
 
-        throw createDownloadFailedError(
+        const tempLock = await acquireDownloadTempLock({
+            execPath: context.execPath,
+            lockFilePath: resolveDownloadTempLockFilePath(tempFilePath),
+            sessionId: session.id,
+            tempFileName: session.tempFileName,
+        });
+
+        if (tempLock.status !== "acquired") {
+            continue;
+        }
+
+        const isInvalid
+            = !metadata.isFile()
+                || metadata.size === 0
+                || (session.totalBytes !== undefined && metadata.size > session.totalBytes);
+
+        if (isInvalid) {
+            await deleteDownloadSessionArtifacts(
+                {
+                    localBytes: metadata.size,
+                    session,
+                    tempLock: tempLock.handle,
+                    tempFilePath,
+                },
+                context.fileDownloadSessionStore,
+            );
+            await tempLock.handle.close();
+            continue;
+        }
+
+        return {
+            localBytes: metadata.size,
+            session,
+            tempLock: tempLock.handle,
             tempFilePath,
-            error instanceof Error ? error.message : String(error),
-        );
+        };
     }
 
-    const isInvalid
-        = !metadata.isFile()
-            || metadata.size === 0
-            || (session.totalBytes !== undefined && metadata.size > session.totalBytes);
-
-    if (isInvalid) {
-        await deleteDownloadSessionArtifacts(
-            { localBytes: metadata.size, session, tempFilePath },
-            sessionStore,
-        );
-
-        return undefined;
-    }
-
-    return {
-        localBytes: metadata.size,
-        session,
-        tempFilePath,
-    };
+    return undefined;
 }
 
 export function updateDownloadSessionFromResumeResponse(
@@ -143,6 +213,44 @@ export function readResolvedFileName(
         baseName: session.resolvedBaseName,
         extension: emptyStringToUndefined(session.resolvedExtension),
     };
+}
+
+export async function saveDownloadSessionBestEffort(
+    record: FileDownloadSessionRecord,
+    sessionStore: DownloadSessionSaveStore,
+    logger?: CliExecutionContext["logger"],
+): Promise<void> {
+    try {
+        await sessionStore.saveDownloadSession(record);
+    }
+    catch (error) {
+        logger?.debug(
+            {
+                error,
+                id: record.id,
+            },
+            "File download resume session save failed.",
+        );
+    }
+}
+
+export async function deleteDownloadSessionBestEffort(
+    id: string,
+    sessionStore: Pick<CliExecutionContext["fileDownloadSessionStore"], "deleteDownloadSession">,
+    logger?: CliExecutionContext["logger"],
+): Promise<void> {
+    try {
+        await sessionStore.deleteDownloadSession(id);
+    }
+    catch (error) {
+        logger?.debug(
+            {
+                error,
+                id,
+            },
+            "File download resume session delete failed.",
+        );
+    }
 }
 
 export function parseContentRange(value: string | null): ParsedContentRange | undefined {
@@ -206,17 +314,17 @@ async function createDownloadSessionRecord(
         requestedName: emptyStringToUndefined(sessionKey.requestedName),
         responseUrl: finalUrl,
     });
-    const plannedFinalFileName = await resolveAvailableFileName(
-        sessionKey.outDirPath,
-        resolvedFileName.baseName,
-        resolvedFileName.extension,
+    const sessionId = Bun.randomUUIDv7();
+    const plannedFileParts = splitFileNameParts(
+        resolvedFileName.extension === undefined
+            ? resolvedFileName.baseName
+            : `${resolvedFileName.baseName}.${resolvedFileName.extension}`,
     );
-    const plannedFileParts = splitFileNameParts(plannedFinalFileName);
 
     return {
         entityTag: response.headers.get("ETag") ?? "",
         finalUrl,
-        id: Bun.randomUUIDv7(),
+        id: sessionId,
         lastModified: response.headers.get("Last-Modified") ?? "",
         outDirPath: sessionKey.outDirPath,
         requestUrl: sessionKey.requestUrl,
@@ -227,6 +335,7 @@ async function createDownloadSessionRecord(
         tempFileName: await resolveTemporaryDownloadFileName(
             sessionKey.outDirPath,
             plannedFileParts.baseName,
+            sessionId,
             reservedTempFileNames,
         ),
         totalBytes: parseSafeInteger(response.headers.get("Content-Length") ?? ""),
