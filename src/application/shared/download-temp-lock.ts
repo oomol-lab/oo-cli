@@ -7,8 +7,8 @@ import {
     isDirectoryReadError,
     isFileAlreadyExistsError,
     isFileMissingError,
-} from "../../../shared/fs-errors.ts";
-import { isProcessLockOwnerActive } from "../../../shared/process-owner.ts";
+} from "./fs-errors.ts";
+import { isProcessLockOwnerActive } from "./process-owner.ts";
 
 const downloadTempLockSchema = z.object({
     acquiredAt: z.string().trim().min(1),

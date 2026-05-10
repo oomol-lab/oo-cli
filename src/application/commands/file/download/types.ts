@@ -1,6 +1,6 @@
 import type { FileDownloadSessionRecord } from "../../../contracts/file-download-session-store.ts";
+import type { DownloadTempLockHandle } from "../../../shared/download-temp-lock.ts";
 import type { ResolvedDownloadFileName } from "../file-name-utils.ts";
-import type { DownloadTempLockHandle } from "./lock.ts";
 
 export interface ExistingDownloadSession {
     localBytes: number;

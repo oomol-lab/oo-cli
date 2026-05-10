@@ -888,9 +888,9 @@ Download one file from `http` or `https` and save it locally.
   preserved as one full extension when they can be inferred automatically.
 - Notes: downloads are written through a temporary file in the target directory,
   then promoted to the final path only after the transfer completes.
-- Notes: each in-progress download owns a distinct `.oodownload` temporary file.
-  Concurrent downloads of the same URL and output directory do not append to one
-  another's partial files.
+- Notes: each in-progress download owns an isolated temporary file in the target
+  directory. Concurrent downloads of the same URL and output directory do not
+  merge or append to one another's partial files.
 - Notes: if a download stops partway through, rerunning the same command against
   the same output directory will attempt to resume with HTTP Range. If the
   server does not resume safely, the CLI restarts the transfer from byte `0`.
@@ -932,7 +932,7 @@ List previously uploaded files from the local sqlite store.
 
 ### `oo file cleanup`
 
-Delete expired upload records and stale download resume sessions.
+Delete expired or stale file transfer records.
 
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.

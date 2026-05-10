@@ -73,17 +73,21 @@ function commandLineReferencesExecutable(
     commandLine: string,
     execPath: string,
 ): boolean {
-    const normalizedCommandLine = commandLine.toLowerCase();
     const normalizedExecPath = execPath.toLowerCase();
+    const executableToken = readCommandLineTokens(commandLine)
+        .map(token => stripWrappingQuotes(token).toLowerCase())[0];
 
-    if (normalizedCommandLine.includes(normalizedExecPath)) {
+    if (executableToken === undefined) {
+        return false;
+    }
+
+    if (executableToken === normalizedExecPath) {
         return true;
     }
 
     const executableName = basename(normalizedExecPath);
 
-    return readCommandLineTokens(normalizedCommandLine)
-        .some(token => basename(stripWrappingQuotes(token)) === executableName);
+    return basename(executableToken) === executableName;
 }
 
 function readCommandLineTokens(commandLine: string): string[] {

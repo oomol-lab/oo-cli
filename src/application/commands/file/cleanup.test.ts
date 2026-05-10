@@ -32,7 +32,7 @@ describe("file cleanup command", () => {
         );
 
         expect(typeof deletedAt).toBe("number");
-        expect(stdout.read()).toBe("Deleted 4 expired file records.\n");
+        expect(stdout.read()).toBe("Deleted 4 expired or stale file transfer records.\n");
     });
 
     test("writes json output when the format is json", async () => {

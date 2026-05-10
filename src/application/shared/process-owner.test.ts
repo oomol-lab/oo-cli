@@ -24,11 +24,31 @@ describe("process lock owner", () => {
     });
 
     if (process.platform !== "win32") {
+        test("treats a live pid as active when the command line references the executable", () => {
+            expect(
+                isProcessLockOwnerActive(
+                    process.pid,
+                    process.execPath,
+                    process.platform,
+                ),
+            ).toBeTrue();
+        });
+
         test("does not treat a live pid as active when the command line references another executable", () => {
             expect(
                 isProcessLockOwnerActive(
                     process.pid,
                     "/tmp/not-the-current-executable",
+                    process.platform,
+                ),
+            ).toBeFalse();
+        });
+
+        test("does not treat a live pid as active when the executable path is only a prefix", () => {
+            expect(
+                isProcessLockOwnerActive(
+                    process.pid,
+                    process.execPath.slice(0, -1),
                     process.platform,
                 ),
             ).toBeFalse();

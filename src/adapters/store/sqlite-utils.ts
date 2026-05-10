@@ -92,9 +92,3 @@ export function isRecoverableSqliteError(error: unknown): boolean {
 
     return recoverableSqliteErrorCodes.has(String(error.code));
 }
-
-export function validateQueryTimestamp(value: number, label: string): void {
-    if (!Number.isSafeInteger(value) || value < 0) {
-        throw new Error(`${label} timestamp must be a safe integer.`);
-    }
-}

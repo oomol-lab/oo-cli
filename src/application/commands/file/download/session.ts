@@ -10,6 +10,10 @@ import type { ExistingDownloadSession, ParsedContentRange, WriteDownloadPlan } f
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 
+import {
+    acquireDownloadTempLock,
+    resolveDownloadTempLockFilePath,
+} from "../../../shared/download-temp-lock.ts";
 import { isFileMissingError } from "../../../shared/fs-errors.ts";
 import { resolveDownloadFileName, splitFileNameParts } from "../file-name-utils.ts";
 import { createDownloadFailedError } from "./errors.ts";
@@ -18,10 +22,6 @@ import {
     reserveTemporaryDownloadFile,
     resolveTemporaryDownloadFileName,
 } from "./file-system.ts";
-import {
-    acquireDownloadTempLock,
-    resolveDownloadTempLockFilePath,
-} from "./lock.ts";
 
 type DownloadSessionLookupStore = Pick<
     CliExecutionContext["fileDownloadSessionStore"],

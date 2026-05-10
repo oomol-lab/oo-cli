@@ -3,7 +3,7 @@ import type {
     FileDownloadSessionRecord,
 } from "../../application/contracts/file-download-session-store.ts";
 
-import { lstat, rm } from "node:fs/promises";
+import { lstat, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -98,6 +98,33 @@ describe("SidecarFileDownloadSessionStore", () => {
         }
     });
 
+    test("keeps stale sidecars discoverable when artifact cleanup fails", async () => {
+        const root = await createTemporaryDirectory("sidecar-download-session-cleanup-failure");
+        const sessionsDirectory = join(root, "sessions");
+        const outputDirectory = join(root, "downloads");
+        const tempFilePath = join(outputDirectory, "stale.oodownload");
+        const sessionId = "0195f5fe-ec30-7000-8000-000000000011";
+        const store = new SidecarFileDownloadSessionStore(sessionsDirectory);
+
+        try {
+            await mkdir(tempFilePath, { recursive: true });
+            await store.saveDownloadSession(createDownloadSessionRecordFixture({
+                id: sessionId,
+                outDirPath: outputDirectory,
+                tempFileName: "stale.oodownload",
+                updatedAtMs: 1_000,
+            }));
+
+            expect(await store.deleteDownloadSessionsUpdatedBefore(2_000)).toBe(0);
+            expect((await lstat(join(sessionsDirectory, `${sessionId}.json`))).isFile())
+                .toBeTrue();
+        }
+        finally {
+            store.close();
+            await rm(root, { force: true, recursive: true });
+        }
+    });
+
     test("ignores sidecar records whose temporary files are missing", async () => {
         const root = await createTemporaryDirectory("sidecar-download-session-missing");
         const sessionsDirectory = join(root, "sessions");
@@ -112,6 +139,73 @@ describe("SidecarFileDownloadSessionStore", () => {
             }));
 
             expect(await store.findDownloadSessions(key)).toEqual([]);
+        }
+        finally {
+            store.close();
+            await rm(root, { force: true, recursive: true });
+        }
+    });
+
+    test("ignores malformed sidecar records", async () => {
+        const root = await createTemporaryDirectory("sidecar-download-session-malformed");
+        const sessionsDirectory = join(root, "sessions");
+        const outputDirectory = join(root, "downloads");
+        const key = createDownloadSessionKeyFixture(outputDirectory);
+        const record = createDownloadSessionRecordFixture({
+            outDirPath: outputDirectory,
+            tempFileName: "report.oodownload",
+        });
+        const store = new SidecarFileDownloadSessionStore(sessionsDirectory);
+
+        try {
+            await Bun.write(join(outputDirectory, record.tempFileName), "partial");
+            await store.saveDownloadSession(record);
+            await Bun.write(join(sessionsDirectory, `${record.id}.json`), "{");
+
+            expect(await store.findDownloadSessions(key)).toEqual([]);
+        }
+        finally {
+            store.close();
+            await rm(root, { force: true, recursive: true });
+        }
+    });
+
+    test("keeps downloads running when a sidecar cannot be persisted", async () => {
+        const root = await createTemporaryDirectory("sidecar-download-session-write-failure");
+        const sessionsDirectory = join(root, "sessions");
+        const outputDirectory = join(root, "downloads");
+        const key = createDownloadSessionKeyFixture(outputDirectory);
+        const record = createDownloadSessionRecordFixture({
+            outDirPath: outputDirectory,
+            tempFileName: "report.oodownload",
+        });
+        const store = new SidecarFileDownloadSessionStore(sessionsDirectory);
+
+        try {
+            await Bun.write(join(outputDirectory, record.tempFileName), "partial");
+            await mkdir(join(sessionsDirectory, `${record.id}.json`), { recursive: true });
+
+            await expect(store.saveDownloadSession(record)).resolves.toBeUndefined();
+            expect(await store.findDownloadSessions(key)).toEqual([]);
+        }
+        finally {
+            store.close();
+            await rm(root, { force: true, recursive: true });
+        }
+    });
+
+    test("rejects unsafe session ids before resolving sidecar paths", async () => {
+        const root = await createTemporaryDirectory("sidecar-download-session-unsafe-id");
+        const sessionsDirectory = join(root, "sessions");
+        const store = new SidecarFileDownloadSessionStore(sessionsDirectory);
+
+        try {
+            await expect(store.saveDownloadSession(createDownloadSessionRecordFixture({
+                id: "../outside",
+            }))).rejects.toThrow("Download session id is invalid.");
+            await expect(store.deleteDownloadSession("../outside"))
+                .rejects
+                .toThrow("Download session id is invalid.");
         }
         finally {
             store.close();

@@ -13,19 +13,25 @@ import process from "node:process";
 import { z } from "zod";
 
 import { withStorePath } from "../../application/logging/log-fields.ts";
+import {
+    isDownloadTempLockActive,
+    readDownloadTempLockData,
+    resolveDownloadTempLockFilePath,
+} from "../../application/shared/download-temp-lock.ts";
 import { isPathMissingError } from "../../application/shared/fs-errors.ts";
-import { isProcessLockOwnerActive } from "../../application/shared/process-owner.ts";
-import { validateQueryTimestamp } from "./sqlite-utils.ts";
+import { validateMillisecondTimestamp } from "../../application/shared/timestamps.ts";
 
 const sidecarSchemaVersion = 1;
 const sidecarCleanupEntryThreshold = 1000;
 const sidecarLookupHardCap = 2000;
 const sidecarSelfDefenseTtlMs = 14 * 24 * 60 * 60 * 1000;
+const sidecarSelfDefenseIntervalMs = 5 * 60 * 1000;
+const sidecarDownloadSessionIdSchema = z.string().min(1).refine(isSafeSessionId);
 
 const sidecarDownloadSessionSchema = z.object({
     entityTag: z.string(),
     finalUrl: z.string().trim().min(1),
-    id: z.string().trim().min(1),
+    id: sidecarDownloadSessionIdSchema,
     lastModified: z.string(),
     outDirPath: z.string().trim().min(1),
     requestUrl: z.string().trim().min(1),
@@ -39,18 +45,21 @@ const sidecarDownloadSessionSchema = z.object({
     updatedAtMs: z.number().int().nonnegative(),
 });
 
-const sidecarDownloadTempLockSchema = z.object({
-    execPath: z.string().trim().min(1),
-    pid: z.number().int().positive(),
-});
-
 type SidecarDownloadSession = z.infer<typeof sidecarDownloadSessionSchema>;
+
+interface SidecarSessionFile {
+    readonly filePath: string;
+    readonly modifiedAtMs: number;
+    readonly name: string;
+}
 
 export interface SidecarFileDownloadSessionStoreOptions {
     logger?: Logger;
 }
 
 export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore {
+    private lastSelfDefenseAtMs = 0;
+
     constructor(
         private readonly directoryPath: string,
         private readonly options: SidecarFileDownloadSessionStoreOptions = {},
@@ -73,17 +82,11 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
         await this.runSelfDefenseCleanup();
 
         const records = await this.readSessionFiles();
-        const sessions: FileDownloadSessionRecord[] = [];
-
-        for (const record of records) {
-            if (!downloadSessionMatchesKey(record, key)) {
-                continue;
-            }
-
-            if (await this.isUsableResumeCandidate(record)) {
-                sessions.push(record);
-            }
-        }
+        const matchingRecords = records.filter(record => downloadSessionMatchesKey(record, key));
+        const usability = await Promise.all(
+            matchingRecords.map(record => this.isUsableResumeCandidate(record)),
+        );
+        const sessions = matchingRecords.filter((_, index) => usability[index]);
 
         sessions.sort(compareDownloadSessionRecordsByRecency);
 
@@ -92,52 +95,47 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
 
     async saveDownloadSession(record: FileDownloadSessionRecord): Promise<void> {
         validateDownloadSessionRecord(record);
-        await this.ensureDirectory();
 
         const sidecar: SidecarDownloadSession = {
             ...record,
             schemaVersion: sidecarSchemaVersion,
         };
-        const content = `${JSON.stringify(sidecar, null, 2)}\n`;
+        const content = `${JSON.stringify(sidecar)}\n`;
         const finalPath = this.resolveSessionFilePath(record.id);
+        const temporaryPath = join(
+            this.directoryPath,
+            `${record.id}.${process.pid}.${Bun.randomUUIDv7()}.tmp`,
+        );
 
-        for (let attempt = 0; attempt < 5; attempt += 1) {
-            const temporaryPath = join(
-                this.directoryPath,
-                `${record.id}.${process.pid}.${Bun.randomUUIDv7()}.tmp`,
+        try {
+            await this.ensureDirectory();
+            await writeFile(temporaryPath, content, { encoding: "utf8" });
+            await rename(temporaryPath, finalPath);
+            this.options.logger?.debug(
+                {
+                    id: record.id,
+                    tempFileName: record.tempFileName,
+                    ...withStorePath(this.directoryPath),
+                },
+                "Sidecar file download resume session stored.",
             );
-
-            try {
-                await writeFile(temporaryPath, content, {
-                    encoding: "utf8",
-                    flag: "wx",
-                });
-                await rename(temporaryPath, finalPath);
-                this.options.logger?.debug(
-                    {
-                        id: record.id,
-                        tempFileName: record.tempFileName,
-                        ...withStorePath(this.directoryPath),
-                    },
-                    "Sidecar file download resume session stored.",
-                );
-                return;
-            }
-            catch (error) {
-                await rm(temporaryPath, { force: true }).catch(() => undefined);
-
-                if (attempt === 4) {
-                    throw error;
-                }
-            }
+        }
+        catch (error) {
+            await rm(temporaryPath, { force: true }).catch(() => undefined);
+            this.options.logger?.debug(
+                {
+                    error,
+                    id: record.id,
+                    tempFileName: record.tempFileName,
+                    ...withStorePath(this.directoryPath),
+                },
+                "Sidecar file download resume session store failed.",
+            );
         }
     }
 
     async deleteDownloadSession(id: string): Promise<boolean> {
-        if (id.trim() === "") {
-            throw new Error("Download session id cannot be empty.");
-        }
-
+        validateDownloadSessionId(id);
         const filePath = this.resolveSessionFilePath(id);
         const deleted = await removePath(filePath);
 
@@ -145,25 +143,39 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
     }
 
     async deleteDownloadSessionsUpdatedBefore(cutoffMs: number): Promise<number> {
-        validateQueryTimestamp(cutoffMs, "Download session");
+        validateMillisecondTimestamp(cutoffMs, "Download session");
 
-        let deletedCount = 0;
+        const expiredRecords = (await this.readSessionFiles(Number.POSITIVE_INFINITY))
+            .filter(record => record.updatedAtMs < cutoffMs);
+        const lockedFlags = await Promise.all(
+            expiredRecords.map(record => this.isRecordLockedByActiveProcess(record)),
+        );
+        const evictableRecords = expiredRecords.filter((_, index) => !lockedFlags[index]);
+        const evictionResults = await Promise.all(
+            evictableRecords.map(record => this.evictExpiredRecord(record)),
+        );
 
-        for (const record of await this.readSessionFiles(Number.POSITIVE_INFINITY)) {
-            if (record.updatedAtMs >= cutoffMs) {
-                continue;
-            }
+        return evictionResults.filter(Boolean).length;
+    }
 
-            if (await this.isRecordLockedByActiveProcess(record)) {
-                continue;
-            }
-
-            await this.deleteDownloadSession(record.id);
+    private async evictExpiredRecord(record: FileDownloadSessionRecord): Promise<boolean> {
+        try {
             await this.deleteDownloadArtifacts(record);
-            deletedCount += 1;
+        }
+        catch (error) {
+            this.options.logger?.debug(
+                {
+                    error,
+                    id: record.id,
+                    tempFileName: record.tempFileName,
+                    ...withStorePath(this.directoryPath),
+                },
+                "Sidecar file download resume session artifacts cleanup failed.",
+            );
+            return false;
         }
 
-        return deletedCount;
+        return this.deleteDownloadSession(record.id);
     }
 
     close(): void {
@@ -189,12 +201,39 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
             throw error;
         }
 
-        const records = await Promise.all(entries
+        const sessionFiles = await Promise.all(entries
             .filter(entry => entry.endsWith(".json"))
+            .map(entry => this.readSessionFileMetadata(entry)));
+        const records = await Promise.all(sessionFiles
+            .filter(sessionFile => sessionFile !== undefined)
+            .sort(compareSidecarSessionFilesByRecency)
             .slice(0, limit)
-            .map(entry => this.readSessionFile(join(this.directoryPath, entry))));
+            .map(sessionFile => this.readSessionFile(sessionFile.filePath)));
 
         return records.filter(record => record !== undefined);
+    }
+
+    private async readSessionFileMetadata(
+        name: string,
+    ): Promise<SidecarSessionFile | undefined> {
+        const filePath = join(this.directoryPath, name);
+
+        try {
+            const fileStat = await stat(filePath);
+
+            if (!fileStat.isFile()) {
+                return undefined;
+            }
+
+            return {
+                filePath,
+                modifiedAtMs: fileStat.mtimeMs,
+                name,
+            };
+        }
+        catch {
+            return undefined;
+        }
     }
 
     private async readSessionFile(
@@ -221,6 +260,7 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
     }
 
     private resolveSessionFilePath(id: string): string {
+        validateDownloadSessionId(id);
         return join(this.directoryPath, `${id}.json`);
     }
 
@@ -245,11 +285,19 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
 
         await Promise.all([
             rm(tempFilePath, { force: true }),
-            rm(`${tempFilePath}.lock`, { force: true }),
+            rm(resolveDownloadTempLockFilePath(tempFilePath), { force: true }),
         ]);
     }
 
     private async runSelfDefenseCleanup(): Promise<void> {
+        const now = Date.now();
+
+        if (now - this.lastSelfDefenseAtMs < sidecarSelfDefenseIntervalMs) {
+            return;
+        }
+
+        this.lastSelfDefenseAtMs = now;
+
         let entries: string[];
 
         try {
@@ -268,7 +316,7 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
         }
 
         try {
-            await this.deleteDownloadSessionsUpdatedBefore(Date.now() - sidecarSelfDefenseTtlMs);
+            await this.deleteDownloadSessionsUpdatedBefore(now - sidecarSelfDefenseTtlMs);
         }
         catch (error) {
             this.options.logger?.debug(
@@ -284,24 +332,12 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
     private async isRecordLockedByActiveProcess(
         record: FileDownloadSessionRecord,
     ): Promise<boolean> {
-        const lockPath = join(record.outDirPath, `${record.tempFileName}.lock`);
-        let parsedContent: unknown;
+        const tempFilePath = join(record.outDirPath, record.tempFileName);
+        const lockData = await readDownloadTempLockData(
+            resolveDownloadTempLockFilePath(tempFilePath),
+        );
 
-        try {
-            parsedContent = JSON.parse(await readFile(lockPath, "utf8"));
-        }
-        catch {
-            return false;
-        }
-
-        const result = sidecarDownloadTempLockSchema.safeParse(parsedContent);
-
-        return result.success
-            && isProcessLockOwnerActive(
-                result.data.pid,
-                result.data.execPath,
-                process.platform,
-            );
+        return lockData !== undefined && isDownloadTempLockActive(lockData);
     }
 }
 
@@ -311,6 +347,14 @@ function compareDownloadSessionRecordsByRecency(
 ): number {
     return right.updatedAtMs - left.updatedAtMs
         || right.id.localeCompare(left.id);
+}
+
+function compareSidecarSessionFilesByRecency(
+    left: SidecarSessionFile,
+    right: SidecarSessionFile,
+): number {
+    return right.modifiedAtMs - left.modifiedAtMs
+        || right.name.localeCompare(left.name);
 }
 
 function validateDownloadSessionKey(key: FileDownloadSessionKey): void {
@@ -324,9 +368,7 @@ function validateDownloadSessionKey(key: FileDownloadSessionKey): void {
 }
 
 function validateDownloadSessionRecord(record: FileDownloadSessionRecord): void {
-    if (record.id.trim() === "") {
-        throw new Error("Download session id cannot be empty.");
-    }
+    validateDownloadSessionId(record.id);
 
     validateDownloadSessionKey(record);
 
@@ -349,7 +391,17 @@ function validateDownloadSessionRecord(record: FileDownloadSessionRecord): void 
         throw new Error("Download session totalBytes must be a safe integer.");
     }
 
-    validateQueryTimestamp(record.updatedAtMs, "Download session");
+    validateMillisecondTimestamp(record.updatedAtMs, "Download session");
+}
+
+function validateDownloadSessionId(id: string): void {
+    if (id.trim() === "") {
+        throw new Error("Download session id cannot be empty.");
+    }
+
+    if (!isSafeSessionId(id)) {
+        throw new Error("Download session id is invalid.");
+    }
 }
 
 function downloadSessionMatchesKey(
@@ -365,6 +417,49 @@ function downloadSessionMatchesKey(
 function isSafeTempFileName(fileName: string): boolean {
     return fileName === basename(fileName)
         && fileName === win32.basename(fileName);
+}
+
+function isSafeSessionId(value: string): boolean {
+    if (
+        value.length > 128
+        || value.trim() !== value
+        || value === "."
+        || value === ".."
+        || value.includes("..")
+        || value !== basename(value)
+        || value !== win32.basename(value)
+    ) {
+        return false;
+    }
+
+    for (const character of value) {
+        if (!isSafeSessionIdCharacter(character)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function isSafeSessionIdCharacter(character: string): boolean {
+    return character === "-"
+        || character === "_"
+        || character === "."
+        || isAsciiDigit(character)
+        || isAsciiLetter(character);
+}
+
+function isAsciiDigit(character: string): boolean {
+    const code = character.charCodeAt(0);
+
+    return code >= 48 && code <= 57;
+}
+
+function isAsciiLetter(character: string): boolean {
+    const code = character.charCodeAt(0);
+
+    return (code >= 65 && code <= 90)
+        || (code >= 97 && code <= 122);
 }
 
 async function removePath(filePath: string): Promise<boolean> {

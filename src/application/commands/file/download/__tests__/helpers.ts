@@ -2,7 +2,7 @@ import type {
     FileDownloadSessionRecord,
     FileDownloadSessionStore,
 } from "../../../../contracts/file-download-session-store.ts";
-import type { DownloadTempLockHandle } from "../lock.ts";
+import type { DownloadTempLockHandle } from "../../../../shared/download-temp-lock.ts";
 
 export { expectCliUserError } from "../../../../../../__tests__/helpers.ts";
 

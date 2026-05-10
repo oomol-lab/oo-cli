@@ -7,10 +7,10 @@ import { link, lstat, open, rm, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { CliUserError } from "../../../contracts/cli.ts";
+import { resolveDownloadTempLockFilePath } from "../../../shared/download-temp-lock.ts";
 import { isFileAlreadyExistsError } from "../../../shared/fs-errors.ts";
 import { pathExists, writeChunk } from "../../../shared/fs-utils.ts";
 import { createDownloadFailedError } from "./errors.ts";
-import { resolveDownloadTempLockFilePath } from "./lock.ts";
 
 export async function deleteDownloadSessionArtifacts(
     session: ExistingDownloadSession,
