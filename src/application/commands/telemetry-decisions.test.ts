@@ -218,6 +218,14 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records self-update state without raw version strings.",
     },
+    "llm": {
+        kind: "generic",
+        reason: "Command group; child commands make their own credential-output decisions.",
+    },
+    "llm.config": {
+        kind: "excluded",
+        reason: "This command intentionally prints the current account API key for LLM client setup.",
+    },
     "log": {
         kind: "generic",
         reason: "Command group; log paths and log contents must not be recorded.",

@@ -5,6 +5,7 @@ import ooPublishSkillClaudeSkillPath from "../../../../contrib/skills/claude/oo-
 import ooClaudeAuthAndBillingReferencePath from "../../../../contrib/skills/claude/oo/references/auth-and-billing.md" with { type: "file" };
 import ooClaudeConnectorExecutionReferencePath from "../../../../contrib/skills/claude/oo/references/connector-execution.md" with { type: "file" };
 import ooClaudeFileTransferReferencePath from "../../../../contrib/skills/claude/oo/references/file-transfer.md" with { type: "file" };
+import ooClaudeLlmClientReferencePath from "../../../../contrib/skills/claude/oo/references/llm-client.md" with { type: "file" };
 import ooClaudePackageExecutionReferencePath from "../../../../contrib/skills/claude/oo/references/package-execution.md" with { type: "file" };
 import ooClaudeSearchAndSelectionReferencePath from "../../../../contrib/skills/claude/oo/references/search-and-selection.md" with { type: "file" };
 import ooClaudeTaskLifecycleReferencePath from "../../../../contrib/skills/claude/oo/references/task-lifecycle.md" with { type: "file" };
@@ -16,6 +17,7 @@ import ooPublishSkillCodeBuddySkillPath from "../../../../contrib/skills/codebud
 import ooCodeBuddyAuthAndBillingReferencePath from "../../../../contrib/skills/codebuddy/oo/references/auth-and-billing.md" with { type: "file" };
 import ooCodeBuddyConnectorExecutionReferencePath from "../../../../contrib/skills/codebuddy/oo/references/connector-execution.md" with { type: "file" };
 import ooCodeBuddyFileTransferReferencePath from "../../../../contrib/skills/codebuddy/oo/references/file-transfer.md" with { type: "file" };
+import ooCodeBuddyLlmClientReferencePath from "../../../../contrib/skills/codebuddy/oo/references/llm-client.md" with { type: "file" };
 import ooCodeBuddyPackageExecutionReferencePath from "../../../../contrib/skills/codebuddy/oo/references/package-execution.md" with { type: "file" };
 import ooCodeBuddySearchAndSelectionReferencePath from "../../../../contrib/skills/codebuddy/oo/references/search-and-selection.md" with { type: "file" };
 import ooCodeBuddyTaskLifecycleReferencePath from "../../../../contrib/skills/codebuddy/oo/references/task-lifecycle.md" with { type: "file" };
@@ -31,6 +33,7 @@ import ooOpenAIAgentPath from "../../../../contrib/skills/codex/oo/agents/openai
 import ooAuthAndBillingReferencePath from "../../../../contrib/skills/codex/oo/references/auth-and-billing.md" with { type: "file" };
 import ooConnectorExecutionReferencePath from "../../../../contrib/skills/codex/oo/references/connector-execution.md" with { type: "file" };
 import ooFileTransferReferencePath from "../../../../contrib/skills/codex/oo/references/file-transfer.md" with { type: "file" };
+import ooLlmClientReferencePath from "../../../../contrib/skills/codex/oo/references/llm-client.md" with { type: "file" };
 import ooPackageExecutionReferencePath from "../../../../contrib/skills/codex/oo/references/package-execution.md" with { type: "file" };
 import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/codex/oo/references/search-and-selection.md" with { type: "file" };
 import ooTaskLifecycleReferencePath from "../../../../contrib/skills/codex/oo/references/task-lifecycle.md" with { type: "file" };
@@ -42,6 +45,7 @@ import ooPublishSkillOpenClawSkillPath from "../../../../contrib/skills/openclaw
 import ooOpenClawAuthAndBillingReferencePath from "../../../../contrib/skills/openclaw/oo/references/auth-and-billing.md" with { type: "file" };
 import ooOpenClawConnectorExecutionReferencePath from "../../../../contrib/skills/openclaw/oo/references/connector-execution.md" with { type: "file" };
 import ooOpenClawFileTransferReferencePath from "../../../../contrib/skills/openclaw/oo/references/file-transfer.md" with { type: "file" };
+import ooOpenClawLlmClientReferencePath from "../../../../contrib/skills/openclaw/oo/references/llm-client.md" with { type: "file" };
 import ooOpenClawPackageExecutionReferencePath from "../../../../contrib/skills/openclaw/oo/references/package-execution.md" with { type: "file" };
 import ooOpenClawSearchAndSelectionReferencePath from "../../../../contrib/skills/openclaw/oo/references/search-and-selection.md" with { type: "file" };
 import ooOpenClawTaskLifecycleReferencePath from "../../../../contrib/skills/openclaw/oo/references/task-lifecycle.md" with { type: "file" };
@@ -53,6 +57,7 @@ import ooPublishSkillQoderWorkSkillPath from "../../../../contrib/skills/qoderwo
 import ooQoderWorkAuthAndBillingReferencePath from "../../../../contrib/skills/qoderwork/oo/references/auth-and-billing.md" with { type: "file" };
 import ooQoderWorkConnectorExecutionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/connector-execution.md" with { type: "file" };
 import ooQoderWorkFileTransferReferencePath from "../../../../contrib/skills/qoderwork/oo/references/file-transfer.md" with { type: "file" };
+import ooQoderWorkLlmClientReferencePath from "../../../../contrib/skills/qoderwork/oo/references/llm-client.md" with { type: "file" };
 import ooQoderWorkPackageExecutionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/package-execution.md" with { type: "file" };
 import ooQoderWorkSearchAndSelectionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/search-and-selection.md" with { type: "file" };
 import ooQoderWorkTaskLifecycleReferencePath from "../../../../contrib/skills/qoderwork/oo/references/task-lifecycle.md" with { type: "file" };
@@ -82,6 +87,7 @@ const ooCodexReferenceFiles = createOoReferenceFiles({
     authAndBilling: ooAuthAndBillingReferencePath,
     connectorExecution: ooConnectorExecutionReferencePath,
     fileTransfer: ooFileTransferReferencePath,
+    llmClient: ooLlmClientReferencePath,
     packageExecution: ooPackageExecutionReferencePath,
     searchAndSelection: ooSearchAndSelectionReferencePath,
     taskLifecycle: ooTaskLifecycleReferencePath,
@@ -90,6 +96,7 @@ const ooClaudeCompatibleReferenceFiles = createOoReferenceFiles({
     authAndBilling: ooClaudeAuthAndBillingReferencePath,
     connectorExecution: ooClaudeConnectorExecutionReferencePath,
     fileTransfer: ooClaudeFileTransferReferencePath,
+    llmClient: ooClaudeLlmClientReferencePath,
     packageExecution: ooClaudePackageExecutionReferencePath,
     searchAndSelection: ooClaudeSearchAndSelectionReferencePath,
     taskLifecycle: ooClaudeTaskLifecycleReferencePath,
@@ -98,6 +105,7 @@ const ooCodeBuddyReferenceFiles = createOoReferenceFiles({
     authAndBilling: ooCodeBuddyAuthAndBillingReferencePath,
     connectorExecution: ooCodeBuddyConnectorExecutionReferencePath,
     fileTransfer: ooCodeBuddyFileTransferReferencePath,
+    llmClient: ooCodeBuddyLlmClientReferencePath,
     packageExecution: ooCodeBuddyPackageExecutionReferencePath,
     searchAndSelection: ooCodeBuddySearchAndSelectionReferencePath,
     taskLifecycle: ooCodeBuddyTaskLifecycleReferencePath,
@@ -106,6 +114,7 @@ const ooOpenClawReferenceFiles = createOoReferenceFiles({
     authAndBilling: ooOpenClawAuthAndBillingReferencePath,
     connectorExecution: ooOpenClawConnectorExecutionReferencePath,
     fileTransfer: ooOpenClawFileTransferReferencePath,
+    llmClient: ooOpenClawLlmClientReferencePath,
     packageExecution: ooOpenClawPackageExecutionReferencePath,
     searchAndSelection: ooOpenClawSearchAndSelectionReferencePath,
     taskLifecycle: ooOpenClawTaskLifecycleReferencePath,
@@ -114,6 +123,7 @@ const ooQoderWorkReferenceFiles = createOoReferenceFiles({
     authAndBilling: ooQoderWorkAuthAndBillingReferencePath,
     connectorExecution: ooQoderWorkConnectorExecutionReferencePath,
     fileTransfer: ooQoderWorkFileTransferReferencePath,
+    llmClient: ooQoderWorkLlmClientReferencePath,
     packageExecution: ooQoderWorkPackageExecutionReferencePath,
     searchAndSelection: ooQoderWorkSearchAndSelectionReferencePath,
     taskLifecycle: ooQoderWorkTaskLifecycleReferencePath,
@@ -500,6 +510,7 @@ function createOoReferenceFiles(sourcePaths: {
     authAndBilling: string;
     connectorExecution: string;
     fileTransfer: string;
+    llmClient: string;
     packageExecution: string;
     searchAndSelection: string;
     taskLifecycle: string;
@@ -508,6 +519,10 @@ function createOoReferenceFiles(sourcePaths: {
         {
             relativePath: "references/auth-and-billing.md",
             sourcePath: sourcePaths.authAndBilling,
+        },
+        {
+            relativePath: "references/llm-client.md",
+            sourcePath: sourcePaths.llmClient,
         },
         {
             relativePath: "references/search-and-selection.md",

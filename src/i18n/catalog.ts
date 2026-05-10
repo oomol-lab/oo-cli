@@ -104,6 +104,12 @@ export const enMessages = {
     "commands.install.description":
         "Install one oo-managed CLI release into the local managed runtime.",
     "commands.install.summary": "Install the CLI",
+    "commands.llm.config.description":
+        "Print the current account's LLM client configuration as JSON.",
+    "commands.llm.config.summary": "Show LLM client config",
+    "commands.llm.description":
+        "Expose LLM client configuration for the current account.",
+    "commands.llm.summary": "Manage LLM client config",
     "commands.help.summary": "Show help for a command",
     "commands.log.description": "Inspect persisted CLI debug logs.",
     "commands.log.summary": "Manage persisted debug logs",
@@ -958,6 +964,12 @@ export const zhMessages = {
     "commands.install.description":
         "把一个由 oo 管理的 CLI 版本安装到本地托管运行时中。",
     "commands.install.summary": "安装 CLI",
+    "commands.llm.config.description":
+        "以 JSON 输出当前账号的 LLM client 配置。",
+    "commands.llm.config.summary": "显示 LLM client 配置",
+    "commands.llm.description":
+        "导出当前账号可用的 LLM client 配置。",
+    "commands.llm.summary": "管理 LLM client 配置",
     "commands.help.summary": "显示命令帮助",
     "commands.log.description": "查看持久化的 CLI debug 日志。",
     "commands.log.summary": "管理持久化 debug 日志",

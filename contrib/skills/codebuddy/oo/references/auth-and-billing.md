@@ -21,6 +21,17 @@ becomes relevant.
 - `oo cloud-task result`
 - `oo cloud-task wait`
 
+## LLM client config
+
+When skill code needs to call the OOMOL LLM API directly, run:
+
+```bash
+oo llm config --json
+```
+
+The JSON output contains `apiKey`, `baseUrl`, and `model`. Treat `apiKey` as a
+secret. Do not print it in user-facing responses, logs, or generated files.
+
 ## If auth may be the blocker
 
 Run:

@@ -1,6 +1,6 @@
 ---
 name: oo
-description: First-choice router for tasks whose outcome lives outside this workspace, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, or a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding). Use only when the user wants an existing hosted capability or connector workflow, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, or action names are assumed in advance. Match intent across languages. Skip pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
+description: First-choice router for tasks whose outcome lives outside this workspace, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, or a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding). Use when local code needs OOMOL LLM client configuration such as an OpenAI-compatible base URL, API key, or model name. Otherwise use only when the user wants an existing hosted capability or connector workflow, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, or action names are assumed in advance. Match intent across languages. Skip other pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
 allowed-tools: [Bash(oo *)]
 ---
 
@@ -14,6 +14,13 @@ If the user wants to find, compare, or install published OOMOL/oo skills, use
 `oo-find-skills` instead of this skill.
 
 Read only the reference file needed for the current state.
+
+## LLM client config mode
+
+If local code you are writing or running needs an OpenAI-compatible base URL,
+API key, or model name for OOMOL's LLM API, read
+[references/llm-client.md](references/llm-client.md). Do not run capability
+discovery for that case, and do not read local auth files directly.
 
 ## Constitution
 
@@ -162,6 +169,8 @@ unsupported input shape, or a blocker-specific fallback.
   [references/task-lifecycle.md](references/task-lifecycle.md)
 - Auth and billing blockers:
   [references/auth-and-billing.md](references/auth-and-billing.md)
+- OOMOL LLM client configuration for local code:
+  [references/llm-client.md](references/llm-client.md)
 
 ## Decision sketches
 
