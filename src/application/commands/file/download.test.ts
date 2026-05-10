@@ -7,7 +7,7 @@ import type {
 import type { AuthFile } from "../../schemas/auth.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
 
-import { lstat, rm } from "node:fs/promises";
+import { lstat, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -22,6 +22,7 @@ import {
     createTextBuffer,
     readFileDownloadSuccessOutput,
 } from "../../../../__tests__/helpers.ts";
+import { SidecarFileDownloadSessionStore } from "../../../adapters/store/sidecar-file-download-session-store.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import { fileDownloadCommand } from "./download.ts";
 import {
@@ -31,7 +32,6 @@ import {
 } from "./download/__tests__/helpers.ts";
 
 const downloadHandler = fileDownloadCommand.handler!;
-const staleDownloadSessionTtlMs = 14 * 24 * 60 * 60 * 1000;
 const emptyAuthFile: AuthFile = {
     auth: [],
     id: "",
@@ -65,8 +65,6 @@ describe("fileDownloadCommand", () => {
             fileDownloadSessionStore: sessionStore.store,
             settings: {},
         });
-        const cutoffBefore = Date.now() - staleDownloadSessionTtlMs;
-
         try {
             await downloadHandler({
                 outDir: outputDirectoryPath,
@@ -75,9 +73,7 @@ describe("fileDownloadCommand", () => {
 
             const downloadedFilePath = join(outputDirectoryPath, "report.txt");
 
-            expect(sessionStore.deletedSessionCutoffs).toHaveLength(1);
-            expect(sessionStore.deletedSessionCutoffs[0]).toBeGreaterThanOrEqual(cutoffBefore);
-            expect(sessionStore.deletedSessionCutoffs[0]).toBeLessThanOrEqual(Date.now());
+            expect(sessionStore.deletedSessionCutoffs).toHaveLength(0);
             expect(sessionStore.savedSessions).toHaveLength(1);
             expect(sessionStore.deletedSessionIds).toEqual([
                 sessionStore.savedSessions[0]!.id,
@@ -226,7 +222,133 @@ describe("fileDownloadCommand", () => {
             await rm(root, { force: true, recursive: true });
         }
     });
+
+    test("completes the current download when session metadata writes fail", async () => {
+        const root = await createTemporaryDirectory("download-command-metadata-failure");
+        const outputDirectoryPath = join(root, "downloads");
+        const contextHandle = createDownloadContext({
+            cwd: root,
+            fetcher: async () => new Response("hello", {
+                headers: {
+                    "Content-Disposition": "attachment; filename=\"report.txt\"",
+                    "Content-Length": "5",
+                    "Content-Type": "text/plain",
+                },
+                status: 200,
+            }),
+            fileDownloadSessionStore: createFailingMetadataSessionStore(),
+            settings: {},
+        });
+
+        try {
+            await downloadHandler({
+                outDir: outputDirectoryPath,
+                url: "https://example.com/files/report.txt",
+            }, contextHandle.context);
+
+            const downloadedFilePath = join(outputDirectoryPath, "report.txt");
+
+            expect(contextHandle.stdout.read()).toBe(
+                readFileDownloadSuccessOutput(downloadedFilePath),
+            );
+            await expect(Bun.file(downloadedFilePath).text()).resolves.toBe("hello");
+        }
+        finally {
+            await rm(root, { force: true, recursive: true });
+        }
+    });
+
+    test("downloads the same URL concurrently into unique final files", async () => {
+        const root = await createTemporaryDirectory("download-command-concurrent");
+        const outputDirectoryPath = join(root, "downloads");
+        const sessionDirectoryPath = join(root, "sessions");
+        let activeRequests = 0;
+        let maxActiveRequests = 0;
+
+        try {
+            const runDownload = async () => {
+                const sessionStore = new SidecarFileDownloadSessionStore(sessionDirectoryPath);
+                const contextHandle = createDownloadContext({
+                    cwd: root,
+                    fetcher: async () => {
+                        activeRequests += 1;
+                        maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+                        await Bun.sleep(20);
+                        activeRequests -= 1;
+
+                        return new Response("payload", {
+                            headers: {
+                                "Content-Disposition": "attachment; filename=\"same.txt\"",
+                                "Content-Length": "7",
+                                "Content-Type": "text/plain",
+                            },
+                            status: 200,
+                        });
+                    },
+                    fileDownloadSessionStore: sessionStore,
+                    settings: {},
+                });
+
+                try {
+                    await downloadHandler({
+                        outDir: outputDirectoryPath,
+                        url: "https://example.com/files/same.txt",
+                    }, contextHandle.context);
+                }
+                finally {
+                    sessionStore.close();
+                }
+            };
+
+            const downloads: Promise<void>[] = [];
+
+            for (let index = 0; index < 20; index += 1) {
+                downloads.push(runDownload());
+            }
+
+            await Promise.all(downloads);
+
+            const outputEntries = (await readdir(outputDirectoryPath)).sort();
+
+            expect(maxActiveRequests).toBeGreaterThan(1);
+            expect(outputEntries).toHaveLength(20);
+            expect(outputEntries.every(entry => !entry.endsWith(".oodownload"))).toBeTrue();
+            expect(outputEntries.every(entry => !entry.endsWith(".lock"))).toBeTrue();
+            await Promise.all(outputEntries.map(async (entry) => {
+                await expect(Bun.file(join(outputDirectoryPath, entry)).text())
+                    .resolves
+                    .toBe("payload");
+            }));
+        }
+        finally {
+            await rm(root, { force: true, recursive: true });
+        }
+    });
 });
+
+function createFailingMetadataSessionStore(): CliExecutionContext["fileDownloadSessionStore"] {
+    return {
+        close() {},
+        deleteDownloadSession() {
+            return Promise.reject(new Error("delete failed"));
+        },
+        deleteDownloadSessionsUpdatedBefore() {
+            return Promise.reject(new Error("cleanup failed"));
+        },
+        findDownloadSession() {
+            return Promise.resolve(undefined);
+        },
+        findDownloadSessions() {
+            return Promise.resolve([]);
+        },
+        getFilePath() {
+            return "";
+        },
+        saveDownloadSession() {
+            return Promise.reject(new Error("save failed"));
+        },
+    };
+}
 
 function createDownloadContext(options: {
     cwd: string;

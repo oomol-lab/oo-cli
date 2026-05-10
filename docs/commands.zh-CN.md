@@ -750,10 +750,12 @@ skills。
 - 说明：当自动推断命中已知复合扩展名（例如 `.tar.gz`、`.pkg.tar.zst`）
   时，CLI 会将其视为一个完整扩展名。
 - 说明：下载过程会先在目标目录写入临时文件，只有传输完成后才会落成最终文件。
+- 说明：每个进行中的下载都会独占一个 `.oodownload` 临时文件；同一 URL 和同一
+  输出目录的并发下载不会互相 append 对方的 partial 文件。
 - 说明：如果下载在中途停止，重新执行同一条命令且输出目录不变时，CLI 会优先尝试
   使用 HTTP Range 续传；如果服务端无法安全续传，则会从 `0` 字节重新下载。
-- 说明：`oo file download` 启动时会丢弃超过 14 天未更新的续传 session，因此过旧的
-  `.oodownload` 临时文件将不会再被自动续传。
+- 说明：续传 metadata 是 best-effort；如果本地 metadata 无法读写，当前下载仍可
+  完成，但后续可能无法续传。
 - 说明：如果最终目标路径已存在，CLI 不会覆盖它，而是会在完整扩展名前追加
   `_1`、`_2` 等序号。
 - 说明：`oo file download` 不支持 `--format=json` 或 `--json`。
@@ -784,11 +786,12 @@ skills。
 
 ### `oo file cleanup`
 
-删除本地 sqlite 中已过期的上传记录。
+删除已过期上传记录和陈旧下载续传 session。
 
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
 - 选项：`--json` 是 `--format=json` 的别名。
-- 说明：只会删除满足 `expiresAt <= now` 的本地记录。
+- 说明：会删除满足 `expiresAt <= now` 的本地上传记录。
+- 说明：超过 14 天且未被活跃下载进程占用的下载续传 session 会被删除。
 - 说明：JSON 输出结构为 `{ "deletedCount": number }`。
 
 ## Package 检索

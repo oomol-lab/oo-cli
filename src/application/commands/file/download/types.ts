@@ -1,9 +1,11 @@
 import type { FileDownloadSessionRecord } from "../../../contracts/file-download-session-store.ts";
 import type { ResolvedDownloadFileName } from "../file-name-utils.ts";
+import type { DownloadTempLockHandle } from "./lock.ts";
 
 export interface ExistingDownloadSession {
     localBytes: number;
     session: FileDownloadSessionRecord;
+    tempLock: DownloadTempLockHandle;
     tempFilePath: string;
 }
 
@@ -14,6 +16,7 @@ export interface WriteDownloadPlan {
     resolvedFileName: ResolvedDownloadFileName;
     response: Response;
     session: FileDownloadSessionRecord;
+    tempLock: DownloadTempLockHandle;
     tempFilePath: string;
     totalBytes?: number;
 }
@@ -22,6 +25,7 @@ export interface FinalizeDownloadPlan {
     kind: "finalize-existing";
     resolvedFileName: ResolvedDownloadFileName;
     session: FileDownloadSessionRecord;
+    tempLock: DownloadTempLockHandle;
     tempFilePath: string;
 }
 

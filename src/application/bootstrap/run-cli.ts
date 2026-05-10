@@ -14,6 +14,7 @@ import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 import type { LogCategory } from "../logging/log-categories.ts";
 import type { AppSettings } from "../schemas/settings.ts";
+import { rm } from "node:fs/promises";
 import process from "node:process";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { SqliteCacheStore } from "../../adapters/cache/sqlite-cache.ts";
@@ -22,7 +23,7 @@ import { StaticCompletionRenderer } from "../../adapters/completion/static-compl
 import { createCliLogger } from "../../adapters/logging/create-cli-logger.ts";
 import { FileAuthStore } from "../../adapters/store/file-auth-store.ts";
 import { FileSettingsStore } from "../../adapters/store/file-settings-store.ts";
-import { SqliteFileDownloadSessionStore } from "../../adapters/store/sqlite-file-download-session-store.ts";
+import { SidecarFileDownloadSessionStore } from "../../adapters/store/sidecar-file-download-session-store.ts";
 import { SqliteFileUploadStore } from "../../adapters/store/sqlite-file-upload-store.ts";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import {
@@ -40,7 +41,7 @@ import {
 } from "../config/build-info.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { logCategory } from "../logging/log-categories.ts";
-import { withCategory, withErrorKey } from "../logging/log-fields.ts";
+import { withCategory, withErrorKey, withStorePath } from "../logging/log-fields.ts";
 import { initializeCurrentVersionProcessLock } from "../self-update/core.ts";
 import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
 import {
@@ -200,7 +201,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             return exitCode;
         }
 
-        const initializedStores = initializeCliStores(
+        const initializedStores = await initializeCliStores(
             invocation,
             logger,
             storePaths,
@@ -369,11 +370,16 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     return exitCode;
 }
 
-function initializeCliStores(
+async function initializeCliStores(
     invocation: CliInvocation,
     logger: Logger,
     storePaths: ReturnType<typeof resolveStorePaths>,
-): InitializedCliStores {
+): Promise<InitializedCliStores> {
+    await deleteLegacyDownloadSessionFiles(
+        storePaths.legacyDownloadSessionsFilePath,
+        logger,
+    );
+
     return {
         authStore: invocation.authStore
             ?? new FileAuthStore({
@@ -383,9 +389,9 @@ function initializeCliStores(
         cacheStore: invocation.cacheStore
             ?? new SqliteCacheStore(storePaths.cacheFilePath, logger),
         fileDownloadSessionStore: invocation.fileDownloadSessionStore
-            ?? new SqliteFileDownloadSessionStore(
-                storePaths.downloadSessionsFilePath,
-                logger,
+            ?? new SidecarFileDownloadSessionStore(
+                storePaths.downloadSessionsDirectoryPath,
+                { logger },
             ),
         fileUploadStore: invocation.fileUploadStore
             ?? new SqliteFileUploadStore(
@@ -398,6 +404,28 @@ function initializeCliStores(
                 logger,
             }),
     };
+}
+
+async function deleteLegacyDownloadSessionFiles(
+    filePath: string,
+    logger: Logger,
+): Promise<void> {
+    try {
+        await Promise.all([
+            rm(filePath, { force: true }),
+            rm(`${filePath}-shm`, { force: true }),
+            rm(`${filePath}-wal`, { force: true }),
+        ]);
+    }
+    catch (error) {
+        logger.debug(
+            {
+                err: error,
+                ...withStorePath(filePath),
+            },
+            "Legacy sqlite file download resume sessions cleanup failed.",
+        );
+    }
 }
 
 function createCliExecutionContext(

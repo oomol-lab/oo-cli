@@ -14,12 +14,13 @@ import {
     loadExistingDownloadSession,
     parseContentRange,
     readResolvedFileName,
+    saveDownloadSessionBestEffort,
     updateDownloadSessionFromResumeResponse,
 } from "./session.ts";
 
 type DownloadPlanContext = Pick<
     CliExecutionContext,
-    "fetcher" | "fileDownloadSessionStore" | "logger" | "translator"
+    "execPath" | "fetcher" | "fileDownloadSessionStore" | "logger" | "translator"
 >;
 
 export async function resolveDownloadPlan(
@@ -29,7 +30,7 @@ export async function resolveDownloadPlan(
 ): Promise<DownloadPlan> {
     const existingSession = await loadExistingDownloadSession(
         sessionKey,
-        context.fileDownloadSessionStore,
+        context,
     );
 
     if (existingSession === undefined) {
@@ -87,7 +88,11 @@ async function createFreshDownloadPlan(
         requestUrl,
         sessionKey,
         response,
-        context.fileDownloadSessionStore,
+        {
+            execPath: context.execPath,
+            logger: context.logger,
+            sessionStore: context.fileDownloadSessionStore,
+        },
         reservedTempFileNames,
     );
 }
@@ -99,17 +104,18 @@ function createFinalizeExistingPlan(
         kind: "finalize-existing",
         resolvedFileName: readResolvedFileName(existingSession.session),
         session: existingSession.session,
+        tempLock: existingSession.tempLock,
         tempFilePath: existingSession.tempFilePath,
     };
 }
 
-function resolvePartialContentResumePlan(
+async function resolvePartialContentResumePlan(
     requestUrl: URL,
     sessionKey: FileDownloadSessionKey,
     existingSession: ExistingDownloadSession,
     response: Response,
     context: DownloadPlanContext,
-): DownloadPlan | Promise<DownloadPlan> {
+): Promise<DownloadPlan> {
     const contentRange = parseContentRange(
         response.headers.get("Content-Range"),
     );
@@ -129,7 +135,11 @@ function resolvePartialContentResumePlan(
         contentRange.totalBytes,
     );
 
-    context.fileDownloadSessionStore.saveDownloadSession(resumedSession);
+    await saveDownloadSessionBestEffort(
+        resumedSession,
+        context.fileDownloadSessionStore,
+        context.logger,
+    );
 
     return {
         initialBytes: existingSession.localBytes,
@@ -138,6 +148,7 @@ function resolvePartialContentResumePlan(
         resolvedFileName: readResolvedFileName(resumedSession),
         response,
         session: resumedSession,
+        tempLock: existingSession.tempLock,
         tempFilePath: existingSession.tempFilePath,
         totalBytes: contentRange.totalBytes,
     };
@@ -168,17 +179,26 @@ async function restartDownloadPlan(
     context: DownloadPlanContext,
     response?: Response,
 ): Promise<WriteDownloadPlan> {
-    await deleteDownloadSessionArtifacts(
-        existingSession,
-        context.fileDownloadSessionStore,
-    );
+    try {
+        await deleteDownloadSessionArtifacts(
+            existingSession,
+            context.fileDownloadSessionStore,
+        );
+    }
+    finally {
+        await existingSession.tempLock.close();
+    }
 
     if (response !== undefined) {
         return createWriteDownloadPlanFromResponse(
             requestUrl,
             sessionKey,
             response,
-            context.fileDownloadSessionStore,
+            {
+                execPath: context.execPath,
+                logger: context.logger,
+                sessionStore: context.fileDownloadSessionStore,
+            },
             [existingSession.session.tempFileName],
         );
     }

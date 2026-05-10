@@ -21,7 +21,13 @@ describe("resolveStorePaths", () => {
             authFilePath: join("/tmp/xdg", APP_NAME, "auth.toml"),
             cacheFilePath: join("/tmp/xdg", APP_NAME, "data", "cache.sqlite"),
             dataDirectory: join("/tmp/xdg", APP_NAME, "data"),
-            downloadSessionsFilePath: join(
+            downloadSessionsDirectoryPath: join(
+                "/tmp/xdg",
+                APP_NAME,
+                "data",
+                "download-sessions",
+            ),
+            legacyDownloadSessionsFilePath: join(
                 "/tmp/xdg",
                 APP_NAME,
                 "data",

@@ -4,7 +4,8 @@ import { resolveHomeDirectory } from "../../application/path/home-directory.ts";
 export const defaultSettingsFileName = "settings.toml";
 export const defaultAuthFileName = "auth.toml";
 const defaultCacheFileName = "cache.sqlite";
-const defaultDownloadSessionsFileName = "download-sessions.sqlite";
+const defaultDownloadSessionsDirectoryName = "download-sessions";
+const defaultLegacyDownloadSessionsFileName = "download-sessions.sqlite";
 const defaultUploadsFileName = "uploads.sqlite";
 const defaultLogDirectoryName = "logs";
 const defaultWindowsLogDirectoryName = "Logs";
@@ -21,7 +22,8 @@ export interface StorePaths {
     authFilePath: string;
     cacheFilePath: string;
     dataDirectory: string;
-    downloadSessionsFilePath: string;
+    downloadSessionsDirectoryPath: string;
+    legacyDownloadSessionsFilePath: string;
     logDirectoryPath: string;
     rootDirectory: string;
     settingsFilePath: string;
@@ -89,7 +91,11 @@ export function resolveStorePaths(
         authFilePath: join(rootDirectory, defaultAuthFileName),
         cacheFilePath: join(dataDirectory, defaultCacheFileName),
         dataDirectory,
-        downloadSessionsFilePath: join(dataDirectory, defaultDownloadSessionsFileName),
+        downloadSessionsDirectoryPath: join(dataDirectory, defaultDownloadSessionsDirectoryName),
+        legacyDownloadSessionsFilePath: join(
+            dataDirectory,
+            defaultLegacyDownloadSessionsFileName,
+        ),
         logDirectoryPath: resolveLogDirectory(options),
         rootDirectory,
         settingsFilePath: join(rootDirectory, defaultSettingsFileName),

@@ -7,15 +7,24 @@ import { link, lstat, open, rm, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { CliUserError } from "../../../contracts/cli.ts";
+import { isFileAlreadyExistsError } from "../../../shared/fs-errors.ts";
 import { pathExists, writeChunk } from "../../../shared/fs-utils.ts";
 import { createDownloadFailedError } from "./errors.ts";
+import { resolveDownloadTempLockFilePath } from "./lock.ts";
 
 export async function deleteDownloadSessionArtifacts(
     session: ExistingDownloadSession,
     sessionStore: Pick<CliExecutionContext["fileDownloadSessionStore"], "deleteDownloadSession">,
 ): Promise<void> {
-    sessionStore.deleteDownloadSession(session.session.id);
+    try {
+        await sessionStore.deleteDownloadSession(session.session.id);
+    }
+    catch {}
+
     await rm(session.tempFilePath, {
+        force: true,
+    }).catch(() => undefined);
+    await rm(resolveDownloadTempLockFilePath(session.tempFilePath), {
         force: true,
     }).catch(() => undefined);
 }
@@ -39,12 +48,17 @@ export async function resolveAvailableFileName(
 export async function resolveTemporaryDownloadFileName(
     directoryPath: string,
     finalBaseName: string,
+    sessionId: string,
     reservedFileNames: readonly string[] = [],
 ): Promise<string> {
     const reservedFileNameSet = new Set(reservedFileNames);
+    const sessionIdSuffix = createSessionIdFileSuffix(sessionId);
 
     for (let index = 0; ; index += 1) {
-        const temporaryBaseName = appendNumericSuffix(finalBaseName, index);
+        const temporaryBaseName = appendNumericSuffix(
+            `${finalBaseName}.${sessionIdSuffix}`,
+            index,
+        );
         const temporaryFileName = `${temporaryBaseName}.oodownload`;
 
         if (reservedFileNameSet.has(temporaryFileName)) {
@@ -57,15 +71,37 @@ export async function resolveTemporaryDownloadFileName(
     }
 }
 
+export async function reserveTemporaryDownloadFile(
+    temporaryFilePath: string,
+): Promise<boolean> {
+    try {
+        const fileHandle = await open(temporaryFilePath, "wx");
+
+        await fileHandle.close();
+
+        return true;
+    }
+    catch (error) {
+        if (isFileAlreadyExistsError(error)) {
+            return false;
+        }
+
+        throw createDownloadFailedError(
+            temporaryFilePath,
+            error instanceof Error ? error.message : String(error),
+        );
+    }
+}
+
 export async function openTemporaryDownloadFile(
     temporaryFilePath: string,
     mode: WriteDownloadPlan["mode"],
     expectedExistingBytes: number,
 ): Promise<FileHandle> {
     try {
-        const fileHandle = await open(temporaryFilePath, mode === "append" ? "a" : "wx");
+        const fileHandle = await openTemporaryFileForMode(temporaryFilePath, mode);
 
-        if (mode === "append") {
+        if (mode === "append" || mode === "fresh") {
             const metadata = await fileHandle.stat();
 
             if (metadata.size !== expectedExistingBytes) {
@@ -148,23 +184,46 @@ export async function finalizeDownloadedFile(
     baseName: string,
     extension?: string,
 ): Promise<string> {
-    const resolvedFileName = await resolveAvailableFileName(
-        directoryPath,
-        baseName,
-        extension,
-    );
-    const candidateFilePath = join(directoryPath, resolvedFileName);
+    for (let index = 0; ; index += 1) {
+        const candidateBaseName = appendNumericSuffix(baseName, index);
+        const candidateFileName = buildFileName(candidateBaseName, extension);
+        const candidateFilePath = join(directoryPath, candidateFileName);
+
+        try {
+            await link(temporaryFilePath, candidateFilePath);
+            await unlink(temporaryFilePath);
+            return candidateFilePath;
+        }
+        catch (error) {
+            if (isFileAlreadyExistsError(error)) {
+                continue;
+            }
+
+            throw createDownloadFailedError(
+                candidateFilePath,
+                error instanceof Error ? error.message : String(error),
+            );
+        }
+    }
+}
+
+async function openTemporaryFileForMode(
+    temporaryFilePath: string,
+    mode: WriteDownloadPlan["mode"],
+): Promise<FileHandle> {
+    if (mode === "append") {
+        return await open(temporaryFilePath, "a");
+    }
 
     try {
-        await link(temporaryFilePath, candidateFilePath);
-        await unlink(temporaryFilePath);
-        return candidateFilePath;
+        return await open(temporaryFilePath, "wx");
     }
     catch (error) {
-        throw createDownloadFailedError(
-            candidateFilePath,
-            error instanceof Error ? error.message : String(error),
-        );
+        if (!isFileAlreadyExistsError(error)) {
+            throw error;
+        }
+
+        return await open(temporaryFilePath, "r+");
     }
 }
 
@@ -176,4 +235,10 @@ function buildFileName(baseName: string, extension?: string): string {
 
 function appendNumericSuffix(value: string, index: number): string {
     return index === 0 ? value : `${value}_${index}`;
+}
+
+function createSessionIdFileSuffix(sessionId: string): string {
+    const compactSessionId = sessionId.replaceAll("-", "");
+
+    return compactSessionId.slice(Math.max(0, compactSessionId.length - 12));
 }

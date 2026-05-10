@@ -2,6 +2,7 @@ import type {
     FileDownloadSessionRecord,
     FileDownloadSessionStore,
 } from "../../../../contracts/file-download-session-store.ts";
+import type { DownloadTempLockHandle } from "../lock.ts";
 
 export { expectCliUserError } from "../../../../../../__tests__/helpers.ts";
 
@@ -34,6 +35,22 @@ export function createDownloadSessionRecordFixture(
     };
 }
 
+export function createDownloadTempLockHandleFixture(
+    lockFilePath = "",
+): DownloadTempLockHandle {
+    return {
+        async close() {},
+        data: {
+            acquiredAt: new Date(0).toISOString(),
+            execPath: process.execPath,
+            pid: process.pid,
+            sessionId: "0195f5fe-ec30-7000-8000-000000000011",
+            tempFileName: "report.oodownload",
+        },
+        lockFilePath,
+    };
+}
+
 export function createDownloadSessionStoreSpy(
     initialSession?: FileDownloadSessionRecord,
 ): DownloadSessionStoreSpy {
@@ -55,14 +72,17 @@ export function createDownloadSessionStoreSpy(
                     currentSession = undefined;
                 }
 
-                return true;
+                return Promise.resolve(true);
             },
             deleteDownloadSessionsUpdatedBefore(cutoffMs) {
                 deletedSessionCutoffs.push(cutoffMs);
-                return 0;
+                return Promise.resolve(0);
             },
             findDownloadSession() {
-                return currentSession;
+                return Promise.resolve(currentSession);
+            },
+            findDownloadSessions() {
+                return Promise.resolve(currentSession === undefined ? [] : [currentSession]);
             },
             getFilePath() {
                 return "";
@@ -70,6 +90,7 @@ export function createDownloadSessionStoreSpy(
             saveDownloadSession(record) {
                 savedSessions.push(record);
                 currentSession = record;
+                return Promise.resolve();
             },
         },
         setCurrentSession(session) {

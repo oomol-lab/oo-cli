@@ -9,6 +9,17 @@ export interface OpenSqliteDatabaseOptions {
     busyTimeoutMs?: number;
 }
 
+const recoverableSqliteErrorCodes = new Set([
+    "SQLITE_BUSY",
+    "SQLITE_LOCKED",
+    "SQLITE_CANTOPEN",
+    "SQLITE_CORRUPT",
+    "SQLITE_IOERR",
+    "SQLITE_NOTADB",
+    "SQLITE_READONLY",
+    "SQLITE_FULL",
+]);
+
 export function openSqliteDatabase(
     filePath: string,
     options?: OpenSqliteDatabaseOptions,
@@ -45,8 +56,23 @@ export function closeSqliteDatabase(
     logMessage: string,
 ): void {
     try {
-        database.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
-        database.run("PRAGMA wal_checkpoint(TRUNCATE);");
+        try {
+            database.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
+            database.run("PRAGMA wal_checkpoint(PASSIVE);");
+        }
+        catch (error) {
+            if (!isRecoverableSqliteError(error)) {
+                throw error;
+            }
+
+            logger?.debug(
+                {
+                    error,
+                    ...withStorePath(filePath),
+                },
+                "Sqlite checkpoint skipped after a recoverable failure.",
+            );
+        }
     }
     finally {
         database.close();
@@ -57,6 +83,14 @@ export function closeSqliteDatabase(
             logMessage,
         );
     }
+}
+
+export function isRecoverableSqliteError(error: unknown): boolean {
+    if (!(error instanceof Error) || !("code" in error)) {
+        return false;
+    }
+
+    return recoverableSqliteErrorCodes.has(String(error.code));
 }
 
 export function validateQueryTimestamp(value: number, label: string): void {

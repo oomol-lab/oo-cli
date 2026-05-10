@@ -13,12 +13,8 @@ import { tmpdir } from "node:os";
 
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
 import pino from "pino";
-import {
-    downloadResumeSessionsTableName,
-} from "../src/adapters/store/sqlite-file-download-session-store.ts";
 import { resolveStorePaths } from "../src/adapters/store/store-path.ts";
 import {
     executeCli as executeCliInvocation,
@@ -30,6 +26,7 @@ import {
 import { APP_NAME } from "../src/application/config/app-config.ts";
 import { CliUserError } from "../src/application/contracts/cli.ts";
 import { defaultSettings, renderSettingsFile } from "../src/application/schemas/settings.ts";
+import { isPathMissingError } from "../src/application/shared/fs-errors.ts";
 import { createTerminalColors } from "../src/application/terminal-colors.ts";
 
 export interface TextBuffer {
@@ -154,11 +151,12 @@ export function createNoopFileUploadStore(): FileUploadRecordStore {
 export function createNoopFileDownloadSessionStore(): FileDownloadSessionStore {
     return {
         close() {},
-        deleteDownloadSession: () => false,
-        deleteDownloadSessionsUpdatedBefore: () => 0,
-        findDownloadSession: () => undefined,
+        deleteDownloadSession: () => Promise.resolve(false),
+        deleteDownloadSessionsUpdatedBefore: () => Promise.resolve(0),
+        findDownloadSession: () => Promise.resolve(undefined),
+        findDownloadSessions: () => Promise.resolve([]),
         getFilePath: () => "",
-        saveDownloadSession() {},
+        saveDownloadSession: () => Promise.resolve(),
     };
 }
 
@@ -484,22 +482,20 @@ export async function readLatestLogContent(sandbox: CliSandbox): Promise<string>
     return await readFile(join(logDirectoryPath, latestLogFileName), "utf8");
 }
 
-export function countDownloadResumeSessions(downloadSessionsFilePath: string): number {
-    const database = new Database(downloadSessionsFilePath, {
-        strict: true,
-    });
-
+export async function countDownloadSidecarSessions(
+    downloadSessionsDirectoryPath: string,
+): Promise<number> {
     try {
-        const row = database.query(
-            `SELECT COUNT(*) AS count FROM ${downloadResumeSessionsTableName}`,
-        ).get() as {
-            count: number;
-        };
-
-        return row.count;
+        return (await readdir(downloadSessionsDirectoryPath))
+            .filter(fileName => fileName.endsWith(".json"))
+            .length;
     }
-    finally {
-        database.close();
+    catch (error) {
+        if (isPathMissingError(error)) {
+            return 0;
+        }
+
+        throw error;
     }
 }
 
