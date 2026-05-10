@@ -66,6 +66,21 @@ option.
 
 Alias for `oo auth logout`.
 
+## LLM
+
+### `oo llm config`
+
+Print the current account's LLM client configuration as JSON.
+
+- Authentication: requires the current OOMOL account.
+- Options: `--format=json` and `--json` are accepted for consistency with other
+  structured output commands. The command always prints JSON.
+- Output: a JSON object with:
+  - `apiKey`: the current account API key.
+  - `baseUrl`: the LLM API base URL, derived from the current account endpoint.
+  - `model`: the default model name, currently `oomol-chat`.
+- Production output uses `https://llm.oomol.com/` as `baseUrl`.
+
 ## Configuration
 
 - Notes: when the persisted settings file contains unknown keys, the CLI

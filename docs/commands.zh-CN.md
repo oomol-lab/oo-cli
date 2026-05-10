@@ -58,6 +58,21 @@
 
 `oo auth logout` 的别名。
 
+## LLM
+
+### `oo llm config`
+
+以 JSON 输出当前账号的 LLM client 配置。
+
+- 认证：要求存在当前 OOMOL 账号。
+- 选项：`--format=json` 和 `--json` 会被接受，以便与其他结构化输出命令保持一致。
+  该命令始终输出 JSON。
+- 输出：JSON 对象包含：
+  - `apiKey`：当前账号 API key。
+  - `baseUrl`：根据当前账号 endpoint 派生出的 LLM API base URL。
+  - `model`：默认模型名，当前为 `oomol-chat`。
+- 生产环境输出的 `baseUrl` 为 `https://llm.oomol.com/`。
+
 ## 配置
 
 - 说明：如果持久化 settings 文件里存在未知 key，CLI 会忽略这些 key，并在

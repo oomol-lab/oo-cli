@@ -9,6 +9,7 @@ import { configCommand } from "./config/index.ts";
 import { connectorCommand } from "./connector/index.ts";
 import { fileCommand } from "./file/index.ts";
 import { installCommand } from "./install.ts";
+import { llmCommand } from "./llm/index.ts";
 import { logCommand } from "./log/index.ts";
 import { loginCommand } from "./login.ts";
 import { logoutCommand } from "./logout.ts";
@@ -46,6 +47,7 @@ export function createCliCatalog(): CliCatalog {
             connectorCommand,
             fileCommand,
             installCommand,
+            llmCommand,
             loginCommand,
             logoutCommand,
             completionCommand,

@@ -222,6 +222,11 @@ When the workflow crosses the local/cloud file boundary, include the
 `oo file upload` and `oo file download` guidance from the Constitution in the
 generated skill.
 
+When generated skill code needs an OOMOL-hosted LLM client, instruct future
+agents to run `oo llm config --json` at runtime and use the returned `apiKey`,
+`baseUrl`, and `model`. Do not hardcode, persist, log, or print the API key,
+and do not tell future agents to read local auth files directly.
+
 Review the frontmatter `description` before finishing: user-visible outcome
 first, common request language, relevant artifacts, and user-visible services,
 models, products, or workflow names when useful. Keep caveats, execution

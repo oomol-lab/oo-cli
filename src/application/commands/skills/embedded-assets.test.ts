@@ -18,6 +18,7 @@ describe("embedded skill assets", () => {
             "SKILL.md",
             "agents/openai.yaml",
             "references/auth-and-billing.md",
+            "references/llm-client.md",
             "references/search-and-selection.md",
             "references/package-execution.md",
             "references/connector-execution.md",
@@ -27,6 +28,7 @@ describe("embedded skill assets", () => {
         expect(getBundledSkillFiles("oo", "claude").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
+            "references/llm-client.md",
             "references/search-and-selection.md",
             "references/package-execution.md",
             "references/connector-execution.md",
@@ -36,6 +38,7 @@ describe("embedded skill assets", () => {
         expect(getBundledSkillFiles("oo", "hermes").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
+            "references/llm-client.md",
             "references/search-and-selection.md",
             "references/package-execution.md",
             "references/connector-execution.md",
@@ -45,6 +48,7 @@ describe("embedded skill assets", () => {
         expect(getBundledSkillFiles("oo", "codebuddy").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
+            "references/llm-client.md",
             "references/search-and-selection.md",
             "references/package-execution.md",
             "references/connector-execution.md",
@@ -54,6 +58,7 @@ describe("embedded skill assets", () => {
         expect(getBundledSkillFiles("oo", "workbuddy").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
+            "references/llm-client.md",
             "references/search-and-selection.md",
             "references/package-execution.md",
             "references/connector-execution.md",
@@ -63,6 +68,7 @@ describe("embedded skill assets", () => {
         expect(getBundledSkillFiles("oo", "trae").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
+            "references/llm-client.md",
             "references/search-and-selection.md",
             "references/package-execution.md",
             "references/connector-execution.md",
@@ -72,6 +78,7 @@ describe("embedded skill assets", () => {
         expect(getBundledSkillFiles("oo", "trae-cn").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
+            "references/llm-client.md",
             "references/search-and-selection.md",
             "references/package-execution.md",
             "references/connector-execution.md",
@@ -81,6 +88,7 @@ describe("embedded skill assets", () => {
         expect(getBundledSkillFiles("oo", "openclaw").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
+            "references/llm-client.md",
             "references/search-and-selection.md",
             "references/package-execution.md",
             "references/connector-execution.md",
@@ -90,6 +98,7 @@ describe("embedded skill assets", () => {
         expect(getBundledSkillFiles("oo", "qoderwork").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
+            "references/llm-client.md",
             "references/search-and-selection.md",
             "references/package-execution.md",
             "references/connector-execution.md",
@@ -408,6 +417,38 @@ describe("embedded skill assets", () => {
             expect(content).toContain("reply with `1` to install or `2` to skip");
             expect(content).toContain("Treat a `1` response as explicit agreement");
             expect(content).toContain("Do not install unless the user explicitly agrees");
+        }
+    });
+
+    test("guides local code toward oo LLM client config", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFiles = getBundledSkillFiles("oo", agentName);
+            const skillFile = skillFiles.find(file => file.relativePath === "SKILL.md");
+            const llmGuide = skillFiles.find(
+                file => file.relativePath === "references/llm-client.md",
+            );
+
+            if (skillFile === undefined || llmGuide === undefined) {
+                throw new Error(`Missing ${agentName} oo LLM client guidance`);
+            }
+
+            const skillContent = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(skillFile.sourcePath).text(),
+            );
+            const llmGuideContent = normalizeMarkdownWrappingForAssertion(
+                await Bun.file(llmGuide.sourcePath).text(),
+            );
+
+            expect(skillContent).toContain("LLM client config mode");
+            expect(skillContent).toContain("local code");
+            expect(skillContent).toContain("references/llm-client.md");
+            expect(llmGuideContent).toContain("oo llm config --json");
+            expect(llmGuideContent).toContain("OpenAI-compatible");
+            expect(llmGuideContent).toContain("baseUrl");
+            expect(llmGuideContent).toContain("apiKey");
+            expect(llmGuideContent).toContain("oomol-chat");
+            expect(llmGuideContent).toContain("Do not read `auth.toml` directly");
+            expect(llmGuideContent).toContain("Do not hardcode");
         }
     });
 
@@ -780,6 +821,13 @@ describe("embedded skill assets", () => {
             expect(content).toContain("A successful");
             expect(content).toContain("file path alone is not enough");
             expect(content).toContain("local/cloud file boundary");
+            expect(content).toContain("oo llm config --json");
+            expect(content).toContain("OOMOL-hosted LLM client");
+            expect(content).toContain("returned `apiKey`");
+            expect(content).toContain("`baseUrl`");
+            expect(content).toContain("`model`");
+            expect(content).toContain("Do not hardcode");
+            expect(content).toContain("read local auth files directly");
             expect(content).not.toContain("oo-upload");
             expect(content).not.toContain("oo-download");
         }
