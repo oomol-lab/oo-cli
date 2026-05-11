@@ -7,6 +7,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { createRetryingFetcher } from "../../shared/retrying-fetcher.ts";
 import { parseEnumOption, parsePositiveIntegerOption } from "../shared/input-parsing.ts";
 import { performLoggedRequest, requestText } from "../shared/request.ts";
 
@@ -59,6 +60,8 @@ const finalFileUploadResponseSchema = z.object({
         url: z.string().min(1),
     }).passthrough(),
 }).passthrough();
+
+const fileUploadPartExtraRetries = 1;
 
 export function parseFileFormat(
     value: string | undefined,
@@ -284,9 +287,18 @@ async function uploadFilePart(
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<void> {
     const requestUrl = new URL(presignedUrl);
+    const uploadPartFetcher = createRetryingFetcher({
+        fetcher: context.fetcher,
+        logger: context.logger,
+        maxRetries: fileUploadPartExtraRetries,
+    });
 
     await performLoggedRequest({
-        context,
+        context: {
+            fetcher: uploadPartFetcher,
+            logger: context.logger,
+            translator: context.translator,
+        },
         createRequestFailedError: status => new CliUserError(
             "errors.fileUpload.requestFailed",
             1,
