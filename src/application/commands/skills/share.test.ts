@@ -66,13 +66,19 @@ describe("skills share command", () => {
             expect(result.stdout).not.toContain("```bash");
             expect(result.stdout).not.toContain("```powershell");
             expect(result.stdout).toContain(
-                "Assume I may not have OO CLI installed yet",
+                "Assume I may already have OO CLI installed",
             );
             expect(result.stdout).toContain(
-                "Run `oo login` and sign in or create an OO account.",
+                "First check whether OO CLI is installed; install it only if it is missing.",
             );
             expect(result.stdout).toContain(
-                "Do not stop after installing OO CLI; continue through login and skill installation in the same session.",
+                "run `oo auth status` to check the OO login state; only run `oo login` if the status shows I am logged out, the active account is missing, or the API key is invalid.",
+            );
+            expect(result.stdout).toContain(
+                "oo --version",
+            );
+            expect(result.stdout).toContain(
+                "oo auth status",
             );
             expect(result.stdout).toContain(
                 "curl -fsSL https://cli.oomol.com/install.sh | bash",
@@ -82,6 +88,9 @@ describe("skills share command", () => {
             );
             expect(result.stdout).toContain(
                 "oo skills install @alice/demo-skill --skill demo-skill -y",
+            );
+            expect(result.stdout.indexOf("oo auth status")).toBeLessThan(
+                result.stdout.indexOf("oo login"),
             );
             expect(result.stdout).toEndWith("```\n");
             expect(requests.map(request => request.url)).toEqual([
@@ -142,6 +151,18 @@ describe("skills share command", () => {
             );
             expect(result.stdout).toContain(
                 "请在一个连续的设置流程中完成以下步骤。",
+            );
+            expect(result.stdout).toContain(
+                "先检查 OO CLI 是否已安装；只有缺失时才安装。",
+            );
+            expect(result.stdout).toContain(
+                "只有 `oo auth status` 显示未登录、当前账号缺失或 API key 无效时，才运行 `oo login`。",
+            );
+            expect(result.stdout).toContain(
+                "oo --version",
+            );
+            expect(result.stdout).toContain(
+                "oo auth status",
             );
             expect(result.stdout).toContain(
                 "oo skills install @alice/demo-package -y",
