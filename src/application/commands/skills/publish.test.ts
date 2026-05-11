@@ -136,6 +136,74 @@ describe("skills publish command", () => {
         }
     });
 
+    test("preserves a local skill package scope from frontmatter", async () => {
+        const { sandbox, skillDirectoryPath } = await createCliPublishSkillSandbox(
+            "scoped-skill",
+            [
+                "---",
+                "name: scoped-skill",
+                "description: Use a package with an existing scope.",
+                "metadata:",
+                "  packageName: '@bob/scoped-skill'",
+                "---",
+                "",
+            ].join("\n"),
+        );
+
+        try {
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["skills", "publish", "scoped-skill", "--visibility", "private"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/-/oomol/package-info/")) {
+                            return new Response("not found", { status: 404 });
+                        }
+
+                        return new Response("", { status: 201 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                "Published skill scoped-skill as private package @bob/scoped-skill@0.0.1. View it at https://hub.oomol.com/package/@bob/scoped-skill.\n",
+            );
+            expect(requests.map(request => `${request.method} ${request.url}`)).toEqual([
+                "GET https://registry.oomol.com/-/oomol/package-info/%40bob%2Fscoped-skill/latest?lang=en",
+                "PUT https://registry.oomol.com/@bob%2fscoped-skill",
+            ]);
+
+            const parsed = parseSkillMarkdownMatter(
+                await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
+            );
+
+            expect(parsed.data.metadata).toMatchObject({
+                packageName: "@bob/scoped-skill",
+                version: "0.0.1",
+            });
+
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    package_name: "@bob/scoped-skill",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("fails before publishing when a local agent copy has drifted", async () => {
         const skillId = "drifted-skill";
         const { sandbox, skillDirectoryPath } = await createCliPublishSkillSandbox(
@@ -445,25 +513,20 @@ describe("skills publish command", () => {
         }
     });
 
-    test("confirms before publishing a registry skill from a different package", async () => {
-        const configRootDirectoryPath = await createTemporaryDirectory("publish-registry-mismatch-config");
+    test("publishes a registry skill using its installed package name", async () => {
+        const configRootDirectoryPath = await createTemporaryDirectory("publish-registry-package-config");
         const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
-        const stdin = createInteractiveInput();
-        const promptOutput = createTextBuffer();
-        const context = createPublishContext(settingsFilePath, {
-            stdin,
-            stdout: promptOutput.writer,
-        });
+        const context = createPublishContext(settingsFilePath);
         const skillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
             settingsFilePath,
-            "forked-skill",
+            "registry-owned-skill",
         );
 
         cleanup.track(configRootDirectoryPath);
 
         await writeSkillFile(skillDirectoryPath, [
             "---",
-            "name: forked-skill",
+            "name: registry-owned-skill",
             "description: Use a registry package workflow.",
             "---",
             "",
@@ -471,15 +534,13 @@ describe("skills publish command", () => {
         await Bun.write(
             resolveManagedSkillMetadataFilePath(skillDirectoryPath),
             renderSkillMetadataJson({
-                packageName: "@bob/forked-skill",
+                packageName: "@bob/registry-owned-skill",
                 version: "0.1.0",
             }),
         );
 
-        stdin.feed("yes\n");
-
         const result = await publishSkillPackage(
-            "forked-skill",
+            "registry-owned-skill",
             context,
             "private",
             {},
@@ -493,13 +554,106 @@ describe("skills publish command", () => {
             },
         );
 
-        expect(result.packageName).toBe("@alice/forked-skill");
-        expect(promptOutput.read()).toBe(
-            "Skill forked-skill is installed from @bob/forked-skill. Publish it as @alice/forked-skill? [y/N] ",
-        );
+        expect(result.packageName).toBe("@bob/registry-owned-skill");
     });
 
-    test("publishes a registry skill from a different package when --yes is passed", async () => {
+    test("falls back when registry skill metadata has an invalid scoped package name", async () => {
+        const invalidPackageNames = [
+            "@bob/registry-owned-skill/extra",
+            "@/registry-owned-skill",
+            "@bob/",
+        ];
+
+        for (const invalidPackageName of invalidPackageNames) {
+            const configRootDirectoryPath = await createTemporaryDirectory("publish-invalid-registry-package-config");
+            const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
+            const context = createPublishContext(settingsFilePath);
+            const skillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+                settingsFilePath,
+                "registry-owned-skill",
+            );
+
+            cleanup.track(configRootDirectoryPath);
+
+            await writeSkillFile(skillDirectoryPath, [
+                "---",
+                "name: registry-owned-skill",
+                "description: Use a registry package workflow.",
+                "---",
+                "",
+            ].join("\n"));
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: invalidPackageName,
+                    version: "0.1.0",
+                }),
+            );
+
+            const result = await publishSkillPackage(
+                "registry-owned-skill",
+                context,
+                "private",
+                { yes: true },
+                {
+                    checkAuthoringEnvironment: () => Promise.resolve({
+                        canonicalRootDirectoryPath: "",
+                        hostCount: 1,
+                    }),
+                    publishConvertedSkillPackage: () => Promise.resolve(),
+                    resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
+                },
+            );
+
+            expect(result.packageName).toBe("@alice/registry-owned-skill");
+        }
+    });
+
+    test("ignores registry skill share ids when preserving scoped package names", async () => {
+        const configRootDirectoryPath = await createTemporaryDirectory("publish-registry-share-config");
+        const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
+        const context = createPublishContext(settingsFilePath);
+        const skillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            settingsFilePath,
+            "shared-registry-skill",
+        );
+
+        cleanup.track(configRootDirectoryPath);
+
+        await writeSkillFile(skillDirectoryPath, [
+            "---",
+            "name: shared-registry-skill",
+            "description: Use a registry package workflow.",
+            "---",
+            "",
+        ].join("\n"));
+        await Bun.write(
+            resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+            renderSkillMetadataJson({
+                packageName: "@bob/shared-registry-skill#share-1",
+                version: "0.1.0",
+            }),
+        );
+
+        const result = await publishSkillPackage(
+            "shared-registry-skill",
+            context,
+            "private",
+            {},
+            {
+                checkAuthoringEnvironment: () => Promise.resolve({
+                    canonicalRootDirectoryPath: "",
+                    hostCount: 1,
+                }),
+                publishConvertedSkillPackage: () => Promise.resolve(),
+                resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
+            },
+        );
+
+        expect(result.packageName).toBe("@bob/shared-registry-skill");
+    });
+
+    test("publishes a registry skill using its installed package name when --yes is passed", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const storePaths = resolveStorePaths({
@@ -548,7 +702,7 @@ describe("skills publish command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                "Published skill forked-skill as private package @alice/forked-skill@0.0.1. View it at https://hub.oomol.com/package/@alice/forked-skill.\n",
+                "Published skill forked-skill as private package @bob/forked-skill@0.0.1. View it at https://hub.oomol.com/package/@bob/forked-skill.\n",
             );
         }
         finally {
@@ -616,7 +770,7 @@ describe("skills publish command", () => {
                 `Adopted skill agent-skill into local canonical storage at ${localSkillDirectoryPath}.\n`,
             );
             expect(result.stdout).toContain(
-                "Published skill agent-skill as private package @alice/agent-skill@0.3.0.",
+                "Published skill agent-skill as private package @bob/agent-skill@0.3.0.",
             );
             expect(await readFile(resolveManagedSkillMetadataFilePath(localSkillDirectoryPath), "utf8")).toBe(
                 renderSkillMetadataJson(createLocalSkillMetadata()),
@@ -628,7 +782,7 @@ describe("skills publish command", () => {
 
             expect(parsed.data.metadata).toMatchObject({
                 icon: ":sparkles:",
-                packageName: "@alice/agent-skill",
+                packageName: "@bob/agent-skill",
                 version: "0.3.0",
             });
             expect((await lstat(agentSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
@@ -642,7 +796,7 @@ describe("skills publish command", () => {
                 properties: {
                     adopted: true,
                     command_full: "skills.publish",
-                    package_name: "@alice/agent-skill",
+                    package_name: "@bob/agent-skill",
                     skill_id: "agent-skill",
                     source_kind: "adoptable",
                     visibility: "private",

@@ -511,8 +511,10 @@ skills。
   打印 warning 说明 Agent 侧变更已被忽略。
 - 来源解析：内置 skill 会被拒绝发布，因为它们由 oo CLI 版本管理。
 - 来源解析：可以发布 `<config-dir>/skills/registry/<skill-id>` 下的 registry
-  skill。如果已安装元数据中的包名和目标包名不同，命令会使用交互式 `[y/N]`
-  确认，再将它发布到当前账号 scope 下；提供 `-y, --yes` 时会跳过该确认。
+  skill。如果已安装元数据中包含带 scope 的包名，命令会使用该包名作为目标。
+  如果没有可用的带 scope 包名，且已安装元数据中的包名和目标包名不同，命令会使用
+  交互式 `[y/N]` 确认，再将它发布到当前账号 scope 下；提供 `-y, --yes` 时会跳过
+  该确认。
 - 来源解析：如果传入了 `--agent` 且前面的来源都没有匹配，命令会检查该 Agent 的
   `<agent-home>/skills/<skill-id>` 目录。匹配到的 skill 会先被接管到本地 canonical
   存储，再继续发布。
@@ -523,7 +525,8 @@ skills。
   所有权 metadata，并把本地 canonical 副本发布到受支持的 Agent skill 目录。接管
   需要交互式 `[y/N]` 确认；提供 `-y, --yes` 时会跳过该确认。被接管的源目录不能
   包含符号链接。
-- 认证：命令要求存在当前 OOMOL 账号。包名始终为
+- 认证：命令要求存在当前 OOMOL 账号。如果来源已有带 scope 的
+  `metadata.packageName`，会保留该包名；否则包名为
   `@<小写 account.name>/<小写 skill-id>`。
 - 校验：源目录必须包含 `SKILL.md`，其 frontmatter `name` 必须匹配
   `<skill-id>`，并且 `description` 必须是非空字符串。可选的

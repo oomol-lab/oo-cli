@@ -50,6 +50,7 @@ export interface LocalSkillPackageMetadata {
     description: string;
     displayName: string;
     icon?: string;
+    packageName?: string;
     requestedVersion: string;
     skillId: string;
 }
@@ -244,7 +245,7 @@ export async function readLocalSkillPackageMetadata(
         "metadata.icon",
         skillFilePath,
     );
-    readOptionalFrontmatterString(
+    const packageName = readOptionalFrontmatterString(
         metadata?.packageName,
         "metadata.packageName",
         skillFilePath,
@@ -267,6 +268,7 @@ export async function readLocalSkillPackageMetadata(
         description,
         displayName: title ?? renderSkillTitle(options.skillId),
         icon,
+        packageName,
         requestedVersion,
         skillId: options.skillId,
     };

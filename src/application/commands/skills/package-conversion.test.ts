@@ -268,6 +268,33 @@ describe("skill package conversion", () => {
         ).not.toContain("icon:");
     });
 
+    test("reads frontmatter package metadata", async () => {
+        const sourceDirectoryPath = await createTemporaryDirectory("frontmatter-package-skill");
+
+        cleanup.track(sourceDirectoryPath);
+
+        await writeSkillFile(sourceDirectoryPath, [
+            "---",
+            "name: frontmatter-package-skill",
+            "description: Use a known package workflow.",
+            "metadata:",
+            "  packageName: '@bob/frontmatter-package-skill'",
+            "  version: '1.2.3'",
+            "---",
+            "",
+        ].join("\n"));
+
+        const metadata = await readLocalSkillPackageMetadata({
+            skillDirectoryPath: sourceDirectoryPath,
+            skillId: "frontmatter-package-skill",
+        });
+
+        expect(metadata).toMatchObject({
+            packageName: "@bob/frontmatter-package-skill",
+            requestedVersion: "1.2.3",
+        });
+    });
+
     test("excludes oo metadata even when a skill gitignore does not exclude it", async () => {
         const sourceDirectoryPath = await createTemporaryDirectory("metadata-skill");
         const packageRootDirectoryPath = await createTemporaryDirectory("metadata-package");

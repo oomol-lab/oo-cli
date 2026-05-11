@@ -593,10 +593,12 @@ Convert one skill into an OOMOL package and run the publish step.
 - Source resolution: bundled skills are rejected because they are managed by the
   oo CLI release.
 - Source resolution: registry skills under
-  `<config-dir>/skills/registry/<skill-id>` can be published. If their installed
-  metadata package name differs from the target package name, an interactive
-  `[y/N]` confirmation is required before publishing them under the current
-  account scope unless `-y, --yes` is provided.
+  `<config-dir>/skills/registry/<skill-id>` can be published. When the installed
+  metadata contains a scoped package name, that package name is used as the
+  target. If no scoped package name is available and the installed metadata
+  package name differs from the target package name, an interactive `[y/N]`
+  confirmation is required before publishing under the current account scope
+  unless `-y, --yes` is provided.
 - Source resolution: when `--agent` is provided and no managed source matched,
   the command checks that agent's `<agent-home>/skills/<skill-id>` directory.
   A matching skill is adopted into local canonical storage before publishing.
@@ -609,8 +611,9 @@ Convert one skill into an OOMOL package and run the publish step.
   canonical copy to supported agent skill directories. Adoption requires an
   interactive `[y/N]` confirmation unless `-y, --yes` is provided. Adopted
   source directories must not contain symbolic links.
-- Authentication: the command requires the current OOMOL account. The package
-  name is always `@<lowercase-account.name>/<lowercase-skill-id>`.
+- Authentication: the command requires the current OOMOL account. If the source
+  has an existing scoped `metadata.packageName`, that package name is preserved;
+  otherwise the package name is `@<lowercase-account.name>/<lowercase-skill-id>`.
 - Validation: the source directory must contain `SKILL.md` with frontmatter
   `name` matching `<skill-id>` and a non-empty string `description`.
   Optional `metadata.title`, `metadata.icon`, `metadata.packageName`, and
