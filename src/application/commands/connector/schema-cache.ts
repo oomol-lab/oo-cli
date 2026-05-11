@@ -254,23 +254,7 @@ function readConnectorAsyncLifecycleRunOutputSchema(
         return pollOutputSchema;
     }
 
-    if (pollOutputSchema === null || typeof pollOutputSchema !== "object") {
-        throw new CliUserError("errors.connectorSchema.asyncResultSchemaMissing", 1, {
-            field: lifecycle.resultField,
-        });
-    }
-
-    const properties = (pollOutputSchema as {
-        properties?: unknown;
-    }).properties;
-
-    if (properties === null || typeof properties !== "object") {
-        throw new CliUserError("errors.connectorSchema.asyncResultSchemaMissing", 1, {
-            field: lifecycle.resultField,
-        });
-    }
-
-    const resultSchema = (properties as Record<string, unknown>)[lifecycle.resultField];
+    const resultSchema = findJsonSchemaProperty(pollOutputSchema, lifecycle.resultField);
 
     if (resultSchema === undefined) {
         throw new CliUserError("errors.connectorSchema.asyncResultSchemaMissing", 1, {
@@ -279,6 +263,48 @@ function readConnectorAsyncLifecycleRunOutputSchema(
     }
 
     return resultSchema;
+}
+
+function findJsonSchemaProperty(schema: unknown, propertyName: string): unknown {
+    if (schema === null || typeof schema !== "object") {
+        return undefined;
+    }
+
+    const directProperty = readJsonSchemaProperty(schema, propertyName);
+    if (directProperty !== undefined) {
+        return directProperty;
+    }
+
+    const compositeSchemas = readJsonSchemaCompositeSchemas(schema);
+    for (const compositeSchema of compositeSchemas) {
+        const compositeProperty = findJsonSchemaProperty(compositeSchema, propertyName);
+        if (compositeProperty !== undefined) {
+            return compositeProperty;
+        }
+    }
+
+    return undefined;
+}
+
+function readJsonSchemaProperty(schema: object, propertyName: string): unknown {
+    const properties = (schema as { properties?: unknown }).properties;
+    if (properties === null || typeof properties !== "object") {
+        return undefined;
+    }
+
+    return (properties as Record<string, unknown>)[propertyName];
+}
+
+function readJsonSchemaCompositeSchemas(schema: object): readonly unknown[] {
+    const { anyOf, oneOf } = schema as {
+        anyOf?: unknown;
+        oneOf?: unknown;
+    };
+
+    return [
+        ...(Array.isArray(anyOf) ? anyOf : []),
+        ...(Array.isArray(oneOf) ? oneOf : []),
+    ];
 }
 
 function tryReadConnectorActionSchemaCache(
