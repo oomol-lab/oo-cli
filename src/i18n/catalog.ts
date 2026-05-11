@@ -491,7 +491,7 @@ export const enMessages = {
     "errors.fileUpload.requestFailed":
         "The file upload request returned HTTP {status}.",
     "errors.fileUpload.tooLarge":
-        "The file at {path} is {size} bytes, which exceeds the 512 MiB limit of {max} bytes.",
+        "The file at {path} is {size} bytes, which exceeds the 500 MiB limit of {max} bytes.",
     "errors.lang.invalidFlag":
         "Invalid value for --lang: {value}. Use en or zh.",
     "errors.search.invalidResponse":
@@ -1405,7 +1405,7 @@ export const zhMessages = {
     "errors.fileUpload.requestFailed":
         "文件上传请求返回了 HTTP {status}。",
     "errors.fileUpload.tooLarge":
-        "文件 {path} 的大小为 {size} 字节，超出了 512 MiB 上限 {max} 字节。",
+        "文件 {path} 的大小为 {size} 字节，超出了 500 MiB 上限 {max} 字节。",
     "errors.lang.invalidFlag":
         "--lang 的值无效：{value}。请使用 en 或 zh。",
     "errors.search.invalidResponse":

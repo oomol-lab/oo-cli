@@ -36,8 +36,8 @@ Facts:
 - `--json` is an alias for `--format=json`.
 - Successful JSON output includes `downloadUrl`, `expiresAt`, `fileName`,
   `fileSize`, `id`, `status`, and `uploadedAt`.
-- The uploaded file expires after one day.
-- Files larger than `512 MiB` are rejected.
+- The uploaded file expires after seven days.
+- Files larger than `500 MiB` are rejected.
 - Local `file://...` URIs are local filesystem references, not cloud-accessible
   artifacts.
 

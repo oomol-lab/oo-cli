@@ -14,7 +14,8 @@ import { performLoggedRequest, requestText } from "../shared/request.ts";
 export { createFormatInputError } from "../shared/input-parsing.ts";
 
 export const fileFormatValues = ["json"] as const;
-export const maxFileUploadSizeBytes = 512 * 1024 * 1024;
+export const fileUploadExpiresInMs = ((7 * 24 * 60 * 60) - 1) * 1000;
+export const maxFileUploadSizeBytes = 500 * 1024 * 1024;
 
 export type FileFormat = (typeof fileFormatValues)[number];
 
@@ -33,31 +34,49 @@ interface SliceableBlob {
     slice: (start?: number, end?: number) => Blob;
 }
 
-interface InitFileUploadResponse {
-    uploadId: string;
-    presignedUrls: Record<string, string>;
+interface MultipartUploadSession {
+    key: string;
     partSize: number;
     totalParts: number;
+    uploadID: string;
 }
 
-interface FinalFileUploadResponse {
-    expiresAtMs: number;
-    url: string;
+interface PresignedPartUrl {
+    partNumber: number;
+    uploadURL: string;
 }
 
-const initFileUploadResponseSchema = z.object({
+interface UploadedPart {
+    etag: string;
+    partNumber: number;
+}
+
+interface CompleteFileUploadResponse {
+    downloadUrl: string;
+}
+
+const multipartUploadResponseSchema = z.object({
+    success: z.literal(true),
     data: z.object({
-        part_size: z.number().int().positive(),
-        presigned_urls: z.record(z.string(), z.string().min(1)),
-        total_parts: z.number().int().positive(),
-        upload_id: z.string().min(1),
+        key: z.string().min(1),
+        partSize: z.number().int().positive(),
+        totalParts: z.number().int().positive(),
+        uploadID: z.string().min(1),
     }).passthrough(),
 }).passthrough();
 
-const finalFileUploadResponseSchema = z.object({
+const presignedPartUrlsResponseSchema = z.object({
+    success: z.literal(true),
+    data: z.array(z.object({
+        partNumber: z.number().int().positive(),
+        uploadURL: z.string().min(1),
+    }).passthrough()),
+}).passthrough();
+
+const completeFileUploadResponseSchema = z.object({
+    success: z.literal(true),
     data: z.object({
-        expires_at: z.string().min(1),
-        url: z.string().min(1),
+        downloadURL: z.string().min(1),
     }).passthrough(),
 }).passthrough();
 
@@ -108,39 +127,76 @@ export function serializeFileUploadRecord(
     };
 }
 
-export async function initFileUpload(
+export async function createMultipartFileUpload(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
     fileName: string,
     fileSize: number,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<InitFileUploadResponse> {
-    const [baseName, extension] = splitFileNameAndExtension(fileName);
-    const requestUrl = createFileUploadRequestUrl(account.endpoint, "init");
+): Promise<MultipartUploadSession> {
+    const requestUrl = createFileUploadRequestUrl(
+        account.endpoint,
+        "create-multipart-upload",
+    );
     const rawResponse = await requestFileUpload(
         requestUrl,
         account.apiKey,
         context,
         {
             body: JSON.stringify({
-                file_extension: extension,
-                file_name: baseName,
-                size: fileSize,
+                fileSize,
+                filename: fileName,
             }),
             method: "POST",
         },
     );
 
     try {
-        const response = initFileUploadResponseSchema.parse(
+        const response = multipartUploadResponseSchema.parse(
             JSON.parse(rawResponse) as unknown,
         );
 
         return {
-            partSize: response.data.part_size,
-            presignedUrls: response.data.presigned_urls,
-            totalParts: response.data.total_parts,
-            uploadId: response.data.upload_id,
+            key: response.data.key,
+            partSize: response.data.partSize,
+            totalParts: response.data.totalParts,
+            uploadID: response.data.uploadID,
         };
+    }
+    catch {
+        throw new CliUserError("errors.fileUpload.invalidResponse", 1);
+    }
+}
+
+export async function generatePresignedFileUploadPartUrls(
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    session: MultipartUploadSession,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<PresignedPartUrl[]> {
+    const requestUrl = createFileUploadRequestUrl(
+        account.endpoint,
+        "generate-presigned-urls",
+    );
+    const rawResponse = await requestFileUpload(
+        requestUrl,
+        account.apiKey,
+        context,
+        {
+            body: JSON.stringify({
+                key: session.key,
+                partNumbers: Array.from(
+                    { length: session.totalParts },
+                    (_, index) => index + 1,
+                ),
+                uploadID: session.uploadID,
+            }),
+            method: "POST",
+        },
+    );
+
+    try {
+        return presignedPartUrlsResponseSchema.parse(
+            JSON.parse(rawResponse) as unknown,
+        ).data;
     }
     catch {
         throw new CliUserError("errors.fileUpload.invalidResponse", 1);
@@ -149,11 +205,17 @@ export async function initFileUpload(
 
 export async function uploadFileParts(
     file: SliceableBlob,
-    session: InitFileUploadResponse,
+    session: MultipartUploadSession,
+    presignedPartUrls: readonly PresignedPartUrl[],
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<void> {
+): Promise<UploadedPart[]> {
+    const presignedUrlByPartNumber = new Map(
+        presignedPartUrls.map(part => [part.partNumber, part.uploadURL]),
+    );
+    const uploadedParts: UploadedPart[] = [];
+
     for (let partNumber = 1; partNumber <= session.totalParts; partNumber += 1) {
-        const presignedUrl = session.presignedUrls[String(partNumber)];
+        const presignedUrl = presignedUrlByPartNumber.get(partNumber);
 
         if (!presignedUrl) {
             throw new CliUserError("errors.fileUpload.invalidResponse", 1);
@@ -162,43 +224,48 @@ export async function uploadFileParts(
         const start = (partNumber - 1) * session.partSize;
         const end = Math.min(start + session.partSize, file.size);
 
-        await uploadFilePart(
+        uploadedParts.push(await uploadFilePart(
             presignedUrl,
             file.slice(start, end),
             partNumber,
             context,
-        );
+        ));
     }
+
+    return uploadedParts;
 }
 
-export async function resolveUploadedFileUrl(
+export async function completeMultipartFileUpload(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
-    uploadId: string,
+    session: MultipartUploadSession,
+    parts: readonly UploadedPart[],
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<FinalFileUploadResponse> {
+): Promise<CompleteFileUploadResponse> {
     const requestUrl = createFileUploadRequestUrl(
         account.endpoint,
-        `${encodeURIComponent(uploadId)}/url`,
+        "complete-multipart-upload",
     );
     const rawResponse = await requestFileUpload(
         requestUrl,
         account.apiKey,
         context,
+        {
+            body: JSON.stringify({
+                key: session.key,
+                parts,
+                uploadID: session.uploadID,
+            }),
+            method: "POST",
+        },
     );
 
     try {
-        const response = finalFileUploadResponseSchema.parse(
+        const response = completeFileUploadResponseSchema.parse(
             JSON.parse(rawResponse) as unknown,
         );
-        const expiresAtMs = Date.parse(response.data.expires_at);
-
-        if (!Number.isFinite(expiresAtMs)) {
-            throw new TypeError("Invalid expires_at value.");
-        }
 
         return {
-            expiresAtMs,
-            url: response.data.url,
+            downloadUrl: response.data.downloadURL,
         };
     }
     catch {
@@ -215,10 +282,10 @@ export function readFileUploadStatus(
 
 function createFileUploadRequestUrl(
     endpoint: string,
-    pathSuffix: string,
+    actionName: string,
 ): URL {
     return new URL(
-        `https://llm.${endpoint}/api/tasks/files/remote-cache/${pathSuffix}`,
+        `https://fusion-api.${endpoint}/v1/file-upload/action/${actionName}`,
     );
 }
 
@@ -285,7 +352,7 @@ async function uploadFilePart(
     partData: Blob,
     partNumber: number,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<void> {
+): Promise<UploadedPart> {
     const requestUrl = new URL(presignedUrl);
     const uploadPartFetcher = createRetryingFetcher({
         fetcher: context.fetcher,
@@ -293,12 +360,20 @@ async function uploadFilePart(
         maxRetries: fileUploadPartExtraRetries,
     });
 
+<<<<<<< ours
+    const response = await performLoggedRequest({
+        context,
+||||||| ancestor
+    await performLoggedRequest({
+        context,
+=======
     await performLoggedRequest({
         context: {
             fetcher: uploadPartFetcher,
             logger: context.logger,
             translator: context.translator,
         },
+>>>>>>> theirs
         createRequestFailedError: status => new CliUserError(
             "errors.fileUpload.requestFailed",
             1,
@@ -338,17 +413,14 @@ async function uploadFilePart(
         requestLabel: "File upload part",
         requestUrl,
     });
-}
 
-function splitFileNameAndExtension(fileName: string): [string, string] {
-    const lastDotIndex = fileName.lastIndexOf(".");
-
-    if (lastDotIndex === -1) {
-        return [fileName, ""];
+    const etag = response.headers.get("ETag");
+    if (!etag) {
+        throw new CliUserError("errors.fileUpload.invalidResponse", 1);
     }
 
-    return [
-        fileName.slice(0, lastDotIndex),
-        fileName.slice(lastDotIndex),
-    ];
+    return {
+        etag,
+        partNumber,
+    };
 }
