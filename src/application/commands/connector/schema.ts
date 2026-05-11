@@ -56,16 +56,29 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
         });
 
         const account = await requireCurrentAccount(context);
+        const actionSchema = await loadConnectorActionSchema(
+            {
+                account,
+                actionName,
+                refresh: input.refresh,
+                serviceName: input.serviceName,
+            },
+            context,
+        );
+        const pollActionSchema = actionSchema.asyncLifecycle === undefined
+            ? undefined
+            : await loadConnectorActionSchema(
+                    {
+                        account,
+                        actionName: actionSchema.asyncLifecycle.poll.action,
+                        refresh: input.refresh,
+                        serviceName: input.serviceName,
+                    },
+                    context,
+                );
         const schema = createConnectorActionSchemaOutput(
-            await loadConnectorActionSchema(
-                {
-                    account,
-                    actionName,
-                    refresh: input.refresh,
-                    serviceName: input.serviceName,
-                },
-                context,
-            ),
+            actionSchema,
+            { pollActionSchema },
         );
 
         writeJsonOutput(context.stdout, schema);

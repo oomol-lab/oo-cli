@@ -57,7 +57,7 @@ export const enMessages = {
         "Show the schema contract for one connector action.",
     "commands.connector.schema.summary": "Show connector action schema",
     "commands.connector.run.description":
-        "Validate input data and run one connector action synchronously.",
+        "Validate input data and run one connector action.",
     "commands.connector.run.summary": "Run a connector action",
     "commands.completion.description":
         "Output a shell completion script for a supported shell.",
@@ -307,6 +307,18 @@ export const enMessages = {
         "The connector action input payload is invalid: {message}",
     "errors.connectorRun.invalidResponse":
         "The connector action run response body is unsupported.",
+    "errors.connectorRun.asyncFailed":
+        "The async connector action failed with state {state}.",
+    "errors.connectorRun.asyncHandleMissing":
+        "The async connector action response is missing handle field {field}.",
+    "errors.connectorRun.asyncResultMissing":
+        "The async connector action poll response is missing result field {field}.",
+    "errors.connectorRun.asyncStateMissing":
+        "The async connector action poll response is missing state field {field}.",
+    "errors.connectorRun.asyncTimedOut":
+        "Timed out waiting for async connector action {action}.",
+    "errors.connectorRun.asyncUnknownState":
+        "The async connector action returned unsupported state {state}.",
     "errors.connectorRun.requestError":
         "The connector action run request failed: {message}",
     "errors.connectorRun.requestFailed":
@@ -317,6 +329,8 @@ export const enMessages = {
         "The connector action run request returned HTTP {status}: {message}",
     "errors.connectorRun.requestFailedWithMessageAndCode":
         "The connector action run request returned HTTP {status} (errorCode: {errorCode}): {message}",
+    "errors.connectorSchema.asyncResultSchemaMissing":
+        "The async connector action result schema is missing field {field}.",
     "errors.connectorSchema.readFailed":
         "Failed to read the connector action schema cache at {path}: {message}",
     "errors.connectorSchema.writeFailed":
@@ -923,7 +937,7 @@ export const zhMessages = {
     "commands.connector.schema.summary":
         "显示 connector action schema",
     "commands.connector.run.description":
-        "校验输入数据，并同步运行一个 connector action。",
+        "校验输入数据，并运行一个 connector action。",
     "commands.connector.run.summary":
         "运行 connector action",
     "commands.completion.description": "输出受支持 shell 的补全脚本。",
@@ -1147,6 +1161,18 @@ export const zhMessages = {
         "connector action 的输入 payload 无效：{message}",
     "errors.connectorRun.invalidResponse":
         "connector action 运行返回了不受支持的响应内容。",
+    "errors.connectorRun.asyncFailed":
+        "异步 connector action 返回失败状态 {state}。",
+    "errors.connectorRun.asyncHandleMissing":
+        "异步 connector action 响应缺少 handle 字段 {field}。",
+    "errors.connectorRun.asyncResultMissing":
+        "异步 connector action 轮询响应缺少结果字段 {field}。",
+    "errors.connectorRun.asyncStateMissing":
+        "异步 connector action 轮询响应缺少状态字段 {field}。",
+    "errors.connectorRun.asyncTimedOut":
+        "等待异步 connector action {action} 超时。",
+    "errors.connectorRun.asyncUnknownState":
+        "异步 connector action 返回了不支持的状态 {state}。",
     "errors.connectorRun.requestError":
         "运行 connector action 失败：{message}",
     "errors.connectorRun.requestFailed":
@@ -1157,6 +1183,8 @@ export const zhMessages = {
         "运行 connector action 返回了 HTTP {status}：{message}",
     "errors.connectorRun.requestFailedWithMessageAndCode":
         "运行 connector action 返回了 HTTP {status}（errorCode: {errorCode}）：{message}",
+    "errors.connectorSchema.asyncResultSchemaMissing":
+        "异步 connector action 的结果 schema 缺少字段 {field}。",
     "errors.connectorSchema.readFailed":
         "读取 {path} 的 connector action schema cache 失败：{message}",
     "errors.connectorSchema.writeFailed":

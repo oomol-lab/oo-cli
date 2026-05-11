@@ -17,7 +17,26 @@ export const connectorActionDefinitionSchema = z.object({
     service: z.string().min(1),
 });
 
+export const connectorActionAsyncLifecycleSchema = z.object({
+    defaultRunMode: z.literal("wait"),
+    kind: z.literal("poll"),
+    poll: z.object({
+        action: z.string().min(1),
+        handleInputField: z.string().min(1),
+        handleOutputField: z.string().min(1),
+        intervalSeconds: z.number().positive(),
+    }),
+    resultField: z.string().min(1).optional(),
+    state: z.object({
+        failure: z.array(z.string()),
+        field: z.string().min(1),
+        running: z.array(z.string()),
+        success: z.array(z.string()),
+    }),
+});
+
 export const connectorActionMetadataSchema = connectorActionDefinitionSchema.extend({
+    asyncLifecycle: connectorActionAsyncLifecycleSchema.optional(),
     followUpActions: z.unknown().optional(),
     id: z.string().optional(),
     providerPermissions: z.array(z.string()).optional().default([]),
@@ -25,7 +44,7 @@ export const connectorActionMetadataSchema = connectorActionDefinitionSchema.ext
 }).passthrough();
 
 const connectorActionSearchResponseSchema = z.object({
-    data: z.array(connectorActionDefinitionSchema).optional().default([]),
+    data: z.array(connectorActionMetadataSchema).optional().default([]),
 });
 
 const authenticatedConnectorServicesResponseSchema = z.object({
@@ -69,6 +88,7 @@ export function requireConnectorActionName(rawAction: string | undefined): strin
 }
 
 export type ConnectorActionDefinition = z.output<typeof connectorActionDefinitionSchema>;
+export type ConnectorActionAsyncLifecycle = z.output<typeof connectorActionAsyncLifecycleSchema>;
 export type ConnectorActionMetadata = z.output<typeof connectorActionMetadataSchema>;
 export type ConnectorActionRunResponse = z.output<typeof connectorActionRunResponseSchema>;
 type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResponseSchema>;

@@ -1,4 +1,8 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type {
+    ConnectorActionAsyncLifecycle,
+    ConnectorActionRunResponse,
+} from "./shared.ts";
 
 import { Buffer } from "node:buffer";
 import { z } from "zod";
@@ -30,6 +34,11 @@ const connectorRunDataErrorKeys = {
 } as const;
 
 type ConnectorRunTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
+type ConnectorRunTarget = Pick<ConnectorRunInput, "serviceName"> & {
+    actionName: string;
+};
+
+const connectorAsyncLifecycleDefaultTimeoutMs = 6 * 3_600_000;
 
 interface ConnectorRunInput {
     action?: string;
@@ -131,18 +140,26 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             return;
         }
 
-        let response: Awaited<ReturnType<typeof runConnectorAction>>;
+        let response: ConnectorActionRunResponse;
+        let currentTarget: ConnectorRunTarget = {
+            actionName,
+            serviceName: input.serviceName,
+        };
 
         try {
-            response = await runConnectorAction(
+            response = await runConnectorActionWithDefaultMode(
                 {
                     actionName,
                     apiKey: account.apiKey,
                     endpoint: account.endpoint,
                     inputData,
+                    lifecycle: actionSchema.asyncLifecycle,
                     serviceName: input.serviceName,
                 },
                 context,
+                (target) => {
+                    currentTarget = target;
+                },
             );
         }
         catch (error) {
@@ -151,9 +168,9 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
                 deleteConnectorActionSchemaCache(
                     {
                         accountId: account.id,
-                        actionName,
+                        actionName: currentTarget.actionName,
                         endpoint: account.endpoint,
-                        serviceName: input.serviceName,
+                        serviceName: currentTarget.serviceName,
                     },
                     context,
                 );
@@ -172,8 +189,174 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     },
 };
 
+async function runConnectorActionWithDefaultMode(
+    options: {
+        actionName: string;
+        apiKey: string;
+        endpoint: string;
+        inputData: unknown;
+        lifecycle: ConnectorActionAsyncLifecycle | undefined;
+        serviceName: string;
+    },
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+    setCurrentTarget: (target: ConnectorRunTarget) => void,
+): Promise<ConnectorActionRunResponse> {
+    setCurrentTarget({
+        actionName: options.actionName,
+        serviceName: options.serviceName,
+    });
+    const response = await runConnectorAction(
+        {
+            actionName: options.actionName,
+            apiKey: options.apiKey,
+            endpoint: options.endpoint,
+            inputData: options.inputData,
+            serviceName: options.serviceName,
+        },
+        context,
+    );
+
+    if (options.lifecycle?.defaultRunMode !== "wait") {
+        return response;
+    }
+
+    return await waitForConnectorAsyncLifecycle(
+        {
+            apiKey: options.apiKey,
+            endpoint: options.endpoint,
+            lifecycle: options.lifecycle,
+            serviceName: options.serviceName,
+            submitResponse: response,
+        },
+        context,
+        setCurrentTarget,
+    );
+}
+
+async function waitForConnectorAsyncLifecycle(
+    options: {
+        apiKey: string;
+        endpoint: string;
+        lifecycle: ConnectorActionAsyncLifecycle;
+        serviceName: string;
+        submitResponse: ConnectorActionRunResponse;
+    },
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+    setCurrentTarget: (target: ConnectorRunTarget) => void,
+): Promise<ConnectorActionRunResponse> {
+    const handle = readObjectField(
+        options.submitResponse.data,
+        options.lifecycle.poll.handleOutputField,
+    );
+
+    if (handle === undefined) {
+        throw new CliUserError("errors.connectorRun.asyncHandleMissing", 1, {
+            field: options.lifecycle.poll.handleOutputField,
+        });
+    }
+
+    const startedAt = Date.now();
+    let pollCount = 0;
+
+    while (true) {
+        const elapsedMs = Date.now() - startedAt;
+        const remainingMs = connectorAsyncLifecycleDefaultTimeoutMs - elapsedMs;
+
+        if (remainingMs <= 0) {
+            throw new CliUserError("errors.connectorRun.asyncTimedOut", 1, {
+                action: options.lifecycle.poll.action,
+            });
+        }
+
+        setCurrentTarget({
+            actionName: options.lifecycle.poll.action,
+            serviceName: options.serviceName,
+        });
+        const pollResponse = await runConnectorAction(
+            {
+                actionName: options.lifecycle.poll.action,
+                apiKey: options.apiKey,
+                endpoint: options.endpoint,
+                inputData: {
+                    [options.lifecycle.poll.handleInputField]: handle,
+                },
+                serviceName: options.serviceName,
+            },
+            context,
+        );
+        pollCount += 1;
+
+        const state = readObjectField(pollResponse.data, options.lifecycle.state.field);
+
+        if (typeof state !== "string") {
+            throw new CliUserError("errors.connectorRun.asyncStateMissing", 1, {
+                field: options.lifecycle.state.field,
+            });
+        }
+
+        if (options.lifecycle.state.success.includes(state)) {
+            return {
+                data: readConnectorAsyncLifecycleResult(
+                    pollResponse.data,
+                    options.lifecycle.resultField,
+                ),
+                meta: {
+                    ...pollResponse.meta,
+                    handle: String(handle),
+                    pollAction: options.lifecycle.poll.action,
+                    pollCount,
+                    submitExecutionId: options.submitResponse.meta.executionId,
+                },
+            };
+        }
+
+        if (options.lifecycle.state.failure.includes(state)) {
+            throw new CliUserError("errors.connectorRun.asyncFailed", 1, {
+                state,
+            });
+        }
+
+        if (!options.lifecycle.state.running.includes(state)) {
+            throw new CliUserError("errors.connectorRun.asyncUnknownState", 1, {
+                state,
+            });
+        }
+
+        await Bun.sleep(
+            Math.min(options.lifecycle.poll.intervalSeconds * 1000, remainingMs),
+        );
+    }
+}
+
+function readConnectorAsyncLifecycleResult(
+    data: unknown,
+    resultField: string | undefined,
+): unknown {
+    if (resultField === undefined) {
+        return data;
+    }
+
+    const result = readObjectField(data, resultField);
+
+    if (result === undefined) {
+        throw new CliUserError("errors.connectorRun.asyncResultMissing", 1, {
+            field: resultField,
+        });
+    }
+
+    return result;
+}
+
+function readObjectField(value: unknown, field: string): unknown {
+    if (value === null || typeof value !== "object") {
+        return undefined;
+    }
+
+    return (value as Record<string, unknown>)[field];
+}
+
 function formatConnectorRunResponseAsText(
-    response: Awaited<ReturnType<typeof runConnectorAction>>,
+    response: ConnectorActionRunResponse,
     context: ConnectorRunTextContext,
 ): string {
     const colors = createWriterColors(context.stdout);

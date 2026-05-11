@@ -328,12 +328,13 @@ Show the stable schema contract for one connector action.
 - Options: `-a, --action <action>` selects the action name and is required.
 - Options: `--refresh` fetches fresh metadata from the connector metadata API.
 - Output: the command always prints a JSON object with the stable CLI fields
-  `service`, `name`, `description`, `inputSchema`, and `outputSchema`.
+  `service`, `name`, `description`, `inputSchema`, `outputSchema`, optional
+  `asyncLifecycle`, and optional `runOutputSchema`.
 - Notes: `--refresh` forces a fresh schema fetch for the selected action.
 
 ### `oo connector run <serviceName>`
 
-Validate input data and run one connector action synchronously.
+Validate input data and run one connector action.
 
 - Arguments: `<serviceName>` is the service name.
 - Options: `-a, --action <action>` selects the action name and is required.
@@ -347,6 +348,10 @@ Validate input data and run one connector action synchronously.
   and `errorCode` when the failure response provides them.
 - Notes: the command validates the input against the selected action contract
   before executing.
+- Notes: actions whose schema declares `asyncLifecycle.defaultRunMode` as
+  `wait` are automatically polled until completion. In that case JSON output
+  uses the completed run result in `data`, and the original async handle is
+  included in `meta.handle`.
 
 ## Search
 

@@ -3,6 +3,7 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 
 import type {
+    ConnectorActionAsyncLifecycle,
     ConnectorActionDefinition,
     ConnectorActionMetadata,
 } from "./shared.ts";
@@ -38,10 +39,12 @@ type ConnectorActionSchemaLoaderContext = Pick<
 >;
 
 export interface ConnectorActionSchemaOutput {
+    asyncLifecycle?: ConnectorActionAsyncLifecycle;
     description: string;
     inputSchema: unknown;
     name: string;
     outputSchema: unknown;
+    runOutputSchema?: unknown;
     service: string;
 }
 
@@ -148,15 +151,28 @@ export function deleteConnectorActionSchemaCache(
 }
 
 export function createConnectorActionSchemaOutput(
-    schema: ConnectorActionDefinition,
+    schema: ConnectorActionMetadata,
+    options: {
+        pollActionSchema?: ConnectorActionMetadata;
+    } = {},
 ): ConnectorActionSchemaOutput {
-    return {
+    const output: ConnectorActionSchemaOutput = {
         description: schema.description,
         inputSchema: schema.inputSchema,
         name: schema.name,
         outputSchema: schema.outputSchema,
         service: schema.service,
     };
+
+    if (schema.asyncLifecycle !== undefined) {
+        output.asyncLifecycle = schema.asyncLifecycle;
+        output.runOutputSchema = readConnectorAsyncLifecycleRunOutputSchema(
+            schema.asyncLifecycle,
+            options.pollActionSchema?.outputSchema,
+        );
+    }
+
+    return output;
 }
 
 export function createConnectorActionSchemaCacheKey(
@@ -228,6 +244,41 @@ function openConnectorActionSchemaCache(
         id: connectorActionSchemaCacheId,
         maxEntries: connectorActionSchemaCacheMaxEntries,
     });
+}
+
+function readConnectorAsyncLifecycleRunOutputSchema(
+    lifecycle: ConnectorActionAsyncLifecycle,
+    pollOutputSchema: unknown,
+): unknown {
+    if (lifecycle.resultField === undefined) {
+        return pollOutputSchema;
+    }
+
+    if (pollOutputSchema === null || typeof pollOutputSchema !== "object") {
+        throw new CliUserError("errors.connectorSchema.asyncResultSchemaMissing", 1, {
+            field: lifecycle.resultField,
+        });
+    }
+
+    const properties = (pollOutputSchema as {
+        properties?: unknown;
+    }).properties;
+
+    if (properties === null || typeof properties !== "object") {
+        throw new CliUserError("errors.connectorSchema.asyncResultSchemaMissing", 1, {
+            field: lifecycle.resultField,
+        });
+    }
+
+    const resultSchema = (properties as Record<string, unknown>)[lifecycle.resultField];
+
+    if (resultSchema === undefined) {
+        throw new CliUserError("errors.connectorSchema.asyncResultSchemaMissing", 1, {
+            field: lifecycle.resultField,
+        });
+    }
+
+    return resultSchema;
 }
 
 function tryReadConnectorActionSchemaCache(
