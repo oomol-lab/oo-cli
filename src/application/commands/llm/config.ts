@@ -15,6 +15,7 @@ interface LlmConfigInput {
 interface LlmConfigOutput {
     apiKey: string;
     baseUrl: string;
+    chatCompletionsUrl: string;
     model: string;
 }
 
@@ -33,6 +34,7 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
         const config: LlmConfigOutput = {
             apiKey: account.apiKey,
             baseUrl: createLlmBaseUrl(account.endpoint),
+            chatCompletionsUrl: createLlmChatCompletionsUrl(account.endpoint),
             model: defaultLlmModel,
         };
 
@@ -42,4 +44,8 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
 
 function createLlmBaseUrl(endpoint: string): string {
     return new URL(`https://llm.${endpoint}/`).toString();
+}
+
+function createLlmChatCompletionsUrl(endpoint: string): string {
+    return new URL(`https://llm.${endpoint}/v1/chat/completions`).toString();
 }

@@ -14,11 +14,14 @@ The JSON output contains:
 
 - `apiKey`: current account API key.
 - `baseUrl`: OOMOL LLM API base URL.
+- `chatCompletionsUrl`: normalized OpenAI-compatible chat completions URL.
 - `model`: default model name, currently `oomol-chat`.
 
 Use these fields to configure OpenAI-compatible clients and libraries. Map
 `baseUrl` to the library's base URL option, `apiKey` to its API key or
-authorization option, and `model` to the model name.
+authorization option, and `model` to the model name. For raw HTTP calls to the
+chat completions API, use `chatCompletionsUrl` instead of constructing a URL
+from `baseUrl`.
 
 Do not read `auth.toml` directly. Do not hardcode, persist, log, or print
 `apiKey` in generated code, user-facing responses, debug output, or generated

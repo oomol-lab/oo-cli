@@ -29,6 +29,7 @@ describe("llm CLI", () => {
             expect(JSON.parse(result.stdout)).toEqual({
                 apiKey: "secret-1",
                 baseUrl: "https://llm.oomol.com/",
+                chatCompletionsUrl: "https://llm.oomol.com/v1/chat/completions",
                 model: "oomol-chat",
             });
         }
@@ -62,11 +63,13 @@ describe("llm CLI", () => {
             expect(JSON.parse(jsonAliasResult.stdout)).toEqual({
                 apiKey: "secret-2",
                 baseUrl: "https://llm.staging.oomol.test/",
+                chatCompletionsUrl: "https://llm.staging.oomol.test/v1/chat/completions",
                 model: "oomol-chat",
             });
             expect(JSON.parse(jsonFormatResult.stdout)).toEqual({
                 apiKey: "secret-2",
                 baseUrl: "https://llm.staging.oomol.test/",
+                chatCompletionsUrl: "https://llm.staging.oomol.test/v1/chat/completions",
                 model: "oomol-chat",
             });
         }

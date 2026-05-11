@@ -70,6 +70,7 @@
 - 输出：JSON 对象包含：
   - `apiKey`：当前账号 API key。
   - `baseUrl`：根据当前账号 endpoint 派生出的 LLM API base URL。
+  - `chatCompletionsUrl`：规范化后的 OpenAI-compatible chat completions endpoint。
   - `model`：默认模型名，当前为 `oomol-chat`。
 - 生产环境输出的 `baseUrl` 为 `https://llm.oomol.com/`。
 
