@@ -43,8 +43,12 @@ export const connectorActionMetadataSchema = connectorActionDefinitionSchema.ext
     requiredScopes: z.array(z.string()).optional().default([]),
 }).passthrough();
 
+const connectorActionSearchResultSchema = connectorActionDefinitionSchema.extend({
+    asyncLifecycle: connectorActionAsyncLifecycleSchema.optional(),
+});
+
 const connectorActionSearchResponseSchema = z.object({
-    data: z.array(connectorActionMetadataSchema).optional().default([]),
+    data: z.array(connectorActionSearchResultSchema).optional().default([]),
 });
 
 const authenticatedConnectorServicesResponseSchema = z.object({
