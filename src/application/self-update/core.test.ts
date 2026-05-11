@@ -446,7 +446,7 @@ describe("performSelfUpdateOperation", () => {
 
             expect(result.status).toBe("installed");
             expect(invokedCommands).toEqual([
-                ...createExpectedManagedSkillInstallCommands(targetVersionPath),
+                ...createExpectedManagedSkillMaintenanceCommands(targetVersionPath),
                 {
                     commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
                     commandPath: "/mock/bin/pnpm",
@@ -527,7 +527,7 @@ describe("performSelfUpdateOperation", () => {
 
             expect(result.status).toBe("installed");
             expect(invokedCommands).toEqual([
-                ...createExpectedManagedSkillInstallCommands(targetVersionPath),
+                ...createExpectedManagedSkillMaintenanceCommands(targetVersionPath),
                 {
                     commandArguments: ["remove", "-g", "@oomol-lab/oo-cli"],
                     commandPath: "/mock/bin/bun",
@@ -624,6 +624,10 @@ describe("performSelfUpdateOperation", () => {
                 },
                 {
                     stage: "cleanup",
+                    version: "2.0.0",
+                },
+                {
+                    stage: "skillsUpdate",
                     version: "2.0.0",
                 },
             ]);
@@ -951,6 +955,10 @@ describe("performSelfUpdateOperation", () => {
                     stage: "cleanup",
                     version: "2.0.0",
                 },
+                {
+                    stage: "skillsUpdate",
+                    version: "2.0.0",
+                },
             ]);
         }
         finally {
@@ -1020,13 +1028,17 @@ function createSuccessfulSelfUpdateCommandRunner(
     };
 }
 
-function createExpectedManagedSkillInstallCommands(commandPath: string): Array<{
+function createExpectedManagedSkillMaintenanceCommands(commandPath: string): Array<{
     commandArguments: readonly string[];
     commandPath: string;
 }> {
     return [
         {
             commandArguments: ["skills", "add"],
+            commandPath,
+        },
+        {
+            commandArguments: ["skills", "update"],
             commandPath,
         },
     ];

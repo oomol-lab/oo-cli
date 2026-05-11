@@ -299,7 +299,7 @@ describe("self-update commands", () => {
                 stdout: `Installed oo 2.0.0.\nExecutable: <EXECUTABLE_PATH>\nAdded <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.\n`,
             });
             expect(selfUpdateRuntime.commands).toEqual(
-                createExpectedManagedSkillInstallCommands(targetVersionPath),
+                createExpectedManagedSkillMaintenanceCommands(targetVersionPath),
             );
         }
         finally {
@@ -353,6 +353,8 @@ describe("self-update commands", () => {
             expect(snapshot.stderr).toContain("Activated executable.");
             expect(snapshot.stderr).toContain("Verified installation.");
             expect(snapshot.stderr).toContain("Cleaned up old artifacts.");
+            expect(snapshot.stderr).toContain("Updating installed skills...");
+            expect(snapshot.stderr).toContain("Finished installed skill update.");
         }
         finally {
             await sandbox.cleanup();
@@ -455,7 +457,7 @@ describe("self-update commands", () => {
                 },
             });
             expect(selfUpdateRuntime.commands).toEqual(
-                createExpectedManagedSkillInstallCommands(targetVersionPath),
+                createExpectedManagedSkillMaintenanceCommands(targetVersionPath),
             );
         }
         finally {
@@ -694,7 +696,7 @@ describe("self-update commands", () => {
             expect(latestRequestCount).toBe(1);
             expect(binaryRequestCount).toBe(0);
             expect(selfUpdateRuntime.commands).toEqual(
-                createExpectedManagedSkillInstallCommands(currentVersionPath),
+                createExpectedManagedSkillMaintenanceCommands(currentVersionPath),
             );
         }
         finally {
@@ -758,7 +760,7 @@ describe("self-update commands", () => {
             expect(latestRequestCount).toBe(1);
             expect(binaryRequestCount).toBe(1);
             expect(selfUpdateRuntime.commands).toEqual(
-                createExpectedManagedSkillInstallCommands(currentVersionPath),
+                createExpectedManagedSkillMaintenanceCommands(currentVersionPath),
             );
             expect((await stat(legacyVersionPath)).isDirectory()).toBeTrue();
             await expect(Bun.file(currentVersionPath).exists()).resolves.toBeTrue();
@@ -872,7 +874,7 @@ describe("self-update commands", () => {
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(binaryRequestCount).toBe(1);
             expect(legacyCleanup.commands).toEqual([
-                ...createExpectedManagedSkillInstallCommands(currentVersionPath),
+                ...createExpectedManagedSkillMaintenanceCommands(currentVersionPath),
                 {
                     commandArguments: [
                         "uninstall",
@@ -937,6 +939,8 @@ describe("self-update commands", () => {
             expect(snapshot.stderr).toContain("Activated executable.");
             expect(snapshot.stderr).toContain("Verified installation.");
             expect(snapshot.stderr).toContain("Cleaned up old artifacts.");
+            expect(snapshot.stderr).toContain("Updating installed skills...");
+            expect(snapshot.stderr).toContain("Finished installed skill update.");
         }
         finally {
             await sandbox.cleanup();
@@ -1043,12 +1047,17 @@ interface CapturedSelfUpdateCommand {
     timeoutMs: number;
 }
 
-function createExpectedManagedSkillInstallCommands(
+function createExpectedManagedSkillMaintenanceCommands(
     commandPath: string,
 ): CapturedSelfUpdateCommand[] {
     return [
         {
             commandArguments: ["skills", "add"],
+            commandPath,
+            timeoutMs: 40_000,
+        },
+        {
+            commandArguments: ["skills", "update"],
             commandPath,
             timeoutMs: 40_000,
         },

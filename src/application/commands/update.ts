@@ -5,6 +5,7 @@ import process from "node:process";
 import { z } from "zod";
 import {
     attemptManagedSkillInstall,
+    attemptManagedSkillUpdate,
     isManagedVersionExecutableInstalled,
     resolveManagedSkillInstallCommandPath,
 } from "../self-update/bundled-skills.ts";
@@ -119,12 +120,25 @@ export const updateCommand: CliCommandDefinition<
                     version: context.version,
                 })
             ) {
+                const managedSkillCommandPath = await resolveManagedSkillInstallCommandPath({
+                    env: context.env,
+                    platform: process.platform,
+                    version: context.version,
+                });
+
                 await attemptManagedSkillInstall({
-                    commandPath: await resolveManagedSkillInstallCommandPath({
+                    commandPath: managedSkillCommandPath,
+                    runtime: {
                         env: context.env,
-                        platform: process.platform,
-                        version: context.version,
-                    }),
+                        logger: context.logger,
+                        ...context.selfUpdateRuntime,
+                    },
+                });
+                progressReporter?.setStage("skillsUpdate", {
+                    version: context.version,
+                });
+                await attemptManagedSkillUpdate({
+                    commandPath: managedSkillCommandPath,
                     runtime: {
                         env: context.env,
                         logger: context.logger,
