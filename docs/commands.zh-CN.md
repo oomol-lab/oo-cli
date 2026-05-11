@@ -320,6 +320,16 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `asyncLifecycle` 和 `runOutputSchema`。
 - 说明：`--refresh` 会强制为选中的 action 重新获取 schema。
 
+### `oo connector schema refresh`
+
+清除所有本地缓存的 connector action schema。
+
+- 参数：无。
+- 输出：文本输出会打印一行成功信息。
+- 说明：该命令不要求登录，也不会立即请求远端 metadata；后续
+  `oo connector schema` 或 `oo connector run` 会在需要时重新获取并缓存
+  schema。
+
 ### `oo connector run <serviceName>`
 
 校验输入数据，并运行一个 connector action。

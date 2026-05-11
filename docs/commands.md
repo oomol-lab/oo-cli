@@ -372,6 +372,16 @@ Show the stable schema contract for one connector action.
   `asyncLifecycle`, and optional `runOutputSchema`.
 - Notes: `--refresh` forces a fresh schema fetch for the selected action.
 
+### `oo connector schema refresh`
+
+Clear all locally cached connector action schemas.
+
+- Arguments: none.
+- Output: text output prints a single success line.
+- Notes: the command does not require authentication and does not fetch new
+  metadata immediately; later `oo connector schema` or `oo connector run`
+  invocations fetch and cache schemas again when needed.
+
 ### `oo connector run <serviceName>`
 
 Validate input data and run one connector action.

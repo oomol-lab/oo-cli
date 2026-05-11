@@ -8,6 +8,7 @@ import {
     createConnectorActionSchemaOutput,
     loadConnectorActionSchema,
 } from "./schema-cache.ts";
+import { connectorSchemaRefreshCommand } from "./schema-refresh.ts";
 import { requireConnectorActionName } from "./shared.ts";
 
 interface ConnectorSchemaInput {
@@ -21,6 +22,9 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
     summaryKey: "commands.connector.schema.summary",
     descriptionKey: "commands.connector.schema.description",
     missingArgumentBehavior: "showHelp",
+    children: [
+        connectorSchemaRefreshCommand,
+    ],
     arguments: [
         {
             name: "serviceName",

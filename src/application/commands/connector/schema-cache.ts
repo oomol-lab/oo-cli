@@ -141,6 +141,13 @@ export async function cacheConnectorActionSchemas(
     }
 }
 
+export async function clearConnectorActionSchemaCache(
+    context: ConnectorActionSchemaCacheContext,
+): Promise<void> {
+    await cleanupLegacyConnectorActionSchemaCache(context);
+    openConnectorActionSchemaCache(context).clear();
+}
+
 export function deleteConnectorActionSchemaCache(
     identity: ConnectorActionSchemaIdentity,
     context: Pick<CliExecutionContext, "cacheStore">,

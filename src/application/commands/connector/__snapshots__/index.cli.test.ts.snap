@@ -118,6 +118,29 @@ Global Options:
   -V, --version          Show the current version
   --debug                Print the current log file path when the CLI exits
   --lang <lang>          Specify the display language
+
+Commands:
+  refresh                Clear connector action schema cache
+  help [command]         Show help for a command
+"
+,
+}
+`;
+
+exports[`connectorCommand CLI renders connector schema refresh help 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Clear all locally cached connector action schemas.
+
+Options:
+  -h, --help     Show help for command
+
+Global Options:
+  -V, --version  Show the current version
+  --debug        Print the current log file path when the CLI exits
+  --lang <lang>  Specify the display language
 "
 ,
 }
@@ -162,6 +185,17 @@ exports[`connectorCommand CLI supports connector schema with default json output
   "stderr": "",
   "stdout": 
 "{"description":"Send a Gmail message.","inputSchema":{"properties":{"to":{"type":"string"}},"required":["to"],"type":"object"},"name":"send_mail","outputSchema":{"type":"object"},"service":"gmail"}
+"
+,
+}
+`;
+
+exports[`connectorCommand CLI supports connector schema refresh subcommand by clearing cached metadata 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Cleared locally cached connector action schemas.
 "
 ,
 }
