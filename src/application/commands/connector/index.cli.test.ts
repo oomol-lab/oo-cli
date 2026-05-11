@@ -1569,23 +1569,8 @@ describe("connectorCommand CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(JSON.parse(result.stdout)).toMatchObject({
-                asyncLifecycle: {
-                    defaultRunMode: "wait",
-                    poll: {
-                        action: "openai_image_async_result",
-                    },
-                    resultField: "data",
-                },
                 name: "openai_image_async_submit",
                 outputSchema: {
-                    properties: {
-                        sessionId: {
-                            type: "string",
-                        },
-                    },
-                    type: "object",
-                },
-                runOutputSchema: {
                     properties: {
                         images: {
                             items: {

@@ -316,8 +316,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
 - 选项：`--refresh` 会直接从 connector metadata API 获取最新 schema。
 - 输出：命令默认输出 JSON 对象，包含稳定 CLI 字段 `service`、`name`、
-  `description`、`inputSchema`、`outputSchema`，以及可选的
-  `asyncLifecycle` 和 `runOutputSchema`。
+  `description`、`inputSchema` 和 `outputSchema`。
 - 说明：`--refresh` 会强制为选中的 action 重新获取 schema。
 
 ### `oo connector schema refresh`

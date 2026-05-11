@@ -39,14 +39,16 @@ type ConnectorActionSchemaLoaderContext = Pick<
 >;
 
 export interface ConnectorActionSchemaOutput {
-    asyncLifecycle?: ConnectorActionAsyncLifecycle;
     description: string;
     inputSchema: unknown;
     name: string;
     outputSchema: unknown;
-    runOutputSchema?: unknown;
     service: string;
 }
+
+type SyncConnectorActionMetadata = ConnectorActionMetadata & {
+    asyncLifecycle?: undefined;
+};
 
 export async function loadConnectorActionSchema(
     options: {
@@ -159,25 +161,40 @@ export function deleteConnectorActionSchemaCache(
 
 export function createConnectorActionSchemaOutput(
     schema: ConnectorActionMetadata,
+    options: { pollActionSchema: ConnectorActionMetadata },
+): ConnectorActionSchemaOutput;
+export function createConnectorActionSchemaOutput(
+    schema: SyncConnectorActionMetadata,
+    options?: { pollActionSchema?: undefined },
+): ConnectorActionSchemaOutput;
+export function createConnectorActionSchemaOutput(
+    schema: ConnectorActionMetadata,
     options: {
         pollActionSchema?: ConnectorActionMetadata;
     } = {},
 ): ConnectorActionSchemaOutput {
+    let outputSchema = schema.outputSchema;
+
+    if (schema.asyncLifecycle !== undefined) {
+        if (options.pollActionSchema === undefined) {
+            throw new CliUserError("errors.connectorSchema.asyncPollSchemaMissing", 1, {
+                action: schema.asyncLifecycle.poll.action,
+            });
+        }
+
+        outputSchema = readConnectorAsyncLifecycleRunOutputSchema(
+            schema.asyncLifecycle,
+            options.pollActionSchema.outputSchema,
+        );
+    }
+
     const output: ConnectorActionSchemaOutput = {
         description: schema.description,
         inputSchema: schema.inputSchema,
         name: schema.name,
-        outputSchema: schema.outputSchema,
+        outputSchema,
         service: schema.service,
     };
-
-    if (schema.asyncLifecycle !== undefined) {
-        output.asyncLifecycle = schema.asyncLifecycle;
-        output.runOutputSchema = readConnectorAsyncLifecycleRunOutputSchema(
-            schema.asyncLifecycle,
-            options.pollActionSchema?.outputSchema,
-        );
-    }
 
     return output;
 }
