@@ -401,7 +401,7 @@ describe("connector schema cache", () => {
         });
     });
 
-    test("createConnectorActionSchemaOutput exposes async lifecycle and derived run output schema", () => {
+    test("createConnectorActionSchemaOutput derives the public output schema for async actions", () => {
         const schema = {
             asyncLifecycle: {
                 defaultRunMode: "wait",
@@ -468,21 +468,12 @@ describe("connector schema cache", () => {
         } satisfies ConnectorActionMetadata;
 
         expect(createConnectorActionSchemaOutput(schema, { pollActionSchema })).toEqual({
-            asyncLifecycle: schema.asyncLifecycle,
             description: "Submit OpenAI image generation.",
             inputSchema: {
                 type: "object",
             },
             name: "openai_image_async_submit",
             outputSchema: {
-                properties: {
-                    sessionId: {
-                        type: "string",
-                    },
-                },
-                type: "object",
-            },
-            runOutputSchema: {
                 properties: {
                     images: {
                         items: {
@@ -497,7 +488,7 @@ describe("connector schema cache", () => {
         });
     });
 
-    test("createConnectorActionSchemaOutput derives async run output schema from anyOf result branches", () => {
+    test("createConnectorActionSchemaOutput derives the public output schema from anyOf result branches", () => {
         const schema = createAsyncSubmitSchemaFixture();
         const pollActionSchema = {
             description: "Get OpenAI image generation result.",
@@ -548,7 +539,7 @@ describe("connector schema cache", () => {
             service: "fusion-api",
         } satisfies ConnectorActionMetadata;
 
-        expect(createConnectorActionSchemaOutput(schema, { pollActionSchema }).runOutputSchema).toEqual({
+        expect(createConnectorActionSchemaOutput(schema, { pollActionSchema }).outputSchema).toEqual({
             properties: {
                 images: {
                     items: {

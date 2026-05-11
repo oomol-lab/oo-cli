@@ -39,12 +39,10 @@ type ConnectorActionSchemaLoaderContext = Pick<
 >;
 
 export interface ConnectorActionSchemaOutput {
-    asyncLifecycle?: ConnectorActionAsyncLifecycle;
     description: string;
     inputSchema: unknown;
     name: string;
     outputSchema: unknown;
-    runOutputSchema?: unknown;
     service: string;
 }
 
@@ -163,21 +161,20 @@ export function createConnectorActionSchemaOutput(
         pollActionSchema?: ConnectorActionMetadata;
     } = {},
 ): ConnectorActionSchemaOutput {
+    const outputSchema = schema.asyncLifecycle === undefined
+        ? schema.outputSchema
+        : readConnectorAsyncLifecycleRunOutputSchema(
+                schema.asyncLifecycle,
+                options.pollActionSchema?.outputSchema,
+            );
+
     const output: ConnectorActionSchemaOutput = {
         description: schema.description,
         inputSchema: schema.inputSchema,
         name: schema.name,
-        outputSchema: schema.outputSchema,
+        outputSchema,
         service: schema.service,
     };
-
-    if (schema.asyncLifecycle !== undefined) {
-        output.asyncLifecycle = schema.asyncLifecycle;
-        output.runOutputSchema = readConnectorAsyncLifecycleRunOutputSchema(
-            schema.asyncLifecycle,
-            options.pollActionSchema?.outputSchema,
-        );
-    }
 
     return output;
 }

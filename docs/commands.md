@@ -368,8 +368,7 @@ Show the stable schema contract for one connector action.
 - Options: `-a, --action <action>` selects the action name and is required.
 - Options: `--refresh` fetches fresh metadata from the connector metadata API.
 - Output: the command always prints a JSON object with the stable CLI fields
-  `service`, `name`, `description`, `inputSchema`, `outputSchema`, optional
-  `asyncLifecycle`, and optional `runOutputSchema`.
+  `service`, `name`, `description`, `inputSchema`, and `outputSchema`.
 - Notes: `--refresh` forces a fresh schema fetch for the selected action.
 
 ### `oo connector schema refresh`
