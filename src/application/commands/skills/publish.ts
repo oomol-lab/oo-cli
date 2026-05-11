@@ -245,7 +245,13 @@ export async function publishLocalSkillPackage(
     }
 
     const account = await requireAccount(context);
-    const packageName = resolveCanonicalSkillPackageName(account.name, skillId);
+    const source = {
+        kind: "local",
+        skillDirectoryPath,
+        skillId,
+    } satisfies LocalSkillPublishSource;
+    const packageName = await resolveSkillPublishPackageName(account, source);
+
     context.telemetry?.recordProperties({
         adopted: false,
         force: false,
@@ -259,7 +265,7 @@ export async function publishLocalSkillPackage(
             account,
             force: false,
             packageName,
-            skillDirectoryPath,
+            skillDirectoryPath: source.skillDirectoryPath,
             skillId,
             sourceKind: "local",
             yes: false,
@@ -289,7 +295,8 @@ export async function publishSkillPackage(
     await checkAuthoringEnvironment(context);
 
     const account = await requireAccount(context);
-    const packageName = resolveCanonicalSkillPackageName(account.name, source.skillId);
+    const packageName = await resolveSkillPublishPackageName(account, source);
+
     context.telemetry?.recordProperties({
         adopted: source.kind === "adoptable",
         force,
@@ -464,6 +471,56 @@ async function validateLocalSkillCopiesBeforePublish(options: {
             paths,
         }),
     );
+}
+
+async function resolveSkillPublishPackageName(
+    account: Pick<AuthAccount, "name">,
+    source: SkillPublishSource,
+): Promise<string> {
+    return await readSkillPublishSourceScopedPackageName(source)
+        ?? resolveCanonicalSkillPackageName(account.name, source.skillId);
+}
+
+async function readSkillPublishSourceScopedPackageName(
+    source: SkillPublishSource,
+): Promise<string | undefined> {
+    switch (source.kind) {
+        case "registry":
+            return readScopedPackageName(source.packageName);
+        case "adoptable": {
+            const metadata = await readManagedSkillMetadata(source.skillDirectoryPath);
+
+            return readScopedPackageName(metadata?.packageName)
+                ?? readScopedPackageName(await readSkillFrontmatterPackageName(source));
+        }
+        case "local":
+            return readScopedPackageName(await readSkillFrontmatterPackageName(source));
+    }
+}
+
+async function readSkillFrontmatterPackageName(
+    source: AdoptableSkillPublishSource | LocalSkillPublishSource,
+): Promise<string | undefined> {
+    const metadata = await readLocalSkillPackageMetadata({
+        skillDirectoryPath: source.skillDirectoryPath,
+        skillId: source.skillId,
+    });
+
+    return metadata.packageName;
+}
+
+function readScopedPackageName(packageName: string | undefined): string | undefined {
+    if (packageName === undefined || !packageName.startsWith("@")) {
+        return undefined;
+    }
+
+    const scopeSeparatorIndex = packageName.indexOf("/");
+
+    if (scopeSeparatorIndex <= 1 || scopeSeparatorIndex === packageName.length - 1) {
+        return undefined;
+    }
+
+    return packageName;
 }
 
 function parseSkillPublishAgent(
