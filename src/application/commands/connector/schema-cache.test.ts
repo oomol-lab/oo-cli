@@ -234,6 +234,39 @@ describe("connector schema cache", () => {
         });
     });
 
+    test("loadConnectorActionSchema rejects async lifecycle with non-positive poll interval", async () => {
+        await expect(loadConnectorActionSchema(
+            {
+                account: createAccount(),
+                actionName: "openai_image_async_submit",
+                serviceName: "fusion-api",
+            },
+            createCacheContext({
+                fetcher: async () => createMetadataResponse({
+                    asyncLifecycle: {
+                        defaultRunMode: "wait",
+                        kind: "poll",
+                        poll: {
+                            action: "openai_image_async_result",
+                            handleInputField: "sessionID",
+                            handleOutputField: "sessionId",
+                            intervalSeconds: 0,
+                        },
+                        resultField: "data",
+                        state: {
+                            failure: ["not_found"],
+                            field: "state",
+                            running: ["processing"],
+                            success: ["completed"],
+                        },
+                    },
+                    name: "openai_image_async_submit",
+                    service: "fusion-api",
+                }),
+            }),
+        )).rejects.toThrow("errors.connectorMetadata.invalidResponse");
+    });
+
     test("loadConnectorActionSchema deletes stale entries when metadata reports not found", async () => {
         const cache = createMemoryCache();
         const cacheKey = createConnectorActionSchemaCacheKey({
@@ -327,6 +360,157 @@ describe("connector schema cache", () => {
         });
     });
 
+    test("createConnectorActionSchemaOutput exposes async lifecycle and derived run output schema", () => {
+        const schema = {
+            asyncLifecycle: {
+                defaultRunMode: "wait",
+                kind: "poll",
+                poll: {
+                    action: "openai_image_async_result",
+                    handleInputField: "sessionID",
+                    handleOutputField: "sessionId",
+                    intervalSeconds: 3,
+                },
+                resultField: "data",
+                state: {
+                    failure: ["not_found"],
+                    field: "state",
+                    running: ["processing"],
+                    success: ["completed"],
+                },
+            },
+            description: "Submit OpenAI image generation.",
+            inputSchema: {
+                type: "object",
+            },
+            name: "openai_image_async_submit",
+            outputSchema: {
+                properties: {
+                    sessionId: {
+                        type: "string",
+                    },
+                },
+                type: "object",
+            },
+            providerPermissions: [],
+            requiredScopes: [],
+            service: "fusion-api",
+        } satisfies ConnectorActionMetadata;
+        const pollActionSchema = {
+            description: "Get OpenAI image generation result.",
+            inputSchema: {
+                type: "object",
+            },
+            name: "openai_image_async_result",
+            outputSchema: {
+                properties: {
+                    data: {
+                        properties: {
+                            images: {
+                                items: {
+                                    type: "string",
+                                },
+                                type: "array",
+                            },
+                        },
+                        type: "object",
+                    },
+                    state: {
+                        type: "string",
+                    },
+                },
+                type: "object",
+            },
+            providerPermissions: [],
+            requiredScopes: [],
+            service: "fusion-api",
+        } satisfies ConnectorActionMetadata;
+
+        expect(createConnectorActionSchemaOutput(schema, { pollActionSchema })).toEqual({
+            asyncLifecycle: schema.asyncLifecycle,
+            description: "Submit OpenAI image generation.",
+            inputSchema: {
+                type: "object",
+            },
+            name: "openai_image_async_submit",
+            outputSchema: {
+                properties: {
+                    sessionId: {
+                        type: "string",
+                    },
+                },
+                type: "object",
+            },
+            runOutputSchema: {
+                properties: {
+                    images: {
+                        items: {
+                            type: "string",
+                        },
+                        type: "array",
+                    },
+                },
+                type: "object",
+            },
+            service: "fusion-api",
+        });
+    });
+
+    test("createConnectorActionSchemaOutput fails when async result schema field is missing", () => {
+        const schema = {
+            asyncLifecycle: {
+                defaultRunMode: "wait",
+                kind: "poll",
+                poll: {
+                    action: "openai_image_async_result",
+                    handleInputField: "sessionID",
+                    handleOutputField: "sessionId",
+                    intervalSeconds: 3,
+                },
+                resultField: "data",
+                state: {
+                    failure: ["not_found"],
+                    field: "state",
+                    running: ["processing"],
+                    success: ["completed"],
+                },
+            },
+            description: "Submit OpenAI image generation.",
+            inputSchema: {
+                type: "object",
+            },
+            name: "openai_image_async_submit",
+            outputSchema: {
+                type: "object",
+            },
+            providerPermissions: [],
+            requiredScopes: [],
+            service: "fusion-api",
+        } satisfies ConnectorActionMetadata;
+        const pollActionSchema = {
+            description: "Get OpenAI image generation result.",
+            inputSchema: {
+                type: "object",
+            },
+            name: "openai_image_async_result",
+            outputSchema: {
+                properties: {
+                    state: {
+                        type: "string",
+                    },
+                },
+                type: "object",
+            },
+            providerPermissions: [],
+            requiredScopes: [],
+            service: "fusion-api",
+        } satisfies ConnectorActionMetadata;
+
+        expect(() =>
+            createConnectorActionSchemaOutput(schema, { pollActionSchema }),
+        ).toThrow("errors.connectorSchema.asyncResultSchemaMissing");
+    });
+
     test("isConnectorActionSchemaNotFoundError detects 404 and action_not_found failures", () => {
         expect(isConnectorActionSchemaNotFoundError(new Error("nope"))).toBeFalse();
         expect(isConnectorActionSchemaNotFoundError({
@@ -389,19 +573,23 @@ function createAccount() {
 }
 
 function createMetadataResponse(overrides: {
+    asyncLifecycle?: ConnectorActionMetadata["asyncLifecycle"];
     description?: string;
     followUpActions?: unknown;
     name?: string;
     providerPermissions?: string[];
     requiredScopes?: string[];
+    service?: string;
 } = {}): Response {
     const name = overrides.name ?? "send_mail";
+    const service = overrides.service ?? "gmail";
 
     return new Response(JSON.stringify({
         data: {
+            asyncLifecycle: overrides.asyncLifecycle,
             description: overrides.description ?? "Send a Gmail message.",
             followUpActions: overrides.followUpActions ?? [],
-            id: `gmail.${name}`,
+            id: `${service}.${name}`,
             inputSchema: {
                 type: "object",
             },
@@ -411,7 +599,7 @@ function createMetadataResponse(overrides: {
             },
             providerPermissions: overrides.providerPermissions ?? [],
             requiredScopes: overrides.requiredScopes ?? [],
-            service: "gmail",
+            service,
         },
     }));
 }

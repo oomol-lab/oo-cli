@@ -283,12 +283,13 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
 - 选项：`--refresh` 会直接从 connector metadata API 获取最新 schema。
 - 输出：命令默认输出 JSON 对象，包含稳定 CLI 字段 `service`、`name`、
-  `description`、`inputSchema` 和 `outputSchema`。
+  `description`、`inputSchema`、`outputSchema`，以及可选的
+  `asyncLifecycle` 和 `runOutputSchema`。
 - 说明：`--refresh` 会强制为选中的 action 重新获取 schema。
 
 ### `oo connector run <serviceName>`
 
-校验输入数据，并同步运行一个 connector action。
+校验输入数据，并运行一个 connector action。
 
 - 参数：`<serviceName>` 为服务名。
 - 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
@@ -301,6 +302,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 错误：stderr 会打印 HTTP 状态；如果失败响应包含服务端 `message` 或
   `errorCode`，也会一并输出。
 - 说明：命令会在执行前根据选中 action 的 contract 校验输入。
+- 说明：如果 action schema 声明了 `asyncLifecycle.defaultRunMode` 为 `wait`，
+  命令会自动轮询到完成。这时 JSON 输出的 `data` 是完成后的 run result，
+  原始 async handle 会放在 `meta.handle`。
 
 ## Search
 
