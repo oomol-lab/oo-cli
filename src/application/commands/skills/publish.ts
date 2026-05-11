@@ -510,17 +510,35 @@ async function readSkillFrontmatterPackageName(
 }
 
 function readScopedPackageName(packageName: string | undefined): string | undefined {
-    if (packageName === undefined || !packageName.startsWith("@")) {
+    if (packageName === undefined) {
         return undefined;
     }
 
-    const scopeSeparatorIndex = packageName.indexOf("/");
+    const packageNameParts = packageName.split("#");
+    const scopedPackageName = packageNameParts[0]!;
 
-    if (scopeSeparatorIndex <= 1 || scopeSeparatorIndex === packageName.length - 1) {
+    if (
+        packageNameParts.length > 2
+        || scopedPackageName === ""
+        || (packageNameParts[1] !== undefined && packageNameParts[1] === "")
+        || !scopedPackageName.startsWith("@")
+    ) {
         return undefined;
     }
 
-    return packageName;
+    const scopedPackageNameSegments = scopedPackageName.split("/");
+
+    if (scopedPackageNameSegments.length !== 2) {
+        return undefined;
+    }
+
+    const [scope, name] = scopedPackageNameSegments;
+
+    if (scope === "@" || name === "") {
+        return undefined;
+    }
+
+    return scopedPackageName;
 }
 
 function parseSkillPublishAgent(
@@ -779,15 +797,21 @@ async function confirmAndPrepareSkillPublishSource(
         case "local":
             return options.source;
         case "registry": {
+            const sourcePackageName = readScopedPackageName(options.source.packageName)
+                ?? options.source.packageName;
+
             if (
-                normalizePackageNameForComparison(options.source.packageName)
+                normalizePackageNameForComparison(sourcePackageName)
                 === normalizePackageNameForComparison(options.packageName)
             ) {
                 return options.source;
             }
 
             await confirmRegistrySkillPackagePublish(
-                options.source,
+                {
+                    ...options.source,
+                    packageName: sourcePackageName,
+                },
                 options.packageName,
                 context,
                 options.yes,

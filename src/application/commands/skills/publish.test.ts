@@ -557,6 +557,102 @@ describe("skills publish command", () => {
         expect(result.packageName).toBe("@bob/registry-owned-skill");
     });
 
+    test("falls back when registry skill metadata has an invalid scoped package name", async () => {
+        const invalidPackageNames = [
+            "@bob/registry-owned-skill/extra",
+            "@/registry-owned-skill",
+            "@bob/",
+        ];
+
+        for (const invalidPackageName of invalidPackageNames) {
+            const configRootDirectoryPath = await createTemporaryDirectory("publish-invalid-registry-package-config");
+            const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
+            const context = createPublishContext(settingsFilePath);
+            const skillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+                settingsFilePath,
+                "registry-owned-skill",
+            );
+
+            cleanup.track(configRootDirectoryPath);
+
+            await writeSkillFile(skillDirectoryPath, [
+                "---",
+                "name: registry-owned-skill",
+                "description: Use a registry package workflow.",
+                "---",
+                "",
+            ].join("\n"));
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+                renderSkillMetadataJson({
+                    packageName: invalidPackageName,
+                    version: "0.1.0",
+                }),
+            );
+
+            const result = await publishSkillPackage(
+                "registry-owned-skill",
+                context,
+                "private",
+                { yes: true },
+                {
+                    checkAuthoringEnvironment: () => Promise.resolve({
+                        canonicalRootDirectoryPath: "",
+                        hostCount: 1,
+                    }),
+                    publishConvertedSkillPackage: () => Promise.resolve(),
+                    resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
+                },
+            );
+
+            expect(result.packageName).toBe("@alice/registry-owned-skill");
+        }
+    });
+
+    test("ignores registry skill share ids when preserving scoped package names", async () => {
+        const configRootDirectoryPath = await createTemporaryDirectory("publish-registry-share-config");
+        const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
+        const context = createPublishContext(settingsFilePath);
+        const skillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            settingsFilePath,
+            "shared-registry-skill",
+        );
+
+        cleanup.track(configRootDirectoryPath);
+
+        await writeSkillFile(skillDirectoryPath, [
+            "---",
+            "name: shared-registry-skill",
+            "description: Use a registry package workflow.",
+            "---",
+            "",
+        ].join("\n"));
+        await Bun.write(
+            resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+            renderSkillMetadataJson({
+                packageName: "@bob/shared-registry-skill#share-1",
+                version: "0.1.0",
+            }),
+        );
+
+        const result = await publishSkillPackage(
+            "shared-registry-skill",
+            context,
+            "private",
+            {},
+            {
+                checkAuthoringEnvironment: () => Promise.resolve({
+                    canonicalRootDirectoryPath: "",
+                    hostCount: 1,
+                }),
+                publishConvertedSkillPackage: () => Promise.resolve(),
+                resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
+            },
+        );
+
+        expect(result.packageName).toBe("@bob/shared-registry-skill");
+    });
+
     test("publishes a registry skill using its installed package name when --yes is passed", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
