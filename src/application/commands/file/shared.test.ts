@@ -67,13 +67,17 @@ describe("uploadFileParts", () => {
                     slice: () => new Blob(["a"]),
                 },
                 {
+                    key: "file-upload/user-1/file-1/sample.txt",
                     partSize: 1,
-                    presignedUrls: {
-                        1: "https://storage.example.com/upload/1",
-                    },
                     totalParts: 1,
-                    uploadId: "upload-1",
+                    uploadID: "upload-1",
                 },
+                [
+                    {
+                        partNumber: 1,
+                        uploadURL: "https://storage.example.com/upload/1",
+                    },
+                ],
                 {
                     fetcher: async () => {
                         fetchCount += 1;
@@ -83,6 +87,9 @@ describe("uploadFileParts", () => {
                         }
 
                         return new Response(null, {
+                            headers: {
+                                ETag: "\"etag-1\"",
+                            },
                             status: 200,
                         });
                     },

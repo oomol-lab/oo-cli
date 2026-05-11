@@ -360,20 +360,12 @@ async function uploadFilePart(
         maxRetries: fileUploadPartExtraRetries,
     });
 
-<<<<<<< ours
     const response = await performLoggedRequest({
-        context,
-||||||| ancestor
-    await performLoggedRequest({
-        context,
-=======
-    await performLoggedRequest({
         context: {
             fetcher: uploadPartFetcher,
             logger: context.logger,
             translator: context.translator,
         },
->>>>>>> theirs
         createRequestFailedError: status => new CliUserError(
             "errors.fileUpload.requestFailed",
             1,
