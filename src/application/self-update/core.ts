@@ -19,7 +19,10 @@ import {
     fetchLatestCliReleaseVersion,
     parseLatestCliSemverReleaseVersion,
 } from "../update/release-metadata.ts";
-import { attemptManagedSkillInstall } from "./bundled-skills.ts";
+import {
+    attemptManagedSkillInstall,
+    attemptManagedSkillUpdate,
+} from "./bundled-skills.ts";
 import { resolveSelfUpdateCommandResolution } from "./command-resolution.ts";
 import { attemptLegacyPackageManagerUninstall } from "./legacy-installation.ts";
 import {
@@ -195,11 +198,21 @@ export async function performSelfUpdateOperation(options: {
             platform: options.runtime.platform,
             targetVersion: options.targetVersion,
         });
+        const targetVersionCommandPath = resolveSelfUpdateVersionExecutablePath(
+            paths,
+            options.targetVersion,
+        );
+
+        options.reportStage?.({
+            stage: "skillsUpdate",
+            version: options.targetVersion,
+        });
         await attemptManagedSkillInstall({
-            commandPath: resolveSelfUpdateVersionExecutablePath(
-                paths,
-                options.targetVersion,
-            ),
+            commandPath: targetVersionCommandPath,
+            runtime: options.runtime,
+        });
+        await attemptManagedSkillUpdate({
+            commandPath: targetVersionCommandPath,
             runtime: options.runtime,
         });
         await attemptLegacyPackageManagerUninstall(options.runtime);
