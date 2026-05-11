@@ -243,6 +243,7 @@ describe("connectorCommand CLI", () => {
             );
 
             expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
             expect(JSON.parse(result.stdout)).toEqual({
                 data: {
                     images: ["image-1"],
@@ -673,6 +674,112 @@ describe("connectorCommand CLI", () => {
                 },
             });
             expect(sleepCalls).toEqual([3_000]);
+        }
+        finally {
+            Bun.sleep = originalSleep;
+            await sandbox.cleanup();
+        }
+    });
+
+    test("renders async lifecycle progress to stderr for interactive connector run", async () => {
+        const sandbox = await createCliSandbox();
+        const originalSleep = Bun.sleep;
+
+        try {
+            Bun.sleep = (() => Promise.resolve()) as typeof Bun.sleep;
+
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                {
+                    asyncLifecycle: {
+                        defaultRunMode: "wait",
+                        kind: "poll",
+                        poll: {
+                            action: "openai_image_async_result",
+                            handleInputField: "sessionID",
+                            handleOutputField: "sessionId",
+                            intervalSeconds: 3,
+                        },
+                        resultField: "data",
+                        state: {
+                            failure: ["not_found"],
+                            field: "state",
+                            running: ["processing"],
+                            success: ["completed"],
+                        },
+                    },
+                    description: "Submit OpenAI image generation.",
+                    inputSchema: {
+                        type: "object",
+                    },
+                    name: "openai_image_async_submit",
+                    outputSchema: {
+                        properties: {
+                            sessionId: {
+                                type: "string",
+                            },
+                        },
+                        required: ["sessionId"],
+                        type: "object",
+                    },
+                    service: "fusion-api",
+                },
+            );
+
+            const responses = [
+                {
+                    data: {
+                        sessionId: "session-1",
+                    },
+                    meta: {
+                        executionId: "submit-exec",
+                    },
+                },
+                {
+                    data: {
+                        state: "processing",
+                    },
+                    meta: {
+                        executionId: "poll-exec-1",
+                    },
+                },
+                {
+                    data: {
+                        data: {
+                            images: ["image-1"],
+                        },
+                        state: "completed",
+                    },
+                    meta: {
+                        executionId: "poll-exec-2",
+                    },
+                },
+            ];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{}",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify(responses.shift())),
+                    stderr: {
+                        isTTY: true,
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toContain("Waiting for async connector result");
+            expect(result.stderr).toContain("Polling openai_image_async_result (poll 1, state processing)");
+            expect(result.stderr).toContain("Completed openai_image_async_result (polls: 2)");
+            expect(result.stdout).toContain("Result data:");
+            expect(result.stdout).toContain("\"images\":");
         }
         finally {
             Bun.sleep = originalSleep;

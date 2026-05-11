@@ -13,6 +13,7 @@ import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
+import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
 import {
     deleteConnectorActionSchemaCache,
     isConnectorActionSchemaNotFoundError,
@@ -37,6 +38,7 @@ type ConnectorRunTextContext = Pick<CliExecutionContext, "stdout" | "translator"
 type ConnectorRunTarget = Pick<ConnectorRunInput, "serviceName"> & {
     actionName: string;
 };
+type ConnectorAsyncLifecycleProgressContext = Pick<CliExecutionContext, "stderr" | "translator">;
 
 const connectorAsyncLifecycleDefaultTimeoutMs = 6 * 3_600_000;
 
@@ -145,6 +147,9 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             actionName,
             serviceName: input.serviceName,
         };
+        const progressReporter = input.format === "json"
+            ? undefined
+            : createConnectorAsyncLifecycleProgressReporter(context);
 
         try {
             response = await runConnectorActionWithDefaultMode(
@@ -154,6 +159,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
                     endpoint: account.endpoint,
                     inputData,
                     lifecycle: actionSchema.asyncLifecycle,
+                    progressReporter,
                     serviceName: input.serviceName,
                 },
                 context,
@@ -163,6 +169,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             );
         }
         catch (error) {
+            progressReporter?.abort();
             recordConnectorRunFailureTelemetry(error, context.telemetry);
             if (isConnectorActionSchemaNotFoundError(error)) {
                 deleteConnectorActionSchemaCache(
@@ -196,6 +203,7 @@ async function runConnectorActionWithDefaultMode(
         endpoint: string;
         inputData: unknown;
         lifecycle: ConnectorActionAsyncLifecycle | undefined;
+        progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         serviceName: string;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
@@ -225,6 +233,7 @@ async function runConnectorActionWithDefaultMode(
             apiKey: options.apiKey,
             endpoint: options.endpoint,
             lifecycle: options.lifecycle,
+            progressReporter: options.progressReporter,
             serviceName: options.serviceName,
             submitResponse: response,
         },
@@ -238,6 +247,7 @@ async function waitForConnectorAsyncLifecycle(
         apiKey: string;
         endpoint: string;
         lifecycle: ConnectorActionAsyncLifecycle;
+        progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         serviceName: string;
         submitResponse: ConnectorActionRunResponse;
     },
@@ -257,6 +267,8 @@ async function waitForConnectorAsyncLifecycle(
 
     const startedAt = Date.now();
     let pollCount = 0;
+
+    options.progressReporter?.startWaiting(options.lifecycle.poll.action);
 
     while (true) {
         const elapsedMs = Date.now() - startedAt;
@@ -294,7 +306,15 @@ async function waitForConnectorAsyncLifecycle(
             });
         }
 
+        options.progressReporter?.reportPoll(
+            options.lifecycle.poll.action,
+            pollCount,
+            state,
+        );
+
         if (options.lifecycle.state.success.includes(state)) {
+            options.progressReporter?.complete(options.lifecycle.poll.action, pollCount);
+
             return {
                 data: readConnectorAsyncLifecycleResult(
                     pollResponse.data,
@@ -353,6 +373,82 @@ function readObjectField(value: unknown, field: string): unknown {
     }
 
     return (value as Record<string, unknown>)[field];
+}
+
+function createConnectorAsyncLifecycleProgressReporter(
+    context: ConnectorAsyncLifecycleProgressContext,
+): ConnectorAsyncLifecycleProgressReporter | undefined {
+    if (context.stderr.isTTY !== true) {
+        return undefined;
+    }
+
+    return new ConnectorAsyncLifecycleProgressReporter(
+        context.stderr,
+        context.translator,
+    );
+}
+
+class ConnectorAsyncLifecycleProgressReporter extends TerminalProgressRenderer {
+    private activeMessage: string | undefined;
+    private completedMessage: string | undefined;
+    private readonly colors;
+
+    constructor(
+        writer: CliExecutionContext["stderr"],
+        private readonly translator: Pick<CliExecutionContext["translator"], "t">,
+    ) {
+        super(writer);
+        this.colors = createWriterColors(writer);
+    }
+
+    startWaiting(action: string): void {
+        this.completedMessage = undefined;
+        this.activeMessage = this.translator.t(
+            "connector.run.progress.waiting",
+            { action },
+        );
+        this.startSpinner();
+    }
+
+    reportPoll(action: string, pollCount: number, state: string): void {
+        this.activeMessage = this.translator.t(
+            "connector.run.progress.polling",
+            {
+                action,
+                pollCount,
+                state,
+            },
+        );
+        this.render();
+    }
+
+    complete(action: string, pollCount: number): void {
+        this.activeMessage = undefined;
+        this.completedMessage = this.translator.t(
+            "connector.run.progress.completed",
+            {
+                action,
+                pollCount,
+            },
+        );
+        super.stop();
+    }
+
+    abort(): void {
+        super.stop();
+    }
+
+    protected renderLines(): string[] {
+        if (this.completedMessage !== undefined) {
+            return [`${this.colors.green("◆")} ${this.completedMessage}`];
+        }
+
+        if (this.activeMessage !== undefined) {
+            return [`${this.colors.cyan(this.currentFrame)} ${this.activeMessage}`];
+        }
+
+        return [""];
+    }
 }
 
 function formatConnectorRunResponseAsText(

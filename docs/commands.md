@@ -386,6 +386,8 @@ Validate input data and run one connector action.
   `wait` are automatically polled until completion. In that case JSON output
   uses the completed run result in `data`, and the original async handle is
   included in `meta.handle`.
+- Notes: while polling an async action in text mode, interactive terminals show
+  progress on stderr. JSON output does not include progress text.
 
 ## Search
 
