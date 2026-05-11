@@ -226,6 +226,10 @@ const commandTelemetryDecisions = {
         kind: "excluded",
         reason: "This command intentionally prints the current account API key for LLM client setup.",
     },
+    "llm.json": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; prompts, schemas, inputs, model names, and outputs are not recorded.",
+    },
     "log": {
         kind: "generic",
         reason: "Command group; log paths and log contents must not be recorded.",

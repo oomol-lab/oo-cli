@@ -83,6 +83,35 @@ Print the current account's LLM client configuration as JSON.
   - `model`: the default model name, currently `oomol-chat`.
 - Production output uses `https://llm.oomol.com/` as `baseUrl`.
 
+### `oo llm json`
+
+Call the configured LLM and require a JSON response that validates against a
+provided JSON Schema.
+
+- Authentication: requires the current OOMOL account.
+- Options:
+  - `--schema <schema>` is required. The value must be a JSON Schema object or
+    `@path/to/schema.json`.
+  - `--input <input>` provides input JSON or `@path/to/input.json`. When
+    omitted, the input is `{}`.
+  - `--system <system>` provides extra system prompt text or `@path/to/system.txt`.
+  - `--max-retries <count>` sets retries after the first attempt. Default is
+    `2`; supported values are `0` through `5`.
+  - `--model <model>` overrides the default model for this call.
+  - `--format=json` and `--json` are accepted for consistency. The command
+    always prints JSON.
+- Behavior: the CLI sends the selected schema and input to the configured
+  OpenAI-compatible chat completions endpoint, requests JSON-only output,
+  repairs common JSON wrapping such as Markdown fences, validates the parsed
+  value against the schema, and retries malformed or schema-invalid model
+  output within the retry budget.
+- Output: success prints
+  `{ ok: true, data, model, attempts }`, where `data` is the validated model
+  JSON value.
+- Errors: endpoint `404`, authentication `401` or `403`, rate limit `429`,
+  invalid schema, unsupported LLM responses, and validation exhaustion are
+  reported as command errors.
+
 ## Configuration
 
 - Notes: when the persisted settings file contains unknown keys, the CLI

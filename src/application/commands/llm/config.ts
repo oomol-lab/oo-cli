@@ -6,7 +6,7 @@ import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 
 const llmConfigFormatValues = ["json"] as const;
-const defaultLlmModel = "oomol-chat";
+export const defaultLlmModel = "oomol-chat";
 
 interface LlmConfigInput {
     format?: (typeof llmConfigFormatValues)[number];
@@ -42,10 +42,10 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
     },
 };
 
-function createLlmBaseUrl(endpoint: string): string {
+export function createLlmBaseUrl(endpoint: string): string {
     return new URL(`https://llm.${endpoint}/`).toString();
 }
 
-function createLlmChatCompletionsUrl(endpoint: string): string {
+export function createLlmChatCompletionsUrl(endpoint: string): string {
     return new URL(`https://llm.${endpoint}/v1/chat/completions`).toString();
 }
