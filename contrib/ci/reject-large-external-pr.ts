@@ -3,11 +3,13 @@ import process from "node:process";
 const DEFAULT_GITHUB_API_URL = "https://api.github.com";
 const DEFAULT_EXTERNAL_PR_DIFF_LIMIT = 200;
 const REJECTION_COMMENT_MARKER = "<!-- oo-cli-large-external-pr-guard -->";
-const INTERNAL_AUTHOR_ASSOCIATIONS = new Set(["MEMBER", "OWNER"]);
+const INTERNAL_AUTHOR_ASSOCIATIONS = new Set(["COLLABORATOR", "MEMBER", "OWNER"]);
+const INTERNAL_REPOSITORY_PERMISSIONS = new Set(["admin", "maintain", "write"]);
 
 interface PullRequestGuardInput {
     additions: number;
     authorAssociation: string;
+    authorLogin?: string;
     authorType?: string;
     baseRepositoryFullName?: string;
     deletions: number;
@@ -48,11 +50,23 @@ interface GitHubApiClientOptions {
 type GitHubRequestOptions = GitHubApiClientOptions & {
     body?: unknown;
     method: string;
+    notFoundValue?: unknown;
     path: string;
 };
 
 interface GitHubIssueComment {
     body?: string;
+}
+
+interface GitHubCollaboratorPermission {
+    permission?: string;
+    user?: {
+        permissions?: {
+            admin?: boolean;
+            maintain?: boolean;
+            push?: boolean;
+        };
+    };
 }
 
 export function evaluateLargeExternalPullRequest(input: PullRequestGuardInput): PullRequestGuardDecision {
@@ -114,6 +128,7 @@ async function readPullRequestEvent(eventPath: string): Promise<PullRequestEvent
             additions: parseNumber(pullRequest.additions, "pull_request.additions"),
             deletions: parseNumber(pullRequest.deletions, "pull_request.deletions"),
             authorAssociation: parseString(pullRequest.author_association, "pull_request.author_association"),
+            authorLogin: parseString(pullRequestAuthor.login, "pull_request.user.login"),
             authorType: parseString(pullRequestAuthor.type, "pull_request.user.type"),
             baseRepositoryFullName,
             headRepositoryFullName,
@@ -229,6 +244,29 @@ async function closePullRequest(
     });
 }
 
+async function authorHasRepositoryWritePermission(
+    options: GitHubApiClientOptions & PullRequestRef & { username: string },
+): Promise<boolean> {
+    const permission = await requestGitHubJson<GitHubCollaboratorPermission | undefined>({
+        ...options,
+        method: "GET",
+        notFoundValue: undefined,
+        path: buildRepoPath(options, `collaborators/${encodeURIComponent(options.username)}/permission`),
+    });
+
+    return permission !== undefined && hasRepositoryWritePermission(permission);
+}
+
+function hasRepositoryWritePermission(permission: GitHubCollaboratorPermission): boolean {
+    if (permission.permission !== undefined && INTERNAL_REPOSITORY_PERMISSIONS.has(permission.permission)) {
+        return true;
+    }
+
+    return permission.user?.permissions?.admin === true
+        || permission.user?.permissions?.maintain === true
+        || permission.user?.permissions?.push === true;
+}
+
 async function requestGitHubJson<Value>(options: GitHubRequestOptions): Promise<Value> {
     const response = await fetch(`${trimTrailingSlash(options.apiUrl)}${options.path}`, {
         method: options.method,
@@ -242,6 +280,10 @@ async function requestGitHubJson<Value>(options: GitHubRequestOptions): Promise<
         signal: AbortSignal.timeout(15_000),
     });
     const responseText = await response.text();
+
+    if (response.status === 404 && "notFoundValue" in options) {
+        return options.notFoundValue as Value;
+    }
 
     if (!response.ok) {
         throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}\n${responseText}`);
@@ -272,6 +314,20 @@ export async function main(environment: NodeJS.ProcessEnv = process.env): Promis
         apiUrl: environment.GITHUB_API_URL ?? DEFAULT_GITHUB_API_URL,
         token: readRequiredEnv(environment, "GITHUB_TOKEN"),
     };
+    if (
+        event.pullRequest.authorLogin !== undefined
+        && await authorHasRepositoryWritePermission({
+            ...apiClientOptions,
+            owner: event.owner,
+            pullNumber: event.pullNumber,
+            repo: event.repo,
+            username: event.pullRequest.authorLogin,
+        })
+    ) {
+        process.stdout.write(`Pull request allowed: ${decisionSummary}.\n`);
+        return;
+    }
+
     const commentBody = buildLargeExternalPullRequestRejectionComment({
         additions: event.pullRequest.additions,
         deletions: event.pullRequest.deletions,

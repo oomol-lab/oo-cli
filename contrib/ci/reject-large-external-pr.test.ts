@@ -61,6 +61,19 @@ describe("reject-large-external-pr", () => {
         }).shouldReject).toBeFalse();
     });
 
+    test("allows repository collaborators above the diff limit", () => {
+        expect(evaluateLargeExternalPullRequest({
+            additions: 500,
+            deletions: 500,
+            authorAssociation: "COLLABORATOR",
+        })).toMatchObject({
+            authorIsBot: false,
+            authorIsExternal: false,
+            diffSize: 1000,
+            shouldReject: false,
+        });
+    });
+
     test("allows same-repository pull requests above the diff limit", () => {
         expect(evaluateLargeExternalPullRequest({
             additions: 500,
@@ -126,6 +139,43 @@ describe("reject-large-external-pr", () => {
         });
     });
 
+    test("allows users with repository write permission when author association is stale", async () => {
+        const requests = installGitHubApiFetchStub({
+            permissionResponse: {
+                permission: "admin",
+                user: {
+                    permissions: {
+                        admin: true,
+                        maintain: true,
+                        push: true,
+                    },
+                },
+            },
+        });
+
+        await withTempPullRequestEvent({
+            additions: 500,
+            authorAssociation: "NONE",
+            authorLogin: "l1shen",
+            baseRepositoryFullName: "oomol-lab/oo-cli",
+            deletions: 500,
+            headRepositoryFullName: "l1shen/oo-cli",
+        }, async (eventPath) => {
+            await main({
+                GITHUB_API_URL: "https://api.example.test/",
+                GITHUB_EVENT_PATH: eventPath,
+                GITHUB_TOKEN: "token",
+            });
+        });
+
+        expect(requests).toEqual([{
+            init: expect.objectContaining({
+                method: "GET",
+            }),
+            url: "https://api.example.test/repos/oomol-lab/oo-cli/collaborators/l1shen/permission",
+        }]);
+    });
+
     test("treats missing repository names as external when reading events", async () => {
         const requests = installGitHubApiFetchStub();
 
@@ -142,7 +192,7 @@ describe("reject-large-external-pr", () => {
             });
         });
 
-        expect(requests).toHaveLength(3);
+        expect(requests).toHaveLength(4);
         expect(requests.some(request => request.init?.method === "PATCH")).toBeTrue();
     });
 
@@ -163,8 +213,9 @@ describe("reject-large-external-pr", () => {
             });
         });
 
-        expect(requests).toHaveLength(3);
-        const commentListRequest = requests.find(request => request.init?.method === "GET");
+        expect(requests).toHaveLength(4);
+        const commentListRequest = requests.find(request =>
+            request.init?.method === "GET" && request.url.includes("/issues/157/comments"));
         const commentCreateRequest = requests.find(request => request.init?.method === "POST");
         const closeRequest = requests.find(request => request.init?.method === "PATCH");
         if (
@@ -191,6 +242,7 @@ describe("reject-large-external-pr", () => {
 interface PullRequestEventOptions {
     additions: number;
     authorAssociation: string;
+    authorLogin?: string;
     baseRepositoryFullName?: string;
     deletions: number;
     headRepositoryFullName?: string;
@@ -201,7 +253,11 @@ interface CapturedFetchRequest {
     url: string;
 }
 
-function installGitHubApiFetchStub(): CapturedFetchRequest[] {
+interface GitHubApiFetchStubOptions {
+    permissionResponse?: unknown;
+}
+
+function installGitHubApiFetchStub(options: GitHubApiFetchStubOptions = {}): CapturedFetchRequest[] {
     const requests: CapturedFetchRequest[] = [];
 
     // Bun's fetch type requires a `preconnect` property; preserve the original.
@@ -213,6 +269,17 @@ function installGitHubApiFetchStub(): CapturedFetchRequest[] {
             init,
             url: String(input),
         });
+
+        if (String(input).includes("/collaborators/")) {
+            if (options.permissionResponse !== undefined) {
+                return Response.json(options.permissionResponse);
+            }
+
+            return Response.json({ message: "Not Found" }, {
+                status: 404,
+                statusText: "Not Found",
+            });
+        }
 
         if (init?.method === "GET") {
             return Response.json([]);
@@ -262,6 +329,7 @@ async function writePullRequestEvent(eventPath: string, options: PullRequestEven
             },
             number: 157,
             user: {
+                login: options.authorLogin ?? "contributor",
                 type: "User",
             },
         },
