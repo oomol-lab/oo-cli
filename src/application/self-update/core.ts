@@ -203,13 +203,13 @@ export async function performSelfUpdateOperation(options: {
             options.targetVersion,
         );
 
-        await attemptManagedSkillInstall({
-            commandPath: targetVersionCommandPath,
-            runtime: options.runtime,
-        });
         options.reportStage?.({
             stage: "skillsUpdate",
             version: options.targetVersion,
+        });
+        await attemptManagedSkillInstall({
+            commandPath: targetVersionCommandPath,
+            runtime: options.runtime,
         });
         await attemptManagedSkillUpdate({
             commandPath: targetVersionCommandPath,

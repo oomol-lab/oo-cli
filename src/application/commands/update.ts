@@ -126,6 +126,9 @@ export const updateCommand: CliCommandDefinition<
                     version: context.version,
                 });
 
+                progressReporter?.setStage("skillsUpdate", {
+                    version: context.version,
+                });
                 await attemptManagedSkillInstall({
                     commandPath: managedSkillCommandPath,
                     runtime: {
@@ -133,9 +136,6 @@ export const updateCommand: CliCommandDefinition<
                         logger: context.logger,
                         ...context.selfUpdateRuntime,
                     },
-                });
-                progressReporter?.setStage("skillsUpdate", {
-                    version: context.version,
                 });
                 await attemptManagedSkillUpdate({
                     commandPath: managedSkillCommandPath,
