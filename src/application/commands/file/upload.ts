@@ -12,11 +12,13 @@ import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
+    completeMultipartFileUpload,
     createFormatInputError,
-    initFileUpload,
+    createMultipartFileUpload,
+    fileUploadExpiresInMs,
+    generatePresignedFileUploadPartUrls,
     maxFileUploadSizeBytes,
     parseFileFormat,
-    resolveUploadedFileUrl,
     serializeFileUploadRecord,
     uploadFileParts,
 } from "./shared.ts";
@@ -63,24 +65,35 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
             rejected_too_large: false,
         });
 
-        const uploadSession = await initFileUpload(
+        const uploadSession = await createMultipartFileUpload(
             account,
             sourceFile.fileName,
             sourceFile.fileSize,
             context,
         );
-
-        await uploadFileParts(sourceFile.file, uploadSession, context);
-
-        const uploadResult = await resolveUploadedFileUrl(
+        const presignedPartUrls = await generatePresignedFileUploadPartUrls(
             account,
-            uploadSession.uploadId,
+            uploadSession,
+            context,
+        );
+
+        const uploadedParts = await uploadFileParts(
+            sourceFile.file,
+            uploadSession,
+            presignedPartUrls,
+            context,
+        );
+
+        const uploadResult = await completeMultipartFileUpload(
+            account,
+            uploadSession,
+            uploadedParts,
             context,
         );
         const uploadedAtMs = Date.now();
         const record = {
-            downloadUrl: uploadResult.url,
-            expiresAtMs: uploadResult.expiresAtMs,
+            downloadUrl: uploadResult.downloadUrl,
+            expiresAtMs: uploadedAtMs + fileUploadExpiresInMs,
             fileName: sourceFile.fileName,
             fileSize: sourceFile.fileSize,
             id: Bun.randomUUIDv7(),

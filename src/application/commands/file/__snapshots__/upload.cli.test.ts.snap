@@ -9,7 +9,7 @@ exports[`file upload CLI supports file upload and persists the uploaded record 1
   - ID: <UPLOAD_ID>
   - File size: 11 B
   - Uploaded at: <UPLOADED_AT>
-  - Expires at: 3026-03-27T00:00:00.000Z
+  - Expires at: <EXPIRES_AT>
   - Status: active
   - Download URL: https://download.example.com/file-1?signature=abc
 "
@@ -23,7 +23,7 @@ exports[`file upload CLI supports file upload json output for both --json and --
     "exitCode": 0,
     "stderr": "",
     "stdout": 
-"{"downloadUrl":"https://download.example.com/file-1?signature=abc","expiresAt":"3026-03-27T00:00:00.000Z","fileName":"sample-json.txt","fileSize":11,"id":"<UPLOAD_ID>","status":"active","uploadedAt":"<UPLOADED_AT>"}
+"{"downloadUrl":"https://download.example.com/file-1?signature=abc","expiresAt":"<EXPIRES_AT>","fileName":"sample-json.txt","fileSize":11,"id":"<UPLOAD_ID>","status":"active","uploadedAt":"<UPLOADED_AT>"}
 "
 ,
   },
@@ -31,7 +31,7 @@ exports[`file upload CLI supports file upload json output for both --json and --
     "exitCode": 0,
     "stderr": "",
     "stdout": 
-"{"downloadUrl":"https://download.example.com/file-2?signature=abc","expiresAt":"3026-03-27T00:00:00.000Z","fileName":"sample-format.txt","fileSize":13,"id":"<UPLOAD_ID>","status":"active","uploadedAt":"<UPLOADED_AT>"}
+"{"downloadUrl":"https://download.example.com/file-2?signature=abc","expiresAt":"<EXPIRES_AT>","fileName":"sample-format.txt","fileSize":13,"id":"<UPLOAD_ID>","status":"active","uploadedAt":"<UPLOADED_AT>"}
 "
 ,
   },

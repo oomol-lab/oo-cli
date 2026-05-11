@@ -991,8 +991,8 @@ Upload one file to the temporary file cache.
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.
 - Options: `--json` is an alias for `--format=json`.
-- Notes: the uploaded file expires after one day and is deleted on the server.
-- Notes: files larger than `512 MiB` are rejected.
+- Notes: the uploaded file expires after seven days and is deleted on the server.
+- Notes: files larger than `500 MiB` are rejected.
 - Notes: successful uploads persist a local sqlite record with the upload time,
   file name, file size, signed download URL, expiry time, and a UUID v7 id.
 
