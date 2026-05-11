@@ -426,6 +426,19 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("renders connector schema refresh help", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["connector", "schema", "refresh", "--help"]);
+
+            expect(createCliSnapshot(result)).toMatchSnapshot();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports connector run with cached schema and json output", async () => {
         const sandbox = await createCliSandbox();
 
@@ -1657,6 +1670,68 @@ describe("connectorCommand CLI", () => {
                     command_full: "connector.schema",
                     refresh: true,
                 },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports connector schema refresh subcommand by clearing cached metadata", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await seedConnectorActionSchema(
+                sandbox,
+                createConnectorActionFixture({
+                    description: "Cached schema.",
+                }),
+            );
+
+            const refreshResult = await sandbox.run(
+                ["connector", "schema", "refresh"],
+                {
+                    fetcher: async () => {
+                        throw new Error("Unexpected schema refresh request");
+                    },
+                },
+            );
+
+            await writeAuthFile(sandbox);
+
+            let metadataRequestCount = 0;
+            const schemaResult = await sandbox.run(
+                ["connector", "schema", "gmail", "--action", "send_mail"],
+                {
+                    fetcher: async () => {
+                        metadataRequestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                description: "Fresh schema after cache refresh.",
+                                id: "gmail.send_mail",
+                                inputSchema: {
+                                    type: "object",
+                                },
+                                name: "send_mail",
+                                outputSchema: {
+                                    type: "object",
+                                },
+                                providerPermissions: [],
+                                requiredScopes: [],
+                                service: "gmail",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(createCliSnapshot(refreshResult)).toMatchSnapshot();
+            expect(metadataRequestCount).toBe(1);
+            expect(JSON.parse(schemaResult.stdout)).toMatchObject({
+                description: "Fresh schema after cache refresh.",
+                name: "send_mail",
+                service: "gmail",
             });
         }
         finally {

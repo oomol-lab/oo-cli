@@ -18,6 +18,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 
 import {
     cacheConnectorActionSchemas,
+    clearConnectorActionSchemaCache,
     createConnectorActionSchemaCacheKey,
     createConnectorActionSchemaOutput,
     deleteConnectorActionSchemaCache,
@@ -330,6 +331,46 @@ describe("connector schema cache", () => {
         expect(cache.get(secondKey)).toMatchObject({
             description: "Second account schema.",
         });
+    });
+
+    test("clearConnectorActionSchemaCache clears the schema namespace and legacy directory", async () => {
+        const rootPath = await createTemporaryDirectory("connector-schema-cache-clear");
+        const cache = createMemoryCache();
+        const firstKey = createConnectorActionSchemaCacheKey({
+            accountId: "user-1",
+            actionName: "send_mail",
+            endpoint: "oomol.com",
+            serviceName: "gmail",
+        });
+        const secondKey = createConnectorActionSchemaCacheKey({
+            accountId: "user-2",
+            actionName: "get_message",
+            endpoint: "oomol.com",
+            serviceName: "gmail",
+        });
+
+        try {
+            const legacyDirectoryPath = join(rootPath, "connector-actions");
+
+            await mkdir(legacyDirectoryPath, { recursive: true });
+            await Bun.write(join(legacyDirectoryPath, "old.json"), "{}");
+            cache.set(firstKey, createConnectorActionFixture());
+            cache.set(secondKey, createConnectorActionFixture({
+                description: "Second schema.",
+            }));
+
+            await clearConnectorActionSchemaCache(createCacheContext({
+                cache,
+                settingsFilePath: join(rootPath, "settings.toml"),
+            }));
+
+            expect(cache.get(firstKey)).toBeNull();
+            expect(cache.get(secondKey)).toBeNull();
+            await expect(Bun.file(legacyDirectoryPath).exists()).resolves.toBeFalse();
+        }
+        finally {
+            await rm(rootPath, { force: true, recursive: true });
+        }
     });
 
     test("createConnectorActionSchemaOutput exposes only the stable schema contract", () => {

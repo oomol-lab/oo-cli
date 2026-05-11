@@ -186,6 +186,10 @@ const commandTelemetryDecisions = {
         properties: ["refresh"],
         reason: "Records whether the user requested a fresh schema lookup without service or action identity.",
     },
+    "connector.schema.refresh": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; cached connector service and action identities are not recorded.",
+    },
     "file": {
         kind: "generic",
         reason: "Command group; child commands record file dimensions where safe.",

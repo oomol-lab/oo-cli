@@ -69,6 +69,16 @@ export class LocalizedHelp extends Help {
         ]);
     }
 
+    override visibleGlobalOptions(cmd: Command): Option[] {
+        if (!this.showGlobalOptions || cmd.parent === null) {
+            return [];
+        }
+
+        const rootCommand = findRootCommand(cmd);
+
+        return rootCommand.options.filter(option => !option.hidden);
+    }
+
     override styleCommandDescription(description: string): string {
         const appDescription = this.translator.t("app.description");
 
@@ -93,6 +103,16 @@ export class LocalizedHelp extends Help {
 
         return sections.slice(1).join("\n\n");
     }
+}
+
+function findRootCommand(command: Command): Command {
+    let current = command;
+
+    while (current.parent !== null) {
+        current = current.parent;
+    }
+
+    return current;
 }
 
 function formatChoices(choices: readonly string[]): string {

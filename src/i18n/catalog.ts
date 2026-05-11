@@ -55,6 +55,10 @@ export const enMessages = {
     "commands.connector.search.summary": "Search connector actions",
     "commands.connector.schema.description":
         "Show the schema contract for one connector action.",
+    "commands.connector.schema.refresh.description":
+        "Clear all locally cached connector action schemas.",
+    "commands.connector.schema.refresh.summary":
+        "Clear connector action schema cache",
     "commands.connector.schema.summary": "Show connector action schema",
     "commands.connector.run.description":
         "Validate input data and run one connector action.",
@@ -911,6 +915,8 @@ export const enMessages = {
         "Polling {action} (poll {pollCount}, state {state})",
     "connector.run.progress.waiting":
         "Waiting for async connector result from {action}...",
+    "connector.schema.refresh.success":
+        "Cleared locally cached connector action schemas.",
     "file.cleanup.success":
         "Deleted {deletedCount} expired or stale file transfer records.",
     "file.download.savedTo": "Saved to: {path}",
@@ -988,6 +994,10 @@ export const zhMessages = {
         "搜索 connector action",
     "commands.connector.schema.description":
         "显示一个 connector action 的 schema contract。",
+    "commands.connector.schema.refresh.description":
+        "清除所有本地缓存的 connector action schema。",
+    "commands.connector.schema.refresh.summary":
+        "清除 connector action schema cache",
     "commands.connector.schema.summary":
         "显示 connector action schema",
     "commands.connector.run.description":
@@ -1808,6 +1818,8 @@ export const zhMessages = {
         "正在轮询 {action}（第 {pollCount} 次，状态 {state}）",
     "connector.run.progress.waiting":
         "正在等待 {action} 的异步 connector 结果...",
+    "connector.schema.refresh.success":
+        "已清除本地缓存的 connector action schema。",
     "file.cleanup.success": "已删除 {deletedCount} 条过期或陈旧的文件传输记录。",
     "file.download.savedTo": "已保存到：{path}",
     "file.list.noResults": "未找到任何上传记录。",
