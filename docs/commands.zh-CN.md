@@ -69,9 +69,38 @@
   该命令始终输出 JSON。
 - 输出：JSON 对象包含：
   - `apiKey`：当前账号 API key。
-  - `baseUrl`：根据当前账号 endpoint 派生出的 LLM API base URL。
+  - `baseUrl`：OpenAI-compatible LLM API base URL，已包含 `/v1` API 前缀。
+  - `chatCompletionsUrl`：规范化后的 OpenAI-compatible chat completions endpoint。
+    原始 chat completions 请求应直接调用该 URL，不要自行给 `baseUrl` 追加路径。
   - `model`：默认模型名，当前为 `oomol-chat`。
-- 生产环境输出的 `baseUrl` 为 `https://llm.oomol.com/`。
+- 生产环境输出的 `baseUrl` 为 `https://llm.oomol.com/v1`，`chatCompletionsUrl`
+  为 `https://llm.oomol.com/v1/chat/completions`。
+
+### `oo llm json`
+
+调用当前配置的 LLM，并要求返回符合指定 JSON Schema 的 JSON 响应。
+
+- 认证：要求存在当前 OOMOL 账号。
+- 选项：
+  - `--schema <schema>` 为必填。取值必须是根类型为 `object` 的 JSON Schema
+    object，或 `@path/to/schema.json`。
+  - `--input <input>` 提供输入 JSON，或使用 `@path/to/input.json` 读取。
+    省略时输入为 `{}`。
+  - `--system <system>` 提供额外 system prompt 文本，或使用
+    `@path/to/system.txt` 读取。
+  - `--max-retries <count>` 设置首次尝试之后的重试次数。默认值为 `2`；
+    支持 `0` 到 `5`。
+  - `--model <model>` 为本次调用覆盖默认模型。
+  - `--format=json` 和 `--json` 会被接受，以便与其他结构化输出命令保持一致。
+    该命令始终输出 JSON。
+- 行为：CLI 会把所选 schema 和输入发送给当前配置的 OpenAI-compatible chat
+  completions endpoint，要求模型只输出 JSON，修正常见 JSON 包裹形式（例如
+  Markdown fence），校验解析后的值是否符合 schema，并在重试预算内重试格式错误或不符合
+  schema 的模型输出。
+- 输出：成功时打印 `{ ok: true, data, model, attempts }`，其中 `data`
+  是已校验通过的模型 JSON 值。
+- 错误：endpoint `404`、认证 `401` 或 `403`、限流 `429`、schema 无效、
+  根类型不是 object 的 schema、LLM 响应结构不受支持、以及重试耗尽都会作为命令错误报告。
 
 ## 配置
 
@@ -530,16 +559,19 @@ skills。
   `<packageName>`；私有包会创建临时分享，并在提示词中显示分享 token，格式为
   `<packageName>#<shareID>`。缺少可见性元数据时按公开包处理；尚未发布的包会在输出
   分享提示词前被拒绝。
-- 输出：成功时，文本输出会打印一段可复制提示词。提示词会说明该 skill 或 package
-  已经发布，默认对方可能还没有安装 OO CLI，引导对方先安装 OO CLI，再运行
-  `oo login` 登录或注册 OO 账号，然后安装被分享的目标。提示词包含 macOS/Linux 和
-  Windows PowerShell 命令序列。对于 skill 目标，公开包会给出
+- 输出：成功时，文本输出会打印一个可复制的纯文本代码块，内部不会嵌套命令代码块。
+  提示词语言会跟随当前 CLI 语言（`--lang en` 或 `--lang zh`）。提示词会说明该
+  skill 或 package 已经发布，默认对方可能已经安装 OO CLI，引导对方先用
+  `oo --version` 检查是否需要安装 OO CLI，再用 `oo auth status` 检查登录状态；
+  只有状态显示未登录、当前账号缺失或 API key 无效时，才运行 `oo login` 登录或
+  注册 OO 账号，然后安装被分享的目标。提示词包含 macOS/Linux 和 Windows
+  PowerShell 命令序列。对于 skill 目标，公开包会给出
   `oo skills install <packageName> --skill <skill-id> -y`，私有包会给出
   `oo skills install <packageName>#<shareID> --skill <skill-id> -y`。对于
   package 目标，公开包会给出 `oo skills install <packageName> -y`，私有包会给出
   `oo skills install <packageName>#<shareID> -y`。私有包提示词会突出展示必须精确
   使用的临时安装标识 `<packageName>#<shareID>`，不会把分享目标描述为已公开发布。
-  提示词会明确要求对方从安装 OO、登录到安装目标一气呵成。
+  提示词会明确要求对方从环境检查、必要的 OO 安装或登录到安装目标一气呵成。
 
 ### `oo skills search <text>`
 

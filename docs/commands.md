@@ -77,9 +77,43 @@ Print the current account's LLM client configuration as JSON.
   structured output commands. The command always prints JSON.
 - Output: a JSON object with:
   - `apiKey`: the current account API key.
-  - `baseUrl`: the LLM API base URL, derived from the current account endpoint.
+  - `baseUrl`: the OpenAI-compatible LLM API base URL, including the `/v1`
+    API prefix.
+  - `chatCompletionsUrl`: the normalized OpenAI-compatible chat completions
+    endpoint. Call this URL directly for raw chat completions requests instead
+    of appending a path to `baseUrl`.
   - `model`: the default model name, currently `oomol-chat`.
-- Production output uses `https://llm.oomol.com/` as `baseUrl`.
+- Production output uses `https://llm.oomol.com/v1` as `baseUrl` and
+  `https://llm.oomol.com/v1/chat/completions` as `chatCompletionsUrl`.
+
+### `oo llm json`
+
+Call the configured LLM and require a JSON response that validates against a
+provided JSON Schema.
+
+- Authentication: requires the current OOMOL account.
+- Options:
+  - `--schema <schema>` is required. The value must be a JSON Schema object
+    with root type `object`, or `@path/to/schema.json`.
+  - `--input <input>` provides input JSON or `@path/to/input.json`. When
+    omitted, the input is `{}`.
+  - `--system <system>` provides extra system prompt text or `@path/to/system.txt`.
+  - `--max-retries <count>` sets retries after the first attempt. Default is
+    `2`; supported values are `0` through `5`.
+  - `--model <model>` overrides the default model for this call.
+  - `--format=json` and `--json` are accepted for consistency. The command
+    always prints JSON.
+- Behavior: the CLI sends the selected schema and input to the configured
+  OpenAI-compatible chat completions endpoint, requests JSON-only output,
+  repairs common JSON wrapping such as Markdown fences, validates the parsed
+  value against the schema, and retries malformed or schema-invalid model
+  output within the retry budget.
+- Output: success prints
+  `{ ok: true, data, model, attempts }`, where `data` is the validated model
+  JSON value.
+- Errors: endpoint `404`, authentication `401` or `403`, rate limit `429`,
+  invalid schema, non-object root schema, unsupported LLM responses, and
+  validation exhaustion are reported as command errors.
 
 ## Configuration
 
@@ -624,21 +658,25 @@ registry share id.
   packages create a temporary share and display the share token as
   `<packageName>#<shareID>`. Missing visibility metadata is treated as public.
   Unpublished packages are rejected before any share prompt is printed.
-- Output: on success, text output prints a copyable prompt that states the skill
-  or package is already published, assumes the recipient may not have OO CLI
-  installed yet, instructs them to install OO CLI, run `oo login`, sign in or
-  create an OO account, and then install the shared target. It includes
-  macOS/Linux and Windows PowerShell command sequences. Skill-target prompts
-  continue through `oo skills install <packageName> --skill <skill-id> -y` for
-  public packages, or
-  `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for private
-  packages. Package-target prompts continue through
+- Output: on success, text output prints a single copyable plain text code
+  block, with no nested command fences. The prompt language follows the active
+  CLI language (`--lang en` or `--lang zh`). The prompt states the skill or
+  package is already published, assumes the recipient may already have OO CLI
+  installed, instructs them to check `oo --version` before installing OO CLI,
+  run `oo auth status` before logging in, run `oo login` only when the status
+  shows they are logged out, the active account is missing, or the API key is
+  invalid, and then install the shared target. It includes macOS/Linux and
+  Windows PowerShell command sequences. Skill-target prompts continue through
+  `oo skills install <packageName> --skill <skill-id> -y` for public packages,
+  or `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for
+  private packages. Package-target prompts continue through
   `oo skills install <packageName> -y` for public packages, or
   `oo skills install <packageName>#<shareID> -y` for private packages.
   Private-package prompts identify the exact temporary install specifier
   `<packageName>#<shareID>` and do not present the target as already public.
-  The prompt explicitly tells the recipient to complete OO installation, login,
-  and target installation in one continuous setup flow.
+  The prompt explicitly tells the recipient to complete setup checks,
+  any required OO installation or login, and target installation in one
+  continuous setup flow.
 
 ### `oo skills search <text>`
 

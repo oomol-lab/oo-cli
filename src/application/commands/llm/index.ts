@@ -1,6 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { llmConfigCommand } from "./config.ts";
+import { llmJsonCommand } from "./json.ts";
 
 export const llmCommand: CliCommandDefinition = {
     name: "llm",
@@ -8,5 +9,6 @@ export const llmCommand: CliCommandDefinition = {
     descriptionKey: "commands.llm.description",
     children: [
         llmConfigCommand,
+        llmJsonCommand,
     ],
 };

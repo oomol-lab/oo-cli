@@ -6,7 +6,7 @@ import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 
 const llmConfigFormatValues = ["json"] as const;
-const defaultLlmModel = "oomol-chat";
+export const defaultLlmModel = "oomol-chat";
 
 interface LlmConfigInput {
     format?: (typeof llmConfigFormatValues)[number];
@@ -15,6 +15,7 @@ interface LlmConfigInput {
 interface LlmConfigOutput {
     apiKey: string;
     baseUrl: string;
+    chatCompletionsUrl: string;
     model: string;
 }
 
@@ -30,9 +31,11 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (_, context) => {
         const account = await requireCurrentAccount(context);
+        const baseUrl = createLlmBaseUrl(account.endpoint);
         const config: LlmConfigOutput = {
             apiKey: account.apiKey,
-            baseUrl: createLlmBaseUrl(account.endpoint),
+            baseUrl,
+            chatCompletionsUrl: createChatCompletionsUrl(baseUrl),
             model: defaultLlmModel,
         };
 
@@ -40,6 +43,14 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
     },
 };
 
-function createLlmBaseUrl(endpoint: string): string {
-    return new URL(`https://llm.${endpoint}/`).toString();
+export function createLlmBaseUrl(endpoint: string): string {
+    return new URL(`https://llm.${endpoint}/v1`).toString();
+}
+
+export function createLlmChatCompletionsUrl(endpoint: string): string {
+    return createChatCompletionsUrl(createLlmBaseUrl(endpoint));
+}
+
+function createChatCompletionsUrl(baseUrl: string): string {
+    return new URL(`${baseUrl}/chat/completions`).toString();
 }

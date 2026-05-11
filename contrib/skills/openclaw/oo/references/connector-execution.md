@@ -104,6 +104,54 @@ Expected execution JSON:
 }
 ```
 
+## Read current response shapes defensively
+
+Connector providers can expose the same operational value under different
+field names. Until the selected schema or CLI output proves a single canonical
+field, read common response fields defensively and keep the raw response file
+for debugging.
+
+Common accessors:
+
+```bash
+jq -r '.task.id // .data.sessionId // .data.sessionID // .data.taskId // .data.taskID // .sessionId // .sessionID // .taskId // .taskID // empty' run.json
+jq -r '.state // .data.state // .task.state // empty' state.json
+jq '.result // .data.result // .data.data // .data // .' result.json
+```
+
+Rules:
+
+- Prefer `task.id` when present, but support provider-specific task id fields
+  such as `sessionId`, `sessionID`, `taskId`, and `taskID`.
+- Prefer the selected schema's documented result field over generic fallback
+  accessors.
+- Do not discard a successful partial response just because an optional
+  convenience field is absent.
+
+## Long-running connector actions
+
+Some connectors expose submit, state, and result actions instead of a single
+synchronous action. Treat that pattern as a resumable task lifecycle.
+
+Rules:
+
+- Submit exactly once for the same logical work item.
+- Immediately save the submit response and extracted task id in a checkpoint
+  file before polling.
+- Poll the state action with the saved task id; do not resubmit after a timeout
+  or interrupted wait.
+- Treat states such as `queued`, `pending`, `processing`, and `running` as
+  non-terminal.
+- Treat `completed`, `complete`, `succeeded`, or `success` as terminal success,
+  then call the result action.
+- Treat `failed`, `error`, and `canceled` as terminal failure and
+  report the provider error without creating a replacement task unless the
+  user asks to retry with changed inputs.
+- If state is still processing and provider progress is `0`, treat progress as
+  unavailable, not as failure.
+- On timeout, report the saved task id and the exact checkpoint file or resume
+  command needed to continue polling.
+
 ## Interpret outputs by schema semantics
 
 - Interpret connector output fields by their documented meaning, not by URL

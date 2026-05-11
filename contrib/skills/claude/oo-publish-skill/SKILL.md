@@ -17,7 +17,8 @@ directory with a `SKILL.md`; it does not need to be an oo-specific skill.
 If the user asks to share a published skill, run:
 
 ```bash
-oo skills share <skill-id> -y
+oo --lang zh skills share <skill-id> -y
+oo --lang en skills share <skill-id> -y
 ```
 
 Use the skill id from the current context when the user has just created,
@@ -28,9 +29,17 @@ are shared directly. Private packages create a temporary share id and the
 prompt must use `<packageName>#<shareID>`. Private package shares support optional limits:
 `--days <days>` sets the share duration, defaults to 7, and cannot exceed 7;
 `--downloads <downloads>` limits install count; omitting `--downloads` leaves installs unlimited.
-That prompt is meant for recipients who may not have OO CLI installed yet: it
-must guide them through installing OO CLI, running `oo login`, signing in or
-creating an OO account, and then installing the skill in one continuous flow.
+Match the user's language when generating the prompt: use
+`oo --lang zh skills share <skill-id> -y` for Chinese users and
+`oo --lang en skills share <skill-id> -y` for English users. That prompt is
+meant for recipients who may already have OO CLI installed: it must guide them
+through checking `oo --version`, installing OO CLI only when missing, checking
+`oo auth status`, running `oo login` only when logged out or the account is
+invalid, and then installing the skill in one continuous flow. In the final
+response, put the complete recipient-facing share prompt in one copyable `text`
+code block. Do not use nested fenced code blocks inside it; keep macOS/Linux and
+Windows PowerShell command lines as plain lines under their labels. Do not split
+the hub URL or install commands outside the block.
 
 ### 1. Identify the publish source
 

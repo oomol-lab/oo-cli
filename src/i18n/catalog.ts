@@ -109,6 +109,9 @@ export const enMessages = {
     "commands.llm.config.summary": "Show LLM client config",
     "commands.llm.description":
         "Expose LLM client configuration for the current account.",
+    "commands.llm.json.description":
+        "Call the configured LLM, require structured JSON output, validate it against a JSON Schema, and retry malformed or schema-invalid responses.",
+    "commands.llm.json.summary": "Generate validated JSON with the LLM",
     "commands.llm.summary": "Manage LLM client config",
     "commands.help.summary": "Show help for a command",
     "commands.log.description": "Inspect persisted CLI debug logs.",
@@ -341,6 +344,44 @@ export const enMessages = {
         "The connector action search request failed: {message}",
     "errors.connectorSearch.requestFailed":
         "The connector action search request returned HTTP {status}.",
+    "errors.llmJson.authFailed":
+        "The LLM request returned HTTP {status}. Check the current account credentials.",
+    "errors.llmJson.endpointNotFound":
+        "The LLM chat completions endpoint returned HTTP {status}. Use the normalized endpoint from oo llm config.",
+    "errors.llmJson.inputFilePathRequired":
+        "The @input file path cannot be empty.",
+    "errors.llmJson.inputReadFailed":
+        "Failed to read input from {path}: {message}",
+    "errors.llmJson.invalidInputJson":
+        "The --input value is not valid JSON: {message}",
+    "errors.llmJson.invalidMaxRetries":
+        "Invalid value for {option}: {value}. Use an integer between 0 and {max}.",
+    "errors.llmJson.invalidResponse":
+        "The LLM response body is unsupported.",
+    "errors.llmJson.invalidSchema":
+        "The response JSON Schema is invalid: {message}",
+    "errors.llmJson.invalidSchemaJson":
+        "The --schema value is not valid JSON: {message}",
+    "errors.llmJson.rateLimited":
+        "The LLM request returned HTTP {status}. Retry later or reduce request frequency.",
+    "errors.llmJson.requestError":
+        "The LLM request failed: {message}",
+    "errors.llmJson.requestFailed":
+        "The LLM request returned HTTP {status}.",
+    "errors.llmJson.schemaFilePathRequired":
+        "The @schema file path cannot be empty.",
+    "errors.llmJson.schemaReadFailed":
+        "Failed to read schema from {path}: {message}",
+    "errors.llmJson.schemaRequired":
+        "The --schema option is required.",
+    "errors.llmJson.systemFilePathRequired":
+        "The @system file path cannot be empty.",
+    "errors.llmJson.systemReadFailed":
+        "Failed to read system prompt from {path}: {message}",
+    "errors.llmJson.unsupportedRootSchema":
+        "The response JSON Schema root type must be object for this endpoint.",
+    "errors.llmJson.validationFailed":
+        "The LLM did not return valid JSON matching the schema after retries: {message}",
     "errors.completion.invalidShell":
         "Unsupported shell: {value}. Use bash, zsh, or fish.",
     "errors.checkUpdate.failed": "Failed to check for CLI updates.",
@@ -620,9 +661,12 @@ export const enMessages = {
         "Do not add the executable directory to PATH automatically",
     "options.limit": "Specify the maximum number of items to return",
     "options.format": "Specify output format (use json for structured output)",
+    "options.input": "Provide LLM input JSON or @path to a JSON file",
     "options.json": "Alias for --format=json",
     "options.keywords":
         "Specify comma-separated keywords to refine the skill search",
+    "options.maxRetries": "Maximum retry count",
+    "options.model": "LLM model name",
     "options.skillListSource":
         "Filter by skill source (bundled, registry, or local)",
     "options.skillSyncSource":
@@ -647,6 +691,8 @@ export const enMessages = {
     "options.size": "Specify the number of items per page",
     "options.status": "Filter by task status",
     "options.sessionToken": "Log in with a session token",
+    "options.schema": "Provide response JSON Schema or @path to a JSON file",
+    "options.system": "System prompt text or @path to a text file",
     "options.timeout":
         "Set how long to wait before timing out (default 6h, range 10s to 24h)",
     "options.yes": "Skip confirmation prompts",
@@ -983,6 +1029,9 @@ export const zhMessages = {
     "commands.llm.config.summary": "显示 LLM client 配置",
     "commands.llm.description":
         "导出当前账号可用的 LLM client 配置。",
+    "commands.llm.json.description":
+        "调用当前配置的 LLM，要求输出结构化 JSON，使用 JSON Schema 校验，并重试格式错误或不符合 schema 的响应。",
+    "commands.llm.json.summary": "使用 LLM 生成已校验的 JSON",
     "commands.llm.summary": "管理 LLM client 配置",
     "commands.help.summary": "显示命令帮助",
     "commands.log.description": "查看持久化的 CLI debug 日志。",
@@ -1195,6 +1244,44 @@ export const zhMessages = {
         "connector action 搜索请求失败：{message}",
     "errors.connectorSearch.requestFailed":
         "connector action 搜索请求返回了 HTTP {status}。",
+    "errors.llmJson.authFailed":
+        "LLM 请求返回了 HTTP {status}。请检查当前账号认证信息。",
+    "errors.llmJson.endpointNotFound":
+        "LLM chat completions endpoint 返回了 HTTP {status}。请使用 oo llm config 提供的规范化 endpoint。",
+    "errors.llmJson.inputFilePathRequired":
+        "@input 文件路径不能为空。",
+    "errors.llmJson.inputReadFailed":
+        "读取 {path} 中的输入失败：{message}",
+    "errors.llmJson.invalidInputJson":
+        "--input 的值不是合法 JSON：{message}",
+    "errors.llmJson.invalidMaxRetries":
+        "{option} 的值无效：{value}。请使用 0 到 {max} 之间的整数。",
+    "errors.llmJson.invalidResponse":
+        "LLM 响应内容不受支持。",
+    "errors.llmJson.invalidSchema":
+        "响应 JSON Schema 无效：{message}",
+    "errors.llmJson.invalidSchemaJson":
+        "--schema 的值不是合法 JSON：{message}",
+    "errors.llmJson.rateLimited":
+        "LLM 请求返回了 HTTP {status}。请稍后重试或降低请求频率。",
+    "errors.llmJson.requestError":
+        "LLM 请求失败：{message}",
+    "errors.llmJson.requestFailed":
+        "LLM 请求返回了 HTTP {status}。",
+    "errors.llmJson.schemaFilePathRequired":
+        "@schema 文件路径不能为空。",
+    "errors.llmJson.schemaReadFailed":
+        "读取 {path} 中的 schema 失败：{message}",
+    "errors.llmJson.schemaRequired":
+        "--schema 选项为必填。",
+    "errors.llmJson.systemFilePathRequired":
+        "@system 文件路径不能为空。",
+    "errors.llmJson.systemReadFailed":
+        "读取 {path} 中的 system prompt 失败：{message}",
+    "errors.llmJson.unsupportedRootSchema":
+        "当前 endpoint 要求响应 JSON Schema 的根类型必须是 object。",
+    "errors.llmJson.validationFailed":
+        "重试后 LLM 仍未返回符合 schema 的合法 JSON：{message}",
     "errors.completion.invalidShell":
         "不支持的 shell：{value}。请使用 bash、zsh 或 fish。",
     "errors.checkUpdate.failed": "检查 CLI 更新失败。",
@@ -1467,9 +1554,12 @@ export const zhMessages = {
         "不要自动将可执行目录加入 PATH",
     "options.limit": "指定最多返回多少条记录",
     "options.format": "指定输出格式（使用 json 返回结构化内容）",
+    "options.input": "提供 LLM 输入 JSON，或使用 @路径 读取 JSON 文件",
     "options.json": "--format=json 的别名",
     "options.keywords":
         "指定用于细化 skill 搜索的逗号分隔关键词",
+    "options.maxRetries": "最大重试次数",
+    "options.model": "LLM 模型名",
     "options.skillListSource":
         "按 skill 来源过滤（bundled、registry 或 local）",
     "options.skillSyncSource":
@@ -1494,6 +1584,8 @@ export const zhMessages = {
     "options.size": "指定每页数量",
     "options.status": "按任务状态过滤",
     "options.sessionToken": "使用 session token 登录",
+    "options.schema": "提供响应 JSON Schema，或使用 @路径 读取 JSON 文件",
+    "options.system": "System prompt 文本，或使用 @路径 读取文本文件",
     "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
     "options.yes": "跳过确认提示",
     "options.lang": "指定显示语言",
