@@ -46,6 +46,10 @@ export interface ConnectorActionSchemaOutput {
     service: string;
 }
 
+type SyncConnectorActionMetadata = ConnectorActionMetadata & {
+    asyncLifecycle?: undefined;
+};
+
 export async function loadConnectorActionSchema(
     options: {
         account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">;
@@ -157,16 +161,32 @@ export function deleteConnectorActionSchemaCache(
 
 export function createConnectorActionSchemaOutput(
     schema: ConnectorActionMetadata,
+    options: { pollActionSchema: ConnectorActionMetadata },
+): ConnectorActionSchemaOutput;
+export function createConnectorActionSchemaOutput(
+    schema: SyncConnectorActionMetadata,
+    options?: { pollActionSchema?: undefined },
+): ConnectorActionSchemaOutput;
+export function createConnectorActionSchemaOutput(
+    schema: ConnectorActionMetadata,
     options: {
         pollActionSchema?: ConnectorActionMetadata;
     } = {},
 ): ConnectorActionSchemaOutput {
-    const outputSchema = schema.asyncLifecycle === undefined
-        ? schema.outputSchema
-        : readConnectorAsyncLifecycleRunOutputSchema(
-                schema.asyncLifecycle,
-                options.pollActionSchema?.outputSchema,
-            );
+    let outputSchema = schema.outputSchema;
+
+    if (schema.asyncLifecycle !== undefined) {
+        if (options.pollActionSchema === undefined) {
+            throw new CliUserError("errors.connectorSchema.asyncPollSchemaMissing", 1, {
+                action: schema.asyncLifecycle.poll.action,
+            });
+        }
+
+        outputSchema = readConnectorAsyncLifecycleRunOutputSchema(
+            schema.asyncLifecycle,
+            options.pollActionSchema.outputSchema,
+        );
+    }
 
     const output: ConnectorActionSchemaOutput = {
         description: schema.description,

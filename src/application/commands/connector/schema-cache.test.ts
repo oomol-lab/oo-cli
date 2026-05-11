@@ -552,6 +552,16 @@ describe("connector schema cache", () => {
         });
     });
 
+    test("createConnectorActionSchemaOutput requires the poll action schema for async actions", () => {
+        const createOutput = createConnectorActionSchemaOutput as (
+            schema: ConnectorActionMetadata,
+        ) => unknown;
+
+        expect(() =>
+            createOutput(createAsyncSubmitSchemaFixture()),
+        ).toThrow("errors.connectorSchema.asyncPollSchemaMissing");
+    });
+
     test("createConnectorActionSchemaOutput fails when async result schema field is missing", () => {
         const schema = {
             asyncLifecycle: {

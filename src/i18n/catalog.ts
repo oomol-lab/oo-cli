@@ -336,6 +336,8 @@ export const enMessages = {
         "The connector action run request returned HTTP {status}: {message}",
     "errors.connectorRun.requestFailedWithMessageAndCode":
         "The connector action run request returned HTTP {status} (errorCode: {errorCode}): {message}",
+    "errors.connectorSchema.asyncPollSchemaMissing":
+        "The async connector action poll schema is missing for action {action}.",
     "errors.connectorSchema.asyncResultSchemaMissing":
         "The async connector action result schema is missing field {field}.",
     "errors.connectorSchema.readFailed":
@@ -1250,6 +1252,8 @@ export const zhMessages = {
         "运行 connector action 返回了 HTTP {status}：{message}",
     "errors.connectorRun.requestFailedWithMessageAndCode":
         "运行 connector action 返回了 HTTP {status}（errorCode: {errorCode}）：{message}",
+    "errors.connectorSchema.asyncPollSchemaMissing":
+        "异步 connector action 缺少 action {action} 的轮询 schema。",
     "errors.connectorSchema.asyncResultSchemaMissing":
         "异步 connector action 的结果 schema 缺少字段 {field}。",
     "errors.connectorSchema.readFailed":
