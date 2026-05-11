@@ -21,6 +21,15 @@ API key, or model name for OOMOL's LLM API, read
 [references/llm-client.md](references/llm-client.md). Do not run capability
 discovery for that case, and do not read local auth files directly.
 
+## Shell command safety
+
+- When generating shell commands for macOS or zsh, quote arguments that contain
+  shell pattern characters such as `?`, `*`, `[`, `]`, `(`, `)`, or `!`.
+- Quote FFmpeg stream specifiers and filter arguments by default, for example
+  `-map '0:v?' -map '0:a?'`.
+- Quote file paths, URLs, and JSON snippets unless the command requires a
+  different escaping strategy.
+
 ## Constitution
 
 These rules override every local heuristic.

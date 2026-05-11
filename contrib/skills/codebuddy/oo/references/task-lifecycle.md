@@ -79,6 +79,8 @@ Possible JSON shapes:
 
 - In-progress statuses include `queued`, `scheduling`, `scheduled`, and
   `running`. Treat any of them as non-terminal.
+- If an in-progress task reports `progress` as `0`, treat progress as
+  unavailable or not yet meaningful, not as failure.
 - Use `oo cloud-task result` after a non-zero wait exit to distinguish timeout,
   failure, and late success.
 - If the result snapshot contains HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,

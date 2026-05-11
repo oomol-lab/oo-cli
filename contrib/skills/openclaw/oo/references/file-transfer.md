@@ -53,10 +53,25 @@ Rules:
   payloads unless the selected schema explicitly supports local paths; they may
   pass URI validation but fail when the cloud task tries to fetch or upload the
   file.
+- If the same workflow already produced an unexpired upload JSON for the same
+  local file, reuse that saved `downloadUrl` instead of uploading again.
+- Do not guess upload reuse from file name alone. If the previous upload cannot
+  be tied to the same local file with high confidence, upload again or stop and
+  ask when duplicate upload cost matters.
 - Do not treat file upload as a way to pass raw bytes or bypass unsupported
   `contentMediaType` validation.
 - If the selected input does not accept a URI-compatible string, stop at an
   unsupported input-shape blocker.
+
+## Sensitive transfer values
+
+- Treat `downloadUrl`, `resultURL`, and connector artifact URLs as sensitive
+  when they may be signed or temporary.
+- Do not print full signed URLs in final answers, debug summaries, or
+  user-facing logs. Show only redacted forms such as `https://***` plus
+  `fileName`, `fileSize`, and `expiresAt` when useful.
+- It is acceptable to keep raw URLs inside local checkpoint or payload files
+  that are needed to complete the workflow.
 
 ## Download a remote artifact locally
 
