@@ -903,14 +903,16 @@ describe("embedded skill assets", () => {
 
             expect(content).toContain("Publish, release, upload, or submit");
             expect(content).toContain("oo skills share");
-            expect(content).toContain("oo skills share <skill-id> -y");
+            expect(content).toContain("oo --lang zh skills share <skill-id> -y");
+            expect(content).toContain("oo --lang en skills share <skill-id> -y");
             expect(content).toContain("Share a published skill");
             expect(content).toContain("temporary shares for private packages");
             expect(content).toContain("Private package shares support optional limits");
             expect(content).toContain("`--days <days>` sets the share duration");
             expect(content).toContain("omitting `--downloads` leaves installs unlimited");
-            expect(content).toContain("may not have OO CLI installed yet");
-            expect(content).toContain("creating an OO account");
+            expect(content).toContain("may already have OO CLI installed");
+            expect(content).toContain("checking `oo --version`");
+            expect(content).toContain("`oo auth status`");
             expect(content).toContain("existing AI agent skill");
             expect(content).toContain("it does not need to be an oo-specific skill");
             expect(content).toContain("oo skills publish");
@@ -926,7 +928,6 @@ describe("embedded skill assets", () => {
             expect(content).not.toContain("--visibility private");
             expect(content).not.toContain("OOMOL/oo skill");
             expect(content).not.toContain("oo skills preflight");
-            expect(content).not.toContain("oo auth status");
             expect(content).not.toContain("Use `--agent` only as a source hint");
         }
     });

@@ -144,7 +144,7 @@ Rules:
   non-terminal.
 - Treat `completed`, `complete`, `succeeded`, or `success` as terminal success,
   then call the result action.
-- Treat `failed`, `error`, `canceled`, and `cancelled` as terminal failure and
+- Treat `failed`, `error`, and `canceled` as terminal failure and
   report the provider error without creating a replacement task unless the
   user asks to retry with changed inputs.
 - If state is still processing and provider progress is `0`, treat progress as

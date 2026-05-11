@@ -82,8 +82,8 @@
 
 - 认证：要求存在当前 OOMOL 账号。
 - 选项：
-  - `--schema <schema>` 为必填。取值必须是 JSON Schema object，或
-    `@path/to/schema.json`。
+  - `--schema <schema>` 为必填。取值必须是根类型为 `object` 的 JSON Schema
+    object，或 `@path/to/schema.json`。
   - `--input <input>` 提供输入 JSON，或使用 `@path/to/input.json` 读取。
     省略时输入为 `{}`。
   - `--system <system>` 提供额外 system prompt 文本，或使用
@@ -100,7 +100,7 @@
 - 输出：成功时打印 `{ ok: true, data, model, attempts }`，其中 `data`
   是已校验通过的模型 JSON 值。
 - 错误：endpoint `404`、认证 `401` 或 `403`、限流 `429`、schema 无效、
-  LLM 响应结构不受支持、以及重试耗尽都会作为命令错误报告。
+  根类型不是 object 的 schema、LLM 响应结构不受支持、以及重试耗尽都会作为命令错误报告。
 
 ## 配置
 

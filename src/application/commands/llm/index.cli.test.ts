@@ -299,6 +299,37 @@ describe("llm CLI", () => {
         }
     });
 
+    test("rejects non-object root response schemas before sending a request", async () => {
+        const sandbox = await createCliSandbox();
+        let requestCount = 0;
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run([
+                "llm",
+                "json",
+                "--schema",
+                JSON.stringify({ items: { type: "string" }, type: "array" }),
+            ], {
+                fetcher: async () => {
+                    requestCount += 1;
+                    return createChatCompletionResponse("[]");
+                },
+            });
+
+            expect(createCliSnapshot(result)).toEqual({
+                exitCode: 2,
+                stderr: "The response JSON Schema root type must be object for this endpoint.\n",
+                stdout: "",
+            });
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("fails after schema validation retries are exhausted", async () => {
         const sandbox = await createCliSandbox();
 

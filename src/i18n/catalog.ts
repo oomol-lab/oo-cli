@@ -378,6 +378,8 @@ export const enMessages = {
         "The @system file path cannot be empty.",
     "errors.llmJson.systemReadFailed":
         "Failed to read system prompt from {path}: {message}",
+    "errors.llmJson.unsupportedRootSchema":
+        "The response JSON Schema root type must be object for this endpoint.",
     "errors.llmJson.validationFailed":
         "The LLM did not return valid JSON matching the schema after retries: {message}",
     "errors.completion.invalidShell":
@@ -1276,6 +1278,8 @@ export const zhMessages = {
         "@system 文件路径不能为空。",
     "errors.llmJson.systemReadFailed":
         "读取 {path} 中的 system prompt 失败：{message}",
+    "errors.llmJson.unsupportedRootSchema":
+        "当前 endpoint 要求响应 JSON Schema 的根类型必须是 object。",
     "errors.llmJson.validationFailed":
         "重试后 LLM 仍未返回符合 schema 的合法 JSON：{message}",
     "errors.completion.invalidShell":

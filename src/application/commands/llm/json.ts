@@ -336,6 +336,8 @@ function createChatCompletionRequestBody(
         systemPrompt?: string;
     },
 ): Record<string, unknown> {
+    assertObjectRootResponseSchema(options.schema);
+
     return {
         messages: [
             {
@@ -353,6 +355,36 @@ function createChatCompletionRequestBody(
         },
         temperature: 0,
     };
+}
+
+function assertObjectRootResponseSchema(schema: unknown): void {
+    if (!isNonObjectRootResponseSchema(schema)) {
+        return;
+    }
+
+    throw new CliUserError("errors.llmJson.unsupportedRootSchema", 2);
+}
+
+function isNonObjectRootResponseSchema(schema: unknown): boolean {
+    if (!isRecord(schema)) {
+        return false;
+    }
+
+    const rootType = schema.type;
+
+    if (typeof rootType === "string") {
+        return rootType !== "object";
+    }
+
+    if (Array.isArray(rootType)) {
+        return !rootType.includes("object");
+    }
+
+    return false;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function createSystemMessage(systemPrompt: string | undefined): string {

@@ -93,8 +93,8 @@ provided JSON Schema.
 
 - Authentication: requires the current OOMOL account.
 - Options:
-  - `--schema <schema>` is required. The value must be a JSON Schema object or
-    `@path/to/schema.json`.
+  - `--schema <schema>` is required. The value must be a JSON Schema object
+    with root type `object`, or `@path/to/schema.json`.
   - `--input <input>` provides input JSON or `@path/to/input.json`. When
     omitted, the input is `{}`.
   - `--system <system>` provides extra system prompt text or `@path/to/system.txt`.
@@ -112,8 +112,8 @@ provided JSON Schema.
   `{ ok: true, data, model, attempts }`, where `data` is the validated model
   JSON value.
 - Errors: endpoint `404`, authentication `401` or `403`, rate limit `429`,
-  invalid schema, unsupported LLM responses, and validation exhaustion are
-  reported as command errors.
+  invalid schema, non-object root schema, unsupported LLM responses, and
+  validation exhaustion are reported as command errors.
 
 ## Configuration
 
