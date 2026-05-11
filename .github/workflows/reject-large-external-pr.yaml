@@ -35,4 +35,5 @@ jobs:
       - name: Reject Large External Pull Request
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORG_MEMBERSHIP_TOKEN: ${{ secrets.ORG_MEMBERSHIP_TOKEN }}
         run: bun run contrib/ci/reject-large-external-pr.ts

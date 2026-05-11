@@ -2,28 +2,20 @@ import process from "node:process";
 
 const DEFAULT_GITHUB_API_URL = "https://api.github.com";
 const DEFAULT_EXTERNAL_PR_DIFF_LIMIT = 200;
+const INTERNAL_ORGANIZATION_LOGIN = "oomol-lab";
 const REJECTION_COMMENT_MARKER = "<!-- oo-cli-large-external-pr-guard -->";
-const INTERNAL_AUTHOR_ASSOCIATIONS = new Set(["COLLABORATOR", "MEMBER", "OWNER"]);
-const INTERNAL_REPOSITORY_PERMISSIONS = new Set(["admin", "maintain", "write"]);
 
 interface PullRequestGuardInput {
     additions: number;
-    authorAssociation: string;
-    authorLogin?: string;
-    authorType?: string;
-    baseRepositoryFullName?: string;
+    authorIsOrganizationMember: boolean;
     deletions: number;
     diffLimit?: number;
-    headRepositoryFullName?: string;
 }
 
 interface PullRequestGuardDecision {
-    authorIsBot: boolean;
-    authorIsExternal: boolean;
     diffSize: number;
     diffLimit: number;
     shouldReject: boolean;
-    sourceIsExternal: boolean;
 }
 
 interface RejectionCommentInput {
@@ -39,7 +31,13 @@ interface PullRequestRef {
 }
 
 interface PullRequestEvent extends PullRequestRef {
-    pullRequest: PullRequestGuardInput;
+    pullRequest: PullRequestEventInput;
+}
+
+interface PullRequestEventInput {
+    additions: number;
+    authorLogin: string;
+    deletions: number;
 }
 
 interface GitHubApiClientOptions {
@@ -50,7 +48,6 @@ interface GitHubApiClientOptions {
 type GitHubRequestOptions = GitHubApiClientOptions & {
     body?: unknown;
     method: string;
-    notFoundValue?: unknown;
     path: string;
 };
 
@@ -58,33 +55,14 @@ interface GitHubIssueComment {
     body?: string;
 }
 
-interface GitHubCollaboratorPermission {
-    permission?: string;
-    user?: {
-        permissions?: {
-            admin?: boolean;
-            maintain?: boolean;
-            push?: boolean;
-        };
-    };
-}
-
 export function evaluateLargeExternalPullRequest(input: PullRequestGuardInput): PullRequestGuardDecision {
     const diffLimit = input.diffLimit ?? DEFAULT_EXTERNAL_PR_DIFF_LIMIT;
     const diffSize = Math.abs(input.additions) + Math.abs(input.deletions);
-    const authorIsBot = input.authorType === "Bot";
-    const sourceIsExternal = evaluateSourceIsExternal(input);
-    const authorIsExternal = !authorIsBot
-        && sourceIsExternal
-        && !INTERNAL_AUTHOR_ASSOCIATIONS.has(input.authorAssociation);
 
     return {
-        authorIsBot,
-        authorIsExternal,
         diffSize,
         diffLimit,
-        shouldReject: authorIsExternal && diffSize >= diffLimit,
-        sourceIsExternal,
+        shouldReject: !input.authorIsOrganizationMember && diffSize >= diffLimit,
     };
 }
 
@@ -94,9 +72,9 @@ export function buildLargeExternalPullRequestRejectionComment(input: RejectionCo
     const diffSize = additions + deletions;
     return [
         REJECTION_COMMENT_MARKER,
-        "Thanks for your contribution. This repository is primarily maintained internally, and we are not able to reliably review large pull requests from external contributors.",
+        "Thanks for your contribution. This repository is primarily maintained internally, and we are not able to reliably review large pull requests from contributors outside the oomol-lab organization.",
         "",
-        `This pull request changes ${diffSize} lines (${additions} additions and ${deletions} deletions), which is at or above our external pull request limit of ${input.diffLimit}. We are closing it automatically.`,
+        `This pull request changes ${diffSize} lines (${additions} additions and ${deletions} deletions), which is at or above our non-organization pull request limit of ${input.diffLimit}. We are closing it automatically.`,
         "",
         "Please open an issue instead with the problem, expected behavior, and any relevant context. That gives the maintainers a better path to evaluate and plan the change.",
     ].join("\n");
@@ -111,14 +89,17 @@ function readRequiredEnv(environment: NodeJS.ProcessEnv, name: string): string {
     return value;
 }
 
+function readOptionalEnv(environment: NodeJS.ProcessEnv, name: string): string | undefined {
+    const value = environment[name];
+    return value === undefined || value === "" ? undefined : value;
+}
+
 async function readPullRequestEvent(eventPath: string): Promise<PullRequestEvent> {
     const eventPayload = parseObject(JSON.parse(await Bun.file(eventPath).text()), "GitHub event payload");
     const repository = parseObject(eventPayload.repository, "repository");
     const repositoryOwner = parseObject(repository.owner, "repository.owner");
     const pullRequest = parseObject(eventPayload.pull_request, "pull_request");
     const pullRequestAuthor = parseObject(pullRequest.user, "pull_request.user");
-    const baseRepositoryFullName = parsePullRequestRepositoryFullName(pullRequest, "base");
-    const headRepositoryFullName = parsePullRequestRepositoryFullName(pullRequest, "head");
 
     return {
         owner: parseString(repositoryOwner.login, "repository.owner.login"),
@@ -127,11 +108,7 @@ async function readPullRequestEvent(eventPath: string): Promise<PullRequestEvent
         pullRequest: {
             additions: parseNumber(pullRequest.additions, "pull_request.additions"),
             deletions: parseNumber(pullRequest.deletions, "pull_request.deletions"),
-            authorAssociation: parseString(pullRequest.author_association, "pull_request.author_association"),
             authorLogin: parseString(pullRequestAuthor.login, "pull_request.user.login"),
-            authorType: parseString(pullRequestAuthor.type, "pull_request.user.type"),
-            baseRepositoryFullName,
-            headRepositoryFullName,
         },
     };
 }
@@ -160,51 +137,12 @@ function parseNumber(value: unknown, fieldName: string): number {
     throw new TypeError(`${fieldName} must be a finite number.`);
 }
 
-function parsePullRequestRepositoryFullName(
-    pullRequest: Record<string, unknown>,
-    refName: "base" | "head",
-): string | undefined {
-    const pullRequestRef = parseOptionalObject(pullRequest[refName]);
-    if (pullRequestRef === undefined) {
-        return undefined;
-    }
-
-    const repository = parseOptionalObject(pullRequestRef.repo);
-    if (repository === undefined) {
-        return undefined;
-    }
-
-    const fullName = repository.full_name;
-    if (typeof fullName !== "string") {
-        return undefined;
-    }
-
-    const normalizedFullName = fullName.trim();
-    return normalizedFullName === "" ? undefined : normalizedFullName;
-}
-
-function parseOptionalObject(value: unknown): Record<string, unknown> | undefined {
-    return typeof value === "object" && value !== null && !Array.isArray(value)
-        ? value as Record<string, unknown>
-        : undefined;
-}
-
-function evaluateSourceIsExternal(input: PullRequestGuardInput): boolean {
-    const baseRepositoryFullName = input.baseRepositoryFullName?.trim();
-    const headRepositoryFullName = input.headRepositoryFullName?.trim();
-
-    if (baseRepositoryFullName === undefined || baseRepositoryFullName === "") {
-        return true;
-    }
-    if (headRepositoryFullName === undefined || headRepositoryFullName === "") {
-        return true;
-    }
-
-    return baseRepositoryFullName !== headRepositoryFullName;
-}
-
 function buildRepoPath(ref: PullRequestRef, suffix: string): string {
     return `/repos/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}/${suffix}`;
+}
+
+function buildOrgPath(organization: string, suffix: string): string {
+    return `/orgs/${encodeURIComponent(organization)}/${suffix}`;
 }
 
 async function ensureRejectionComment(
@@ -244,30 +182,9 @@ async function closePullRequest(
     });
 }
 
-async function authorHasRepositoryWritePermission(
-    options: GitHubApiClientOptions & PullRequestRef & { username: string },
-): Promise<boolean> {
-    const permission = await requestGitHubJson<GitHubCollaboratorPermission | undefined>({
-        ...options,
-        method: "GET",
-        notFoundValue: undefined,
-        path: buildRepoPath(options, `collaborators/${encodeURIComponent(options.username)}/permission`),
-    });
-
-    return permission !== undefined && hasRepositoryWritePermission(permission);
-}
-
-function hasRepositoryWritePermission(permission: GitHubCollaboratorPermission): boolean {
-    if (permission.permission !== undefined && INTERNAL_REPOSITORY_PERMISSIONS.has(permission.permission)) {
-        return true;
-    }
-
-    return permission.user?.permissions?.admin === true
-        || permission.user?.permissions?.maintain === true
-        || permission.user?.permissions?.push === true;
-}
-
-async function requestGitHubJson<Value>(options: GitHubRequestOptions): Promise<Value> {
+async function githubFetch(
+    options: GitHubApiClientOptions & { body?: unknown; method: string; path: string },
+): Promise<{ response: Response; responseText: string }> {
     const response = await fetch(`${trimTrailingSlash(options.apiUrl)}${options.path}`, {
         method: options.method,
         headers: {
@@ -279,11 +196,11 @@ async function requestGitHubJson<Value>(options: GitHubRequestOptions): Promise<
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
         signal: AbortSignal.timeout(15_000),
     });
-    const responseText = await response.text();
+    return { response, responseText: await response.text() };
+}
 
-    if (response.status === 404 && "notFoundValue" in options) {
-        return options.notFoundValue as Value;
-    }
+async function requestGitHubJson<Value>(options: GitHubRequestOptions): Promise<Value> {
+    const { response, responseText } = await githubFetch(options);
 
     if (!response.ok) {
         throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}\n${responseText}`);
@@ -296,14 +213,47 @@ async function requestGitHubJson<Value>(options: GitHubRequestOptions): Promise<
     return JSON.parse(responseText) as Value;
 }
 
+async function authorIsOrganizationMember(
+    options: GitHubApiClientOptions & { organization: string; username: string },
+): Promise<boolean> {
+    const { response, responseText } = await githubFetch({
+        apiUrl: options.apiUrl,
+        method: "GET",
+        path: buildOrgPath(options.organization, `members/${encodeURIComponent(options.username)}`),
+        token: options.token,
+    });
+
+    if (response.ok) {
+        return true;
+    }
+    if (response.status === 404) {
+        return false;
+    }
+
+    throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}\n${responseText}`);
+}
+
 function trimTrailingSlash(value: string): string {
     return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
 export async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void> {
     const event = await readPullRequestEvent(readRequiredEnv(environment, "GITHUB_EVENT_PATH"));
-    const decision = evaluateLargeExternalPullRequest(event.pullRequest);
-    const decisionSummary = `association=${event.pullRequest.authorAssociation}, bot=${decision.authorIsBot}, sourceExternal=${decision.sourceIsExternal}, authorExternal=${decision.authorIsExternal}, diff=${decision.diffSize}, limit=${decision.diffLimit}`;
+    const apiUrl = environment.GITHUB_API_URL ?? DEFAULT_GITHUB_API_URL;
+    const membershipToken = readOptionalEnv(environment, "ORG_MEMBERSHIP_TOKEN")
+        ?? readRequiredEnv(environment, "GITHUB_TOKEN");
+    const isOrganizationMember = await authorIsOrganizationMember({
+        apiUrl,
+        organization: INTERNAL_ORGANIZATION_LOGIN,
+        token: membershipToken,
+        username: event.pullRequest.authorLogin,
+    });
+    const decision = evaluateLargeExternalPullRequest({
+        additions: event.pullRequest.additions,
+        authorIsOrganizationMember: isOrganizationMember,
+        deletions: event.pullRequest.deletions,
+    });
+    const decisionSummary = `orgMember=${isOrganizationMember}, diff=${decision.diffSize}, limit=${decision.diffLimit}`;
 
     if (!decision.shouldReject) {
         process.stdout.write(`Pull request allowed: ${decisionSummary}.\n`);
@@ -311,23 +261,9 @@ export async function main(environment: NodeJS.ProcessEnv = process.env): Promis
     }
 
     const apiClientOptions = {
-        apiUrl: environment.GITHUB_API_URL ?? DEFAULT_GITHUB_API_URL,
+        apiUrl,
         token: readRequiredEnv(environment, "GITHUB_TOKEN"),
     };
-    if (
-        event.pullRequest.authorLogin !== undefined
-        && await authorHasRepositoryWritePermission({
-            ...apiClientOptions,
-            owner: event.owner,
-            pullNumber: event.pullNumber,
-            repo: event.repo,
-            username: event.pullRequest.authorLogin,
-        })
-    ) {
-        process.stdout.write(`Pull request allowed: ${decisionSummary}.\n`);
-        return;
-    }
-
     const commentBody = buildLargeExternalPullRequestRejectionComment({
         additions: event.pullRequest.additions,
         deletions: event.pullRequest.deletions,
@@ -349,7 +285,7 @@ export async function main(environment: NodeJS.ProcessEnv = process.env): Promis
             repo: event.repo,
         }),
     ]);
-    process.stdout.write(`Closed external pull request #${event.pullNumber}: ${decisionSummary}.\n`);
+    process.stdout.write(`Closed non-organization pull request #${event.pullNumber}: ${decisionSummary}.\n`);
 }
 
 if (import.meta.main) {

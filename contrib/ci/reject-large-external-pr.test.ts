@@ -17,86 +17,33 @@ afterEach(() => {
 });
 
 describe("reject-large-external-pr", () => {
-    test("rejects external pull requests at the diff limit", () => {
+    test("rejects non organization members at the diff limit", () => {
         expect(evaluateLargeExternalPullRequest({
             additions: 120,
+            authorIsOrganizationMember: false,
             deletions: 80,
-            authorAssociation: "CONTRIBUTOR",
         })).toEqual({
-            authorIsBot: false,
-            authorIsExternal: true,
             diffLimit: 200,
             diffSize: 200,
             shouldReject: true,
-            sourceIsExternal: true,
         });
     });
 
-    test("allows external pull requests below the diff limit", () => {
+    test("allows non organization members below the diff limit", () => {
         expect(evaluateLargeExternalPullRequest({
             additions: 120,
+            authorIsOrganizationMember: false,
             deletions: 79,
-            authorAssociation: "FIRST_TIME_CONTRIBUTOR",
         }).shouldReject).toBeFalse();
     });
 
     test("allows organization members above the diff limit", () => {
         expect(evaluateLargeExternalPullRequest({
             additions: 500,
+            authorIsOrganizationMember: true,
             deletions: 500,
-            authorAssociation: "MEMBER",
-        })).toMatchObject({
-            authorIsBot: false,
-            authorIsExternal: false,
-            diffSize: 1000,
-            shouldReject: false,
-        });
-    });
-
-    test("allows organization owners above the diff limit", () => {
-        expect(evaluateLargeExternalPullRequest({
-            additions: 500,
-            deletions: 500,
-            authorAssociation: "OWNER",
-        }).shouldReject).toBeFalse();
-    });
-
-    test("allows repository collaborators above the diff limit", () => {
-        expect(evaluateLargeExternalPullRequest({
-            additions: 500,
-            deletions: 500,
-            authorAssociation: "COLLABORATOR",
-        })).toMatchObject({
-            authorIsBot: false,
-            authorIsExternal: false,
-            diffSize: 1000,
-            shouldReject: false,
-        });
-    });
-
-    test("allows same-repository pull requests above the diff limit", () => {
-        expect(evaluateLargeExternalPullRequest({
-            additions: 500,
-            authorAssociation: "NONE",
-            baseRepositoryFullName: "oomol-lab/oo-cli",
-            deletions: 500,
-            headRepositoryFullName: "oomol-lab/oo-cli",
-        })).toMatchObject({
-            authorIsExternal: false,
-            shouldReject: false,
-            sourceIsExternal: false,
-        });
-    });
-
-    test("allows bots above the diff limit", () => {
-        expect(evaluateLargeExternalPullRequest({
-            additions: 500,
-            deletions: 500,
-            authorAssociation: "CONTRIBUTOR",
-            authorType: "Bot",
-        })).toMatchObject({
-            authorIsBot: true,
-            authorIsExternal: false,
+        })).toEqual({
+            diffLimit: 200,
             diffSize: 1000,
             shouldReject: false,
         });
@@ -105,8 +52,8 @@ describe("reject-large-external-pr", () => {
     test("uses absolute additions and deletions for diff size", () => {
         expect(evaluateLargeExternalPullRequest({
             additions: -120,
+            authorIsOrganizationMember: false,
             deletions: -80,
-            authorAssociation: "NONE",
         })).toMatchObject({
             diffSize: 200,
             shouldReject: true,
@@ -125,41 +72,15 @@ describe("reject-large-external-pr", () => {
         expect(comment).toContain("Please open an issue instead");
     });
 
-    test("allows same-repository pull requests before requiring a GitHub token", async () => {
-        await withTempPullRequestEvent({
-            additions: 500,
-            authorAssociation: "NONE",
-            baseRepositoryFullName: "oomol-lab/oo-cli",
-            deletions: 500,
-            headRepositoryFullName: "oomol-lab/oo-cli",
-        }, async (eventPath) => {
-            await main({
-                GITHUB_EVENT_PATH: eventPath,
-            });
-        });
-    });
-
-    test("allows users with repository write permission when author association is stale", async () => {
+    test("allows organization members before applying the diff limit", async () => {
         const requests = installGitHubApiFetchStub({
-            permissionResponse: {
-                permission: "admin",
-                user: {
-                    permissions: {
-                        admin: true,
-                        maintain: true,
-                        push: true,
-                    },
-                },
-            },
+            organizationMember: true,
         });
 
         await withTempPullRequestEvent({
             additions: 500,
-            authorAssociation: "NONE",
             authorLogin: "l1shen",
-            baseRepositoryFullName: "oomol-lab/oo-cli",
             deletions: 500,
-            headRepositoryFullName: "l1shen/oo-cli",
         }, async (eventPath) => {
             await main({
                 GITHUB_API_URL: "https://api.example.test/",
@@ -172,39 +93,63 @@ describe("reject-large-external-pr", () => {
             init: expect.objectContaining({
                 method: "GET",
             }),
-            url: "https://api.example.test/repos/oomol-lab/oo-cli/collaborators/l1shen/permission",
+            url: "https://api.example.test/orgs/oomol-lab/members/l1shen",
         }]);
     });
 
-    test("treats missing repository names as external when reading events", async () => {
-        const requests = installGitHubApiFetchStub();
+    test("uses the organization membership token for membership checks", async () => {
+        const requests = installGitHubApiFetchStub({
+            organizationMember: true,
+        });
 
         await withTempPullRequestEvent({
-            additions: 120,
-            authorAssociation: "CONTRIBUTOR",
-            baseRepositoryFullName: "oomol-lab/oo-cli",
-            deletions: 80,
+            additions: 500,
+            authorLogin: "l1shen",
+            deletions: 500,
         }, async (eventPath) => {
             await main({
                 GITHUB_API_URL: "https://api.example.test/",
                 GITHUB_EVENT_PATH: eventPath,
-                GITHUB_TOKEN: "token",
+                GITHUB_TOKEN: "write-token",
+                ORG_MEMBERSHIP_TOKEN: "membership-token",
             });
         });
 
-        expect(requests).toHaveLength(4);
-        expect(requests.some(request => request.init?.method === "PATCH")).toBeTrue();
+        expect(getHeaderValue(requests[0]?.init, "authorization")).toBe("Bearer membership-token");
     });
 
-    test("comments and closes large external pull requests without a GET body", async () => {
-        const requests = installGitHubApiFetchStub();
+    test("allows non organization members below the diff limit after membership check", async () => {
+        const requests = installGitHubApiFetchStub({
+            organizationMember: false,
+        });
 
         await withTempPullRequestEvent({
             additions: 120,
-            authorAssociation: "CONTRIBUTOR",
-            baseRepositoryFullName: "oomol-lab/oo-cli",
+            deletions: 79,
+        }, async (eventPath) => {
+            await main({
+                GITHUB_API_URL: "https://api.example.test/",
+                GITHUB_EVENT_PATH: eventPath,
+                GITHUB_TOKEN: "token",
+            });
+        });
+
+        expect(requests).toEqual([{
+            init: expect.objectContaining({
+                method: "GET",
+            }),
+            url: "https://api.example.test/orgs/oomol-lab/members/contributor",
+        }]);
+    });
+
+    test("comments and closes large pull requests from non organization members", async () => {
+        const requests = installGitHubApiFetchStub({
+            organizationMember: false,
+        });
+
+        await withTempPullRequestEvent({
+            additions: 120,
             deletions: 80,
-            headRepositoryFullName: "external-user/oo-cli",
         }, async (eventPath) => {
             await main({
                 GITHUB_API_URL: "https://api.example.test/",
@@ -214,6 +159,10 @@ describe("reject-large-external-pr", () => {
         });
 
         expect(requests).toHaveLength(4);
+        expect(requests[0]).toMatchObject({
+            url: "https://api.example.test/orgs/oomol-lab/members/contributor",
+        });
+
         const commentListRequest = requests.find(request =>
             request.init?.method === "GET" && request.url.includes("/issues/157/comments"));
         const commentCreateRequest = requests.find(request => request.init?.method === "POST");
@@ -241,11 +190,8 @@ describe("reject-large-external-pr", () => {
 
 interface PullRequestEventOptions {
     additions: number;
-    authorAssociation: string;
     authorLogin?: string;
-    baseRepositoryFullName?: string;
     deletions: number;
-    headRepositoryFullName?: string;
 }
 
 interface CapturedFetchRequest {
@@ -254,10 +200,10 @@ interface CapturedFetchRequest {
 }
 
 interface GitHubApiFetchStubOptions {
-    permissionResponse?: unknown;
+    organizationMember: boolean;
 }
 
-function installGitHubApiFetchStub(options: GitHubApiFetchStubOptions = {}): CapturedFetchRequest[] {
+function installGitHubApiFetchStub(options: GitHubApiFetchStubOptions): CapturedFetchRequest[] {
     const requests: CapturedFetchRequest[] = [];
 
     // Bun's fetch type requires a `preconnect` property; preserve the original.
@@ -265,20 +211,19 @@ function installGitHubApiFetchStub(options: GitHubApiFetchStubOptions = {}): Cap
         input: Parameters<typeof fetch>[0],
         init?: FetchInit,
     ): Promise<Response> => {
+        const url = String(input);
         requests.push({
             init,
-            url: String(input),
+            url,
         });
 
-        if (String(input).includes("/collaborators/")) {
-            if (options.permissionResponse !== undefined) {
-                return Response.json(options.permissionResponse);
-            }
-
-            return Response.json({ message: "Not Found" }, {
-                status: 404,
-                statusText: "Not Found",
-            });
+        if (url.includes("/orgs/oomol-lab/members/")) {
+            return options.organizationMember
+                ? new Response(null, { status: 204, statusText: "No Content" })
+                : Response.json({ message: "Not Found" }, {
+                        status: 404,
+                        statusText: "Not Found",
+                    });
         }
 
         if (init?.method === "GET") {
@@ -291,6 +236,15 @@ function installGitHubApiFetchStub(options: GitHubApiFetchStubOptions = {}): Cap
     });
 
     return requests;
+}
+
+function getHeaderValue(init: FetchInit | undefined, name: string): string | undefined {
+    const headers = init?.headers;
+    if (headers === undefined) {
+        return undefined;
+    }
+
+    return new Headers(headers).get(name) ?? undefined;
 }
 
 async function withTempPullRequestEvent(
@@ -319,14 +273,8 @@ async function writePullRequestEvent(eventPath: string, options: PullRequestEven
         },
         pull_request: {
             additions: options.additions,
-            author_association: options.authorAssociation,
-            base: {
-                repo: createPullRequestRepositoryPayload(options.baseRepositoryFullName),
-            },
+            author_association: "NONE",
             deletions: options.deletions,
-            head: {
-                repo: createPullRequestRepositoryPayload(options.headRepositoryFullName),
-            },
             number: 157,
             user: {
                 login: options.authorLogin ?? "contributor",
@@ -334,14 +282,4 @@ async function writePullRequestEvent(eventPath: string, options: PullRequestEven
             },
         },
     }));
-}
-
-function createPullRequestRepositoryPayload(
-    repositoryFullName: string | undefined,
-): Record<string, string> {
-    return repositoryFullName === undefined
-        ? {}
-        : {
-                full_name: repositoryFullName,
-            };
 }
