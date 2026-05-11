@@ -92,6 +92,11 @@ Facts:
 - `--json` returns a stable JSON object for execution output.
 - In execution responses, the execution id is nested under
   `meta.executionId`, not a top-level field.
+- If the schema includes `asyncLifecycle.defaultRunMode: "wait"`,
+  `oo connector run` waits for the lifecycle and returns the completed result.
+  In that case, treat `runOutputSchema` as the `data` contract when present;
+  `outputSchema` describes the submit action response, not the default run
+  result. Do not assume the first run output is only a session or task handle.
 
 Expected execution JSON:
 

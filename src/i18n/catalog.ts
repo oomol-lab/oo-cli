@@ -903,6 +903,12 @@ export const enMessages = {
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.run.text.executionId": "Execution ID",
     "connector.run.text.resultData": "Result data",
+    "connector.run.progress.completed":
+        "Completed {action} (polls: {pollCount})",
+    "connector.run.progress.polling":
+        "Polling {action} (poll {pollCount}, state {state})",
+    "connector.run.progress.waiting":
+        "Waiting for async connector result from {action}...",
     "file.cleanup.success":
         "Deleted {deletedCount} expired or stale file transfer records.",
     "file.download.savedTo": "Saved to: {path}",
@@ -1792,6 +1798,12 @@ export const zhMessages = {
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.run.text.executionId": "执行 ID",
     "connector.run.text.resultData": "结果数据",
+    "connector.run.progress.completed":
+        "{action} 已完成（轮询次数：{pollCount}）",
+    "connector.run.progress.polling":
+        "正在轮询 {action}（第 {pollCount} 次，状态 {state}）",
+    "connector.run.progress.waiting":
+        "正在等待 {action} 的异步 connector 结果...",
     "file.cleanup.success": "已删除 {deletedCount} 条过期或陈旧的文件传输记录。",
     "file.download.savedTo": "已保存到：{path}",
     "file.list.noResults": "未找到任何上传记录。",

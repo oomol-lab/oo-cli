@@ -334,6 +334,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：如果 action schema 声明了 `asyncLifecycle.defaultRunMode` 为 `wait`，
   命令会自动轮询到完成。这时 JSON 输出的 `data` 是完成后的 run result，
   原始 async handle 会放在 `meta.handle`。
+- 说明：text 模式下轮询 async action 时，交互式终端会在 stderr 显示进度。
+  JSON 输出不会混入进度文本。
 
 ## Search
 
