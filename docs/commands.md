@@ -77,11 +77,14 @@ Print the current account's LLM client configuration as JSON.
   structured output commands. The command always prints JSON.
 - Output: a JSON object with:
   - `apiKey`: the current account API key.
-  - `baseUrl`: the LLM API base URL, derived from the current account endpoint.
+  - `baseUrl`: the OpenAI-compatible LLM API base URL, including the `/v1`
+    API prefix.
   - `chatCompletionsUrl`: the normalized OpenAI-compatible chat completions
-    endpoint.
+    endpoint. Call this URL directly for raw chat completions requests instead
+    of appending a path to `baseUrl`.
   - `model`: the default model name, currently `oomol-chat`.
-- Production output uses `https://llm.oomol.com/` as `baseUrl`.
+- Production output uses `https://llm.oomol.com/v1` as `baseUrl` and
+  `https://llm.oomol.com/v1/chat/completions` as `chatCompletionsUrl`.
 
 ### `oo llm json`
 

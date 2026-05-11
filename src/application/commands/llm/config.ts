@@ -31,10 +31,11 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (_, context) => {
         const account = await requireCurrentAccount(context);
+        const baseUrl = createLlmBaseUrl(account.endpoint);
         const config: LlmConfigOutput = {
             apiKey: account.apiKey,
-            baseUrl: createLlmBaseUrl(account.endpoint),
-            chatCompletionsUrl: createLlmChatCompletionsUrl(account.endpoint),
+            baseUrl,
+            chatCompletionsUrl: createChatCompletionsUrl(baseUrl),
             model: defaultLlmModel,
         };
 
@@ -43,9 +44,13 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
 };
 
 export function createLlmBaseUrl(endpoint: string): string {
-    return new URL(`https://llm.${endpoint}/`).toString();
+    return new URL(`https://llm.${endpoint}/v1`).toString();
 }
 
 export function createLlmChatCompletionsUrl(endpoint: string): string {
-    return new URL(`https://llm.${endpoint}/v1/chat/completions`).toString();
+    return createChatCompletionsUrl(createLlmBaseUrl(endpoint));
+}
+
+function createChatCompletionsUrl(baseUrl: string): string {
+    return new URL(`${baseUrl}/chat/completions`).toString();
 }

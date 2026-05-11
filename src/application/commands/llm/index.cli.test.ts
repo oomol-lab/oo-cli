@@ -26,12 +26,23 @@ describe("llm CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(JSON.parse(result.stdout)).toEqual({
+            const config = JSON.parse(result.stdout) as {
+                apiKey: string;
+                baseUrl: string;
+                chatCompletionsUrl: string;
+                model: string;
+            };
+
+            expect(config).toEqual({
                 apiKey: "secret-1",
-                baseUrl: "https://llm.oomol.com/",
+                baseUrl: "https://llm.oomol.com/v1",
                 chatCompletionsUrl: "https://llm.oomol.com/v1/chat/completions",
                 model: "oomol-chat",
             });
+            expect(config.baseUrl).not.toBe("https://llm.oomol.com/");
+            expect(config.chatCompletionsUrl).not.toBe(
+                "https://llm.oomol.com/chat/completions",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -62,13 +73,13 @@ describe("llm CLI", () => {
 
             expect(JSON.parse(jsonAliasResult.stdout)).toEqual({
                 apiKey: "secret-2",
-                baseUrl: "https://llm.staging.oomol.test/",
+                baseUrl: "https://llm.staging.oomol.test/v1",
                 chatCompletionsUrl: "https://llm.staging.oomol.test/v1/chat/completions",
                 model: "oomol-chat",
             });
             expect(JSON.parse(jsonFormatResult.stdout)).toEqual({
                 apiKey: "secret-2",
-                baseUrl: "https://llm.staging.oomol.test/",
+                baseUrl: "https://llm.staging.oomol.test/v1",
                 chatCompletionsUrl: "https://llm.staging.oomol.test/v1/chat/completions",
                 model: "oomol-chat",
             });
@@ -183,6 +194,9 @@ describe("llm CLI", () => {
                     expect(request.method).toBe("POST");
                     expect(request.url).toBe(
                         "https://llm.oomol.com/v1/chat/completions",
+                    );
+                    expect(request.url).not.toBe(
+                        "https://llm.oomol.com/chat/completions",
                     );
                     expect(request.headers.get("Authorization")).toBe(
                         "Bearer secret-1",

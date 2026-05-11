@@ -13,7 +13,7 @@ oo llm config --json
 The JSON output contains:
 
 - `apiKey`: current account API key.
-- `baseUrl`: OOMOL LLM API base URL.
+- `baseUrl`: OpenAI-compatible OOMOL LLM API base URL, including `/v1`.
 - `chatCompletionsUrl`: normalized OpenAI-compatible chat completions URL.
 - `model`: default model name, currently `oomol-chat`.
 
