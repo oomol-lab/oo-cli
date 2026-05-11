@@ -61,6 +61,11 @@ describe("skills share command", () => {
                 "The skill is already published and public:",
             );
             expect(result.stdout).toContain(
+                "\n```text\nPlease help me install this OO skill.",
+            );
+            expect(result.stdout).not.toContain("```bash");
+            expect(result.stdout).not.toContain("```powershell");
+            expect(result.stdout).toContain(
                 "Assume I may not have OO CLI installed yet",
             );
             expect(result.stdout).toContain(
@@ -78,8 +83,72 @@ describe("skills share command", () => {
             expect(result.stdout).toContain(
                 "oo skills install @alice/demo-skill --skill demo-skill -y",
             );
+            expect(result.stdout).toEndWith("```\n");
             expect(requests.map(request => request.url)).toEqual([
                 "https://registry.oomol.com/-/oomol/package-info/%40alice%2Fdemo-skill/latest?lang=en",
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints a localized copyable share prompt block in Chinese", async () => {
+        const sandbox = await createCliSandbox();
+        const requests: Request[] = [];
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                [
+                    "--lang",
+                    "zh",
+                    "skills",
+                    "share",
+                    "@alice/demo-package",
+                    "--yes",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        return new Response(JSON.stringify({
+                            access: "public",
+                            blocks: [],
+                            description: "演示 package",
+                            packageName: "@alice/demo-package",
+                            packageVersion: "0.0.1",
+                            title: "演示 Package",
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain(
+                "公开 package @alice/demo-package 的分享提示词：",
+            );
+            expect(result.stdout).toContain(
+                "\n```text\n请帮我安装这个 OO package。",
+            );
+            expect(result.stdout).not.toContain("```bash");
+            expect(result.stdout).not.toContain("```powershell");
+            expect(result.stdout).toContain(
+                "这个 package 已经发布并且是公开的：",
+            );
+            expect(result.stdout).toContain(
+                "请在一个连续的设置流程中完成以下步骤。",
+            );
+            expect(result.stdout).toContain(
+                "oo skills install @alice/demo-package -y",
+            );
+            expect(result.stdout).toEndWith("```\n");
+            expect(requests.map(request => request.url)).toEqual([
+                "https://registry.oomol.com/-/oomol/package-info/%40alice%2Fdemo-package/latest?lang=zh-CN",
             ]);
         }
         finally {

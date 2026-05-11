@@ -559,10 +559,11 @@ skills。
   `<packageName>`；私有包会创建临时分享，并在提示词中显示分享 token，格式为
   `<packageName>#<shareID>`。缺少可见性元数据时按公开包处理；尚未发布的包会在输出
   分享提示词前被拒绝。
-- 输出：成功时，文本输出会打印一段可复制提示词。提示词会说明该 skill 或 package
-  已经发布，默认对方可能还没有安装 OO CLI，引导对方先安装 OO CLI，再运行
-  `oo login` 登录或注册 OO 账号，然后安装被分享的目标。提示词包含 macOS/Linux 和
-  Windows PowerShell 命令序列。对于 skill 目标，公开包会给出
+- 输出：成功时，文本输出会打印一个可复制的纯文本代码块，内部不会嵌套命令代码块。
+  提示词语言会跟随当前 CLI 语言（`--lang en` 或 `--lang zh`）。提示词会说明该
+  skill 或 package 已经发布，默认对方可能还没有安装 OO CLI，引导对方先安装
+  OO CLI，再运行 `oo login` 登录或注册 OO 账号，然后安装被分享的目标。提示词包含
+  macOS/Linux 和 Windows PowerShell 命令序列。对于 skill 目标，公开包会给出
   `oo skills install <packageName> --skill <skill-id> -y`，私有包会给出
   `oo skills install <packageName>#<shareID> --skill <skill-id> -y`。对于
   package 目标，公开包会给出 `oo skills install <packageName> -y`，私有包会给出

@@ -30,6 +30,13 @@ prompt must use `<packageName>#<shareID>`. Private package shares support option
 That prompt is meant for recipients who may not have OO CLI installed yet: it
 must guide them through installing OO CLI, running `oo login`, signing in or
 creating an OO account, and then installing the skill in one continuous flow.
+Match the user's language when generating and presenting the prompt: use
+`oo --lang zh skills share <skill-id> -y` for Chinese users and
+`oo --lang en skills share <skill-id> -y` for English users. In the final
+response, put the complete recipient-facing share prompt in one copyable `text`
+code block. Do not use nested fenced code blocks inside it; keep macOS/Linux and
+Windows PowerShell commands as plain lines under their labels. Do not split the
+hub URL or install commands outside the block.
 
 ### 1. Identify the publish source
 

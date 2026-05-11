@@ -658,15 +658,17 @@ registry share id.
   packages create a temporary share and display the share token as
   `<packageName>#<shareID>`. Missing visibility metadata is treated as public.
   Unpublished packages are rejected before any share prompt is printed.
-- Output: on success, text output prints a copyable prompt that states the skill
-  or package is already published, assumes the recipient may not have OO CLI
+- Output: on success, text output prints a single copyable plain text code
+  block, with no nested command fences. The prompt language follows the active
+  CLI language (`--lang en` or `--lang zh`). The prompt states the skill or
+  package is already published, assumes the recipient may not have OO CLI
   installed yet, instructs them to install OO CLI, run `oo login`, sign in or
   create an OO account, and then install the shared target. It includes
   macOS/Linux and Windows PowerShell command sequences. Skill-target prompts
-  continue through `oo skills install <packageName> --skill <skill-id> -y` for
-  public packages, or
-  `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for private
-  packages. Package-target prompts continue through
+  continue through
+  `oo skills install <packageName> --skill <skill-id> -y` for public packages,
+  or `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for
+  private packages. Package-target prompts continue through
   `oo skills install <packageName> -y` for public packages, or
   `oo skills install <packageName>#<shareID> -y` for private packages.
   Private-package prompts identify the exact temporary install specifier
