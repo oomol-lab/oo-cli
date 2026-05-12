@@ -53,7 +53,7 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
                 now,
                 status,
             })
-            .map(record => serializeFileUploadRecord(record, now));
+            .map(record => serializeFileUploadRecord(record, now, context.logger));
 
         if (format === "json") {
             writeJsonOutput(context.stdout, records);

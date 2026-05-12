@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { CliUserError } from "../../../contracts/cli.ts";
+import { expectCliUserError } from "../../../../../__tests__/helpers.ts";
 import {
     parseFileDownloadExtensionOption,
     parseFileDownloadNameOption,
+    parseFileDownloadUrl,
 } from "./input.ts";
 
 describe("parseFileDownloadNameOption", () => {
@@ -55,17 +56,12 @@ describe("parseFileDownloadExtensionOption", () => {
     });
 });
 
-function expectCliUserError(callback: () => unknown): CliUserError {
-    try {
-        callback();
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            return error;
-        }
+describe("parseFileDownloadUrl", () => {
+    test("normalizes raw non-ASCII URL input", () => {
+        const fileName = "\u53051.jpg";
 
-        throw error;
-    }
-
-    throw new Error("Expected a CliUserError to be thrown.");
-}
+        expect(
+            parseFileDownloadUrl(`https://download.example.com/${fileName}`).toString(),
+        ).toBe("https://download.example.com/%E5%8C%851.jpg");
+    });
+});

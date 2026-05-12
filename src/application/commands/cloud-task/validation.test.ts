@@ -2,8 +2,8 @@ import type { PackageInfoResponse } from "../package/shared.ts";
 
 import { describe, expect, test } from "bun:test";
 
+import { expectCliUserError } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
-import { CliUserError } from "../../contracts/cli.ts";
 import { validateCloudTaskInputValues } from "./validation.ts";
 
 const englishTranslator = createTranslator("en");
@@ -232,19 +232,4 @@ function createBlock(
         outputHandle: {},
         title: "Main",
     };
-}
-
-function expectCliUserError(callback: () => void): CliUserError {
-    try {
-        callback();
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            return error;
-        }
-
-        throw error;
-    }
-
-    throw new Error("Expected a CliUserError to be thrown.");
 }

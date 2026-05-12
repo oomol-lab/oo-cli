@@ -998,6 +998,8 @@ Upload one file to the temporary file cache.
 - Notes: files larger than `500 MiB` are rejected.
 - Notes: successful uploads persist a local sqlite record with the upload time,
   file name, file size, signed download URL, expiry time, and a UUID v7 id.
+- Notes: JSON and text output return `downloadUrl` as a URI-safe signed URL.
+  The `fileName` field keeps the original uploaded file name.
 
 ### `oo file list`
 
@@ -1011,6 +1013,8 @@ List previously uploaded files from the local sqlite store.
   `json`.
 - Options: `--json` is an alias for `--format=json`.
 - Notes: the command does not delete expired records implicitly.
+- Notes: output normalizes legacy signed download URLs when possible, while
+  leaving `fileName` unchanged.
 
 ### `oo file cleanup`
 

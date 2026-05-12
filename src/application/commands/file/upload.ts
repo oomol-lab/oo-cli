@@ -102,7 +102,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
 
         context.fileUploadStore.save(record);
 
-        const view = serializeFileUploadRecord(record, uploadedAtMs);
+        const view = serializeFileUploadRecord(record, uploadedAtMs, context.logger);
 
         if (format === "json") {
             writeJsonOutput(context.stdout, view);

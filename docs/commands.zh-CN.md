@@ -846,6 +846,8 @@ skills。
 - 说明：文件大小超过 `500 MiB` 时会被拒绝。
 - 说明：上传成功后，CLI 会在本地 sqlite 中记录上传时间、文件名、文件大小、
   带签名的下载 URL、过期时间，以及一个 UUID v7 格式的主键。
+- 说明：JSON 和文本输出中的 `downloadUrl` 会是 URI-safe 的带签名 URL；
+  `fileName` 字段仍保留原始上传文件名。
 
 ### `oo file list`
 
@@ -856,6 +858,8 @@ skills。
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
 - 选项：`--json` 是 `--format=json` 的别名。
 - 说明：命令不会隐式删除已过期记录。
+- 说明：输出时会尽量规范化历史记录中的带签名下载 URL，同时保持 `fileName`
+  不变。
 
 ### `oo file cleanup`
 
