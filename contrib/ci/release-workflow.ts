@@ -10,8 +10,12 @@ import {
     buildCreateReleaseCommand,
     buildFeishuReleaseFollowupNotification,
     buildFeishuReleaseNotification,
+    buildUploadReleaseAssetsCommand,
     preparePackageManifest,
 } from "./release-steps.ts";
+
+const defaultGitHubApiUrl = "https://api.github.com";
+const githubApiVersion = "2022-11-28";
 
 async function runPrepareManifest(): Promise<void> {
     const releaseVersion = readRequiredEnv("RELEASE_VERSION");
@@ -22,12 +26,19 @@ async function runPrepareManifest(): Promise<void> {
 }
 
 async function runCreateGitHubRelease(assets: readonly string[]): Promise<void> {
-    const command = buildCreateReleaseCommand({
-        releaseTag: readRequiredEnv("RELEASE_TAG"),
-        previousTag: process.env.PREVIOUS_TAG ?? "",
-        target: readRequiredEnv("GITHUB_SHA"),
-        assets,
-    });
+    const releaseTag = readRequiredEnv("RELEASE_TAG");
+    const releaseExists = await doesGitHubReleaseExist(releaseTag);
+    const command = releaseExists
+        ? buildUploadReleaseAssetsCommand({
+                assets,
+                releaseTag,
+            })
+        : buildCreateReleaseCommand({
+                assets,
+                previousTag: process.env.PREVIOUS_TAG ?? "",
+                releaseTag,
+                target: readRequiredEnv("GITHUB_SHA"),
+            });
 
     const processResult = Bun.spawn(command, {
         cwd: process.cwd(),
@@ -40,6 +51,47 @@ async function runCreateGitHubRelease(assets: readonly string[]): Promise<void> 
     if (exitCode !== 0) {
         process.exit(exitCode);
     }
+}
+
+async function doesGitHubReleaseExist(releaseTag: string): Promise<boolean> {
+    const githubRepository = readRequiredEnv("GITHUB_REPOSITORY");
+    const apiUrl = process.env.GITHUB_API_URL ?? defaultGitHubApiUrl;
+    const token = readGitHubToken();
+    const response = await fetch(
+        `${trimTrailingSlash(apiUrl)}/repos/${githubRepository}/releases/tags/${encodeURIComponent(releaseTag)}`,
+        {
+            headers: {
+                "accept": "application/vnd.github+json",
+                "authorization": `Bearer ${token}`,
+                "x-github-api-version": githubApiVersion,
+            },
+            signal: AbortSignal.timeout(15_000),
+        },
+    );
+
+    if (response.status === 404) {
+        return false;
+    }
+
+    if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}\n${responseText}`);
+    }
+
+    return true;
+}
+
+function readGitHubToken(): string {
+    const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN;
+    if (token === undefined || token === "") {
+        throw new Error("GH_TOKEN or GITHUB_TOKEN is required.");
+    }
+
+    return token;
+}
+
+function trimTrailingSlash(value: string): string {
+    return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
 async function runNotifyFeishuRelease(): Promise<void> {

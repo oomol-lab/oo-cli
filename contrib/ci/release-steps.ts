@@ -49,6 +49,28 @@ export function buildCreateReleaseCommand(input: {
     return command;
 }
 
+export function buildUploadReleaseAssetsCommand(input: {
+    releaseTag: string;
+    assets: readonly string[];
+}): string[] {
+    if (input.releaseTag === "") {
+        throw new Error("RELEASE_TAG is required.");
+    }
+
+    if (input.assets.length === 0) {
+        throw new Error("At least one release asset is required.");
+    }
+
+    return [
+        "gh",
+        "release",
+        "upload",
+        input.releaseTag,
+        ...input.assets,
+        "--clobber",
+    ];
+}
+
 export function buildFeishuReleaseNotification(input: {
     releaseVersion: string;
     releaseTag: string;
