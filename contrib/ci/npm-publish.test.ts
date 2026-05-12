@@ -1,9 +1,13 @@
 import type { NpmCommandResult, NpmPackageMetadata } from "./npm-publish.ts";
-import { rm } from "node:fs/promises";
+import { chmod, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import process from "node:process";
 
 import { describe, expect, test } from "bun:test";
-import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
+import {
+    createTemporaryDirectory,
+    joinPathEntries,
+} from "../../__tests__/helpers.ts";
 import {
     parseNpmPublishOrderFile,
     publishNpmPackagesFromOrderFile,
@@ -16,9 +20,9 @@ const packageMetadata = {
 } as const satisfies NpmPackageMetadata;
 
 describe("npm publish workflow", () => {
-    test("parses publish order files without dropping paths that contain spaces", () => {
+    test("trims publish order lines without dropping paths that contain spaces", () => {
         expect(
-            parseNpmPublishOrderFile("dist/demo package.tgz\r\ndist/next.tgz\n"),
+            parseNpmPublishOrderFile(" dist/demo package.tgz \r\n\t\n dist/next.tgz\n"),
         ).toEqual([
             "dist/demo package.tgz",
             "dist/next.tgz",
@@ -54,11 +58,10 @@ describe("npm publish workflow", () => {
     });
 
     test("skips publishing a package version that already exists", async () => {
-        const publishOrder = await createPublishOrderFile(["dist/demo.tgz"]);
-        const logs: string[] = [];
-        let publishCount = 0;
+        await withPublishOrder(["dist/demo.tgz"], async (publishOrder) => {
+            const logs: string[] = [];
+            let publishCount = 0;
 
-        try {
             await publishNpmPackagesFromOrderFile({
                 publishOrderPath: publishOrder.filePath,
                 logger: createLogger(logs),
@@ -75,18 +78,14 @@ describe("npm publish workflow", () => {
             expect(logs).toEqual([
                 "Skipping @scope/demo@1.2.3: version already exists on npm.",
             ]);
-        }
-        finally {
-            await rm(publishOrder.directoryPath, { force: true, recursive: true });
-        }
+        });
     });
 
     test("retries transient npm publish failures before succeeding", async () => {
-        const publishOrder = await createPublishOrderFile(["dist/demo.tgz"]);
-        const sleepDelays: number[] = [];
-        let publishCount = 0;
+        await withPublishOrder(["dist/demo.tgz"], async (publishOrder) => {
+            const sleepDelays: number[] = [];
+            let publishCount = 0;
 
-        try {
             await publishNpmPackagesFromOrderFile({
                 publishOrderPath: publishOrder.filePath,
                 logger: createLogger([]),
@@ -107,27 +106,23 @@ describe("npm publish workflow", () => {
                     return Promise.resolve(createCommandResult({}));
                 },
                 readPackageMetadata: () => Promise.resolve(packageMetadata),
-                retryDelayMs: 10,
+                retryDelayMs: 0,
                 sleep: (delayMs) => {
                     sleepDelays.push(delayMs);
                 },
             });
 
             expect(publishCount).toBe(2);
-            expect(sleepDelays).toEqual([10]);
-        }
-        finally {
-            await rm(publishOrder.directoryPath, { force: true, recursive: true });
-        }
+            expect(sleepDelays).toEqual([0]);
+        });
     });
 
     test("treats a failed publish as successful when the package appears on npm", async () => {
-        const publishOrder = await createPublishOrderFile(["dist/demo.tgz"]);
-        const logs: string[] = [];
-        let existenceCheckCount = 0;
-        let publishCount = 0;
+        await withPublishOrder(["dist/demo.tgz"], async (publishOrder) => {
+            const logs: string[] = [];
+            let existenceCheckCount = 0;
+            let publishCount = 0;
 
-        try {
             await publishNpmPackagesFromOrderFile({
                 publishOrderPath: publishOrder.filePath,
                 logger: createLogger(logs),
@@ -152,17 +147,13 @@ describe("npm publish workflow", () => {
             expect(logs).toEqual([
                 "Treating @scope/demo@1.2.3 as published after npm returned a failure because the version now exists.",
             ]);
-        }
-        finally {
-            await rm(publishOrder.directoryPath, { force: true, recursive: true });
-        }
+        });
     });
 
     test("skips when npm publish reports an existing version despite a stale view result", async () => {
-        const publishOrder = await createPublishOrderFile(["dist/demo.tgz"]);
-        let publishCount = 0;
+        await withPublishOrder(["dist/demo.tgz"], async (publishOrder) => {
+            let publishCount = 0;
 
-        try {
             await publishNpmPackagesFromOrderFile({
                 publishOrderPath: publishOrder.filePath,
                 logger: createLogger([]),
@@ -180,18 +171,14 @@ describe("npm publish workflow", () => {
             });
 
             expect(publishCount).toBe(1);
-        }
-        finally {
-            await rm(publishOrder.directoryPath, { force: true, recursive: true });
-        }
+        });
     });
 
     test("does not retry permanent npm publish failures", async () => {
-        const publishOrder = await createPublishOrderFile(["dist/demo.tgz"]);
-        let publishCount = 0;
-        let sleepCount = 0;
+        await withPublishOrder(["dist/demo.tgz"], async (publishOrder) => {
+            let publishCount = 0;
+            let sleepCount = 0;
 
-        try {
             await expect(
                 publishNpmPackagesFromOrderFile({
                     publishOrderPath: publishOrder.filePath,
@@ -214,12 +201,94 @@ describe("npm publish workflow", () => {
 
             expect(publishCount).toBe(1);
             expect(sleepCount).toBe(0);
-        }
-        finally {
-            await rm(publishOrder.directoryPath, { force: true, recursive: true });
-        }
+        });
+    });
+
+    test("rejects invalid publish retry options", async () => {
+        await withPublishOrder(["dist/demo.tgz"], async (publishOrder) => {
+            const baseOptions = {
+                publishOrderPath: publishOrder.filePath,
+                logger: createLogger([]),
+                packageVersionExists: () => Promise.resolve(false),
+                publishPackage: () => Promise.resolve(createCommandResult({})),
+                readPackageMetadata: () => Promise.resolve(packageMetadata),
+            };
+
+            await expect(
+                publishNpmPackagesFromOrderFile({
+                    ...baseOptions,
+                    retryCount: 0,
+                }),
+            ).rejects.toThrow("retryCount must be a positive integer");
+
+            await expect(
+                publishNpmPackagesFromOrderFile({
+                    ...baseOptions,
+                    retryDelayMs: -10,
+                }),
+            ).rejects.toThrow("retryDelayMs must be a non-negative finite number");
+        });
+    });
+
+    test("returns a timeout result when npm commands hang", async () => {
+        await withPublishOrder(["dist/demo.tgz"], async (publishOrder) => {
+            const binDirectory = await createTemporaryDirectory("npm-publish-timeout-bin");
+
+            try {
+                const npmPath = join(binDirectory, process.platform === "win32" ? "npm.cmd" : "npm");
+                await writeFile(
+                    npmPath,
+                    process.platform === "win32"
+                        ? [
+                                "@echo off",
+                                ":loop",
+                                "goto loop",
+                            ].join("\r\n")
+                        : [
+                                "#!/bin/sh",
+                                "while :; do",
+                                "  :",
+                                "done",
+                            ].join("\n"),
+                );
+                if (process.platform !== "win32") {
+                    await chmod(npmPath, 0o755);
+                }
+
+                await expect(publishNpmPackagesFromOrderFile({
+                    commandEnv: {
+                        PATH: joinPathEntries([binDirectory], process.platform),
+                        Path: joinPathEntries([binDirectory], process.platform),
+                    },
+                    logger: createLogger([]),
+                    npmCommandTimeoutMs: 10,
+                    packageVersionExists: () => Promise.resolve(false),
+                    publishOrderPath: publishOrder.filePath,
+                    readPackageMetadata: () => Promise.resolve(packageMetadata),
+                    retryCount: 1,
+                    retryDelayMs: 0,
+                    sleep: () => undefined,
+                })).rejects.toThrow("npm command timed out after 10ms.");
+            }
+            finally {
+                await rm(binDirectory, { force: true, recursive: true });
+            }
+        });
     });
 });
+
+async function withPublishOrder(
+    packageFiles: readonly string[],
+    run: (publishOrder: { directoryPath: string; filePath: string }) => Promise<void>,
+): Promise<void> {
+    const publishOrder = await createPublishOrderFile(packageFiles);
+    try {
+        await run(publishOrder);
+    }
+    finally {
+        await rm(publishOrder.directoryPath, { force: true, recursive: true });
+    }
+}
 
 async function createPublishOrderFile(packageFiles: readonly string[]): Promise<{
     directoryPath: string;

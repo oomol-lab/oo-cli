@@ -15,7 +15,9 @@ export interface NpmCommandResult {
 }
 
 interface PublishNpmPackagesOptions {
+    commandEnv?: Record<string, string | undefined>;
     logger?: Pick<Console, "log">;
+    npmCommandTimeoutMs?: number;
     packageVersionExists?: (metadata: NpmPackageMetadata) => Promise<boolean>;
     publishOrderPath: string;
     publishPackage?: (packageFile: string) => Promise<NpmCommandResult>;
@@ -27,6 +29,8 @@ interface PublishNpmPackagesOptions {
 
 const defaultPublishRetryCount = 5;
 const defaultPublishRetryDelayMs = 15_000;
+const defaultNpmCommandTimeoutMs = 120_000;
+const npmCommandTimeoutExitCode = 124;
 const existingVersionErrorFragments = [
     "cannot publish over",
     "previously published versions",
@@ -57,13 +61,17 @@ export async function publishNpmPackagesFromOrderFile(
     const packageFiles = parseNpmPublishOrderFile(
         await readFile(options.publishOrderPath, "utf8"),
     );
+    const npmCommandTimeoutMs = resolveNpmCommandTimeoutMs(options.npmCommandTimeoutMs);
+    const commandEnv = options.commandEnv;
     const readPackageMetadata = options.readPackageMetadata ?? readNpmPackageMetadata;
-    const publishPackage = options.publishPackage ?? publishNpmPackage;
-    const packageVersionExists = options.packageVersionExists ?? npmPackageVersionExists;
+    const publishPackage = options.publishPackage
+        ?? (packageFile => publishNpmPackage(packageFile, npmCommandTimeoutMs, commandEnv));
+    const packageVersionExists = options.packageVersionExists
+        ?? (metadata => npmPackageVersionExists(metadata, npmCommandTimeoutMs, commandEnv));
     const sleep = options.sleep ?? Bun.sleep;
     const logger = options.logger ?? console;
-    const retryCount = options.retryCount ?? defaultPublishRetryCount;
-    const retryDelayMs = options.retryDelayMs ?? defaultPublishRetryDelayMs;
+    const retryCount = resolvePublishRetryCount(options.retryCount);
+    const retryDelayMs = resolvePublishRetryDelayMs(options.retryDelayMs);
 
     for (const packageFile of packageFiles) {
         const metadata = await readPackageMetadata(packageFile);
@@ -84,7 +92,7 @@ export async function publishNpmPackagesFromOrderFile(
 export function parseNpmPublishOrderFile(content: string): readonly string[] {
     return content
         .split("\n")
-        .map(line => line.endsWith("\r") ? line.slice(0, -1) : line)
+        .map(line => line.trim())
         .filter(line => line !== "");
 }
 
@@ -175,14 +183,18 @@ async function publishNpmPackageWithRetry(options: {
     }
 }
 
-async function npmPackageVersionExists(metadata: NpmPackageMetadata): Promise<boolean> {
+async function npmPackageVersionExists(
+    metadata: NpmPackageMetadata,
+    timeoutMs: number,
+    commandEnv: Record<string, string | undefined> | undefined,
+): Promise<boolean> {
     const viewResult = await runNpmCommand([
         "npm",
         "view",
         formatPackageSpec(metadata),
         "version",
         "--json",
-    ], { echoOutput: false });
+    ], { echoOutput: false, timeoutMs, commandEnv });
 
     if (viewResult.exitCode === 0) {
         return true;
@@ -201,24 +213,41 @@ async function npmPackageVersionExists(metadata: NpmPackageMetadata): Promise<bo
     );
 }
 
-async function publishNpmPackage(packageFile: string): Promise<NpmCommandResult> {
+async function publishNpmPackage(
+    packageFile: string,
+    timeoutMs: number,
+    commandEnv: Record<string, string | undefined> | undefined,
+): Promise<NpmCommandResult> {
     return await runNpmCommand([
         "npm",
         "publish",
         "--access",
         "public",
         packageFile,
-    ], { echoOutput: true });
+    ], { echoOutput: true, timeoutMs, commandEnv });
 }
 
 async function runNpmCommand(
     command: readonly string[],
-    options: { echoOutput: boolean },
+    options: {
+        commandEnv: Record<string, string | undefined> | undefined;
+        echoOutput: boolean;
+        timeoutMs: number;
+    },
 ): Promise<NpmCommandResult> {
+    const env = options.commandEnv === undefined
+        ? undefined
+        : {
+                ...process.env,
+                ...options.commandEnv,
+            };
     const subprocess = Bun.spawn([...command], {
+        env,
+        killSignal: "SIGKILL",
         stderr: "pipe",
         stdin: "ignore",
         stdout: "pipe",
+        timeout: options.timeoutMs,
     });
     const [stdout, stderr, exitCode] = await Promise.all([
         new Response(subprocess.stdout).text(),
@@ -226,16 +255,21 @@ async function runNpmCommand(
         subprocess.exited,
     ]);
 
+    const timedOut = subprocess.signalCode === "SIGKILL";
+    const result = {
+        exitCode: timedOut ? npmCommandTimeoutExitCode : exitCode,
+        stderr: timedOut
+            ? appendNpmCommandTimeoutError(stderr, options.timeoutMs)
+            : stderr,
+        stdout,
+    } satisfies NpmCommandResult;
+
     if (options.echoOutput) {
-        process.stdout.write(stdout);
-        process.stderr.write(stderr);
+        process.stdout.write(result.stdout);
+        process.stderr.write(result.stderr);
     }
 
-    return {
-        exitCode,
-        stderr,
-        stdout,
-    };
+    return result;
 }
 
 function formatPackageSpec(metadata: NpmPackageMetadata): string {
@@ -246,6 +280,42 @@ function formatCommandOutput(result: NpmCommandResult): string {
     return [result.stdout, result.stderr]
         .filter(output => output !== "")
         .join("\n");
+}
+
+function resolvePublishRetryCount(retryCount: number | undefined): number {
+    const resolvedRetryCount = retryCount ?? defaultPublishRetryCount;
+    if (!Number.isInteger(resolvedRetryCount) || resolvedRetryCount < 1) {
+        throw new Error(`retryCount must be a positive integer, got: ${resolvedRetryCount}.`);
+    }
+
+    return resolvedRetryCount;
+}
+
+function resolvePublishRetryDelayMs(retryDelayMs: number | undefined): number {
+    const resolvedRetryDelayMs = retryDelayMs ?? defaultPublishRetryDelayMs;
+    if (!Number.isFinite(resolvedRetryDelayMs) || resolvedRetryDelayMs < 0) {
+        throw new Error(`retryDelayMs must be a non-negative finite number, got: ${resolvedRetryDelayMs}.`);
+    }
+
+    return resolvedRetryDelayMs;
+}
+
+function resolveNpmCommandTimeoutMs(timeoutMs: number | undefined): number {
+    const resolvedTimeoutMs = timeoutMs ?? defaultNpmCommandTimeoutMs;
+    if (!Number.isFinite(resolvedTimeoutMs) || resolvedTimeoutMs < 1) {
+        throw new Error(`npm command timeout must be a positive number, got: ${resolvedTimeoutMs}.`);
+    }
+
+    return resolvedTimeoutMs;
+}
+
+function appendNpmCommandTimeoutError(stderr: string, timeoutMs: number): string {
+    const timeoutError = `npm command timed out after ${timeoutMs}ms.`;
+    if (stderr === "") {
+        return timeoutError;
+    }
+
+    return `${stderr}\n${timeoutError}`;
 }
 
 function isExistingPackageVersionError(output: string): boolean {
