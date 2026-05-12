@@ -94,7 +94,9 @@ export class CommanderCliAdapter {
             .exitOverride();
 
         for (const option of catalog.globalOptions) {
-            program.addOption(createOption(option, context.translator));
+            for (const commanderOption of createOptions(option, context.translator)) {
+                program.addOption(commanderOption);
+            }
         }
 
         for (const command of catalog.commands) {
@@ -237,7 +239,9 @@ function configureCommand(
     }
 
     for (const option of definition.options ?? []) {
-        command.addOption(createOption(option, translator));
+        for (const commanderOption of createOptions(option, translator)) {
+            command.addOption(commanderOption);
+        }
     }
 
     for (const argument of definition.arguments ?? []) {
@@ -301,6 +305,34 @@ function formatOptionFlags(option: {
         : longFlag;
 }
 
+function createOptions(
+    option: {
+        aliasFlags?: readonly string[];
+        descriptionKey: string;
+        implies?: Record<string, unknown>;
+        longFlag: string;
+        name: string;
+        shortFlag?: string;
+        valueName?: string;
+    },
+    translator: Translator,
+): Option[] {
+    return [
+        createOption(option, translator),
+        ...(option.aliasFlags ?? []).map(aliasFlag =>
+            createOption(
+                {
+                    ...option,
+                    longFlag: aliasFlag,
+                    shortFlag: undefined,
+                },
+                translator,
+                option.name,
+            ),
+        ),
+    ];
+}
+
 function createOption(
     option: {
         descriptionKey: string;
@@ -310,11 +342,16 @@ function createOption(
         valueName?: string;
     },
     translator: Translator,
+    attributeName?: string,
 ): Option {
     const commanderOption = new Option(
         formatOptionFlags(option),
         translator.t(option.descriptionKey),
     );
+
+    if (attributeName !== undefined) {
+        commanderOption.attributeName = () => attributeName;
+    }
 
     if (option.implies !== undefined) {
         commanderOption.implies(option.implies);

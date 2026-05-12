@@ -101,15 +101,16 @@ function buildCompletionNodes(
 
 function flattenOptionFlags(
     options: readonly {
+        aliasFlags?: readonly string[];
         longFlag: string;
         shortFlag?: string;
     }[],
 ): string[] {
-    return options.flatMap(option =>
-        option.shortFlag
-            ? [option.shortFlag, option.longFlag]
-            : [option.longFlag],
-    );
+    return options.flatMap(option => [
+        ...(option.shortFlag ? [option.shortFlag] : []),
+        option.longFlag,
+        ...(option.aliasFlags ?? []),
+    ]);
 }
 
 function renderBashCompletion(

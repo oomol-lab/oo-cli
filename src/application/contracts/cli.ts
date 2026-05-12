@@ -39,6 +39,7 @@ export interface CliOptionDefinition {
     name: string;
     longFlag: string;
     shortFlag?: string;
+    aliasFlags?: readonly string[];
     valueName?: string;
     descriptionKey: string;
     global?: boolean;

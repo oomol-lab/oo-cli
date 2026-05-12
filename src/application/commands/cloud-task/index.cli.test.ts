@@ -118,7 +118,7 @@ describe("cloudTaskCommand CLI", () => {
                     "qrcode@1.0.4",
                     "-b",
                     "Exist",
-                    "-d",
+                    "--input",
                     "{\"count\":3}",
                     "--json",
                 ],
