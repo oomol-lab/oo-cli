@@ -17,6 +17,11 @@ import {
 } from "./managed-skill-paths.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
+const englishSkillInstallGuideUrl
+    = "https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.en.md";
+const chineseSkillInstallGuideUrl
+    = "https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.zh.md";
+
 describe("skills share command", () => {
     test("confirms a local published skill and prints a share prompt", async () => {
         const sandbox = await createCliSandbox();
@@ -60,37 +65,45 @@ describe("skills share command", () => {
             expect(result.stdout).toContain(
                 "The skill is already published and public:",
             );
+            expect(result.stdout).toContain("Package: @alice/demo-skill");
+            expect(result.stdout).toContain("Skill: demo-skill");
+            expect(result.stdout).toContain(
+                "Hub: https://hub.oomol.com/package/@alice/demo-skill",
+            );
             expect(result.stdout).toContain(
                 "\n```text\nPlease help me install this OO skill.",
             );
             expect(result.stdout).not.toContain("```bash");
             expect(result.stdout).not.toContain("```powershell");
             expect(result.stdout).toContain(
-                "Assume I may already have OO CLI installed",
+                "General install preparation:",
             );
             expect(result.stdout).toContain(
-                "First check whether OO CLI is installed; install it only if it is missing.",
+                englishSkillInstallGuideUrl,
             );
             expect(result.stdout).toContain(
-                "run `oo auth status` to check the OO login state; only run `oo login` if the status shows I am logged out, the active account is missing, or the API key is invalid.",
+                "First follow the guide to check OO CLI and login state, then run:",
             );
-            expect(result.stdout).toContain(
+            expect(result.stdout).not.toContain(
                 "oo --version",
             );
-            expect(result.stdout).toContain(
+            expect(result.stdout).not.toContain(
                 "oo auth status",
             );
-            expect(result.stdout).toContain(
+            expect(result.stdout).not.toContain(
                 "curl -fsSL https://cli.oomol.com/install.sh | bash",
             );
-            expect(result.stdout).toContain(
+            expect(result.stdout).not.toContain(
                 "irm https://cli.oomol.com/install.ps1 | iex",
+            );
+            expect(result.stdout).not.toContain(
+                "macOS / Linux",
+            );
+            expect(result.stdout).not.toContain(
+                "Windows PowerShell",
             );
             expect(result.stdout).toContain(
                 "oo skills install @alice/demo-skill --skill demo-skill -y",
-            );
-            expect(result.stdout.indexOf("oo auth status")).toBeLessThan(
-                result.stdout.indexOf("oo login"),
             );
             expect(result.stdout).toEndWith("```\n");
             expect(requests.map(request => request.url)).toEqual([
@@ -149,20 +162,36 @@ describe("skills share command", () => {
             expect(result.stdout).toContain(
                 "这个 package 已经发布并且是公开的：",
             );
+            expect(result.stdout).toContain("Package: @alice/demo-package");
             expect(result.stdout).toContain(
-                "请在一个连续的设置流程中完成以下步骤。",
+                "Hub: https://hub.oomol.com/package/@alice/demo-package",
             );
             expect(result.stdout).toContain(
-                "先检查 OO CLI 是否已安装；只有缺失时才安装。",
+                "通用安装准备说明：",
             );
             expect(result.stdout).toContain(
-                "只有 `oo auth status` 显示未登录、当前账号缺失或 API key 无效时，才运行 `oo login`。",
+                chineseSkillInstallGuideUrl,
             );
             expect(result.stdout).toContain(
+                "请先按通用说明检查 OO CLI 和登录状态，然后执行：",
+            );
+            expect(result.stdout).not.toContain(
                 "oo --version",
             );
-            expect(result.stdout).toContain(
+            expect(result.stdout).not.toContain(
                 "oo auth status",
+            );
+            expect(result.stdout).not.toContain(
+                "curl -fsSL https://cli.oomol.com/install.sh | bash",
+            );
+            expect(result.stdout).not.toContain(
+                "irm https://cli.oomol.com/install.ps1 | iex",
+            );
+            expect(result.stdout).not.toContain(
+                "macOS / Linux",
+            );
+            expect(result.stdout).not.toContain(
+                "Windows PowerShell",
             );
             expect(result.stdout).toContain(
                 "oo skills install @alice/demo-package -y",
@@ -463,16 +492,28 @@ describe("skills share command", () => {
                 "This private OO skill must be installed with this exact temporary share specifier:",
             );
             expect(result.stdout).toContain(
+                "Package: @alice/private-skill",
+            );
+            expect(result.stdout).toContain(
+                "Skill: private-skill",
+            );
+            expect(result.stdout).toContain(
+                "Hub: https://hub.oomol.com/package/@alice/private-skill",
+            );
+            expect(result.stdout).toContain(
                 "Install package specifier: @alice/private-skill#share-1",
             );
             expect(result.stdout).toContain(
                 "oo skills install @alice/private-skill#share-1 --skill private-skill -y",
             );
-            expect(result.stdout).not.toContain(
-                "The skill is already published and public:",
+            expect(result.stdout).toContain(
+                englishSkillInstallGuideUrl,
             );
             expect(result.stdout).not.toContain(
-                "Package: @alice/private-skill\n",
+                "Windows PowerShell",
+            );
+            expect(result.stdout).not.toContain(
+                "The skill is already published and public:",
             );
             expect(requests.map(request => `${request.method} ${request.url}`)).toEqual([
                 "GET https://registry.oomol.com/-/oomol/package-info/%40alice%2Fprivate-skill/latest?lang=en",
@@ -536,6 +577,12 @@ describe("skills share command", () => {
             );
             expect(result.stdout).toContain(
                 "This private OO package must be installed with this exact temporary share specifier:",
+            );
+            expect(result.stdout).toContain(
+                "Package: @alice/private-package",
+            );
+            expect(result.stdout).toContain(
+                "Hub: https://hub.oomol.com/package/@alice/private-package",
             );
             expect(result.stdout).toContain(
                 "Install package specifier: @alice/private-package#share-package-1",

@@ -583,17 +583,19 @@ skills。
   分享提示词前被拒绝。
 - 输出：成功时，文本输出会打印一个可复制的纯文本代码块，内部不会嵌套命令代码块。
   提示词语言会跟随当前 CLI 语言（`--lang en` 或 `--lang zh`）。提示词会说明该
-  skill 或 package 已经发布，默认对方可能已经安装 OO CLI，引导对方先用
-  `oo --version` 检查是否需要安装 OO CLI，再用 `oo auth status` 检查登录状态；
-  只有状态显示未登录、当前账号缺失或 API key 无效时，才运行 `oo login` 登录或
-  注册 OO 账号，然后安装被分享的目标。提示词包含 macOS/Linux 和 Windows
-  PowerShell 命令序列。对于 skill 目标，公开包会给出
+  skill 或 package 已经发布，包含 package 名称、Hub URL，以及 skill 目标对应的
+  skill id，并引用对应语言的通用安装准备说明，然后给出最终安装命令。英文提示词
+  引用
+  `https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.en.md`；
+  中文提示词引用
+  `https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.zh.md`。
+  提示词会要求对方先按通用说明检查 OO CLI 和登录状态，再执行安装命令。对于 skill
+  目标，公开包会给出
   `oo skills install <packageName> --skill <skill-id> -y`，私有包会给出
   `oo skills install <packageName>#<shareID> --skill <skill-id> -y`。对于
   package 目标，公开包会给出 `oo skills install <packageName> -y`，私有包会给出
   `oo skills install <packageName>#<shareID> -y`。私有包提示词会突出展示必须精确
   使用的临时安装标识 `<packageName>#<shareID>`，不会把分享目标描述为已公开发布。
-  提示词会明确要求对方从环境检查、必要的 OO 安装或登录到安装目标一气呵成。
 
 ### `oo skills search <text>`
 

@@ -55,6 +55,7 @@ interface SkillShareLimits {
 
 interface SkillSharePromptOptions extends SkillSharePackageLineOptions {
     installCommand: string;
+    installGuideUrl: string;
     locale: SupportedLocale;
 }
 
@@ -84,6 +85,10 @@ type SkillShareContext = Pick<
 
 const defaultSkillShareDays = 7;
 const maxSkillShareDays = 7;
+const englishSkillInstallGuideUrl
+    = "https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.en.md";
+const chineseSkillInstallGuideUrl
+    = "https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.zh.md";
 
 const packageShareResponseSchema = z.object({
     shareID: z.string().trim().min(1),
@@ -193,6 +198,9 @@ async function shareSkill(
                 installPackageSpecifier,
                 shareKind,
                 target.skillId,
+            ),
+            installGuideUrl: resolveSkillInstallGuideUrl(
+                context.translator.locale,
             ),
             installPackageSpecifier,
             locale: context.translator.locale,
@@ -440,6 +448,14 @@ function renderSkillShareVisibilityLabel(
     return visibility;
 }
 
+function resolveSkillInstallGuideUrl(locale: SupportedLocale): string {
+    if (locale === "zh") {
+        return chineseSkillInstallGuideUrl;
+    }
+
+    return englishSkillInstallGuideUrl;
+}
+
 function parseSkillShareLimits(input: SkillsShareInput): SkillShareLimits {
     return {
         days: parseSkillShareNumberOption(input.days, {
@@ -638,38 +654,15 @@ function renderEnglishSkillSharePrompt(
     const subject = options.shareKind === "skill" ? "skill" : "package";
 
     return [
-        `Please help me install this OO ${subject}. Assume I may already have OO CLI installed, and guide me through checking the existing setup before installing anything.`,
+        `Please help me install this OO ${subject}.`,
         "",
         ...packageLines,
         "",
-        `Complete these steps in one continuous setup flow. First check whether OO CLI is installed; install it only if it is missing. Then run \`oo auth status\` to check the OO login state; only run \`oo login\` if the status shows I am logged out, the active account is missing, or the API key is invalid. Continue through ${subject} installation in the same session.`,
+        "General install preparation:",
+        options.installGuideUrl,
         "",
-        `1. Check whether OO CLI is installed. If \`oo --version\` fails, install OO CLI with the platform command below.`,
-        `2. Run \`oo auth status\` to check whether I am already logged in. If I am not logged in or the account is invalid, run \`oo login\` and sign in or create an OO account.`,
-        `3. Install the ${subject} with the install command below.`,
+        "First follow the guide to check OO CLI and login state, then run:",
         "",
-        `macOS / Linux:`,
-        "Check OO CLI:",
-        "oo --version",
-        "If OO CLI is missing, install it:",
-        "curl -fsSL https://cli.oomol.com/install.sh | bash",
-        "Check login state:",
-        "oo auth status",
-        "Only if logged out or the account is invalid, log in:",
-        "oo login",
-        `Install the ${subject}:`,
-        options.installCommand,
-        "",
-        `Windows PowerShell:`,
-        "Check OO CLI:",
-        "oo --version",
-        "If OO CLI is missing, install it:",
-        "irm https://cli.oomol.com/install.ps1 | iex",
-        "Check login state:",
-        "oo auth status",
-        "Only if logged out or the account is invalid, log in:",
-        "oo login",
-        `Install the ${subject}:`,
         options.installCommand,
     ].join("\n");
 }
@@ -681,38 +674,15 @@ function renderChineseSkillSharePrompt(
     const subject = options.shareKind === "skill" ? "skill" : "package";
 
     return [
-        `请帮我安装这个 OO ${subject}。假设我可能已经安装了 OO CLI，请先引导我检查现有环境，再按需执行安装。`,
+        `请帮我安装这个 OO ${subject}。`,
         "",
         ...packageLines,
         "",
-        `请在一个连续的设置流程中完成以下步骤。先检查 OO CLI 是否已安装；只有缺失时才安装。然后检查 OO 登录状态；只有 \`oo auth status\` 显示未登录、当前账号缺失或 API key 无效时，才运行 \`oo login\`。请在同一会话中继续安装 ${subject}。`,
+        "通用安装准备说明：",
+        options.installGuideUrl,
         "",
-        "1. 检查 OO CLI 是否已安装。如果 `oo --version` 失败，使用下面对应平台的命令安装 OO CLI。",
-        "2. 运行 `oo auth status` 检查是否已经登录。如果未登录或账号无效，运行 `oo login` 并登录或创建 OO 账号。",
-        `3. 使用下面的安装命令安装 ${subject}。`,
+        "请先按通用说明检查 OO CLI 和登录状态，然后执行：",
         "",
-        "macOS / Linux:",
-        "检查 OO CLI:",
-        "oo --version",
-        "如果缺少 OO CLI，安装它:",
-        "curl -fsSL https://cli.oomol.com/install.sh | bash",
-        "检查登录状态:",
-        "oo auth status",
-        "如果未登录或账号无效，登录:",
-        "oo login",
-        `安装 ${subject}:`,
-        options.installCommand,
-        "",
-        "Windows PowerShell:",
-        "检查 OO CLI:",
-        "oo --version",
-        "如果缺少 OO CLI，安装它:",
-        "irm https://cli.oomol.com/install.ps1 | iex",
-        "检查登录状态:",
-        "oo auth status",
-        "如果未登录或账号无效，登录:",
-        "oo login",
-        `安装 ${subject}:`,
         options.installCommand,
     ].join("\n");
 }
@@ -740,13 +710,17 @@ function createEnglishSkillSharePackageLines(
     if (options.shareKind === "skill") {
         return [
             `This private OO skill must be installed with this exact temporary share specifier:`,
-            `Install package specifier: ${options.installPackageSpecifier}`,
+            `Package: ${options.packageName}`,
             `Skill: ${options.skillId}`,
+            `Hub: ${options.hubUrl}`,
+            `Install package specifier: ${options.installPackageSpecifier}`,
         ];
     }
 
     return [
         `This private OO package must be installed with this exact temporary share specifier:`,
+        `Package: ${options.packageName}`,
+        `Hub: ${options.hubUrl}`,
         `Install package specifier: ${options.installPackageSpecifier}`,
     ];
 }
@@ -774,13 +748,17 @@ function createChineseSkillSharePackageLines(
     if (options.shareKind === "skill") {
         return [
             "这个私有 OO skill 必须使用下面这个临时分享标识精确安装：",
-            `Install package specifier: ${options.installPackageSpecifier}`,
+            `Package: ${options.packageName}`,
             `Skill: ${options.skillId}`,
+            `Hub: ${options.hubUrl}`,
+            `Install package specifier: ${options.installPackageSpecifier}`,
         ];
     }
 
     return [
         "这个私有 OO package 必须使用下面这个临时分享标识精确安装：",
+        `Package: ${options.packageName}`,
+        `Hub: ${options.hubUrl}`,
         `Install package specifier: ${options.installPackageSpecifier}`,
     ];
 }
