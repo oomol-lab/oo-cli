@@ -132,6 +132,52 @@ describe("CommanderCliAdapter", () => {
             },
         ]);
     });
+
+    test("maps option alias flags to the primary option name", async () => {
+        const adapter = new CommanderCliAdapter();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const handledInputs: Array<{ data?: string }> = [];
+        const catalog: CliCatalog = {
+            commands: [
+                {
+                    handler: (input) => {
+                        handledInputs.push(input as { data?: string });
+                    },
+                    inputSchema: z.object({
+                        data: z.string().optional(),
+                    }),
+                    name: "demo",
+                    options: [
+                        {
+                            aliasFlags: ["--input"],
+                            descriptionKey: "options.help",
+                            longFlag: "--data",
+                            name: "data",
+                            valueName: "data",
+                        },
+                    ],
+                    summaryKey: "commands.help.summary",
+                },
+            ],
+            descriptionKey: "app.description",
+            globalOptions: [],
+            name: "oo",
+        };
+
+        const exitCode = await adapter.run({
+            argv: ["demo", "--input", "{\"value\":1}"],
+            catalog,
+            context: createCommanderContext(catalog, stdout.writer, stderr.writer),
+        });
+
+        expect(exitCode).toBe(0);
+        expect(handledInputs).toEqual([
+            {
+                data: "{\"value\":1}",
+            },
+        ]);
+    });
 });
 
 function createCommanderContext(

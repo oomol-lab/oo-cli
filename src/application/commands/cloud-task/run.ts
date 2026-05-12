@@ -56,6 +56,7 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
             name: "data",
             longFlag: "--data",
             shortFlag: "-d",
+            aliasFlags: ["--input"],
             valueName: "data",
             descriptionKey: "options.data",
         },

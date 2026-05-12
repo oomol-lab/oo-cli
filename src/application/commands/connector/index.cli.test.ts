@@ -528,7 +528,7 @@ describe("connectorCommand CLI", () => {
                     "gmail",
                     "-a",
                     "send_mail",
-                    "-d",
+                    "--input",
                     "{\"to\":\"foo@bar.com\"}",
                     "--json",
                 ],

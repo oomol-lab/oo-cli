@@ -337,6 +337,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 参数：`<serviceName>` 为服务名。
 - 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
 - 选项：`-d, --data <data>` 支持直接传入 JSON，或使用 `@路径` 读取 JSON 文件。
+  `--input <data>` 是 `--data <data>` 的 alias。
 - 选项：`--dry-run` 只做 payload 校验，不真正执行 action。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：非 dry-run 的 JSON 输出会保持稳定结构
@@ -896,7 +897,7 @@ skills。
   例如 `foo/bar@1.2.3`。
 - 选项：`-b, --block-id <block-id>` 指定目标 block。该选项必填。
 - 选项：`-d, --data <data>` 提供输入值，可以是 JSON 对象字符串，也可以是
-  `@path/to/file.json`。
+  `@path/to/file.json`。`--input <data>` 是 `--data <data>` 的 alias。
 - 选项：`--dry-run` 仅校验请求，不真正创建任务。
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
 - 选项：`--json` 是 `--format=json` 的别名。

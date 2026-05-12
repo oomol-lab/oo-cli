@@ -389,6 +389,7 @@ Validate input data and run one connector action.
 - Arguments: `<serviceName>` is the service name.
 - Options: `-a, --action <action>` selects the action name and is required.
 - Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
+  `--input <data>` is an alias for `--data <data>`.
 - Options: `--dry-run` validates the payload without executing the action.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: non-dry-run JSON output mirrors the stable response shape
@@ -1057,7 +1058,7 @@ Validate input values and create a cloud task for a package block.
 - Options: `-b, --block-id <block-id>` selects the target block. This option is
   required.
 - Options: `-d, --data <data>` provides input values as a JSON object string or
-  `@path/to/file.json`.
+  `@path/to/file.json`. `--input <data>` is an alias for `--data <data>`.
 - Options: `--dry-run` validates the request without creating a task.
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.

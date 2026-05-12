@@ -74,6 +74,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             name: "data",
             longFlag: "--data",
             shortFlag: "-d",
+            aliasFlags: ["--input"],
             valueName: "data",
             descriptionKey: "options.data",
         },
