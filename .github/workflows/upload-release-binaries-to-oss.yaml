@@ -28,9 +28,9 @@ env:
   RELEASE_UPLOAD_DIR: dist/oo-binaries-upload
   RELEASE_SOURCE_REPOSITORY: oomol-lab/oo-cli
   OSS_BUCKET: oomol-static-cn-prod
-  OSS_ENDPOINT: https://oss-cn-hangzhou.aliyuncs.com
+  OSS_ENDPOINT: https://oss-ap-southeast-1.aliyuncs.com
   OSS_PREFIX: release/apps/oo-cli
-  OSS_REGION: cn-hangzhou
+  OSS_REGION: ap-southeast-1
 
 permissions:
   contents: read

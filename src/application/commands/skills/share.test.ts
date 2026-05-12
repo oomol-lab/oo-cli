@@ -17,10 +17,8 @@ import {
 } from "./managed-skill-paths.ts";
 import { renderSkillMetadataJson } from "./skill-metadata.ts";
 
-const englishSkillInstallGuideUrl
-    = "https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.en.md";
-const chineseSkillInstallGuideUrl
-    = "https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.zh.md";
+const skillInstallGuideUrl
+    = "https://static.oomol.com/oo-cli/skill-install-guide/install.md";
 
 describe("skills share command", () => {
     test("confirms a local published skill and prints a share prompt", async () => {
@@ -79,7 +77,7 @@ describe("skills share command", () => {
                 "General install preparation:",
             );
             expect(result.stdout).toContain(
-                englishSkillInstallGuideUrl,
+                skillInstallGuideUrl,
             );
             expect(result.stdout).toContain(
                 "First follow the guide to check OO CLI and login state, then run:",
@@ -170,7 +168,7 @@ describe("skills share command", () => {
                 "通用安装准备说明：",
             );
             expect(result.stdout).toContain(
-                chineseSkillInstallGuideUrl,
+                skillInstallGuideUrl,
             );
             expect(result.stdout).toContain(
                 "请先按通用说明检查 OO CLI 和登录状态，然后执行：",
@@ -507,7 +505,7 @@ describe("skills share command", () => {
                 "oo skills install @alice/private-skill#share-1 --skill private-skill -y",
             );
             expect(result.stdout).toContain(
-                englishSkillInstallGuideUrl,
+                skillInstallGuideUrl,
             );
             expect(result.stdout).not.toContain(
                 "Windows PowerShell",

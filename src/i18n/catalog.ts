@@ -804,6 +804,29 @@ export const enMessages = {
         "Share prompt for {visibility} package {packageName}:",
     "skills.share.success":
         "Share prompt for skill {skillName} in {visibility} package {packageName}:",
+    "skills.share.subject.package": "package",
+    "skills.share.subject.skill": "skill",
+    "skills.share.visibility.private": "private",
+    "skills.share.visibility.public": "public",
+    "skills.share.prompt.hubLine": "Hub: {hubUrl}",
+    "skills.share.prompt.installPackageSpecifierLine":
+        "Install package specifier: {installPackageSpecifier}",
+    "skills.share.prompt.installPreparationLabel":
+        "General install preparation:",
+    "skills.share.prompt.intro":
+        "Please help me install this OO {subject}.",
+    "skills.share.prompt.packageLine": "Package: {packageName}",
+    "skills.share.prompt.privatePackageIntro":
+        "This private OO package must be installed with this exact temporary share specifier:",
+    "skills.share.prompt.privateSkillIntro":
+        "This private OO skill must be installed with this exact temporary share specifier:",
+    "skills.share.prompt.publicPackageIntro":
+        "The package is already published and public:",
+    "skills.share.prompt.publicSkillIntro":
+        "The skill is already published and public:",
+    "skills.share.prompt.runInstruction":
+        "First follow the guide to check OO CLI and login state, then run:",
+    "skills.share.prompt.skillLine": "Skill: {skillId}",
     "warnings.skills.localCopyDriftOverwritten":
         "Warning: Local skill {name} copy at {path} differs from canonical storage and was overwritten.",
     "warnings.skills.publishLocalCopyDriftIgnored":
@@ -1714,6 +1737,29 @@ export const zhMessages = {
         "{visibility} package {packageName} 的分享提示词：",
     "skills.share.success":
         "skill {skillName} 在 {visibility} package {packageName} 中的分享提示词：",
+    "skills.share.subject.package": "package",
+    "skills.share.subject.skill": "skill",
+    "skills.share.visibility.private": "私有",
+    "skills.share.visibility.public": "公开",
+    "skills.share.prompt.hubLine": "Hub: {hubUrl}",
+    "skills.share.prompt.installPackageSpecifierLine":
+        "Install package specifier: {installPackageSpecifier}",
+    "skills.share.prompt.installPreparationLabel":
+        "通用安装准备说明：",
+    "skills.share.prompt.intro":
+        "请帮我安装这个 OO {subject}。",
+    "skills.share.prompt.packageLine": "Package: {packageName}",
+    "skills.share.prompt.privatePackageIntro":
+        "这个私有 OO package 必须使用下面这个临时分享标识精确安装：",
+    "skills.share.prompt.privateSkillIntro":
+        "这个私有 OO skill 必须使用下面这个临时分享标识精确安装：",
+    "skills.share.prompt.publicPackageIntro":
+        "这个 package 已经发布并且是公开的：",
+    "skills.share.prompt.publicSkillIntro":
+        "这个 skill 已经发布并且是公开的：",
+    "skills.share.prompt.runInstruction":
+        "请先按通用说明检查 OO CLI 和登录状态，然后执行：",
+    "skills.share.prompt.skillLine": "Skill: {skillId}",
     "warnings.skills.localCopyDriftOverwritten":
         "Warning: 本地 skill {name} 位于 {path} 的副本与 canonical 存储不一致，已被覆盖。",
     "warnings.skills.publishLocalCopyDriftIgnored":

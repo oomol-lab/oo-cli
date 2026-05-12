@@ -688,12 +688,9 @@ registry share id.
   block, with no nested command fences. The prompt language follows the active
   CLI language (`--lang en` or `--lang zh`). The prompt states the skill or
   package is already published, includes the package name, Hub URL, and skill
-  id for skill targets, links to the language-specific general install
-  preparation guide, and then prints the final install command. English prompts
-  link to
-  `https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.en.md`;
-  Chinese prompts link to
-  `https://raw.githubusercontent.com/oomol-lab/oomol-skill-install-guide/main/install.zh.md`.
+  id for skill targets, links to the general install preparation guide at
+  `https://static.oomol.com/oo-cli/skill-install-guide/install.md`, and then
+  prints the final install command.
   The prompt tells the recipient to follow that guide to check OO CLI and login
   state before running the install command. Skill-target prompts continue
   through `oo skills install <packageName> --skill <skill-id> -y` for public
