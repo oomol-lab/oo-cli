@@ -120,12 +120,13 @@ describe("skills publish command", () => {
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "skills.publish",
-                    package_name: "@alice/demo-skill",
-                    skill_id: "demo-skill",
+                    force: false,
                     source_kind: "local",
                     visibility: "private",
                 },
             });
+            expect(telemetryPayload?.properties).not.toHaveProperty("package_name");
+            expect(telemetryPayload?.properties).not.toHaveProperty("skill_id");
         }
         finally {
             await sandbox.cleanup();
@@ -191,9 +192,12 @@ describe("skills publish command", () => {
 
             expect(telemetryPayload).toMatchObject({
                 properties: {
-                    package_name: "@bob/scoped-skill",
+                    force: false,
+                    source_kind: "local",
                 },
             });
+            expect(telemetryPayload?.properties).not.toHaveProperty("package_name");
+            expect(telemetryPayload?.properties).not.toHaveProperty("skill_id");
         }
         finally {
             await sandbox.cleanup();
@@ -706,12 +710,13 @@ describe("skills publish command", () => {
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "skills.publish",
-                    package_name: "@bob/agent-skill",
-                    skill_id: "agent-skill",
+                    force: false,
                     source_kind: "local",
                     visibility: "private",
                 },
             });
+            expect(telemetryPayload?.properties).not.toHaveProperty("package_name");
+            expect(telemetryPayload?.properties).not.toHaveProperty("skill_id");
         }
         finally {
             await sandbox.cleanup();

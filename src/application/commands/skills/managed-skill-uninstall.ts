@@ -44,6 +44,7 @@ interface RegistrySkillUninstallTarget extends ManagedSkillHostInstallation {
 }
 
 export interface ManagedSkillUninstallResult {
+    ambiguousAgents?: string;
     missingInstallationPath: string | undefined;
     noSupportedHosts: boolean;
     removed: boolean;
@@ -85,8 +86,15 @@ export async function uninstallRequestedSkill(
         });
     }
 
-    if (registryResult.removed || localResult.removed || localResult.skipped) {
+    if (registryResult.removed || localResult.removed) {
         return;
+    }
+
+    if (localResult.skipped) {
+        throw new CliUserError("warnings.skills.localUninstallAmbiguous", 1, {
+            agents: localResult.ambiguousAgents ?? "",
+            name: skillName,
+        });
     }
 
     const result = registryResult.unmanagedInstallations.length > 0
@@ -325,13 +333,7 @@ async function uninstallLocalSkillFromSources(
     }
 
     if (options.agentName === undefined && sources.length > 1) {
-        writeLine(
-            context.stderr,
-            context.translator.t("warnings.skills.localUninstallAmbiguous", {
-                agents: renderLocalSkillSourceAgents(sources),
-                name: skillName,
-            }),
-        );
+        const ambiguousAgents = renderLocalSkillSourceAgents(sources);
         context.logger.warn(
             {
                 sourceCount: sources.length,
@@ -340,6 +342,7 @@ async function uninstallLocalSkillFromSources(
             "Local skill uninstall skipped because multiple local sources matched.",
         );
         return {
+            ambiguousAgents,
             missingInstallationPath: undefined,
             noSupportedHosts: false,
             removed: false,

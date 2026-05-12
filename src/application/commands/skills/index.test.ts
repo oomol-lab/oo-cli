@@ -1494,7 +1494,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("warns and keeps multiple local matches without an agent", async () => {
+    test("fails and keeps multiple local matches without an agent", async () => {
         const sandbox = await createCliSandbox();
         const skillName = "ambiguous-local";
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
@@ -1537,7 +1537,7 @@ describe("skills commands", () => {
 
             const result = await sandbox.run(["skills", "remove", skillName]);
 
-            expect(result.exitCode).toBe(0);
+            expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
                 `Warning: Local skill ${skillName} exists in multiple local sources (codebuddy, codex). Nothing was removed; pass --agent to choose one.\n`,

@@ -1,14 +1,14 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
-import { lstat, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { isFileAlreadyExistsError } from "../../shared/fs-errors.ts";
 import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
-    isNodeNotFoundError,
     removePath,
 } from "./bundled-skill-filesystem.ts";
 import { resolveRequestedManagedSkillHost } from "./check.ts";
@@ -143,10 +143,16 @@ async function initializeLocalSkill(
         });
     }
 
-    await validateLocalSkillInitTarget(skillName, skillDirectoryPath);
-    await mkdir(skillDirectoryPath, { recursive: true });
+    let createdDirectory = false;
 
     try {
+        const createdPath = await mkdir(skillDirectoryPath, { recursive: true });
+
+        if (createdPath === undefined) {
+            throw createLocalSkillInitTargetError(skillName, skillDirectoryPath);
+        }
+
+        createdDirectory = true;
         await Bun.write(
             join(skillDirectoryPath, "SKILL.md"),
             renderInitializedSkillMarkdown(skillName, description, icon, title),
@@ -171,7 +177,14 @@ async function initializeLocalSkill(
         );
     }
     catch (error) {
-        await removePath(skillDirectoryPath);
+        if (isFileAlreadyExistsError(error)) {
+            throw createLocalSkillInitTargetError(skillName, skillDirectoryPath);
+        }
+
+        if (createdDirectory) {
+            await removePath(skillDirectoryPath);
+        }
+
         throw error;
     }
 }
@@ -196,16 +209,14 @@ function parseRequiredSkillsInitAgent(
     return agentName;
 }
 
-async function validateLocalSkillInitTarget(
+function createLocalSkillInitTargetError(
     skillName: string,
     skillDirectoryPath: string,
-): Promise<void> {
-    if (await pathExists(skillDirectoryPath)) {
-        throw new CliUserError("errors.skills.nameConflict", 1, {
-            name: skillName,
-            path: skillDirectoryPath,
-        });
-    }
+): CliUserError {
+    return new CliUserError("errors.skills.nameConflict", 1, {
+        name: skillName,
+        path: skillDirectoryPath,
+    });
 }
 
 function isPathWithinAgentSkillsDirectory(
@@ -216,20 +227,6 @@ function isPathWithinAgentSkillsDirectory(
         resolveManagedSkillsDirectoryPath(homeDirectory),
         skillDirectoryPath,
     );
-}
-
-async function pathExists(path: string): Promise<boolean> {
-    try {
-        await lstat(path);
-        return true;
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
 }
 
 function renderInitializedSkillMarkdown(

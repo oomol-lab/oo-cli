@@ -304,7 +304,7 @@ async function resolveLocalSkillShareTarget(
     }
 
     if (sources.length > 1) {
-        throw new CliUserError("errors.skills.publish.localSkillAmbiguous", 1, {
+        throw new CliUserError("errors.skills.share.localSkillAmbiguous", 1, {
             agents: sources.map(source => source.agentName).join(", "),
             name: skillId,
         });

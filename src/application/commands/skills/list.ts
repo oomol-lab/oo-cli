@@ -144,6 +144,10 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
     ),
     handler: async (input, context) => {
         const agentName = parseSkillListAgent(input.agent);
+        context.telemetry?.recordProperties({
+            has_agent_filter: input.agent !== undefined,
+            source_filter: input.source ?? "none",
+        });
         const skills = await listSkillOutputItems(context, {
             agentName,
             source: input.source,
@@ -152,8 +156,12 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
         context.logger.info(
             {
                 count: skills.length,
-                paths: skills.flatMap(skill => skill.paths),
-                skillNames: skills.map(skill => skill.name),
+                hasLocalPaths: skills.some(skill => skill.paths.length > 0),
+                isLocal: input.source === "local",
+                numberOfPaths: skills.reduce(
+                    (total, skill) => total + skill.paths.length,
+                    0,
+                ),
                 source: input.source,
             },
             "Skills listed.",

@@ -430,6 +430,8 @@ export const enMessages = {
         "Bundled skill {name} cannot be published directly because it is managed by the oo CLI release. Create a local skill before publishing.",
     "errors.skills.publish.localSkillAmbiguous":
         "Local skill {name} exists in multiple local sources ({agents}). Pass --agent to choose which agent-native skill to publish.",
+    "errors.skills.share.localSkillAmbiguous":
+        "Local skill {name} exists in multiple local sources ({agents}). Pass --agent to choose which agent-native skill to share.",
     "errors.skills.publish.registryMetadataMissing":
         "Registry skill {name} cannot be published because its metadata file at {path} does not identify a packageName.",
     "errors.skills.publish.registryPackageConfirmationRequired":
@@ -1370,6 +1372,8 @@ export const zhMessages = {
         "不能直接发布内置 skill {name}，因为它由 oo CLI 版本管理。请先创建本地 skill 再发布。",
     "errors.skills.publish.localSkillAmbiguous":
         "本地 skill {name} 存在于多个本地来源（{agents}）。请传入 --agent 选择要发布的 Agent 本地 skill。",
+    "errors.skills.share.localSkillAmbiguous":
+        "本地 skill {name} 存在于多个本地来源（{agents}）。请传入 --agent 选择要分享的 Agent 本地 skill。",
     "errors.skills.publish.registryMetadataMissing":
         "无法发布 registry skill {name}，因为它位于 {path} 的元数据文件没有标识 packageName。",
     "errors.skills.publish.registryPackageConfirmationRequired":
@@ -1761,7 +1765,7 @@ export const zhMessages = {
         "请先按通用说明检查 OO CLI 和登录状态，然后执行：",
     "skills.share.prompt.skillLine": "Skill: {skillId}",
     "warnings.skills.localUninstallAmbiguous":
-        "Warning: 本地 skill {name} 存在于多个本地来源（{agents}）。未删除任何内容；请传入 --agent 选择一个。",
+        "警告：本地 skill {name} 存在于多个本地来源（{agents}）。未删除任何内容；请传入 --agent 选择一个。",
     "skills.install.success": "已将 skill {name} 安装到 {path}。",
     "skills.install.summary.agentsLabel": "Agents",
     "skills.install.summary.detailLine": "{label}：{values}",

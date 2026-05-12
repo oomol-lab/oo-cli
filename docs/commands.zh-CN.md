@@ -730,10 +730,10 @@ registry skills。
 - 所有权规则：对内置 skill 来说，只有当某个受支持 Agent 中的安装目录包含能识别
   bundled 所有权的 `.oo-metadata.json` 时，才允许从该 Agent 移除。
 - 所有权规则：local skill 目录包含能识别 local 所有权的 `.oo-metadata.json` 时，
-  才会被视为可移除。
+  才可被视为可移除。
 - local 歧义：未提供 `--agent` 且存在多个同名 agent-native local skill 时，命令会
-  打印 warning，并且不会删除任何 local skill。如果只匹配到一个 local skill，则会
-  删除它。
+  打印错误、以非零状态退出，并且不会删除任何 local skill。如果只匹配到一个 local
+  skill，则会删除它。
 - 会同时移除 canonical 目录：内置 skill 会移除
   `<config-dir>/skills/bundled/<agent>/<skill>`（每个已安装 Agent 各一份），已发布
   skill 会移除 `<config-dir>/skills/registry/<skill>`。

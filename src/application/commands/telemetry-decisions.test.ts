@@ -300,8 +300,9 @@ const commandTelemetryDecisions = {
         reason: "Records install source, product-domain package dimension, and bounded skill samples.",
     },
     "skills.list": {
-        kind: "generic",
-        reason: "Generic command telemetry is enough; installed skill inventory is not recorded.",
+        kind: "properties",
+        properties: ["has_agent_filter", "source_filter"],
+        reason: "Records filter usage without installed skill inventory.",
     },
     "skills.preflight": {
         kind: "generic",
@@ -311,12 +312,10 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "force",
-            "package_name",
-            "skill_id",
             "source_kind",
             "visibility",
         ],
-        reason: "Records publication mode plus product-domain package and skill dimensions.",
+        reason: "Records publication mode without package or skill identity.",
     },
     "skills.search": {
         kind: "properties",

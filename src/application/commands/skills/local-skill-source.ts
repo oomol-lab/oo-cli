@@ -2,7 +2,6 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
 import { readdir } from "node:fs/promises";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
-import { directoryExists } from "./bundled-skill-observation.ts";
 import {
     resolveBundledSkillHomeDirectory,
 } from "./bundled-skill-paths.ts";
@@ -90,11 +89,6 @@ async function listAgentLocalSkillSourcesForAgent(
     agentName: BundledSkillAgentName,
 ): Promise<LocalSkillSource[]> {
     const homeDirectory = resolveBundledSkillHomeDirectory(env, agentName);
-
-    if (!(await directoryExists(homeDirectory))) {
-        return [];
-    }
-
     const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(homeDirectory);
     const skillNames = await readSkillDirectoryNames(skillsDirectoryPath);
     const sources = await Promise.all(

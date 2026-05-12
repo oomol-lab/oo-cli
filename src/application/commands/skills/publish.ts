@@ -227,8 +227,6 @@ export async function publishSkillPackage(
 
     context.telemetry?.recordProperties({
         force,
-        package_name: packageName,
-        skill_id: source.skillId,
         source_kind: source.kind,
     });
 

@@ -14,6 +14,7 @@ import {
     resolveTraeHomeDirectory,
     resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
+import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { resolveManagedSkillsDirectoryPath } from "./managed-skill-paths.ts";
 
 describe("skills preflight command", () => {
@@ -281,12 +282,7 @@ describe("skills preflight command", () => {
 });
 
 async function readDirectoryWithoutBundledSkills(directoryPath: string): Promise<string[]> {
-    const bundledSkillNames = new Set([
-        "oo",
-        "oo-find-skills",
-        "oo-create-skill",
-        "oo-publish-skill",
-    ]);
+    const bundledSkillNames = new Set<string>(availableBundledSkillNames);
 
     return (await readdir(directoryPath))
         .filter(name => !bundledSkillNames.has(name))

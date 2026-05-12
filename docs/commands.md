@@ -510,7 +510,7 @@ agent.
 Initialize one local skill in the selected agent's own skill directory.
 
 - Arguments: `<name>` is normalized to lowercase hyphen-case and used as the
-- skill id, target directory name, and frontmatter `name`.
+  skill id, target directory name, and frontmatter `name`.
 - Options: `--agent <agent>` is required and selects the agent skill directory
   to write. Accepted values are `codex`, `claude`, `hermes`, `codebuddy`,
   `workbuddy`, `trae`, `trae-cn`, `openclaw`, and `qoderwork`.
@@ -865,8 +865,9 @@ Remove oo-managed skills from supported local skill directories.
 - Ownership rule: a local skill is removable when its agent skill directory
   contains `.oo-metadata.json` identifying local ownership.
 - Local ambiguity: when no `--agent` is provided and multiple agent-native local
-  skills with the requested name exist, the command prints a warning and does
-  not remove any local skill. If exactly one local match exists, it is removed.
+  skills with the requested name exist, the command prints an error, exits
+  non-zero, and does not remove any local skill. If exactly one local match
+  exists, it is removed.
 - Canonical directory removed: bundled skills remove
   `<config-dir>/skills/bundled/<agent>/<skill>` for each installed agent.
   Published skills remove `<config-dir>/skills/registry/<skill>`.

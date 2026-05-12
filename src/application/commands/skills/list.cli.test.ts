@@ -6,6 +6,10 @@ import { describe, expect, test } from "bun:test";
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import {
     resolveClaudeHomeDirectory,
@@ -194,6 +198,51 @@ describe("skills list CLI", () => {
                 `  Path: ${codexSkillDirectoryPath}`,
                 "",
             ].join("\n"));
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records filter telemetry without skill inventory", async () => {
+        const sandbox = await createCliSandbox();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveCodexHomeDirectory(sandbox.env),
+            "telemetry-skill",
+        );
+
+        try {
+            await writeLocalSkill(skillDirectoryPath, "telemetry-skill");
+
+            const result = await sandbox.run([
+                "skills",
+                "list",
+                "--source",
+                "local",
+                "--agent",
+                "codex",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "skills.list",
+                    has_agent_filter: true,
+                    source_filter: "local",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("agent");
+            expect(telemetryPayload?.properties).not.toHaveProperty("paths");
+            expect(telemetryPayload?.properties).not.toHaveProperty("skillNames");
         }
         finally {
             await sandbox.cleanup();
