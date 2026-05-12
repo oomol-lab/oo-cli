@@ -31,7 +31,7 @@ import {
 } from "./search-provider.ts";
 
 describe("connectorCommand CLI", () => {
-    test("supports connector search with text output and writes schema caches", async () => {
+    test("supports connector search with text output without caching partial schemas", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -86,8 +86,32 @@ describe("connectorCommand CLI", () => {
             const schemaResult = await sandbox.run(
                 ["connector", "schema", "gmail", "--action", "send_mail"],
                 {
-                    fetcher: async () => {
-                        throw new Error("Unexpected schema metadata request");
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                description: "Fresh Send a Gmail message.",
+                                inputSchema: {
+                                    properties: {
+                                        to: {
+                                            type: "string",
+                                        },
+                                    },
+                                    required: ["to"],
+                                    type: "object",
+                                },
+                                name: "send_mail",
+                                outputSchema: {
+                                    type: "object",
+                                },
+                                providerPermissions: [],
+                                requiredScopes: [],
+                                service: "gmail",
+                            },
+                        }));
                     },
                 },
             );
@@ -100,11 +124,10 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("Authenticated: yes");
             expect(result.stdout).not.toContain("Schema path");
             expect(JSON.parse(schemaResult.stdout)).toEqual({
-                description: "Send a Gmail message.",
+                description: "Fresh Send a Gmail message.",
                 inputSchema: {
                     properties: {
                         to: {
-                            format: "email",
                             type: "string",
                         },
                     },
@@ -113,22 +136,19 @@ describe("connectorCommand CLI", () => {
                 },
                 name: "send_mail",
                 outputSchema: {
-                    properties: {
-                        messageId: {
-                            type: "string",
-                        },
-                    },
-                    required: ["messageId"],
                     type: "object",
                 },
                 service: "gmail",
             });
-            expect(requests).toHaveLength(2);
+            expect(requests).toHaveLength(3);
             expect(requests[0]?.url).toBe(
                 "https://search.oomol.com/v1/connector-actions?q=send+mail&keywords=gmail%2Cemail",
             );
             expect(requests[1]?.url).toBe(
                 "https://connector.oomol.com/v1/apps/authenticated?service=gmail",
+            );
+            expect(requests[2]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
         }
         finally {
@@ -136,7 +156,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("preserves async lifecycle from connector search cache before running", async () => {
+    test("loads full async lifecycle metadata after connector search before running", async () => {
         const sandbox = await createCliSandbox();
         const originalSleep = Bun.sleep;
 
@@ -154,23 +174,6 @@ describe("connectorCommand CLI", () => {
                             return new Response(JSON.stringify({
                                 data: [
                                     {
-                                        asyncLifecycle: {
-                                            defaultRunMode: "wait",
-                                            kind: "poll",
-                                            poll: {
-                                                action: "openai_image_async_result",
-                                                handleInputField: "sessionID",
-                                                handleOutputField: "sessionId",
-                                                intervalSeconds: 3,
-                                            },
-                                            resultField: "data",
-                                            state: {
-                                                failure: ["not_found"],
-                                                field: "state",
-                                                running: ["processing"],
-                                                success: ["completed"],
-                                            },
-                                        },
                                         description: "Submit OpenAI image generation.",
                                         inputSchema: {
                                             type: "object",
@@ -216,6 +219,50 @@ describe("connectorCommand CLI", () => {
 
                         requests.push(request);
 
+                        if (
+                            request.method === "GET"
+                            && request.url === "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit"
+                        ) {
+                            return new Response(JSON.stringify({
+                                data: {
+                                    asyncLifecycle: {
+                                        defaultRunMode: "wait",
+                                        kind: "poll",
+                                        poll: {
+                                            action: "openai_image_async_result",
+                                            handleInputField: "sessionID",
+                                            handleOutputField: "sessionId",
+                                            intervalSeconds: 3,
+                                        },
+                                        resultField: "data",
+                                        state: {
+                                            failure: ["not_found"],
+                                            field: "state",
+                                            running: ["processing"],
+                                            success: ["completed"],
+                                        },
+                                    },
+                                    description: "Submit OpenAI image generation.",
+                                    inputSchema: {
+                                        type: "object",
+                                    },
+                                    name: "openai_image_async_submit",
+                                    outputSchema: {
+                                        properties: {
+                                            sessionId: {
+                                                type: "string",
+                                            },
+                                        },
+                                        required: ["sessionId"],
+                                        type: "object",
+                                    },
+                                    providerPermissions: [],
+                                    requiredScopes: [],
+                                    service: "fusion-api",
+                                },
+                            }));
+                        }
+
                         if (request.url.endsWith("openai_image_async_submit")) {
                             return new Response(JSON.stringify({
                                 data: {
@@ -257,6 +304,7 @@ describe("connectorCommand CLI", () => {
                 },
             });
             expect(requests.map(request => request.url)).toEqual([
+                "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
             ]);

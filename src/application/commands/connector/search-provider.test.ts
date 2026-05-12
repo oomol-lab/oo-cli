@@ -1,7 +1,3 @@
-import type { CacheStore } from "../../contracts/cache.ts";
-import type { SettingsStore } from "../../contracts/settings-store.ts";
-import type { AppSettings } from "../../schemas/settings.ts";
-
 import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
@@ -11,7 +7,7 @@ import { createTranslator } from "../../../i18n/translator.ts";
 import { loadConnectorSearchResults } from "./search-provider.ts";
 
 describe("connector search provider", () => {
-    test("returns search results when schema cache warm-up fails", async () => {
+    test("returns search results without using the schema cache", async () => {
         const requests: Request[] = [];
 
         const results = await loadConnectorSearchResults(
@@ -25,7 +21,6 @@ describe("connector search provider", () => {
                 text: "send mail",
             },
             {
-                cacheStore: createFailingCacheStore(),
                 fetcher: async (input, init) => {
                     const request = toRequest(input, init);
 
@@ -60,7 +55,6 @@ describe("connector search provider", () => {
                 logger: pino({
                     enabled: false,
                 }),
-                settingsStore: createSettingsStore(),
                 translator: createTranslator("en"),
             },
         );
@@ -79,25 +73,3 @@ describe("connector search provider", () => {
         ]);
     });
 });
-
-function createFailingCacheStore(): CacheStore {
-    return {
-        close: () => undefined,
-        getCache: () => {
-            throw new Error("Cache unavailable");
-        },
-        getFilePath: () => "",
-    };
-}
-
-function createSettingsStore(): SettingsStore {
-    const emptySettings = {} as AppSettings;
-
-    return {
-        getFilePath: () => "",
-        read: async () => emptySettings,
-        update: async (updater: (settings: AppSettings) => AppSettings) =>
-            updater(emptySettings),
-        write: async (settings: AppSettings) => settings,
-    };
-}
