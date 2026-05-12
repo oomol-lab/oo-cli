@@ -51,7 +51,7 @@ export const enMessages = {
         "Search connector actions and run authenticated connector operations.",
     "commands.connector.summary": "Manage connector actions",
     "commands.connector.search.description":
-        "Search connector actions and cache their schemas locally.",
+        "Search connector actions.",
     "commands.connector.search.summary": "Search connector actions",
     "commands.connector.schema.description":
         "Show the schema contract for one connector action.",
@@ -993,7 +993,7 @@ export const zhMessages = {
         "搜索 connector action，并运行已认证的 connector 操作。",
     "commands.connector.summary": "管理 connector action",
     "commands.connector.search.description":
-        "搜索 connector action，并将 schema 缓存到本地。",
+        "搜索 connector action。",
     "commands.connector.search.summary":
         "搜索 connector action",
     "commands.connector.schema.description":

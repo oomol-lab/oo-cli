@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`connectorCommand CLI supports connector search with text output and writes schema caches 1`] = `
+exports[`connectorCommand CLI supports connector search with text output without caching partial schemas 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
@@ -54,7 +54,7 @@ exports[`connectorCommand CLI renders connector search help when text argument i
     "exitCode": 0,
     "stderr": "",
     "stdout": 
-"Search connector actions and cache their schemas locally.
+"Search connector actions.
 
 Arguments:
   text                   Search text
@@ -77,7 +77,7 @@ Global Options:
     "exitCode": 0,
     "stderr": "",
     "stdout": 
-"Search connector actions and cache their schemas locally.
+"Search connector actions.
 
 Arguments:
   text                   Search text

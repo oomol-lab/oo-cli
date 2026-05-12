@@ -4,7 +4,6 @@ import type { TerminalColors } from "../../terminal-colors.ts";
 
 import { createWriterColors } from "../../terminal-colors.ts";
 
-import { cacheConnectorActionSchemas } from "./schema-cache.ts";
 import {
     listAuthenticatedConnectorServices,
     searchConnectorActions,
@@ -28,7 +27,7 @@ export async function loadConnectorSearchResults(
         keywords: readonly string[];
         text: string;
     },
-    context: Pick<CliExecutionContext, "cacheStore" | "fetcher" | "logger" | "settingsStore" | "translator">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorSearchResult[]> {
     const actions = await searchConnectorActions({
         apiKey: options.account.apiKey,
@@ -41,33 +40,17 @@ export async function loadConnectorSearchResults(
         return [];
     }
 
-    const [authenticatedServicesResult, schemaCacheResult] = await Promise.allSettled([
-        listAuthenticatedConnectorServices(
-            {
-                apiKey: options.account.apiKey,
-                endpoint: options.account.endpoint,
-                services: Array.from(new Set(actions.map(action => action.service))),
-            },
-            context,
-        ),
-        cacheConnectorActionSchemas(actions, options.account, context),
-    ]);
-
-    if (authenticatedServicesResult.status === "rejected") {
-        throw authenticatedServicesResult.reason;
-    }
-
-    if (schemaCacheResult.status === "rejected") {
-        context.logger.warn(
-            {
-                err: schemaCacheResult.reason,
-            },
-            "Failed to warm connector action schemas during search.",
-        );
-    }
+    const authenticatedServices = await listAuthenticatedConnectorServices(
+        {
+            apiKey: options.account.apiKey,
+            endpoint: options.account.endpoint,
+            services: Array.from(new Set(actions.map(action => action.service))),
+        },
+        context,
+    );
 
     return actions.map(action => ({
-        authenticated: authenticatedServicesResult.value.has(action.service),
+        authenticated: authenticatedServices.has(action.service),
         description: action.description,
         name: action.name,
         service: action.service,

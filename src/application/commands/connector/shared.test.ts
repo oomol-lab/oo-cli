@@ -38,6 +38,7 @@ describe("connector shared requests", () => {
                         data: [
                             {
                                 description: "Send a Gmail message.",
+                                followUpActions: [],
                                 inputSchema: {
                                     type: "object",
                                 },
@@ -45,6 +46,8 @@ describe("connector shared requests", () => {
                                 outputSchema: {
                                     type: "object",
                                 },
+                                providerPermissions: ["gmail.send"],
+                                requiredScopes: ["gmail.send"],
                                 service: "gmail",
                             },
                         ],
