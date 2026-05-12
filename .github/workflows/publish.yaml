@@ -159,10 +159,7 @@ jobs:
         run: bun run contrib/ci/release-workflow.ts assemble-release-artifacts
 
       - name: Publish to npm
-        run: |
-          while IFS= read -r package_file; do
-            npm publish --access public "$package_file"
-          done < dist/npm-publish-order.txt
+        run: bun run contrib/ci/release-workflow.ts publish-npm-packages
 
       - name: Create GitHub Release
         run: |

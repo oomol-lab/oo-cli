@@ -5,6 +5,7 @@ import {
     assembleReleaseArtifacts,
     parseBuildTargetIds,
 } from "./npm-packages.ts";
+import { publishNpmPackagesFromOrderFile } from "./npm-publish.ts";
 import {
     buildCreateReleaseCommand,
     buildFeishuReleaseFollowupNotification,
@@ -117,6 +118,12 @@ async function runAssembleReleaseArtifacts(): Promise<void> {
     });
 }
 
+async function runPublishNpmPackages(): Promise<void> {
+    await publishNpmPackagesFromOrderFile({
+        publishOrderPath: process.env.NPM_PUBLISH_ORDER_PATH ?? "dist/npm-publish-order.txt",
+    });
+}
+
 function readRequiredEnv(name: string): string {
     const value = process.env[name];
     if (value === undefined || value === "") {
@@ -135,6 +142,9 @@ export async function main(args: readonly string[]): Promise<void> {
             return;
         case "assemble-release-artifacts":
             await runAssembleReleaseArtifacts();
+            return;
+        case "publish-npm-packages":
+            await runPublishNpmPackages();
             return;
         case "create-github-release":
             await runCreateGitHubRelease(commandArgs);
