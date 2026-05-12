@@ -62,6 +62,7 @@ describe("skills list command helpers", () => {
                     },
                     name: "oo",
                     path: ooSkillDirectoryPath,
+                    source: "bundled",
                 },
                 {
                     metadata: {
@@ -71,11 +72,13 @@ describe("skills list command helpers", () => {
                     },
                     name: "oo-find-skills",
                     path: ooFindSkillsDirectoryPath,
+                    source: "bundled",
                 },
                 {
                     metadata: undefined,
                     name: "alpha-skill",
                     path: alphaSkillDirectoryPath,
+                    source: "registry",
                 },
                 {
                     metadata: {
@@ -86,6 +89,7 @@ describe("skills list command helpers", () => {
                     },
                     name: "zebra-skill",
                     path: zebraSkillDirectoryPath,
+                    source: "registry",
                 },
             ]);
         }
@@ -131,6 +135,7 @@ describe("skills list command helpers", () => {
                     },
                     name: "alpha-skill",
                     path: alphaSkillDirectoryPath,
+                    source: "registry",
                 },
                 {
                     metadata: {
@@ -141,6 +146,7 @@ describe("skills list command helpers", () => {
                     },
                     name: "oo-find-skills",
                     path: ooFindSkillsDirectoryPath,
+                    source: "registry",
                 },
             ]);
         }
@@ -149,9 +155,9 @@ describe("skills list command helpers", () => {
         }
     });
 
-    test("lists valid local canonical skills by name", async () => {
+    test("lists valid local skill directories by name", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-local-skills-list");
-        const localSkillsDirectoryPath = join(rootDirectory, "skills", "local");
+        const localSkillsDirectoryPath = join(rootDirectory, "skills");
         const alphaSkillDirectoryPath = join(localSkillsDirectoryPath, "alpha-skill");
         const betaSkillDirectoryPath = join(localSkillsDirectoryPath, "beta-skill");
         const mismatchSkillDirectoryPath = join(

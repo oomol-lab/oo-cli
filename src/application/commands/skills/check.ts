@@ -6,6 +6,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import {
@@ -14,18 +15,13 @@ import {
 } from "./bundled-skill-paths.ts";
 import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
 import { resolveManagedSkillHostMissingErrorKey } from "./managed-skill-host-errors.ts";
-import {
-    createMissingManagedSkillHostError,
-    resolveAvailableManagedSkillHosts,
-} from "./managed-skill-hosts.ts";
-import { resolveLocalSkillCanonicalRootDirectoryPath } from "./managed-skill-paths.ts";
 
 interface SkillsCheckInput {
-    agent?: BundledSkillAgentName;
+    agent?: string;
 }
 
 interface SkillsCheckResult {
-    canonicalRootDirectoryPath: string;
+    authoringRootDirectoryPath: string;
     hostCount: number;
 }
 
@@ -42,53 +38,47 @@ export const skillsCheckCommand: CliCommandDefinition<SkillsCheckInput> = {
         },
     ],
     inputSchema: z.object({
-        agent: z.enum(availableBundledSkillAgentNames).optional(),
+        agent: z.string().optional(),
     }),
     handler: async (input, context) => {
+        const agentName = parseRequiredSkillsCheckAgent(input.agent);
         const result = await checkLocalSkillAuthoringEnvironment(context, {
-            agentName: input.agent,
+            agentName,
         });
 
         writeLine(
             context.stdout,
             context.translator.t("skills.check.success", {
                 count: result.hostCount,
-                path: result.canonicalRootDirectoryPath,
+                path: result.authoringRootDirectoryPath,
             }),
         );
     },
 };
 
 export async function checkLocalSkillAuthoringEnvironment(
-    context: Pick<CliExecutionContext, "env" | "settingsStore">,
+    context: Pick<CliExecutionContext, "env">,
     options: {
-        agentName?: BundledSkillAgentName;
-    } = {},
+        agentName: BundledSkillAgentName;
+    },
 ): Promise<SkillsCheckResult> {
-    const hosts = options.agentName === undefined
-        ? await resolveAvailableManagedSkillHosts(context.env)
-        : await resolveRequestedManagedSkillHost(context.env, options.agentName);
-
-    if (hosts.length === 0) {
-        throw createMissingManagedSkillHostError(context.env);
-    }
-
-    const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
-        context.settingsStore.getFilePath(),
+    const hosts = await resolveRequestedManagedSkillHost(
+        context.env,
+        options.agentName,
+    );
+    const authoringRootDirectoryPath = resolveManagedSkillHostPublishRoot(
+        hosts[0]!,
     );
 
-    await verifyWritableDirectory(canonicalRootDirectoryPath);
-    await Promise.all(
-        hosts.map(host => verifyWritableDirectory(resolveManagedSkillHostPublishRoot(host))),
-    );
+    await verifyWritableDirectory(authoringRootDirectoryPath);
 
     return {
-        canonicalRootDirectoryPath,
+        authoringRootDirectoryPath,
         hostCount: hosts.length,
     };
 }
 
-async function resolveRequestedManagedSkillHost(
+export async function resolveRequestedManagedSkillHost(
     env: Record<string, string | undefined>,
     agentName: BundledSkillAgentName,
 ): Promise<Array<{ agentName: BundledSkillAgentName; homeDirectory: string }>> {
@@ -121,6 +111,26 @@ function createMissingRequestedManagedSkillHostError(
             path: homeDirectory,
         },
     );
+}
+
+function parseRequiredSkillsCheckAgent(
+    value: string | undefined,
+): BundledSkillAgentName {
+    if (value === undefined) {
+        throw new CliUserError("errors.skills.check.agentRequired", 1);
+    }
+
+    const agentName = parseEnumOption(
+        value,
+        availableBundledSkillAgentNames,
+        "errors.skills.check.invalidAgent",
+    );
+
+    if (agentName === undefined) {
+        throw new CliUserError("errors.skills.check.agentRequired", 1);
+    }
+
+    return agentName;
 }
 
 async function verifyWritableDirectory(directoryPath: string): Promise<void> {

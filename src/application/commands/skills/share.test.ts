@@ -11,11 +11,15 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
-    resolveLocalSkillCanonicalDirectoryPath,
+    resolveCodeBuddyHomeDirectory,
+    resolveCodexHomeDirectory,
+} from "./bundled-skill-paths.ts";
+import {
     resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import { createLocalSkillMetadata, renderSkillMetadataJson } from "./skill-metadata.ts";
 
 const skillInstallGuideUrl
     = "https://static.oomol.com/oo-cli/skill-install-guide/install.md";
@@ -107,6 +111,50 @@ describe("skills share command", () => {
             expect(requests.map(request => request.url)).toEqual([
                 "https://registry.oomol.com/-/oomol/package-info/%40alice%2Fdemo-skill/latest?lang=en",
             ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uses share-scoped error for ambiguous local skill ids", async () => {
+        const sandbox = await createCliSandbox();
+        const skillId = "shared-skill";
+        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveCodexHomeDirectory(sandbox.env),
+            skillId,
+        );
+        const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveCodeBuddyHomeDirectory(sandbox.env),
+            skillId,
+        );
+
+        try {
+            await writeAuthFile(sandbox);
+            await Promise.all([
+                writePublishedSkillFile(codexSkillDirectoryPath, {
+                    packageName: "@alice/shared-skill",
+                    skillId,
+                    version: "0.0.1",
+                }),
+                writePublishedSkillFile(codeBuddySkillDirectoryPath, {
+                    packageName: "@alice/shared-skill",
+                    skillId,
+                    version: "0.0.1",
+                }),
+            ]);
+
+            const result = await sandbox.run(["skills", "share", skillId], {
+                fetcher: async () => {
+                    throw new Error("ambiguous local skill should fail before fetching");
+                },
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                `Local skill ${skillId} exists in multiple local sources (codebuddy, codex). Pass --agent to choose which agent-native skill to share.\n`,
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -798,14 +846,8 @@ function resolveLocalSkillDirectoryPath(
     sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
     skillId: string,
 ): string {
-    const storePaths = resolveStorePaths({
-        appName: APP_NAME,
-        env: sandbox.env,
-        platform: process.platform,
-    });
-
-    return resolveLocalSkillCanonicalDirectoryPath(
-        storePaths.settingsFilePath,
+    return resolveManagedSkillDirectoryPath(
+        resolveCodexHomeDirectory(sandbox.env),
         skillId,
     );
 }
@@ -844,6 +886,10 @@ async function writePublishedSkillFile(
         "---",
         "",
     ].join("\n"));
+    await Bun.write(
+        resolveManagedSkillMetadataFilePath(directoryPath),
+        renderSkillMetadataJson(createLocalSkillMetadata()),
+    );
 }
 
 async function writeSkillFile(

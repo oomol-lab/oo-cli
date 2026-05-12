@@ -1,19 +1,18 @@
-import { lstat, mkdir, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
-import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
-import { APP_NAME } from "../../config/app-config.ts";
 import {
-    resolveClaudeHomeDirectory,
     resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
     resolveTraeCnHomeDirectory,
     resolveTraeHomeDirectory,
 } from "./bundled-skill-paths.ts";
-import { resolveLocalSkillCanonicalDirectoryPath } from "./managed-skill-paths.ts";
+import {
+    resolveManagedSkillDirectoryPath,
+} from "./managed-skill-paths.ts";
 import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,
@@ -24,17 +23,11 @@ import {
 } from "./skill-metadata.ts";
 
 describe("skills init command", () => {
-    test("initializes a local skill and publishes it to existing supported hosts", async () => {
+    test("initializes a local skill in the requested agent skill directory", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "campaign-writer");
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             "campaign-writer",
         );
 
@@ -45,6 +38,8 @@ describe("skills init command", () => {
                 "skills",
                 "init",
                 "Campaign Writer",
+                "--agent",
+                "codex",
                 "--description",
                 "Write campaign briefs using a known package workflow.",
                 "--icon",
@@ -55,25 +50,15 @@ describe("skills init command", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                [
-                    `Initialized skill campaign-writer in canonical storage at ${canonicalSkillDirectoryPath}.`,
-                    `Copied skill campaign-writer to ${skillDirectoryPath}.`,
-                    "",
-                ].join("\n"),
+                `Initialized skill campaign-writer at ${skillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
-            expect(await realpath(skillDirectoryPath)).not.toBe(
-                await realpath(canonicalSkillDirectoryPath),
-            );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
-            expect(await readFile(join(canonicalSkillDirectoryPath, ".oo-metadata.json"), "utf8")).toBe(
-                renderSkillMetadataJson(createLocalSkillMetadata()),
-            );
             expect(await readFile(join(skillDirectoryPath, ".oo-metadata.json"), "utf8")).toBe(
                 renderSkillMetadataJson(createLocalSkillMetadata()),
             );
             expect(
-                await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8"),
+                await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
             ).toBe([
                 "---",
                 "name: campaign-writer",
@@ -119,13 +104,8 @@ describe("skills init command", () => {
     test("omits metadata title when no title is provided", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             "minimal-skill",
         );
 
@@ -136,13 +116,15 @@ describe("skills init command", () => {
                 "skills",
                 "init",
                 "minimal-skill",
+                "--agent",
+                "codex",
                 "--description",
                 "Use a known package workflow.",
             ]);
 
             expect(result.exitCode).toBe(0);
             expect(
-                await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8"),
+                await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
             ).toBe([
                 "---",
                 "name: minimal-skill",
@@ -182,18 +164,12 @@ describe("skills init command", () => {
         }
     });
 
-    test("initializes a local skill by copying for CodeBuddy", async () => {
+    test("initializes a local skill for CodeBuddy", async () => {
         const sandbox = await createCliSandbox();
         const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "copy-skill");
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            "copy-skill",
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codeBuddyHomeDirectory,
+            "codebuddy-skill",
         );
 
         try {
@@ -202,21 +178,16 @@ describe("skills init command", () => {
             const result = await sandbox.run([
                 "skills",
                 "init",
-                "copy-skill",
+                "codebuddy-skill",
+                "--agent",
+                "codebuddy",
                 "--description",
                 "Use a known package workflow.",
             ]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                [
-                    `Initialized skill copy-skill in canonical storage at ${canonicalSkillDirectoryPath}.`,
-                    `Copied skill copy-skill to ${skillDirectoryPath}.`,
-                    "",
-                ].join("\n"),
-            );
-            expect(await realpath(skillDirectoryPath)).not.toBe(
-                await realpath(canonicalSkillDirectoryPath),
+                `Initialized skill codebuddy-skill at ${skillDirectoryPath}.\n`,
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
         }
@@ -225,17 +196,11 @@ describe("skills init command", () => {
         }
     });
 
-    test("initializes a local skill by copying for Trae", async () => {
+    test("initializes a local skill for Trae", async () => {
         const sandbox = await createCliSandbox();
         const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(traeHomeDirectory, "skills", "trae-skill");
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            traeHomeDirectory,
             "trae-skill",
         );
 
@@ -246,20 +211,15 @@ describe("skills init command", () => {
                 "skills",
                 "init",
                 "trae-skill",
+                "--agent",
+                "trae",
                 "--description",
                 "Use a known package workflow.",
             ]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                [
-                    `Initialized skill trae-skill in canonical storage at ${canonicalSkillDirectoryPath}.`,
-                    `Copied skill trae-skill to ${skillDirectoryPath}.`,
-                    "",
-                ].join("\n"),
-            );
-            expect(await realpath(skillDirectoryPath)).not.toBe(
-                await realpath(canonicalSkillDirectoryPath),
+                `Initialized skill trae-skill at ${skillDirectoryPath}.\n`,
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
         }
@@ -268,17 +228,11 @@ describe("skills init command", () => {
         }
     });
 
-    test("initializes a local skill by copying for Trae CN", async () => {
+    test("initializes a local skill for Trae CN", async () => {
         const sandbox = await createCliSandbox();
         const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(traeCnHomeDirectory, "skills", "trae-cn-skill");
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            traeCnHomeDirectory,
             "trae-cn-skill",
         );
 
@@ -289,22 +243,50 @@ describe("skills init command", () => {
                 "skills",
                 "init",
                 "trae-cn-skill",
+                "--agent",
+                "trae-cn",
                 "--description",
                 "Use a known package workflow.",
             ]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                [
-                    `Initialized skill trae-cn-skill in canonical storage at ${canonicalSkillDirectoryPath}.`,
-                    `Copied skill trae-cn-skill to ${skillDirectoryPath}.`,
-                    "",
-                ].join("\n"),
-            );
-            expect(await realpath(skillDirectoryPath)).not.toBe(
-                await realpath(canonicalSkillDirectoryPath),
+                `Initialized skill trae-cn-skill at ${skillDirectoryPath}.\n`,
             );
             expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("requires an agent before writing", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "missing-agent",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "init",
+                "missing-agent",
+                "--description",
+                "Use a known package workflow.",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.\n",
+            );
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -314,13 +296,8 @@ describe("skills init command", () => {
     test("requires a description before writing", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             "missing-description",
         );
 
@@ -331,6 +308,8 @@ describe("skills init command", () => {
                 "skills",
                 "init",
                 "missing-description",
+                "--agent",
+                "codex",
             ]);
 
             expect(result.exitCode).toBe(1);
@@ -338,9 +317,7 @@ describe("skills init command", () => {
             expect(result.stderr).toBe(
                 "Missing required --description. Provide a concise trigger description for the generated skill.\n",
             );
-            await expect(
-                stat(canonicalSkillDirectoryPath),
-            ).rejects.toMatchObject({
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }
@@ -349,35 +326,33 @@ describe("skills init command", () => {
         }
     });
 
-    test("fails before writing when the local canonical directory already exists", async () => {
+    test("fails before writing when the agent skill directory already exists", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             "existing-skill",
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
-            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await mkdir(skillDirectoryPath, { recursive: true });
 
             const result = await sandbox.run([
                 "skills",
                 "init",
                 "existing-skill",
+                "--agent",
+                "codex",
                 "--description",
                 "Use an existing package workflow.",
             ]);
 
             expect(result.exitCode).toBe(1);
-            expect(result.stderr).toContain("already occupied");
+            expect(result.stderr).toBe(
+                `Skill name existing-skill is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
+            );
             await expect(
-                stat(join(canonicalSkillDirectoryPath, "SKILL.md")),
+                stat(join(skillDirectoryPath, "SKILL.md")),
             ).rejects.toMatchObject({
                 code: "ENOENT",
             });
@@ -387,47 +362,40 @@ describe("skills init command", () => {
         }
     });
 
-    test("removes already published targets when a later target fails", async () => {
+    test("does not copy a new local skill to other agents", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
-        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "rollback-skill");
-        const claudePublishRootPath = join(claudeHomeDirectory, "skills");
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            "rollback-skill",
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "single-agent-skill",
+        );
+        const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codeBuddyHomeDirectory,
+            "single-agent-skill",
         );
 
         try {
             await Promise.all([
                 mkdir(codexHomeDirectory, { recursive: true }),
-                mkdir(claudeHomeDirectory, { recursive: true }),
+                mkdir(codeBuddyHomeDirectory, { recursive: true }),
             ]);
-            await Bun.write(claudePublishRootPath, "not a directory");
 
             const result = await sandbox.run([
                 "skills",
                 "init",
-                "rollback-skill",
+                "single-agent-skill",
+                "--agent",
+                "codex",
                 "--description",
                 "Use a known package workflow.",
             ]);
 
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
-            await expect(
-                stat(codexSkillDirectoryPath),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
-            await expect(
-                stat(canonicalSkillDirectoryPath),
-            ).rejects.toMatchObject({
+            expect(result.exitCode).toBe(0);
+            expect(await readFile(join(codexSkillDirectoryPath, ".oo-metadata.json"), "utf8")).toBe(
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
+            await expect(stat(codeBuddySkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }
@@ -441,13 +409,8 @@ describe("skills init command", () => {
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const normalizedSkillName = "a".repeat(63);
         const inputName = `${"A".repeat(63)} B`;
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             normalizedSkillName,
         );
 
@@ -458,20 +421,18 @@ describe("skills init command", () => {
                 "skills",
                 "init",
                 inputName,
+                "--agent",
+                "codex",
                 "--description",
                 "Use a known package workflow.",
             ]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                [
-                    `Initialized skill ${normalizedSkillName} in canonical storage at ${canonicalSkillDirectoryPath}.`,
-                    `Copied skill ${normalizedSkillName} to ${join(codexHomeDirectory, "skills", normalizedSkillName)}.`,
-                    "",
-                ].join("\n"),
+                `Initialized skill ${normalizedSkillName} at ${skillDirectoryPath}.\n`,
             );
             expect(
-                await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8"),
+                await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
             ).toContain(`name: ${normalizedSkillName}\n`);
         }
         finally {

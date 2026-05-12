@@ -6,6 +6,10 @@ import { describe, expect, test } from "bun:test";
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import {
     resolveClaudeHomeDirectory,
@@ -19,11 +23,11 @@ import {
     resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import {
-    resolveLocalSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import { createLocalSkillMetadata, renderSkillMetadataJson } from "./skill-metadata.ts";
 
 const managedSkillNameColor = "#59F78D";
 const managedSkillSourceColor = "#CAA8FA";
@@ -83,16 +87,11 @@ describe("skills list CLI", () => {
         }
     });
 
-    test("lists local canonical skills created by init", async () => {
+    test("excludes local skills by default and lists them with --source local", async () => {
         const sandbox = await createCliSandbox();
         const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codeBuddyHomeDirectory,
             "campaign-writer",
         );
 
@@ -103,6 +102,8 @@ describe("skills list CLI", () => {
                 "skills",
                 "init",
                 "Campaign Writer",
+                "--agent",
+                "codebuddy",
                 "--description",
                 "Write campaign briefs using a known package workflow.",
             ]);
@@ -124,20 +125,124 @@ describe("skills list CLI", () => {
                 "  Source: local",
                 "  Package: <local>",
                 "  Version: unknown",
-                `  Path: ${canonicalSkillDirectoryPath}`,
+                `  Path: ${skillDirectoryPath}`,
                 "",
             ].join("\n");
 
-            expect(allSourcesResult.stdout.split("\ncampaign-writer\n")).toHaveLength(2);
-            expect(allSourcesResult.stdout).toContain([
-                "campaign-writer",
+            expect(allSourcesResult.stdout).not.toContain("campaign-writer");
+            expect(result.stdout).toBe(expectedOutput);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("filters local skills by agent without merging same-name local entries", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "shared-skill",
+        );
+        const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codeBuddyHomeDirectory,
+            "shared-skill",
+        );
+
+        try {
+            await Promise.all([
+                writeLocalSkill(codexSkillDirectoryPath, "shared-skill"),
+                writeLocalSkill(codeBuddySkillDirectoryPath, "shared-skill"),
+            ]);
+
+            const allLocalResult = await sandbox.run(["skills", "list", "--source", "local"]);
+            const codexLocalResult = await sandbox.run([
+                "skills",
+                "list",
+                "--source",
+                "local",
+                "--agent",
+                "codex",
+            ]);
+
+            expect(allLocalResult.exitCode).toBe(0);
+            expect(allLocalResult.stderr).toBe("");
+            expect(allLocalResult.stdout).toBe([
+                "✓ Found 2 skills.",
+                "",
+                "shared-skill",
                 "  Host: CodeBuddy",
                 "  Source: local",
                 "  Package: <local>",
                 "  Version: unknown",
-                `  Path: ${canonicalSkillDirectoryPath}`,
+                `  Path: ${codeBuddySkillDirectoryPath}`,
+                "",
+                "shared-skill",
+                "  Host: Codex",
+                "  Source: local",
+                "  Package: <local>",
+                "  Version: unknown",
+                `  Path: ${codexSkillDirectoryPath}`,
+                "",
             ].join("\n"));
-            expect(result.stdout).toBe(expectedOutput);
+            expect(codexLocalResult.exitCode).toBe(0);
+            expect(codexLocalResult.stdout).toBe([
+                "✓ Found 1 skills.",
+                "",
+                "shared-skill",
+                "  Host: Codex",
+                "  Source: local",
+                "  Package: <local>",
+                "  Version: unknown",
+                `  Path: ${codexSkillDirectoryPath}`,
+                "",
+            ].join("\n"));
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records filter telemetry without skill inventory", async () => {
+        const sandbox = await createCliSandbox();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveCodexHomeDirectory(sandbox.env),
+            "telemetry-skill",
+        );
+
+        try {
+            await writeLocalSkill(skillDirectoryPath, "telemetry-skill");
+
+            const result = await sandbox.run([
+                "skills",
+                "list",
+                "--source",
+                "local",
+                "--agent",
+                "codex",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "skills.list",
+                    has_agent_filter: true,
+                    source_filter: "local",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("agent");
+            expect(telemetryPayload?.properties).not.toHaveProperty("paths");
+            expect(telemetryPayload?.properties).not.toHaveProperty("skillNames");
         }
         finally {
             await sandbox.cleanup();
@@ -552,4 +657,25 @@ function createExpectedBundledSkillLines(
         "  Version: 9.9.9",
         "",
     ]);
+}
+
+async function writeLocalSkill(
+    skillDirectoryPath: string,
+    skillName: string,
+): Promise<void> {
+    await mkdir(skillDirectoryPath, { recursive: true });
+    await Bun.write(
+        join(skillDirectoryPath, "SKILL.md"),
+        [
+            "---",
+            `name: ${skillName}`,
+            "description: Use a local workflow.",
+            "---",
+            "",
+        ].join("\n"),
+    );
+    await Bun.write(
+        resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+        renderSkillMetadataJson(createLocalSkillMetadata()),
+    );
 }

@@ -4,8 +4,6 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
-import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
-import { APP_NAME } from "../../config/app-config.ts";
 import {
     resolveClaudeHomeDirectory,
     resolveCodeBuddyHomeDirectory,
@@ -16,20 +14,34 @@ import {
     resolveTraeHomeDirectory,
     resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
-import { resolveLocalSkillCanonicalRootDirectoryPath } from "./managed-skill-paths.ts";
+import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { resolveManagedSkillsDirectoryPath } from "./managed-skill-paths.ts";
 
 describe("skills preflight command", () => {
-    test("checks the requested agent and local canonical storage", async () => {
+    test("requires --agent", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "preflight",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("checks the requested agent skill directory", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
-            storePaths.settingsFilePath,
-        );
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(codexHomeDirectory);
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -44,9 +56,9 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+                `Local skill editing is ready. Writable storage: ${skillsDirectoryPath}. Supported hosts: 1.\n`,
             );
-            expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
+            expect(await readDirectoryWithoutBundledSkills(skillsDirectoryPath)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -82,14 +94,7 @@ describe("skills preflight command", () => {
     test("checks QoderWork as a requested agent", async () => {
         const sandbox = await createCliSandbox();
         const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
-            storePaths.settingsFilePath,
-        );
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(qoderWorkHomeDirectory);
 
         try {
             await mkdir(qoderWorkHomeDirectory, { recursive: true });
@@ -104,9 +109,9 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+                `Local skill editing is ready. Writable storage: ${skillsDirectoryPath}. Supported hosts: 1.\n`,
             );
-            expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
+            expect(await readDirectoryWithoutBundledSkills(skillsDirectoryPath)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -116,14 +121,7 @@ describe("skills preflight command", () => {
     test("checks Hermes as a requested agent", async () => {
         const sandbox = await createCliSandbox();
         const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
-            storePaths.settingsFilePath,
-        );
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(hermesHomeDirectory);
 
         try {
             await mkdir(hermesHomeDirectory, { recursive: true });
@@ -138,9 +136,9 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+                `Local skill editing is ready. Writable storage: ${skillsDirectoryPath}. Supported hosts: 1.\n`,
             );
-            expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
+            expect(await readDirectoryWithoutBundledSkills(skillsDirectoryPath)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -150,14 +148,7 @@ describe("skills preflight command", () => {
     test("checks CodeBuddy as a requested agent", async () => {
         const sandbox = await createCliSandbox();
         const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
-            storePaths.settingsFilePath,
-        );
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(codeBuddyHomeDirectory);
 
         try {
             await mkdir(codeBuddyHomeDirectory, { recursive: true });
@@ -172,9 +163,9 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+                `Local skill editing is ready. Writable storage: ${skillsDirectoryPath}. Supported hosts: 1.\n`,
             );
-            expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
+            expect(await readDirectoryWithoutBundledSkills(skillsDirectoryPath)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -184,14 +175,7 @@ describe("skills preflight command", () => {
     test("checks WorkBuddy as a requested agent", async () => {
         const sandbox = await createCliSandbox();
         const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
-            storePaths.settingsFilePath,
-        );
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(workBuddyHomeDirectory);
 
         try {
             await mkdir(workBuddyHomeDirectory, { recursive: true });
@@ -206,9 +190,9 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+                `Local skill editing is ready. Writable storage: ${skillsDirectoryPath}. Supported hosts: 1.\n`,
             );
-            expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
+            expect(await readDirectoryWithoutBundledSkills(skillsDirectoryPath)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -218,14 +202,7 @@ describe("skills preflight command", () => {
     test("checks Trae as a requested agent", async () => {
         const sandbox = await createCliSandbox();
         const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
-            storePaths.settingsFilePath,
-        );
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(traeHomeDirectory);
 
         try {
             await mkdir(traeHomeDirectory, { recursive: true });
@@ -240,9 +217,9 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+                `Local skill editing is ready. Writable storage: ${skillsDirectoryPath}. Supported hosts: 1.\n`,
             );
-            expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
+            expect(await readDirectoryWithoutBundledSkills(skillsDirectoryPath)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -252,14 +229,7 @@ describe("skills preflight command", () => {
     test("checks Trae CN as a requested agent", async () => {
         const sandbox = await createCliSandbox();
         const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalRootDirectoryPath = resolveLocalSkillCanonicalRootDirectoryPath(
-            storePaths.settingsFilePath,
-        );
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(traeCnHomeDirectory);
 
         try {
             await mkdir(traeCnHomeDirectory, { recursive: true });
@@ -274,9 +244,9 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Local skill editing is ready. Writable storage: ${canonicalRootDirectoryPath}. Supported hosts: 1.\n`,
+                `Local skill editing is ready. Writable storage: ${skillsDirectoryPath}. Supported hosts: 1.\n`,
             );
-            expect(await readdir(canonicalRootDirectoryPath)).toEqual([]);
+            expect(await readDirectoryWithoutBundledSkills(skillsDirectoryPath)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -310,3 +280,11 @@ describe("skills preflight command", () => {
         }
     });
 });
+
+async function readDirectoryWithoutBundledSkills(directoryPath: string): Promise<string[]> {
+    const bundledSkillNames = new Set<string>(availableBundledSkillNames);
+
+    return (await readdir(directoryPath))
+        .filter(name => !bundledSkillNames.has(name))
+        .sort();
+}

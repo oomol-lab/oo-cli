@@ -516,7 +516,8 @@ describe("embedded skill assets", () => {
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
-            expect(content).toContain("required `--description`, `--title`, and `--icon`");
+            expect(content).toContain("with a required `--description`");
+            expect(content).toContain("Include `--title` and `--icon` when you have suitable values");
             expect(content).toContain("Derive title and icon");
             expect(content).toContain("fitting icon reference: an emoji, an image URL");
             expect(content).toContain("`:collection:icon:`");
@@ -607,13 +608,17 @@ describe("embedded skill assets", () => {
                 await Bun.file(skillFile.sourcePath).text(),
             );
 
-            expect(content).toContain("Author, generate, scaffold, or update");
-            expect(content).toContain("create a skill, write a skill, make a");
+            expect(content).toContain("Author, generate, or scaffold a new local AI agent skill");
+            expect(content).toContain("create a skill, write a skill, or make a");
             expect(content).toContain("Codex/Claude/agent skill");
             expect(content).toContain("connector action");
             expect(content).toContain("capability discovery is needed first");
+            expect(content).toContain("oo skills preflight --agent");
+            expect(content).toContain("oo skills init <name> --agent");
             expect(content).toContain("discover or install existing published skills");
             expect(content).toContain("publish a finished skill");
+            expect(content).not.toContain("Author, generate, scaffold, or update");
+            expect(content).not.toContain("create or update a local skill");
             expect(content).not.toContain("default private");
             expect(content).not.toContain("private visibility");
             expect(content).not.toContain("--visibility private");
@@ -631,9 +636,10 @@ describe("embedded skill assets", () => {
         const openAiAgentContent = await Bun.file(openAiAgentFile.sourcePath).text();
 
         expect(openAiAgentContent).toContain("$oo-create-skill");
-        expect(openAiAgentContent).toContain("author, scaffold, generate, or update");
+        expect(openAiAgentContent).toContain("author, scaffold, or generate a new local");
         expect(openAiAgentContent).toContain("connector action");
         expect(openAiAgentContent).toContain("capability discovery is needed before authoring");
+        expect(openAiAgentContent).not.toContain("generate, or update");
         expect(openAiAgentContent).toContain(
             "finding/installing published skills or publishing finished skills",
         );
@@ -776,7 +782,7 @@ describe("embedded skill assets", () => {
             expect(content).toContain("label it as untested");
             expect(content).toContain("Do not force a package or block reference");
             expect(content).toContain("when the chosen reusable workflow is connector-backed.");
-            expect(content).toContain("run one connector refinement");
+            expect(content).toContain("run one connector narrowing pass");
             expect(content).toContain("before accepting a package-only path");
             expect(content).toContain(
                 "connector service/action identifiers",

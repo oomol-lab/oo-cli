@@ -1,13 +1,13 @@
 ---
 name: oo-create-skill
-description: Author, generate, scaffold, or update a local AI agent skill that turns an OOMOL/oo package, connector action, block, or selected workflow into reusable instructions. Use when the user asks to create a skill, write a skill, make a Codex/Claude/agent skill, or refine an existing local skill for an oo-powered workflow, even if capability discovery is needed first.
+description: Author, generate, or scaffold a new local AI agent skill that turns an OOMOL/oo package, connector action, block, or selected workflow into reusable instructions. Use when the user asks to create a skill, write a skill, or make a Codex/Claude/agent skill for an oo-powered workflow, even if capability discovery is needed first.
 ---
 
 # oo Create Skill
 
-Use this skill to create or update a local skill around an OOMOL/oo package,
-block, connector action, or selected workflow. This includes turning a known or
-newly discovered capability into reusable agent instructions.
+Use this skill to create a new local skill around an OOMOL/oo package, block,
+connector action, or selected workflow. This includes turning a known or newly
+discovered capability into reusable agent instructions.
 
 If the user only wants to discover or install existing published skills, use
 `oo-find-skills`. If the user wants to publish a finished skill, use
@@ -72,7 +72,35 @@ this constitution, not a separate checklist.
 
 ## Workflow
 
-### 1. Collect only the information needed
+### 1. Check QoderWork execution permissions
+
+Run the dedicated preflight once before creating a skill:
+
+```bash
+oo skills preflight --agent qoderwork
+```
+
+Treat this as the QoderWork permission and storage probe for QoderWork's native
+skills directory. If it passes, proceed without extra permission discussion. If
+it or a later required command is blocked by sandbox, write, or network limits,
+request the smallest sufficient permission and name the blocked command. Common
+commands are:
+
+```bash
+oo skills init <name> --agent qoderwork --description "..."
+oo packages info "<packageName>" --json
+oo search "<query>" --json
+```
+
+If QoderWork cannot request the needed permission, or the user denies it, stop
+and ask the user to open the required access. Do not continue in the restricted
+sandbox and do not guess package names, block names, inputs, or outputs.
+
+Never work around a blocked `oo skills init --agent qoderwork` by manually
+creating a skill directory elsewhere. Manual skeleton creation bypasses the
+agent-native target directory, metadata writing, and OO notice insertion.
+
+### 2. Collect only the information needed
 
 Collect these inputs from the user or infer them from existing context and `oo`
 metadata:
@@ -91,7 +119,7 @@ the reusable workflow; do not ask only for cosmetic details or facts that `oo`
 metadata can resolve. Use a concise title and fitting icon reference: an emoji,
 an image URL, or `:collection:icon:` from https://icones.js.org/.
 
-### 2. Resolve concrete package, block, and connector references
+### 3. Resolve concrete package, block, and connector references
 
 Capability discovery is mixed by default. If the user has not provided a
 complete package/block contract or connector action contract, use mixed
@@ -107,7 +135,7 @@ block workflow. Shape `<goal>` as one short English outcome sentence for the
 current external step, preserving the user's decisive constraints such as target
 service, language pair, file type, and output format. If those decisive business
 constraints are missing and would change the reusable skill contract, ask the
-user before discovery. Inspect the first result set before refining.
+user before discovery. Inspect the first result set before narrowing the query.
 
 Treat Fusion API, connector, and package/block results as first-class authoring
 candidates. Classify service `fusion-api` as OOMOL built-in Fusion API, which
@@ -132,11 +160,11 @@ runtime choice based on user intent.
 
 For connector-backed choices, capture the exact `service`, action `name`,
 description, authentication state, and schema-derived input/output concepts.
-Use `oo connector search "<goal>" --json` only to refine a shortlisted connector
+Use `oo connector search "<goal>" --json` only to narrow a shortlisted connector
 path, not to restart broad discovery. Do not force a package or block reference
 when the chosen reusable workflow is connector-backed.
 If the task looks like an OOMOL built-in managed API capability but the mixed
-result set has no Fusion API connector candidate, run one connector refinement
+result set has no Fusion API connector candidate, run one connector narrowing pass
 before accepting a package-only path.
 
 Do not choose a connector action unless current command output exposes it. If
@@ -156,13 +184,13 @@ schema rather than observed, label it as untested.
 Keep chosen packages, blocks, or connector actions concrete in the generated
 skill.
 
-### 3. Initialize the local skill
+### 4. Initialize the local skill
 
-When creating a new skill, run `oo skills init <name>` with required
-`--description`, `--title`, and `--icon` values. Derive title and icon from the
-workflow purpose and resolved metadata unless the user provided them. If the
-canonical directory or an agent target already exists, ask for a different skill
-name instead of overwriting.
+Run `oo skills init <name> --agent qoderwork` with a required `--description`.
+Include `--title` and `--icon` when you have suitable values. Derive title and
+icon from the workflow purpose and resolved metadata unless the user provided
+them. If the selected QoderWork skill directory already exists, ask for a
+different skill name instead of overwriting.
 
 Make `--description` a user-facing trigger summary: it becomes the frontmatter
 description and the main signal future agents see before loading the skill.
@@ -181,7 +209,14 @@ Use this description shape when helpful:
 phrases> for <domain objects or input artifacts>, especially when they need
 <expected output/result>.`
 
-### 4. Author the workflow instructions
+Use the path printed by `oo skills init` as the skill directory for authoring
+and validation.
+
+Do not substitute manual file creation for this step. The initialized skill
+directory must come from a successful `oo skills init --agent qoderwork`
+invocation before you fill in its workflow instructions or run validation.
+
+### 5. Author the workflow instructions
 
 Write the generated skill as a compact execution runbook, not API
 documentation: enough for future agents to call the selected capability without
@@ -233,7 +268,7 @@ details, negative guidance, and boundary cases in the workflow body unless they
 prevent direct sibling-skill routing conflicts.
 
 Preserve `metadata.title` when it exists. If you change the displayed title or
-first heading, update `metadata.title` to match. If `metadata.title` or
+first heading, keep `metadata.title` aligned. If `metadata.title` or
 `metadata.icon` is absent, add a suitable value.
 
 The final skill must not instruct future agents to run `oo search`, `oo
@@ -249,9 +284,9 @@ common failures. If not, add only the missing execution guidance.
 
 Keep `SKILL.md` concise. Use `references/workflow.md` only when the workflow
 has several steps, decision rules, or examples. Use `references/packages.json`
-only when captured package metadata will help future updates.
+only when captured package metadata will help future maintenance.
 
-### 5. Validate before finishing
+### 6. Validate before finishing
 
-After editing the skill, run `oo skills validate "<skill-directory>"`. If
+After authoring the skill, run `oo skills validate "<skill-directory>"`. If
 validation fails, fix the generic skill contract before reporting completion.

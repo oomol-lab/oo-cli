@@ -22,9 +22,9 @@ import {
     confirmInteractiveValue,
     requestInteractiveText,
 } from "./interactive-prompts.ts";
+import { findLocalSkillSources } from "./local-skill-source.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
-    resolveLocalSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { createSkillPackageHubUrl } from "./publish.ts";
@@ -79,6 +79,7 @@ type SkillShareContext = Pick<
     CliExecutionContext,
     | "cacheStore"
     | "cwd"
+    | "env"
     | "fetcher"
     | "logger"
     | "settingsStore"
@@ -255,6 +256,12 @@ async function resolveSkillShareTarget(
     const reference = await readSkillShareReference(rawReference, context);
 
     if (isSkillIdReference(reference)) {
+        const localTarget = await resolveLocalSkillShareTarget(reference, context);
+
+        if (localTarget !== undefined) {
+            return localTarget;
+        }
+
         const managedTarget = await resolveManagedSkillShareTarget(
             reference,
             context.settingsStore.getFilePath(),
@@ -278,6 +285,38 @@ async function resolveSkillShareTarget(
         packageNameFallback: packageSpecifier.packageName,
         skillId: resolveSkillIdFromPackageName(packageSpecifier.packageName),
         sourceKind: "package",
+    };
+}
+
+async function resolveLocalSkillShareTarget(
+    skillId: string,
+    context: Pick<CliExecutionContext, "env">,
+): Promise<SkillShareTarget | undefined> {
+    const sources = await findLocalSkillSources({
+        context: {
+            env: context.env,
+        },
+        skillName: skillId,
+    });
+
+    if (sources.length === 0) {
+        return undefined;
+    }
+
+    if (sources.length > 1) {
+        throw new CliUserError("errors.skills.share.localSkillAmbiguous", 1, {
+            agents: sources.map(source => source.agentName).join(", "),
+            name: skillId,
+        });
+    }
+
+    const source = sources[0]!;
+
+    return {
+        packageName: await readPublishedSkillPackageName(source.path),
+        packageNameFallback: skillId,
+        skillId,
+        sourceKind: "local",
     };
 }
 
@@ -311,22 +350,6 @@ async function resolveManagedSkillShareTarget(
     skillId: string,
     settingsFilePath: string,
 ): Promise<SkillShareTarget | undefined> {
-    const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-        settingsFilePath,
-        skillId,
-    );
-
-    if (await directoryExists(localSkillDirectoryPath)) {
-        return {
-            packageName: await readPublishedSkillPackageName(
-                localSkillDirectoryPath,
-            ),
-            packageNameFallback: skillId,
-            skillId,
-            sourceKind: "local",
-        };
-    }
-
     const registrySkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
         settingsFilePath,
         skillId,

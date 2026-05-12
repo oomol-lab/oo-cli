@@ -1,8 +1,10 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
 import type {
+    BundledSkillAgentName,
     BundledSkillName,
 } from "./embedded-assets.ts";
+import type { LocalSkillSource } from "./local-skill-source.ts";
 import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
@@ -17,11 +19,10 @@ import {
     readInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { readLocalSkillMetadata } from "./local-skill-ownership.ts";
 import {
-    hasMatchingSkillFileHash,
-    readSkillFileHash,
-    readSkillMetadataFileState,
-} from "./local-skill-ownership.ts";
+    findLocalSkillSources,
+} from "./local-skill-source.ts";
 import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
@@ -29,11 +30,7 @@ import {
 } from "./managed-skill-hosts.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
-    isLocalSkillPathContained,
     isManagedSkillPathContained,
-    isPathWithinDirectory,
-    resolveLocalSkillCanonicalDirectoryPath,
-    resolveLocalSkillCanonicalRootDirectoryPath,
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
 import {
@@ -47,15 +44,20 @@ interface RegistrySkillUninstallTarget extends ManagedSkillHostInstallation {
 }
 
 export interface ManagedSkillUninstallResult {
+    ambiguousAgents?: string;
     missingInstallationPath: string | undefined;
     noSupportedHosts: boolean;
     removed: boolean;
+    skipped: boolean;
     unmanagedInstallations: readonly ManagedSkillHostInstallation[];
 }
 
 export async function uninstallRequestedSkill(
     skillName: string | undefined,
     context: CliExecutionContext,
+    options: {
+        agentName?: BundledSkillAgentName;
+    } = {},
 ): Promise<void> {
     if (skillName === undefined) {
         for (const bundledSkillName of availableBundledSkillNames) {
@@ -70,7 +72,9 @@ export async function uninstallRequestedSkill(
     }
 
     const registryResult = await uninstallRegistrySkill(skillName, context);
-    const localResult = await uninstallLocalSkill(skillName, context);
+    const localResult = await uninstallLocalSkill(skillName, context, {
+        agentName: options.agentName,
+    });
 
     if (localResult.unmanagedInstallations.length > 0) {
         throw createManagedSkillUninstallResultError({
@@ -84,6 +88,13 @@ export async function uninstallRequestedSkill(
 
     if (registryResult.removed || localResult.removed) {
         return;
+    }
+
+    if (localResult.skipped) {
+        throw new CliUserError("warnings.skills.localUninstallAmbiguous", 1, {
+            agents: localResult.ambiguousAgents ?? "",
+            name: skillName,
+        });
     }
 
     const result = registryResult.unmanagedInstallations.length > 0
@@ -241,6 +252,7 @@ export async function uninstallRegistrySkill(
             missingInstallationPath: hostInstallations[0]!.installedSkillDirectoryPath,
             noSupportedHosts: false,
             removed: false,
+            skipped: false,
             unmanagedInstallations,
         };
     }
@@ -279,6 +291,7 @@ export async function uninstallRegistrySkill(
         missingInstallationPath: undefined,
         noSupportedHosts: false,
         removed: true,
+        skipped: false,
         unmanagedInstallations,
     };
 }
@@ -287,124 +300,83 @@ export async function uninstallLocalSkill(
     skillName: string,
     context: CliExecutionContext,
     options?: {
+        agentName?: BundledSkillAgentName;
         silent?: boolean;
     },
 ): Promise<ManagedSkillUninstallResult> {
-    const settingsFilePath = context.settingsStore.getFilePath();
-    const localCanonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-        settingsFilePath,
-        skillName,
-    );
-
-    if (!isPathWithinDirectory(
-        resolveLocalSkillCanonicalRootDirectoryPath(settingsFilePath),
-        localCanonicalSkillDirectoryPath,
-    )) {
-        throw new CliUserError("errors.skills.invalidPath", 1, {
-            name: skillName,
-        });
-    }
-
-    const localCanonicalDirectoryExists = await directoryExists(
-        localCanonicalSkillDirectoryPath,
-    );
-    const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
-
-    if (availableHosts.length === 0) {
-        if (!localCanonicalDirectoryExists) {
-            return createMissingManagedSkillUninstallResult(undefined, true);
-        }
-
-        await removeLocalCanonicalSkillOnly({
-            context,
-            localCanonicalSkillDirectoryPath,
-            silent: options?.silent === true,
-            skillName,
-        });
-        return createRemovedManagedSkillUninstallResult();
-    }
-
-    const hostInstallations = resolveManagedSkillHostInstallations(
-        availableHosts,
-        skillName,
-    );
-
-    if (hostInstallations.some(installation =>
-        !isLocalSkillPathContained(
-            installation.homeDirectory,
-            settingsFilePath,
-            skillName,
-        ),
-    )) {
-        throw new CliUserError("errors.skills.invalidPath", 1, {
-            name: skillName,
-        });
-    }
-
-    const uninstallTargets = await resolveLocalSkillUninstallTargets({
-        canonicalDirectoryExists: localCanonicalDirectoryExists,
-        canonicalSkillDirectoryPath: localCanonicalSkillDirectoryPath,
-        hostInstallations,
-    });
-    const unmanagedInstallations = await resolveUnmanagedSkillUninstallInstallations({
-        hostInstallations,
-        managedTargetPaths: uninstallTargets.map(
-            target => target.installedSkillDirectoryPath,
-        ),
+    const result = await uninstallLocalSkillFromSources(skillName, context, {
+        agentName: options?.agentName,
+        silent: options?.silent === true,
     });
 
-    if (unmanagedInstallations.length > 0) {
+    return result ?? createMissingManagedSkillUninstallResult(skillName, false);
+}
+
+async function uninstallLocalSkillFromSources(
+    skillName: string,
+    context: CliExecutionContext,
+    options: {
+        agentName?: BundledSkillAgentName;
+        silent: boolean;
+    },
+): Promise<ManagedSkillUninstallResult | undefined> {
+    const sources = await findLocalSkillSources({
+        agentName: options.agentName,
+        context: {
+            env: context.env,
+        },
+        skillName,
+    });
+
+    if (sources.length === 0) {
+        return undefined;
+    }
+
+    if (options.agentName === undefined && sources.length > 1) {
+        const ambiguousAgents = renderLocalSkillSourceAgents(sources);
+        context.logger.warn(
+            {
+                sourceCount: sources.length,
+                skillName,
+            },
+            "Local skill uninstall skipped because multiple local sources matched.",
+        );
         return {
+            ambiguousAgents,
             missingInstallationPath: undefined,
             noSupportedHosts: false,
             removed: false,
-            unmanagedInstallations,
+            skipped: true,
+            unmanagedInstallations: [],
         };
     }
 
-    if (!localCanonicalDirectoryExists && uninstallTargets.length === 0) {
-        return createMissingManagedSkillUninstallResult(
-            hostInstallations[0]!.installedSkillDirectoryPath,
-            false,
+    const source = sources[0]!;
+
+    if (await readLocalSkillMetadata(source.path) === undefined) {
+        return undefined;
+    }
+
+    await removePath(source.path);
+
+    if (!options.silent) {
+        writeLine(
+            context.stdout,
+            context.translator.t("skills.uninstall.success", {
+                name: skillName,
+                path: source.path,
+            }),
         );
     }
 
-    await Promise.all([
-        ...uninstallTargets.map(target => removePath(target.installedSkillDirectoryPath)),
-        removePath(localCanonicalSkillDirectoryPath),
-    ]);
-
-    if (uninstallTargets.length === 0) {
-        writeLocalCanonicalSkillRemovalResult({
-            context,
-            localCanonicalSkillDirectoryPath,
-            silent: options?.silent === true,
+    context.logger.info(
+        {
+            agentName: source.agentName,
+            path: source.path,
             skillName,
-        });
-        return createRemovedManagedSkillUninstallResult();
-    }
-
-    for (const target of uninstallTargets) {
-        if (options?.silent !== true) {
-            writeLine(
-                context.stdout,
-                context.translator.t("skills.uninstall.success", {
-                    name: skillName,
-                    path: target.installedSkillDirectoryPath,
-                }),
-            );
-        }
-
-        context.logger.info(
-            {
-                agentName: target.agentName,
-                canonicalPath: localCanonicalSkillDirectoryPath,
-                path: target.installedSkillDirectoryPath,
-                skillName,
-            },
-            "Local skill removed explicitly.",
-        );
-    }
+        },
+        "Local skill removed explicitly.",
+    );
 
     return createRemovedManagedSkillUninstallResult();
 }
@@ -472,53 +444,6 @@ async function resolveRegistrySkillUninstallTargets(
     return targets;
 }
 
-async function resolveLocalSkillUninstallTargets(options: {
-    hostInstallations: readonly ManagedSkillHostInstallation[];
-    canonicalDirectoryExists: boolean;
-    canonicalSkillDirectoryPath: string;
-}): Promise<ManagedSkillHostInstallation[]> {
-    const targets: ManagedSkillHostInstallation[] = [];
-
-    if (!options.canonicalDirectoryExists) {
-        return targets;
-    }
-
-    const localSkillFileHash = await readSkillFileHash(
-        options.canonicalSkillDirectoryPath,
-    );
-
-    for (const installation of options.hostInstallations) {
-        const installedSkillDirectoryExists = await directoryExists(
-            installation.installedSkillDirectoryPath,
-        );
-
-        if (!installedSkillDirectoryExists) {
-            continue;
-        }
-
-        if (localSkillFileHash === undefined) {
-            continue;
-        }
-
-        const metadataState = await readSkillMetadataFileState(
-            installation.installedSkillDirectoryPath,
-        );
-
-        if (metadataState.exists && metadataState.metadata?.kind !== "local") {
-            continue;
-        }
-
-        if (await hasMatchingSkillFileHash({
-            expectedHash: localSkillFileHash,
-            skillDirectoryPath: installation.installedSkillDirectoryPath,
-        })) {
-            targets.push(installation);
-        }
-    }
-
-    return targets;
-}
-
 async function resolveUnmanagedSkillUninstallInstallations(options: {
     hostInstallations: readonly ManagedSkillHostInstallation[];
     managedTargetPaths: readonly string[];
@@ -540,39 +465,12 @@ async function resolveUnmanagedSkillUninstallInstallations(options: {
     return unmanagedInstallations;
 }
 
-async function removeLocalCanonicalSkillOnly(options: {
-    context: Pick<CliExecutionContext, "logger" | "stdout" | "translator">;
-    localCanonicalSkillDirectoryPath: string;
-    silent: boolean;
-    skillName: string;
-}): Promise<void> {
-    await removePath(options.localCanonicalSkillDirectoryPath);
-    writeLocalCanonicalSkillRemovalResult(options);
-}
-
-function writeLocalCanonicalSkillRemovalResult(options: {
-    context: Pick<CliExecutionContext, "logger" | "stdout" | "translator">;
-    localCanonicalSkillDirectoryPath: string;
-    silent: boolean;
-    skillName: string;
-}): void {
-    if (!options.silent) {
-        writeLine(
-            options.context.stdout,
-            options.context.translator.t("skills.uninstall.success", {
-                name: options.skillName,
-                path: options.localCanonicalSkillDirectoryPath,
-            }),
-        );
-    }
-
-    options.context.logger.info(
-        {
-            canonicalPath: options.localCanonicalSkillDirectoryPath,
-            skillName: options.skillName,
-        },
-        "Local skill removed explicitly.",
-    );
+function renderLocalSkillSourceAgents(
+    sources: readonly LocalSkillSource[],
+): string {
+    return sources
+        .map(source => source.agentName)
+        .join(", ");
 }
 
 function createMissingManagedSkillUninstallResult(
@@ -583,6 +481,7 @@ function createMissingManagedSkillUninstallResult(
         missingInstallationPath,
         noSupportedHosts,
         removed: false,
+        skipped: false,
         unmanagedInstallations: [],
     };
 }
@@ -592,6 +491,7 @@ function createRemovedManagedSkillUninstallResult(): ManagedSkillUninstallResult
         missingInstallationPath: undefined,
         noSupportedHosts: false,
         removed: true,
+        skipped: false,
         unmanagedInstallations: [],
     };
 }
