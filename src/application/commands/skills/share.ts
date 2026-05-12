@@ -1,8 +1,8 @@
 import type {
     CliCommandDefinition,
     CliExecutionContext,
-    SupportedLocale,
 } from "../../contracts/cli.ts";
+import type { Translator } from "../../contracts/translator.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 import type { PackageInfoResponse } from "../package/shared.ts";
 
@@ -55,7 +55,6 @@ interface SkillShareLimits {
 
 interface SkillSharePromptOptions extends SkillSharePackageLineOptions {
     installCommand: string;
-    locale: SupportedLocale;
 }
 
 interface SkillSharePackageLineOptions {
@@ -64,10 +63,16 @@ interface SkillSharePackageLineOptions {
     packageName: string;
     shareKind: SkillShareKind;
     skillId: string;
+    translator: Translator;
     visibility: SkillShareVisibility;
 }
 
 type SkillShareKind = "package" | "skill";
+type SkillSharePackageLineVariant
+    = | "privatePackage"
+        | "privateSkill"
+        | "publicPackage"
+        | "publicSkill";
 type SkillShareVisibility = "private" | "public";
 
 type SkillShareContext = Pick<
@@ -84,6 +89,45 @@ type SkillShareContext = Pick<
 
 const defaultSkillShareDays = 7;
 const maxSkillShareDays = 7;
+const skillInstallGuideUrl
+    = "https://static.oomol.com/oo-cli/skill-install-guide/install.md";
+
+const skillShareSubjectKeys = {
+    package: "skills.share.subject.package",
+    skill: "skills.share.subject.skill",
+} as const satisfies Record<SkillShareKind, string>;
+
+const skillShareVisibilityKeys = {
+    private: "skills.share.visibility.private",
+    public: "skills.share.visibility.public",
+} as const satisfies Record<SkillShareVisibility, string>;
+
+const skillSharePackageLineKeys = {
+    privatePackage: [
+        "skills.share.prompt.privatePackageIntro",
+        "skills.share.prompt.packageLine",
+        "skills.share.prompt.hubLine",
+        "skills.share.prompt.installPackageSpecifierLine",
+    ],
+    privateSkill: [
+        "skills.share.prompt.privateSkillIntro",
+        "skills.share.prompt.packageLine",
+        "skills.share.prompt.skillLine",
+        "skills.share.prompt.hubLine",
+        "skills.share.prompt.installPackageSpecifierLine",
+    ],
+    publicPackage: [
+        "skills.share.prompt.publicPackageIntro",
+        "skills.share.prompt.packageLine",
+        "skills.share.prompt.hubLine",
+    ],
+    publicSkill: [
+        "skills.share.prompt.publicSkillIntro",
+        "skills.share.prompt.packageLine",
+        "skills.share.prompt.skillLine",
+        "skills.share.prompt.hubLine",
+    ],
+} as const satisfies Record<SkillSharePackageLineVariant, readonly string[]>;
 
 const packageShareResponseSchema = z.object({
     shareID: z.string().trim().min(1),
@@ -179,7 +223,7 @@ async function shareSkill(
             packageName: packageInfo.packageName,
             skillName: target.skillId,
             visibility: renderSkillShareVisibilityLabel(
-                context.translator.locale,
+                context.translator,
                 visibility,
             ),
         }),
@@ -195,10 +239,10 @@ async function shareSkill(
                 target.skillId,
             ),
             installPackageSpecifier,
-            locale: context.translator.locale,
             packageName: packageInfo.packageName,
             shareKind,
             skillId: target.skillId,
+            translator: context.translator,
             visibility,
         }),
     );
@@ -430,14 +474,10 @@ function resolveSkillShareVisibility(
 }
 
 function renderSkillShareVisibilityLabel(
-    locale: SupportedLocale,
+    translator: Translator,
     visibility: SkillShareVisibility,
 ): string {
-    if (locale === "zh") {
-        return visibility === "public" ? "公开" : "私有";
-    }
-
-    return visibility;
+    return translator.t(skillShareVisibilityKeys[visibility]);
 }
 
 function parseSkillShareLimits(input: SkillsShareInput): SkillShareLimits {
@@ -620,9 +660,22 @@ async function confirmSkillShareTarget(
 }
 
 function renderSkillSharePrompt(options: SkillSharePromptOptions): string {
-    const content = options.locale === "zh"
-        ? renderChineseSkillSharePrompt(options)
-        : renderEnglishSkillSharePrompt(options);
+    const packageLines = createSkillSharePackageLines(options);
+    const subject = options.translator.t(
+        skillShareSubjectKeys[options.shareKind],
+    );
+    const content = [
+        options.translator.t("skills.share.prompt.intro", { subject }),
+        "",
+        ...packageLines,
+        "",
+        options.translator.t("skills.share.prompt.installPreparationLabel"),
+        skillInstallGuideUrl,
+        "",
+        options.translator.t("skills.share.prompt.runInstruction"),
+        "",
+        options.installCommand,
+    ].join("\n");
 
     return [
         "```text",
@@ -631,158 +684,37 @@ function renderSkillSharePrompt(options: SkillSharePromptOptions): string {
     ].join("\n");
 }
 
-function renderEnglishSkillSharePrompt(
-    options: Omit<SkillSharePromptOptions, "locale">,
-): string {
-    const packageLines = createEnglishSkillSharePackageLines(options);
-    const subject = options.shareKind === "skill" ? "skill" : "package";
-
-    return [
-        `Please help me install this OO ${subject}. Assume I may already have OO CLI installed, and guide me through checking the existing setup before installing anything.`,
-        "",
-        ...packageLines,
-        "",
-        `Complete these steps in one continuous setup flow. First check whether OO CLI is installed; install it only if it is missing. Then run \`oo auth status\` to check the OO login state; only run \`oo login\` if the status shows I am logged out, the active account is missing, or the API key is invalid. Continue through ${subject} installation in the same session.`,
-        "",
-        `1. Check whether OO CLI is installed. If \`oo --version\` fails, install OO CLI with the platform command below.`,
-        `2. Run \`oo auth status\` to check whether I am already logged in. If I am not logged in or the account is invalid, run \`oo login\` and sign in or create an OO account.`,
-        `3. Install the ${subject} with the install command below.`,
-        "",
-        `macOS / Linux:`,
-        "Check OO CLI:",
-        "oo --version",
-        "If OO CLI is missing, install it:",
-        "curl -fsSL https://cli.oomol.com/install.sh | bash",
-        "Check login state:",
-        "oo auth status",
-        "Only if logged out or the account is invalid, log in:",
-        "oo login",
-        `Install the ${subject}:`,
-        options.installCommand,
-        "",
-        `Windows PowerShell:`,
-        "Check OO CLI:",
-        "oo --version",
-        "If OO CLI is missing, install it:",
-        "irm https://cli.oomol.com/install.ps1 | iex",
-        "Check login state:",
-        "oo auth status",
-        "Only if logged out or the account is invalid, log in:",
-        "oo login",
-        `Install the ${subject}:`,
-        options.installCommand,
-    ].join("\n");
-}
-
-function renderChineseSkillSharePrompt(
-    options: Omit<SkillSharePromptOptions, "locale">,
-): string {
-    const packageLines = createChineseSkillSharePackageLines(options);
-    const subject = options.shareKind === "skill" ? "skill" : "package";
-
-    return [
-        `请帮我安装这个 OO ${subject}。假设我可能已经安装了 OO CLI，请先引导我检查现有环境，再按需执行安装。`,
-        "",
-        ...packageLines,
-        "",
-        `请在一个连续的设置流程中完成以下步骤。先检查 OO CLI 是否已安装；只有缺失时才安装。然后检查 OO 登录状态；只有 \`oo auth status\` 显示未登录、当前账号缺失或 API key 无效时，才运行 \`oo login\`。请在同一会话中继续安装 ${subject}。`,
-        "",
-        "1. 检查 OO CLI 是否已安装。如果 `oo --version` 失败，使用下面对应平台的命令安装 OO CLI。",
-        "2. 运行 `oo auth status` 检查是否已经登录。如果未登录或账号无效，运行 `oo login` 并登录或创建 OO 账号。",
-        `3. 使用下面的安装命令安装 ${subject}。`,
-        "",
-        "macOS / Linux:",
-        "检查 OO CLI:",
-        "oo --version",
-        "如果缺少 OO CLI，安装它:",
-        "curl -fsSL https://cli.oomol.com/install.sh | bash",
-        "检查登录状态:",
-        "oo auth status",
-        "如果未登录或账号无效，登录:",
-        "oo login",
-        `安装 ${subject}:`,
-        options.installCommand,
-        "",
-        "Windows PowerShell:",
-        "检查 OO CLI:",
-        "oo --version",
-        "如果缺少 OO CLI，安装它:",
-        "irm https://cli.oomol.com/install.ps1 | iex",
-        "检查登录状态:",
-        "oo auth status",
-        "如果未登录或账号无效，登录:",
-        "oo login",
-        `安装 ${subject}:`,
-        options.installCommand,
-    ].join("\n");
-}
-
-function createEnglishSkillSharePackageLines(
+function createSkillSharePackageLines(
     options: SkillSharePackageLineOptions,
 ): string[] {
+    const params = {
+        hubUrl: options.hubUrl,
+        installPackageSpecifier: options.installPackageSpecifier,
+        packageName: options.packageName,
+        skillId: options.skillId,
+    };
+
+    return skillSharePackageLineKeys[
+        resolveSkillSharePackageLineVariant(options)
+    ].map(key => options.translator.t(key, params));
+}
+
+function resolveSkillSharePackageLineVariant(
+    options: Pick<SkillSharePackageLineOptions, "shareKind" | "visibility">,
+): SkillSharePackageLineVariant {
     if (options.visibility === "public" && options.shareKind === "skill") {
-        return [
-            `The skill is already published and public:`,
-            `Package: ${options.packageName}`,
-            `Skill: ${options.skillId}`,
-            `Hub: ${options.hubUrl}`,
-        ];
+        return "publicSkill";
     }
 
     if (options.visibility === "public") {
-        return [
-            `The package is already published and public:`,
-            `Package: ${options.packageName}`,
-            `Hub: ${options.hubUrl}`,
-        ];
+        return "publicPackage";
     }
 
     if (options.shareKind === "skill") {
-        return [
-            `This private OO skill must be installed with this exact temporary share specifier:`,
-            `Install package specifier: ${options.installPackageSpecifier}`,
-            `Skill: ${options.skillId}`,
-        ];
+        return "privateSkill";
     }
 
-    return [
-        `This private OO package must be installed with this exact temporary share specifier:`,
-        `Install package specifier: ${options.installPackageSpecifier}`,
-    ];
-}
-
-function createChineseSkillSharePackageLines(
-    options: SkillSharePackageLineOptions,
-): string[] {
-    if (options.visibility === "public" && options.shareKind === "skill") {
-        return [
-            "这个 skill 已经发布并且是公开的：",
-            `Package: ${options.packageName}`,
-            `Skill: ${options.skillId}`,
-            `Hub: ${options.hubUrl}`,
-        ];
-    }
-
-    if (options.visibility === "public") {
-        return [
-            "这个 package 已经发布并且是公开的：",
-            `Package: ${options.packageName}`,
-            `Hub: ${options.hubUrl}`,
-        ];
-    }
-
-    if (options.shareKind === "skill") {
-        return [
-            "这个私有 OO skill 必须使用下面这个临时分享标识精确安装：",
-            `Install package specifier: ${options.installPackageSpecifier}`,
-            `Skill: ${options.skillId}`,
-        ];
-    }
-
-    return [
-        "这个私有 OO package 必须使用下面这个临时分享标识精确安装：",
-        `Install package specifier: ${options.installPackageSpecifier}`,
-    ];
+    return "privatePackage";
 }
 
 function createSkillShareInstallCommand(

@@ -910,9 +910,10 @@ describe("embedded skill assets", () => {
             expect(content).toContain("Private package shares support optional limits");
             expect(content).toContain("`--days <days>` sets the share duration");
             expect(content).toContain("omitting `--downloads` leaves installs unlimited");
-            expect(content).toContain("may already have OO CLI installed");
-            expect(content).toContain("checking `oo --version`");
-            expect(content).toContain("`oo auth status`");
+            expect(content).toContain("general install preparation");
+            expect(content).toContain("guide before running the final install command");
+            expect(content).toContain("general install preparation URL");
+            expect(content).toContain("exact `oo skills install ... -y` command");
             expect(content).toContain("existing AI agent skill");
             expect(content).toContain("it does not need to be an oo-specific skill");
             expect(content).toContain("oo skills publish");

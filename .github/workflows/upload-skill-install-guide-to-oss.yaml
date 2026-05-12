@@ -1,0 +1,77 @@
+name: Upload Skill Install Guide To OSS
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  OSS_BUCKET: oomol-static-cn-prod
+  OSS_ENDPOINT: https://oss-ap-southeast-1.aliyuncs.com
+  OSS_PREFIX: oo-cli/
+  OSS_REGION: ap-southeast-1
+  SKILL_INSTALL_GUIDE_SOURCE_DIR: contrib/skill-install-guide
+  SKILL_INSTALL_GUIDE_TARGET_DIR: skill-install-guide
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: upload-skill-install-guide-to-oss-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  upload_skill_install_guide:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Configure Alibaba Cloud CLI
+        id: aliyun_credentials
+        uses: aliyun/configure-aliyun-credentials-action@v1.1.0
+        with:
+          role-to-assume: ${{ vars.ALIYUN_OOMOL_CLI_ROLE }}
+          oidc-provider-arn: ${{ vars.ALIYUN_OIDC_PROVIDER }}
+          role-session-name: github-action-session
+          role-session-expiration: 1800
+          audience: https://github.com/oomol-lab
+
+      - name: Setup rclone
+        env:
+          ALICLOUD_ACCESS_KEY_ID: ${{ steps.aliyun_credentials.outputs.aliyun-access-key-id }}
+          ALICLOUD_ACCESS_KEY_SECRET: ${{ steps.aliyun_credentials.outputs.aliyun-access-key-secret }}
+          ALICLOUD_SECURITY_TOKEN: ${{ steps.aliyun_credentials.outputs.aliyun-security-token }}
+        run: |
+          set -euo pipefail
+
+          if ! command -v rclone >/dev/null 2>&1; then
+            curl -fsSL https://rclone.org/install.sh | sudo bash
+          fi
+
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [oss]
+          type = s3
+          provider = Alibaba
+          access_key_id = ${ALICLOUD_ACCESS_KEY_ID}
+          secret_access_key = ${ALICLOUD_ACCESS_KEY_SECRET}
+          endpoint = ${OSS_ENDPOINT}
+          region = ${OSS_REGION}
+          session_token = ${ALICLOUD_SECURITY_TOKEN}
+          EOF
+
+      - name: Upload skill install guide to OSS
+        run: |
+          set -euo pipefail
+
+          rclone copy \
+            "${SKILL_INSTALL_GUIDE_SOURCE_DIR}" \
+            "oss:${OSS_BUCKET}/${OSS_PREFIX}${SKILL_INSTALL_GUIDE_TARGET_DIR}" \
+            --progress \
+            --retries 5 \
+            --retries-sleep 10s \
+            --low-level-retries 10
+
+          echo "Uploaded skill install guide to oss://${OSS_BUCKET}/${OSS_PREFIX}${SKILL_INSTALL_GUIDE_TARGET_DIR}/install.md"

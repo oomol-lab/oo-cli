@@ -687,22 +687,20 @@ registry share id.
 - Output: on success, text output prints a single copyable plain text code
   block, with no nested command fences. The prompt language follows the active
   CLI language (`--lang en` or `--lang zh`). The prompt states the skill or
-  package is already published, assumes the recipient may already have OO CLI
-  installed, instructs them to check `oo --version` before installing OO CLI,
-  run `oo auth status` before logging in, run `oo login` only when the status
-  shows they are logged out, the active account is missing, or the API key is
-  invalid, and then install the shared target. It includes macOS/Linux and
-  Windows PowerShell command sequences. Skill-target prompts continue through
-  `oo skills install <packageName> --skill <skill-id> -y` for public packages,
-  or `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for
-  private packages. Package-target prompts continue through
+  package is already published, includes the package name, Hub URL, and skill
+  id for skill targets, links to the general install preparation guide at
+  `https://static.oomol.com/oo-cli/skill-install-guide/install.md`, and then
+  prints the final install command.
+  The prompt tells the recipient to follow that guide to check OO CLI and login
+  state before running the install command. Skill-target prompts continue
+  through `oo skills install <packageName> --skill <skill-id> -y` for public
+  packages, or
+  `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for private
+  packages. Package-target prompts continue through
   `oo skills install <packageName> -y` for public packages, or
   `oo skills install <packageName>#<shareID> -y` for private packages.
   Private-package prompts identify the exact temporary install specifier
   `<packageName>#<shareID>` and do not present the target as already public.
-  The prompt explicitly tells the recipient to complete setup checks,
-  any required OO installation or login, and target installation in one
-  continuous setup flow.
 
 ### `oo skills search <text>`
 
