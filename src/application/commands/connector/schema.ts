@@ -45,6 +45,11 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
             longFlag: "--refresh",
             descriptionKey: "options.refresh",
         },
+        {
+            name: "json",
+            longFlag: "--json",
+            descriptionKey: "options.connectorSchemaJson",
+        },
     ],
     inputSchema: z.object({
         action: z.string().optional(),

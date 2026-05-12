@@ -669,6 +669,8 @@ export const enMessages = {
     "options.format": "Specify output format (use json for structured output)",
     "options.input": "Provide LLM input JSON or @path to a JSON file",
     "options.json": "Alias for --format=json",
+    "options.connectorSchemaJson":
+        "Accepted for compatibility; output is always JSON",
     "options.keywords":
         "Specify comma-separated keywords to refine the skill search",
     "options.maxRetries": "Maximum retry count",
@@ -1578,6 +1580,8 @@ export const zhMessages = {
     "options.format": "指定输出格式（使用 json 返回结构化内容）",
     "options.input": "提供 LLM 输入 JSON，或使用 @路径 读取 JSON 文件",
     "options.json": "--format=json 的别名",
+    "options.connectorSchemaJson":
+        "兼容性选项；输出始终是 JSON",
     "options.keywords":
         "指定用于细化 skill 搜索的逗号分隔关键词",
     "options.maxRetries": "最大重试次数",
