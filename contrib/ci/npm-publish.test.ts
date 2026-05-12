@@ -117,6 +117,74 @@ describe("npm publish workflow", () => {
         });
     });
 
+    test("publishes package files concurrently before the final package", async () => {
+        await withPublishOrder([
+            "dist/platform-a.tgz",
+            "dist/platform-b.tgz",
+            "dist/wrapper.tgz",
+        ], async (publishOrder) => {
+            const activePackageFiles = new Set<string>();
+            const publishCompletions = new Map<string, (result: NpmCommandResult) => void>();
+            const startedPackageFiles: string[] = [];
+            const firstTwoPublishesStarted = Promise.withResolvers<void>();
+            const finalPublishStarted = Promise.withResolvers<void>();
+            let maxConcurrentPublishes = 0;
+
+            const publishPromise = publishNpmPackagesFromOrderFile({
+                publishOrderPath: publishOrder.filePath,
+                logger: createLogger([]),
+                packageVersionExists: () => Promise.resolve(false),
+                publishConcurrency: 2,
+                publishPackage: (packageFile) => {
+                    startedPackageFiles.push(packageFile);
+                    activePackageFiles.add(packageFile);
+                    maxConcurrentPublishes = Math.max(
+                        maxConcurrentPublishes,
+                        activePackageFiles.size,
+                    );
+
+                    const publishCompletion = Promise.withResolvers<NpmCommandResult>();
+                    publishCompletions.set(packageFile, publishCompletion.resolve);
+
+                    if (startedPackageFiles.length === 2) {
+                        firstTwoPublishesStarted.resolve(undefined);
+                    }
+                    if (packageFile === "dist/wrapper.tgz") {
+                        finalPublishStarted.resolve(undefined);
+                    }
+
+                    return publishCompletion.promise.finally(() => {
+                        activePackageFiles.delete(packageFile);
+                    });
+                },
+                readPackageMetadata: packageFile => Promise.resolve(
+                    readMetadataFixture(packageFile),
+                ),
+            });
+
+            await firstTwoPublishesStarted.promise;
+
+            expect(startedPackageFiles).toEqual([
+                "dist/platform-a.tgz",
+                "dist/platform-b.tgz",
+            ]);
+            expect(maxConcurrentPublishes).toBe(2);
+
+            completePublish(publishCompletions, "dist/platform-a.tgz");
+            completePublish(publishCompletions, "dist/platform-b.tgz");
+            await finalPublishStarted.promise;
+
+            expect(startedPackageFiles).toEqual([
+                "dist/platform-a.tgz",
+                "dist/platform-b.tgz",
+                "dist/wrapper.tgz",
+            ]);
+
+            completePublish(publishCompletions, "dist/wrapper.tgz");
+            await publishPromise;
+        });
+    });
+
     test("treats a failed publish as successful when the package appears on npm", async () => {
         await withPublishOrder(["dist/demo.tgz"], async (publishOrder) => {
             const logs: string[] = [];
@@ -227,6 +295,13 @@ describe("npm publish workflow", () => {
                     retryDelayMs: -10,
                 }),
             ).rejects.toThrow("retryDelayMs must be a non-negative finite number");
+
+            await expect(
+                publishNpmPackagesFromOrderFile({
+                    ...baseOptions,
+                    publishConcurrency: 0,
+                }),
+            ).rejects.toThrow("publishConcurrency must be a positive integer");
         });
     });
 
@@ -313,6 +388,18 @@ function createLogger(logs: string[]): Pick<Console, "log"> {
     };
 }
 
+function completePublish(
+    publishCompletions: Map<string, (result: NpmCommandResult) => void>,
+    packageFile: string,
+): void {
+    const complete = publishCompletions.get(packageFile);
+    if (complete === undefined) {
+        throw new Error(`Missing publish completion for ${packageFile}.`);
+    }
+
+    complete(createCommandResult({}));
+}
+
 function createCommandResult(options: {
     exitCode?: number;
     stderr?: string;
@@ -323,4 +410,26 @@ function createCommandResult(options: {
         stderr: options.stderr ?? "",
         stdout: options.stdout ?? "",
     };
+}
+
+function readMetadataFixture(packageFile: string): NpmPackageMetadata {
+    switch (packageFile) {
+        case "dist/platform-a.tgz":
+            return {
+                name: "@scope/platform-a",
+                version: "1.2.3",
+            };
+        case "dist/platform-b.tgz":
+            return {
+                name: "@scope/platform-b",
+                version: "1.2.3",
+            };
+        case "dist/wrapper.tgz":
+            return {
+                name: "@scope/wrapper",
+                version: "1.2.3",
+            };
+        default:
+            throw new Error(`Unexpected package file: ${packageFile}.`);
+    }
 }

@@ -19,6 +19,7 @@ interface PublishNpmPackagesOptions {
     logger?: Pick<Console, "log">;
     npmCommandTimeoutMs?: number;
     packageVersionExists?: (metadata: NpmPackageMetadata) => Promise<boolean>;
+    publishConcurrency?: number;
     publishOrderPath: string;
     publishPackage?: (packageFile: string) => Promise<NpmCommandResult>;
     readPackageMetadata?: (packageFile: string) => Promise<NpmPackageMetadata>;
@@ -29,6 +30,7 @@ interface PublishNpmPackagesOptions {
 
 const defaultPublishRetryCount = 5;
 const defaultPublishRetryDelayMs = 15_000;
+const defaultPublishConcurrency = 8;
 const defaultNpmCommandTimeoutMs = 120_000;
 const npmCommandTimeoutExitCode = 124;
 const existingVersionErrorFragments = [
@@ -72,8 +74,9 @@ export async function publishNpmPackagesFromOrderFile(
     const logger = options.logger ?? console;
     const retryCount = resolvePublishRetryCount(options.retryCount);
     const retryDelayMs = resolvePublishRetryDelayMs(options.retryDelayMs);
+    const publishConcurrency = resolvePublishConcurrency(options.publishConcurrency);
 
-    for (const packageFile of packageFiles) {
+    const publishPackageFile = async (packageFile: string): Promise<void> => {
         const metadata = await readPackageMetadata(packageFile);
 
         await publishNpmPackageWithRetry({
@@ -86,7 +89,22 @@ export async function publishNpmPackagesFromOrderFile(
             retryDelayMs,
             sleep,
         });
+    };
+
+    const finalPackageFile = packageFiles.at(-1);
+    if (finalPackageFile === undefined) {
+        return;
     }
+
+    // The publish order file lists the wrapper package last (see npm-packages.ts).
+    // The wrapper depends on the platform packages being installable from npm, so
+    // it must be published only after every earlier package has succeeded.
+    await publishNpmPackageFilesWithConcurrency(
+        packageFiles.slice(0, -1),
+        publishConcurrency,
+        publishPackageFile,
+    );
+    await publishPackageFile(finalPackageFile);
 }
 
 export function parseNpmPublishOrderFile(content: string): readonly string[] {
@@ -180,6 +198,39 @@ async function publishNpmPackageWithRetry(options: {
             `Retrying ${packageSpec} after transient npm publish failure in ${delayMs}ms.`,
         );
         await options.sleep(delayMs);
+    }
+}
+
+async function publishNpmPackageFilesWithConcurrency(
+    packageFiles: readonly string[],
+    publishConcurrency: number,
+    publishPackageFile: (packageFile: string) => Promise<void>,
+): Promise<void> {
+    let nextPackageIndex = 0;
+    let firstError: unknown;
+    const workerCount = Math.min(publishConcurrency, packageFiles.length);
+
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+        while (firstError === undefined) {
+            const packageIndex = nextPackageIndex;
+            nextPackageIndex += 1;
+            const packageFile = packageFiles[packageIndex];
+
+            if (packageFile === undefined) {
+                return;
+            }
+
+            try {
+                await publishPackageFile(packageFile);
+            }
+            catch (error) {
+                firstError ??= error;
+            }
+        }
+    }));
+
+    if (firstError !== undefined) {
+        throw firstError;
     }
 }
 
@@ -298,6 +349,15 @@ function resolvePublishRetryDelayMs(retryDelayMs: number | undefined): number {
     }
 
     return resolvedRetryDelayMs;
+}
+
+function resolvePublishConcurrency(publishConcurrency: number | undefined): number {
+    const resolvedPublishConcurrency = publishConcurrency ?? defaultPublishConcurrency;
+    if (!Number.isInteger(resolvedPublishConcurrency) || resolvedPublishConcurrency < 1) {
+        throw new Error(`publishConcurrency must be a positive integer, got: ${resolvedPublishConcurrency}.`);
+    }
+
+    return resolvedPublishConcurrency;
 }
 
 function resolveNpmCommandTimeoutMs(timeoutMs: number | undefined): number {
