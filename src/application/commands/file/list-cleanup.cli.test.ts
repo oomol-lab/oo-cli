@@ -16,6 +16,8 @@ describe("file list and cleanup CLI", () => {
             env: sandbox.env,
             platform: process.platform,
         }).uploadsFilePath;
+        const legacyFileName = "\u53051.jpg";
+        const legacyDownloadUrl = `https://download.example.com/${legacyFileName}`;
 
         try {
             await mkdir(
@@ -52,7 +54,7 @@ describe("file list and cleanup CLI", () => {
                         "INSERT INTO uploaded_files (",
                         "id, file_name, file_size, download_url, uploaded_at_ms, expires_at_ms",
                         ") VALUES",
-                        "('0195f5fe-ec27-7000-8000-000000000008', 'expired.txt', 10, 'https://download.example.com/expired', 1000, 2000),",
+                        `('0195f5fe-ec27-7000-8000-000000000008', '${legacyFileName}', 10, '${legacyDownloadUrl}', 1000, 2000),`,
                         "('0195f5fe-ec28-7000-8000-000000000009', 'active.txt', 11, 'https://download.example.com/active', 3000, 32503680000000)",
                     ].join(" "),
                 );
@@ -80,9 +82,9 @@ describe("file list and cleanup CLI", () => {
             expect(listJsonResult.exitCode).toBe(0);
             expect(JSON.parse(listJsonResult.stdout)).toEqual([
                 {
-                    downloadUrl: "https://download.example.com/expired",
+                    downloadUrl: "https://download.example.com/%E5%8C%851.jpg",
                     expiresAt: new Date(2000).toISOString(),
-                    fileName: "expired.txt",
+                    fileName: legacyFileName,
                     fileSize: 10,
                     id: "0195f5fe-ec27-7000-8000-000000000008",
                     status: "expired",

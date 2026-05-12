@@ -384,6 +384,99 @@ describe("file upload CLI", () => {
         }
     });
 
+    test("stores normalized download URLs before persisting uploaded records", async () => {
+        const sandbox = await createCliSandbox();
+        const uploadsFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).uploadsFilePath;
+        const uploadedFileName = "\u53051.jpg";
+        const localFilePath = join(sandbox.env.HOME!, uploadedFileName);
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "persist me");
+
+            const result = await sandbox.run(
+                ["file", "upload", localFilePath, "--json"],
+                {
+                    fetcher: createSinglePartUploadFetcher({
+                        downloadURL: `https://download.example.com/files/${uploadedFileName}`,
+                        key: `file-upload/user-1/file-1/${uploadedFileName}`,
+                    }),
+                },
+            );
+            const database = new Database(uploadsFilePath, {
+                strict: true,
+            });
+
+            try {
+                expect(result.exitCode).toBe(0);
+                expect(JSON.parse(result.stdout)).toMatchObject({
+                    downloadUrl: "https://download.example.com/files/%E5%8C%851.jpg",
+                    fileName: uploadedFileName,
+                });
+                expect(
+                    database.query(
+                        [
+                            "SELECT",
+                            "download_url AS downloadUrl",
+                            "FROM uploaded_files",
+                        ].join(" "),
+                    ).all(),
+                ).toEqual([
+                    {
+                        downloadUrl: "https://download.example.com/files/%E5%8C%851.jpg",
+                    },
+                ]);
+            }
+            finally {
+                database.close();
+            }
+        }
+        finally {
+            await Bun.file(localFilePath).delete();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects invalid complete upload download URLs without persisting records", async () => {
+        const sandbox = await createCliSandbox();
+        const uploadsFilePath = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        }).uploadsFilePath;
+        const localFilePath = join(sandbox.env.HOME!, "invalid-download-url.txt");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "invalid response");
+
+            const result = await sandbox.run(
+                ["file", "upload", localFilePath, "--json"],
+                {
+                    fetcher: createSinglePartUploadFetcher({
+                        downloadURL: "not a url with secret-token",
+                        key: "file-upload/user-1/file-1/invalid-download-url.txt",
+                    }),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The file upload service returned an unsupported response body.",
+            );
+            await expect(Bun.file(uploadsFilePath).exists()).resolves.toBeFalse();
+        }
+        finally {
+            await Bun.file(localFilePath).delete();
+            await sandbox.cleanup();
+        }
+    });
+
     test("records rejected too large telemetry without file identity", async () => {
         const sandbox = await createCliSandbox();
         const localFilePath = join(sandbox.env.HOME!, "large-upload.bin");
@@ -431,6 +524,61 @@ describe("file upload CLI", () => {
         }
     });
 });
+
+function createSinglePartUploadFetcher(options: {
+    readonly downloadURL: string;
+    readonly key: string;
+}): (input: string | URL | Request, init?: RequestInit) => Promise<Response> {
+    return async (input, init) => {
+        const request = toRequest(input, init);
+
+        if (request.url.endsWith("/create-multipart-upload")) {
+            return new Response(JSON.stringify({
+                success: true,
+                data: {
+                    key: options.key,
+                    partSize: 64,
+                    totalParts: 1,
+                    uploadID: "upload-1",
+                },
+            }));
+        }
+
+        if (request.url.endsWith("/generate-presigned-urls")) {
+            return new Response(JSON.stringify({
+                success: true,
+                data: [
+                    {
+                        partNumber: 1,
+                        uploadURL: "https://storage.example.com/upload/1",
+                    },
+                ],
+            }));
+        }
+
+        if (request.url.startsWith("https://storage.example.com/upload/")) {
+            return new Response(null, {
+                headers: {
+                    ETag: "\"etag-1\"",
+                },
+                status: 200,
+            });
+        }
+
+        if (request.url.endsWith("/complete-multipart-upload")) {
+            return new Response(JSON.stringify({
+                success: true,
+                data: {
+                    downloadURL: options.downloadURL,
+                },
+            }));
+        }
+
+        return new Response(null, {
+            status: 200,
+        });
+    };
+}
 
 function createFileUploadSnapshot(
     result: {

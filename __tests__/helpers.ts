@@ -567,21 +567,40 @@ export function toRequest(input: string | URL | Request, init?: RequestInit): Re
     return new Request(String(input), init);
 }
 
-export async function expectCliUserError(
-    operation: Promise<unknown>,
-): Promise<CliUserError> {
-    try {
-        await operation;
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            return error;
+export function expectCliUserError(operation: () => unknown): CliUserError;
+export function expectCliUserError(operation: Promise<unknown>): Promise<CliUserError>;
+export function expectCliUserError(
+    operation: Promise<unknown> | (() => unknown),
+): CliUserError | Promise<CliUserError> {
+    if (typeof operation === "function") {
+        try {
+            operation();
+        }
+        catch (error) {
+            if (error instanceof CliUserError) {
+                return error;
+            }
+
+            throw error;
         }
 
-        throw error;
+        throw new Error("Expected a CliUserError to be thrown.");
     }
 
-    throw new Error("Expected a CliUserError to be thrown.");
+    return (async () => {
+        try {
+            await operation;
+        }
+        catch (error) {
+            if (error instanceof CliUserError) {
+                return error;
+            }
+
+            throw error;
+        }
+
+        throw new Error("Expected a CliUserError to be thrown.");
+    })();
 }
 
 export function findLoginUrl(output: string): string | undefined {

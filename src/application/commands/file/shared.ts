@@ -1,3 +1,4 @@
+import type { Logger } from "pino";
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type {
     FileUploadRecord,
@@ -115,9 +116,13 @@ export function parseFileStatus(
 export function serializeFileUploadRecord(
     record: FileUploadRecord,
     now: number,
+    logger?: Logger,
 ): FileUploadRecordView {
     return {
-        downloadUrl: record.downloadUrl,
+        downloadUrl: normalizeFileUploadDownloadUrlForDisplay(
+            record.downloadUrl,
+            logger,
+        ),
         expiresAt: new Date(record.expiresAtMs).toISOString(),
         fileName: record.fileName,
         fileSize: record.fileSize,
@@ -125,6 +130,34 @@ export function serializeFileUploadRecord(
         status: readFileUploadStatus(record.expiresAtMs, now),
         uploadedAt: new Date(record.uploadedAtMs).toISOString(),
     };
+}
+
+export function normalizeFileUploadDownloadUrl(rawUrl: string): string {
+    try {
+        return normalizeFileUploadDownloadUrlValue(rawUrl);
+    }
+    catch {
+        throw new CliUserError("errors.fileUpload.invalidResponse", 1);
+    }
+}
+
+export function normalizeFileUploadDownloadUrlForDisplay(
+    rawUrl: string,
+    logger?: Logger,
+): string {
+    try {
+        return normalizeFileUploadDownloadUrlValue(rawUrl);
+    }
+    catch (error) {
+        logger?.debug(
+            {
+                errorName: error instanceof Error ? error.name : typeof error,
+                rawUrlLength: rawUrl.length,
+            },
+            "Skipping URL normalization for unparseable legacy file upload record.",
+        );
+        return rawUrl;
+    }
 }
 
 export async function createMultipartFileUpload(
@@ -265,7 +298,7 @@ export async function completeMultipartFileUpload(
         );
 
         return {
-            downloadUrl: response.data.downloadURL,
+            downloadUrl: normalizeFileUploadDownloadUrl(response.data.downloadURL),
         };
     }
     catch {
@@ -287,6 +320,10 @@ function createFileUploadRequestUrl(
     return new URL(
         `https://fusion-api.${endpoint}/v1/file-upload/action/${actionName}`,
     );
+}
+
+function normalizeFileUploadDownloadUrlValue(rawUrl: string): string {
+    return new URL(rawUrl).href;
 }
 
 async function requestFileUpload(

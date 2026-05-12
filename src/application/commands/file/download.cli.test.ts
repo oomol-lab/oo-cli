@@ -194,6 +194,40 @@ describe("file download CLI", () => {
         }
     });
 
+    test("infers a non-ASCII file name from an encoded download URL", async () => {
+        const sandbox = await createCliSandbox();
+        const outputDirectoryPath = join(sandbox.env.HOME!, "downloads");
+        const inferredFileName = "\u53051.jpg";
+
+        try {
+            const result = await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://download.example.com/%E5%8C%851.jpg",
+                    outputDirectoryPath,
+                ],
+                {
+                    fetcher: async () => new Response("image bytes", {
+                        headers: {
+                            "Content-Length": "11",
+                            "Content-Type": "image/jpeg",
+                        },
+                        status: 200,
+                    }),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            await expect(Bun.file(join(outputDirectoryPath, inferredFileName)).text()).resolves.toBe(
+                "image bytes",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("uses the configured file download output directory and expands a leading tilde", async () => {
         const sandbox = await createCliSandbox();
         const outputDirectoryPath = join(sandbox.env.HOME!, "Downloads", "reports");
