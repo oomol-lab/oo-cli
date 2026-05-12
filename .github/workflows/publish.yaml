@@ -161,7 +161,7 @@ jobs:
       - name: Publish to npm
         run: bun run contrib/ci/release-workflow.ts publish-npm-packages
 
-      - name: Create GitHub Release
+      - name: Ensure GitHub Release
         run: |
           mapfile -t release_assets < dist/github-release-assets.txt
           bun run contrib/ci/release-workflow.ts create-github-release "${release_assets[@]}"

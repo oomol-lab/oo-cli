@@ -1,11 +1,25 @@
-import { describe, expect, test } from "bun:test";
+import process from "node:process";
+
+import { afterEach, describe, expect, test } from "bun:test";
 
 import {
     buildCreateReleaseCommand,
     buildFeishuReleaseFollowupNotification,
     buildFeishuReleaseNotification,
+    buildUploadReleaseAssetsCommand,
     preparePackageManifest,
 } from "./release-steps.ts";
+import { main } from "./release-workflow.ts";
+
+const originalFetch = globalThis.fetch;
+const originalSpawn = Bun.spawn;
+const originalEnv = process.env;
+
+afterEach(() => {
+    globalThis.fetch = originalFetch;
+    Bun.spawn = originalSpawn;
+    process.env = originalEnv;
+});
 
 describe("release-workflow", () => {
     test("prepares the package manifest for publishing", () => {
@@ -172,6 +186,126 @@ describe("release-workflow", () => {
             buildFeishuReleaseNotification(createFeishuInput({ releaseTag: "" })),
         ).toThrow("RELEASE_TAG is required.");
     });
+
+    test("builds the gh release upload command with clobber", () => {
+        expect(
+            buildUploadReleaseAssetsCommand({
+                releaseTag: "v1.2.3",
+                assets: [
+                    "dist/oo-1.2.3.tgz",
+                    "dist/oo-binaries.tgz",
+                ],
+            }),
+        ).toEqual([
+            "gh",
+            "release",
+            "upload",
+            "v1.2.3",
+            "dist/oo-1.2.3.tgz",
+            "dist/oo-binaries.tgz",
+            "--clobber",
+        ]);
+    });
+
+    test("creates a GitHub release when the tag does not exist", async () => {
+        const requests = installReleaseFetchStub({ kind: "missing" });
+        const spawnCalls = installSpawnStub();
+        process.env = {
+            GH_TOKEN: "token",
+            GITHUB_REPOSITORY: "oomol-lab/oo-cli",
+            GITHUB_SHA: "abc123",
+            PREVIOUS_TAG: "v1.2.2",
+            RELEASE_TAG: "v1.2.3",
+        } as NodeJS.ProcessEnv;
+
+        await main([
+            "create-github-release",
+            "dist/oo-1.2.3.tgz",
+            "dist/oo-binaries.tgz",
+        ]);
+
+        expect(requests).toEqual([{
+            init: expect.objectContaining({
+                headers: expect.objectContaining({
+                    authorization: "Bearer token",
+                }),
+            }),
+            url: "https://api.github.com/repos/oomol-lab/oo-cli/releases/tags/v1.2.3",
+        }]);
+        expect(spawnCalls).toEqual([[
+            "gh",
+            "release",
+            "create",
+            "v1.2.3",
+            "dist/oo-1.2.3.tgz",
+            "dist/oo-binaries.tgz",
+            "--target",
+            "abc123",
+            "--title",
+            "v1.2.3",
+            "--generate-notes",
+            "--notes-start-tag",
+            "v1.2.2",
+            "--latest",
+        ]]);
+    });
+
+    test("uploads release assets when the tag already exists", async () => {
+        const requests = installReleaseFetchStub({ kind: "exists" });
+        const spawnCalls = installSpawnStub();
+        process.env = {
+            GH_TOKEN: "token",
+            GITHUB_REPOSITORY: "oomol-lab/oo-cli",
+            GITHUB_SHA: "abc123",
+            PREVIOUS_TAG: "v1.2.2",
+            RELEASE_TAG: "v1.2.3",
+        } as NodeJS.ProcessEnv;
+
+        await main([
+            "create-github-release",
+            "dist/oo-1.2.3.tgz",
+            "dist/oo-binaries.tgz",
+        ]);
+
+        expect(requests).toEqual([{
+            init: expect.objectContaining({
+                headers: expect.objectContaining({
+                    authorization: "Bearer token",
+                }),
+            }),
+            url: "https://api.github.com/repos/oomol-lab/oo-cli/releases/tags/v1.2.3",
+        }]);
+        expect(spawnCalls).toEqual([[
+            "gh",
+            "release",
+            "upload",
+            "v1.2.3",
+            "dist/oo-1.2.3.tgz",
+            "dist/oo-binaries.tgz",
+            "--clobber",
+        ]]);
+    });
+
+    test("throws when the GitHub releases lookup fails with a non-404 error", async () => {
+        installReleaseFetchStub({
+            kind: "error",
+            status: 500,
+            statusText: "Internal Server Error",
+        });
+        const spawnCalls = installSpawnStub();
+        process.env = {
+            GH_TOKEN: "token",
+            GITHUB_REPOSITORY: "oomol-lab/oo-cli",
+            GITHUB_SHA: "abc123",
+            RELEASE_TAG: "v1.2.3",
+        } as NodeJS.ProcessEnv;
+
+        await expect(main([
+            "create-github-release",
+            "dist/oo-1.2.3.tgz",
+        ])).rejects.toThrow(/GitHub API request failed: 500/);
+        expect(spawnCalls).toEqual([]);
+    });
 });
 
 function createFeishuInput(overrides: Partial<Parameters<typeof buildFeishuReleaseNotification>[0]> = {}): Parameters<typeof buildFeishuReleaseNotification>[0] {
@@ -183,4 +317,70 @@ function createFeishuInput(overrides: Partial<Parameters<typeof buildFeishuRelea
         runId: "123456789",
         ...overrides,
     };
+}
+
+type FetchInit = Parameters<typeof fetch>[1];
+
+interface CapturedFetchRequest {
+    init: FetchInit;
+    url: string;
+}
+
+type ReleaseFetchStubOptions
+    = | { kind: "exists" }
+        | { kind: "missing" }
+        | { kind: "error"; status: number; statusText: string };
+
+function installReleaseFetchStub(options: ReleaseFetchStubOptions): CapturedFetchRequest[] {
+    const requests: CapturedFetchRequest[] = [];
+
+    globalThis.fetch = Object.assign(async (
+        input: Parameters<typeof fetch>[0],
+        init?: FetchInit,
+    ): Promise<Response> => {
+        const url = String(input);
+        requests.push({
+            init,
+            url,
+        });
+
+        if (url.includes("/releases/tags/v1.2.3")) {
+            switch (options.kind) {
+                case "exists":
+                    return Response.json({ tag_name: "v1.2.3" });
+                case "missing":
+                    return Response.json({ message: "Not Found" }, {
+                        status: 404,
+                        statusText: "Not Found",
+                    });
+                case "error":
+                    return Response.json({ message: "boom" }, {
+                        status: options.status,
+                        statusText: options.statusText,
+                    });
+            }
+        }
+
+        return Response.json({});
+    }, {
+        preconnect: originalFetch.preconnect,
+    });
+
+    return requests;
+}
+
+function installSpawnStub(): string[][] {
+    const spawnCalls: string[][] = [];
+
+    Bun.spawn = ((command: string[]) => {
+        spawnCalls.push(command);
+
+        return {
+            exited: Promise.resolve(0),
+            kill: () => 0,
+            unref: () => {},
+        } as unknown as ReturnType<typeof Bun.spawn>;
+    }) as typeof Bun.spawn;
+
+    return spawnCalls;
 }
