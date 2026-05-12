@@ -3,6 +3,8 @@
 set -euo pipefail
 
 readonly DEFAULT_DOWNLOAD_BASE_URL="https://static.oomol.com/release/apps/oo-cli"
+readonly TRAE_SANDBOX_BINARY_PATH="/mnt/appmodules/bin/trae-sandbox"
+readonly TRAE_SANDBOX_INSTALL_ERROR="Installing oo inside the TRAE sandbox is not supported yet. Please run the install script from the host terminal."
 
 DOWNLOAD_BASE_URL="${OO_INSTALL_DOWNLOAD_BASE_URL:-$DEFAULT_DOWNLOAD_BASE_URL}"
 DOWNLOAD_DIR="${OO_INSTALL_DOWNLOAD_DIR:-}"
@@ -17,6 +19,16 @@ fail() {
 cleanup() {
     if [ -n "${DOWNLOADED_BINARY_PATH:-}" ]; then
         rm -f "$DOWNLOADED_BINARY_PATH"
+    fi
+}
+
+is_trae_sandbox() {
+    [ -e "$TRAE_SANDBOX_BINARY_PATH" ] || [ "${TRAE_RUNTIME:-}" = "local_vm" ]
+}
+
+assert_supported_install_environment() {
+    if is_trae_sandbox; then
+        fail "$TRAE_SANDBOX_INSTALL_ERROR"
     fi
 }
 
@@ -190,6 +202,7 @@ run_install_command() {
 main() {
     local version platform binary_url
 
+    assert_supported_install_environment
     trap cleanup EXIT
 
     if [ -z "$DOWNLOAD_DIR" ]; then

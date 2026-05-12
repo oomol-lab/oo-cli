@@ -9,6 +9,7 @@ import { createTemporaryDirectory, useTemporaryDirectoryCleanup } from "../../__
 const installScriptPath = join(import.meta.dir, "install.sh");
 const { track: trackDirectory } = useTemporaryDirectoryCleanup();
 const unixInstallDescribe = process.platform === "win32" ? describe.skip : describe;
+const traeSandboxInstallError = "Installing oo inside the TRAE sandbox is not supported yet. Please run the install script from the host terminal.";
 
 unixInstallDescribe("install.sh", () => {
     test("uses ~/.config/oo/downloads as the default Linux download directory", async () => {
@@ -106,6 +107,37 @@ unixInstallDescribe("install.sh", () => {
             "install stable --force\n",
         );
         expect(await readdir(downloadDirectory)).toEqual([]);
+    });
+
+    test("fails before downloading in Trae local VM", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-install-script");
+
+        trackDirectory(rootDirectory);
+        const result = await runInstaller(rootDirectory, {
+            TRAE_RUNTIME: "local_vm",
+        });
+
+        expect(result.exitCode).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toBe(`${traeSandboxInstallError}\n`);
+    });
+
+    test("fails before downloading when the Trae sandbox binary exists", async () => {
+        const result = await runBashCommand([
+            "[() {",
+            "  if test \"$1\" = \"-e\" && test \"$2\" = \"/mnt/appmodules/bin/trae-sandbox\"; then",
+            "    return 0",
+            "  fi",
+            "  command [ \"$@\"",
+            "}",
+            "TRAE_RUNTIME=''",
+            `source "${installScriptPath}"`,
+            "main",
+        ].join("\n"));
+
+        expect(result.exitCode).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toBe(`${traeSandboxInstallError}\n`);
     });
 
     test("fails when latest.json does not include a version", async () => {
@@ -226,6 +258,7 @@ async function runInstallerFromStdin(
         cwd: sandboxDirectory,
         env: {
             ...process.env,
+            TRAE_RUNTIME: "",
             ...env,
             PATH: buildPath(env.PATH, sandboxDirectory),
         },
@@ -262,6 +295,7 @@ async function runCommand(
         cwd,
         env: {
             ...process.env,
+            TRAE_RUNTIME: "",
             ...env,
             PATH: buildPath(env.PATH, cwd),
         },
