@@ -81,14 +81,14 @@ describe("upload-release-binaries-to-oss", () => {
             const result = await prepareReleaseBundleUpload({
                 archivePath,
                 extractDir: extractDirectoryPath,
-                ossBucket: "oomol-static-oversea-prod",
+                ossBucket: "oomol-static-cn-prod",
                 ossPrefix: "release/apps/oo-cli/",
                 uploadDir: uploadDirectoryPath,
                 version: "v1.2.3",
             });
 
             expect(result).toEqual({
-                ossUri: "oss:oomol-static-oversea-prod/release/apps/oo-cli",
+                ossUri: "oss:oomol-static-cn-prod/release/apps/oo-cli",
                 releaseTag: "v1.2.3",
                 releaseVersion: "1.2.3",
                 uploadRoot: uploadDirectoryPath,
@@ -128,7 +128,7 @@ describe("upload-release-binaries-to-oss", () => {
                 prepareReleaseBundleUpload({
                     archivePath,
                     extractDir: join(rootDirectoryPath, "extract"),
-                    ossBucket: "oomol-static-oversea-prod",
+                    ossBucket: "oomol-static-cn-prod",
                     ossPrefix: "release/apps/oo-cli",
                     uploadDir: join(rootDirectoryPath, "upload"),
                     version: "1.2.3",
@@ -145,13 +145,13 @@ describe("upload-release-binaries-to-oss", () => {
     test("formats OSS outputs for GitHub Actions", () => {
         expect(
             formatGitHubOutput({
-                ossUri: buildOssUri("oomol-static-oversea-prod", "release/apps/oo-cli"),
+                ossUri: buildOssUri("oomol-static-cn-prod", "release/apps/oo-cli"),
                 releaseTag: "v1.2.3",
                 releaseVersion: "1.2.3",
                 uploadRoot: "/tmp/upload",
             }),
         ).toBe(
-            "oss_uri=oss:oomol-static-oversea-prod/release/apps/oo-cli\n"
+            "oss_uri=oss:oomol-static-cn-prod/release/apps/oo-cli\n"
             + "release_tag=v1.2.3\n"
             + "release_version=1.2.3\n"
             + "upload_root=/tmp/upload\n",
