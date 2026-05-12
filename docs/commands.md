@@ -436,7 +436,8 @@ supported host directory that already exists.
   Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, and QoderWork host.
   Existing oo-managed bundled skill targets are refreshed to the current `oo`
   version, except that `0.0.0-development` startup runs do not refresh
-  existing copied bundled targets.
+  existing bundled targets, and installed `0.0.0-development` bundled targets
+  are left untouched.
 - Published skills: when a published skill already has a local canonical copy
   under `<config-dir>/skills/registry/<skill-id>`, `oo` publishes that copy to
   any newly detected supported host that is missing it.
@@ -445,8 +446,11 @@ supported host directory that already exists.
   detected supported host that is missing it. Existing same-name local copies
   with different `SKILL.md` content are left untouched during silent startup
   synchronization; run `oo skills add` to refresh them explicitly.
-- Migration: existing oo-managed symlink targets from older releases are
-  replaced with copied directories during startup synchronization.
+- Migration: startup synchronization does not rewrite same-version legacy
+  symlink targets. Use `oo skills add` for bundled and local skills, and
+  `oo skills update` for registry skills, to replace legacy symlinks
+  explicitly. Successful `oo install` and `oo update` workflows run both
+  maintenance steps.
 - Safety: startup synchronization does not fetch registry data, does not
   require authentication, does not print additional command output, and does
   not overwrite same-name targets that are not managed by `oo`.
@@ -793,7 +797,7 @@ Install bundled or published skills into supported local skill directories.
 - Installation mode: bundled, published, and refreshed local skills are copied
   into every target skills directory. Existing oo-managed symlink targets from
   older releases are replaced with copied directories when the skill is
-  synchronized, installed, or updated.
+  installed, refreshed, or updated explicitly.
 - Local refresh: for local skills, the canonical source wins. Existing
   oo-managed local copies are overwritten from the canonical source; if their
   `SKILL.md` content differs, the command prints a warning before overwriting
