@@ -198,6 +198,64 @@ describe("skills CLI", () => {
         }
     });
 
+    test("does not auto-refresh development-version bundled skills during release-version cli startup", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const skillTargets = availableBundledSkillNames.map(skillName => ({
+            directoryPath: join(codexHomeDirectory, "skills", skillName),
+            name: skillName,
+        }));
+
+        try {
+            for (const skillTarget of skillTargets) {
+                await mkdir(skillTarget.directoryPath, { recursive: true });
+                await Bun.write(
+                    resolveBundledSkillMetadataFilePath(skillTarget.directoryPath),
+                    renderSkillMetadataJson({
+                        version: bundledSkillDevelopmentVersion,
+                    }),
+                );
+                await Bun.write(
+                    join(skillTarget.directoryPath, "SKILL.md"),
+                    `# Local ${skillTarget.name}\n`,
+                );
+            }
+
+            const result = await sandbox.run(["--help"], {
+                version: "9.9.9",
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Options:");
+            for (const skillTarget of skillTargets) {
+                expect(
+                    await readFile(join(skillTarget.directoryPath, "SKILL.md"), "utf8"),
+                ).toBe(
+                    `# Local ${skillTarget.name}\n`,
+                );
+                expect(
+                    await readFile(
+                        resolveBundledSkillMetadataFilePath(skillTarget.directoryPath),
+                        "utf8",
+                    ),
+                ).toBe(renderSkillMetadataJson({
+                    version: bundledSkillDevelopmentVersion,
+                }));
+            }
+            expect(content).toContain(
+                `"msg":"Bundled skill startup synchronization skipped because the installed skill is a development version."`,
+            );
+            expect(content).not.toContain(
+                `"msg":"Bundled skill synchronized during CLI startup."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("publishes canonical registry skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
         const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
@@ -250,7 +308,7 @@ describe("skills CLI", () => {
         }
     });
 
-    test("converts synchronized registry symlink targets to copies", async () => {
+    test("leaves synchronized registry symlink targets unchanged during cli startup", async () => {
         const sandbox = await createCliSandbox();
         const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
         const codeBuddySkillsDirectory = join(codeBuddyHomeDirectory, "skills");
@@ -295,14 +353,14 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toContain("Options:");
-            expect(await realpath(codeBuddySkillDirectoryPath)).not.toBe(
+            expect(await realpath(codeBuddySkillDirectoryPath)).toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
-            expect((await lstat(codeBuddySkillDirectoryPath)).isSymbolicLink()).toBeFalse();
+            expect((await lstat(codeBuddySkillDirectoryPath)).isSymbolicLink()).toBeTrue();
             expect(await readFile(join(codeBuddySkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 "# ChatGPT\n",
             );
-            expect(content).toContain(
+            expect(content).not.toContain(
                 `"msg":"Registry skill synchronized during CLI startup."`,
             );
         }
@@ -311,7 +369,7 @@ describe("skills CLI", () => {
         }
     });
 
-    test("converts synchronized local symlink targets to copies", async () => {
+    test("leaves synchronized local symlink targets unchanged during cli startup", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const codexSkillsDirectory = join(codexHomeDirectory, "skills");
@@ -349,14 +407,14 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toContain("Options:");
-            expect(await realpath(codexSkillDirectoryPath)).not.toBe(
+            expect(await realpath(codexSkillDirectoryPath)).toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
-            expect((await lstat(codexSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
+            expect((await lstat(codexSkillDirectoryPath)).isSymbolicLink()).toBeTrue();
             expect(await readFile(join(codexSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 "# Campaign Writer\n",
             );
-            expect(content).toContain(
+            expect(content).not.toContain(
                 `"msg":"Local skill synchronized during CLI startup."`,
             );
         }

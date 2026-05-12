@@ -49,9 +49,6 @@ import {
     resolveLocalSkillCanonicalRootDirectoryPath,
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
-import {
-    isManagedSkillPublicationCurrent,
-} from "./managed-skill-publication.ts";
 import { publishManagedBundledSkill } from "./shared.ts";
 
 interface ManagedSkillTargetState<Metadata> {
@@ -140,22 +137,32 @@ async function synchronizeBundledSkill(
             return;
         }
 
-        const publicationCurrent = targetState.kind === "managed"
-            ? await isManagedSkillPublicationCurrent(installation.installedSkillDirectoryPath)
-            : false;
-
         if (
             targetState.kind === "managed"
             && targetState.metadata?.version === context.version
-            && publicationCurrent
         ) {
             return;
         }
 
         if (
             targetState.kind === "managed"
+            && targetState.metadata?.version === bundledSkillDevelopmentVersion
+        ) {
+            context.logger.info(
+                {
+                    agentName: host.agentName,
+                    path: installation.installedSkillDirectoryPath,
+                    skillName,
+                    version: context.version,
+                },
+                "Bundled skill startup synchronization skipped because the installed skill is a development version.",
+            );
+            return;
+        }
+
+        if (
+            targetState.kind === "managed"
             && context.version === bundledSkillDevelopmentVersion
-            && publicationCurrent
         ) {
             context.logger.info(
                 {
@@ -325,13 +332,7 @@ async function synchronizeRegistrySkill(
                 return;
             }
 
-            if (
-                await isManagedSkillPublicationCurrent(
-                    installation.installedSkillDirectoryPath,
-                )
-            ) {
-                return;
-            }
+            return;
         }
 
         await publishBundledSkillInstallation({
@@ -471,18 +472,11 @@ async function synchronizeLocalSkill(
                 return;
             }
             else if (metadataState.metadata?.kind === "local") {
-                if (
-                    await isManagedSkillPublicationCurrent(
-                        installation.installedSkillDirectoryPath,
-                    )
-                ) {
-                    return;
-                }
+                return;
             }
 
             if (
-                targetMatchesCanonical
-                && metadataState.metadata === undefined
+                metadataState.metadata === undefined
                 && !metadataState.exists
             ) {
                 context.logger.info(
@@ -491,8 +485,13 @@ async function synchronizeLocalSkill(
                         path: installation.installedSkillDirectoryPath,
                         skillName: skill.name,
                     },
-                    "Local skill startup synchronization adopted a legacy matching copy.",
+                    "Local skill startup synchronization adopted a legacy matching target.",
                 );
+                await Promise.all([
+                    writeLocalSkillMetadata(skill.path),
+                    writeLocalSkillMetadata(installation.installedSkillDirectoryPath),
+                ]);
+                return;
             }
         }
 

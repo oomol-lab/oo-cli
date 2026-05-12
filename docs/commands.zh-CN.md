@@ -381,8 +381,8 @@ skills。
   CodeBuddy、WorkBuddy、Trae、Trae CN、OpenClaw 和 QoderWork Agent 都安装了 `oo`、
   `oo-find-skills`、`oo-create-skill` 与 `oo-publish-skill`。已经由 oo 管理的
   内置 skill 目标会刷新到当前 `oo` 版本；
-  但当启动中的当前版本为 `0.0.0-development` 时，不会刷新已存在的复制版内置
-  skill 目标。
+  但当启动中的当前版本为 `0.0.0-development` 时，不会刷新已存在的内置 skill
+  目标；已安装版本为 `0.0.0-development` 的内置 skill 目标也会保持不变。
 - 已发布 skill：如果某个已发布 skill 已经有本地 canonical 副本
   `<config-dir>/skills/registry/<skill-id>`，`oo` 会把该副本发布到任何新检测
   到且尚未安装它的受支持 Agent。
@@ -390,7 +390,9 @@ skills。
   `<config-dir>/skills/local/<skill-id>`，`oo` 会把该副本发布到任何新检测到且尚未
   安装它的受支持 Agent。静默启动同步不会覆盖 `SKILL.md` 内容不同的同名本地副本；
   如需显式刷新，请运行 `oo skills add`。
-- 迁移：旧版本留下的 oo-managed 软链接目标，会在启动同步期间替换为复制目录。
+- 迁移：启动同步不会改写同版本的历史软链接目标。请用 `oo skills add` 刷新内置
+  和本地 skill，用 `oo skills update` 刷新 registry skill，从而显式替换历史软链接。
+  成功的 `oo install` / `oo update` 会运行这两个维护步骤。
 - 安全规则：启动同步不会请求 registry，不要求登录，不会产生额外命令输出，也
   不会覆盖不由 `oo` 管理的同名目标。
 
@@ -670,8 +672,8 @@ skills。
 - 目标目录：当已存在的受支持 Agent 缺少 `skills` 根目录时，命令会先创建该目录，
   再发布所选 skill。
 - 安装方式：内置、已发布以及被刷新的 local skill 会复制到每个目标 skills 目录。
-  旧版本留下的 oo-managed 软链接目标，会在同步、安装或更新该 skill 时替换为复制
-  目录。
+  旧版本留下的 oo-managed 软链接目标，会在显式安装、刷新或更新该 skill 时替换为
+  复制目录。
 - local 刷新：对 local skill 来说，canonical 来源优先。已有的 oo-managed local
   副本会被 canonical 来源覆盖；如果其 `SKILL.md` 内容不同，命令会先打印 warning。
   没有 metadata 的同名目标只有在 `SKILL.md` 内容已经与 canonical local 来源一致时
