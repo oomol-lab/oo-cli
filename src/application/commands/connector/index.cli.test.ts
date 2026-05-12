@@ -411,7 +411,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("renders connector schema help without json options", async () => {
+    test("renders connector schema help with the json compatibility option", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -419,7 +419,7 @@ describe("connectorCommand CLI", () => {
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stdout).not.toContain("--format");
-            expect(result.stdout).not.toContain("--json");
+            expect(result.stdout).toContain("--json");
         }
         finally {
             await sandbox.cleanup();
@@ -1423,7 +1423,7 @@ describe("connectorCommand CLI", () => {
                 )[0]!,
             );
             const cachedResult = await sandbox.run(
-                ["connector", "schema", "gmail", "--action", "send_mail"],
+                ["connector", "schema", "gmail", "--action", "send_mail", "--json"],
                 {
                     fetcher: async () => {
                         throw new Error("Unexpected schema metadata request");
