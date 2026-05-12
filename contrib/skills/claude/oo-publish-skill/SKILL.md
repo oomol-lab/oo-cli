@@ -1,6 +1,6 @@
 ---
 name: oo-publish-skill
-description: Publish, release, upload, or submit an existing AI agent skill directory with SKILL.md to the OOMOL registry by running oo skills publish, or generate a share prompt for a published skill by running oo skills share, including temporary shares for private packages. Use when the user asks to publish a skill, share a published skill, make a skill available in the OOMOL skill catalog, release a registry skill package, resolve publish visibility, version, adoption, package-name, or overwrite prompts, or publish from a local, agent-installed, registry-installed, or path-based skill source. Do not use for finding, installing, creating, or editing skills unless the final goal is publication or sharing.
+description: Publish, release, upload, or submit an existing AI agent skill directory with SKILL.md to the OOMOL registry by running oo skills publish, or generate a share prompt for a published skill by running oo skills share, including temporary shares for private packages. Use when the user asks to publish a skill, share a published skill, make a skill available in the OOMOL skill catalog, release a registry skill package, resolve publish visibility, version, package-name, or overwrite prompts, or publish from a local, registry-installed, or path-based skill source. Do not use for finding, installing, creating, or editing skills unless the final goal is publication or sharing.
 allowed-tools: [Bash(oo *)]
 ---
 
@@ -82,10 +82,9 @@ If this shared skill file is running in Hermes, CodeBuddy, WorkBuddy, Trae,
 OpenClaw, QoderWork, or Codex instead of Claude Code, replace `claude` with that
 host id from the supported list.
 
-If the command prompts about adopting a path or agent-installed skill, publishing
-a registry-installed skill under the active account, or overwriting an existing
-remote package, let that prompt drive the next user confirmation. Do not ask
-those questions in advance.
+If the command prompts about publishing a registry-installed skill under the
+active account or overwriting an existing remote package, let that prompt drive
+the next user confirmation. Do not ask those questions in advance.
 
 Do not package manually, do not use `npm publish`, and do not copy files into an
 arbitrary fallback directory.
@@ -93,6 +92,6 @@ arbitrary fallback directory.
 ### 3. Report the result
 
 Report the published package name, version, visibility, and hub URL from the
-command output. Also mention any local adoption or metadata writeback that
-occurred. If publish fails, do not retry blindly; summarize the failing command,
-the user-facing error, and the smallest next fix.
+command output. Also mention any metadata writeback that occurred. If publish
+fails, do not retry blindly; summarize the failing command, the user-facing
+error, and the smallest next fix.

@@ -18,7 +18,6 @@ import {
 } from "./bundled-skill-model.ts";
 import {
     directoryExists,
-    fileExists,
     isManagedBundledSkillInstallation,
     readInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
@@ -29,13 +28,6 @@ import {
     availableBundledSkillNames,
 } from "./embedded-assets.ts";
 import {
-    hasMatchingSkillFileHash,
-    isForeignManagedMetadataState,
-    readSkillFileHash,
-    readSkillMetadataFileState,
-    writeLocalSkillMetadata,
-} from "./local-skill-ownership.ts";
-import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallation,
     resolveManagedSkillHostInstallations,
@@ -44,9 +36,7 @@ import {
     readManagedSkillMetadata,
 } from "./managed-skill-metadata.ts";
 import {
-    isLocalSkillPathContained,
     isManagedSkillPathContained,
-    resolveLocalSkillCanonicalRootDirectoryPath,
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { publishManagedBundledSkill } from "./shared.ts";
@@ -58,11 +48,6 @@ interface ManagedSkillTargetState<Metadata> {
 
 interface CanonicalRegistrySkill {
     metadata: ManagedSkillMetadata;
-    name: string;
-    path: string;
-}
-
-interface CanonicalLocalSkill {
     name: string;
     path: string;
 }
@@ -86,7 +71,6 @@ export async function synchronizeManagedSkillsForAvailableHosts(
             synchronizeBundledSkills(hosts, context),
             synchronizeRegistrySkills(hosts, context),
         ]);
-        await synchronizeLocalSkills(hosts, context);
     }
     catch (error) {
         context.logger.warn(
@@ -365,165 +349,6 @@ async function synchronizeRegistrySkill(
     }
 }
 
-async function synchronizeLocalSkills(
-    hosts: readonly ManagedSkillHost[],
-    context: SkillSyncContext,
-): Promise<void> {
-    const skills = await listCanonicalLocalSkills(context);
-
-    await Promise.all(
-        skills.flatMap(skill =>
-            resolveManagedSkillHostInstallations(hosts, skill.name).map(
-                installation =>
-                    synchronizeLocalSkill(installation, skill, context),
-            ),
-        ),
-    );
-}
-
-async function synchronizeLocalSkill(
-    installation: ManagedSkillHostInstallation,
-    skill: CanonicalLocalSkill,
-    context: SkillSyncContext,
-): Promise<void> {
-    try {
-        if (
-            !isLocalSkillPathContained(
-                installation.homeDirectory,
-                context.settingsStore.getFilePath(),
-                skill.name,
-            )
-        ) {
-            context.logger.warn(
-                {
-                    agentName: installation.agentName,
-                    skillName: skill.name,
-                },
-                "Local skill startup synchronization skipped because the target path is outside the managed skills directory.",
-            );
-            return;
-        }
-
-        // Canonical without SKILL.md indicates an aborted init; do not
-        // publish that incomplete state.
-        if (!(await fileExists(join(skill.path, "SKILL.md")))) {
-            return;
-        }
-
-        if (await pathExists(installation.installedSkillDirectoryPath)) {
-            if (!(await directoryExists(installation.installedSkillDirectoryPath))) {
-                context.logger.warn(
-                    {
-                        agentName: installation.agentName,
-                        path: installation.installedSkillDirectoryPath,
-                        skillName: skill.name,
-                    },
-                    "Local skill startup synchronization skipped because the target is not a directory.",
-                );
-                return;
-            }
-
-            const canonicalHash = await readSkillFileHash(skill.path);
-
-            if (canonicalHash === undefined) {
-                return;
-            }
-
-            const metadataState = await readSkillMetadataFileState(
-                installation.installedSkillDirectoryPath,
-            );
-            const targetMatchesCanonical = await hasMatchingSkillFileHash({
-                expectedHash: canonicalHash,
-                skillDirectoryPath: installation.installedSkillDirectoryPath,
-            });
-
-            if (!targetMatchesCanonical) {
-                if (metadataState.metadata?.kind === "local") {
-                    context.logger.warn(
-                        {
-                            agentName: installation.agentName,
-                            path: installation.installedSkillDirectoryPath,
-                            skillName: skill.name,
-                        },
-                        "Local skill startup synchronization skipped because the local target differs from canonical storage.",
-                    );
-                    return;
-                }
-
-                context.logger.warn(
-                    {
-                        agentName: installation.agentName,
-                        path: installation.installedSkillDirectoryPath,
-                        skillName: skill.name,
-                    },
-                    "Local skill startup synchronization skipped because the target is not managed by oo.",
-                );
-                return;
-            }
-            else if (isForeignManagedMetadataState(metadataState)) {
-                context.logger.warn(
-                    {
-                        agentName: installation.agentName,
-                        path: installation.installedSkillDirectoryPath,
-                        skillName: skill.name,
-                    },
-                    "Local skill startup synchronization skipped because the target belongs to another oo-managed source.",
-                );
-                return;
-            }
-            else if (metadataState.metadata?.kind === "local") {
-                return;
-            }
-
-            if (
-                metadataState.metadata === undefined
-                && !metadataState.exists
-            ) {
-                context.logger.info(
-                    {
-                        agentName: installation.agentName,
-                        path: installation.installedSkillDirectoryPath,
-                        skillName: skill.name,
-                    },
-                    "Local skill startup synchronization adopted a legacy matching target.",
-                );
-                await Promise.all([
-                    writeLocalSkillMetadata(skill.path),
-                    writeLocalSkillMetadata(installation.installedSkillDirectoryPath),
-                ]);
-                return;
-            }
-        }
-
-        await writeLocalSkillMetadata(skill.path);
-        await publishBundledSkillInstallation({
-            canonicalSkillDirectoryPath: skill.path,
-            installedSkillDirectoryPath: installation.installedSkillDirectoryPath,
-        });
-
-        context.logger.info(
-            {
-                agentName: installation.agentName,
-                canonicalPath: skill.path,
-                path: installation.installedSkillDirectoryPath,
-                skillName: skill.name,
-            },
-            "Local skill synchronized during CLI startup.",
-        );
-    }
-    catch (error) {
-        context.logger.warn(
-            {
-                agentName: installation.agentName,
-                err: error,
-                path: installation.installedSkillDirectoryPath,
-                skillName: skill.name,
-            },
-            "Local skill startup synchronization failed.",
-        );
-    }
-}
-
 async function listCanonicalRegistrySkills(
     context: Pick<SkillSyncContext, "logger" | "settingsStore">,
 ): Promise<CanonicalRegistrySkill[]> {
@@ -548,23 +373,6 @@ async function listCanonicalRegistrySkills(
         },
         inspectionFailureMessage:
             "Canonical registry skill inspection failed during startup synchronization.",
-        logger: context.logger,
-    });
-}
-
-async function listCanonicalLocalSkills(
-    context: Pick<SkillSyncContext, "logger" | "settingsStore">,
-): Promise<CanonicalLocalSkill[]> {
-    return listCanonicalSkills({
-        canonicalRootDirectoryPath: resolveLocalSkillCanonicalRootDirectoryPath(
-            context.settingsStore.getFilePath(),
-        ),
-        inspect: async (entryName, canonicalSkillDirectoryPath) => ({
-            name: entryName,
-            path: canonicalSkillDirectoryPath,
-        } satisfies CanonicalLocalSkill),
-        inspectionFailureMessage:
-            "Canonical local skill inspection failed during startup synchronization.",
         logger: context.logger,
     });
 }

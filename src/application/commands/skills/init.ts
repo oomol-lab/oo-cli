@@ -1,28 +1,26 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
-import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
+import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import { lstat, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     isNodeNotFoundError,
-    publishBundledSkillInstallation,
     removePath,
 } from "./bundled-skill-filesystem.ts";
+import { resolveRequestedManagedSkillHost } from "./check.ts";
 import {
-    directoryExists,
-} from "./bundled-skill-observation.ts";
-import {
-    resolveBundledSkillDirectoryPath,
-    resolveBundledSkillHomeDirectory,
-} from "./bundled-skill-paths.ts";
-import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
+    availableBundledSkillAgentNames,
+
+} from "./embedded-assets.ts";
 import { writeLocalSkillMetadata } from "./local-skill-ownership.ts";
 import {
-    isLocalSkillPathContained,
-    resolveLocalSkillCanonicalDirectoryPath,
+    isPathWithinDirectory,
+    resolveManagedSkillDirectoryPath,
+    resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
 import {
     installedRegistrySkillCompatibility,
@@ -32,16 +30,11 @@ import { stringifySkillMarkdownMatter } from "./skill-frontmatter.ts";
 import { renderSkillTitle } from "./skill-title.ts";
 
 interface SkillsInitInput {
+    agent?: string;
     description?: string;
     icon?: string;
     name: string;
     title?: string;
-}
-
-export interface LocalSkillHostPublicationTarget {
-    agentName: BundledSkillAgentName;
-    homeDirectory: string;
-    installedSkillDirectoryPath: string;
 }
 
 interface OOSkillFrontmatter {
@@ -69,6 +62,12 @@ export const skillsInitCommand: CliCommandDefinition<SkillsInitInput> = {
     ],
     options: [
         {
+            name: "agent",
+            longFlag: "--agent",
+            valueName: "agent",
+            descriptionKey: "options.agent",
+        },
+        {
             name: "description",
             longFlag: "--description",
             valueName: "text",
@@ -88,6 +87,7 @@ export const skillsInitCommand: CliCommandDefinition<SkillsInitInput> = {
         },
     ],
     inputSchema: z.object({
+        agent: z.string().optional(),
         description: z.string().optional(),
         icon: z.string().optional(),
         name: z.string(),
@@ -103,6 +103,7 @@ async function initializeLocalSkill(
     context: CliExecutionContext,
 ): Promise<void> {
     const skillName = normalizeSkillName(input.name);
+    const agentName = parseRequiredSkillsInitAgent(input.agent);
 
     if (skillName === "") {
         throw new CliUserError("errors.skills.init.invalidName", 1, {
@@ -126,148 +127,95 @@ async function initializeLocalSkill(
         throw new CliUserError("errors.skills.init.invalidTitle", 1);
     }
 
-    const settingsFilePath = context.settingsStore.getFilePath();
-    const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-        settingsFilePath,
+    const hosts = await resolveRequestedManagedSkillHost(
+        context.env,
+        agentName,
+    );
+    const host = hosts[0]!;
+    const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+        host.homeDirectory,
         skillName,
     );
-    const targets = await resolveLocalSkillPublicationTargets(context.env, skillName);
 
-    if (targets.length === 0) {
-        throw new CliUserError("errors.skills.noSupportedBundledSkillHosts", 1, {
-            paths: availableBundledSkillAgentNames
-                .map(agentName => resolveBundledSkillHomeDirectory(context.env, agentName))
-                .join(", "),
-        });
-    }
-
-    if (!isLocalSkillPathContained(
-        targets[0]!.homeDirectory,
-        settingsFilePath,
-        skillName,
-    )) {
+    if (!isPathWithinAgentSkillsDirectory(host.homeDirectory, skillDirectoryPath)) {
         throw new CliUserError("errors.skills.invalidPath", 1, {
             name: skillName,
         });
     }
 
-    await validateLocalSkillInitTargets(
-        skillName,
-        canonicalSkillDirectoryPath,
-        targets,
-    );
-
-    await mkdir(canonicalSkillDirectoryPath, { recursive: true });
-
-    const publishedTargets: LocalSkillHostPublicationTarget[] = [];
+    await validateLocalSkillInitTarget(skillName, skillDirectoryPath);
+    await mkdir(skillDirectoryPath, { recursive: true });
 
     try {
         await Bun.write(
-            join(canonicalSkillDirectoryPath, "SKILL.md"),
+            join(skillDirectoryPath, "SKILL.md"),
             renderInitializedSkillMarkdown(skillName, description, icon, title),
         );
-        await writeLocalSkillMetadata(canonicalSkillDirectoryPath);
-
-        for (const target of targets) {
-            await publishBundledSkillInstallation({
-                canonicalSkillDirectoryPath,
-                installedSkillDirectoryPath: target.installedSkillDirectoryPath,
-            });
-
-            publishedTargets.push(target);
-
-            context.logger.info(
-                {
-                    agentName: target.agentName,
-                    canonicalPath: canonicalSkillDirectoryPath,
-                    path: target.installedSkillDirectoryPath,
-                    skillName,
-                },
-                "Local skill initialized.",
-            );
-        }
+        await writeLocalSkillMetadata(skillDirectoryPath);
 
         writeLine(
             context.stdout,
             context.translator.t("skills.init.success", {
                 name: skillName,
-                path: canonicalSkillDirectoryPath,
+                path: skillDirectoryPath,
             }),
         );
 
-        for (const target of publishedTargets) {
-            writeLine(
-                context.stdout,
-                context.translator.t("skills.init.copied", {
-                    name: skillName,
-                    path: target.installedSkillDirectoryPath,
-                }),
-            );
-        }
+        context.logger.info(
+            {
+                agentName,
+                path: skillDirectoryPath,
+                skillName,
+            },
+            "Local skill initialized.",
+        );
     }
     catch (error) {
-        await Promise.all([
-            ...publishedTargets.map(target => removePath(target.installedSkillDirectoryPath)),
-            removePath(canonicalSkillDirectoryPath),
-        ]);
+        await removePath(skillDirectoryPath);
         throw error;
     }
 }
 
-export async function resolveLocalSkillPublicationTargets(
-    env: Record<string, string | undefined>,
-    skillName: string,
-): Promise<LocalSkillHostPublicationTarget[]> {
-    const targets = await Promise.all(
-        availableBundledSkillAgentNames.map(async (agentName) => {
-            const homeDirectory = resolveBundledSkillHomeDirectory(env, agentName);
+function parseRequiredSkillsInitAgent(
+    value: string | undefined,
+): BundledSkillAgentName {
+    if (value === undefined) {
+        throw new CliUserError("errors.skills.init.agentRequired", 1);
+    }
 
-            if (!(await directoryExists(homeDirectory))) {
-                return undefined;
-            }
-
-            return {
-                agentName,
-                homeDirectory,
-                installedSkillDirectoryPath: resolveBundledSkillDirectoryPath(
-                    homeDirectory,
-                    skillName,
-                ),
-            } satisfies LocalSkillHostPublicationTarget;
-        }),
+    const agentName = parseEnumOption(
+        value,
+        availableBundledSkillAgentNames,
+        "errors.skills.init.invalidAgent",
     );
 
-    return targets.filter(target => target !== undefined);
+    if (agentName === undefined) {
+        throw new CliUserError("errors.skills.init.agentRequired", 1);
+    }
+
+    return agentName;
 }
 
-async function validateLocalSkillInitTargets(
+async function validateLocalSkillInitTarget(
     skillName: string,
-    canonicalSkillDirectoryPath: string,
-    targets: readonly LocalSkillHostPublicationTarget[],
+    skillDirectoryPath: string,
 ): Promise<void> {
-    if (await pathExists(canonicalSkillDirectoryPath)) {
-        throw new CliUserError("errors.skills.storageConflict", 1, {
-            name: skillName,
-            path: canonicalSkillDirectoryPath,
-        });
-    }
-
-    const conflictingTarget = (
-        await Promise.all(
-            targets.map(async target =>
-                (await pathExists(target.installedSkillDirectoryPath))
-                    ? target
-                    : undefined,
-            ),
-        )
-    ).find(target => target !== undefined);
-
-    if (conflictingTarget !== undefined) {
+    if (await pathExists(skillDirectoryPath)) {
         throw new CliUserError("errors.skills.nameConflict", 1, {
             name: skillName,
-            path: conflictingTarget.installedSkillDirectoryPath,
+            path: skillDirectoryPath,
         });
     }
+}
+
+function isPathWithinAgentSkillsDirectory(
+    homeDirectory: string,
+    skillDirectoryPath: string,
+): boolean {
+    return isPathWithinDirectory(
+        resolveManagedSkillsDirectoryPath(homeDirectory),
+        skillDirectoryPath,
+    );
 }
 
 async function pathExists(path: string): Promise<boolean> {

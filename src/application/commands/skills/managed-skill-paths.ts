@@ -1,7 +1,6 @@
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
     bundledSkillMetadataFileName,
-    canonicalLocalSkillsDirectoryName,
     canonicalRegistrySkillsDirectoryName,
     codexSkillsDirectoryName,
 } from "./bundled-skill-paths.ts";
@@ -55,26 +54,6 @@ export function resolveManagedSkillCanonicalDirectoryPath(
     );
 }
 
-export function resolveLocalSkillCanonicalRootDirectoryPath(
-    settingsFilePath: string,
-): string {
-    return join(
-        dirname(settingsFilePath),
-        codexSkillsDirectoryName,
-        canonicalLocalSkillsDirectoryName,
-    );
-}
-
-export function resolveLocalSkillCanonicalDirectoryPath(
-    settingsFilePath: string,
-    skillName: string,
-): string {
-    return join(
-        resolveLocalSkillCanonicalRootDirectoryPath(settingsFilePath),
-        skillName,
-    );
-}
-
 export function isPathWithinDirectory(
     baseDirectoryPath: string,
     targetPath: string,
@@ -103,20 +82,6 @@ export function isManagedSkillPathContained(
     ) && isPathWithinDirectory(
         resolveManagedSkillCanonicalRootDirectoryPath(settingsFilePath),
         resolveManagedSkillCanonicalDirectoryPath(settingsFilePath, skillName),
-    );
-}
-
-export function isLocalSkillPathContained(
-    codexHomeDirectory: string,
-    settingsFilePath: string,
-    skillName: string,
-): boolean {
-    return isPathWithinDirectory(
-        resolveManagedSkillsDirectoryPath(codexHomeDirectory),
-        resolveManagedSkillDirectoryPath(codexHomeDirectory, skillName),
-    ) && isPathWithinDirectory(
-        resolveLocalSkillCanonicalRootDirectoryPath(settingsFilePath),
-        resolveLocalSkillCanonicalDirectoryPath(settingsFilePath, skillName),
     );
 }
 

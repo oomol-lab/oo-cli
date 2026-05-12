@@ -11,11 +11,14 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
-    resolveLocalSkillCanonicalDirectoryPath,
+    resolveCodexHomeDirectory,
+} from "./bundled-skill-paths.ts";
+import {
     resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-import { renderSkillMetadataJson } from "./skill-metadata.ts";
+import { createLocalSkillMetadata, renderSkillMetadataJson } from "./skill-metadata.ts";
 
 const skillInstallGuideUrl
     = "https://static.oomol.com/oo-cli/skill-install-guide/install.md";
@@ -798,14 +801,8 @@ function resolveLocalSkillDirectoryPath(
     sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
     skillId: string,
 ): string {
-    const storePaths = resolveStorePaths({
-        appName: APP_NAME,
-        env: sandbox.env,
-        platform: process.platform,
-    });
-
-    return resolveLocalSkillCanonicalDirectoryPath(
-        storePaths.settingsFilePath,
+    return resolveManagedSkillDirectoryPath(
+        resolveCodexHomeDirectory(sandbox.env),
         skillId,
     );
 }
@@ -844,6 +841,10 @@ async function writePublishedSkillFile(
         "---",
         "",
     ].join("\n"));
+    await Bun.write(
+        resolveManagedSkillMetadataFilePath(directoryPath),
+        renderSkillMetadataJson(createLocalSkillMetadata()),
+    );
 }
 
 async function writeSkillFile(

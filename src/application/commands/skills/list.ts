@@ -3,7 +3,6 @@ import type { TerminalColors } from "../../terminal-colors.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import type {
     ManagedSkillHost,
-    ManagedSkillHostInstallation,
 } from "./managed-skill-hosts.ts";
 
 import type { SkillMarkdownMatter } from "./skill-frontmatter.ts";
@@ -11,28 +10,26 @@ import type {
     RegistrySkillMetadata,
     SkillMetadata,
 } from "./skill-metadata.ts";
-import { readdir, readFile, realpath } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver } from "../../semver.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
+import { parseEnumOption } from "../shared/input-parsing.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
-import { availableBundledSkillNames } from "./embedded-assets.ts";
 import {
-    hasMatchingSkillFileContent,
-    readSkillFileContent,
-} from "./local-skill-ownership.ts";
+    availableBundledSkillAgentNames,
+    availableBundledSkillNames,
+} from "./embedded-assets.ts";
+import { listLocalSkillSources } from "./local-skill-source.ts";
 import {
     readManagedSkillHostLabels,
 } from "./managed-skill-host-labels.ts";
 import {
     resolveAvailableManagedSkillHosts,
-    resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
 import {
-    isPathWithinDirectory,
-    resolveLocalSkillCanonicalRootDirectoryPath,
     resolveManagedSkillMetadataFilePath,
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
@@ -75,7 +72,7 @@ export interface ManagedSkillListItem {
     metadata?: SkillMetadata;
     name: string;
     path: string;
-    source?: "local";
+    source?: SkillListSource;
 }
 
 export interface ManagedSkillHostListItem extends ManagedSkillListItem {
@@ -97,6 +94,7 @@ interface SkillListSortableItem {
 }
 
 export interface LocalSkillListItem {
+    hostName?: BundledSkillAgentName;
     metadata?: SkillListDisplayMetadata;
     name: string;
     path: string;
@@ -112,6 +110,7 @@ interface SkillListDisplayMetadata {
 type ManagedSkillListTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
 
 interface SkillsListInput {
+    agent?: string;
     source?: SkillListSource;
 }
 
@@ -121,6 +120,12 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
     descriptionKey: "commands.skills.list.description",
     options: [
         {
+            name: "agent",
+            longFlag: "--agent",
+            valueName: "agent",
+            descriptionKey: "options.agent",
+        },
+        {
             name: "source",
             longFlag: "--source",
             shortFlag: "-s",
@@ -129,6 +134,7 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
         },
     ],
     inputSchema: z.object({
+        agent: z.string().optional(),
         source: z.enum(skillListSourceValues).optional(),
     }),
     mapInputError: (_, rawInput) => new CliUserError(
@@ -137,10 +143,11 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
         { value: String(rawInput.source ?? "") },
     ),
     handler: async (input, context) => {
-        const skills = filterSkillListOutputItems(
-            await listSkillOutputItems(context),
-            input.source,
-        );
+        const agentName = parseSkillListAgent(input.agent);
+        const skills = await listSkillOutputItems(context, {
+            agentName,
+            source: input.source,
+        });
 
         context.logger.info(
             {
@@ -164,13 +171,11 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
 
 export async function listManagedSkillInstallationsForHosts(
     hosts: readonly ManagedSkillHost[],
-    settingsFilePath?: string,
 ): Promise<ManagedSkillHostListItem[]> {
     const skillsByHost = await Promise.all(
         hosts.map(host =>
             listManagedSkillInstallations(
                 resolveManagedSkillsDirectoryPath(host.homeDirectory),
-                settingsFilePath,
             )
                 .then(skills => skills.map(skill => ({
                     ...skill,
@@ -185,25 +190,34 @@ export async function listManagedSkillInstallationsForHosts(
 }
 
 async function listSkillOutputItems(
-    context: Pick<CliExecutionContext, "env" | "settingsStore">,
+    context: Pick<CliExecutionContext, "env">,
+    options: {
+        agentName?: BundledSkillAgentName;
+        source?: SkillListSource;
+    } = {},
 ): Promise<SkillListOutputItem[]> {
-    const settingsFilePath = context.settingsStore.getFilePath();
-    const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
-    const [managedInstallations, localInstallations] = await Promise.all([
-        listManagedSkillInstallationsForHosts(availableHosts, settingsFilePath),
-        listLocalSkillInstallations(
-            resolveLocalSkillCanonicalRootDirectoryPath(settingsFilePath),
-        ),
-    ]);
-    const localOutputItems = await createLocalSkillOutputItems(
-        localInstallations,
+    const availableHosts = filterSkillListHosts(
+        await resolveAvailableManagedSkillHosts(context.env),
+        options.agentName,
+    );
+    if (options.source === "local") {
+        return await listLocalSkillOutputItems(context, {
+            agentName: options.agentName,
+        });
+    }
+
+    const managedInstallations = await listManagedSkillInstallationsForHosts(
         availableHosts,
     );
+    const managedOutputItems = groupSkillListInstallationsByIdentity(
+        managedInstallations.map(createManagedSkillOutputItem),
+    );
 
-    return groupSkillListInstallationsByIdentity([
-        ...localOutputItems,
-        ...managedInstallations.map(createManagedSkillOutputItem),
-    ]);
+    if (options.source === undefined) {
+        return managedOutputItems.filter(skill => skill.source !== "local");
+    }
+
+    return managedOutputItems.filter(skill => skill.source === options.source);
 }
 
 function createManagedSkillOutputItem(
@@ -220,58 +234,26 @@ function createManagedSkillOutputItem(
     };
 }
 
-function createLocalSkillOutputItems(
-    installations: readonly LocalSkillListItem[],
-    hosts: readonly ManagedSkillHost[],
+async function listLocalSkillOutputItems(
+    context: Pick<CliExecutionContext, "env">,
+    options: {
+        agentName?: BundledSkillAgentName;
+    } = {},
 ): Promise<SkillListOutputItem[]> {
-    return Promise.all(installations.map(installation =>
-        createLocalSkillOutputItem(
-            installation,
-            resolveManagedSkillHostInstallations(hosts, installation.name),
-        ),
-    ));
-}
-
-async function createLocalSkillOutputItem(
-    installation: LocalSkillListItem,
-    hostInstallations: readonly ManagedSkillHostInstallation[],
-): Promise<SkillListOutputItem> {
-    const matchingHostInstallations = await resolveLocalSkillHostInstallations(
-        installation.path,
-        hostInstallations,
+    const localInstallations = await listLocalSkillInstallationsForContext(
+        {
+            env: context.env,
+        },
+        options,
     );
 
-    return {
-        hostNames: matchingHostInstallations.map(host => host.agentName),
+    return localInstallations.map(installation => ({
+        hostNames: installation.hostName === undefined ? [] : [installation.hostName],
         metadata: installation.metadata,
         name: installation.name,
         paths: [installation.path],
         source: "local",
-    };
-}
-
-async function resolveLocalSkillHostInstallations(
-    canonicalSkillDirectoryPath: string,
-    hostInstallations: readonly ManagedSkillHostInstallation[],
-): Promise<ManagedSkillHostInstallation[]> {
-    const skillFileContent = await readSkillFileContent(canonicalSkillDirectoryPath);
-
-    if (skillFileContent === undefined) {
-        return [];
-    }
-
-    const matches = await Promise.all(
-        hostInstallations.map(async installation =>
-            await hasMatchingSkillFileContent({
-                expectedContent: skillFileContent,
-                skillDirectoryPath: installation.installedSkillDirectoryPath,
-            })
-                ? installation
-                : undefined,
-        ),
-    );
-
-    return matches.filter(match => match !== undefined);
+    }));
 }
 
 function groupSkillListInstallationsByIdentity(
@@ -307,20 +289,22 @@ function appendUniqueValues<Value>(target: Value[], values: readonly Value[]): v
     }
 }
 
-function filterSkillListOutputItems(
-    skills: readonly SkillListOutputItem[],
-    source?: SkillListSource,
-): SkillListOutputItem[] {
-    if (source === undefined) {
-        return [...skills];
+function parseSkillListAgent(
+    value: string | undefined,
+): BundledSkillAgentName | undefined {
+    if (value === undefined) {
+        return undefined;
     }
 
-    return skills.filter(skill => skill.source === source);
+    return parseEnumOption(
+        value,
+        availableBundledSkillAgentNames,
+        "errors.skills.list.invalidAgent",
+    );
 }
 
 export async function listManagedSkillInstallations(
     skillsDirectoryPath: string,
-    settingsFilePath?: string,
 ): Promise<ManagedSkillListItem[]> {
     const entries = await readSkillsDirectoryEntries(skillsDirectoryPath);
     const skills: Array<ManagedSkillListItem | undefined> = await Promise.all(
@@ -343,14 +327,16 @@ export async function listManagedSkillInstallations(
                 throw error;
             }
 
+            const metadata = parseSkillMetadataContent(metadataContent);
+
             return {
-                metadata: parseSkillMetadataContent(metadataContent),
+                metadata,
                 name: entryName,
                 path: skillDirectoryPath,
-                source: await readManagedSkillLocalSource(
-                    skillDirectoryPath,
-                    settingsFilePath,
-                ),
+                source: readManagedSkillListSource({
+                    metadata,
+                    name: entryName,
+                }),
             } satisfies ManagedSkillListItem;
         }),
     );
@@ -368,6 +354,27 @@ export async function listLocalSkillInstallations(
         entries.map(entryName =>
             readLocalSkillListItem(localSkillsDirectoryPath, entryName),
         ),
+    );
+
+    return skills
+        .filter(skill => skill !== undefined)
+        .sort(compareLocalSkillListItems);
+}
+
+async function listLocalSkillInstallationsForContext(
+    context: {
+        env: Record<string, string | undefined>;
+    },
+    options: {
+        agentName?: BundledSkillAgentName;
+    } = {},
+): Promise<LocalSkillListItem[]> {
+    const sources = await listLocalSkillSources(context, options);
+    const skills = await Promise.all(
+        sources.map(source => readLocalSkillListItemFromPath(source.path, {
+            hostName: source.agentName,
+            name: source.name,
+        })),
     );
 
     return skills
@@ -424,7 +431,19 @@ async function readLocalSkillListItem(
     localSkillsDirectoryPath: string,
     entryName: string,
 ): Promise<LocalSkillListItem | undefined> {
-    const skillDirectoryPath = join(localSkillsDirectoryPath, entryName);
+    return await readLocalSkillListItemFromPath(
+        join(localSkillsDirectoryPath, entryName),
+        { name: entryName },
+    );
+}
+
+async function readLocalSkillListItemFromPath(
+    skillDirectoryPath: string,
+    options: {
+        hostName?: BundledSkillAgentName;
+        name: string;
+    },
+): Promise<LocalSkillListItem | undefined> {
     let content: string;
 
     try {
@@ -438,15 +457,16 @@ async function readLocalSkillListItem(
         throw error;
     }
 
-    const parsed = parseLocalSkillListItem(content, entryName);
+    const parsed = parseLocalSkillListItem(content, options.name);
 
     if (parsed === undefined) {
         return undefined;
     }
 
     return {
+        hostName: options.hostName,
         metadata: parsed.metadata,
-        name: entryName,
+        name: options.name,
         path: skillDirectoryPath,
     };
 }
@@ -557,12 +577,8 @@ function formatManagedSkillDetailLine(
 }
 
 function readManagedSkillListSource(
-    skill: Pick<ManagedSkillListItem, "metadata" | "name" | "source">,
+    skill: Pick<ManagedSkillListItem, "metadata" | "name">,
 ): SkillListSource {
-    if (skill.source === "local") {
-        return "local";
-    }
-
     if (skill.metadata?.kind === "local") {
         return "local";
     }
@@ -630,6 +646,10 @@ function hasSameSkillListIdentity(
     left: SkillListOutputItem,
     right: SkillListOutputItem,
 ): boolean {
+    if (left.source === "local" || right.source === "local") {
+        return false;
+    }
+
     return left.name === right.name
         && left.source === right.source
         && readSkillListPackageIdentity(left) === readSkillListPackageIdentity(right)
@@ -705,33 +725,6 @@ function createRegistrySkillListDisplayMetadata(
     };
 }
 
-async function readManagedSkillLocalSource(
-    skillDirectoryPath: string,
-    settingsFilePath?: string,
-): Promise<"local" | undefined> {
-    if (settingsFilePath === undefined) {
-        return undefined;
-    }
-
-    try {
-        const realSkillDirectoryPath = await realpath(skillDirectoryPath);
-
-        return isPathWithinDirectory(
-            resolveLocalSkillCanonicalRootDirectoryPath(settingsFilePath),
-            realSkillDirectoryPath,
-        )
-            ? "local"
-            : undefined;
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return undefined;
-        }
-
-        throw error;
-    }
-}
-
 function compareSkillListOutputItems(
     left: SkillListOutputItem,
     right: SkillListOutputItem,
@@ -766,7 +759,13 @@ function compareLocalSkillListItems(
     left: LocalSkillListItem,
     right: LocalSkillListItem,
 ): number {
-    return left.name.localeCompare(right.name);
+    const nameDifference = left.name.localeCompare(right.name);
+
+    if (nameDifference !== 0) {
+        return nameDifference;
+    }
+
+    return (left.hostName ?? "").localeCompare(right.hostName ?? "");
 }
 
 function compareManagedSkillHostListItems(
@@ -781,4 +780,15 @@ function compareManagedSkillHostListItems(
     }
 
     return compareManagedSkillListItems(left, right);
+}
+
+function filterSkillListHosts(
+    hosts: readonly ManagedSkillHost[],
+    agentName: BundledSkillAgentName | undefined,
+): ManagedSkillHost[] {
+    if (agentName === undefined) {
+        return [...hosts];
+    }
+
+    return hosts.filter(host => host.agentName === agentName);
 }

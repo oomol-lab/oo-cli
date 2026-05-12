@@ -1,6 +1,6 @@
 import { lstat, mkdir, readFile, realpath, stat } from "node:fs/promises";
 
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 
 import { describe, expect, test } from "bun:test";
@@ -24,6 +24,7 @@ import {
 import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
 import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
+    canonicalLocalSkillsDirectoryName,
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
@@ -43,8 +44,8 @@ import {
 } from "./embedded-assets.ts";
 import { presetSkillPackageNames } from "./install.ts";
 import {
-    resolveLocalSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
 import {
@@ -123,8 +124,6 @@ describe("skills commands", () => {
                 properties: {
                     bundled_skill: "__all__",
                     command_full: "skills.install",
-                    local_refresh_count_bucket: "0",
-                    local_refresh_performed: false,
                     package_kind: "bundled",
                     skill_ids_count_bucket: "1-5",
                     skill_ids_sample: [
@@ -262,35 +261,24 @@ describe("skills commands", () => {
         }
     });
 
-    test("refreshes local canonical skills and overwrites drifted local agent copies", async () => {
+    test("leaves agent-native local skills untouched during bundled install", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillName = "local-helper";
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             skillName,
         );
-        const canonicalSkillMarkdown = createLocalSkillMarkdown(
+        const skillMarkdown = createLocalSkillMarkdown(
             skillName,
-            "Canonical local helper.",
-            "Canonical",
+            "Agent-native local helper.",
+            "Local",
         );
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
-            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
             await mkdir(skillDirectoryPath, { recursive: true });
-            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), canonicalSkillMarkdown);
-            await Bun.write(
-                join(skillDirectoryPath, "SKILL.md"),
-                createLocalSkillMarkdown(skillName, "Agent local helper.", "Agent"),
-            );
+            await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillMarkdown);
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(skillDirectoryPath),
                 renderSkillMetadataJson(createLocalSkillMetadata()),
@@ -301,17 +289,18 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe(
-                `Warning: Local skill ${skillName} copy at ${skillDirectoryPath} differs from canonical storage and was overwritten.\n`,
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "Installed 4 skills to Codex.",
+                    "Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill",
+                    "",
+                ].join("\n"),
             );
-            expect(result.stdout).toContain(`Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill, ${skillName}`);
             expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toBe(
-                canonicalSkillMarkdown,
+                skillMarkdown,
             );
             expect(await readFile(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "utf8")).toBe(
-                renderSkillMetadataJson(createLocalSkillMetadata()),
-            );
-            expect(await readFile(resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath), "utf8")).toBe(
                 renderSkillMetadataJson(createLocalSkillMetadata()),
             );
         }
@@ -320,18 +309,23 @@ describe("skills commands", () => {
         }
     });
 
-    test("adopts a matching legacy local agent copy during install", async () => {
+    test("ignores legacy canonical local storage during bundled install", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
         const skillName = "legacy-local-helper";
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            skillName,
+        );
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const canonicalSkillDirectoryPath = join(
+            dirname(storePaths.settingsFilePath),
+            "skills",
+            canonicalLocalSkillsDirectoryName,
             skillName,
         );
         const skillMarkdown = createLocalSkillMarkdown(
@@ -343,9 +337,11 @@ describe("skills commands", () => {
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
             await mkdir(canonicalSkillDirectoryPath, { recursive: true });
-            await mkdir(skillDirectoryPath, { recursive: true });
             await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), skillMarkdown);
-            await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillMarkdown);
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
 
             const result = await sandbox.run(["skills", "install"], {
                 version: "9.9.9",
@@ -353,146 +349,12 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(await readFile(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "utf8")).toBe(
-                renderSkillMetadataJson(createLocalSkillMetadata()),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("refuses to overwrite a file at a local agent target during install", async () => {
-        const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillName = "file-target-helper";
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            skillName,
-        );
-
-        try {
-            await mkdir(join(codexHomeDirectory, "skills"), { recursive: true });
-            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
-            await Bun.write(
-                join(canonicalSkillDirectoryPath, "SKILL.md"),
-                createLocalSkillMarkdown(skillName, "Canonical helper.", "Canonical"),
-            );
-            await Bun.write(skillDirectoryPath, "occupied\n");
-
-            const result = await sandbox.run(["skills", "install"], {
-                version: "9.9.9",
+            expect(result.stdout).not.toContain(skillName);
+            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
             });
-
-            expect(result.exitCode).toBe(1);
-            expect(result.stderr).toBe(
-                `Skill name ${skillName} is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
-            );
-            expect(await readFile(skillDirectoryPath, "utf8")).toBe("occupied\n");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("refuses to overwrite an unmanaged conflicting local agent copy during install", async () => {
-        const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillName = "conflicting-local-helper";
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            skillName,
-        );
-
-        try {
-            await mkdir(codexHomeDirectory, { recursive: true });
-            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
-            await mkdir(skillDirectoryPath, { recursive: true });
-            await Bun.write(
-                join(canonicalSkillDirectoryPath, "SKILL.md"),
-                createLocalSkillMarkdown(skillName, "Canonical helper.", "Canonical"),
-            );
-            await Bun.write(
-                join(skillDirectoryPath, "SKILL.md"),
-                createLocalSkillMarkdown(skillName, "Unmanaged helper.", "Unmanaged"),
-            );
-
-            const result = await sandbox.run(["skills", "install"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(1);
-            expect(result.stderr).toBe(
-                `Skill name ${skillName} is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
-            );
-            expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toContain(
-                "Unmanaged helper.",
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("refuses to overwrite a registry-owned local agent target during install", async () => {
-        const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillName = "registry-owned-helper";
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            skillName,
-        );
-        const skillMarkdown = createLocalSkillMarkdown(
-            skillName,
-            "Canonical helper.",
-            "Canonical",
-        );
-
-        try {
-            await mkdir(codexHomeDirectory, { recursive: true });
-            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
-            await mkdir(skillDirectoryPath, { recursive: true });
-            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), skillMarkdown);
-            await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillMarkdown);
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-                renderSkillMetadataJson(createRegistrySkillMetadata({
-                    packageName: "registry-owned-helper",
-                    version: "1.0.0",
-                })),
-            );
-
-            const result = await sandbox.run(["skills", "install"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(1);
-            expect(result.stderr).toBe(
-                `Skill name ${skillName} is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
-            );
-            expect(await readFile(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "utf8")).toBe(
-                renderSkillMetadataJson(createRegistrySkillMetadata({
-                    packageName: "registry-owned-helper",
-                    version: "1.0.0",
-                })),
+            expect(await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                skillMarkdown,
             );
         }
         finally {
@@ -1556,22 +1418,24 @@ describe("skills commands", () => {
         }
     });
 
-    test("uninstalls matching local and registry skills with the same name", async () => {
+    test("uninstalls matching registry and single local skills with the same name", async () => {
         const sandbox = await createCliSandbox();
         const skillName = "shared-skill";
         const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
         const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
-        const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", skillName);
-        const codeBuddySkillDirectoryPath = join(codeBuddyHomeDirectory, "skills", skillName);
+        const claudeSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            claudeHomeDirectory,
+            skillName,
+        );
+        const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codeBuddyHomeDirectory,
+            skillName,
+        );
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const localCanonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            skillName,
-        );
         const registryCanonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             skillName,
@@ -1590,7 +1454,6 @@ describe("skills commands", () => {
             await Promise.all([
                 mkdir(claudeSkillDirectoryPath, { recursive: true }),
                 mkdir(codeBuddySkillDirectoryPath, { recursive: true }),
-                mkdir(localCanonicalSkillDirectoryPath, { recursive: true }),
                 mkdir(registryCanonicalSkillDirectoryPath, { recursive: true }),
             ]);
             await Bun.write(
@@ -1599,8 +1462,11 @@ describe("skills commands", () => {
             );
             await Bun.write(join(claudeSkillDirectoryPath, "SKILL.md"), "# Registry\n");
             await Bun.write(join(registryCanonicalSkillDirectoryPath, "SKILL.md"), "# Registry\n");
-            await Bun.write(join(localCanonicalSkillDirectoryPath, "SKILL.md"), localSkillContent);
             await Bun.write(join(codeBuddySkillDirectoryPath, "SKILL.md"), localSkillContent);
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(codeBuddySkillDirectoryPath),
+                renderSkillMetadataJson(createLocalSkillMetadata()),
+            );
 
             const result = await sandbox.run(["skills", "remove", skillName]);
 
@@ -1619,9 +1485,6 @@ describe("skills commands", () => {
             await expect(stat(codeBuddySkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
-            await expect(stat(localCanonicalSkillDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
-            });
             await expect(stat(registryCanonicalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
@@ -1631,22 +1494,17 @@ describe("skills commands", () => {
         }
     });
 
-    test("uninstalls registry before local when both match the same host path", async () => {
+    test("warns and keeps multiple local matches without an agent", async () => {
         const sandbox = await createCliSandbox();
-        const skillName = "same-target";
+        const skillName = "ambiguous-local";
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", skillName);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const localCanonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             skillName,
         );
-        const registryCanonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codeBuddyHomeDirectory,
             skillName,
         );
         const skillContent = [
@@ -1661,37 +1519,34 @@ describe("skills commands", () => {
 
         try {
             await Promise.all([
-                mkdir(skillDirectoryPath, { recursive: true }),
-                mkdir(localCanonicalSkillDirectoryPath, { recursive: true }),
-                mkdir(registryCanonicalSkillDirectoryPath, { recursive: true }),
+                mkdir(codexSkillDirectoryPath, { recursive: true }),
+                mkdir(codeBuddySkillDirectoryPath, { recursive: true }),
             ]);
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
-            );
-            await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillContent);
-            await Bun.write(join(localCanonicalSkillDirectoryPath, "SKILL.md"), skillContent);
-            await Bun.write(join(registryCanonicalSkillDirectoryPath, "SKILL.md"), skillContent);
+            await Promise.all([
+                Bun.write(join(codexSkillDirectoryPath, "SKILL.md"), skillContent),
+                Bun.write(join(codeBuddySkillDirectoryPath, "SKILL.md"), skillContent),
+                Bun.write(
+                    resolveManagedSkillMetadataFilePath(codexSkillDirectoryPath),
+                    renderSkillMetadataJson(createLocalSkillMetadata()),
+                ),
+                Bun.write(
+                    resolveManagedSkillMetadataFilePath(codeBuddySkillDirectoryPath),
+                    renderSkillMetadataJson(createLocalSkillMetadata()),
+                ),
+            ]);
 
             const result = await sandbox.run(["skills", "remove", skillName]);
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toBe(
-                [
-                    `Removed skill ${skillName} from ${skillDirectoryPath}.`,
-                    `Removed skill ${skillName} from ${localCanonicalSkillDirectoryPath}.`,
-                    "",
-                ].join("\n"),
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                `Warning: Local skill ${skillName} exists in multiple local sources (codebuddy, codex). Nothing was removed; pass --agent to choose one.\n`,
             );
-            expect(result.stderr).toBe("");
-            await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
+            await expect(stat(codexSkillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
             });
-            await expect(stat(localCanonicalSkillDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
-            });
-            await expect(stat(registryCanonicalSkillDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
+            await expect(stat(codeBuddySkillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
             });
         }
         finally {
@@ -1699,30 +1554,65 @@ describe("skills commands", () => {
         }
     });
 
-    test("does not uninstall a local copy when the skill files differ", async () => {
+    test("uninstalls one local match when an agent is provided", async () => {
         const sandbox = await createCliSandbox();
-        const skillName = "local-copy";
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
-        const skillDirectoryPath = join(codeBuddyHomeDirectory, "skills", skillName);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const localCanonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const skillName = "agent-local";
+        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveCodexHomeDirectory(sandbox.env),
             skillName,
+        );
+        const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveCodeBuddyHomeDirectory(sandbox.env),
+            skillName,
+        );
+        const skillContent = createLocalSkillMarkdown(
+            skillName,
+            "Agent local workflow.",
+            "Agent Local",
         );
 
         try {
             await Promise.all([
-                mkdir(skillDirectoryPath, { recursive: true }),
-                mkdir(localCanonicalSkillDirectoryPath, { recursive: true }),
+                writeLocalSkillDirectory(codexSkillDirectoryPath, skillContent),
+                writeLocalSkillDirectory(codeBuddySkillDirectoryPath, skillContent),
             ]);
-            await Bun.write(
-                join(localCanonicalSkillDirectoryPath, "SKILL.md"),
-                "# Canonical\n",
+
+            const result = await sandbox.run([
+                "skills",
+                "remove",
+                skillName,
+                "--agent",
+                "codex",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Removed skill ${skillName} from ${codexSkillDirectoryPath}.\n`,
             );
+            expect(result.stderr).toBe("");
+            await expect(stat(codexSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(codeBuddySkillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not uninstall a same-name non-oo skill without local metadata", async () => {
+        const sandbox = await createCliSandbox();
+        const skillName = "local-copy";
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codeBuddyHomeDirectory,
+            skillName,
+        );
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
             await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# Custom\n");
 
             const result = await sandbox.run(["skills", "remove", skillName]);
@@ -1733,9 +1623,6 @@ describe("skills commands", () => {
                 `${skillName} is not managed by oo and cannot be removed.\n`,
             );
             await expect(stat(skillDirectoryPath)).resolves.toMatchObject({
-                isDirectory: expect.any(Function),
-            });
-            await expect(stat(localCanonicalSkillDirectoryPath)).resolves.toMatchObject({
                 isDirectory: expect.any(Function),
             });
         }
@@ -2314,8 +2201,8 @@ describe("skills commands", () => {
             env: sandbox.env,
             platform: process.platform,
         });
-        const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const localSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             "local-helper",
         );
         const registryCanonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
@@ -2368,6 +2255,10 @@ describe("skills commands", () => {
                     "---",
                     "",
                 ].join("\n"),
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(localSkillDirectoryPath),
+                renderSkillMetadataJson(createLocalSkillMetadata()),
             );
 
             const result = await sandbox.run(["skills", "sync", "upload"], {
@@ -3404,4 +3295,16 @@ function createLocalSkillMarkdown(
         `# ${heading}`,
         "",
     ].join("\n");
+}
+
+async function writeLocalSkillDirectory(
+    skillDirectoryPath: string,
+    skillMarkdown: string,
+): Promise<void> {
+    await mkdir(skillDirectoryPath, { recursive: true });
+    await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillMarkdown);
+    await Bun.write(
+        resolveManagedSkillMetadataFilePath(skillDirectoryPath),
+        renderSkillMetadataJson(createLocalSkillMetadata()),
+    );
 }

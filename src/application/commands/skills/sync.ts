@@ -205,7 +205,7 @@ async function collectRegistrySkillSyncRecords(
         listManagedSkillInstallations(
             resolveManagedSkillCanonicalRootDirectoryPath(settingsFilePath),
         ),
-        listManagedSkillInstallationsForHosts(availableHosts, settingsFilePath),
+        listManagedSkillInstallationsForHosts(availableHosts),
     ]);
 
     return deduplicateSkillSyncRecords(

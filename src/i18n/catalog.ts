@@ -166,10 +166,10 @@ export const enMessages = {
         "Install uploaded oo-managed registry skills into supported local skill directories.",
     "commands.skills.sync.apply.summary": "Apply uploaded registry skills",
     "commands.skills.check.description":
-        "Check whether this environment can edit local skills.",
+        "Check whether this environment can author local skills for an agent.",
     "commands.skills.check.summary": "Preflight local skill editing",
     "commands.skills.init.description":
-        "Initialize a local skill and publish it to supported local skill directories.",
+        "Initialize a local skill in the selected agent's skill directory.",
     "commands.skills.init.summary": "Initialize a local skill",
     "commands.skills.validate.description":
         "Validate a local skill directory against the generic skill contract.",
@@ -404,12 +404,20 @@ export const enMessages = {
         "Skill name {name} resolves outside the local skill directories.",
     "errors.skills.init.invalidIcon":
         "Invalid value for --icon. Use a non-empty icon reference.",
+    "errors.skills.init.agentRequired":
+        "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+    "errors.skills.init.invalidAgent":
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
     "errors.skills.init.invalidTitle":
         "Invalid value for --title. Use a non-empty display title.",
     "errors.skills.init.descriptionRequired":
         "Missing required --description. Provide a concise trigger description for the generated skill.",
     "errors.skills.init.invalidName":
         "Invalid skill name: {value}. Use a name that can be normalized to lowercase hyphen-case.",
+    "errors.skills.check.agentRequired":
+        "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+    "errors.skills.check.invalidAgent":
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
     "errors.skills.publish.invalidPackageMetadata":
         "Invalid skill package metadata: {message}",
     "errors.skills.publish.invalidAgent":
@@ -418,16 +426,10 @@ export const enMessages = {
         "Cannot publish the skill at {path}: {message}",
     "errors.skills.publish.invalidVisibility":
         "Invalid skill publish visibility: {value}. Use private or public.",
-    "errors.skills.publish.adoptionCancelled":
-        "Publishing skill {name} was cancelled before moving {path} into local storage.",
-    "errors.skills.publish.adoptionConfirmationRequired":
-        "Skill {name} was found at {path}. Run in an interactive terminal to confirm moving it into local storage at {localPath}.",
     "errors.skills.publish.bundledSkill":
-        "Bundled skill {name} cannot be published directly because it is managed by the oo CLI release. Create or adopt a local copy before publishing.",
-    "errors.skills.publish.localSkillMissing":
-        "Local skill {name} does not exist at {path}.",
-    "errors.skills.publish.localCopyDrift":
-        "Local skill {name} has modified agent copies at {paths}. Publishing uses canonical storage at {localPath}; pass --force to ignore agent-side changes.",
+        "Bundled skill {name} cannot be published directly because it is managed by the oo CLI release. Create a local skill before publishing.",
+    "errors.skills.publish.localSkillAmbiguous":
+        "Local skill {name} exists in multiple local sources ({agents}). Pass --agent to choose which agent-native skill to publish.",
     "errors.skills.publish.registryMetadataMissing":
         "Registry skill {name} cannot be published because its metadata file at {path} does not identify a packageName.",
     "errors.skills.publish.registryPackageConfirmationRequired":
@@ -448,6 +450,10 @@ export const enMessages = {
         "Cannot find skill {name} in local, bundled, registry, requested agent, or path sources.",
     "errors.skills.publish.visibilityRequired":
         "Package {packageName} does not have an existing visibility to preserve. Run in an interactive terminal or pass --visibility private or --visibility public.",
+    "errors.skills.list.invalidAgent":
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+    "errors.skills.uninstall.invalidAgent":
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
     "errors.skills.share.cancelled":
         "Share cancelled for skill {name}.",
     "errors.skills.share.confirmationRequired":
@@ -770,14 +776,9 @@ export const enMessages = {
     "labels.blocks": "Blocks:",
     "labels.status": "Status",
     "labels.version": "Version",
-    "skills.init.success": "Initialized skill {name} in canonical storage at {path}.",
-    "skills.init.copied": "Copied skill {name} to {path}.",
+    "skills.init.success": "Initialized skill {name} at {path}.",
     "skills.publish.success":
         "Published skill {name} as {visibility} package {packageName}@{version}. View it at {hubUrl}.",
-    "skills.publish.adopted":
-        "Adopted skill {name} into local canonical storage at {path}.",
-    "skills.publish.adoption.prompt":
-        "Skill {name} was found at {path}. Move it into local storage at {localPath} and publish it as {packageName}? [y/N] ",
     "skills.publish.confirm.invalid":
         "Invalid choice. Enter y/yes or n/no.",
     "skills.publish.visibility.invalid":
@@ -827,10 +828,8 @@ export const enMessages = {
     "skills.share.prompt.runInstruction":
         "First follow the guide to check OO CLI and login state, then run:",
     "skills.share.prompt.skillLine": "Skill: {skillId}",
-    "warnings.skills.localCopyDriftOverwritten":
-        "Warning: Local skill {name} copy at {path} differs from canonical storage and was overwritten.",
-    "warnings.skills.publishLocalCopyDriftIgnored":
-        "Warning: Local skill {name} has modified agent copies at {paths}; publishing canonical storage at {localPath} and ignoring agent-side changes.",
+    "warnings.skills.localUninstallAmbiguous":
+        "Warning: Local skill {name} exists in multiple local sources ({agents}). Nothing was removed; pass --agent to choose one.",
     "skills.install.success": "Installed skill {name} to {path}.",
     "skills.install.summary.agentsLabel": "Agents",
     "skills.install.summary.detailLine": "{label}: {values}",
@@ -1119,10 +1118,10 @@ export const zhMessages = {
         "将已上传且由 oo 管理的 registry skill 安装到受支持的本地 skill 目录。",
     "commands.skills.sync.apply.summary": "应用已上传的 registry skill",
     "commands.skills.check.description":
-        "检查当前环境是否有权限编辑本地 skills。",
+        "检查当前环境是否有权限为指定 Agent 创建本地 skills。",
     "commands.skills.check.summary": "预检本地 skill 编辑环境",
     "commands.skills.init.description":
-        "初始化本地 skill，并发布到受支持的本地 skill 目录。",
+        "在指定 Agent 的 skill 目录中初始化本地 skill。",
     "commands.skills.init.summary": "初始化本地 skill",
     "commands.skills.validate.description":
         "按照通用 skill 契约校验本地 skill 目录。",
@@ -1345,12 +1344,20 @@ export const zhMessages = {
         "skill 名称 {name} 解析到了本地 skill 目录之外。",
     "errors.skills.init.invalidIcon":
         "--icon 的值无效。请使用非空 icon 引用。",
+    "errors.skills.init.agentRequired":
+        "缺少必填的 --agent。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+    "errors.skills.init.invalidAgent":
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
     "errors.skills.init.invalidTitle":
         "--title 的值无效。请使用非空显示标题。",
     "errors.skills.init.descriptionRequired":
         "缺少必填的 --description。请为生成的 skill 提供简洁的触发描述。",
     "errors.skills.init.invalidName":
         "无效的 skill 名称：{value}。请使用可规范化为小写短横线格式的名称。",
+    "errors.skills.check.agentRequired":
+        "缺少必填的 --agent。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+    "errors.skills.check.invalidAgent":
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
     "errors.skills.publish.invalidPackageMetadata":
         "skill 包元数据无效：{message}",
     "errors.skills.publish.invalidAgent":
@@ -1359,16 +1366,10 @@ export const zhMessages = {
         "无法发布 {path} 中的 skill：{message}",
     "errors.skills.publish.invalidVisibility":
         "无效的 skill 发布可见性：{value}。请使用 private 或 public。",
-    "errors.skills.publish.adoptionCancelled":
-        "已在将 {path} 移入本地存储前取消发布 skill {name}。",
-    "errors.skills.publish.adoptionConfirmationRequired":
-        "在 {path} 找到 skill {name}。请在交互式终端中确认是否将它移入本地存储 {localPath}。",
     "errors.skills.publish.bundledSkill":
-        "不能直接发布内置 skill {name}，因为它由 oo CLI 版本管理。请先创建或接管一个本地副本再发布。",
-    "errors.skills.publish.localSkillMissing":
-        "本地 skill {name} 不存在于 {path}。",
-    "errors.skills.publish.localCopyDrift":
-        "本地 skill {name} 的 Agent 副本在 {paths} 存在修改。发布只使用 canonical 存储 {localPath}；如需忽略 Agent 侧修改，请传入 --force。",
+        "不能直接发布内置 skill {name}，因为它由 oo CLI 版本管理。请先创建本地 skill 再发布。",
+    "errors.skills.publish.localSkillAmbiguous":
+        "本地 skill {name} 存在于多个本地来源（{agents}）。请传入 --agent 选择要发布的 Agent 本地 skill。",
     "errors.skills.publish.registryMetadataMissing":
         "无法发布 registry skill {name}，因为它位于 {path} 的元数据文件没有标识 packageName。",
     "errors.skills.publish.registryPackageConfirmationRequired":
@@ -1387,6 +1388,10 @@ export const zhMessages = {
         "skill 包发布请求返回了 HTTP {status}：{message}",
     "errors.skills.publish.visibilityRequired":
         "包 {packageName} 没有可沿用的已有可见性。请在交互式终端中运行，或传入 --visibility private / --visibility public。",
+    "errors.skills.list.invalidAgent":
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+    "errors.skills.uninstall.invalidAgent":
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
     "errors.skills.publish.skillNotFound":
         "无法在 local、bundled、registry、指定 Agent 或路径来源中找到 skill {name}。",
     "errors.skills.share.cancelled":
@@ -1703,14 +1708,9 @@ export const zhMessages = {
     "labels.blocks": "功能块：",
     "labels.status": "状态",
     "labels.version": "版本",
-    "skills.init.success": "已在 canonical 存储 {path} 初始化 skill {name}。",
-    "skills.init.copied": "已将 skill {name} 复制到 {path}。",
+    "skills.init.success": "已在 {path} 初始化 skill {name}。",
     "skills.publish.success":
         "已将 skill {name} 以{visibility}发布为 {packageName}@{version}。可在 {hubUrl} 查看。",
-    "skills.publish.adopted":
-        "已将 skill {name} 接管到本地 canonical 存储 {path}。",
-    "skills.publish.adoption.prompt":
-        "在 {path} 找到 skill {name}。是否将它移入本地存储 {localPath} 并发布为 {packageName}？[y/N] ",
     "skills.publish.confirm.invalid":
         "输入无效。请输入 y/yes 或 n/no。",
     "skills.publish.visibility.invalid":
@@ -1760,10 +1760,8 @@ export const zhMessages = {
     "skills.share.prompt.runInstruction":
         "请先按通用说明检查 OO CLI 和登录状态，然后执行：",
     "skills.share.prompt.skillLine": "Skill: {skillId}",
-    "warnings.skills.localCopyDriftOverwritten":
-        "Warning: 本地 skill {name} 位于 {path} 的副本与 canonical 存储不一致，已被覆盖。",
-    "warnings.skills.publishLocalCopyDriftIgnored":
-        "Warning: 本地 skill {name} 的 Agent 副本在 {paths} 存在修改；将发布 canonical 存储 {localPath} 并忽略 Agent 侧修改。",
+    "warnings.skills.localUninstallAmbiguous":
+        "Warning: 本地 skill {name} 存在于多个本地来源（{agents}）。未删除任何内容；请传入 --agent 选择一个。",
     "skills.install.success": "已将 skill {name} 安装到 {path}。",
     "skills.install.summary.agentsLabel": "Agents",
     "skills.install.summary.detailLine": "{label}：{values}",

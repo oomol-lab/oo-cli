@@ -1,7 +1,7 @@
 import type { CliCatalog, CliExecutionContext, Fetcher } from "../../contracts/cli.ts";
 
-import { lstat, mkdir, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import pino from "pino";
@@ -28,13 +28,10 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
-import { createSymbolicLinkForTest } from "./__tests__/helpers.ts";
 import {
-    resolveClaudeHomeDirectory,
     resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import {
-    resolveLocalSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
@@ -56,7 +53,7 @@ const emptyCatalog: CliCatalog = {
 describe("skills publish command", () => {
     const cleanup = useTemporaryDirectoryCleanup();
 
-    test("publishes a canonical local skill through the CLI", async () => {
+    test("publishes an agent-native local skill through the CLI", async () => {
         const { sandbox, skillDirectoryPath } = await createCliPublishSkillSandbox(
             "demo-skill",
             [
@@ -122,7 +119,6 @@ describe("skills publish command", () => {
 
             expect(telemetryPayload).toMatchObject({
                 properties: {
-                    adopted: false,
                     command_full: "skills.publish",
                     package_name: "@alice/demo-skill",
                     skill_id: "demo-skill",
@@ -204,132 +200,96 @@ describe("skills publish command", () => {
         }
     });
 
-    test("fails before publishing when a local agent copy has drifted", async () => {
-        const skillId = "drifted-skill";
-        const { sandbox, skillDirectoryPath } = await createCliPublishSkillSandbox(
-            skillId,
-            [
-                "---",
-                `name: ${skillId}`,
-                "description: Use the canonical workflow.",
-                "---",
-                "",
-                "# Canonical",
-                "",
-            ].join("\n"),
-        );
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const agentSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+    test("requires an agent when local skill ids are ambiguous across agents", async () => {
+        const configRootDirectoryPath = await createTemporaryDirectory("publish-ambiguous-config");
+        const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
+        const context = createPublishContext(settingsFilePath);
+        const skillId = "ambiguous-skill";
+        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveCodexHomeDirectory(context.env),
             skillId,
         );
-        const requests: Request[] = [];
+        const claudeSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            join(configRootDirectoryPath, ".claude"),
+            skillId,
+        );
 
-        try {
-            await writeSkillFile(agentSkillDirectoryPath, [
-                "---",
-                `name: ${skillId}`,
-                "description: Use the drifted workflow.",
-                "---",
-                "",
-                "# Agent",
-                "",
-            ].join("\n"));
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(agentSkillDirectoryPath),
-                renderSkillMetadataJson(createLocalSkillMetadata()),
-            );
+        cleanup.track(configRootDirectoryPath);
 
-            const result = await sandbox.run(
-                ["skills", "publish", skillId, "--visibility", "private"],
-                {
-                    fetcher: (input, init) => {
-                        requests.push(toRequest(input, init));
-                        return Promise.resolve(new Response("", { status: 201 }));
-                    },
+        await Promise.all([
+            writeLocalSkillFile(codexSkillDirectoryPath, createSkillMarkdown(
+                skillId,
+                "Use the Codex workflow.",
+            )),
+            writeLocalSkillFile(claudeSkillDirectoryPath, createSkillMarkdown(
+                skillId,
+                "Use the Claude workflow.",
+            )),
+        ]);
+
+        await expect(publishSkillPackage(
+            skillId,
+            context,
+            "private",
+            {},
+            {
+                convertSkillDirectoryToPackage: () => {
+                    throw new Error("Conversion should not run.");
                 },
-            );
-
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toBe(
-                `Local skill ${skillId} has modified agent copies at ${agentSkillDirectoryPath}. Publishing uses canonical storage at ${skillDirectoryPath}; pass --force to ignore agent-side changes.\n`,
-            );
-            expect(requests).toEqual([]);
-        }
-        finally {
-            await sandbox.cleanup();
-        }
+                publishConvertedSkillPackage: () => Promise.resolve(),
+            },
+        )).rejects.toMatchObject({
+            key: "errors.skills.publish.localSkillAmbiguous",
+        });
     });
 
-    test("publishes canonical local content with --force when a local agent copy has drifted", async () => {
-        const skillId = "force-drifted-skill";
-        const { sandbox, skillDirectoryPath } = await createCliPublishSkillSandbox(
-            skillId,
-            [
-                "---",
-                `name: ${skillId}`,
-                "description: Use the canonical workflow.",
-                "---",
-                "",
-                "# Canonical",
-                "",
-            ].join("\n"),
-        );
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const agentSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+    test("publishes the selected agent-native local skill when an agent is provided", async () => {
+        const configRootDirectoryPath = await createTemporaryDirectory("publish-selected-agent-config");
+        const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
+        const context = createPublishContext(settingsFilePath);
+        const skillId = "selected-local-skill";
+        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveCodexHomeDirectory(context.env),
             skillId,
         );
-        const requests: Request[] = [];
+        const claudeSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            join(configRootDirectoryPath, ".claude"),
+            skillId,
+        );
 
-        try {
-            await writeSkillFile(agentSkillDirectoryPath, [
-                "---",
-                `name: ${skillId}`,
-                "description: Use the drifted workflow.",
-                "---",
-                "",
-                "# Agent",
-                "",
-            ].join("\n"));
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(agentSkillDirectoryPath),
-                renderSkillMetadataJson(createLocalSkillMetadata()),
-            );
+        cleanup.track(configRootDirectoryPath);
 
-            const result = await sandbox.run(
-                ["skills", "publish", skillId, "--visibility", "private", "--force"],
-                {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
+        await Promise.all([
+            writeLocalSkillFile(codexSkillDirectoryPath, createSkillMarkdown(
+                skillId,
+                "Use the Codex workflow.",
+            )),
+            writeLocalSkillFile(claudeSkillDirectoryPath, createSkillMarkdown(
+                skillId,
+                "Use the Claude workflow.",
+            )),
+        ]);
 
-                        requests.push(request);
+        const result = await publishSkillPackage(
+            skillId,
+            context,
+            "private",
+            { agentName: "codex" },
+            {
+                publishConvertedSkillPackage: () => Promise.resolve(),
+                resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
+            },
+        );
 
-                        if (request.url.includes("/-/oomol/package-info/")) {
-                            return new Response("not found", { status: 404 });
-                        }
-
-                        return new Response("", { status: 201 });
-                    },
-                },
-            );
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain(
-                `Published skill ${skillId} as private package @alice/${skillId}@0.0.1.`,
-            );
-            expect(result.stderr).toBe(
-                `Warning: Local skill ${skillId} has modified agent copies at ${agentSkillDirectoryPath}; publishing canonical storage at ${skillDirectoryPath} and ignoring agent-side changes.\n`,
-            );
-            expect(requests.map(request => request.method)).toEqual(["GET", "PUT"]);
-            expect(
-                await readFile(join(agentSkillDirectoryPath, "SKILL.md"), "utf8"),
-            ).toContain("# Agent");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
+        expect(result).toMatchObject({
+            packageName: "@alice/selected-local-skill",
+            skillDirectoryPath: codexSkillDirectoryPath,
+            skillId,
+            version: "0.0.1",
+        });
+        expect(await readFile(join(claudeSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
+            "Use the Claude workflow.",
+        );
     });
 
     test("publishes public package metadata when visibility is public", async () => {
@@ -464,12 +424,10 @@ describe("skills publish command", () => {
                 "---",
                 "",
             ].join("\n"));
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-                renderSkillMetadataJson({
-                    packageName: "@alice/registry-skill",
-                    version: "0.1.0",
-                }),
+            await writeRegistrySkillMetadata(
+                skillDirectoryPath,
+                "@alice/registry-skill",
+                "0.1.0",
             );
 
             const requests: Request[] = [];
@@ -531,12 +489,10 @@ describe("skills publish command", () => {
             "---",
             "",
         ].join("\n"));
-        await Bun.write(
-            resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-            renderSkillMetadataJson({
-                packageName: "@bob/registry-owned-skill",
-                version: "0.1.0",
-            }),
+        await writeRegistrySkillMetadata(
+            skillDirectoryPath,
+            "@bob/registry-owned-skill",
+            "0.1.0",
         );
 
         const result = await publishSkillPackage(
@@ -545,10 +501,6 @@ describe("skills publish command", () => {
             "private",
             {},
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 publishConvertedSkillPackage: () => Promise.resolve(),
                 resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
             },
@@ -582,12 +534,10 @@ describe("skills publish command", () => {
                 "---",
                 "",
             ].join("\n"));
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-                renderSkillMetadataJson({
-                    packageName: invalidPackageName,
-                    version: "0.1.0",
-                }),
+            await writeRegistrySkillMetadata(
+                skillDirectoryPath,
+                invalidPackageName,
+                "0.1.0",
             );
 
             const result = await publishSkillPackage(
@@ -596,10 +546,6 @@ describe("skills publish command", () => {
                 "private",
                 { yes: true },
                 {
-                    checkAuthoringEnvironment: () => Promise.resolve({
-                        canonicalRootDirectoryPath: "",
-                        hostCount: 1,
-                    }),
                     publishConvertedSkillPackage: () => Promise.resolve(),
                     resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
                 },
@@ -627,12 +573,10 @@ describe("skills publish command", () => {
             "---",
             "",
         ].join("\n"));
-        await Bun.write(
-            resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-            renderSkillMetadataJson({
-                packageName: "@bob/shared-registry-skill#share-1",
-                version: "0.1.0",
-            }),
+        await writeRegistrySkillMetadata(
+            skillDirectoryPath,
+            "@bob/shared-registry-skill#share-1",
+            "0.1.0",
         );
 
         const result = await publishSkillPackage(
@@ -641,10 +585,6 @@ describe("skills publish command", () => {
             "private",
             {},
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 publishConvertedSkillPackage: () => Promise.resolve(),
                 resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
             },
@@ -676,12 +616,10 @@ describe("skills publish command", () => {
                 "---",
                 "",
             ].join("\n"));
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-                renderSkillMetadataJson({
-                    packageName: "@bob/forked-skill",
-                    version: "0.1.0",
-                }),
+            await writeRegistrySkillMetadata(
+                skillDirectoryPath,
+                "@bob/forked-skill",
+                "0.1.0",
             );
 
             const result = await sandbox.run(
@@ -710,45 +648,23 @@ describe("skills publish command", () => {
         }
     });
 
-    test("adopts an agent skill before publishing it", async () => {
-        const sandbox = await createCliSandbox();
-        const stdin = createInteractiveInput();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const agentSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+    test("publishes an agent-native local skill in place", async () => {
+        const { sandbox, skillDirectoryPath } = await createCliPublishSkillSandbox(
             "agent-skill",
-        );
-        const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            "agent-skill",
-        );
-
-        try {
-            await mkdir(codexHomeDirectory, { recursive: true });
-            await writeAuthFile(sandbox);
-            await writeSkillFile(agentSkillDirectoryPath, [
+            [
                 "---",
                 "name: agent-skill",
                 "description: Use an agent-local workflow.",
+                "metadata:",
+                "  icon: ':sparkles:'",
+                "  packageName: '@bob/agent-skill'",
+                "  version: '0.3.0'",
                 "---",
                 "",
-            ].join("\n"));
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(agentSkillDirectoryPath),
-                renderSkillMetadataJson({
-                    icon: ":sparkles:",
-                    packageName: "@bob/agent-skill",
-                    version: "0.3.0",
-                }),
-            );
+            ].join("\n"),
+        );
 
-            stdin.feed("yes\n");
-
+        try {
             const result = await sandbox.run(
                 ["skills", "publish", "agent-skill", "--agent", "codex", "--visibility", "private"],
                 {
@@ -761,23 +677,19 @@ describe("skills publish command", () => {
 
                         return new Response("", { status: 201 });
                     },
-                    stdin,
                 },
             );
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain(
-                `Adopted skill agent-skill into local canonical storage at ${localSkillDirectoryPath}.\n`,
+            expect(result.stdout).toBe(
+                "Published skill agent-skill as private package @bob/agent-skill@0.3.0. View it at https://hub.oomol.com/package/@bob/agent-skill.\n",
             );
-            expect(result.stdout).toContain(
-                "Published skill agent-skill as private package @bob/agent-skill@0.3.0.",
-            );
-            expect(await readFile(resolveManagedSkillMetadataFilePath(localSkillDirectoryPath), "utf8")).toBe(
+            expect(await readFile(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "utf8")).toBe(
                 renderSkillMetadataJson(createLocalSkillMetadata()),
             );
 
             const parsed = parseSkillMarkdownMatter(
-                await readFile(join(localSkillDirectoryPath, "SKILL.md"), "utf8"),
+                await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8"),
             );
 
             expect(parsed.data.metadata).toMatchObject({
@@ -785,7 +697,6 @@ describe("skills publish command", () => {
                 packageName: "@bob/agent-skill",
                 version: "0.3.0",
             });
-            expect((await lstat(agentSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
             const telemetryPayload = parseTelemetryRowPayload(
                 readTelemetryRowsForTest(
                     join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
@@ -794,11 +705,10 @@ describe("skills publish command", () => {
 
             expect(telemetryPayload).toMatchObject({
                 properties: {
-                    adopted: true,
                     command_full: "skills.publish",
                     package_name: "@bob/agent-skill",
                     skill_id: "agent-skill",
-                    source_kind: "adoptable",
+                    source_kind: "local",
                     visibility: "private",
                 },
             });
@@ -808,29 +718,18 @@ describe("skills publish command", () => {
         }
     });
 
-    test("adopts a skill from a relative path before publishing it", async () => {
+    test("publishes a skill from a relative path in place", async () => {
         const configRootDirectoryPath = await createTemporaryDirectory("publish-path-config");
         const cwd = await createTemporaryDirectory("publish-path-cwd");
-        const codexHomeDirectory = await createTemporaryDirectory("publish-path-codex");
         const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
         const stdin = createInteractiveInput();
         const context = createPublishContext(settingsFilePath, { stdin });
         const sourceSkillDirectoryPath = join(cwd, "path-skill");
-        const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            "path-skill",
-        );
 
         cleanup.track(configRootDirectoryPath);
         cleanup.track(cwd);
-        cleanup.track(codexHomeDirectory);
 
         context.cwd = cwd;
-        context.env = {
-            CODEX_HOME: codexHomeDirectory,
-            HOME: configRootDirectoryPath,
-            USERPROFILE: configRootDirectoryPath,
-        };
 
         await writeSkillFile(sourceSkillDirectoryPath, [
             "---",
@@ -848,10 +747,6 @@ describe("skills publish command", () => {
             "private",
             {},
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 publishConvertedSkillPackage: () => Promise.resolve(),
                 resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
             },
@@ -859,141 +754,27 @@ describe("skills publish command", () => {
 
         expect(result).toMatchObject({
             packageName: "@alice/path-skill",
-            skillDirectoryPath: localSkillDirectoryPath,
+            skillDirectoryPath: sourceSkillDirectoryPath,
             skillId: "path-skill",
             version: "0.0.1",
         });
-        await expect(stat(sourceSkillDirectoryPath)).rejects.toMatchObject({
-            code: "ENOENT",
+        await expect(stat(sourceSkillDirectoryPath)).resolves.toMatchObject({
+            isDirectory: expect.any(Function),
         });
-        await expect(stat(join(codexHomeDirectory, "skills", "path-skill")))
-            .resolves
-            .toMatchObject({
-                isDirectory: expect.any(Function),
-            });
     });
 
-    test("rejects adopting a skill directory that contains symlinks", async () => {
-        const cases = [
-            {
-                linkKind: "file",
-                linkPath: join("nested", "linked-secret.txt"),
-                name: "file",
-            },
-            {
-                linkKind: "directory",
-                linkPath: join("nested", "linked-secret"),
-                name: "directory",
-            },
-        ] as const;
-
-        for (const testCase of cases) {
-            const configRootDirectoryPath = await createTemporaryDirectory(
-                `publish-adopt-symlink-${testCase.name}-config`,
-            );
-            const cwd = await createTemporaryDirectory(
-                `publish-adopt-symlink-${testCase.name}-cwd`,
-            );
-            const codexHomeDirectory = await createTemporaryDirectory(
-                `publish-adopt-symlink-${testCase.name}-codex`,
-            );
-            const externalPath = await createTemporaryDirectory(
-                `publish-adopt-symlink-${testCase.name}-external`,
-            );
-            const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
-            const stdin = createInteractiveInput();
-            const context = createPublishContext(settingsFilePath, { stdin });
-            const skillId = `symlink-${testCase.name}-skill`;
-            const sourceSkillDirectoryPath = join(cwd, skillId);
-            const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-                settingsFilePath,
-                skillId,
-            );
-
-            cleanup.track(configRootDirectoryPath);
-            cleanup.track(cwd);
-            cleanup.track(codexHomeDirectory);
-            cleanup.track(externalPath);
-
-            context.cwd = cwd;
-            context.env = {
-                CODEX_HOME: codexHomeDirectory,
-                HOME: configRootDirectoryPath,
-                USERPROFILE: configRootDirectoryPath,
-            };
-
-            await writeSkillFile(sourceSkillDirectoryPath, [
-                "---",
-                `name: ${skillId}`,
-                "description: Use a path-local workflow.",
-                "---",
-                "",
-            ].join("\n"));
-            await mkdir(join(sourceSkillDirectoryPath, "nested"), { recursive: true });
-            await createSymbolicLinkForTest(
-                join(externalPath, "secret"),
-                join(sourceSkillDirectoryPath, testCase.linkPath),
-                testCase.linkKind,
-            );
-
-            stdin.feed("yes\n");
-
-            await expect(publishSkillPackage(
-                `./${skillId}`,
-                context,
-                "private",
-                {},
-                {
-                    checkAuthoringEnvironment: () => Promise.resolve({
-                        canonicalRootDirectoryPath: "",
-                        hostCount: 1,
-                    }),
-                    convertSkillDirectoryToPackage: () => {
-                        throw new Error("Conversion should not run.");
-                    },
-                    publishConvertedSkillPackage: () => Promise.resolve(),
-                },
-            )).rejects.toMatchObject({
-                key: "errors.skills.publish.invalidSkillFile",
-                params: {
-                    message: `Skill entries must not be symbolic links: ${testCase.linkPath}.`,
-                    path: sourceSkillDirectoryPath,
-                },
-            });
-
-            expect(
-                (await lstat(join(sourceSkillDirectoryPath, testCase.linkPath)))
-                    .isSymbolicLink(),
-            ).toBeTrue();
-            await expect(stat(localSkillDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
-            });
-        }
-    });
-
-    test("does not move an invalid path skill into local storage", async () => {
+    test("does not modify an invalid path skill", async () => {
         const configRootDirectoryPath = await createTemporaryDirectory("publish-invalid-path-config");
         const cwd = await createTemporaryDirectory("publish-invalid-path-cwd");
-        const codexHomeDirectory = await createTemporaryDirectory("publish-invalid-path-codex");
         const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
         const stdin = createInteractiveInput();
         const context = createPublishContext(settingsFilePath, { stdin });
         const sourceSkillDirectoryPath = join(cwd, "invalid-path-skill");
-        const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            "invalid-path-skill",
-        );
 
         cleanup.track(configRootDirectoryPath);
         cleanup.track(cwd);
-        cleanup.track(codexHomeDirectory);
 
         context.cwd = cwd;
-        context.env = {
-            CODEX_HOME: codexHomeDirectory,
-            HOME: configRootDirectoryPath,
-            USERPROFILE: configRootDirectoryPath,
-        };
 
         await writeSkillFile(sourceSkillDirectoryPath, [
             "---",
@@ -1011,10 +792,6 @@ describe("skills publish command", () => {
             "private",
             {},
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 convertSkillDirectoryToPackage: () => {
                     throw new Error("Conversion should not run.");
                 },
@@ -1026,90 +803,6 @@ describe("skills publish command", () => {
 
         await expect(stat(sourceSkillDirectoryPath)).resolves.toMatchObject({
             isDirectory: expect.any(Function),
-        });
-        await expect(stat(localSkillDirectoryPath)).rejects.toMatchObject({
-            code: "ENOENT",
-        });
-    });
-
-    test("does not adopt an agent skill when another host target conflicts", async () => {
-        const configRootDirectoryPath = await createTemporaryDirectory("publish-agent-conflict-config");
-        const codexHomeDirectory = await createTemporaryDirectory("publish-agent-conflict-codex");
-        const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
-        const stdin = createInteractiveInput();
-        const context = createPublishContext(settingsFilePath, { stdin });
-        const claudeHomeDirectory = resolveClaudeHomeDirectory({
-            HOME: configRootDirectoryPath,
-            USERPROFILE: configRootDirectoryPath,
-        });
-        const sourceSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
-            "conflict-skill",
-        );
-        const conflictingSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            claudeHomeDirectory,
-            "conflict-skill",
-        );
-        const localSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            "conflict-skill",
-        );
-
-        cleanup.track(configRootDirectoryPath);
-        cleanup.track(codexHomeDirectory);
-
-        context.env = {
-            CODEX_HOME: codexHomeDirectory,
-            HOME: configRootDirectoryPath,
-            USERPROFILE: configRootDirectoryPath,
-        };
-
-        await mkdir(claudeHomeDirectory, { recursive: true });
-        await writeSkillFile(sourceSkillDirectoryPath, [
-            "---",
-            "name: conflict-skill",
-            "description: Use an agent-local workflow.",
-            "---",
-            "",
-        ].join("\n"));
-        await writeSkillFile(conflictingSkillDirectoryPath, [
-            "---",
-            "name: conflict-skill",
-            "description: Existing unmanaged skill.",
-            "---",
-            "",
-        ].join("\n"));
-
-        stdin.feed("yes\n");
-
-        await expect(publishSkillPackage(
-            "conflict-skill",
-            context,
-            "private",
-            { agentName: "codex" },
-            {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 2,
-                }),
-                convertSkillDirectoryToPackage: () => {
-                    throw new Error("Conversion should not run.");
-                },
-                publishConvertedSkillPackage: () => Promise.resolve(),
-            },
-        )).rejects.toMatchObject({
-            key: "errors.skills.nameConflict",
-            params: {
-                name: "conflict-skill",
-                path: conflictingSkillDirectoryPath,
-            },
-        });
-
-        await expect(stat(sourceSkillDirectoryPath)).resolves.toMatchObject({
-            isDirectory: expect.any(Function),
-        });
-        await expect(stat(localSkillDirectoryPath)).rejects.toMatchObject({
-            code: "ENOENT",
         });
     });
 
@@ -1125,7 +818,7 @@ describe("skills publish command", () => {
 
             expect(result.exitCode).toBe(1);
             expect(result.stderr).toBe(
-                "Bundled skill oo cannot be published directly because it is managed by the oo CLI release. Create or adopt a local copy before publishing.\n",
+                "Bundled skill oo cannot be published directly because it is managed by the oo CLI release. Create a local skill before publishing.\n",
             );
         }
         finally {
@@ -1150,7 +843,7 @@ describe("skills publish command", () => {
 
             expect(result.exitCode).toBe(1);
             expect(result.stderr).toBe(
-                "Bundled skill oo cannot be published directly because it is managed by the oo CLI release. Create or adopt a local copy before publishing.\n",
+                "Bundled skill oo cannot be published directly because it is managed by the oo CLI release. Create a local skill before publishing.\n",
             );
         }
         finally {
@@ -1192,14 +885,11 @@ describe("skills publish command", () => {
                 title: "Versioned Skill",
             })),
         });
-        const skillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            "versioned-skill",
-        );
+        const skillDirectoryPath = resolveCodexSkillDirectoryPath(context.env, "versioned-skill");
 
         cleanup.track(configRootDirectoryPath);
 
-        await writeSkillFile(skillDirectoryPath, [
+        await writeLocalSkillFile(skillDirectoryPath, [
             "---",
             "name: versioned-skill",
             "description: Use a known package workflow.",
@@ -1214,10 +904,6 @@ describe("skills publish command", () => {
             context,
             "private",
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 publishConvertedSkillPackage: () => Promise.resolve(),
             },
         );
@@ -1256,15 +942,12 @@ describe("skills publish command", () => {
             stdin,
             stdout: promptOutput.writer,
         });
-        const skillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            "blocked-skill",
-        );
+        const skillDirectoryPath = resolveCodexSkillDirectoryPath(context.env, "blocked-skill");
         let publishCalled = false;
 
         cleanup.track(configRootDirectoryPath);
 
-        await writeSkillFile(skillDirectoryPath, [
+        await writeLocalSkillFile(skillDirectoryPath, [
             "---",
             "name: blocked-skill",
             "description: Use a known package workflow.",
@@ -1279,10 +962,6 @@ describe("skills publish command", () => {
             context,
             "private",
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 publishConvertedSkillPackage: () => {
                     publishCalled = true;
 
@@ -1388,14 +1067,11 @@ describe("skills publish command", () => {
             })),
             stdin,
         });
-        const skillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            "blocked-skill",
-        );
+        const skillDirectoryPath = resolveCodexSkillDirectoryPath(context.env, "blocked-skill");
 
         cleanup.track(configRootDirectoryPath);
 
-        await writeSkillFile(skillDirectoryPath, [
+        await writeLocalSkillFile(skillDirectoryPath, [
             "---",
             "name: blocked-skill",
             "description: Use a known package workflow.",
@@ -1410,10 +1086,6 @@ describe("skills publish command", () => {
             context,
             "private",
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 convertSkillDirectoryToPackage: () => {
                     throw new Error("Conversion should not run.");
                 },
@@ -1454,14 +1126,11 @@ describe("skills publish command", () => {
             })),
             stdin: createNonInteractiveInput(),
         });
-        const skillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            "blocked-skill",
-        );
+        const skillDirectoryPath = resolveCodexSkillDirectoryPath(context.env, "blocked-skill");
 
         cleanup.track(configRootDirectoryPath);
 
-        await writeSkillFile(skillDirectoryPath, [
+        await writeLocalSkillFile(skillDirectoryPath, [
             "---",
             "name: blocked-skill",
             "description: Use a known package workflow.",
@@ -1474,10 +1143,6 @@ describe("skills publish command", () => {
             context,
             "private",
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 convertSkillDirectoryToPackage: () => {
                     throw new Error("Conversion should not run.");
                 },
@@ -1498,14 +1163,11 @@ describe("skills publish command", () => {
         const temporaryPackageRoot = await createTemporaryDirectory("publish-package");
         const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
         const context = createPublishContext(settingsFilePath);
-        const skillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            "versioned-skill",
-        );
+        const skillDirectoryPath = resolveCodexSkillDirectoryPath(context.env, "versioned-skill");
 
         cleanup.track(configRootDirectoryPath);
 
-        await writeSkillFile(skillDirectoryPath, [
+        await writeLocalSkillFile(skillDirectoryPath, [
             "---",
             "name: versioned-skill",
             "description: Use a known package workflow.",
@@ -1520,10 +1182,6 @@ describe("skills publish command", () => {
             context,
             "private",
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 createTemporaryPackageRoot: () => Promise.resolve(temporaryPackageRoot),
                 publishConvertedSkillPackage: () => Promise.resolve(),
                 resolveFinalPublishVersion: request => Promise.resolve(
@@ -1553,19 +1211,16 @@ describe("skills publish command", () => {
         });
     });
 
-    test("does not write local metadata when publishing fails", async () => {
+    test("preserves local metadata when publishing fails", async () => {
         const configRootDirectoryPath = await createTemporaryDirectory("publish-fail-config");
         const temporaryPackageRoot = await createTemporaryDirectory("publish-fail-package");
         const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
         const context = createPublishContext(settingsFilePath);
-        const skillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            settingsFilePath,
-            "failing-skill",
-        );
+        const skillDirectoryPath = resolveCodexSkillDirectoryPath(context.env, "failing-skill");
 
         cleanup.track(configRootDirectoryPath);
 
-        await writeSkillFile(skillDirectoryPath, [
+        await writeLocalSkillFile(skillDirectoryPath, [
             "---",
             "name: failing-skill",
             "description: Use a known package workflow.",
@@ -1578,10 +1233,6 @@ describe("skills publish command", () => {
             context,
             "private",
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
                 createTemporaryPackageRoot: () => Promise.resolve(temporaryPackageRoot),
                 publishConvertedSkillPackage: () => Promise.reject(new Error("publish failed")),
                 resolveFinalPublishVersion: request => Promise.resolve(request.requestedVersion),
@@ -1596,9 +1247,12 @@ describe("skills publish command", () => {
         );
 
         expect(parsed.data.metadata).toBeUndefined();
+        expect(await readFile(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "utf8")).toBe(
+            renderSkillMetadataJson(createLocalSkillMetadata()),
+        );
     });
 
-    test("rejects a missing canonical local skill directory", async () => {
+    test("rejects a missing local skill", async () => {
         const configRootDirectoryPath = await createTemporaryDirectory("publish-missing-config");
         const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
         const context = createPublishContext(settingsFilePath);
@@ -1610,16 +1264,22 @@ describe("skills publish command", () => {
             context,
             "private",
             {
-                checkAuthoringEnvironment: () => Promise.resolve({
-                    canonicalRootDirectoryPath: "",
-                    hostCount: 1,
-                }),
             },
         )).rejects.toMatchObject({
-            key: "errors.skills.publish.localSkillMissing",
+            key: "errors.skills.publish.skillNotFound",
         });
     });
 });
+
+function resolveCodexSkillDirectoryPath(
+    env: Record<string, string | undefined>,
+    skillId: string,
+): string {
+    return resolveManagedSkillDirectoryPath(
+        resolveCodexHomeDirectory(env),
+        skillId,
+    );
+}
 
 async function createCliPublishSkillSandbox(
     skillId: string,
@@ -1630,19 +1290,11 @@ async function createCliPublishSkillSandbox(
 ) {
     const sandbox = await createCliSandbox();
     const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-    const storePaths = resolveStorePaths({
-        appName: APP_NAME,
-        env: sandbox.env,
-        platform: process.platform,
-    });
-    const skillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-        storePaths.settingsFilePath,
-        skillId,
-    );
+    const skillDirectoryPath = resolveCodexSkillDirectoryPath(sandbox.env, skillId);
 
     await mkdir(codexHomeDirectory, { recursive: true });
     await writeAuthFile(sandbox, options.auth);
-    await writeSkillFile(skillDirectoryPath, skillMarkdown);
+    await writeLocalSkillFile(skillDirectoryPath, skillMarkdown);
 
     return {
         sandbox,
@@ -1660,6 +1312,7 @@ function createPublishContext(
 ): CliExecutionContext {
     const stdout = createTextBuffer();
     const stderr = createTextBuffer();
+    const configRootDirectoryPath = dirname(settingsFilePath);
     const settingsStore = {
         ...createSettingsStore(defaultSettings),
         getFilePath: () => settingsFilePath,
@@ -1683,7 +1336,11 @@ function createPublishContext(
         fetcher: options.fetcher
             ?? (() => Promise.reject(new Error("Unexpected fetch."))),
         cwd: process.cwd(),
-        env: {},
+        env: {
+            CODEX_HOME: join(configRootDirectoryPath, ".codex"),
+            HOME: configRootDirectoryPath,
+            USERPROFILE: configRootDirectoryPath,
+        },
         fileDownloadSessionStore: createNoopFileDownloadSessionStore(),
         fileUploadStore: createNoopFileUploadStore(),
         stdin: options.stdin ?? createInteractiveInput(),
@@ -1717,4 +1374,44 @@ async function writeSkillFile(
 ): Promise<void> {
     await mkdir(directoryPath, { recursive: true });
     await Bun.write(join(directoryPath, "SKILL.md"), content);
+}
+
+async function writeLocalSkillFile(
+    directoryPath: string,
+    content: string,
+): Promise<void> {
+    await writeSkillFile(directoryPath, content);
+    await Bun.write(
+        resolveManagedSkillMetadataFilePath(directoryPath),
+        renderSkillMetadataJson(createLocalSkillMetadata()),
+    );
+}
+
+async function writeRegistrySkillMetadata(
+    directoryPath: string,
+    packageName: string,
+    version: string,
+): Promise<void> {
+    await Bun.write(
+        resolveManagedSkillMetadataFilePath(directoryPath),
+        renderSkillMetadataJson({
+            kind: "registry",
+            packageName,
+            schemaVersion: 1,
+            version,
+        }),
+    );
+}
+
+function createSkillMarkdown(
+    skillId: string,
+    description: string,
+): string {
+    return [
+        "---",
+        `name: ${skillId}`,
+        `description: ${description}`,
+        "---",
+        "",
+    ].join("\n");
 }

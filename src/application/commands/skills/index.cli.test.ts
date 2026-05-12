@@ -20,12 +20,13 @@ import {
 } from "./bundled-skill-paths.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import {
-    resolveLocalSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
 import {
     createBundledSkillMetadata,
+    createLocalSkillMetadata,
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
 
@@ -369,32 +370,24 @@ describe("skills CLI", () => {
         }
     });
 
-    test("leaves synchronized local symlink targets unchanged during cli startup", async () => {
+    test("does not synchronize agent-native local skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const codexSkillsDirectory = join(codexHomeDirectory, "skills");
-        const codexSkillDirectoryPath = join(codexSkillsDirectory, "campaign-writer");
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
+        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             "campaign-writer",
         );
+        const skillFilePath = join(codexSkillDirectoryPath, "SKILL.md");
 
         try {
-            await mkdir(codexSkillsDirectory, { recursive: true });
-            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await mkdir(codexSkillDirectoryPath, { recursive: true });
             await Bun.write(
-                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                skillFilePath,
                 "# Campaign Writer\n",
             );
-            await symlink(
-                canonicalSkillDirectoryPath,
-                codexSkillDirectoryPath,
-                process.platform === "win32" ? "junction" : "dir",
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(codexSkillDirectoryPath),
+                renderSkillMetadataJson(createLocalSkillMetadata()),
             );
 
             const result = await sandbox.run(["--help"], {
@@ -407,11 +400,7 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toContain("Options:");
-            expect(await realpath(codexSkillDirectoryPath)).toBe(
-                await realpath(canonicalSkillDirectoryPath),
-            );
-            expect((await lstat(codexSkillDirectoryPath)).isSymbolicLink()).toBeTrue();
-            expect(await readFile(join(codexSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+            expect(await readFile(skillFilePath, "utf8")).toBe(
                 "# Campaign Writer\n",
             );
             expect(content).not.toContain(
@@ -426,8 +415,13 @@ describe("skills CLI", () => {
     test("does not overwrite synchronized registry targets with same-name local skills", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
         const codexSkillsDirectory = join(codexHomeDirectory, "skills");
         const codexSkillDirectoryPath = join(codexSkillsDirectory, "chatgpt");
+        const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codeBuddyHomeDirectory,
+            "chatgpt",
+        );
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -437,15 +431,11 @@ describe("skills CLI", () => {
             storePaths.settingsFilePath,
             "chatgpt",
         );
-        const localCanonicalSkillDirectoryPath = resolveLocalSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            "chatgpt",
-        );
 
         try {
             await mkdir(codexSkillsDirectory, { recursive: true });
             await mkdir(registryCanonicalSkillDirectoryPath, { recursive: true });
-            await mkdir(localCanonicalSkillDirectoryPath, { recursive: true });
+            await mkdir(codeBuddySkillDirectoryPath, { recursive: true });
             await Bun.write(
                 join(registryCanonicalSkillDirectoryPath, "SKILL.md"),
                 "# Registry ChatGPT\n",
@@ -458,8 +448,12 @@ describe("skills CLI", () => {
                 }),
             );
             await Bun.write(
-                join(localCanonicalSkillDirectoryPath, "SKILL.md"),
+                join(codeBuddySkillDirectoryPath, "SKILL.md"),
                 "# Local ChatGPT\n",
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(codeBuddySkillDirectoryPath),
+                renderSkillMetadataJson(createLocalSkillMetadata()),
             );
 
             const result = await sandbox.run(["--help"], {
