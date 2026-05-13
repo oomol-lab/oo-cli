@@ -1,5 +1,6 @@
 import { chmodSync, copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { mkdtemp, rename, rm } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import platformTargetsData from "../npm/platform-targets.json";
@@ -224,21 +225,11 @@ export async function assembleReleaseArtifacts(options: {
         releaseBuildOptions.stagingDir,
         options.targetIds,
     );
-    const tarballPaths: string[] = [];
 
     clearReleaseOutputDirectory(
         releaseBuildOptions.outDir,
         releaseBuildOptions.stagingDir,
     );
-
-    for (const target of selectedTargets) {
-        tarballPaths.push(
-            packPackage(
-                join(releaseBuildOptions.stagingDir, target.id),
-                releaseBuildOptions.outDir,
-            ),
-        );
-    }
 
     const wrapperDir = stageWrapperPackage({
         packageManifestContent: releaseBuildOptions.packageManifestContent,
@@ -246,7 +237,17 @@ export async function assembleReleaseArtifacts(options: {
         rootDir: releaseBuildOptions.rootDir,
         stagingDir: releaseBuildOptions.stagingDir,
     });
-    tarballPaths.push(packPackage(wrapperDir, releaseBuildOptions.outDir));
+    const packageDirs = [
+        ...selectedTargets.map(target =>
+            join(releaseBuildOptions.stagingDir, target.id),
+        ),
+        wrapperDir,
+    ];
+    const tarballPaths = unwrapPackResults(await Promise.allSettled(
+        packageDirs.map(packageDir =>
+            packPackage(packageDir, releaseBuildOptions.outDir),
+        ),
+    ));
 
     const releaseBundlePath = await createGitHubReleaseBundle({
         outDir: releaseBuildOptions.outDir,
@@ -589,27 +590,77 @@ export function buildCompileDefineArgs(
     ];
 }
 
-function packPackage(packageDir: string, outDir: string): string {
-    const packResult = Bun.spawnSync(
-        ["bun", "pm", "pack", "--destination", outDir, "--quiet"],
-        {
-            cwd: packageDir,
-            stderr: "pipe",
-            stdin: "ignore",
-            stdout: "pipe",
-        },
-    );
+async function packPackage(packageDir: string, outDir: string): Promise<string> {
+    const temporaryOutDir = await mkdtemp(join(outDir, ".pack-"));
 
-    if (packResult.exitCode !== 0) {
-        throw new Error(
-            [
-                `Failed to pack ${packageDir}.`,
-                decodeOutput(packResult.stderr),
-            ].join("\n"),
+    try {
+        const packResult = Bun.spawn(
+            ["bun", "pm", "pack", "--destination", temporaryOutDir, "--quiet"],
+            {
+                cwd: packageDir,
+                stderr: "pipe",
+                stdin: "ignore",
+                stdout: "pipe",
+            },
         );
+        const [exitCode, stdout, stderr] = await Promise.all([
+            packResult.exited,
+            new Response(packResult.stdout).text(),
+            new Response(packResult.stderr).text(),
+        ]);
+
+        if (exitCode !== 0) {
+            throw new Error(
+                [
+                    `Failed to pack ${packageDir}.`,
+                    stderr,
+                ].join("\n"),
+            );
+        }
+
+        const packedTarballPath = resolvePackedTarballPath(
+            stdout.trim(),
+            temporaryOutDir,
+            packageDir,
+        );
+        const tarballPath = join(outDir, basename(packedTarballPath));
+        await rename(packedTarballPath, tarballPath);
+
+        return tarballPath;
+    }
+    finally {
+        await rm(temporaryOutDir, { force: true, recursive: true });
+    }
+}
+
+function unwrapPackResults(
+    packResults: readonly PromiseSettledResult<string>[],
+): readonly string[] {
+    const tarballPaths: string[] = [];
+
+    for (const packResult of packResults) {
+        if (packResult.status === "rejected") {
+            throw packResult.reason;
+        }
+
+        tarballPaths.push(packResult.value);
     }
 
-    return decodeOutput(packResult.stdout).trim();
+    return tarballPaths;
+}
+
+function resolvePackedTarballPath(
+    packOutput: string,
+    temporaryOutDir: string,
+    packageDir: string,
+): string {
+    if (packOutput === "") {
+        throw new Error(`Failed to resolve packed tarball path for ${packageDir}.`);
+    }
+
+    return isAbsolute(packOutput)
+        ? packOutput
+        : join(temporaryOutDir, packOutput);
 }
 
 export function decodeOutput(
