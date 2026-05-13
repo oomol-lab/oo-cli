@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import process from "node:process";
 
 export interface NpmPackageMetadata {
@@ -272,9 +272,9 @@ async function publishNpmPackage(
     return await runNpmCommand([
         "npm",
         "publish",
+        resolve(packageFile),
         "--access",
         "public",
-        packageFile,
     ], { echoOutput: true, timeoutMs, commandEnv });
 }
 

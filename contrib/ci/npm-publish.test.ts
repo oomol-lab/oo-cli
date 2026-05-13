@@ -1,6 +1,6 @@
 import type { NpmCommandResult, NpmPackageMetadata } from "./npm-publish.ts";
-import { chmod, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { chmod, readFile, rm, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import process from "node:process";
 
 import { describe, expect, test } from "bun:test";
@@ -182,6 +182,46 @@ describe("npm publish workflow", () => {
 
             completePublish(publishCompletions, "dist/wrapper.tgz");
             await publishPromise;
+        });
+    });
+
+    test("passes local tarballs to npm publish as absolute paths", async () => {
+        await withPublishOrder(["dist/demo.tgz"], async (publishOrder) => {
+            const binDirectory = await createTemporaryDirectory("npm-publish-bin");
+            const npmArgsPath = join(binDirectory, "npm-args.txt");
+
+            try {
+                await writeNpmArgumentRecorder(binDirectory);
+
+                await publishNpmPackagesFromOrderFile({
+                    commandEnv: {
+                        NPM_ARGS_PATH: npmArgsPath,
+                        PATH: joinPathEntries([
+                            binDirectory,
+                            process.env.PATH ?? "",
+                        ], process.platform),
+                        Path: joinPathEntries([
+                            binDirectory,
+                            process.env.Path ?? process.env.PATH ?? "",
+                        ], process.platform),
+                    },
+                    logger: createLogger([]),
+                    packageVersionExists: () => Promise.resolve(false),
+                    publishOrderPath: publishOrder.filePath,
+                    readPackageMetadata: () => Promise.resolve(packageMetadata),
+                });
+
+                expect((await readFile(npmArgsPath, "utf8")).split("\n")).toEqual([
+                    "publish",
+                    resolve("dist/demo.tgz"),
+                    "--access",
+                    "public",
+                    "",
+                ]);
+            }
+            finally {
+                await rm(binDirectory, { force: true, recursive: true });
+            }
         });
     });
 
@@ -386,6 +426,32 @@ function createLogger(logs: string[]): Pick<Console, "log"> {
             logs.push(String(message));
         },
     };
+}
+
+async function writeNpmArgumentRecorder(binDirectory: string): Promise<void> {
+    const npmPath = join(binDirectory, process.platform === "win32" ? "npm.cmd" : "npm");
+    await writeFile(
+        npmPath,
+        process.platform === "win32"
+            ? [
+                    "@echo off",
+                    "break > \"%NPM_ARGS_PATH%\"",
+                    ":loop",
+                    "if \"%~1\"==\"\" goto done",
+                    ">> \"%NPM_ARGS_PATH%\" echo %~1",
+                    "shift",
+                    "goto loop",
+                    ":done",
+                    "exit /b 0",
+                ].join("\r\n")
+            : [
+                    "#!/bin/sh",
+                    "printf '%s\\n' \"$@\" > \"$NPM_ARGS_PATH\"",
+                ].join("\n"),
+    );
+    if (process.platform !== "win32") {
+        await chmod(npmPath, 0o755);
+    }
 }
 
 function completePublish(
