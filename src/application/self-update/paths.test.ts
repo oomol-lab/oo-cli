@@ -1,7 +1,9 @@
 import { posix, win32 } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
-    resolveSelfUpdateLockFilePath,
+    resolveActiveVersionMarkerPath,
+    resolveInstallVersionLockPath,
+    resolveLegacyVersionLockPath,
     resolveSelfUpdatePaths,
     resolveSelfUpdateStagingBinaryPath,
     resolveSelfUpdateStagingDirectory,
@@ -91,7 +93,13 @@ describe("resolveSelfUpdatePaths", () => {
             platform: "linux",
         });
 
-        expect(resolveSelfUpdateLockFilePath(paths, "1.2.3")).toBe(
+        expect(resolveActiveVersionMarkerPath(paths, "1.2.3", 123, "marker")).toBe(
+            posix.join(paths.locksDirectory, "active", "1.2.3", "123.marker.lock"),
+        );
+        expect(resolveInstallVersionLockPath(paths, "1.2.3")).toBe(
+            posix.join(paths.locksDirectory, "install", "1.2.3.lock"),
+        );
+        expect(resolveLegacyVersionLockPath(paths, "1.2.3")).toBe(
             posix.join(paths.locksDirectory, "1.2.3.lock"),
         );
         expect(resolveSelfUpdateVersionDirectoryPath(paths, "1.2.3")).toBe(
@@ -145,7 +153,13 @@ describe("resolveSelfUpdatePaths", () => {
             version: "1.2.3",
         });
 
-        expect(resolveSelfUpdateLockFilePath(paths, "1.2.3")).toBe(
+        expect(resolveActiveVersionMarkerPath(paths, "1.2.3", 123, "marker")).toBe(
+            win32.join(paths.locksDirectory, "active", "1.2.3", "123.marker.lock"),
+        );
+        expect(resolveInstallVersionLockPath(paths, "1.2.3")).toBe(
+            win32.join(paths.locksDirectory, "install", "1.2.3.lock"),
+        );
+        expect(resolveLegacyVersionLockPath(paths, "1.2.3")).toBe(
             win32.join(paths.locksDirectory, "1.2.3.lock"),
         );
         expect(resolveSelfUpdateVersionDirectoryPath(paths, "1.2.3")).toBe(

@@ -89,7 +89,32 @@ export function resolveSelfUpdatePaths(options: {
     }
 }
 
-export function resolveSelfUpdateLockFilePath(
+export function resolveActiveVersionMarkerPath(
+    paths: Pick<SelfUpdatePaths, "locksDirectory" | "platform">,
+    version: string,
+    pid: number,
+    markerId: string,
+): string {
+    return readPathModule(paths.platform).join(
+        paths.locksDirectory,
+        "active",
+        version,
+        `${pid}.${markerId}.lock`,
+    );
+}
+
+export function resolveInstallVersionLockPath(
+    paths: Pick<SelfUpdatePaths, "locksDirectory" | "platform">,
+    version: string,
+): string {
+    return readPathModule(paths.platform).join(
+        paths.locksDirectory,
+        "install",
+        `${version}.lock`,
+    );
+}
+
+export function resolveLegacyVersionLockPath(
     paths: Pick<SelfUpdatePaths, "locksDirectory" | "platform">,
     version: string,
 ): string {

@@ -1,7 +1,7 @@
 import type { SelfUpdateCommandRunOptions } from "../contracts/self-update.ts";
 import type { SelfUpdateProgressEvent } from "./progress.ts";
 import { chmodSync, rmSync, symlinkSync } from "node:fs";
-import { chmod, mkdir, readlink, realpath, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readlink, realpath, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
@@ -15,11 +15,13 @@ import {
 } from "../../../__tests__/helpers.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import {
+    initializeCurrentVersionActiveMarker,
     performSelfUpdateOperation,
     renderSelfUpdateLockBusyMessage,
 } from "./core.ts";
 import {
-    resolveSelfUpdateLockFilePath,
+    resolveActiveVersionMarkerPath,
+    resolveLegacyVersionLockPath,
     resolveSelfUpdatePaths,
     resolveSelfUpdateVersionDirectoryPath,
     resolveSelfUpdateVersionExecutablePath,
@@ -38,6 +40,66 @@ describe("performSelfUpdateOperation", () => {
         expect(renderSelfUpdateLockBusyMessage({
             translator,
         })).toBe("另一个更新已在进行中，请稍后再试。");
+    });
+
+    test("initializes a current-version active marker without waiting on a legacy lock", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-current-marker");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const currentVersionPath = resolveSelfUpdateVersionExecutablePath(
+            paths,
+            "1.2.3",
+        );
+        const logCapture = createLogCapture();
+
+        trackDirectory(rootDirectory);
+        await Promise.all([
+            mkdir(paths.locksDirectory, { recursive: true }),
+            writeManagedVersion(currentVersionPath),
+        ]);
+        await writeFile(
+            resolveLegacyVersionLockPath(paths, "1.2.3"),
+            `${JSON.stringify({
+                acquiredAt: new Date().toISOString(),
+                execPath: process.execPath,
+                pid: process.pid,
+                version: "1.2.3",
+            })}\n`,
+        );
+
+        try {
+            const resource = await initializeCurrentVersionActiveMarker({
+                currentVersion: "1.2.3",
+                runtime: {
+                    env,
+                    execPath: process.execPath,
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                },
+            });
+
+            expect(resource).toBeDefined();
+            const markerDirectory = resolveActiveVersionMarkerDirectoryPath(
+                paths,
+                "1.2.3",
+            );
+            const markerEntries = await readdir(markerDirectory);
+
+            expect(markerEntries).toHaveLength(1);
+            expect(logCapture.read()).not.toContain("lifetime lock");
+
+            await resource?.close();
+            await expect(
+                Bun.file(join(markerDirectory, markerEntries[0] ?? "")).exists(),
+            ).resolves.toBeFalse();
+        }
+        finally {
+            logCapture.close();
+        }
     });
 
     test("re-activates an existing target version without downloading again", async () => {
@@ -265,6 +327,9 @@ describe("performSelfUpdateOperation", () => {
 
         trackDirectory(rootDirectory);
         await Promise.all([
+            mkdir(resolveActiveVersionMarkerDirectoryPath(paths, "9.9.9"), {
+                recursive: true,
+            }),
             mkdir(paths.locksDirectory, { recursive: true }),
             mkdir(paths.versionsDirectory, { recursive: true }),
         ]);
@@ -274,10 +339,17 @@ describe("performSelfUpdateOperation", () => {
             writeManagedVersion(resolveSelfUpdateVersionExecutablePath(paths, "9.9.9")),
             writeManagedVersion(resolveSelfUpdateVersionExecutablePath(paths, "0.5.0")),
             writeFile(
-                resolveSelfUpdateLockFilePath(paths, "9.9.9"),
+                resolveActiveVersionMarkerPath(
+                    paths,
+                    "9.9.9",
+                    process.pid,
+                    "marker",
+                ),
                 `${JSON.stringify({
                     acquiredAt: new Date().toISOString(),
                     execPath: process.execPath,
+                    kind: "active",
+                    markerId: "marker",
                     pid: process.pid,
                     version: "9.9.9",
                 })}\n`,
@@ -316,6 +388,134 @@ describe("performSelfUpdateOperation", () => {
             await expect(
                 Bun.file(resolveSelfUpdateVersionExecutablePath(paths, "0.5.0")).exists(),
             ).resolves.toBeFalse();
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("returns busy before replacing a target version used by another process", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-active-target");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
+            paths,
+            "2.0.0",
+        );
+        const activeMarkerPath = resolveActiveVersionMarkerPath(
+            paths,
+            "2.0.0",
+            process.pid,
+            "other",
+        );
+        const logCapture = createLogCapture();
+
+        trackDirectory(rootDirectory);
+        await Promise.all([
+            mkdir(resolveActiveVersionMarkerDirectoryPath(paths, "2.0.0"), {
+                recursive: true,
+            }),
+            writeManagedVersion(targetVersionPath),
+        ]);
+        await writeFile(
+            activeMarkerPath,
+            `${JSON.stringify({
+                acquiredAt: new Date().toISOString(),
+                execPath: process.execPath,
+                kind: "active",
+                markerId: "other",
+                pid: process.pid,
+                version: "2.0.0",
+            })}\n`,
+        );
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "1.0.0",
+                forceReinstall: true,
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: process.execPath,
+                    fetcher: async () => new Response("new-binary"),
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid + 1,
+                },
+                targetVersion: "2.0.0",
+            });
+
+            expect(result).toEqual({
+                ownerPid: process.pid,
+                status: "busy",
+            });
+            expect(await Bun.file(targetVersionPath).text()).toBe("binary");
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("allows replacing a target version when only the current process marker is active", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-own-active-target");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
+            paths,
+            "2.0.0",
+        );
+        const activeMarkerPath = resolveActiveVersionMarkerPath(
+            paths,
+            "2.0.0",
+            process.pid,
+            "self",
+        );
+        const logCapture = createLogCapture();
+
+        trackDirectory(rootDirectory);
+        await Promise.all([
+            mkdir(resolveActiveVersionMarkerDirectoryPath(paths, "2.0.0"), {
+                recursive: true,
+            }),
+            writeManagedVersion(targetVersionPath),
+        ]);
+        await writeFile(
+            activeMarkerPath,
+            `${JSON.stringify({
+                acquiredAt: new Date().toISOString(),
+                execPath: process.execPath,
+                kind: "active",
+                markerId: "self",
+                pid: process.pid,
+                version: "2.0.0",
+            })}\n`,
+        );
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "2.0.0",
+                forceReinstall: true,
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: process.execPath,
+                    fetcher: async () => new Response("new-binary"),
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
+                },
+                targetVersion: "2.0.0",
+            });
+
+            expect(result.status).toBe("installed");
+            expect(await Bun.file(targetVersionPath).text()).toBe("new-binary");
         }
         finally {
             logCapture.close();
@@ -979,6 +1179,18 @@ function createSelfUpdateEnv(rootDirectory: string): Record<string, string | und
         XDG_DATA_HOME: join(rootDirectory, "data"),
         XDG_RUNTIME_DIR: join(rootDirectory, "runtime"),
     };
+}
+
+function resolveActiveVersionMarkerDirectoryPath(
+    paths: ReturnType<typeof resolveSelfUpdatePaths>,
+    version: string,
+): string {
+    return dirname(resolveActiveVersionMarkerPath(
+        paths,
+        version,
+        process.pid,
+        "marker",
+    ));
 }
 
 async function writeManagedVersion(path: string): Promise<void> {

@@ -26,14 +26,16 @@ import {
 import { resolveSelfUpdateCommandResolution } from "./command-resolution.ts";
 import { attemptLegacyPackageManagerUninstall } from "./legacy-installation.ts";
 import {
-    acquireProcessLifetimeVersionLock,
-    acquireVersionLock,
+    acquireActiveVersionMarker,
+    acquireInstallVersionLock,
     cleanupStaleVersionLocks,
+    findActiveVersionOwner,
     listActiveVersionLocks,
 } from "./lock.ts";
 import { ensureExecutableDirectoryOnPath } from "./path-configuration.ts";
 import {
-    resolveSelfUpdateLockFilePath,
+    resolveActiveVersionMarkerPath,
+    resolveInstallVersionLockPath,
     resolveSelfUpdatePaths,
     resolveSelfUpdateStagingBinaryPath,
     resolveSelfUpdateStagingDirectory,
@@ -79,7 +81,7 @@ export type SelfUpdateOperationOutcome
             status: "busy";
         };
 
-export interface ProcessLifetimeVersionLockResource {
+export interface CurrentVersionActiveMarkerResource {
     close: () => Promise<void>;
 }
 
@@ -87,6 +89,13 @@ interface TargetVersionMaterialization {
     backupPath?: string;
     targetVersionDirectoryPath: string;
 }
+
+type TargetVersionMaterializationOutcome
+    = TargetVersionMaterialization
+        | {
+            ownerPid?: number;
+            status: "busy";
+        };
 
 export async function resolveLatestSelfUpdateVersion(options: {
     currentVersion: string;
@@ -134,9 +143,9 @@ export async function performSelfUpdateOperation(options: {
         platform: options.runtime.platform,
     });
 
-    const lockResult = await acquireVersionLock({
+    const lockResult = await acquireInstallVersionLock({
         execPath: options.runtime.execPath,
-        lockFilePath: resolveSelfUpdateLockFilePath(paths, options.targetVersion),
+        lockFilePath: resolveInstallVersionLockPath(paths, options.targetVersion),
         now: options.runtime.now,
         platform: options.runtime.platform,
         processId: options.runtime.processId,
@@ -161,6 +170,11 @@ export async function performSelfUpdateOperation(options: {
             runtime: options.runtime,
             targetVersion: options.targetVersion,
         });
+
+        if ("status" in materialization) {
+            return materialization;
+        }
+
         options.reportStage?.({
             stage: "activate",
             version: options.targetVersion,
@@ -270,10 +284,10 @@ export async function ensureSelfUpdateExecutableDirectoryOnPath(options: {
     };
 }
 
-export async function initializeCurrentVersionProcessLock(options: {
+export async function initializeCurrentVersionActiveMarker(options: {
     currentVersion: string;
-    runtime: Pick<SelfUpdateRuntime, "env" | "execPath" | "logger" | "platform" | "processId">;
-}): Promise<ProcessLifetimeVersionLockResource | undefined> {
+    runtime: Pick<SelfUpdateRuntime, "env" | "execPath" | "logger" | "now" | "platform" | "processId">;
+}): Promise<CurrentVersionActiveMarkerResource | undefined> {
     const paths = resolveSelfUpdatePaths({
         env: options.runtime.env,
         platform: options.runtime.platform,
@@ -299,26 +313,33 @@ export async function initializeCurrentVersionProcessLock(options: {
     }
 
     try {
-        const lockHandle = await acquireProcessLifetimeVersionLock({
+        const markerId = Bun.randomUUIDv7();
+        const markerHandle = await acquireActiveVersionMarker({
             execPath: options.runtime.execPath,
-            lockFilePath: resolveSelfUpdateLockFilePath(paths, options.currentVersion),
-            platform: options.runtime.platform,
+            markerFilePath: resolveActiveVersionMarkerPath(
+                paths,
+                options.currentVersion,
+                options.runtime.processId,
+                markerId,
+            ),
+            markerId,
+            now: options.runtime.now,
             processId: options.runtime.processId,
             version: options.currentVersion,
         });
 
-        if (!lockHandle) {
+        if (!markerHandle) {
             options.runtime.logger.warn(
                 {
                     currentVersion: options.currentVersion,
                 },
-                "Current CLI version lifetime lock could not be acquired.",
+                "Current CLI version active marker could not be created; continuing without lifecycle marker.",
             );
             return undefined;
         }
 
         const closeOnExit = () => {
-            lockHandle.closeSync();
+            markerHandle.closeSync();
         };
 
         process.once("exit", closeOnExit);
@@ -326,7 +347,7 @@ export async function initializeCurrentVersionProcessLock(options: {
         return {
             close: async () => {
                 process.off("exit", closeOnExit);
-                await lockHandle.close();
+                await markerHandle.close();
             },
         };
     }
@@ -336,7 +357,7 @@ export async function initializeCurrentVersionProcessLock(options: {
                 currentVersion: options.currentVersion,
                 err: error,
             },
-            "Current CLI version lifetime lock acquisition failed.",
+            "Current CLI version active marker creation failed; continuing without lifecycle marker.",
         );
         return undefined;
     }
@@ -394,7 +415,7 @@ async function materializeTargetVersion(options: {
     reportStage?: (event: SelfUpdateProgressEvent) => void;
     runtime: SelfUpdateRuntime;
     targetVersion: string;
-}): Promise<TargetVersionMaterialization> {
+}): Promise<TargetVersionMaterializationOutcome> {
     const targetVersionDirectoryPath = resolveSelfUpdateVersionDirectoryPath(
         options.paths,
         options.targetVersion,
@@ -476,6 +497,20 @@ async function materializeTargetVersion(options: {
 
         if (options.runtime.platform !== "win32") {
             await chmod(versionTempExecutablePath, 0o755);
+        }
+
+        const activeOwner = await findActiveVersionOwner({
+            excludeProcessId: options.runtime.processId,
+            locksDirectory: options.paths.locksDirectory,
+            platform: options.runtime.platform,
+            version: options.targetVersion,
+        });
+
+        if (activeOwner !== undefined) {
+            return {
+                ownerPid: activeOwner.ownerPid,
+                status: "busy",
+            };
         }
 
         return await replaceTargetVersionDirectory({
