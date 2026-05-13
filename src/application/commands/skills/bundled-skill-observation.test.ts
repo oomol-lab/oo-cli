@@ -14,6 +14,7 @@ import {
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import {
+    resolveDeepSeekTuiHomeDirectory,
     resolveTraeCnHomeDirectory,
     resolveTraeHomeDirectory,
 } from "./bundled-skill-paths.ts";
@@ -270,6 +271,33 @@ describe("bundled skill observation", () => {
             expect(await requireBundledSkillHomeDirectory({ env }, "qoderwork")).toBe(
                 qoderWorkHomeDirectory,
             );
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("requires the resolved DeepSeek TUI home directory to exist", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
+        const deepSeekTuiHomeDirectory = join(rootDirectory, ".deepseek");
+        const env = {
+            HOME: rootDirectory,
+        };
+
+        try {
+            await expect(
+                requireBundledSkillHomeDirectory({ env }, "deepseek-tui"),
+            ).rejects.toMatchObject({
+                exitCode: 1,
+                key: "errors.skills.deepseekTuiNotInstalled",
+            });
+
+            await mkdir(deepSeekTuiHomeDirectory, { recursive: true });
+
+            expect(await requireBundledSkillHomeDirectory({ env }, "deepseek-tui")).toBe(
+                deepSeekTuiHomeDirectory,
+            );
+            expect(resolveDeepSeekTuiHomeDirectory(env)).toBe(deepSeekTuiHomeDirectory);
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });

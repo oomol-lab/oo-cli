@@ -379,9 +379,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 registry skills。
 
 - 内置 skill：`oo` 会确保每个检测到的 Codex、Claude Code、Hermes、
-  CodeBuddy、WorkBuddy、Trae、Trae CN、OpenClaw 和 QoderWork Agent 都安装了 `oo`、
-  `oo-find-skills`、`oo-create-skill` 与 `oo-publish-skill`。已经由 oo 管理的
-  内置 skill 目标会刷新到当前 `oo` 版本；
+  CodeBuddy、WorkBuddy、Trae、Trae CN、OpenClaw、QoderWork 和 DeepSeek TUI
+  Agent 都安装了 `oo`、`oo-find-skills`、`oo-create-skill` 与 `oo-publish-skill`。
+  已经由 oo 管理的内置 skill 目标会刷新到当前 `oo` 版本；
   但当启动中的当前版本为 `0.0.0-development` 时，不会刷新已存在的内置 skill
   目标；已安装版本为 `0.0.0-development` 的内置 skill 目标也会保持不变。
 - Registry skill：如果某个已发布 skill 已经有本地 canonical 副本
@@ -402,15 +402,16 @@ registry skills。
 - 选项：`--source <source>`、`-s <source>` 将列表过滤为一个来源：
   `bundled`、`registry` 或 `local`。
 - 选项：`--agent <agent>` 将扫描范围限制为一个受支持 Agent：`codex`、`claude`、
-  `hermes`、`codebuddy`、`workbuddy`、`trae`、`trae-cn`、`openclaw` 或
-  `qoderwork`。
+  `hermes`、`codebuddy`、`workbuddy`、`trae`、`trae-cn`、`openclaw`、
+  `qoderwork` 或 `deepseek-tui`。
 - managed 所有权规则：命令会扫描每个已存在的受支持本地 skill 根目录：
   `${CODEX_HOME:-~/.codex}/skills`、`~/.claude/skills`，以及
   `${HERMES_HOME:-~/.hermes}/skills`、`~/.codebuddy/skills`、
   `~/.workbuddy/skills`、`~/.trae/skills`、`~/.trae-cn/skills`、
-  `${OPENCLAW_HOME:-~/.openclaw}/skills`、`~/.qoderwork/skills`。只保留
-  `.oo-metadata.json` 能识别为由 oo 管理的 bundled、registry 或 local skill 的
-  子目录；已有的 legacy bundled 和 registry metadata 仍可读取。
+  `${OPENCLAW_HOME:-~/.openclaw}/skills`、`~/.qoderwork/skills`、
+  `~/.deepseek/skills`。只保留 `.oo-metadata.json` 能识别为由 oo 管理的
+  bundled、registry 或 local skill 的子目录；已有的 legacy bundled 和 registry
+  metadata 仍可读取。
 - local 来源规则：`--source local` 会列出 Agent skill 目录中的 oo-managed local
   skill。`--source local --agent <agent>` 只列出该 Agent 的 local skill。即使多个
   Agent 中存在同名 local skill，也会按 Agent 和路径分别显示，不会合并。
@@ -421,7 +422,7 @@ registry skills。
   `oo-find-skills`，再其次 `oo-create-skill`，再其次 `oo-publish-skill`；其余
   skill 按名称排序。managed 块内的 Agent 名称按 `Codex`、`Claude Code`、
   `Hermes`、`CodeBuddy`、`WorkBuddy`、`Trae`、`Trae CN`、`OpenClaw`、
-  `QoderWork` 顺序显示。
+  `QoderWork`、`DeepSeek TUI` 顺序显示。
 - 输出：每个 skill 块会显示 skill 名称，以及 `Host`、`Source` 和 `Version`。
   `Source` 为 `bundled`、`registry` 或 `local`。registry 和 local 块还会显示
   `Package`；local 块还会显示 `Path`。`Host` 会列出匹配的受支持 Agent。local
@@ -435,7 +436,7 @@ registry skills。
 
 - 选项：`--agent <agent>` 为必填项，并选择一个受支持 Agent：`codex`、
   `claude`、`hermes`、`codebuddy`、`workbuddy`、`trae`、`trae-cn`、
-  `openclaw` 或 `qoderwork`。
+  `openclaw`、`qoderwork` 或 `deepseek-tui`。
 - Agent 检查：所选 Agent home 目录必须存在。
 - 存储检查：命令会在需要时创建所选 Agent 的 skills 根目录（如
   `<agent-home>/skills`），并在其中写入再移除临时探针文件。
@@ -450,7 +451,7 @@ registry skills。
   frontmatter `name`。
 - 选项：`--agent <agent>` 为必填项，并选择要写入的 Agent skill 目录。可选值为
   `codex`、`claude`、`hermes`、`codebuddy`、`workbuddy`、`trae`、`trae-cn`、
-  `openclaw` 和 `qoderwork`。
+  `openclaw`、`qoderwork` 和 `deepseek-tui`。
 - 选项：`--description <text>` 为必填项，并写入生成的 `SKILL.md`
   frontmatter description。
 - 生成的 `SKILL.md` frontmatter 包含 `compatibility: "Requires the oo CLI."`。
@@ -492,7 +493,7 @@ registry skills。
   已有可见性，交互式终端会询问发布为 `private` 还是 `public`。
 - 选项：`--agent <agent>` 用于当多个 Agent 中存在同名 local skill 时选择其中一个。
   可选值为 `codex`、`claude`、`hermes`、`codebuddy`、`workbuddy`、`trae`、
-  `trae-cn`、`openclaw` 和 `qoderwork`。
+  `trae-cn`、`openclaw`、`qoderwork` 和 `deepseek-tui`。
 - 选项：`-y, --yes` 会对发布过程中的确认提示自动回答 yes。
 - 选项：`--force` 为兼容旧流程保留。
 - 来源解析：skill id 会先匹配受支持 Agent skill 目录中的 oo-managed local skill。
@@ -625,8 +626,8 @@ registry skills。
 - canonical 目录：内置 skill 会先释放到
   `<config-dir>/skills/bundled/<agent>/<skill-id>`，其中 `<config-dir>` 是
   `settings.toml` 所在目录，`<agent>` 为 `codex`、`claude`、`hermes`、
-  `codebuddy`、`workbuddy`、`trae`、`trae-cn`、`openclaw` 或
-  `qoderwork`。
+  `codebuddy`、`workbuddy`、`trae`、`trae-cn`、`openclaw`、`qoderwork` 或
+  `deepseek-tui`。
 - canonical 目录：已发布 skill 会先释放到
   `<config-dir>/skills/registry/<skill-id>`。
 - 迁移：升级后首次运行 `oo skills install` 时，命令会清理历史遗留的 canonical
@@ -642,7 +643,8 @@ registry skills。
   `~/.trae/skills/<skill-id>`、
   `~/.trae-cn/skills/<skill-id>`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill-id>`、
-  `~/.qoderwork/skills/<skill-id>`。
+  `~/.qoderwork/skills/<skill-id>`、
+  `~/.deepseek/skills/<skill-id>`。
 - 目标目录：当已存在的受支持 Agent 缺少 `skills` 根目录时，命令会先创建该目录，
   再发布所选 skill。
 - 安装方式：内置和已发布 skill 会复制到每个目标 skills 目录。旧版本留下的
@@ -662,7 +664,7 @@ registry skills。
 - 说明：在交互选择页面中，存在重名冲突的 skill 会在列表中显示状态标记；
   只要用户仍然选择该项，就会执行覆盖。
 - 说明：当 Codex、Claude Code、Hermes、CodeBuddy、WorkBuddy、Trae、Trae CN、
-  OpenClaw 和 QoderWork 的受支持根目录都不存在时，命令会直接报错退出。
+  OpenClaw、QoderWork 和 DeepSeek TUI 的受支持根目录都不存在时，命令会直接报错退出。
 - 说明：只有当 bundled 或 registry skill 的 `.oo-metadata.json` 能识别对应来源
   时，`oo` 才会认为这是自己管理的安装；否则会视为其他 skill，并拒绝覆盖。
 
@@ -747,7 +749,8 @@ registry skills。
   `~/.trae/skills/<skill>`、
   `~/.trae-cn/skills/<skill>`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills/<skill>`、
-  `~/.qoderwork/skills/<skill>`。local skill 只移除所选 agent-native local 目录。
+  `~/.qoderwork/skills/<skill>`、
+  `~/.deepseek/skills/<skill>`。local skill 只移除所选 agent-native local 目录。
 - 路径规则：`[skill]` 解析后必须仍然落在这些本地 `skills` 根目录的子目录中。
   任何会逃出这些根目录的名称都会被拒绝。
 - 说明：如果请求的 skill 在任何受支持目标中都不存在受管理安装，且不存在同名

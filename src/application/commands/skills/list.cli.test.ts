@@ -15,6 +15,7 @@ import {
     resolveClaudeHomeDirectory,
     resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
+    resolveDeepSeekTuiHomeDirectory,
     resolveHermesHomeDirectory,
     resolveOpenClawHomeDirectory,
     resolveQoderWorkHomeDirectory,
@@ -430,6 +431,35 @@ describe("skills list CLI", () => {
                     "✓ Found 4 skills.",
                     "",
                     ...createExpectedBundledSkillLines("CodeBuddy"),
+                ].join("\n"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists startup-synchronized DeepSeek TUI bundled installs when Codex is not installed", async () => {
+        const sandbox = await createCliSandbox();
+        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+
+        try {
+            await mkdir(deepSeekTuiHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "✓ Found 4 skills.",
+                    "",
+                    ...createExpectedBundledSkillLines("DeepSeek TUI"),
                 ].join("\n"),
             );
         }

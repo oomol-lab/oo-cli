@@ -7,6 +7,7 @@ import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import {
     resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
+    resolveDeepSeekTuiHomeDirectory,
     resolveTraeCnHomeDirectory,
     resolveTraeHomeDirectory,
 } from "./bundled-skill-paths.ts";
@@ -196,6 +197,38 @@ describe("skills init command", () => {
         }
     });
 
+    test("initializes a local skill for DeepSeek TUI", async () => {
+        const sandbox = await createCliSandbox();
+        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            deepSeekTuiHomeDirectory,
+            "deepseek-tui-skill",
+        );
+
+        try {
+            await mkdir(deepSeekTuiHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "init",
+                "deepseek-tui-skill",
+                "--agent",
+                "deepseek-tui",
+                "--description",
+                "Use a known package workflow.",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Initialized skill deepseek-tui-skill at ${skillDirectoryPath}.\n`,
+            );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("initializes a local skill for Trae", async () => {
         const sandbox = await createCliSandbox();
         const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
@@ -282,7 +315,7 @@ describe("skills init command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.\n",
+                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.\n",
             );
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",

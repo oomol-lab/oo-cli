@@ -6,6 +6,7 @@ import { resolveHomeDirectory } from "../../path/home-directory.ts";
 const codexDirectoryName = ".codex";
 const claudeDirectoryName = ".claude";
 const codeBuddyDirectoryName = ".codebuddy";
+const deepSeekTuiDirectoryName = ".deepseek";
 const hermesDirectoryName = ".hermes";
 const openClawDirectoryName = ".openclaw";
 const qoderWorkDirectoryName = ".qoderwork";
@@ -41,6 +42,12 @@ export function resolveCodeBuddyHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
     return join(resolveHomeDirectory(env), codeBuddyDirectoryName);
+}
+
+export function resolveDeepSeekTuiHomeDirectory(
+    env: Record<string, string | undefined>,
+): string {
+    return join(resolveHomeDirectory(env), deepSeekTuiDirectoryName);
 }
 
 export function resolveHermesHomeDirectory(
@@ -100,6 +107,8 @@ export function resolveBundledSkillHomeDirectory(
             return resolveClaudeHomeDirectory(env);
         case "codebuddy":
             return resolveCodeBuddyHomeDirectory(env);
+        case "deepseek-tui":
+            return resolveDeepSeekTuiHomeDirectory(env);
         case "codex":
             return resolveCodexHomeDirectory(env);
         case "hermes":

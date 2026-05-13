@@ -31,6 +31,7 @@ import {
     resolveClaudeHomeDirectory,
     resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
+    resolveDeepSeekTuiHomeDirectory,
     resolveHermesHomeDirectory,
     resolveOpenClawHomeDirectory,
     resolveQoderWorkHomeDirectory,
@@ -978,6 +979,66 @@ describe("skills commands", () => {
         }
     });
 
+    test("installs bundled skills into DeepSeek TUI using the CodeBuddy skill template", async () => {
+        const sandbox = await createCliSandbox();
+        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+        const deepSeekTuiSkillsDirectoryPath = join(deepSeekTuiHomeDirectory, "skills");
+        const skillDirectoryPath = join(deepSeekTuiHomeDirectory, "skills", "oo");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+            "deepseek-tui",
+        );
+        const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
+        const skillFilePath = join(skillDirectoryPath, "SKILL.md");
+        const deepSeekTuiSkillFile = getBundledSkillFiles("oo", "deepseek-tui")
+            .find(file => file.relativePath === "SKILL.md");
+
+        try {
+            if (deepSeekTuiSkillFile === undefined) {
+                throw new Error("Missing DeepSeek TUI oo SKILL.md fixture");
+            }
+
+            await mkdir(deepSeekTuiHomeDirectory, { recursive: true });
+            await expect(stat(deepSeekTuiSkillsDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+
+            const result = await sandbox.run(["skills", "install", "oo"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(
+                `Installed skill oo to ${skillDirectoryPath}.\n`,
+            );
+            expect((await stat(deepSeekTuiSkillsDirectoryPath)).isDirectory()).toBeTrue();
+            expect(await realpath(skillDirectoryPath)).not.toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect((await lstat(skillDirectoryPath)).isSymbolicLink()).toBeFalse();
+            expect(await readFile(metadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
+            );
+            expect(await readFile(skillFilePath, "utf8")).toBe(
+                await Bun.file(deepSeekTuiSkillFile.sourcePath).text(),
+            );
+            await expect(
+                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
+            ).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("installs bundled skills into WorkBuddy", async () => {
         const sandbox = await createCliSandbox();
         const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
@@ -1321,6 +1382,7 @@ describe("skills commands", () => {
         const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
         const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
         const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
+        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const hermesSkillDirectoryPath = join(hermesHomeDirectory, "skills", "chatgpt");
@@ -1330,6 +1392,7 @@ describe("skills commands", () => {
         const traeCnSkillDirectoryPath = join(traeCnHomeDirectory, "skills", "chatgpt");
         const openClawSkillDirectoryPath = join(openClawHomeDirectory, "skills", "chatgpt");
         const qoderWorkSkillDirectoryPath = join(qoderWorkHomeDirectory, "skills", "chatgpt");
+        const deepSeekTuiSkillDirectoryPath = join(deepSeekTuiHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -1350,7 +1413,6 @@ describe("skills commands", () => {
                 traeSkillDirectoryPath,
                 traeCnSkillDirectoryPath,
                 openClawSkillDirectoryPath,
-                qoderWorkSkillDirectoryPath,
             ]) {
                 await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             }
@@ -1367,6 +1429,7 @@ describe("skills commands", () => {
                 traeCnSkillDirectoryPath,
                 openClawSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
+                deepSeekTuiSkillDirectoryPath,
             ]) {
                 await Bun.write(
                     resolveManagedSkillMetadataFilePath(skillDirectoryPath),
@@ -1390,6 +1453,7 @@ describe("skills commands", () => {
                     `Removed skill chatgpt from ${traeCnSkillDirectoryPath}.`,
                     `Removed skill chatgpt from ${openClawSkillDirectoryPath}.`,
                     `Removed skill chatgpt from ${qoderWorkSkillDirectoryPath}.`,
+                    `Removed skill chatgpt from ${deepSeekTuiSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
@@ -1404,6 +1468,7 @@ describe("skills commands", () => {
                 traeCnSkillDirectoryPath,
                 openClawSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
+                deepSeekTuiSkillDirectoryPath,
             ]) {
                 await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                     code: "ENOENT",
@@ -2536,6 +2601,7 @@ describe("skills commands", () => {
         const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
         const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
         const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
+        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const hermesSkillDirectoryPath = join(hermesHomeDirectory, "skills", "chatgpt");
@@ -2545,6 +2611,7 @@ describe("skills commands", () => {
         const traeCnSkillDirectoryPath = join(traeCnHomeDirectory, "skills", "chatgpt");
         const openClawSkillDirectoryPath = join(openClawHomeDirectory, "skills", "chatgpt");
         const qoderWorkSkillDirectoryPath = join(qoderWorkHomeDirectory, "skills", "chatgpt");
+        const deepSeekTuiSkillDirectoryPath = join(deepSeekTuiHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -2566,6 +2633,7 @@ describe("skills commands", () => {
                 mkdir(traeCnHomeDirectory, { recursive: true }),
                 mkdir(openClawHomeDirectory, { recursive: true }),
                 mkdir(qoderWorkHomeDirectory, { recursive: true }),
+                mkdir(deepSeekTuiHomeDirectory, { recursive: true }),
             ]);
             await writeAuthFile(sandbox);
 
@@ -2603,7 +2671,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                "Installed skill chatgpt to 9 agents: Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork.\n",
+                "Installed skill chatgpt to 10 agents: Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork, DeepSeek TUI.\n",
             );
             const canonicalSkillRealPath = await realpath(canonicalSkillDirectoryPath);
 
@@ -2611,6 +2679,7 @@ describe("skills commands", () => {
                 codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
+                deepSeekTuiSkillDirectoryPath,
             ]) {
                 expect(await realpath(copiedSkillDirectoryPath)).not.toBe(
                     canonicalSkillRealPath,
@@ -2642,6 +2711,7 @@ describe("skills commands", () => {
                 traeCnSkillDirectoryPath,
                 openClawSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
+                deepSeekTuiSkillDirectoryPath,
             ]) {
                 expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toContain(
                     "# ChatGPT",

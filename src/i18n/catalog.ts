@@ -404,9 +404,9 @@ export const enMessages = {
     "errors.skills.init.invalidIcon":
         "Invalid value for --icon. Use a non-empty icon reference.",
     "errors.skills.init.agentRequired":
-        "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+        "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.",
     "errors.skills.init.invalidAgent":
-        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.",
     "errors.skills.init.invalidTitle":
         "Invalid value for --title. Use a non-empty display title.",
     "errors.skills.init.descriptionRequired":
@@ -414,13 +414,13 @@ export const enMessages = {
     "errors.skills.init.invalidName":
         "Invalid skill name: {value}. Use a name that can be normalized to lowercase hyphen-case.",
     "errors.skills.check.agentRequired":
-        "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+        "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.",
     "errors.skills.check.invalidAgent":
-        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.",
     "errors.skills.publish.invalidPackageMetadata":
         "Invalid skill package metadata: {message}",
     "errors.skills.publish.invalidAgent":
-        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.",
     "errors.skills.publish.invalidSkillFile":
         "Cannot publish the skill at {path}: {message}",
     "errors.skills.publish.invalidVisibility":
@@ -452,9 +452,9 @@ export const enMessages = {
     "errors.skills.publish.visibilityRequired":
         "Package {packageName} does not have an existing visibility to preserve. Run in an interactive terminal or pass --visibility private or --visibility public.",
     "errors.skills.list.invalidAgent":
-        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.",
     "errors.skills.uninstall.invalidAgent":
-        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.",
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.",
     "errors.skills.share.cancelled":
         "Share cancelled for skill {name}.",
     "errors.skills.share.confirmationRequired":
@@ -529,6 +529,8 @@ export const enMessages = {
         "Claude Code is not installed. Expected the Claude home directory at {path}.",
     "errors.skills.codebuddyNotInstalled":
         "CodeBuddy is not installed. Expected the CodeBuddy home directory at {path}.",
+    "errors.skills.deepseekTuiNotInstalled":
+        "DeepSeek TUI is not installed. Expected the DeepSeek TUI home directory at {path}.",
     "errors.skills.hermesNotInstalled":
         "Hermes is not installed. Expected the Hermes home directory at {path}.",
     "errors.skills.openclawNotInstalled":
@@ -763,6 +765,7 @@ export const enMessages = {
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codebuddy": "CodeBuddy",
     "skills.list.host.codex": "Codex",
+    "skills.list.host.deepseekTui": "DeepSeek TUI",
     "skills.list.host.hermes": "Hermes",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
@@ -1345,9 +1348,9 @@ export const zhMessages = {
     "errors.skills.init.invalidIcon":
         "--icon 的值无效。请使用非空 icon 引用。",
     "errors.skills.init.agentRequired":
-        "缺少必填的 --agent。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+        "缺少必填的 --agent。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
     "errors.skills.init.invalidAgent":
-        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
     "errors.skills.init.invalidTitle":
         "--title 的值无效。请使用非空显示标题。",
     "errors.skills.init.descriptionRequired":
@@ -1355,13 +1358,13 @@ export const zhMessages = {
     "errors.skills.init.invalidName":
         "无效的 skill 名称：{value}。请使用可规范化为小写短横线格式的名称。",
     "errors.skills.check.agentRequired":
-        "缺少必填的 --agent。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+        "缺少必填的 --agent。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
     "errors.skills.check.invalidAgent":
-        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
     "errors.skills.publish.invalidPackageMetadata":
         "skill 包元数据无效：{message}",
     "errors.skills.publish.invalidAgent":
-        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
     "errors.skills.publish.invalidSkillFile":
         "无法发布 {path} 中的 skill：{message}",
     "errors.skills.publish.invalidVisibility":
@@ -1391,9 +1394,9 @@ export const zhMessages = {
     "errors.skills.publish.visibilityRequired":
         "包 {packageName} 没有可沿用的已有可见性。请在交互式终端中运行，或传入 --visibility private / --visibility public。",
     "errors.skills.list.invalidAgent":
-        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
     "errors.skills.uninstall.invalidAgent":
-        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw 或 qoderwork。",
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
     "errors.skills.publish.skillNotFound":
         "无法在 local、bundled、registry、指定 Agent 或路径来源中找到 skill {name}。",
     "errors.skills.share.cancelled":
@@ -1470,6 +1473,8 @@ export const zhMessages = {
         "未检测到 Claude Code 安装。期望的 Claude 根目录为 {path}。",
     "errors.skills.codebuddyNotInstalled":
         "未检测到 CodeBuddy 安装。期望的 CodeBuddy 根目录为 {path}。",
+    "errors.skills.deepseekTuiNotInstalled":
+        "未检测到 DeepSeek TUI 安装。期望的 DeepSeek TUI 根目录为 {path}。",
     "errors.skills.hermesNotInstalled":
         "未检测到 Hermes 安装。期望的 Hermes 根目录为 {path}。",
     "errors.skills.openclawNotInstalled":
@@ -1696,6 +1701,7 @@ export const zhMessages = {
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codebuddy": "CodeBuddy",
     "skills.list.host.codex": "Codex",
+    "skills.list.host.deepseekTui": "DeepSeek TUI",
     "skills.list.host.hermes": "Hermes",
     "skills.list.host.openclaw": "OpenClaw",
     "skills.list.host.qoderwork": "QoderWork",
