@@ -38,7 +38,7 @@ describe("install worker deployment", () => {
         expect(workflow).toContain("cp contrib/install/install.cmd");
         expect(workflow).toContain("cp contrib/install/install.ps1");
         expect(workflow).toContain("cp contrib/install/install.sh");
-        expect(workflow).toContain("uses: cloudflare/wrangler-action@v3");
+        expect(workflow).toContain("uses: cloudflare/wrangler-action@v4");
         expect(workflow).toContain("workingDirectory: contrib/cloudflare/oo-cli");
         expect(workflow).toContain("command: deploy");
     });
