@@ -1,7 +1,7 @@
 import type { CompileSpawnResult } from "./npm-packages.ts";
-import { chmod, mkdir, readFile, rm } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, rm } from "node:fs/promises";
 
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
@@ -364,6 +364,16 @@ describe("npm-packages", () => {
             expect(tarballPaths[0]).toContain("darwin-arm64");
             expect(tarballPaths[1]).toContain("win32-x64");
             expect(tarballPaths[2]).toContain("oo-cli-1.2.3.tgz");
+            expect(
+                tarballPaths.every(tarballPath =>
+                    dirname(tarballPath) === outDirectoryPath,
+                ),
+            ).toBeTrue();
+            expect(
+                (await readdir(outDirectoryPath)).some(entry =>
+                    entry.startsWith(".pack-"),
+                ),
+            ).toBeFalse();
 
             expect(
                 await readFile(join(outDirectoryPath, "npm-publish-order.txt"), "utf8"),

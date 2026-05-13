@@ -84,27 +84,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6.0.2
         with:
-          fetch-depth: 0
-          fetch-tags: true
+          fetch-depth: 1
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version-file: .bun-version
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6.4.0
+      - name: Configure Bun install cache directory
+        shell: bash
+        run: |
+          # Keep BUN_INSTALL_CACHE_DIR explicit for all platforms so actions/cache restores Bun's install cache before `bun install`; it also works around a Bun Windows x64 install-cache bug fixed upstream in oven-sh/bun#28339.
+          echo "BUN_INSTALL_CACHE_DIR=${{ github.workspace }}/.bun-install-cache" >> "$GITHUB_ENV"
+
+      - name: Cache Bun install dependencies
+        uses: actions/cache@v4
         with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+          path: .bun-install-cache
+          key: bun-install-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', '.bun-version') }}
+          restore-keys: |
+            bun-install-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install
         run: bun install --frozen-lockfile
-
-      # See: https://github.com/oven-sh/bun/pull/28339
-      - name: Use workspace Bun cache for Win32 x64 baseline builds
-        if: matrix.platform_name == 'Win32 x64'
-        run: echo "BUN_INSTALL_CACHE_DIR=${{ github.workspace }}\\.bun-install\\cache" >> $env:GITHUB_ENV
 
       - name: Stage platform packages
         run: bun run "${{ matrix.build_script }}"
@@ -191,7 +193,6 @@ jobs:
     needs:
       - compute-version
       - publish
-      - upload-release-binaries-to-oss
     uses: ./.github/workflows/deploy-install-worker.yaml
     with:
       tag: ${{ needs.compute-version.outputs.tag_name }}
