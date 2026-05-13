@@ -98,7 +98,7 @@ jobs:
           audience: https://github.com/oomol-lab
 
       - name: Cache rclone
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/bin/rclone
           key: rclone-${{ runner.os }}-${{ env.PINNED_RCLONE_VERSION }}
