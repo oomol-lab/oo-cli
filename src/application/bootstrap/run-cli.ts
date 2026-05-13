@@ -42,7 +42,7 @@ import {
 import { CliUserError } from "../contracts/cli.ts";
 import { logCategory } from "../logging/log-categories.ts";
 import { withCategory, withErrorKey, withStorePath } from "../logging/log-fields.ts";
-import { initializeCurrentVersionProcessLock } from "../self-update/core.ts";
+import { initializeCurrentVersionActiveMarker } from "../self-update/core.ts";
 import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
 import {
     telemetryInternalCommand,
@@ -164,8 +164,8 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     let fileDownloadSessionStore: FileDownloadSessionStore | undefined;
     let fileUploadStore: FileUploadRecordStore | undefined;
     let settingsForTelemetry: AppSettings | undefined;
-    let currentVersionLockResource:
-        | Awaited<ReturnType<typeof initializeCurrentVersionProcessLock>>
+    let currentVersionActiveMarkerResource:
+        | Awaited<ReturnType<typeof initializeCurrentVersionActiveMarker>>
         | undefined;
     const loggerHandle = createCliLogger({
         appName: APP_NAME,
@@ -235,7 +235,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             "CLI invocation started.",
         );
 
-        currentVersionLockResource = await initializeCurrentVersionProcessLock({
+        currentVersionActiveMarkerResource = await initializeCurrentVersionActiveMarker({
             currentVersion: version,
             runtime: {
                 env: invocation.env,
@@ -316,7 +316,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 cacheStore,
                 fileUploadStore,
                 fileDownloadSessionStore,
-                currentVersionLockResource,
+                currentVersionActiveMarkerResource,
             ],
             exitCode,
             logger,
