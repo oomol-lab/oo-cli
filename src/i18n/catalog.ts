@@ -2,7 +2,6 @@ import { APP_NAME } from "../application/config/app-config.ts";
 
 export const enMessages = {
     "app.description": `${APP_NAME} is OOMOL's CLI toolkit. Everything can be done in the CLI.`,
-    "auth.login.code": "Enter this code to continue: {code}",
     "auth.login.openManually": "Open this URL in your browser to continue: {url}",
     "auth.account.activeAccountMissing":
         "The active account is missing from the auth store.",
@@ -973,7 +972,6 @@ export const enMessages = {
 
 export const zhMessages = {
     "app.description": `${APP_NAME} 是 OOMOL 的 CLI 工具集，一切均可在 CLI 中完成`,
-    "auth.login.code": "请输入这个 code 继续登录：{code}",
     "auth.login.openManually": "请在浏览器中打开这个 URL 继续登录：{url}",
     "auth.account.activeAccountMissing": "当前激活账号不存在于认证数据中。",
     "auth.account.loggedIn": "已登录 {endpoint} 账号 {name}",

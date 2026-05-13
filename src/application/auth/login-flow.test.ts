@@ -34,7 +34,7 @@ describe("startAuthLoginSession", () => {
                             code: "M0KO41",
                             expires_in: 1800,
                             status: "waiting",
-                            verify_code_url: "https://oomol.com/login/device",
+                            verify_code_url: "https://oomol.com/login/device?from=cli",
                         }));
                     }
 
@@ -71,9 +71,10 @@ describe("startAuthLoginSession", () => {
                 stat: string;
             };
 
-            expect(session.code).toBe("M0KO41");
             expect(session.expiresInSeconds).toBe(1800);
-            expect(session.verificationUrl).toBe("https://oomol.com/login/device");
+            expect(session.verificationUrl).toBe(
+                "https://oomol.com/login/device?from=cli&user_code=M0KO41",
+            );
             expect(account).toEqual({
                 apiKey: "secret-1",
                 endpoint: "oomol.com",

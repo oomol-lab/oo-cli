@@ -121,12 +121,6 @@ async function runDeviceLogin(
     );
     writeLine(
         context.stdout,
-        context.translator.t("auth.login.code", {
-            code: colors.bold(session.code),
-        }),
-    );
-    writeLine(
-        context.stdout,
         context.translator.t("auth.login.waiting"),
     );
 

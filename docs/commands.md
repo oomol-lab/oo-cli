@@ -37,9 +37,9 @@ Project overview: [README.md](../README.md)
 Start a device login flow or authenticate with a session token, then save the
 authenticated account.
 
-- Notes: the CLI prints the verification URL and user code, then polls until
-  the device login is verified or times out when `--session-token` is not
-  provided.
+- Notes: the CLI prints the verification URL with the user code in the
+  `user_code` query parameter, then polls until the device login is verified or
+  times out when `--session-token` is not provided.
 - Options:
   - `--session-token <session-token>`: Authenticate with an existing session
     token. The CLI does not print a device-login URL or poll for verification

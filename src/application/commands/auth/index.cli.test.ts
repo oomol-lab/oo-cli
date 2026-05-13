@@ -126,10 +126,16 @@ describe("auth CLI", () => {
             const secondLoginUrl = findLoginUrl(secondLogin.stdout);
 
             expect(firstLogin.exitCode).toBe(0);
+            expect(new URL(firstLoginUrl!).searchParams.get("user_code")).toBe(
+                "M0KO41",
+            );
             expect(firstLoginUrl).toStartWith(
                 readAuthLoginUrlPrefix(defaultAuthEndpoint),
             );
             expect(secondLogin.exitCode).toBe(0);
+            expect(new URL(secondLoginUrl!).searchParams.get("user_code")).toBe(
+                "M0KO41",
+            );
             expect(secondLoginUrl).toStartWith(
                 readAuthLoginUrlPrefix(defaultAuthEndpoint),
             );
@@ -158,6 +164,9 @@ describe("auth CLI", () => {
             const loginUrl = findLoginUrl(result.stdout);
 
             expect(result.exitCode).toBe(0);
+            expect(new URL(loginUrl!).searchParams.get("user_code")).toBe(
+                "M0KO41",
+            );
             expect(loginUrl).toStartWith(
                 readAuthLoginUrlPrefix("staging.oomol.test"),
             );
@@ -178,6 +187,9 @@ describe("auth CLI", () => {
             const loginUrl = findLoginUrl(result.stdout);
 
             expect(result.exitCode).toBe(0);
+            expect(new URL(loginUrl!).searchParams.get("user_code")).toBe(
+                "M0KO41",
+            );
             expect(loginUrl).toStartWith(
                 readAuthLoginUrlPrefix(defaultAuthEndpoint),
             );
@@ -266,13 +278,16 @@ describe("auth CLI", () => {
 
             expect(login.exitCode).toBe(0);
             expect(plainLoginUrl).toBeTruthy();
+            expect(new URL(plainLoginUrl!).searchParams.get("user_code")).toBe(
+                "M0KO41",
+            );
             expect(createAuthLoginSnapshot(login, {
                 stripAnsi: true,
             })).toMatchSnapshot();
             expect(login.stdout).toContain(
                 colors.hex(loginUrlColor)(plainLoginUrl!),
             );
-            expect(login.stdout).toContain(colors.bold("M0KO41"));
+            expect(login.stdout).not.toContain(colors.bold("M0KO41"));
             expect(login.stdout).toContain(colors.green("✓"));
             expect(login.stdout).toContain(colors.bold("oomol.com"));
             expect(login.stdout).toContain(colors.bold("Alice"));
