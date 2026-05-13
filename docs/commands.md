@@ -38,8 +38,9 @@ Start a device login flow or authenticate with a session token, then save the
 authenticated account.
 
 - Notes: the CLI prints the verification URL with the user code in the
-  `user_code` query parameter, then polls until the device login is verified or
-  times out when `--session-token` is not provided.
+  `user_code` query parameter, then waits up to 10 minutes for the device login
+  to be verified when `--session-token` is not provided. It exits with a
+  timeout error if verification does not complete within that window.
 - Options:
   - `--session-token <session-token>`: Authenticate with an existing session
     token. The CLI does not print a device-login URL or poll for verification
