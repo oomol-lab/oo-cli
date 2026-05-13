@@ -214,7 +214,7 @@ export const enMessages = {
     "errors.auth.loginRequestFailed":
         "The auth login request returned HTTP {status}.",
     "errors.auth.loginTimeout":
-        "Timed out waiting for the device login to complete.",
+        "Timed out after {timeout} waiting for the device login to complete.",
     "errors.auth.noSavedAccounts":
         "There are no auth accounts to switch to.",
     "errors.auth.required":
@@ -1161,7 +1161,7 @@ export const zhMessages = {
     "errors.auth.loginInvalidResponse": "auth login 服务返回了不受支持的响应内容。",
     "errors.auth.loginRequestError": "auth login 请求失败：{message}",
     "errors.auth.loginRequestFailed": "auth login 请求返回了 HTTP {status}。",
-    "errors.auth.loginTimeout": "等待 device login 完成超时。",
+    "errors.auth.loginTimeout": "等待 device login 完成超过 {timeout}，已超时。",
     "errors.auth.noSavedAccounts": "没有可切换的认证账号。",
     "errors.auth.required":
         "使用此命令前请先登录。",

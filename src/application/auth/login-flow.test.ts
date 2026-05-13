@@ -20,7 +20,7 @@ describe("startAuthLoginSession", () => {
         try {
             const session = await startAuthLoginSession({
                 endpoint: "oomol.com",
-                fetcher: async (input, init) => {
+                fetcher: (input, init) => {
                     const request = toRequest(input, init);
                     const requestUrl = new URL(request.url);
 
@@ -30,12 +30,12 @@ describe("startAuthLoginSession", () => {
                         request.method === "POST"
                         && requestUrl.pathname === "/v1/auth/device_login/code"
                     ) {
-                        return new Response(JSON.stringify({
+                        return Promise.resolve(new Response(JSON.stringify({
                             code: "M0KO41",
                             expires_in: 1800,
                             status: "waiting",
                             verify_code_url: "https://oomol.com/login/device?from=cli",
-                        }));
+                        })));
                     }
 
                     if (
@@ -44,7 +44,7 @@ describe("startAuthLoginSession", () => {
                     ) {
                         resultRequestCount += 1;
 
-                        return new Response(JSON.stringify(resultRequestCount === 1
+                        return Promise.resolve(new Response(JSON.stringify(resultRequestCount === 1
                             ? {
                                     status: "waiting",
                                 }
@@ -54,7 +54,7 @@ describe("startAuthLoginSession", () => {
                                     id: "user-1",
                                     name: "Alice",
                                     status: "verified",
-                                }));
+                                })));
                     }
 
                     throw new Error(`Unexpected request: ${request.method} ${requestUrl}`);
@@ -126,11 +126,12 @@ describe("startAuthLoginSession", () => {
     test("times out when the device login result never becomes verified", async () => {
         const logCapture = createLogCapture();
         let nowMs = 0;
+        let resultRequestCount = 0;
 
         try {
             const session = await startAuthLoginSession({
                 endpoint: "oomol.com",
-                fetcher: async (input, init) => {
+                fetcher: (input, init) => {
                     const request = toRequest(input, init);
                     const requestUrl = new URL(request.url);
 
@@ -138,28 +139,30 @@ describe("startAuthLoginSession", () => {
                         request.method === "POST"
                         && requestUrl.pathname === "/v1/auth/device_login/code"
                     ) {
-                        return new Response(JSON.stringify({
+                        return Promise.resolve(new Response(JSON.stringify({
                             code: "M0KO41",
                             expires_in: 2,
                             status: "waiting",
                             verify_code_url: "https://oomol.com/login/device",
-                        }));
+                        })));
                     }
 
                     if (
                         request.method === "GET"
                         && requestUrl.pathname === "/v1/auth/device_login/result"
                     ) {
-                        return new Response(JSON.stringify({
+                        resultRequestCount += 1;
+
+                        return Promise.resolve(new Response(JSON.stringify({
                             status: "waiting",
-                        }));
+                        })));
                     }
 
                     throw new Error(`Unexpected request: ${request.method} ${requestUrl}`);
                 },
                 logger: logCapture.logger,
                 now: () => nowMs,
-                pollIntervalMs: 1_000,
+                pollIntervalMs: 600_000,
                 sleep: async (ms) => {
                     nowMs += ms;
                 },
@@ -168,6 +171,62 @@ describe("startAuthLoginSession", () => {
 
             await expect(session.waitForAccount()).rejects.toMatchObject({
                 key: "errors.auth.loginTimeout",
+                params: {
+                    timeout: "10m",
+                },
+            });
+            expect(nowMs).toBe(600_000);
+            expect(resultRequestCount).toBe(1);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("times out a pending device login poll at the CLI wait timeout", async () => {
+        const logCapture = createLogCapture();
+        let nowMs = 0;
+
+        try {
+            const session = await startAuthLoginSession({
+                endpoint: "oomol.com",
+                fetcher: (input, init) => {
+                    const request = toRequest(input, init);
+                    const requestUrl = new URL(request.url);
+
+                    if (
+                        request.method === "POST"
+                        && requestUrl.pathname === "/v1/auth/device_login/code"
+                    ) {
+                        return Promise.resolve(new Response(JSON.stringify({
+                            code: "M0KO41",
+                            expires_in: 1800,
+                            status: "waiting",
+                            verify_code_url: "https://oomol.com/login/device",
+                        })));
+                    }
+
+                    if (
+                        request.method === "GET"
+                        && requestUrl.pathname === "/v1/auth/device_login/result"
+                    ) {
+                        return new Promise<Response>(() => {});
+                    }
+
+                    throw new Error(`Unexpected request: ${request.method} ${requestUrl}`);
+                },
+                logger: logCapture.logger,
+                now: () => nowMs,
+                translator: createTranslator("en"),
+            });
+
+            nowMs = 599_999;
+
+            await expect(session.waitForAccount()).rejects.toMatchObject({
+                key: "errors.auth.loginTimeout",
+                params: {
+                    timeout: "10m",
+                },
             });
         }
         finally {

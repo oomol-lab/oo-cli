@@ -33,7 +33,8 @@
 启动 device login 流程，或使用 session token 登录，并保存登录成功后的账号。
 
 - 说明：未传入 `--session-token` 时，CLI 会打印验证地址，并把用户 code 放在
-  `user_code` query 参数中，然后轮询直到 device login 验证成功或超时。
+  `user_code` query 参数中，然后最多等待 10 分钟，直到 device login 验证成功；
+  如果超过该时间仍未完成验证，会以超时错误退出。
 - 选项：
   - `--session-token <session-token>`：使用已有 session token 登录。传入后 CLI 不会
     打印 device-login URL，也不会轮询验证结果。

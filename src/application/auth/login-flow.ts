@@ -11,6 +11,9 @@ import {
 } from "../logging/log-fields.ts";
 
 const deviceLoginPollIntervalMs = 2_000;
+const deviceLoginWaitTimeoutMinutes = 10;
+const deviceLoginWaitTimeoutMs = deviceLoginWaitTimeoutMinutes * 60 * 1_000;
+const deviceLoginWaitTimeoutLabel = `${deviceLoginWaitTimeoutMinutes}m`;
 
 const deviceLoginCodeResponseSchema = z.object({
     code: z.string().min(1),
@@ -84,12 +87,17 @@ export async function startAuthLoginSession(
     const sleep = options.sleep ?? Bun.sleep;
     const pollIntervalMs = options.pollIntervalMs ?? deviceLoginPollIntervalMs;
     const state = Bun.randomUUIDv7();
-    const codeResponse = await requestDeviceLoginCode(state, options);
-    const expiresAt = now() + (codeResponse.expires_in * 1000);
+    const waitTimeoutAt = now() + deviceLoginWaitTimeoutMs;
+    const codeResponse = await requestDeviceLoginCode(
+        state,
+        options,
+        deviceLoginWaitTimeoutMs,
+    );
 
     options.logger.info(
         {
             expiresInSeconds: codeResponse.expires_in,
+            waitTimeoutMs: deviceLoginWaitTimeoutMs,
         },
         "Auth device login code created.",
     );
@@ -102,7 +110,7 @@ export async function startAuthLoginSession(
         ),
         waitForAccount: async () => await waitForVerifiedAccount(
             state,
-            expiresAt,
+            waitTimeoutAt,
             options,
             { now, sleep, pollIntervalMs },
         ),
@@ -144,7 +152,7 @@ export async function requestAuthAccountWithSessionToken(
 
 async function waitForVerifiedAccount(
     state: string,
-    expiresAt: number,
+    waitTimeoutAt: number,
     options: Pick<
         StartAuthLoginSessionOptions,
         "endpoint" | "fetcher" | "logger" | "translator"
@@ -155,8 +163,18 @@ async function waitForVerifiedAccount(
         sleep: (ms: number) => Promise<void>;
     },
 ): Promise<AuthAccount> {
-    while (resolved.now() < expiresAt) {
-        const result = await requestDeviceLoginResult(state, options);
+    while (true) {
+        const requestTimeoutMs = waitTimeoutAt - resolved.now();
+
+        if (requestTimeoutMs <= 0) {
+            break;
+        }
+
+        const result = await requestDeviceLoginResult(
+            state,
+            options,
+            requestTimeoutMs,
+        );
 
         if (result.status === "verified") {
             options.logger.info(
@@ -170,7 +188,7 @@ async function waitForVerifiedAccount(
             return createAuthAccount(result);
         }
 
-        const remainingMs = expiresAt - resolved.now();
+        const remainingMs = waitTimeoutAt - resolved.now();
 
         if (remainingMs <= 0) {
             break;
@@ -181,16 +199,17 @@ async function waitForVerifiedAccount(
 
     options.logger.warn(
         {
-            timeoutMs: expiresAt - resolved.now(),
+            timeoutMs: deviceLoginWaitTimeoutMs,
         },
         "Auth device login timed out.",
     );
-    throw new CliUserError("errors.auth.loginTimeout", 1);
+    throw createDeviceLoginTimeoutError();
 }
 
 async function requestDeviceLoginCode(
     state: string,
     options: StartAuthLoginSessionOptions,
+    timeoutMs: number,
 ): Promise<DeviceLoginCodeResponse> {
     const rawResponse = await requestAuthLogin(
         createDeviceLoginCodeUrl(options.endpoint),
@@ -202,6 +221,7 @@ async function requestDeviceLoginCode(
             kind: "code",
             method: "POST",
             requestDescription: "device login",
+            timeoutMs,
         },
     );
 
@@ -214,6 +234,7 @@ async function requestDeviceLoginCode(
 async function requestDeviceLoginResult(
     state: string,
     options: StartAuthLoginSessionOptions,
+    timeoutMs: number,
 ): Promise<DeviceLoginResultResponse> {
     const requestUrl = createDeviceLoginResultUrl(options.endpoint, state);
     const rawResponse = await requestAuthLogin(
@@ -223,6 +244,7 @@ async function requestDeviceLoginResult(
             kind: "result",
             method: "GET",
             requestDescription: "device login",
+            timeoutMs,
         },
     );
 
@@ -241,10 +263,31 @@ async function requestAuthLogin(
         method: "GET" | "POST";
         redactedValues?: readonly string[];
         requestDescription: "device login" | "fast login";
+        timeoutMs?: number;
     },
 ): Promise<string> {
     const redactedValues = requestOptions.redactedValues ?? [];
     const requestStartedAt = Date.now();
+    const abortController = requestOptions.timeoutMs === undefined
+        ? undefined
+        : new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = abortController === undefined
+        || requestOptions.timeoutMs === undefined
+        ? undefined
+        : new Promise<never>((_, reject) => {
+                timeoutId = setTimeout(() => {
+                    abortController.abort();
+                    reject(new Error("Request timed out."));
+                }, requestOptions.timeoutMs);
+            });
+    const withTimeout = async <TValue>(operation: Promise<TValue>): Promise<TValue> => {
+        if (timeoutPromise === undefined) {
+            return await operation;
+        }
+
+        return await Promise.race([operation, timeoutPromise]);
+    };
 
     options.logger.debug(
         {
@@ -258,7 +301,7 @@ async function requestAuthLogin(
     );
 
     try {
-        const response = await options.fetcher(requestUrl, {
+        const response = await withTimeout(options.fetcher(requestUrl, {
             body: requestOptions.body,
             headers: requestOptions.body === undefined
                 ? undefined
@@ -266,7 +309,8 @@ async function requestAuthLogin(
                         "Content-Type": "application/json",
                     },
             method: requestOptions.method,
-        });
+            signal: abortController?.signal,
+        }));
         const durationMs = Date.now() - requestStartedAt;
 
         if (!response.ok) {
@@ -303,6 +347,21 @@ async function requestAuthLogin(
             throw error;
         }
 
+        if (abortController?.signal.aborted ?? false) {
+            options.logger.warn(
+                {
+                    durationMs: Date.now() - requestStartedAt,
+                    kind: requestOptions.kind,
+                    method: requestOptions.method,
+                    timeoutMs: requestOptions.timeoutMs,
+                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                },
+                `Auth ${requestOptions.requestDescription} request timed out.`,
+            );
+
+            throw createDeviceLoginTimeoutError();
+        }
+
         options.logger.warn(
             {
                 durationMs: Date.now() - requestStartedAt,
@@ -320,6 +379,11 @@ async function requestAuthLogin(
                 redactedValues,
             ),
         });
+    }
+    finally {
+        if (timeoutId !== undefined) {
+            clearTimeout(timeoutId);
+        }
     }
 }
 
@@ -342,6 +406,12 @@ function createAuthAccount(response: AuthAccountResponse): AuthAccount {
         id: response.id,
         name: response.name,
     };
+}
+
+function createDeviceLoginTimeoutError(): CliUserError {
+    return new CliUserError("errors.auth.loginTimeout", 1, {
+        timeout: deviceLoginWaitTimeoutLabel,
+    });
 }
 
 function createDeviceLoginCodeUrl(endpoint: string): URL {
