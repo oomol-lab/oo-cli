@@ -14,6 +14,8 @@ export function readManagedSkillHostLabel(
             return translator.t("skills.list.host.codebuddy");
         case "codex":
             return translator.t("skills.list.host.codex");
+        case "deepseek-tui":
+            return translator.t("skills.list.host.deepseekTui");
         case "hermes":
             return translator.t("skills.list.host.hermes");
         case "openclaw":

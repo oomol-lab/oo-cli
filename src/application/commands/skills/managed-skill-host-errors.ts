@@ -4,6 +4,7 @@ export type ManagedSkillHostMissingErrorKey
     = | "errors.skills.claudeNotInstalled"
         | "errors.skills.codebuddyNotInstalled"
         | "errors.skills.codexNotInstalled"
+        | "errors.skills.deepseekTuiNotInstalled"
         | "errors.skills.hermesNotInstalled"
         | "errors.skills.openclawNotInstalled"
         | "errors.skills.qoderworkNotInstalled"
@@ -21,6 +22,8 @@ export function resolveManagedSkillHostMissingErrorKey(
             return "errors.skills.codebuddyNotInstalled";
         case "codex":
             return "errors.skills.codexNotInstalled";
+        case "deepseek-tui":
+            return "errors.skills.deepseekTuiNotInstalled";
         case "hermes":
             return "errors.skills.hermesNotInstalled";
         case "openclaw":

@@ -105,6 +105,16 @@ describe("embedded skill assets", () => {
             "references/file-transfer.md",
             "references/task-lifecycle.md",
         ]);
+        expect(getBundledSkillFiles("oo", "deepseek-tui").map(file => file.relativePath)).toEqual([
+            "SKILL.md",
+            "references/auth-and-billing.md",
+            "references/llm-client.md",
+            "references/search-and-selection.md",
+            "references/package-execution.md",
+            "references/connector-execution.md",
+            "references/file-transfer.md",
+            "references/task-lifecycle.md",
+        ]);
         expect(
             getBundledSkillFiles("oo-find-skills", "codex").map(
                 file => file.relativePath,
@@ -179,6 +189,14 @@ describe("embedded skill assets", () => {
             "references/oo-cli-contract.md",
         ]);
         expect(
+            getBundledSkillFiles("oo-find-skills", "deepseek-tui").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+            "references/oo-cli-contract.md",
+        ]);
+        expect(
             getBundledSkillFiles("oo-create-skill", "codex").map(
                 file => file.relativePath,
             ),
@@ -237,6 +255,13 @@ describe("embedded skill assets", () => {
         ]);
         expect(
             getBundledSkillFiles("oo-create-skill", "qoderwork").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
+        expect(
+            getBundledSkillFiles("oo-create-skill", "deepseek-tui").map(
                 file => file.relativePath,
             ),
         ).toEqual([
@@ -306,6 +331,13 @@ describe("embedded skill assets", () => {
         ).toEqual([
             "SKILL.md",
         ]);
+        expect(
+            getBundledSkillFiles("oo-publish-skill", "deepseek-tui").map(
+                file => file.relativePath,
+            ),
+        ).toEqual([
+            "SKILL.md",
+        ]);
     });
 
     test("maps bundled skills to contrib/skills/<agent>/<skill> source directories", () => {
@@ -319,6 +351,7 @@ describe("embedded skill assets", () => {
             "trae-cn",
             "openclaw",
             "qoderwork",
+            "deepseek-tui",
         ]);
 
         for (const skillName of availableBundledSkillNames) {
@@ -940,7 +973,7 @@ describe("embedded skill assets", () => {
     });
 
     test("keeps non-Claude skill frontmatter free of Claude allowed tools", async () => {
-        for (const agentName of ["qoderwork", "trae", "trae-cn", "workbuddy"] as const) {
+        for (const agentName of ["deepseek-tui", "qoderwork", "trae", "trae-cn", "workbuddy"] as const) {
             for (const skillName of availableBundledSkillNames) {
                 const skillFile = getBundledSkillFiles(skillName, agentName)
                     .find(file => file.relativePath === "SKILL.md");
@@ -983,6 +1016,7 @@ function readBundledSkillSourceAgentName(
         case "trae":
         case "trae-cn":
         case "workbuddy":
+        case "deepseek-tui":
             return "codebuddy";
         default:
             return agentName;

@@ -64,6 +64,7 @@ const managedSkillHostOrder = {
     "trae-cn": 6,
     "openclaw": 7,
     "qoderwork": 8,
+    "deepseek-tui": 9,
 } as const satisfies Record<BundledSkillAgentName, number>;
 
 type SkillListSource = (typeof skillListSourceValues)[number];

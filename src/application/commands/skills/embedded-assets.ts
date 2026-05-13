@@ -63,7 +63,7 @@ import ooQoderWorkSearchAndSelectionReferencePath from "../../../../contrib/skil
 import ooQoderWorkTaskLifecycleReferencePath from "../../../../contrib/skills/qoderwork/oo/references/task-lifecycle.md" with { type: "file" };
 import ooQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo/SKILL.md" with { type: "file" };
 
-export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "trae", "trae-cn", "openclaw", "qoderwork"] as const;
+export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "trae", "trae-cn", "openclaw", "qoderwork", "deepseek-tui"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
 
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill", "oo-publish-skill"] as const;
@@ -217,6 +217,15 @@ const bundledSkillRegistry = {
                 ...ooQoderWorkReferenceFiles,
             ],
         },
+        "deepseek-tui": {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCodeBuddySkillPath,
+                },
+                ...ooCodeBuddyReferenceFiles,
+            ],
+        },
     },
     "oo-find-skills": {
         "codex": {
@@ -331,6 +340,18 @@ const bundledSkillRegistry = {
                 },
             ],
         },
+        "deepseek-tui": {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooFindSkillsCodeBuddySkillPath,
+                },
+                {
+                    relativePath: "references/oo-cli-contract.md",
+                    sourcePath: ooFindSkillsCodeBuddyCliContractPath,
+                },
+            ],
+        },
     },
     "oo-create-skill": {
         "codex": {
@@ -409,6 +430,14 @@ const bundledSkillRegistry = {
                 },
             ],
         },
+        "deepseek-tui": {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooCreateSkillCodeBuddySkillPath,
+                },
+            ],
+        },
     },
     "oo-publish-skill": {
         "codex": {
@@ -484,6 +513,14 @@ const bundledSkillRegistry = {
                 {
                     relativePath: "SKILL.md",
                     sourcePath: ooPublishSkillQoderWorkSkillPath,
+                },
+            ],
+        },
+        "deepseek-tui": {
+            files: [
+                {
+                    relativePath: "SKILL.md",
+                    sourcePath: ooPublishSkillCodeBuddySkillPath,
                 },
             ],
         },

@@ -8,6 +8,7 @@ import {
     resolveClaudeHomeDirectory,
     resolveCodeBuddyHomeDirectory,
     resolveCodexHomeDirectory,
+    resolveDeepSeekTuiHomeDirectory,
     resolveHermesHomeDirectory,
     resolveQoderWorkHomeDirectory,
     resolveTraeCnHomeDirectory,
@@ -30,7 +31,7 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, or qoderwork.\n",
+                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.\n",
             );
         }
         finally {
@@ -158,6 +159,35 @@ describe("skills preflight command", () => {
                 "preflight",
                 "--agent",
                 "codebuddy",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Local skill editing is ready. Writable storage: ${skillsDirectoryPath}. Supported hosts: 1.\n`,
+            );
+            expect(await readDirectoryWithoutBundledSkills(skillsDirectoryPath)).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("checks DeepSeek TUI as a requested agent", async () => {
+        const sandbox = await createCliSandbox();
+        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(
+            deepSeekTuiHomeDirectory,
+        );
+
+        try {
+            await mkdir(deepSeekTuiHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "preflight",
+                "--agent",
+                "deepseek-tui",
             ]);
 
             expect(result.exitCode).toBe(0);
