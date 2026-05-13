@@ -60,7 +60,6 @@ interface AuthLoginRequestOptions {
 }
 
 export interface AuthLoginSession {
-    code: string;
     expiresInSeconds: number;
     verificationUrl: string;
     waitForAccount: () => Promise<AuthAccount>;
@@ -96,9 +95,11 @@ export async function startAuthLoginSession(
     );
 
     return {
-        code: codeResponse.code,
         expiresInSeconds: codeResponse.expires_in,
-        verificationUrl: codeResponse.verify_code_url,
+        verificationUrl: createDeviceLoginVerificationUrl(
+            codeResponse.verify_code_url,
+            codeResponse.code,
+        ),
         waitForAccount: async () => await waitForVerifiedAccount(
             state,
             expiresAt,
@@ -354,6 +355,16 @@ function createDeviceLoginResultUrl(endpoint: string, state: string): URL {
 
     requestUrl.searchParams.set("stat", state);
     return requestUrl;
+}
+
+function createDeviceLoginVerificationUrl(
+    verificationUrl: string,
+    userCode: string,
+): string {
+    const url = new URL(verificationUrl);
+
+    url.searchParams.set("user_code", userCode);
+    return url.toString();
 }
 
 function createFastLoginProfileWithSessionTokenUrl(

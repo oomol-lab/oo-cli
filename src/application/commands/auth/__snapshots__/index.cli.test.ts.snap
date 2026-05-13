@@ -6,7 +6,6 @@ exports[`auth CLI writes auth device login logs without persisting secrets 1`] =
   "stderr": "",
   "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Enter this code to continue: M0KO41
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
@@ -75,7 +74,6 @@ exports[`auth CLI supports auth login and updates the existing account without d
     "stderr": "",
     "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Enter this code to continue: M0KO41
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
@@ -87,7 +85,6 @@ Waiting for the device login to complete...
     "stderr": "",
     "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Enter this code to continue: M0KO41
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
@@ -103,7 +100,6 @@ exports[`auth CLI supports auth login with a custom OOMOL_ENDPOINT 1`] = `
   "stderr": "",
   "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Enter this code to continue: M0KO41
 Waiting for the device login to complete...
 ✓ Logged in to staging.oomol.test account Alice
   - Active account: true
@@ -118,7 +114,6 @@ exports[`auth CLI supports login as an alias for auth login 1`] = `
   "stderr": "",
   "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Enter this code to continue: M0KO41
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
@@ -133,7 +128,6 @@ exports[`auth CLI renders the auth login url and success block with color stylin
   "stderr": "",
   "stdout": 
 "Open this URL in your browser to continue: <LOGIN_URL>
-Enter this code to continue: M0KO41
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
