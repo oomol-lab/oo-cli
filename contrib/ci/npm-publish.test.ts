@@ -211,7 +211,10 @@ describe("npm publish workflow", () => {
                     readPackageMetadata: () => Promise.resolve(packageMetadata),
                 });
 
-                expect((await readFile(npmArgsPath, "utf8")).split("\n")).toEqual([
+                const recordedArgs = (await readFile(npmArgsPath, "utf8"))
+                    .replaceAll("\r\n", "\n")
+                    .split("\n");
+                expect(recordedArgs).toEqual([
                     "publish",
                     resolve("dist/demo.tgz"),
                     "--access",
