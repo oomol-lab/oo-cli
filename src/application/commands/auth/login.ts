@@ -115,9 +115,11 @@ async function runDeviceLogin(
     );
     writeLine(
         context.stdout,
-        context.translator.t("auth.login.openManually", {
-            url: colors.hex(loginUrlColor)(session.verificationUrl),
-        }),
+        context.translator.t("auth.login.openManually"),
+    );
+    writeLine(
+        context.stdout,
+        colors.hex(loginUrlColor)(session.verificationUrl),
     );
     writeLine(
         context.stdout,

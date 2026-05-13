@@ -152,6 +152,56 @@ describe("auth CLI", () => {
         }
     });
 
+    test("renders device login instructions with a standalone URL", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1");
+            const plainOutput = createTerminalColors(true).strip(result.stdout);
+            const outputLines = plainOutput.split("\n");
+            const loginUrl = findLoginUrl(result.stdout);
+
+            expect(result.exitCode).toBe(0);
+            expect(loginUrl).toBeTruthy();
+            expect(outputLines[0]).toBe("Open this login URL in your browser:");
+            expect(outputLines[1]).toBe(loginUrl);
+            expect(outputLines[2]).toBe("Waiting for the device login to complete...");
+            expect(new URL(loginUrl!).searchParams.get("user_code")).toBe(
+                "M0KO41",
+            );
+            expectForbiddenDeviceLoginPhrases(plainOutput);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("renders localized device login instructions with a standalone URL", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                argv: ["--lang", "zh", "auth", "login"],
+            });
+            const plainOutput = createTerminalColors(true).strip(result.stdout);
+            const outputLines = plainOutput.split("\n");
+            const loginUrl = findLoginUrl(result.stdout);
+
+            expect(result.exitCode).toBe(0);
+            expect(loginUrl).toBeTruthy();
+            expect(outputLines[0]).toBe("请在你的浏览器中打开此登录 URL：");
+            expect(outputLines[1]).toBe(loginUrl);
+            expect(outputLines[2]).toBe("正在等待 device login 完成...");
+            expect(new URL(loginUrl!).searchParams.get("user_code")).toBe(
+                "M0KO41",
+            );
+            expectForbiddenDeviceLoginPhrases(plainOutput);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports auth login with a custom OOMOL_ENDPOINT", async () => {
         const sandbox = await createCliSandbox();
 
@@ -243,7 +293,7 @@ describe("auth CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(requests).toHaveLength(1);
-            expect(result.stdout).not.toContain("Open this URL");
+            expect(result.stdout).not.toContain("Open this login URL");
             expect(result.stdout).not.toContain("Enter this code");
             expect(result.stdout).not.toContain("Waiting for the device login");
             expect(createCliSnapshot(result)).toEqual({
@@ -670,4 +720,18 @@ function createAuthLoginSnapshot(
                 ],
         stripAnsi: options.stripAnsi,
     });
+}
+
+function expectForbiddenDeviceLoginPhrases(output: string): void {
+    for (const phrase of [
+        "AI agents",
+        "sandbox",
+        "automation",
+        "do not open",
+        "must be logged in",
+        "不要代为打开",
+        "必须已登录",
+    ]) {
+        expect(output).not.toContain(phrase);
+    }
 }
