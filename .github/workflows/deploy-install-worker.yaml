@@ -48,6 +48,7 @@ jobs:
           mkdir -p "${asset_directory}"
 
           cp contrib/install/install.cmd "${asset_directory}/install.cmd"
+          cp contrib/install/install-guide.md "${asset_directory}/install-guide.md"
           cp contrib/install/install.ps1 "${asset_directory}/install.ps1"
           cp contrib/install/install.sh "${asset_directory}/install.sh"
 

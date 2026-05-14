@@ -7,7 +7,7 @@ const workflowPath = join(workerDirectoryPath, "..", "..", "..", ".github", "wor
 const wranglerConfigPath = join(workerDirectoryPath, "wrangler.jsonc");
 
 describe("install worker deployment", () => {
-    test("deploys the install scripts through the expected worker endpoints", async () => {
+    test("deploys the install assets through the expected worker endpoints", async () => {
         const wranglerConfig = await readFile(wranglerConfigPath, "utf8");
 
         expect(wranglerConfig).toContain("\"name\": \"oo-cli\"");
@@ -36,6 +36,7 @@ describe("install worker deployment", () => {
         expect(workflow).toContain("Prepare install worker assets");
         expect(workflow).toContain("asset_directory=\"dist/install-worker-assets\"");
         expect(workflow).toContain("cp contrib/install/install.cmd");
+        expect(workflow).toContain("cp contrib/install/install-guide.md");
         expect(workflow).toContain("cp contrib/install/install.ps1");
         expect(workflow).toContain("cp contrib/install/install.sh");
         expect(workflow).toContain("uses: cloudflare/wrangler-action@v4");
