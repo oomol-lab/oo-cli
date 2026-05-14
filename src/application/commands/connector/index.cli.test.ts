@@ -975,7 +975,7 @@ describe("connectorCommand CLI", () => {
 
             expect(runResult.exitCode).toBe(1);
             expect(runResult.stderr).toContain(
-                "The connector action run request returned HTTP 404 (errorCode: action_not_found).",
+                "Connector action openai_image_async_result returned HTTP 404 (errorCode: action_not_found).",
             );
             expect(metadataRequestCount).toBe(1);
             expect(JSON.parse(schemaResult.stdout)).toMatchObject({
@@ -1396,7 +1396,7 @@ describe("connectorCommand CLI", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toContain(
-                "The connector action run request returned HTTP 400 (errorCode: invalid_input): Invalid id value",
+                "Connector action get_message returned HTTP 400 (errorCode: invalid_input): Invalid id value",
             );
             expect(content).toContain(
                 "\"msg\":\"Connector action run request returned a non-success status.\"",
@@ -1405,6 +1405,10 @@ describe("connectorCommand CLI", () => {
             expect(content).toContain("\"errorCode\":\"invalid_input\"");
             expect(content).toContain("\"executionId\":\"exec-1\"");
             expect(content).not.toContain("\"responseBody\":");
+            // Always-on diagnostics are present even when structured fields exist.
+            expect(content).toContain("\"responseBodyLength\":");
+            // Preview is NOT included when structured fields are present.
+            expect(content).not.toContain("\"rawResponsePreview\":");
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     action: "get_message",
@@ -1416,6 +1420,297 @@ describe("connectorCommand CLI", () => {
                     service: "gmail",
                 },
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("surfaces failing async poll action name and html body diagnostics on non-standard 500", async () => {
+        const sandbox = await createCliSandbox();
+        const originalSleep = Bun.sleep;
+
+        try {
+            Bun.sleep = ((_durationMs: number) => Promise.resolve()) as typeof Bun.sleep;
+
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                {
+                    asyncLifecycle: {
+                        defaultRunMode: "wait",
+                        kind: "poll",
+                        poll: {
+                            action: "openai_image_async_result",
+                            handleInputField: "sessionID",
+                            handleOutputField: "sessionId",
+                            intervalSeconds: 3,
+                        },
+                        resultField: "data",
+                        state: {
+                            failure: ["not_found"],
+                            field: "state",
+                            running: ["processing"],
+                            success: ["completed"],
+                        },
+                    },
+                    description: "Submit OpenAI image generation.",
+                    inputSchema: {
+                        type: "object",
+                    },
+                    name: "openai_image_async_submit",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "fusion-api",
+                },
+            );
+
+            const result = await sandbox.run(
+                [
+                    "--debug",
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.endsWith("openai_image_async_submit")) {
+                            return new Response(JSON.stringify({
+                                data: {
+                                    sessionId: "session-1",
+                                },
+                                meta: {
+                                    executionId: "submit-exec",
+                                },
+                            }));
+                        }
+
+                        // Simulate a non-standard upstream 500: HTML body + trace headers,
+                        // no JSON failure schema match.
+                        return new Response(
+                            "<html><body>Internal Server Error</body></html>",
+                            {
+                                headers: {
+                                    "cf-ray": "abcdef1234-SJC",
+                                    "content-type": "text/html; charset=utf-8",
+                                    "x-request-id": "req-abc-123",
+                                },
+                                status: 500,
+                            },
+                        );
+                    },
+                },
+            );
+
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(1);
+            // The failing action is the poll action, not the submit action that the user typed.
+            expect(result.stderr).toContain(
+                "Connector action openai_image_async_result returned HTTP 500.",
+            );
+            // Debug log records the failing poll action.
+            expect(content).toContain("\"actionName\":\"openai_image_async_result\"");
+            // Safe bounded diagnostics:
+            expect(content).toContain("\"responseBodyLength\":");
+            expect(content).toContain("\"responseContentType\":\"text/html; charset=utf-8\"");
+            expect(content).toContain("\"x-request-id\":\"req-abc-123\"");
+            expect(content).toContain("\"cf-ray\":\"abcdef1234-SJC\"");
+            // No structured failure fields → preview IS included.
+            expect(content).toContain("\"rawResponsePreview\":");
+            expect(content).toContain("Internal Server Error");
+            // Full response body field never appears (legacy guarantee preserved).
+            expect(content).not.toContain("\"responseBody\":");
+        }
+        finally {
+            Bun.sleep = originalSleep;
+            await sandbox.cleanup();
+        }
+    });
+
+    test("emits responseBodyLength but no preview for empty 500 body", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                {
+                    description: "Send a Gmail message.",
+                    inputSchema: {
+                        type: "object",
+                    },
+                    name: "send_mail",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "gmail",
+                },
+            );
+
+            const result = await sandbox.run(
+                [
+                    "--debug",
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{}",
+                ],
+                {
+                    fetcher: async () => new Response("", { status: 500 }),
+                },
+            );
+
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(
+                "Connector action send_mail returned HTTP 500.",
+            );
+            expect(content).toContain("\"responseBodyLength\":0");
+            // Preview MUST NOT be emitted for empty bodies, even though there are
+            // no structured failure fields.
+            expect(content).not.toContain("\"rawResponsePreview\":");
+            expect(content).not.toContain("\"responseBody\":");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("emits truncated preview for non-schema JSON 500 body", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                {
+                    description: "Send a Gmail message.",
+                    inputSchema: {
+                        type: "object",
+                    },
+                    name: "send_mail",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "gmail",
+                },
+            );
+
+            const oversizedDetail = "x".repeat(2000);
+            const result = await sandbox.run(
+                [
+                    "--debug",
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{}",
+                ],
+                {
+                    fetcher: async () => new Response(
+                        JSON.stringify({
+                            // Not the connector failure schema shape: no message /
+                            // errorCode / meta.executionId.
+                            detail: oversizedDetail,
+                            something: "else",
+                        }),
+                        {
+                            headers: {
+                                "content-type": "application/json",
+                            },
+                            status: 500,
+                        },
+                    ),
+                },
+            );
+
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(
+                "Connector action send_mail returned HTTP 500.",
+            );
+            expect(content).toContain("\"responseBodyLength\":");
+            expect(content).toContain("\"responseContentType\":\"application/json\"");
+            expect(content).toContain("\"rawResponsePreview\":");
+            // The preview is truncated with a marker — full 2000-char body should not be in the log.
+            expect(content).not.toContain(oversizedDetail);
+            // Ensure the truncation marker is present.
+            expect(content).toContain("...\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("emits preview for empty-object failure body that matches the schema but has no useful fields", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                {
+                    description: "Send a Gmail message.",
+                    inputSchema: {
+                        type: "object",
+                    },
+                    name: "send_mail",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "gmail",
+                },
+            );
+
+            const result = await sandbox.run(
+                [
+                    "--debug",
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{}",
+                ],
+                {
+                    fetcher: async () => new Response(
+                        JSON.stringify({}),
+                        {
+                            headers: {
+                                "content-type": "application/json",
+                            },
+                            status: 500,
+                        },
+                    ),
+                },
+            );
+
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(
+                "Connector action send_mail returned HTTP 500.",
+            );
+            // Schema parsed successfully but no useful fields → still include preview.
+            expect(content).toContain("\"rawResponsePreview\":\"{}\"");
+            expect(content).toContain("\"responseBodyLength\":2");
         }
         finally {
             await sandbox.cleanup();
@@ -1829,7 +2124,7 @@ describe("connectorCommand CLI", () => {
 
             expect(runResult.exitCode).toBe(1);
             expect(runResult.stderr).toContain(
-                "The connector action run request returned HTTP 404 (errorCode: action_not_found).",
+                "Connector action send_mail returned HTTP 404 (errorCode: action_not_found).",
             );
             expect(metadataRequestCount).toBe(1);
             expect(JSON.parse(schemaResult.stdout)).toMatchObject({
