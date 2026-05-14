@@ -19,7 +19,6 @@ on:
         default: patch
 
 permissions:
-  id-token: write
   contents: write
 
 concurrency:
@@ -122,7 +121,7 @@ jobs:
     needs:
       - compute-version
       - build-platform-packages
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_VERSION: ${{ needs.compute-version.outputs.version }}
@@ -161,6 +160,8 @@ jobs:
         run: bun run contrib/ci/release-workflow.ts assemble-release-artifacts
 
       - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.OOMOL_LAB_OO_CLI_PUBLISH }}
         run: bun run contrib/ci/release-workflow.ts publish-npm-packages
 
       - name: Ensure GitHub Release
