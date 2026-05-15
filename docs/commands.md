@@ -491,6 +491,28 @@ requested.
 - Notes: when a folded skill is installed in multiple supported hosts, the
   `Host` field lists all matching hosts.
 
+### `oo skills locate <skill-id>`
+
+Print the local path for an installed skill.
+
+- Arguments: `<skill-id>` is the directory name to locate under supported
+  skill roots. Path-shaped values are rejected; pass paths directly to
+  `oo skills publish`.
+- Options: `--agent <agent>` narrows the scan to one supported agent:
+  `codex`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `trae-cn`,
+  `openclaw`, `qoderwork`, or `deepseek-tui`.
+- Resolution: with `--agent`, the command checks only that agent's
+  `<agent-home>/skills/<skill-id>` path. Without `--agent`, it checks all
+  available supported agent skill roots plus canonical registry storage under
+  `<config-dir>/skills/registry/<skill-id>`.
+- Match rule: a candidate matches when it contains `SKILL.md`. The command does
+  not validate skill frontmatter or `.oo-metadata.json`; publish performs that
+  validation.
+- Output: when exactly one candidate matches, stdout is that path plus a
+  newline. When no candidates match, or multiple candidates match, the command
+  exits non-zero. Ambiguous errors list the candidate paths and tell callers to
+  pass `--agent` or publish one path directly.
+
 ### `oo skills preflight`
 
 Check whether this environment has permission to author local skills for one
@@ -555,39 +577,29 @@ Validate a local skill directory against the generic skill contract.
 - Output: on success, the command prints a concise success message. On failure,
   it prints the validation error and exits non-zero.
 
-### `oo skills publish <skill-id>`
+### `oo skills publish <path>`
 
 Convert one skill into an OOMOL package and run the publish step.
 
-- Arguments: `<skill-id>` is normally a skill id. When no managed skill matches,
-  it may also be a path to a skill directory containing `SKILL.md`. Relative
-  paths resolve from the current working directory.
+- Arguments: `<path>` must be a skill directory containing `SKILL.md`, or the
+  `SKILL.md` file itself. Relative paths resolve from the current working
+  directory. Bare skill ids are not resolved by this command; use
+  `oo skills locate <skill-id>` first when needed.
 - Options: `--visibility <visibility>` sets the registry package visibility.
   Accepted values are `private` and `public`. When omitted, an existing package
   keeps its current registry visibility. If no existing visibility can be read,
   an interactive terminal prompts for `private` or `public`.
-- Options: `--agent <agent>` selects one agent-native local skill when the same
-  local skill id exists in multiple agents. Accepted values are `codex`,
-  `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `trae-cn`, `openclaw`,
-  `qoderwork`, and `deepseek-tui`.
 - Options: `-y, --yes` answers publish confirmation prompts with yes.
 - Options: `--force` is accepted for compatibility with older workflows.
-- Source resolution: skill ids first match oo-managed local skills in supported
-  agent skill directories. If exactly one local match exists, that directory is
-  published in place. If multiple local matches exist, the command exits
-  non-zero and requires `--agent`.
-- Source resolution: bundled skills are rejected because they are managed by the
-  oo CLI release.
-- Source resolution: registry skills under
-  `<config-dir>/skills/registry/<skill-id>` can be published. When the installed
-  metadata contains a scoped package name, that package name is used as the
-  target. If no scoped package name is available and the installed metadata
-  package name differs from the target package name, an interactive `[y/N]`
-  confirmation is required before publishing under the current account scope
-  unless `-y, --yes` is provided.
-- Source resolution: when no local, bundled, or registry source matched, the
-  argument is resolved as a filesystem path. A matching skill directory is
-  published in place.
+- Source resolution: `.oo-metadata.json` determines whether the path is an
+  oo-managed local skill, an oo-managed registry skill, or an unmanaged path
+  source. Invalid oo metadata fails before publishing. Bundled skills are
+  rejected because they are managed by the oo CLI release.
+- Registry source resolution: when the path has registry metadata with a scoped
+  package name, that package name is used as the target. If no scoped package
+  name is available and the installed metadata package name differs from the
+  target package name, an interactive `[y/N]` confirmation is required before
+  publishing under the current account scope unless `-y, --yes` is provided.
 - Authentication: the command requires the current OOMOL account. If the source
   has an existing scoped `metadata.packageName`, that package name is preserved;
   otherwise the package name is `@<lowercase-account.name>/<lowercase-skill-id>`.
@@ -617,9 +629,13 @@ Convert one skill into an OOMOL package and run the publish step.
 - Version resolution: if the requested version is not greater than the latest
   remote package version, the command publishes the next patch version.
 - Writeback: after the publish step succeeds, `SKILL.md` frontmatter is updated
-  with the final `metadata.packageName` and `metadata.version`. Agent-native
-  local sources keep local ownership metadata; registry sources keep registry
-  ownership metadata.
+  with the final `metadata.packageName` and `metadata.version`.
+- Registry writeback: after publishing an oo-managed registry skill, the command
+  updates registry ownership metadata. If the source path is not canonical
+  registry storage, it replaces `<config-dir>/skills/registry/<skill-id>` with
+  the published source, then copies canonical storage to every available
+  supported agent. If no supported agent home is available, publish and
+  canonical writeback still succeed.
 - Output: on success, text output prints the skill id, final package specifier,
   selected visibility (`private` or `public`), and the Hub package URL
   for the current account endpoint, for example

@@ -430,6 +430,25 @@ registry skills。
 - 说明：如果折叠后的 skill 安装在多个受支持 Agent 中，`Host` 字段会列出所有匹配的
   Agent。
 
+### `oo skills locate <skill-id>`
+
+输出已安装 skill 的本地路径。
+
+- 参数：`<skill-id>` 是要在受支持 skill 根目录下定位的目录名。路径形式的值会被拒绝；
+  如需传路径，请直接传给 `oo skills publish`。
+- 选项：`--agent <agent>` 将扫描范围限制为一个受支持 Agent：`codex`、
+  `claude`、`hermes`、`codebuddy`、`workbuddy`、`trae`、`trae-cn`、
+  `openclaw`、`qoderwork` 或 `deepseek-tui`。
+- 解析：传入 `--agent` 时，命令只检查该 Agent 的
+  `<agent-home>/skills/<skill-id>`。未传入 `--agent` 时，命令会检查所有可用的受
+  支持 Agent skill 根目录，以及 `<config-dir>/skills/registry/<skill-id>` 下的
+  canonical registry 存储。
+- 匹配规则：候选目录只要包含 `SKILL.md` 就视为匹配。命令不会校验 skill
+  frontmatter 或 `.oo-metadata.json`；这些校验由 publish 负责。
+- 输出：恰好匹配一个候选时，stdout 输出该路径并换行。没有候选或匹配多个候选时，
+  命令以非零状态退出。歧义错误会列出候选路径，并提示调用方传入 `--agent` 或直接
+  发布某个路径。
+
 ### `oo skills preflight`
 
 检查当前环境是否有权限为一个 Agent 创建本地 skills。
@@ -482,31 +501,25 @@ registry skills。
 - 警告：缺少 `metadata.icon` 或 `metadata.title` 会打印 warning，但不会导致校验失败。
 - 输出：成功时命令会打印简短成功消息。失败时打印校验错误并以非零状态退出。
 
-### `oo skills publish <skill-id>`
+### `oo skills publish <path>`
 
 将一个 skill 转换为 OOMOL 包，并执行发布步骤。
 
-- 参数：`<skill-id>` 通常是 skill id。当没有匹配到由 oo 管理的 skill 时，也可以
-  是包含 `SKILL.md` 的 skill 目录路径。相对路径会从当前工作目录解析。
+- 参数：`<path>` 必须是包含 `SKILL.md` 的 skill 目录，或 `SKILL.md` 文件本身。
+  相对路径会从当前工作目录解析。该命令不解析裸 skill id；需要时请先使用
+  `oo skills locate <skill-id>`。
 - 选项：`--visibility <visibility>` 设置 registry 包可见性。可选值为
   `private` 和 `public`。省略时，已有包会沿用当前 registry 可见性。如果无法读取
   已有可见性，交互式终端会询问发布为 `private` 还是 `public`。
-- 选项：`--agent <agent>` 用于当多个 Agent 中存在同名 local skill 时选择其中一个。
-  可选值为 `codex`、`claude`、`hermes`、`codebuddy`、`workbuddy`、`trae`、
-  `trae-cn`、`openclaw`、`qoderwork` 和 `deepseek-tui`。
 - 选项：`-y, --yes` 会对发布过程中的确认提示自动回答 yes。
 - 选项：`--force` 为兼容旧流程保留。
-- 来源解析：skill id 会先匹配受支持 Agent skill 目录中的 oo-managed local skill。
-  如果恰好匹配一个 local skill，则原地发布该目录；如果匹配多个，则命令以非零状态
-  退出并要求传入 `--agent`。
-- 来源解析：内置 skill 会被拒绝发布，因为它们由 oo CLI 版本管理。
-- 来源解析：可以发布 `<config-dir>/skills/registry/<skill-id>` 下的 registry
-  skill。如果已安装元数据中包含带 scope 的包名，命令会使用该包名作为目标。
-  如果没有可用的带 scope 包名，且已安装元数据中的包名和目标包名不同，命令会使用
-  交互式 `[y/N]` 确认，再将它发布到当前账号 scope 下；提供 `-y, --yes` 时会跳过
-  该确认。
-- 来源解析：如果没有匹配到 local、bundled 或 registry 来源，参数会按文件系统路径
-  解析。匹配到的 skill 目录会原地发布。
+- 来源解析：`.oo-metadata.json` 决定该路径是 oo-managed local skill、
+  oo-managed registry skill，还是 unmanaged path 来源。无效的 oo metadata 会在发布
+  前失败。内置 skill 会被拒绝发布，因为它们由 oo CLI 版本管理。
+- Registry 来源解析：如果路径的 registry metadata 中包含带 scope 的包名，命令会
+  使用该包名作为目标。如果没有可用的带 scope 包名，且已安装元数据中的包名和目标包
+  名不同，命令会使用交互式 `[y/N]` 确认，再将它发布到当前账号 scope 下；提供
+  `-y, --yes` 时会跳过该确认。
 - 认证：命令要求存在当前 OOMOL 账号。如果来源已有带 scope 的
   `metadata.packageName`，会保留该包名；否则包名为
   `@<小写 account.name>/<小写 skill-id>`。
@@ -530,8 +543,11 @@ registry skills。
   非交互式运行必须传入 `--visibility`。
 - 版本解析：如果请求版本不大于远端 latest 包版本，命令会发布下一个 patch 版本。
 - 回写：发布步骤成功后，命令会把最终的 `metadata.packageName` 和
-  `metadata.version` 写回 `SKILL.md` frontmatter。agent-native local 来源会保留
-  local 所有权 metadata；registry 来源会保留 registry 所有权 metadata。
+  `metadata.version` 写回 `SKILL.md` frontmatter。
+- Registry 回写：发布 oo-managed registry skill 后，命令会更新 registry 所有权
+  metadata。如果来源路径不是 canonical registry 存储，会先用已发布来源替换
+  `<config-dir>/skills/registry/<skill-id>`，然后将 canonical 存储复制到每个可用的
+  受支持 Agent。即使没有可用的受支持 Agent home，发布和 canonical 回写仍会成功。
 - 输出：成功时，文本输出会打印 skill id、最终包标识、所选可见性（`private`
   或 `public`）以及当前账号 endpoint 对应的 Hub 包页面 URL，例如生产账号使用
   `https://hub.oomol.com/package/<packageName>`。失败时命令以非零状态退出，并保持
