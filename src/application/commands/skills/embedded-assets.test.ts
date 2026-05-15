@@ -1009,6 +1009,11 @@ describe("embedded skill assets", () => {
         const codexFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "codex", "SKILL.md");
         const claudeFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "claude", "SKILL.md");
         const openClawFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "openclaw", "SKILL.md");
+        const openClawFindContractFile = getRequiredBundledSkillFile(
+            "oo-find-skills",
+            "openclaw",
+            "references/oo-cli-contract.md",
+        );
         const codexCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "codex", "SKILL.md");
         const qoderWorkCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "qoderwork", "SKILL.md");
         const qoderWorkPublishSkillFile = getRequiredBundledSkillFile("oo-publish-skill", "qoderwork", "SKILL.md");
@@ -1018,6 +1023,7 @@ describe("embedded skill assets", () => {
         const codexFindContent = await readBundledSkillFileContent(codexFindSkillFile);
         const claudeFindContent = await readBundledSkillFileContent(claudeFindSkillFile);
         const openClawFindContent = await readBundledSkillFileContent(openClawFindSkillFile);
+        const openClawFindContractContent = await readBundledSkillFileContent(openClawFindContractFile);
         const codexCreateContent = await readBundledSkillFileContent(codexCreateSkillFile);
         const qoderWorkCreateContent = await readBundledSkillFileContent(qoderWorkCreateSkillFile);
         const qoderWorkPublishContent = await readBundledSkillFileContent(qoderWorkPublishSkillFile);
@@ -1030,6 +1036,8 @@ describe("embedded skill assets", () => {
         expect(claudeFindContent).not.toContain("request_user_input");
         expect(openClawFindContent).toContain("Prefer asking the user with a short multiple-choice prompt");
         expect(openClawFindContent).not.toContain("AskUserQuestion");
+        expect(openClawFindContractContent).toContain("request_user_input");
+        expect(openClawFindContractContent).not.toContain("AskUserQuestion");
         expect(codexCreateContent).toContain("oo skills preflight --agent codex");
         expect(qoderWorkCreateContent).toContain("oo skills preflight --agent qoderwork");
         expect(qoderWorkCreateContent).toContain("Check QoderWork execution permissions");

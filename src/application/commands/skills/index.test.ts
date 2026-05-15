@@ -506,9 +506,10 @@ describe("skills commands", () => {
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const skillFilePath = join(skillDirectoryPath, "SKILL.md");
         const resultVersion = "9.9.9";
-        const expectedSkillContent = await readBundledSkillSourceContent("oo", "SKILL.md");
 
         try {
+            const expectedSkillContent = await readBundledSkillSourceContent("oo", "SKILL.md");
+
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             await Bun.write(
                 metadataFilePath,

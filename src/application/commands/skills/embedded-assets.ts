@@ -24,6 +24,7 @@ export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-sk
 export type BundledSkillName = (typeof availableBundledSkillNames)[number];
 
 type BundledSkillFileContentKind = "agenticMarkdown" | "static";
+type SkillSelectionPromptTool = "AskUserQuestion" | "request_user_input";
 
 interface BundledSkillSourceFile {
     readonly contentKind: BundledSkillFileContentKind;
@@ -40,18 +41,23 @@ export interface BundledSkillFile extends BundledSkillSourceFile {
     readonly skillName: BundledSkillName;
 }
 
-const bundledSkillAgentTitles = {
-    "claude": "Claude",
-    "codebuddy": "CodeBuddy",
-    "codex": "Codex",
-    "deepseek-tui": "DeepSeek TUI",
-    "hermes": "Hermes",
-    "openclaw": "OpenClaw",
-    "qoderwork": "QoderWork",
-    "trae": "Trae",
-    "trae-cn": "Trae CN",
-    "workbuddy": "WorkBuddy",
-} as const satisfies Record<BundledSkillAgentName, string>;
+interface BundledSkillAgentConfig {
+    readonly skillSelectionPromptTool: SkillSelectionPromptTool;
+    readonly title: string;
+}
+
+const bundledSkillAgentConfigs = {
+    "claude": { skillSelectionPromptTool: "AskUserQuestion", title: "Claude" },
+    "codebuddy": { skillSelectionPromptTool: "AskUserQuestion", title: "CodeBuddy" },
+    "codex": { skillSelectionPromptTool: "request_user_input", title: "Codex" },
+    "deepseek-tui": { skillSelectionPromptTool: "AskUserQuestion", title: "DeepSeek TUI" },
+    "hermes": { skillSelectionPromptTool: "AskUserQuestion", title: "Hermes" },
+    "openclaw": { skillSelectionPromptTool: "request_user_input", title: "OpenClaw" },
+    "qoderwork": { skillSelectionPromptTool: "AskUserQuestion", title: "QoderWork" },
+    "trae": { skillSelectionPromptTool: "AskUserQuestion", title: "Trae" },
+    "trae-cn": { skillSelectionPromptTool: "AskUserQuestion", title: "Trae CN" },
+    "workbuddy": { skillSelectionPromptTool: "AskUserQuestion", title: "WorkBuddy" },
+} as const satisfies Record<BundledSkillAgentName, BundledSkillAgentConfig>;
 
 const bundledSkillRegistry = {
     "oo": createAgentDefinitions([
@@ -107,9 +113,12 @@ export async function readBundledSkillFileContent(
         return content;
     }
 
+    const agentConfig = bundledSkillAgentConfigs[file.agentName];
+
     return render(content, {
         agent: file.agentName,
-        agentTitle: bundledSkillAgentTitles[file.agentName],
+        agentTitle: agentConfig.title,
+        skillSelectionPromptTool: agentConfig.skillSelectionPromptTool,
     });
 }
 
