@@ -21,7 +21,7 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
-import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
+import { readBundledSkillSourceContent } from "./__tests__/helpers.ts";
 import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     canonicalLocalSkillsDirectoryName,
@@ -42,6 +42,7 @@ import {
 import {
     availableBundledSkillAgentNames,
     getBundledSkillFiles,
+    readBundledSkillFileContent,
 } from "./embedded-assets.ts";
 import { presetSkillPackageNames } from "./install.ts";
 import {
@@ -156,22 +157,22 @@ describe("skills commands", () => {
             for (const file of getBundledSkillFiles("oo")) {
                 expect(
                     await readFile(join(ooSkillDirectoryPath, file.relativePath), "utf8"),
-                ).toBe(await Bun.file(file.sourcePath).text());
+                ).toBe(await readBundledSkillFileContent(file));
             }
             for (const file of getBundledSkillFiles("oo-find-skills")) {
                 expect(
                     await readFile(join(findSkillsDirectoryPath, file.relativePath), "utf8"),
-                ).toBe(await Bun.file(file.sourcePath).text());
+                ).toBe(await readBundledSkillFileContent(file));
             }
             for (const file of getBundledSkillFiles("oo-create-skill")) {
                 expect(
                     await readFile(join(createSkillDirectoryPath, file.relativePath), "utf8"),
-                ).toBe(await Bun.file(file.sourcePath).text());
+                ).toBe(await readBundledSkillFileContent(file));
             }
             for (const file of getBundledSkillFiles("oo-publish-skill")) {
                 expect(
                     await readFile(join(publishSkillDirectoryPath, file.relativePath), "utf8"),
-                ).toBe(await Bun.file(file.sourcePath).text());
+                ).toBe(await readBundledSkillFileContent(file));
             }
             expect(await readFile(ooMetadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson(createBundledSkillMetadata(resultVersion)),
@@ -505,11 +506,10 @@ describe("skills commands", () => {
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const skillFilePath = join(skillDirectoryPath, "SKILL.md");
         const resultVersion = "9.9.9";
-        const expectedSkillContent = await Bun.file(
-            getBundledSkillSourcePath("oo", "SKILL.md"),
-        ).text();
 
         try {
+            const expectedSkillContent = await readBundledSkillSourceContent("oo", "SKILL.md");
+
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             await Bun.write(
                 metadataFilePath,
@@ -697,7 +697,7 @@ describe("skills commands", () => {
                         join(codexOoSkillDirectoryPath, file.relativePath),
                         "utf8",
                     ),
-                ).toBe(await Bun.file(file.sourcePath).text());
+                ).toBe(await readBundledSkillFileContent(file));
             }
 
             for (const file of getBundledSkillFiles("oo", "claude")) {
@@ -706,7 +706,7 @@ describe("skills commands", () => {
                         join(claudeOoSkillDirectoryPath, file.relativePath),
                         "utf8",
                     ),
-                ).toBe(await Bun.file(file.sourcePath).text());
+                ).toBe(await readBundledSkillFileContent(file));
             }
         }
         finally {
@@ -803,7 +803,7 @@ describe("skills commands", () => {
             const installedSkillMarkdown = await readFile(skillFilePath, "utf8");
 
             expect(installedSkillMarkdown).toBe(
-                await Bun.file(hermesSkillFile.sourcePath).text(),
+                await readBundledSkillFileContent(hermesSkillFile),
             );
             await expect(
                 stat(join(skillDirectoryPath, "agents", "openai.yaml")),
@@ -910,7 +910,7 @@ describe("skills commands", () => {
             const installedSkillMarkdown = await readFile(skillFilePath, "utf8");
 
             expect(installedSkillMarkdown).toBe(
-                await Bun.file(qoderWorkSkillFile.sourcePath).text(),
+                await readBundledSkillFileContent(qoderWorkSkillFile),
             );
             expect(installedSkillMarkdown).not.toContain("allowed-tools");
             await expect(
@@ -966,7 +966,7 @@ describe("skills commands", () => {
                 renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
-                await Bun.file(codeBuddySkillFile.sourcePath).text(),
+                await readBundledSkillFileContent(codeBuddySkillFile),
             );
             await expect(
                 stat(join(skillDirectoryPath, "agents", "openai.yaml")),
@@ -1026,7 +1026,7 @@ describe("skills commands", () => {
                 renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
-                await Bun.file(deepSeekTuiSkillFile.sourcePath).text(),
+                await readBundledSkillFileContent(deepSeekTuiSkillFile),
             );
             await expect(
                 stat(join(skillDirectoryPath, "agents", "openai.yaml")),
@@ -1081,7 +1081,7 @@ describe("skills commands", () => {
                 renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
-                await Bun.file(workBuddySkillFile.sourcePath).text(),
+                await readBundledSkillFileContent(workBuddySkillFile),
             );
             await expect(
                 stat(join(skillDirectoryPath, "agents", "openai.yaml")),
@@ -1141,7 +1141,7 @@ describe("skills commands", () => {
                 renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
-                await Bun.file(traeSkillFile.sourcePath).text(),
+                await readBundledSkillFileContent(traeSkillFile),
             );
             await expect(
                 stat(join(skillDirectoryPath, "agents", "openai.yaml")),
@@ -1201,7 +1201,7 @@ describe("skills commands", () => {
                 renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
-                await Bun.file(traeCnSkillFile.sourcePath).text(),
+                await readBundledSkillFileContent(traeCnSkillFile),
             );
             await expect(
                 stat(join(skillDirectoryPath, "agents", "openai.yaml")),

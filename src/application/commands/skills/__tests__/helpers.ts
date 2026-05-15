@@ -6,6 +6,7 @@ import { mkdir, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
     getBundledSkillFiles,
+    readBundledSkillFileContent,
 } from "../embedded-assets.ts";
 
 export type SymbolicLinkKindForTest = "directory" | "file";
@@ -26,6 +27,24 @@ export function getBundledSkillSourcePath(
     }
 
     return file.sourcePath;
+}
+
+export async function readBundledSkillSourceContent(
+    skillName: BundledSkillName,
+    relativePath: string,
+    agentName: BundledSkillAgentName = "codex",
+): Promise<string> {
+    const file = getBundledSkillFiles(skillName, agentName).find(file =>
+        file.relativePath === relativePath,
+    );
+
+    if (file === undefined) {
+        throw new Error(
+            `Missing bundled skill file: ${agentName}/${skillName}/${relativePath}`,
+        );
+    }
+
+    return await readBundledSkillFileContent(file);
 }
 
 export async function createSymbolicLinkForTest(

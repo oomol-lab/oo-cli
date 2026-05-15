@@ -56,7 +56,7 @@ Facts:
   attempted, and then stop.
 - Use only the package and `name` fields returned by `oo skills search --json`.
 - Use `skillDisplayName` only for user-facing labels, never as a `-s` value.
-- If the `request_user_input` UI returns `None of the above`, treat that as
+- If the `<!-- agentic:var skillSelectionPromptTool -->` UI returns `None of the above`, treat that as
   the same outcome as `Install neither`.
 - If the user reply is not one of the explicit numbers that correspond to the
   currently displayed options, do not install anything. Ask the user to reply

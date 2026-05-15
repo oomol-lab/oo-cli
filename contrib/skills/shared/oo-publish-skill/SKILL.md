@@ -1,7 +1,9 @@
 ---
 name: oo-publish-skill
 description: Publish, release, upload, or submit an existing AI agent skill directory with SKILL.md to the OOMOL registry by running oo skills publish, or generate a share prompt for a published skill by running oo skills share, including temporary shares for private packages. Use when the user asks to publish a skill, share a published skill, make a skill available in the OOMOL skill catalog, release a registry skill package, resolve publish visibility, version, package-name, or overwrite prompts, or publish from a local, registry-installed, or path-based skill source. Do not use for finding, installing, creating, or editing skills unless the final goal is publication or sharing.
+<!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
+<!-- agentic:endif -->
 ---
 
 # oo Publish Skill
@@ -52,10 +54,17 @@ Publish accepts a concrete path:
 oo skills publish <path-to-skill-directory-or-SKILL.md>
 ```
 
+<!-- agentic:if agent=codex -->
+If the user gives only a skill id, `oo skills locate <skill-id> --agent codex`
+can help resolve the local path. Use it when it is helpful, but do not force an
+extra locate step when the path is already clear from context.
+<!-- agentic:endif -->
+<!-- agentic:if agent=claude|hermes|codebuddy|qoderwork|workbuddy|trae|trae-cn|openclaw|deepseek-tui -->
 If the user gives only a skill id, `oo skills locate <skill-id> --agent <agent>`
 can help resolve the local path. Choose `<agent>` yourself from the supported
 ids according to the current host. Use locate when it is helpful, but do not
 force an extra locate step when the path is already clear from context.
+<!-- agentic:endif -->
 
 The publish command performs its own environment, authentication, and account
 checks, so run it directly.
@@ -76,6 +85,11 @@ oo skills publish /path/to/my-skill/SKILL.md
 oo skills publish ./my-skill --visibility public
 ```
 
+<!-- agentic:if agent=openclaw|qoderwork -->
+If this shared skill file is running in another supported host, replace
+`<!-- agentic:var agent -->` with that host id from the supported list.
+
+<!-- agentic:endif -->
 If the command prompts about publishing a registry-installed skill under the
 active account or overwriting an existing remote package, let that prompt drive
 the next user confirmation. Do not ask those questions in advance.
