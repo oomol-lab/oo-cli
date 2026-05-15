@@ -1,6 +1,9 @@
 ---
 name: oo-create-skill
 description: Author, generate, or scaffold a new local AI agent skill that turns an OOMOL/oo package, connector action, block, or selected workflow into reusable instructions. Use when the user asks to create a skill, write a skill, or make a Codex/Claude/agent skill for an oo-powered workflow, even if capability discovery is needed first.
+<!-- agentic:if agent=claude|hermes -->
+allowed-tools: [Bash(oo *)]
+<!-- agentic:endif -->
 ---
 
 # oo Create Skill
@@ -72,33 +75,33 @@ this constitution, not a separate checklist.
 
 ## Workflow
 
-### 1. Check CodeBuddy execution permissions
+### 1. Check <!-- agentic:var agentTitle --> execution permissions
 
 Run the dedicated preflight once before creating a skill:
 
 ```bash
-oo skills preflight --agent codebuddy
+oo skills preflight --agent <!-- agentic:var agent -->
 ```
 
-Treat this as the CodeBuddy permission and storage probe for CodeBuddy's native
-skills directory. If it passes, proceed without extra permission discussion. If
-it or a later required command is blocked by sandbox, write, or network limits,
-request the smallest sufficient permission and name the blocked command. Common
-commands are:
+Treat this as the <!-- agentic:var agentTitle --> permission and storage probe for <!-- agentic:var agentTitle -->'s native skills
+directory. If it passes, proceed without extra permission discussion. If it or a
+later required command is blocked by sandbox, write, or network limits, request
+the smallest sufficient permission and name the blocked command. Common commands
+are:
 
 ```bash
-oo skills init <name> --agent codebuddy --description "..."
+oo skills init <name> --agent <!-- agentic:var agent --> --description "..."
 oo packages info "<packageName>" --json
 oo search "<query>" --json
 ```
 
-If CodeBuddy cannot request the needed permission, or the user denies it, stop
-and ask the user to open the required access. Do not continue in the restricted
+If <!-- agentic:var agentTitle --> cannot request the needed permission, or the user denies it, stop and
+ask the user to open the required access. Do not continue in the restricted
 sandbox and do not guess package names, block names, inputs, or outputs.
 
-Never work around a blocked `oo skills init --agent codebuddy` by manually
-creating a skill directory elsewhere. Manual skeleton creation bypasses the
-agent-native target directory, metadata writing, and OO notice insertion.
+Never work around a blocked `oo skills init --agent <!-- agentic:var agent -->` by manually creating
+a skill directory elsewhere. Manual skeleton creation bypasses the agent-native
+target directory, metadata writing, and OO notice insertion.
 
 ### 2. Collect only the information needed
 
@@ -186,11 +189,11 @@ skill.
 
 ### 4. Initialize the local skill
 
-Run `oo skills init <name> --agent codebuddy` with a required `--description`.
+Run `oo skills init <name> --agent <!-- agentic:var agent -->` with a required `--description`.
 Include `--title` and `--icon` when you have suitable values. Derive title and
 icon from the workflow purpose and resolved metadata unless the user provided
-them. If the selected CodeBuddy skill directory already exists, ask for a
-different skill name instead of overwriting.
+them. If the selected <!-- agentic:var agentTitle --> skill directory already exists, ask for a different
+skill name instead of overwriting.
 
 Make `--description` a user-facing trigger summary: it becomes the frontmatter
 description and the main signal future agents see before loading the skill.
@@ -213,7 +216,7 @@ Use the path printed by `oo skills init` as the skill directory for authoring
 and validation.
 
 Do not substitute manual file creation for this step. The initialized skill
-directory must come from a successful `oo skills init --agent codebuddy`
+directory must come from a successful `oo skills init --agent <!-- agentic:var agent -->`
 invocation before you fill in its workflow instructions or run validation.
 
 ### 5. Author the workflow instructions

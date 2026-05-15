@@ -1,67 +1,21 @@
-import ooCreateSkillClaudeSkillPath from "../../../../contrib/skills/claude/oo-create-skill/SKILL.md" with { type: "file" };
-import ooFindSkillsClaudeCliContractPath from "../../../../contrib/skills/claude/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
-import ooFindSkillsClaudeSkillPath from "../../../../contrib/skills/claude/oo-find-skills/SKILL.md" with { type: "file" };
-import ooPublishSkillClaudeSkillPath from "../../../../contrib/skills/claude/oo-publish-skill/SKILL.md" with { type: "file" };
-import ooClaudeAuthAndBillingReferencePath from "../../../../contrib/skills/claude/oo/references/auth-and-billing.md" with { type: "file" };
-import ooClaudeConnectorExecutionReferencePath from "../../../../contrib/skills/claude/oo/references/connector-execution.md" with { type: "file" };
-import ooClaudeFileTransferReferencePath from "../../../../contrib/skills/claude/oo/references/file-transfer.md" with { type: "file" };
-import ooClaudeLlmClientReferencePath from "../../../../contrib/skills/claude/oo/references/llm-client.md" with { type: "file" };
-import ooClaudePackageExecutionReferencePath from "../../../../contrib/skills/claude/oo/references/package-execution.md" with { type: "file" };
-import ooClaudeSearchAndSelectionReferencePath from "../../../../contrib/skills/claude/oo/references/search-and-selection.md" with { type: "file" };
-import ooClaudeTaskLifecycleReferencePath from "../../../../contrib/skills/claude/oo/references/task-lifecycle.md" with { type: "file" };
-import ooClaudeSkillPath from "../../../../contrib/skills/claude/oo/SKILL.md" with { type: "file" };
-import ooCreateSkillCodeBuddySkillPath from "../../../../contrib/skills/codebuddy/oo-create-skill/SKILL.md" with { type: "file" };
-import ooFindSkillsCodeBuddyCliContractPath from "../../../../contrib/skills/codebuddy/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
-import ooFindSkillsCodeBuddySkillPath from "../../../../contrib/skills/codebuddy/oo-find-skills/SKILL.md" with { type: "file" };
-import ooPublishSkillCodeBuddySkillPath from "../../../../contrib/skills/codebuddy/oo-publish-skill/SKILL.md" with { type: "file" };
-import ooCodeBuddyAuthAndBillingReferencePath from "../../../../contrib/skills/codebuddy/oo/references/auth-and-billing.md" with { type: "file" };
-import ooCodeBuddyConnectorExecutionReferencePath from "../../../../contrib/skills/codebuddy/oo/references/connector-execution.md" with { type: "file" };
-import ooCodeBuddyFileTransferReferencePath from "../../../../contrib/skills/codebuddy/oo/references/file-transfer.md" with { type: "file" };
-import ooCodeBuddyLlmClientReferencePath from "../../../../contrib/skills/codebuddy/oo/references/llm-client.md" with { type: "file" };
-import ooCodeBuddyPackageExecutionReferencePath from "../../../../contrib/skills/codebuddy/oo/references/package-execution.md" with { type: "file" };
-import ooCodeBuddySearchAndSelectionReferencePath from "../../../../contrib/skills/codebuddy/oo/references/search-and-selection.md" with { type: "file" };
-import ooCodeBuddyTaskLifecycleReferencePath from "../../../../contrib/skills/codebuddy/oo/references/task-lifecycle.md" with { type: "file" };
-import ooCodeBuddySkillPath from "../../../../contrib/skills/codebuddy/oo/SKILL.md" with { type: "file" };
-import ooCreateSkillOpenAIAgentPath from "../../../../contrib/skills/codex/oo-create-skill/agents/openai.yaml" with { type: "file" };
-import ooCreateSkillPath from "../../../../contrib/skills/codex/oo-create-skill/SKILL.md" with { type: "file" };
-import ooFindSkillsOpenAIAgentPath from "../../../../contrib/skills/codex/oo-find-skills/agents/openai.yaml" with { type: "file" };
-import ooFindSkillsCliContractPath from "../../../../contrib/skills/codex/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
-import ooFindSkillsSkillPath from "../../../../contrib/skills/codex/oo-find-skills/SKILL.md" with { type: "file" };
-import ooPublishSkillOpenAIAgentPath from "../../../../contrib/skills/codex/oo-publish-skill/agents/openai.yaml" with { type: "file" };
-import ooPublishSkillPath from "../../../../contrib/skills/codex/oo-publish-skill/SKILL.md" with { type: "file" };
-import ooOpenAIAgentPath from "../../../../contrib/skills/codex/oo/agents/openai.yaml" with { type: "file" };
-import ooAuthAndBillingReferencePath from "../../../../contrib/skills/codex/oo/references/auth-and-billing.md" with { type: "file" };
-import ooConnectorExecutionReferencePath from "../../../../contrib/skills/codex/oo/references/connector-execution.md" with { type: "file" };
-import ooFileTransferReferencePath from "../../../../contrib/skills/codex/oo/references/file-transfer.md" with { type: "file" };
-import ooLlmClientReferencePath from "../../../../contrib/skills/codex/oo/references/llm-client.md" with { type: "file" };
-import ooPackageExecutionReferencePath from "../../../../contrib/skills/codex/oo/references/package-execution.md" with { type: "file" };
-import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/codex/oo/references/search-and-selection.md" with { type: "file" };
-import ooTaskLifecycleReferencePath from "../../../../contrib/skills/codex/oo/references/task-lifecycle.md" with { type: "file" };
-import ooSkillPath from "../../../../contrib/skills/codex/oo/SKILL.md" with { type: "file" };
-import ooCreateSkillOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo-create-skill/SKILL.md" with { type: "file" };
-import ooFindSkillsOpenClawCliContractPath from "../../../../contrib/skills/openclaw/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
-import ooFindSkillsOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo-find-skills/SKILL.md" with { type: "file" };
-import ooPublishSkillOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo-publish-skill/SKILL.md" with { type: "file" };
-import ooOpenClawAuthAndBillingReferencePath from "../../../../contrib/skills/openclaw/oo/references/auth-and-billing.md" with { type: "file" };
-import ooOpenClawConnectorExecutionReferencePath from "../../../../contrib/skills/openclaw/oo/references/connector-execution.md" with { type: "file" };
-import ooOpenClawFileTransferReferencePath from "../../../../contrib/skills/openclaw/oo/references/file-transfer.md" with { type: "file" };
-import ooOpenClawLlmClientReferencePath from "../../../../contrib/skills/openclaw/oo/references/llm-client.md" with { type: "file" };
-import ooOpenClawPackageExecutionReferencePath from "../../../../contrib/skills/openclaw/oo/references/package-execution.md" with { type: "file" };
-import ooOpenClawSearchAndSelectionReferencePath from "../../../../contrib/skills/openclaw/oo/references/search-and-selection.md" with { type: "file" };
-import ooOpenClawTaskLifecycleReferencePath from "../../../../contrib/skills/openclaw/oo/references/task-lifecycle.md" with { type: "file" };
-import ooOpenClawSkillPath from "../../../../contrib/skills/openclaw/oo/SKILL.md" with { type: "file" };
-import ooCreateSkillQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo-create-skill/SKILL.md" with { type: "file" };
-import ooFindSkillsQoderWorkCliContractPath from "../../../../contrib/skills/qoderwork/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
-import ooFindSkillsQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo-find-skills/SKILL.md" with { type: "file" };
-import ooPublishSkillQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo-publish-skill/SKILL.md" with { type: "file" };
-import ooQoderWorkAuthAndBillingReferencePath from "../../../../contrib/skills/qoderwork/oo/references/auth-and-billing.md" with { type: "file" };
-import ooQoderWorkConnectorExecutionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/connector-execution.md" with { type: "file" };
-import ooQoderWorkFileTransferReferencePath from "../../../../contrib/skills/qoderwork/oo/references/file-transfer.md" with { type: "file" };
-import ooQoderWorkLlmClientReferencePath from "../../../../contrib/skills/qoderwork/oo/references/llm-client.md" with { type: "file" };
-import ooQoderWorkPackageExecutionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/package-execution.md" with { type: "file" };
-import ooQoderWorkSearchAndSelectionReferencePath from "../../../../contrib/skills/qoderwork/oo/references/search-and-selection.md" with { type: "file" };
-import ooQoderWorkTaskLifecycleReferencePath from "../../../../contrib/skills/qoderwork/oo/references/task-lifecycle.md" with { type: "file" };
-import ooQoderWorkSkillPath from "../../../../contrib/skills/qoderwork/oo/SKILL.md" with { type: "file" };
+import { render } from "agentic-markdown";
+
+import ooCreateSkillOpenAIAgentPath from "../../../../contrib/skills/shared/oo-create-skill/agents/openai.yaml" with { type: "file" };
+import ooCreateSkillPath from "../../../../contrib/skills/shared/oo-create-skill/SKILL.md" with { type: "file" };
+import ooFindSkillsOpenAIAgentPath from "../../../../contrib/skills/shared/oo-find-skills/agents/openai.yaml" with { type: "file" };
+import ooFindSkillsCliContractPath from "../../../../contrib/skills/shared/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
+import ooFindSkillsSkillPath from "../../../../contrib/skills/shared/oo-find-skills/SKILL.md" with { type: "file" };
+import ooPublishSkillOpenAIAgentPath from "../../../../contrib/skills/shared/oo-publish-skill/agents/openai.yaml" with { type: "file" };
+import ooPublishSkillPath from "../../../../contrib/skills/shared/oo-publish-skill/SKILL.md" with { type: "file" };
+import ooOpenAIAgentPath from "../../../../contrib/skills/shared/oo/agents/openai.yaml" with { type: "file" };
+import ooAuthAndBillingReferencePath from "../../../../contrib/skills/shared/oo/references/auth-and-billing.md" with { type: "file" };
+import ooConnectorExecutionReferencePath from "../../../../contrib/skills/shared/oo/references/connector-execution.md" with { type: "file" };
+import ooFileTransferReferencePath from "../../../../contrib/skills/shared/oo/references/file-transfer.md" with { type: "file" };
+import ooLlmClientReferencePath from "../../../../contrib/skills/shared/oo/references/llm-client.md" with { type: "file" };
+import ooPackageExecutionReferencePath from "../../../../contrib/skills/shared/oo/references/package-execution.md" with { type: "file" };
+import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/shared/oo/references/search-and-selection.md" with { type: "file" };
+import ooTaskLifecycleReferencePath from "../../../../contrib/skills/shared/oo/references/task-lifecycle.md" with { type: "file" };
+import ooSkillPath from "../../../../contrib/skills/shared/oo/SKILL.md" with { type: "file" };
 
 export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "trae", "trae-cn", "openclaw", "qoderwork", "deepseek-tui"] as const;
 export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
@@ -69,7 +23,10 @@ export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[num
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill", "oo-publish-skill"] as const;
 export type BundledSkillName = (typeof availableBundledSkillNames)[number];
 
+type BundledSkillFileContentKind = "agenticMarkdown" | "static";
+
 interface BundledSkillSourceFile {
+    readonly contentKind: BundledSkillFileContentKind;
     readonly relativePath: string;
     readonly sourcePath: string;
 }
@@ -78,453 +35,51 @@ interface BundledSkillDefinition {
     readonly files: readonly BundledSkillSourceFile[];
 }
 
-interface BundledSkillFile extends BundledSkillSourceFile {
+export interface BundledSkillFile extends BundledSkillSourceFile {
     readonly agentName: BundledSkillAgentName;
     readonly skillName: BundledSkillName;
 }
 
-const ooCodexReferenceFiles = createOoReferenceFiles({
-    authAndBilling: ooAuthAndBillingReferencePath,
-    connectorExecution: ooConnectorExecutionReferencePath,
-    fileTransfer: ooFileTransferReferencePath,
-    llmClient: ooLlmClientReferencePath,
-    packageExecution: ooPackageExecutionReferencePath,
-    searchAndSelection: ooSearchAndSelectionReferencePath,
-    taskLifecycle: ooTaskLifecycleReferencePath,
-});
-const ooClaudeCompatibleReferenceFiles = createOoReferenceFiles({
-    authAndBilling: ooClaudeAuthAndBillingReferencePath,
-    connectorExecution: ooClaudeConnectorExecutionReferencePath,
-    fileTransfer: ooClaudeFileTransferReferencePath,
-    llmClient: ooClaudeLlmClientReferencePath,
-    packageExecution: ooClaudePackageExecutionReferencePath,
-    searchAndSelection: ooClaudeSearchAndSelectionReferencePath,
-    taskLifecycle: ooClaudeTaskLifecycleReferencePath,
-});
-const ooCodeBuddyReferenceFiles = createOoReferenceFiles({
-    authAndBilling: ooCodeBuddyAuthAndBillingReferencePath,
-    connectorExecution: ooCodeBuddyConnectorExecutionReferencePath,
-    fileTransfer: ooCodeBuddyFileTransferReferencePath,
-    llmClient: ooCodeBuddyLlmClientReferencePath,
-    packageExecution: ooCodeBuddyPackageExecutionReferencePath,
-    searchAndSelection: ooCodeBuddySearchAndSelectionReferencePath,
-    taskLifecycle: ooCodeBuddyTaskLifecycleReferencePath,
-});
-const ooOpenClawReferenceFiles = createOoReferenceFiles({
-    authAndBilling: ooOpenClawAuthAndBillingReferencePath,
-    connectorExecution: ooOpenClawConnectorExecutionReferencePath,
-    fileTransfer: ooOpenClawFileTransferReferencePath,
-    llmClient: ooOpenClawLlmClientReferencePath,
-    packageExecution: ooOpenClawPackageExecutionReferencePath,
-    searchAndSelection: ooOpenClawSearchAndSelectionReferencePath,
-    taskLifecycle: ooOpenClawTaskLifecycleReferencePath,
-});
-const ooQoderWorkReferenceFiles = createOoReferenceFiles({
-    authAndBilling: ooQoderWorkAuthAndBillingReferencePath,
-    connectorExecution: ooQoderWorkConnectorExecutionReferencePath,
-    fileTransfer: ooQoderWorkFileTransferReferencePath,
-    llmClient: ooQoderWorkLlmClientReferencePath,
-    packageExecution: ooQoderWorkPackageExecutionReferencePath,
-    searchAndSelection: ooQoderWorkSearchAndSelectionReferencePath,
-    taskLifecycle: ooQoderWorkTaskLifecycleReferencePath,
-});
+const bundledSkillAgentTitles = {
+    "claude": "Claude",
+    "codebuddy": "CodeBuddy",
+    "codex": "Codex",
+    "deepseek-tui": "DeepSeek TUI",
+    "hermes": "Hermes",
+    "openclaw": "OpenClaw",
+    "qoderwork": "QoderWork",
+    "trae": "Trae",
+    "trae-cn": "Trae CN",
+    "workbuddy": "WorkBuddy",
+} as const satisfies Record<BundledSkillAgentName, string>;
 
-// Keep this registry aligned with contrib/skills/<agent>/<skill> or its compatible source so Bun embeds the files.
 const bundledSkillRegistry = {
-    "oo": {
-        "codex": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooSkillPath,
-                },
-                {
-                    relativePath: "agents/openai.yaml",
-                    sourcePath: ooOpenAIAgentPath,
-                },
-                ...ooCodexReferenceFiles,
-            ],
-        },
-        "claude": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooClaudeSkillPath,
-                },
-                ...ooClaudeCompatibleReferenceFiles,
-            ],
-        },
-        "hermes": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooClaudeSkillPath,
-                },
-                ...ooClaudeCompatibleReferenceFiles,
-            ],
-        },
-        "codebuddy": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCodeBuddySkillPath,
-                },
-                ...ooCodeBuddyReferenceFiles,
-            ],
-        },
-        "workbuddy": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCodeBuddySkillPath,
-                },
-                ...ooCodeBuddyReferenceFiles,
-            ],
-        },
-        "trae": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCodeBuddySkillPath,
-                },
-                ...ooCodeBuddyReferenceFiles,
-            ],
-        },
-        "trae-cn": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCodeBuddySkillPath,
-                },
-                ...ooCodeBuddyReferenceFiles,
-            ],
-        },
-        "openclaw": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooOpenClawSkillPath,
-                },
-                ...ooOpenClawReferenceFiles,
-            ],
-        },
-        "qoderwork": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooQoderWorkSkillPath,
-                },
-                ...ooQoderWorkReferenceFiles,
-            ],
-        },
-        "deepseek-tui": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCodeBuddySkillPath,
-                },
-                ...ooCodeBuddyReferenceFiles,
-            ],
-        },
-    },
-    "oo-find-skills": {
-        "codex": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsSkillPath,
-                },
-                {
-                    relativePath: "agents/openai.yaml",
-                    sourcePath: ooFindSkillsOpenAIAgentPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsCliContractPath,
-                },
-            ],
-        },
-        "claude": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsClaudeSkillPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsClaudeCliContractPath,
-                },
-            ],
-        },
-        "hermes": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsClaudeSkillPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsClaudeCliContractPath,
-                },
-            ],
-        },
-        "codebuddy": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsCodeBuddySkillPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsCodeBuddyCliContractPath,
-                },
-            ],
-        },
-        "workbuddy": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsCodeBuddySkillPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsCodeBuddyCliContractPath,
-                },
-            ],
-        },
-        "trae": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsCodeBuddySkillPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsCodeBuddyCliContractPath,
-                },
-            ],
-        },
-        "trae-cn": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsCodeBuddySkillPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsCodeBuddyCliContractPath,
-                },
-            ],
-        },
-        "openclaw": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsOpenClawSkillPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsOpenClawCliContractPath,
-                },
-            ],
-        },
-        "qoderwork": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsQoderWorkSkillPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsQoderWorkCliContractPath,
-                },
-            ],
-        },
-        "deepseek-tui": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooFindSkillsCodeBuddySkillPath,
-                },
-                {
-                    relativePath: "references/oo-cli-contract.md",
-                    sourcePath: ooFindSkillsCodeBuddyCliContractPath,
-                },
-            ],
-        },
-    },
-    "oo-create-skill": {
-        "codex": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillPath,
-                },
-                {
-                    relativePath: "agents/openai.yaml",
-                    sourcePath: ooCreateSkillOpenAIAgentPath,
-                },
-            ],
-        },
-        "claude": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillClaudeSkillPath,
-                },
-            ],
-        },
-        "hermes": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillClaudeSkillPath,
-                },
-            ],
-        },
-        "codebuddy": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-        "workbuddy": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-        "trae": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-        "trae-cn": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-        "openclaw": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillOpenClawSkillPath,
-                },
-            ],
-        },
-        "qoderwork": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillQoderWorkSkillPath,
-                },
-            ],
-        },
-        "deepseek-tui": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooCreateSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-    },
-    "oo-publish-skill": {
-        "codex": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillPath,
-                },
-                {
-                    relativePath: "agents/openai.yaml",
-                    sourcePath: ooPublishSkillOpenAIAgentPath,
-                },
-            ],
-        },
-        "claude": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillClaudeSkillPath,
-                },
-            ],
-        },
-        "hermes": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillClaudeSkillPath,
-                },
-            ],
-        },
-        "codebuddy": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-        "workbuddy": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-        "trae": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-        "trae-cn": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-        "openclaw": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillOpenClawSkillPath,
-                },
-            ],
-        },
-        "qoderwork": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillQoderWorkSkillPath,
-                },
-            ],
-        },
-        "deepseek-tui": {
-            files: [
-                {
-                    relativePath: "SKILL.md",
-                    sourcePath: ooPublishSkillCodeBuddySkillPath,
-                },
-            ],
-        },
-    },
+    "oo": createAgentDefinitions([
+        createAgenticMarkdownFile("SKILL.md", ooSkillPath),
+        createStaticFile("agents/openai.yaml", ooOpenAIAgentPath),
+        ...createOoReferenceFiles({
+            authAndBilling: ooAuthAndBillingReferencePath,
+            connectorExecution: ooConnectorExecutionReferencePath,
+            fileTransfer: ooFileTransferReferencePath,
+            llmClient: ooLlmClientReferencePath,
+            packageExecution: ooPackageExecutionReferencePath,
+            searchAndSelection: ooSearchAndSelectionReferencePath,
+            taskLifecycle: ooTaskLifecycleReferencePath,
+        }),
+    ]),
+    "oo-create-skill": createAgentDefinitions([
+        createAgenticMarkdownFile("SKILL.md", ooCreateSkillPath),
+        createStaticFile("agents/openai.yaml", ooCreateSkillOpenAIAgentPath),
+    ]),
+    "oo-find-skills": createAgentDefinitions([
+        createAgenticMarkdownFile("SKILL.md", ooFindSkillsSkillPath),
+        createStaticFile("agents/openai.yaml", ooFindSkillsOpenAIAgentPath),
+        createAgenticMarkdownFile("references/oo-cli-contract.md", ooFindSkillsCliContractPath),
+    ]),
+    "oo-publish-skill": createAgentDefinitions([
+        createAgenticMarkdownFile("SKILL.md", ooPublishSkillPath),
+        createStaticFile("agents/openai.yaml", ooPublishSkillOpenAIAgentPath),
+    ]),
 } as const satisfies Record<
     BundledSkillName,
     Record<BundledSkillAgentName, BundledSkillDefinition>
@@ -543,6 +98,36 @@ export function getBundledSkillFiles(
     }));
 }
 
+export async function readBundledSkillFileContent(
+    file: BundledSkillFile,
+): Promise<string> {
+    const content = await Bun.file(file.sourcePath).text();
+
+    if (file.contentKind === "static") {
+        return content;
+    }
+
+    return render(content, {
+        agent: file.agentName,
+        agentTitle: bundledSkillAgentTitles[file.agentName],
+    });
+}
+
+function createAgentDefinitions(
+    files: readonly BundledSkillSourceFile[],
+): Record<BundledSkillAgentName, BundledSkillDefinition> {
+    return Object.fromEntries(
+        availableBundledSkillAgentNames.map(agentName => [
+            agentName,
+            {
+                files: agentName === "codex"
+                    ? files
+                    : files.filter(file => file.relativePath !== "agents/openai.yaml"),
+            } satisfies BundledSkillDefinition,
+        ]),
+    ) as Record<BundledSkillAgentName, BundledSkillDefinition>;
+}
+
 function createOoReferenceFiles(sourcePaths: {
     authAndBilling: string;
     connectorExecution: string;
@@ -553,33 +138,34 @@ function createOoReferenceFiles(sourcePaths: {
     taskLifecycle: string;
 }): readonly BundledSkillSourceFile[] {
     return [
-        {
-            relativePath: "references/auth-and-billing.md",
-            sourcePath: sourcePaths.authAndBilling,
-        },
-        {
-            relativePath: "references/llm-client.md",
-            sourcePath: sourcePaths.llmClient,
-        },
-        {
-            relativePath: "references/search-and-selection.md",
-            sourcePath: sourcePaths.searchAndSelection,
-        },
-        {
-            relativePath: "references/package-execution.md",
-            sourcePath: sourcePaths.packageExecution,
-        },
-        {
-            relativePath: "references/connector-execution.md",
-            sourcePath: sourcePaths.connectorExecution,
-        },
-        {
-            relativePath: "references/file-transfer.md",
-            sourcePath: sourcePaths.fileTransfer,
-        },
-        {
-            relativePath: "references/task-lifecycle.md",
-            sourcePath: sourcePaths.taskLifecycle,
-        },
-    ] as const satisfies readonly BundledSkillSourceFile[];
+        createAgenticMarkdownFile("references/auth-and-billing.md", sourcePaths.authAndBilling),
+        createAgenticMarkdownFile("references/llm-client.md", sourcePaths.llmClient),
+        createAgenticMarkdownFile("references/search-and-selection.md", sourcePaths.searchAndSelection),
+        createAgenticMarkdownFile("references/package-execution.md", sourcePaths.packageExecution),
+        createAgenticMarkdownFile("references/connector-execution.md", sourcePaths.connectorExecution),
+        createAgenticMarkdownFile("references/file-transfer.md", sourcePaths.fileTransfer),
+        createAgenticMarkdownFile("references/task-lifecycle.md", sourcePaths.taskLifecycle),
+    ];
+}
+
+function createAgenticMarkdownFile(
+    relativePath: string,
+    sourcePath: string,
+): BundledSkillSourceFile {
+    return {
+        contentKind: "agenticMarkdown",
+        relativePath,
+        sourcePath,
+    };
+}
+
+function createStaticFile(
+    relativePath: string,
+    sourcePath: string,
+): BundledSkillSourceFile {
+    return {
+        contentKind: "static",
+        relativePath,
+        sourcePath,
+    };
 }

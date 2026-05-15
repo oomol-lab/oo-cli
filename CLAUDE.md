@@ -19,6 +19,23 @@
 - When generating UUIDs, you must use v7 and must use bun's `randomUUIDv7` function
 - Avoid using regular expressions when possible
 
+### Bundled Skill Markdown
+
+- When editing bundled `SKILL.md` files or related Markdown under `contrib/skills/shared`, use `agentic-markdown` directives for agent-specific content instead of creating separate agent copies.
+- Use conditional blocks to keep text for specific agents:
+
+```md
+<!-- agentic:if agent=claude|gemini -->
+Claude and Gemini content.
+<!-- agentic:endif -->
+```
+
+- Use variables for agent-specific values:
+
+```md
+oo skills preflight --agent <!-- agentic:var agent -->
+```
+
 ### Command Telemetry
 
 - Every new or changed user-facing CLI command must make an explicit telemetry decision during implementation and review.

@@ -1,6 +1,9 @@
 ---
 name: oo-find-skills
 description: Find, compare, and install published OOMOL/oo skills. Use when the user asks to find, search for, discover, recommend, compare, choose, or install an existing skill for a task; asks whether there is a skill that can do something; or explicitly mentions the OOMOL/oo skill catalog. Do not use for creating or editing local skills, generic skill design, or non-OOMOL skill catalogs.
+<!-- agentic:if agent=claude|hermes -->
+allowed-tools: [Bash(oo *)]
+<!-- agentic:endif -->
 ---
 
 # oo Find Skills
@@ -109,12 +112,29 @@ Interaction rules:
 - If no credible fallback exists, offer only these actions:
   1. Install the primary skill as `primarySkillName (primaryPackageName)`
   2. Install neither
+<!-- agentic:if agent=codex -->
+- First, try to use the `request_user_input` tool with one short multiple-choice
+  question that includes only the actions that are actually available.
+- If the `request_user_input` tool is unavailable in the current mode or the
+  tool call fails, fall back to plain text.
+- If the `request_user_input` UI returns `None of the above`, treat that as
+  the same outcome as `Install neither`.
+<!-- agentic:endif -->
+<!-- agentic:if agent=claude|hermes|codebuddy|qoderwork|workbuddy|trae|trae-cn|deepseek-tui -->
 - First, try to use the `AskUserQuestion` tool with one short multiple-choice
   question that includes only the actions that are actually available.
 - If the `AskUserQuestion` tool is unavailable in the current mode or the
   tool call fails, fall back to plain text.
 - If the `AskUserQuestion` UI returns `None of the above`, treat that as
   the same outcome as `Install neither`.
+<!-- agentic:endif -->
+<!-- agentic:if agent=openclaw -->
+- Prefer asking the user with a short multiple-choice prompt in chat.
+- If the host provides a short-question UI, you may use it. Otherwise ask in
+  plain text.
+- If the UI returns `None of the above`, treat that as the same outcome as
+  `Install neither`.
+<!-- agentic:endif -->
 - In either UI or text form, the label for every install action must include
   the concrete `skillName (packageName)` text.
 

@@ -29,6 +29,7 @@ import {
 import {
     availableBundledSkillNames,
     getBundledSkillFiles,
+    readBundledSkillFileContent,
 } from "./embedded-assets.ts";
 import {
     createMissingManagedSkillHostError,
@@ -159,7 +160,7 @@ async function writeBundledSkillCanonicalInstallation(options: {
         );
 
         await mkdir(dirname(destinationPath), { recursive: true });
-        await Bun.write(destinationPath, Bun.file(file.sourcePath));
+        await Bun.write(destinationPath, await readBundledSkillFileContent(file));
     }
 
     await writeInstalledBundledSkillMetadata(

@@ -4,6 +4,7 @@ import {
     availableBundledSkillAgentNames,
     availableBundledSkillNames,
     getBundledSkillFiles,
+    readBundledSkillFileContent,
 } from "./embedded-assets.ts";
 
 describe("embedded skill assets", () => {
@@ -340,7 +341,7 @@ describe("embedded skill assets", () => {
         ]);
     });
 
-    test("maps bundled skills to contrib/skills/<agent>/<skill> source directories", () => {
+    test("maps bundled skills to the shared source directory", () => {
         expect([...availableBundledSkillAgentNames]).toEqual([
             "codex",
             "claude",
@@ -356,8 +357,7 @@ describe("embedded skill assets", () => {
 
         for (const skillName of availableBundledSkillNames) {
             for (const agentName of availableBundledSkillAgentNames) {
-                const sourceAgentName = readBundledSkillSourceAgentName(agentName);
-                const sourceDirectory = `contrib/skills/${sourceAgentName}/${skillName}`;
+                const sourceDirectory = `contrib/skills/shared/${skillName}`;
                 const skillFiles = getBundledSkillFiles(skillName, agentName);
 
                 expect(skillFiles.every(file => file.agentName === agentName)).toBeTrue();
@@ -383,7 +383,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(searchGuide.sourcePath).text(),
+                await readBundledSkillFileContent(searchGuide),
             );
 
             expect(content).toContain("Scan all package and connector entries");
@@ -431,7 +431,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain("When running capability discovery");
@@ -466,10 +466,10 @@ describe("embedded skill assets", () => {
             }
 
             const skillContent = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
             const llmGuideContent = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(llmGuide.sourcePath).text(),
+                await readBundledSkillFileContent(llmGuide),
             );
 
             expect(skillContent).toContain("LLM client config mode");
@@ -509,13 +509,13 @@ describe("embedded skill assets", () => {
             }
 
             const skillContent = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
             const packageContent = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(packageGuide.sourcePath).text(),
+                await readBundledSkillFileContent(packageGuide),
             );
             const fileTransferContent = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(fileTransferGuide.sourcePath).text(),
+                await readBundledSkillFileContent(fileTransferGuide),
             );
 
             expect(skillContent).toContain("Local `file://...` URIs");
@@ -546,7 +546,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain("with a required `--description`");
@@ -578,7 +578,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain("Constitution");
@@ -638,7 +638,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain("Author, generate, or scaffold a new local AI agent skill");
@@ -666,7 +666,7 @@ describe("embedded skill assets", () => {
             throw new Error("Missing codex oo-create-skill agents/openai.yaml");
         }
 
-        const openAiAgentContent = await Bun.file(openAiAgentFile.sourcePath).text();
+        const openAiAgentContent = await readBundledSkillFileContent(openAiAgentFile);
 
         expect(openAiAgentContent).toContain("$oo-create-skill");
         expect(openAiAgentContent).toContain("author, scaffold, or generate a new local");
@@ -689,7 +689,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain("user-facing trigger summary");
@@ -722,7 +722,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain(
@@ -748,7 +748,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain(
@@ -841,7 +841,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain("Preserve the local/cloud boundary");
@@ -883,7 +883,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeMarkdownWrappingForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain("compact execution runbook");
@@ -937,7 +937,7 @@ describe("embedded skill assets", () => {
             }
 
             const content = normalizeLineEndingsForAssertion(
-                await Bun.file(skillFile.sourcePath).text(),
+                await readBundledSkillFileContent(skillFile),
             );
 
             expect(content).toContain("Publish, release, upload, or submit");
@@ -973,8 +973,21 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("keeps non-Claude skill frontmatter free of Claude allowed tools", async () => {
-        for (const agentName of ["deepseek-tui", "qoderwork", "trae", "trae-cn", "workbuddy"] as const) {
+    test("renders bundled skill markdown for host-specific frontmatter", async () => {
+        for (const skillName of availableBundledSkillNames) {
+            const claudeSkillFile = getBundledSkillFiles(skillName, "claude")
+                .find(file => file.relativePath === "SKILL.md");
+
+            if (claudeSkillFile === undefined) {
+                throw new Error(`Missing claude SKILL.md for ${skillName}`);
+            }
+
+            expect(await readBundledSkillFileContent(claudeSkillFile)).toContain(
+                "allowed-tools: [Bash(oo *)]",
+            );
+        }
+
+        for (const agentName of ["codex", "deepseek-tui", "qoderwork", "trae", "trae-cn", "workbuddy"] as const) {
             for (const skillName of availableBundledSkillNames) {
                 const skillFile = getBundledSkillFiles(skillName, agentName)
                     .find(file => file.relativePath === "SKILL.md");
@@ -983,9 +996,55 @@ describe("embedded skill assets", () => {
                     throw new Error(`Missing ${agentName} SKILL.md for ${skillName}`);
                 }
 
-                expect(await Bun.file(skillFile.sourcePath).text()).not.toContain(
+                expect(await readBundledSkillFileContent(skillFile)).not.toContain(
                     "allowed-tools",
                 );
+            }
+        }
+    });
+
+    test("renders bundled skill markdown for host-specific instructions", async () => {
+        const codexOoSkillFile = getRequiredBundledSkillFile("oo", "codex", "SKILL.md");
+        const claudeOoSkillFile = getRequiredBundledSkillFile("oo", "claude", "SKILL.md");
+        const codexFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "codex", "SKILL.md");
+        const claudeFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "claude", "SKILL.md");
+        const openClawFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "openclaw", "SKILL.md");
+        const codexCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "codex", "SKILL.md");
+        const qoderWorkCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "qoderwork", "SKILL.md");
+        const qoderWorkPublishSkillFile = getRequiredBundledSkillFile("oo-publish-skill", "qoderwork", "SKILL.md");
+
+        const codexOoContent = await readBundledSkillFileContent(codexOoSkillFile);
+        const claudeOoContent = await readBundledSkillFileContent(claudeOoSkillFile);
+        const codexFindContent = await readBundledSkillFileContent(codexFindSkillFile);
+        const claudeFindContent = await readBundledSkillFileContent(claudeFindSkillFile);
+        const openClawFindContent = await readBundledSkillFileContent(openClawFindSkillFile);
+        const codexCreateContent = await readBundledSkillFileContent(codexCreateSkillFile);
+        const qoderWorkCreateContent = await readBundledSkillFileContent(qoderWorkCreateSkillFile);
+        const qoderWorkPublishContent = await readBundledSkillFileContent(qoderWorkPublishSkillFile);
+
+        expect(codexOoContent).toContain("## Runtime note");
+        expect(claudeOoContent).not.toContain("## Runtime note");
+        expect(codexFindContent).toContain("request_user_input");
+        expect(codexFindContent).not.toContain("AskUserQuestion");
+        expect(claudeFindContent).toContain("AskUserQuestion");
+        expect(claudeFindContent).not.toContain("request_user_input");
+        expect(openClawFindContent).toContain("Prefer asking the user with a short multiple-choice prompt");
+        expect(openClawFindContent).not.toContain("AskUserQuestion");
+        expect(codexCreateContent).toContain("oo skills preflight --agent codex");
+        expect(qoderWorkCreateContent).toContain("oo skills preflight --agent qoderwork");
+        expect(qoderWorkCreateContent).toContain("Check QoderWork execution permissions");
+        expect(qoderWorkPublishContent).toContain("`qoderwork` with that host id");
+        expect(qoderWorkPublishContent).not.toContain("agentic:");
+    });
+
+    test("renders bundled skill files without agentic directives", async () => {
+        for (const skillName of availableBundledSkillNames) {
+            for (const agentName of availableBundledSkillAgentNames) {
+                for (const file of getBundledSkillFiles(skillName, agentName)) {
+                    expect(await readBundledSkillFileContent(file)).not.toContain(
+                        "agentic:",
+                    );
+                }
             }
         }
     });
@@ -1008,18 +1067,17 @@ function normalizeMarkdownWrappingForAssertion(text: string): string {
         .join(" ");
 }
 
-function readBundledSkillSourceAgentName(
+function getRequiredBundledSkillFile(
+    skillName: (typeof availableBundledSkillNames)[number],
     agentName: (typeof availableBundledSkillAgentNames)[number],
-): string {
-    switch (agentName) {
-        case "hermes":
-            return "claude";
-        case "trae":
-        case "trae-cn":
-        case "workbuddy":
-        case "deepseek-tui":
-            return "codebuddy";
-        default:
-            return agentName;
+    relativePath: string,
+) {
+    const skillFile = getBundledSkillFiles(skillName, agentName)
+        .find(file => file.relativePath === relativePath);
+
+    if (skillFile === undefined) {
+        throw new Error(`Missing ${agentName}/${skillName}/${relativePath}`);
     }
+
+    return skillFile;
 }

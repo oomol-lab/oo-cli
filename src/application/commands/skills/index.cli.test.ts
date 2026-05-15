@@ -10,7 +10,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
-import { getBundledSkillSourcePath } from "./__tests__/helpers.ts";
+import { readBundledSkillSourceContent } from "./__tests__/helpers.ts";
 import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     resolveBundledSkillMetadataFilePath,
@@ -129,7 +129,7 @@ describe("skills CLI", () => {
                 renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             expect(await readFile(skillFilePath, "utf8")).toBe(
-                await readFile(getBundledSkillSourcePath("oo", "SKILL.md"), "utf8"),
+                await readBundledSkillSourceContent("oo", "SKILL.md"),
             );
             expect(content).toContain(
                 `"msg":"Bundled skill synchronized during CLI startup."`,

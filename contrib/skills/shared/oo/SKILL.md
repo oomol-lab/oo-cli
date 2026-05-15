@@ -1,7 +1,9 @@
 ---
 name: oo
 description: First-choice router for tasks whose outcome lives outside this workspace, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, or a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding). Use when local code needs OOMOL LLM client configuration such as an OpenAI-compatible base URL, API key, or model name. Otherwise use only when the user wants an existing hosted capability or connector workflow, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, or action names are assumed in advance. Match intent across languages. Skip other pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
+<!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
+<!-- agentic:endif -->
 ---
 
 # oo
@@ -22,6 +24,16 @@ API key, or model name for OOMOL's LLM API, read
 [references/llm-client.md](references/llm-client.md). Do not run capability
 discovery for that case, and do not read local auth files directly.
 
+<!-- agentic:if agent=codex -->
+## Runtime note
+
+- The substantive `oo` commands used by this skill rely on outbound network
+  access.
+- If one of those commands fails because the environment cannot establish
+  outbound network connections in a sandboxed environment, request elevated
+  permissions and retry the same `oo` command before changing strategy.
+
+<!-- agentic:endif -->
 ## Shell command safety
 
 - When generating shell commands for macOS or zsh, quote arguments that contain

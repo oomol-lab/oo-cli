@@ -5,7 +5,10 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
-import { getBundledSkillFiles } from "../../src/application/commands/skills/embedded-assets.ts";
+import {
+    getBundledSkillFiles,
+    readBundledSkillFileContent,
+} from "../../src/application/commands/skills/embedded-assets.ts";
 import { writeReleaseBundleBinaryFixture } from "./__tests__/helpers.ts";
 import {
     assembleReleaseArtifacts,
@@ -526,7 +529,7 @@ describe("npm-packages", () => {
                             join(installedSkillDirectoryPath, file.relativePath),
                             "utf8",
                         ),
-                    ).toBe(await Bun.file(file.sourcePath).text());
+                    ).toBe(await readBundledSkillFileContent(file));
                 }
             }
             finally {
