@@ -26,18 +26,7 @@ import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     canonicalLocalSkillsDirectoryName,
     resolveBundledSkillCanonicalDirectoryPath,
-    resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
-    resolveClaudeHomeDirectory,
-    resolveCodeBuddyHomeDirectory,
-    resolveCodexHomeDirectory,
-    resolveDeepSeekTuiHomeDirectory,
-    resolveHermesHomeDirectory,
-    resolveOpenClawHomeDirectory,
-    resolveQoderWorkHomeDirectory,
-    resolveTraeCnHomeDirectory,
-    resolveTraeHomeDirectory,
-    resolveWorkBuddyHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import {
     availableBundledSkillAgentNames,
@@ -45,6 +34,7 @@ import {
     readBundledSkillFileContent,
 } from "./embedded-assets.ts";
 import { presetSkillPackageNames } from "./install.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
@@ -66,7 +56,7 @@ describe("skills commands", () => {
 
     test("installs all bundled skills when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
         const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
@@ -194,7 +184,7 @@ describe("skills commands", () => {
 
     test("includes successful preset package skills in the bundled install summary", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const firstPresetSkillDirectoryPath = join(codexHomeDirectory, "skills", "gpt-image-2");
         const secondPresetSkillDirectoryPath = join(codexHomeDirectory, "skills", "gpt-image-2-edit");
         const requests: Request[] = [];
@@ -265,7 +255,7 @@ describe("skills commands", () => {
 
     test("leaves agent-native local skills untouched during bundled install", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillName = "local-helper";
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
@@ -313,7 +303,7 @@ describe("skills commands", () => {
 
     test("ignores legacy canonical local storage during bundled install", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillName = "legacy-local-helper";
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
@@ -366,7 +356,7 @@ describe("skills commands", () => {
 
     test("colors compact bundled install summaries when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -393,7 +383,7 @@ describe("skills commands", () => {
 
     test("installs a bundled skill by explicit name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -434,7 +424,7 @@ describe("skills commands", () => {
 
     test("installs a registry package when a bundled skill name has an explicit version", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "runtime");
         const requests: Request[] = [];
 
@@ -492,7 +482,7 @@ describe("skills commands", () => {
 
     test("explicit bundled skill install overwrites a managed development-version installation", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -546,7 +536,7 @@ describe("skills commands", () => {
 
     test("installs the oo-find-skills bundled skill by explicit name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -587,7 +577,7 @@ describe("skills commands", () => {
 
     test("installs the oo-publish-skill bundled skill by explicit name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -629,7 +619,7 @@ describe("skills commands", () => {
     test("fails when no supported bundled skill host is installed", async () => {
         const sandbox = await createCliSandbox();
         const expectedHomeDirectories = availableBundledSkillAgentNames
-            .map(agentName => resolveBundledSkillHomeDirectory(sandbox.env, agentName))
+            .map(agentName => resolveManagedSkillAgentHomeDirectory(sandbox.env, agentName))
             .join(", ");
 
         try {
@@ -648,8 +638,8 @@ describe("skills commands", () => {
 
     test("installs bundled skills into both Codex and Claude Code when both homes exist", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const codexOoSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const claudeOoSkillDirectoryPath = join(claudeHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
@@ -716,7 +706,7 @@ describe("skills commands", () => {
 
     test("installs bundled skills into Claude Code when only Claude Code is installed", async () => {
         const sandbox = await createCliSandbox();
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const skillDirectoryPath = join(claudeHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -761,7 +751,7 @@ describe("skills commands", () => {
 
     test("installs bundled skills into Hermes using the Claude skill template", async () => {
         const sandbox = await createCliSandbox();
-        const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
+        const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
         const skillDirectoryPath = join(hermesHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -818,7 +808,7 @@ describe("skills commands", () => {
 
     test("installs bundled skills into OpenClaw when only OpenClaw is installed", async () => {
         const sandbox = await createCliSandbox();
-        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
+        const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
         const skillDirectoryPath = join(openClawHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -863,7 +853,7 @@ describe("skills commands", () => {
 
     test("installs bundled skills into QoderWork without Claude allowed tools", async () => {
         const sandbox = await createCliSandbox();
-        const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
+        const qoderWorkHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "qoderwork");
         const qoderWorkSkillsDirectoryPath = join(qoderWorkHomeDirectory, "skills");
         const skillDirectoryPath = join(qoderWorkHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
@@ -926,7 +916,7 @@ describe("skills commands", () => {
 
     test("installs bundled skills into CodeBuddy", async () => {
         const sandbox = await createCliSandbox();
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const skillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -981,7 +971,7 @@ describe("skills commands", () => {
 
     test("installs bundled skills into DeepSeek TUI using the CodeBuddy skill template", async () => {
         const sandbox = await createCliSandbox();
-        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+        const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
         const deepSeekTuiSkillsDirectoryPath = join(deepSeekTuiHomeDirectory, "skills");
         const skillDirectoryPath = join(deepSeekTuiHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
@@ -1041,7 +1031,7 @@ describe("skills commands", () => {
 
     test("installs bundled skills into WorkBuddy", async () => {
         const sandbox = await createCliSandbox();
-        const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
+        const workBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "workbuddy");
         const skillDirectoryPath = join(workBuddyHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -1096,7 +1086,7 @@ describe("skills commands", () => {
 
     test("installs bundled skills into Trae using the CodeBuddy skill template", async () => {
         const sandbox = await createCliSandbox();
-        const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
+        const traeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae");
         const traeSkillsDirectoryPath = join(traeHomeDirectory, "skills");
         const skillDirectoryPath = join(traeHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
@@ -1156,7 +1146,7 @@ describe("skills commands", () => {
 
     test("installs bundled skills into Trae CN using the CodeBuddy skill template", async () => {
         const sandbox = await createCliSandbox();
-        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
+        const traeCnHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae-cn");
         const traeCnSkillsDirectoryPath = join(traeCnHomeDirectory, "skills");
         const skillDirectoryPath = join(traeCnHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
@@ -1216,7 +1206,7 @@ describe("skills commands", () => {
 
     test("refuses to overwrite an existing non-OOMOL skill with the same name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
 
@@ -1248,7 +1238,7 @@ describe("skills commands", () => {
 
     test("refuses to install when the canonical bundled skill storage is occupied by unmanaged content", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -1295,7 +1285,7 @@ describe("skills commands", () => {
 
     test("uninstalls all bundled skills from the Codex skills directory when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
         const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
@@ -1373,16 +1363,16 @@ describe("skills commands", () => {
 
     test("uninstalls a published skill from every existing supported host", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
-        const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
-        const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
-        const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
-        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
-        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
-        const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
-        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
+        const workBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "workbuddy");
+        const traeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae");
+        const traeCnHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae-cn");
+        const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
+        const qoderWorkHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "qoderwork");
+        const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const hermesSkillDirectoryPath = join(hermesHomeDirectory, "skills", "chatgpt");
@@ -1486,8 +1476,8 @@ describe("skills commands", () => {
     test("uninstalls matching registry and single local skills with the same name", async () => {
         const sandbox = await createCliSandbox();
         const skillName = "shared-skill";
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const claudeSkillDirectoryPath = resolveManagedSkillDirectoryPath(
             claudeHomeDirectory,
             skillName,
@@ -1562,8 +1552,8 @@ describe("skills commands", () => {
     test("fails and keeps multiple local matches without an agent", async () => {
         const sandbox = await createCliSandbox();
         const skillName = "ambiguous-local";
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             skillName,
@@ -1623,11 +1613,11 @@ describe("skills commands", () => {
         const sandbox = await createCliSandbox();
         const skillName = "agent-local";
         const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveCodexHomeDirectory(sandbox.env),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
             skillName,
         );
         const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveCodeBuddyHomeDirectory(sandbox.env),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy"),
             skillName,
         );
         const skillContent = createLocalSkillMarkdown(
@@ -1670,7 +1660,7 @@ describe("skills commands", () => {
     test("does not uninstall a same-name non-oo skill without local metadata", async () => {
         const sandbox = await createCliSandbox();
         const skillName = "local-copy";
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codeBuddyHomeDirectory,
             skillName,
@@ -1698,7 +1688,7 @@ describe("skills commands", () => {
 
     test("rejects uninstall when the skill path escapes the local skills directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -1753,7 +1743,7 @@ describe("skills commands", () => {
 
     test("supports skills remove as an alias for uninstall", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
         const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
@@ -1798,7 +1788,7 @@ describe("skills commands", () => {
 
     test("does not uninstall a same-name skill without oo metadata", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
 
@@ -1832,8 +1822,8 @@ describe("skills commands", () => {
 
     test("uninstalls bundled skills from both Codex and Claude Code when both homes exist", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "oo");
 
@@ -1870,7 +1860,7 @@ describe("skills commands", () => {
 
     test("uninstalls bundled skills from OpenClaw when only OpenClaw exists", async () => {
         const sandbox = await createCliSandbox();
-        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
+        const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
         const skillDirectoryPath = join(openClawHomeDirectory, "skills", "oo");
 
         try {
@@ -1896,7 +1886,7 @@ describe("skills commands", () => {
 
     test("does not uninstall a published skill without oo metadata", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
 
         try {
@@ -1921,7 +1911,7 @@ describe("skills commands", () => {
 
     test("reports an unmanaged existing skill directory clearly", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", ".system");
 
         try {
@@ -1942,7 +1932,7 @@ describe("skills commands", () => {
 
     test("uninstall removes canonical bundled skill storage even when it contains unmanaged content", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
@@ -2002,7 +1992,7 @@ describe("skills commands", () => {
 
     test("installs a published registry skill by explicit --skill name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -2131,7 +2121,7 @@ describe("skills commands", () => {
 
     test("installs a scoped registry skill by explicit package version", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
         const requests: Request[] = [];
@@ -2193,7 +2183,7 @@ describe("skills commands", () => {
 
     test("installs a shared registry package by package share id", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
         const requests: Request[] = [];
@@ -2258,7 +2248,7 @@ describe("skills commands", () => {
 
     test("uploads installed registry skills while excluding bundled and local skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const registrySkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const bundledSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
@@ -2366,7 +2356,7 @@ describe("skills commands", () => {
 
     test("uploads registry skills with ignore patterns and explicit source", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const chatSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const captionSkillDirectoryPath = join(codexHomeDirectory, "skills", "caption");
         const requests: Array<{
@@ -2452,7 +2442,7 @@ describe("skills commands", () => {
 
     test("applies uploaded registry skills using exact package versions", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const requests: Request[] = [];
 
@@ -2518,7 +2508,7 @@ describe("skills commands", () => {
 
     test("supports download and install aliases for applying exact uploaded registry versions", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -2592,16 +2582,16 @@ describe("skills commands", () => {
 
     test("installs a published registry skill into every existing supported host", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
-        const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
-        const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
-        const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
-        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
-        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
-        const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
-        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
+        const workBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "workbuddy");
+        const traeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae");
+        const traeCnHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae-cn");
+        const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
+        const qoderWorkHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "qoderwork");
+        const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const hermesSkillDirectoryPath = join(hermesHomeDirectory, "skills", "chatgpt");
@@ -2731,7 +2721,7 @@ describe("skills commands", () => {
 
     test("installs a published registry skill when only Claude Code is installed", async () => {
         const sandbox = await createCliSandbox();
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const skillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -2795,8 +2785,8 @@ describe("skills commands", () => {
 
     test("does not install a published registry skill over an unmanaged host target", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
 
@@ -2852,7 +2842,7 @@ describe("skills commands", () => {
 
     test("rejects published registry skills that escape the local skills directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const requests: Request[] = [];
 
         try {
@@ -2900,7 +2890,7 @@ describe("skills commands", () => {
 
     test("installs selected published skills through the interactive picker", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const selectedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const unselectedSkillDirectoryPath = join(codexHomeDirectory, "skills", "vision");
         const stdin = createInteractiveInput();
@@ -2996,7 +2986,7 @@ describe("skills commands", () => {
 
     test("uninstalls deselected published skills through the interactive picker", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const stdin = createInteractiveInput();
         const stdout = createTextBuffer({
@@ -3101,7 +3091,7 @@ describe("skills commands", () => {
 
     test("skips overwriting an existing published skill when confirmation is declined", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -3172,7 +3162,7 @@ describe("skills commands", () => {
 
     test("installs all published skills when --yes is passed without --skill", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const chatgptSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const visionSkillDirectoryPath = join(codexHomeDirectory, "skills", "vision");
 
@@ -3234,7 +3224,7 @@ describe("skills commands", () => {
 
     test("fails outside a TTY when multiple skills require selection", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -3283,7 +3273,7 @@ describe("skills commands", () => {
 
     test("migrates legacy canonical skill layout on install", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,

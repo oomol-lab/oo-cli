@@ -4,18 +4,8 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
-import {
-    resolveClaudeHomeDirectory,
-    resolveCodeBuddyHomeDirectory,
-    resolveCodexHomeDirectory,
-    resolveDeepSeekTuiHomeDirectory,
-    resolveHermesHomeDirectory,
-    resolveQoderWorkHomeDirectory,
-    resolveTraeCnHomeDirectory,
-    resolveTraeHomeDirectory,
-    resolveWorkBuddyHomeDirectory,
-} from "./bundled-skill-paths.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import { resolveManagedSkillsDirectoryPath } from "./managed-skill-paths.ts";
 
 describe("skills preflight command", () => {
@@ -41,7 +31,7 @@ describe("skills preflight command", () => {
 
     test("checks the requested agent skill directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(codexHomeDirectory);
 
         try {
@@ -68,8 +58,8 @@ describe("skills preflight command", () => {
 
     test("requires the requested agent home directory", async () => {
         const sandbox = await createCliSandbox();
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
 
         try {
             await mkdir(claudeHomeDirectory, { recursive: true });
@@ -94,7 +84,7 @@ describe("skills preflight command", () => {
 
     test("checks QoderWork as a requested agent", async () => {
         const sandbox = await createCliSandbox();
-        const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
+        const qoderWorkHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "qoderwork");
         const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(qoderWorkHomeDirectory);
 
         try {
@@ -121,7 +111,7 @@ describe("skills preflight command", () => {
 
     test("checks Hermes as a requested agent", async () => {
         const sandbox = await createCliSandbox();
-        const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
+        const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
         const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(hermesHomeDirectory);
 
         try {
@@ -148,7 +138,7 @@ describe("skills preflight command", () => {
 
     test("checks CodeBuddy as a requested agent", async () => {
         const sandbox = await createCliSandbox();
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(codeBuddyHomeDirectory);
 
         try {
@@ -175,7 +165,7 @@ describe("skills preflight command", () => {
 
     test("checks DeepSeek TUI as a requested agent", async () => {
         const sandbox = await createCliSandbox();
-        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+        const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
         const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(
             deepSeekTuiHomeDirectory,
         );
@@ -204,7 +194,7 @@ describe("skills preflight command", () => {
 
     test("checks WorkBuddy as a requested agent", async () => {
         const sandbox = await createCliSandbox();
-        const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
+        const workBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "workbuddy");
         const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(workBuddyHomeDirectory);
 
         try {
@@ -231,7 +221,7 @@ describe("skills preflight command", () => {
 
     test("checks Trae as a requested agent", async () => {
         const sandbox = await createCliSandbox();
-        const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
+        const traeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae");
         const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(traeHomeDirectory);
 
         try {
@@ -258,7 +248,7 @@ describe("skills preflight command", () => {
 
     test("checks Trae CN as a requested agent", async () => {
         const sandbox = await createCliSandbox();
-        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
+        const traeCnHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae-cn");
         const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(traeCnHomeDirectory);
 
         try {
@@ -285,7 +275,7 @@ describe("skills preflight command", () => {
 
     test("requires the requested agent publish root to be writable", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const publishRootPath = join(codexHomeDirectory, "skills");
 
         try {

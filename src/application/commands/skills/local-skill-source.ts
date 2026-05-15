@@ -2,12 +2,10 @@ import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 
 import { readdir } from "node:fs/promises";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
-import {
-    resolveBundledSkillHomeDirectory,
-} from "./bundled-skill-paths.ts";
 import { readSkillMetadataFileState } from "./local-skill-ownership.ts";
 import {
     availableBundledSkillAgentNames,
+    resolveManagedSkillAgentHomeDirectory,
 } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillDirectoryPath,
@@ -88,7 +86,7 @@ async function listAgentLocalSkillSourcesForAgent(
     env: Record<string, string | undefined>,
     agentName: BundledSkillAgentName,
 ): Promise<LocalSkillSource[]> {
-    const homeDirectory = resolveBundledSkillHomeDirectory(env, agentName);
+    const homeDirectory = resolveManagedSkillAgentHomeDirectory(env, agentName);
     const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(homeDirectory);
     const skillNames = await readSkillDirectoryNames(skillsDirectoryPath);
     const sources = await Promise.all(

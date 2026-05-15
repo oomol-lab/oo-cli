@@ -1,4 +1,5 @@
 import { mkdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -13,13 +14,8 @@ import {
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import {
-    resolveBundledSkillHomeDirectory,
-    resolveDeepSeekTuiHomeDirectory,
-    resolveTraeCnHomeDirectory,
-    resolveTraeHomeDirectory,
-} from "./bundled-skill-paths.ts";
-import {
     readManagedSkillAgent,
+    resolveManagedSkillAgentHomeDirectory,
     supportedSkillAgents,
 } from "./managed-skill-agents.ts";
 import {
@@ -133,31 +129,34 @@ describe("bundled skill observation", () => {
     });
 
     test("resolves configured agent home environment overrides", () => {
+        const codexHomeDirectory = join(tmpdir(), "custom-codex-home");
+        const hermesHomeDirectory = join(tmpdir(), "custom-hermes-home");
+        const openClawHomeDirectory = join(tmpdir(), "custom-openclaw-home");
+        const userHomeDirectory = join(tmpdir(), "user-home");
         const env = {
-            CODEX_HOME: "/tmp/custom-codex-home",
-            HERMES_HOME: "/tmp/custom-hermes-home",
-            HOME: "/tmp/user-home",
-            OPENCLAW_HOME: "/tmp/custom-openclaw-home",
+            CODEX_HOME: codexHomeDirectory,
+            HERMES_HOME: hermesHomeDirectory,
+            HOME: userHomeDirectory,
+            OPENCLAW_HOME: openClawHomeDirectory,
         };
 
-        expect(resolveBundledSkillHomeDirectory(env, "codex")).toBe(
-            "/tmp/custom-codex-home",
+        expect(resolveManagedSkillAgentHomeDirectory(env, "codex")).toBe(
+            codexHomeDirectory,
         );
-        expect(resolveBundledSkillHomeDirectory(env, "hermes")).toBe(
-            "/tmp/custom-hermes-home",
+        expect(resolveManagedSkillAgentHomeDirectory(env, "hermes")).toBe(
+            hermesHomeDirectory,
         );
-        expect(resolveBundledSkillHomeDirectory(env, "openclaw")).toBe(
-            "/tmp/custom-openclaw-home",
+        expect(resolveManagedSkillAgentHomeDirectory(env, "openclaw")).toBe(
+            openClawHomeDirectory,
         );
-        expect(resolveBundledSkillHomeDirectory(env, "deepseek-tui")).toBe(
-            join("/tmp/user-home", readManagedSkillAgent("deepseek-tui").homeDirectoryName),
+        expect(resolveManagedSkillAgentHomeDirectory(env, "deepseek-tui")).toBe(
+            join(userHomeDirectory, readManagedSkillAgent("deepseek-tui").homeDirectoryName),
         );
-        expect(resolveDeepSeekTuiHomeDirectory(env)).toBe(
-            join("/tmp/user-home", ".deepseek"),
+        expect(resolveManagedSkillAgentHomeDirectory(env, "trae")).toBe(
+            join(userHomeDirectory, readManagedSkillAgent("trae").homeDirectoryName),
         );
-        expect(resolveTraeHomeDirectory(env)).toBe(join("/tmp/user-home", ".trae"));
-        expect(resolveTraeCnHomeDirectory(env)).toBe(
-            join("/tmp/user-home", ".trae-cn"),
+        expect(resolveManagedSkillAgentHomeDirectory(env, "trae-cn")).toBe(
+            join(userHomeDirectory, readManagedSkillAgent("trae-cn").homeDirectoryName),
         );
     });
 });

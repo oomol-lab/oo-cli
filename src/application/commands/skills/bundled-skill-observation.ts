@@ -7,11 +7,11 @@ import {
     parseBundledSkillMetadataContent,
 } from "./bundled-skill-model.ts";
 import {
-    resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
 } from "./bundled-skill-paths.ts";
 import {
     createManagedSkillAgentNotInstalledError,
+    resolveManagedSkillAgentHomeDirectory,
 } from "./managed-skill-agents.ts";
 import {
     createBundledSkillMetadata,
@@ -22,7 +22,7 @@ export async function requireBundledSkillHomeDirectory(
     context: Pick<{ env: Record<string, string | undefined> }, "env">,
     agentName: BundledSkillAgentName,
 ): Promise<string> {
-    const homeDirectory = resolveBundledSkillHomeDirectory(
+    const homeDirectory = resolveManagedSkillAgentHomeDirectory(
         context.env,
         agentName,
     );

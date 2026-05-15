@@ -26,10 +26,7 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
-import {
-    resolveClaudeHomeDirectory,
-    resolveCodexHomeDirectory,
-} from "./bundled-skill-paths.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
@@ -56,12 +53,12 @@ describe("skills publish command", () => {
     test("publishes a local skill directory path through the CLI", async () => {
         const sandbox = await createCliSandbox();
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveCodexHomeDirectory(sandbox.env),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
             "demo-skill",
         );
 
         try {
-            await mkdir(resolveCodexHomeDirectory(sandbox.env), { recursive: true });
+            await mkdir(resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"), { recursive: true });
             await writeAuthFile(sandbox);
             await writeLocalSkillFile(skillDirectoryPath, createSkillMarkdown(
                 "demo-skill",
@@ -160,8 +157,8 @@ describe("skills publish command", () => {
 
     test("publishes a registry skill path and syncs canonical storage to agents", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "registry-skill",
@@ -248,8 +245,8 @@ describe("skills publish command", () => {
 
     test("rejects a registry publish before PUT when another agent target is unmanaged", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "conflict-skill",

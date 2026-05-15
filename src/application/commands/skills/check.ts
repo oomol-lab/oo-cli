@@ -10,12 +10,12 @@ import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import {
     codexSkillsDirectoryName,
-    resolveBundledSkillHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import {
     createManagedSkillAgentNotInstalledError,
     createMissingRequiredSkillAgentError,
     parseManagedSkillAgentOption,
+    resolveManagedSkillAgentHomeDirectory,
 } from "./managed-skill-agents.ts";
 
 interface SkillsCheckInput {
@@ -86,7 +86,7 @@ export async function resolveRequestedManagedSkillHost(
     translator: Pick<CliExecutionContext["translator"], "t">,
     agentName: BundledSkillAgentName,
 ): Promise<Array<{ agentName: BundledSkillAgentName; homeDirectory: string }>> {
-    const homeDirectory = resolveBundledSkillHomeDirectory(env, agentName);
+    const homeDirectory = resolveManagedSkillAgentHomeDirectory(env, agentName);
 
     if (!(await directoryExists(homeDirectory))) {
         throw createManagedSkillAgentNotInstalledError(

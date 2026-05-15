@@ -6,8 +6,7 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
 import { fileExists } from "./bundled-skill-observation.ts";
-import { resolveBundledSkillHomeDirectory } from "./bundled-skill-paths.ts";
-import { parseManagedSkillAgentOption } from "./managed-skill-agents.ts";
+import { parseManagedSkillAgentOption, resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveAvailableManagedSkillHosts,
 } from "./managed-skill-hosts.ts";
@@ -135,7 +134,7 @@ async function findAgentSkillLocations(
     const locations = await Promise.all(
         agentNames.map(async (agentName) => {
             const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-                resolveBundledSkillHomeDirectory(env, agentName),
+                resolveManagedSkillAgentHomeDirectory(env, agentName),
                 skillName,
             );
 

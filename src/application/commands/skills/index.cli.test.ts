@@ -14,11 +14,9 @@ import { readBundledSkillSourceContent } from "./__tests__/helpers.ts";
 import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     resolveBundledSkillMetadataFilePath,
-    resolveClaudeHomeDirectory,
-    resolveCodeBuddyHomeDirectory,
-    resolveCodexHomeDirectory,
 } from "./bundled-skill-paths.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
@@ -64,7 +62,7 @@ describe("skills CLI", () => {
 
     test("auto-installs bundled skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
 
@@ -100,7 +98,7 @@ describe("skills CLI", () => {
 
     test("auto-refreshes installed bundled skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
@@ -142,7 +140,7 @@ describe("skills CLI", () => {
 
     test("does not auto-refresh installed bundled skills during development-version cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillTargets = availableBundledSkillNames.map(skillName => ({
             directoryPath: join(codexHomeDirectory, "skills", skillName),
             name: skillName,
@@ -201,7 +199,7 @@ describe("skills CLI", () => {
 
     test("does not auto-refresh development-version bundled skills during release-version cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillTargets = availableBundledSkillNames.map(skillName => ({
             directoryPath: join(codexHomeDirectory, "skills", skillName),
             name: skillName,
@@ -259,7 +257,7 @@ describe("skills CLI", () => {
 
     test("publishes canonical registry skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -311,7 +309,7 @@ describe("skills CLI", () => {
 
     test("leaves synchronized registry symlink targets unchanged during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const codeBuddySkillsDirectory = join(codeBuddyHomeDirectory, "skills");
         const codeBuddySkillDirectoryPath = join(codeBuddySkillsDirectory, "chatgpt");
         const storePaths = resolveStorePaths({
@@ -372,7 +370,7 @@ describe("skills CLI", () => {
 
     test("does not synchronize agent-native local skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "campaign-writer",
@@ -414,8 +412,8 @@ describe("skills CLI", () => {
 
     test("does not overwrite synchronized registry targets with same-name local skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const codexSkillsDirectory = join(codexHomeDirectory, "skills");
         const codexSkillDirectoryPath = join(codexSkillsDirectory, "chatgpt");
         const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
@@ -489,7 +487,7 @@ describe("skills CLI", () => {
 
     test("does not overwrite unmanaged bundled skill targets during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const skillFilePath = join(skillDirectoryPath, "SKILL.md");
 
@@ -517,7 +515,7 @@ describe("skills CLI", () => {
 
     test("supports skills remove as an alias for uninstall", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
         const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
@@ -550,7 +548,7 @@ describe("skills CLI", () => {
 
     test("supports skills add as an alias for install", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -576,7 +574,7 @@ describe("skills CLI", () => {
 
     test("writes explicit skills install and uninstall logs", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
         const publishSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");

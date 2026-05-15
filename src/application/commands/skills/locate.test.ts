@@ -10,7 +10,7 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
-import { resolveCodexHomeDirectory } from "./bundled-skill-paths.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
@@ -20,7 +20,7 @@ describe("skills locate command", () => {
     test("prints the selected agent skill path", async () => {
         const sandbox = await createCliSandbox();
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveCodexHomeDirectory(sandbox.env),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
             "agent-skill",
         );
 
@@ -90,7 +90,7 @@ describe("skills locate command", () => {
     test("reports ambiguous matches without an agent", async () => {
         const sandbox = await createCliSandbox();
         const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveCodexHomeDirectory(sandbox.env),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
             "shared-skill",
         );
         const storePaths = resolveStorePaths({

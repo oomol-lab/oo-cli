@@ -10,10 +10,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
-import {
-    resolveCodeBuddyHomeDirectory,
-    resolveCodexHomeDirectory,
-} from "./bundled-skill-paths.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
@@ -121,11 +118,11 @@ describe("skills share command", () => {
         const sandbox = await createCliSandbox();
         const skillId = "shared-skill";
         const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveCodexHomeDirectory(sandbox.env),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
             skillId,
         );
         const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveCodeBuddyHomeDirectory(sandbox.env),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy"),
             skillId,
         );
 
@@ -847,7 +844,7 @@ function resolveLocalSkillDirectoryPath(
     skillId: string,
 ): string {
     return resolveManagedSkillDirectoryPath(
-        resolveCodexHomeDirectory(sandbox.env),
+        resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
         skillId,
     );
 }

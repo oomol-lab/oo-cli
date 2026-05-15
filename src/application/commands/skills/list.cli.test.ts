@@ -11,18 +11,7 @@ import {
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
-import {
-    resolveClaudeHomeDirectory,
-    resolveCodeBuddyHomeDirectory,
-    resolveCodexHomeDirectory,
-    resolveDeepSeekTuiHomeDirectory,
-    resolveHermesHomeDirectory,
-    resolveOpenClawHomeDirectory,
-    resolveQoderWorkHomeDirectory,
-    resolveTraeCnHomeDirectory,
-    resolveTraeHomeDirectory,
-    resolveWorkBuddyHomeDirectory,
-} from "./bundled-skill-paths.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
@@ -43,7 +32,7 @@ const bundledSkillNames = [
 describe("skills list CLI", () => {
     test("lists skills with source, package, and version details", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillsDirectoryPath = join(codexHomeDirectory, "skills");
         const alphaSkillDirectoryPath = join(skillsDirectoryPath, "alpha-skill");
         const unmanagedSkillDirectoryPath = join(skillsDirectoryPath, "custom-skill");
@@ -90,7 +79,7 @@ describe("skills list CLI", () => {
 
     test("excludes local skills by default and lists them with --source local", async () => {
         const sandbox = await createCliSandbox();
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codeBuddyHomeDirectory,
             "campaign-writer",
@@ -140,8 +129,8 @@ describe("skills list CLI", () => {
 
     test("filters local skills by agent without merging same-name local entries", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "shared-skill",
@@ -213,7 +202,7 @@ describe("skills list CLI", () => {
             platform: process.platform,
         });
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveCodexHomeDirectory(sandbox.env),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
             "telemetry-skill",
         );
 
@@ -252,7 +241,7 @@ describe("skills list CLI", () => {
 
     test("filters listed skills by source with the short option", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -354,7 +343,7 @@ describe("skills list CLI", () => {
 
     test("lists startup-synchronized OpenClaw bundled installs when Codex is not installed", async () => {
         const sandbox = await createCliSandbox();
-        const openClawHomeDirectory = resolveOpenClawHomeDirectory(sandbox.env);
+        const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
 
         try {
             await mkdir(openClawHomeDirectory, { recursive: true });
@@ -383,7 +372,7 @@ describe("skills list CLI", () => {
 
     test("lists startup-synchronized QoderWork bundled installs when Codex is not installed", async () => {
         const sandbox = await createCliSandbox();
-        const qoderWorkHomeDirectory = resolveQoderWorkHomeDirectory(sandbox.env);
+        const qoderWorkHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "qoderwork");
 
         try {
             await mkdir(qoderWorkHomeDirectory, { recursive: true });
@@ -412,7 +401,7 @@ describe("skills list CLI", () => {
 
     test("lists startup-synchronized CodeBuddy bundled installs when Codex is not installed", async () => {
         const sandbox = await createCliSandbox();
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
 
         try {
             await mkdir(codeBuddyHomeDirectory, { recursive: true });
@@ -441,7 +430,7 @@ describe("skills list CLI", () => {
 
     test("lists startup-synchronized DeepSeek TUI bundled installs when Codex is not installed", async () => {
         const sandbox = await createCliSandbox();
-        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+        const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
 
         try {
             await mkdir(deepSeekTuiHomeDirectory, { recursive: true });
@@ -470,7 +459,7 @@ describe("skills list CLI", () => {
 
     test("lists startup-synchronized WorkBuddy bundled installs when Codex is not installed", async () => {
         const sandbox = await createCliSandbox();
-        const workBuddyHomeDirectory = resolveWorkBuddyHomeDirectory(sandbox.env);
+        const workBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "workbuddy");
 
         try {
             await mkdir(workBuddyHomeDirectory, { recursive: true });
@@ -499,7 +488,7 @@ describe("skills list CLI", () => {
 
     test("lists startup-synchronized Trae bundled installs when Codex is not installed", async () => {
         const sandbox = await createCliSandbox();
-        const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
+        const traeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae");
 
         try {
             await mkdir(traeHomeDirectory, { recursive: true });
@@ -528,7 +517,7 @@ describe("skills list CLI", () => {
 
     test("lists startup-synchronized Trae CN bundled installs when Codex is not installed", async () => {
         const sandbox = await createCliSandbox();
-        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
+        const traeCnHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae-cn");
 
         try {
             await mkdir(traeCnHomeDirectory, { recursive: true });
@@ -557,7 +546,7 @@ describe("skills list CLI", () => {
 
     test("lists startup-synchronized Hermes bundled installs when Codex is not installed", async () => {
         const sandbox = await createCliSandbox();
-        const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
+        const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
 
         try {
             await mkdir(hermesHomeDirectory, { recursive: true });
@@ -586,8 +575,8 @@ describe("skills list CLI", () => {
 
     test("groups identical skills installed across multiple hosts", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -632,7 +621,7 @@ describe("skills list CLI", () => {
 
     test("renders skills list output with field-specific colors", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillsDirectoryPath = join(codexHomeDirectory, "skills");
         const alphaSkillDirectoryPath = join(skillsDirectoryPath, "alpha-skill");
         const colors = createTerminalColors(true);

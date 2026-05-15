@@ -1,3 +1,4 @@
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -34,24 +35,27 @@ describe("managed skill agents", () => {
     });
 
     test("resolves default and explicit home directories", () => {
+        const codexHomeDirectory = join(tmpdir(), "codex-home");
+        const openClawHomeDirectory = join(tmpdir(), "openclaw-home");
+        const userHomeDirectory = join(tmpdir(), "user-home");
         const env = {
-            CODEX_HOME: "/tmp/codex-home",
+            CODEX_HOME: codexHomeDirectory,
             HERMES_HOME: " ",
-            HOME: "/tmp/user-home",
-            OPENCLAW_HOME: "/tmp/openclaw-home",
+            HOME: userHomeDirectory,
+            OPENCLAW_HOME: openClawHomeDirectory,
         };
 
         expect(resolveManagedSkillAgentHomeDirectory(env, "codex")).toBe(
-            "/tmp/codex-home",
+            codexHomeDirectory,
         );
         expect(resolveManagedSkillAgentHomeDirectory(env, "hermes")).toBe(
-            join("/tmp/user-home", ".hermes"),
+            join(userHomeDirectory, ".hermes"),
         );
         expect(resolveManagedSkillAgentHomeDirectory(env, "openclaw")).toBe(
-            "/tmp/openclaw-home",
+            openClawHomeDirectory,
         );
         expect(resolveManagedSkillAgentHomeDirectory(env, "deepseek-tui")).toBe(
-            join("/tmp/user-home", ".deepseek"),
+            join(userHomeDirectory, ".deepseek"),
         );
     });
 
@@ -82,9 +86,10 @@ describe("managed skill agents", () => {
     });
 
     test("creates generic not-installed errors with translated labels", () => {
+        const missingHomeDirectory = join(tmpdir(), "trae-cn");
         const error = createManagedSkillAgentNotInstalledError(
             "trae-cn",
-            "/tmp/trae-cn",
+            missingHomeDirectory,
             {
                 t: (key: string) => `label:${key}`,
             },
@@ -95,7 +100,7 @@ describe("managed skill agents", () => {
             key: "errors.skills.agentNotInstalled",
             params: {
                 agentName: "label:skills.list.host.trae-cn",
-                path: "/tmp/trae-cn",
+                path: missingHomeDirectory,
             },
         });
     });
