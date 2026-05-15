@@ -7,7 +7,7 @@
       "dependencies": {
         "@clack/core": "0.5.0",
         "@wopjs/cast": "^0.1.16",
-        "agentic-markdown": "^0.0.2",
+        "agentic-markdown": "^0.0.4",
         "ajv": "^8.18.0",
         "ajv-formats": "^3.0.1",
         "ajv-i18n": "^4.2.0",
@@ -195,7 +195,7 @@
 
     "acorn-jsx": ["acorn-jsx@5.3.2", "", { "peerDependencies": { "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0" } }, "sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ=="],
 
-    "agentic-markdown": ["agentic-markdown@0.0.2", "", {}, "sha512-FbpXQ9okqVhzGao98oZ22SjA5v6KoWgVET04E/llcKs0YKveer9SrafJ7zYvshIqnE3dhgapBqVKTDN0cJgH0A=="],
+    "agentic-markdown": ["agentic-markdown@0.0.4", "", {}, "sha512-2Y2dfvtHVwuN+eTtKDQQVslmvBlDiIhr8ncZC18ZNkFRWT816mCd9k7mxaaliGlEequ86J/WFo7peyrAAZVPGw=="],
 
     "ajv": ["ajv@8.18.0", "", { "dependencies": { "fast-deep-equal": "^3.1.3", "fast-uri": "^3.0.1", "json-schema-traverse": "^1.0.0", "require-from-string": "^2.0.2" } }, "sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A=="],
 

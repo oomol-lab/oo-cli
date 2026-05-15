@@ -1,9 +1,11 @@
-import type { BundledSkillAgentName } from "./embedded-assets.ts";
+import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
-import { resolveBundledSkillHomeDirectory } from "./bundled-skill-paths.ts";
-import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
+import {
+    availableBundledSkillAgentNames,
+    resolveManagedSkillAgentHomeDirectory,
+} from "./managed-skill-agents.ts";
 import { resolveManagedSkillDirectoryPath } from "./managed-skill-paths.ts";
 
 export interface ManagedSkillHost {
@@ -20,7 +22,7 @@ export async function resolveAvailableManagedSkillHosts(
 ): Promise<ManagedSkillHost[]> {
     const hosts = await Promise.all(
         availableBundledSkillAgentNames.map(async (agentName) => {
-            const homeDirectory = resolveBundledSkillHomeDirectory(env, agentName);
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(env, agentName);
 
             if (!(await directoryExists(homeDirectory))) {
                 return undefined;
@@ -61,7 +63,7 @@ export function createMissingManagedSkillHostError(
 ): CliUserError {
     return new CliUserError("errors.skills.noSupportedBundledSkillHosts", 1, {
         paths: availableBundledSkillAgentNames
-            .map(agentName => resolveBundledSkillHomeDirectory(env, agentName))
+            .map(agentName => resolveManagedSkillAgentHomeDirectory(env, agentName))
             .join(", "),
     });
 }

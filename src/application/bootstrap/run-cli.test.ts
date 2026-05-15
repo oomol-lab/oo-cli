@@ -18,7 +18,7 @@ import {
 } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
-import { resolveCodexHomeDirectory } from "../commands/skills/bundled-skill-paths.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "../commands/skills/managed-skill-agents.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { createTelemetryItemForTest } from "../telemetry/__tests__/helpers.ts";
@@ -60,7 +60,7 @@ describe("runCli bootstrap", () => {
             isTTY: true,
         });
         const stderr = createTextBuffer();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
 
         try {
             await writeAuthFile(sandbox);

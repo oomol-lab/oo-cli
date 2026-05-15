@@ -16,16 +16,16 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver } from "../../semver.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { parseEnumOption } from "../shared/input-parsing.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
-    availableBundledSkillAgentNames,
     availableBundledSkillNames,
 } from "./embedded-assets.ts";
 import { listLocalSkillSources } from "./local-skill-source.ts";
 import {
-    readManagedSkillHostLabels,
-} from "./managed-skill-host-labels.ts";
+    compareManagedSkillAgentNames,
+    parseManagedSkillAgentOption,
+    readManagedSkillAgentLabels,
+} from "./managed-skill-agents.ts";
 import {
     resolveAvailableManagedSkillHosts,
 } from "./managed-skill-hosts.ts";
@@ -54,18 +54,6 @@ const skillListSourceOrder = {
     registry: 1,
     local: 2,
 } as const satisfies Record<SkillListSource, number>;
-const managedSkillHostOrder = {
-    "codex": 0,
-    "claude": 1,
-    "hermes": 2,
-    "codebuddy": 3,
-    "workbuddy": 4,
-    "trae": 5,
-    "trae-cn": 6,
-    "openclaw": 7,
-    "qoderwork": 8,
-    "deepseek-tui": 9,
-} as const satisfies Record<BundledSkillAgentName, number>;
 
 type SkillListSource = (typeof skillListSourceValues)[number];
 
@@ -301,15 +289,7 @@ function appendUniqueValues<Value>(target: Value[], values: readonly Value[]): v
 function parseSkillListAgent(
     value: string | undefined,
 ): BundledSkillAgentName | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    return parseEnumOption(
-        value,
-        availableBundledSkillAgentNames,
-        "errors.skills.list.invalidAgent",
-    );
+    return parseManagedSkillAgentOption(value, "errors.skills.list.invalidAgent");
 }
 
 export async function listManagedSkillInstallations(
@@ -611,7 +591,7 @@ function readSkillListHostName(
         return skillListLocalHostName;
     }
 
-    return readManagedSkillHostLabels(skill.hostNames, context.translator);
+    return readManagedSkillAgentLabels(skill.hostNames, context.translator);
 }
 
 function readSkillListPackageName(
@@ -781,8 +761,10 @@ function compareManagedSkillHostListItems(
     left: ManagedSkillHostListItem,
     right: ManagedSkillHostListItem,
 ): number {
-    const hostOrderDifference
-        = managedSkillHostOrder[left.hostName] - managedSkillHostOrder[right.hostName];
+    const hostOrderDifference = compareManagedSkillAgentNames(
+        left.hostName,
+        right.hostName,
+    );
 
     if (hostOrderDifference !== 0) {
         return hostOrderDifference;

@@ -22,7 +22,16 @@
 ### Bundled Skill Markdown
 
 - When editing bundled `SKILL.md` files or related Markdown under `contrib/skills/shared`, use `agentic-markdown` directives for agent-specific content instead of creating separate agent copies.
-- Use conditional blocks to keep text for specific agents:
+- Prefer capability-based conditions over long agent-name lists. If a behavior depends on a feature or tool availability, expose that as a render variable and check the variable instead of writing conditions such as `agent=claude|hermes|codebuddy|qoderwork|workbuddy`.
+- Use presence checks for optional capability variables. With `agentic-markdown` 0.0.4+, a missing variable in `agentic:if` is treated as absent instead of throwing:
+
+```md
+<!-- agentic:if skillSelectionPromptTool -->
+Use <!-- agentic:var skillSelectionPromptTool --> for short multiple-choice prompts.
+<!-- agentic:endif -->
+```
+
+- Use agent-name conditions only when the content truly belongs to specific agents rather than a shared capability:
 
 ```md
 <!-- agentic:if agent=claude|gemini -->

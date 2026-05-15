@@ -1,3 +1,4 @@
+import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 import { render } from "agentic-markdown";
 
 import ooCreateSkillOpenAIAgentPath from "../../../../contrib/skills/shared/oo-create-skill/agents/openai.yaml" with { type: "file" };
@@ -17,14 +18,18 @@ import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/shared
 import ooTaskLifecycleReferencePath from "../../../../contrib/skills/shared/oo/references/task-lifecycle.md" with { type: "file" };
 import ooSkillPath from "../../../../contrib/skills/shared/oo/SKILL.md" with { type: "file" };
 
-export const availableBundledSkillAgentNames = ["codex", "claude", "hermes", "codebuddy", "workbuddy", "trae", "trae-cn", "openclaw", "qoderwork", "deepseek-tui"] as const;
-export type BundledSkillAgentName = (typeof availableBundledSkillAgentNames)[number];
+import {
+    availableBundledSkillAgentNames,
+    readManagedSkillAgent,
+} from "./managed-skill-agents.ts";
+
+export { availableBundledSkillAgentNames } from "./managed-skill-agents.ts";
+export type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill", "oo-publish-skill"] as const;
 export type BundledSkillName = (typeof availableBundledSkillNames)[number];
 
 type BundledSkillFileContentKind = "agenticMarkdown" | "static";
-type SkillSelectionPromptTool = "AskUserQuestion" | "request_user_input";
 
 interface BundledSkillSourceFile {
     readonly contentKind: BundledSkillFileContentKind;
@@ -40,24 +45,6 @@ export interface BundledSkillFile extends BundledSkillSourceFile {
     readonly agentName: BundledSkillAgentName;
     readonly skillName: BundledSkillName;
 }
-
-interface BundledSkillAgentConfig {
-    readonly skillSelectionPromptTool: SkillSelectionPromptTool;
-    readonly title: string;
-}
-
-const bundledSkillAgentConfigs = {
-    "claude": { skillSelectionPromptTool: "AskUserQuestion", title: "Claude" },
-    "codebuddy": { skillSelectionPromptTool: "AskUserQuestion", title: "CodeBuddy" },
-    "codex": { skillSelectionPromptTool: "request_user_input", title: "Codex" },
-    "deepseek-tui": { skillSelectionPromptTool: "AskUserQuestion", title: "DeepSeek TUI" },
-    "hermes": { skillSelectionPromptTool: "AskUserQuestion", title: "Hermes" },
-    "openclaw": { skillSelectionPromptTool: "request_user_input", title: "OpenClaw" },
-    "qoderwork": { skillSelectionPromptTool: "AskUserQuestion", title: "QoderWork" },
-    "trae": { skillSelectionPromptTool: "AskUserQuestion", title: "Trae" },
-    "trae-cn": { skillSelectionPromptTool: "AskUserQuestion", title: "Trae CN" },
-    "workbuddy": { skillSelectionPromptTool: "AskUserQuestion", title: "WorkBuddy" },
-} as const satisfies Record<BundledSkillAgentName, BundledSkillAgentConfig>;
 
 const bundledSkillRegistry = {
     "oo": createAgentDefinitions([
@@ -113,13 +100,17 @@ export async function readBundledSkillFileContent(
         return content;
     }
 
-    const agentConfig = bundledSkillAgentConfigs[file.agentName];
-
-    return render(content, {
+    const agent = readManagedSkillAgent(file.agentName);
+    const variables: Record<string, string> = {
         agent: file.agentName,
-        agentTitle: agentConfig.title,
-        skillSelectionPromptTool: agentConfig.skillSelectionPromptTool,
-    });
+        agentTitle: agent.title,
+    };
+
+    if (agent.skillSelectionPromptTool !== undefined) {
+        variables.skillSelectionPromptTool = agent.skillSelectionPromptTool;
+    }
+
+    return render(content, variables);
 }
 
 function createAgentDefinitions(

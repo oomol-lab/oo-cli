@@ -45,7 +45,7 @@
   "dependencies": {
     "@clack/core": "0.5.0",
     "@wopjs/cast": "^0.1.16",
-    "agentic-markdown": "^0.0.2",
+    "agentic-markdown": "^0.0.4",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
     "ajv-i18n": "^4.2.0",

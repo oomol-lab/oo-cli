@@ -6,17 +6,16 @@ import { join } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isFileAlreadyExistsError } from "../../shared/fs-errors.ts";
-import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     removePath,
 } from "./bundled-skill-filesystem.ts";
 import { resolveRequestedManagedSkillHost } from "./check.ts";
-import {
-    availableBundledSkillAgentNames,
-
-} from "./embedded-assets.ts";
 import { writeLocalSkillMetadata } from "./local-skill-ownership.ts";
+import {
+    createMissingRequiredSkillAgentError,
+    parseManagedSkillAgentOption,
+} from "./managed-skill-agents.ts";
 import {
     isPathWithinDirectory,
     resolveManagedSkillDirectoryPath,
@@ -129,6 +128,7 @@ async function initializeLocalSkill(
 
     const hosts = await resolveRequestedManagedSkillHost(
         context.env,
+        context.translator,
         agentName,
     );
     const host = hosts[0]!;
@@ -193,17 +193,16 @@ function parseRequiredSkillsInitAgent(
     value: string | undefined,
 ): BundledSkillAgentName {
     if (value === undefined) {
-        throw new CliUserError("errors.skills.init.agentRequired", 1);
+        throw createMissingRequiredSkillAgentError("errors.skills.init.agentRequired");
     }
 
-    const agentName = parseEnumOption(
+    const agentName = parseManagedSkillAgentOption(
         value,
-        availableBundledSkillAgentNames,
         "errors.skills.init.invalidAgent",
     );
 
     if (agentName === undefined) {
-        throw new CliUserError("errors.skills.init.agentRequired", 1);
+        throw createMissingRequiredSkillAgentError("errors.skills.init.agentRequired");
     }
 
     return agentName;

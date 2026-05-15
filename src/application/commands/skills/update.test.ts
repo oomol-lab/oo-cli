@@ -20,11 +20,7 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
-import {
-    resolveClaudeHomeDirectory,
-    resolveCodexHomeDirectory,
-    resolveHermesHomeDirectory,
-} from "./bundled-skill-paths.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillMetadataFilePath,
@@ -37,7 +33,7 @@ import {
 describe("skills update command", () => {
     test("skips bundled oo when no explicit skill names are provided", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const ooInstalledDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -77,7 +73,7 @@ describe("skills update command", () => {
 
     test("rejects the bundled oo skill as an explicit update target", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -97,7 +93,7 @@ describe("skills update command", () => {
 
     test("rejects the bundled oo-find-skills skill as an explicit update target", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
@@ -117,7 +113,7 @@ describe("skills update command", () => {
 
     test("ignores installed skills with unparseable metadata when updating all skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
 
         try {
@@ -137,7 +133,7 @@ describe("skills update command", () => {
 
     test("rejects an explicit update target with unparseable metadata as unmanaged", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
 
         try {
@@ -159,8 +155,8 @@ describe("skills update command", () => {
 
     test("updates a published managed skill to the latest version", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -273,7 +269,7 @@ describe("skills update command", () => {
 
     test("updates a published managed skill by copying to the host target", async () => {
         const sandbox = await createCliSandbox();
-        const hermesHomeDirectory = resolveHermesHomeDirectory(sandbox.env);
+        const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -351,7 +347,7 @@ describe("skills update command", () => {
 
     test("updates a host target when canonical metadata is already current", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -429,7 +425,7 @@ describe("skills update command", () => {
 
     test("updates published skills in parallel", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -556,7 +552,7 @@ describe("skills update command", () => {
 
     test("updates only the selected skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -646,7 +642,7 @@ describe("skills update command", () => {
 
     test("renders interactive progress while updating skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -746,8 +742,8 @@ describe("skills update command", () => {
 
     test("does not consume legacy bundled metadata as a registry update target", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const claudeHomeDirectory = resolveClaudeHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,

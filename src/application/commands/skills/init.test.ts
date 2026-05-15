@@ -4,13 +4,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
-import {
-    resolveCodeBuddyHomeDirectory,
-    resolveCodexHomeDirectory,
-    resolveDeepSeekTuiHomeDirectory,
-    resolveTraeCnHomeDirectory,
-    resolveTraeHomeDirectory,
-} from "./bundled-skill-paths.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillDirectoryPath,
 } from "./managed-skill-paths.ts";
@@ -26,7 +20,7 @@ import {
 describe("skills init command", () => {
     test("initializes a local skill in the requested agent skill directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "campaign-writer",
@@ -104,7 +98,7 @@ describe("skills init command", () => {
 
     test("omits metadata title when no title is provided", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "minimal-skill",
@@ -167,7 +161,7 @@ describe("skills init command", () => {
 
     test("initializes a local skill for CodeBuddy", async () => {
         const sandbox = await createCliSandbox();
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codeBuddyHomeDirectory,
             "codebuddy-skill",
@@ -199,7 +193,7 @@ describe("skills init command", () => {
 
     test("initializes a local skill for DeepSeek TUI", async () => {
         const sandbox = await createCliSandbox();
-        const deepSeekTuiHomeDirectory = resolveDeepSeekTuiHomeDirectory(sandbox.env);
+        const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             deepSeekTuiHomeDirectory,
             "deepseek-tui-skill",
@@ -231,7 +225,7 @@ describe("skills init command", () => {
 
     test("initializes a local skill for Trae", async () => {
         const sandbox = await createCliSandbox();
-        const traeHomeDirectory = resolveTraeHomeDirectory(sandbox.env);
+        const traeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             traeHomeDirectory,
             "trae-skill",
@@ -263,7 +257,7 @@ describe("skills init command", () => {
 
     test("initializes a local skill for Trae CN", async () => {
         const sandbox = await createCliSandbox();
-        const traeCnHomeDirectory = resolveTraeCnHomeDirectory(sandbox.env);
+        const traeCnHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae-cn");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             traeCnHomeDirectory,
             "trae-cn-skill",
@@ -295,7 +289,7 @@ describe("skills init command", () => {
 
     test("requires an agent before writing", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "missing-agent",
@@ -315,7 +309,7 @@ describe("skills init command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.\n",
+                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
             );
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
@@ -328,7 +322,7 @@ describe("skills init command", () => {
 
     test("requires a description before writing", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "missing-description",
@@ -361,7 +355,7 @@ describe("skills init command", () => {
 
     test("fails before writing when the agent skill directory already exists", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "existing-skill",
@@ -397,8 +391,8 @@ describe("skills init command", () => {
 
     test("does not copy a new local skill to other agents", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
-        const codeBuddyHomeDirectory = resolveCodeBuddyHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
             "single-agent-skill",
@@ -439,7 +433,7 @@ describe("skills init command", () => {
 
     test("does not leave a trailing hyphen after truncating the normalized name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveCodexHomeDirectory(sandbox.env);
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const normalizedSkillName = "a".repeat(63);
         const inputName = `${"A".repeat(63)} B`;
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(

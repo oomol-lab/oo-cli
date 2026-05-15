@@ -4,11 +4,9 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import { join } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import { fileExists } from "./bundled-skill-observation.ts";
-import { resolveBundledSkillHomeDirectory } from "./bundled-skill-paths.ts";
-import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
+import { parseManagedSkillAgentOption, resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveAvailableManagedSkillHosts,
 } from "./managed-skill-hosts.ts";
@@ -105,15 +103,7 @@ export async function locateSkillPath(
 function parseSkillLocateAgent(
     value: string | undefined,
 ): BundledSkillAgentName | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    return parseEnumOption(
-        value,
-        availableBundledSkillAgentNames,
-        "errors.skills.locate.invalidAgent",
-    );
+    return parseManagedSkillAgentOption(value, "errors.skills.locate.invalidAgent");
 }
 
 async function findAllSkillLocations(
@@ -144,7 +134,7 @@ async function findAgentSkillLocations(
     const locations = await Promise.all(
         agentNames.map(async (agentName) => {
             const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-                resolveBundledSkillHomeDirectory(env, agentName),
+                resolveManagedSkillAgentHomeDirectory(env, agentName),
                 skillName,
             );
 

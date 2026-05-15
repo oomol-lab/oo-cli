@@ -6,15 +6,17 @@ import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import {
     codexSkillsDirectoryName,
-    resolveBundledSkillHomeDirectory,
 } from "./bundled-skill-paths.ts";
-import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
-import { resolveManagedSkillHostMissingErrorKey } from "./managed-skill-host-errors.ts";
+import {
+    createManagedSkillAgentNotInstalledError,
+    createMissingRequiredSkillAgentError,
+    parseManagedSkillAgentOption,
+    resolveManagedSkillAgentHomeDirectory,
+} from "./managed-skill-agents.ts";
 
 interface SkillsCheckInput {
     agent?: string;
@@ -57,13 +59,14 @@ export const skillsCheckCommand: CliCommandDefinition<SkillsCheckInput> = {
 };
 
 export async function checkLocalSkillAuthoringEnvironment(
-    context: Pick<CliExecutionContext, "env">,
+    context: Pick<CliExecutionContext, "env" | "translator">,
     options: {
         agentName: BundledSkillAgentName;
     },
 ): Promise<SkillsCheckResult> {
     const hosts = await resolveRequestedManagedSkillHost(
         context.env,
+        context.translator,
         options.agentName,
     );
     const authoringRootDirectoryPath = resolveManagedSkillHostPublishRoot(
@@ -80,12 +83,17 @@ export async function checkLocalSkillAuthoringEnvironment(
 
 export async function resolveRequestedManagedSkillHost(
     env: Record<string, string | undefined>,
+    translator: Pick<CliExecutionContext["translator"], "t">,
     agentName: BundledSkillAgentName,
 ): Promise<Array<{ agentName: BundledSkillAgentName; homeDirectory: string }>> {
-    const homeDirectory = resolveBundledSkillHomeDirectory(env, agentName);
+    const homeDirectory = resolveManagedSkillAgentHomeDirectory(env, agentName);
 
     if (!(await directoryExists(homeDirectory))) {
-        throw createMissingRequestedManagedSkillHostError(agentName, homeDirectory);
+        throw createManagedSkillAgentNotInstalledError(
+            agentName,
+            homeDirectory,
+            translator,
+        );
     }
 
     return [
@@ -100,34 +108,20 @@ function resolveManagedSkillHostPublishRoot(host: ManagedSkillHost): string {
     return join(host.homeDirectory, codexSkillsDirectoryName);
 }
 
-function createMissingRequestedManagedSkillHostError(
-    agentName: BundledSkillAgentName,
-    homeDirectory: string,
-): CliUserError {
-    return new CliUserError(
-        resolveManagedSkillHostMissingErrorKey(agentName),
-        1,
-        {
-            path: homeDirectory,
-        },
-    );
-}
-
 function parseRequiredSkillsCheckAgent(
     value: string | undefined,
 ): BundledSkillAgentName {
     if (value === undefined) {
-        throw new CliUserError("errors.skills.check.agentRequired", 1);
+        throw createMissingRequiredSkillAgentError("errors.skills.check.agentRequired");
     }
 
-    const agentName = parseEnumOption(
+    const agentName = parseManagedSkillAgentOption(
         value,
-        availableBundledSkillAgentNames,
         "errors.skills.check.invalidAgent",
     );
 
     if (agentName === undefined) {
-        throw new CliUserError("errors.skills.check.agentRequired", 1);
+        throw createMissingRequiredSkillAgentError("errors.skills.check.agentRequired");
     }
 
     return agentName;
