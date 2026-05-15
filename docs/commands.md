@@ -259,12 +259,9 @@ Install one managed `oo` release into the local self-managed runtime.
   could not be updated — followed by the restart-shell note. The user can
   then decide whether to update the failed profiles manually.
 - Notes: after a successful install workflow, the CLI silently runs
-  `oo skills add` followed by `oo skills update` with the managed executable,
-  so bundled skills refresh to the installed CLI version and any installed
-  oo-managed published skills are checked and updated. The `oo skills add`
-  step also includes any successfully installed preset registry skills in the
-  same skill summary. Child command stdout/stderr is not forwarded, and
-  failures do not change the install result.
+  `oo skills add` with the managed executable so bundled skills refresh to the
+  installed CLI version. That command also includes any successfully installed
+  preset registry skills in the same skill summary.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 
@@ -292,8 +289,8 @@ Update the managed `oo` install to the latest published release.
 - Notes: `oo update` ensures the managed install is current and usable, and
   does not expose a separate `--force` flag.
 - Notes: when the latest published release matches the current version, update
-  still runs the managed skill refresh and update maintenance for the active
-  managed version before printing the up-to-date message.
+  still runs `oo skills add` for the active managed version before printing the
+  up-to-date message.
 - Notes: after a successful update, the CLI best-effort removes legacy global
   `@oomol-lab/oo-cli` package-manager installs that appear anywhere on `PATH`;
   when `PATH` yields no `oo` candidates, the CLI falls back to the current
@@ -315,12 +312,9 @@ Update the managed `oo` install to the latest published release.
   could not be updated — followed by the restart-shell note. The user can
   then decide whether to update the failed profiles manually.
 - Notes: after a successful update workflow, the CLI silently runs
-  `oo skills add` followed by `oo skills update` with the managed executable,
-  so bundled skills refresh to the installed CLI version and any installed
-  oo-managed published skills are checked and updated. The `oo skills add`
-  step also includes any successfully installed preset registry skills in the
-  same skill summary. Child command stdout/stderr is not forwarded, and
-  failures do not change the update result.
+  `oo skills add` with the managed executable so bundled skills refresh to the
+  installed CLI version. That command also includes any successfully installed
+  preset registry skills in the same skill summary.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 

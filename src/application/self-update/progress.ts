@@ -5,8 +5,7 @@ export type SelfUpdateOperationStage
         | "reuse"
         | "activate"
         | "verify"
-        | "cleanup"
-        | "skillsUpdate";
+        | "cleanup";
 
 // All stages including "resolve", which is managed at the command level.
 export type SelfUpdateProgressStage = SelfUpdateOperationStage | "resolve";

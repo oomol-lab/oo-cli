@@ -9,7 +9,7 @@ import {
     resolveSelfUpdateVersionExecutablePath,
 } from "./paths.ts";
 
-const managedSkillMaintenanceTimeoutMs = 40_000;
+const managedSkillInstallTimeoutMs = 40_000;
 
 export async function resolveManagedSkillInstallCommandPath(options: {
     env: Record<string, string | undefined>;
@@ -76,27 +76,10 @@ export async function attemptManagedSkillInstall(options: {
         commandPath: options.commandPath,
         failureMessage: "Managed skill install failed.",
         logContext: {
-            timeoutMs: managedSkillMaintenanceTimeoutMs,
+            timeoutMs: managedSkillInstallTimeoutMs,
         },
         runtime: options.runtime,
         successMessage: "Managed skill install completed.",
-        timeoutMs: managedSkillMaintenanceTimeoutMs,
-    });
-}
-
-export async function attemptManagedSkillUpdate(options: {
-    commandPath: string;
-    runtime: SelfUpdateCommandRuntime;
-}): Promise<void> {
-    await runSelfUpdateCommandWithLogging({
-        commandArguments: ["skills", "update"],
-        commandPath: options.commandPath,
-        failureMessage: "Managed skill update failed.",
-        logContext: {
-            timeoutMs: managedSkillMaintenanceTimeoutMs,
-        },
-        runtime: options.runtime,
-        successMessage: "Managed skill update completed.",
-        timeoutMs: managedSkillMaintenanceTimeoutMs,
+        timeoutMs: managedSkillInstallTimeoutMs,
     });
 }

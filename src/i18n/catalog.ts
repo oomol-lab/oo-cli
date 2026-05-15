@@ -740,8 +740,6 @@ export const enMessages = {
     "selfUpdate.progress.verify.complete": "Verified installation.",
     "selfUpdate.progress.cleanup.start": "Cleaning up old artifacts...",
     "selfUpdate.progress.cleanup.complete": "Cleaned up old artifacts.",
-    "selfUpdate.progress.skillsUpdate.start": "Updating installed skills...",
-    "selfUpdate.progress.skillsUpdate.complete": "Finished installed skill update.",
     "selfUpdate.lockBusy":
         "Another update is already in progress. Please try again later.",
     "selfUpdate.lockBusyWithPid":
@@ -1671,8 +1669,6 @@ export const zhMessages = {
     "selfUpdate.progress.verify.complete": "已校验安装结果。",
     "selfUpdate.progress.cleanup.start": "正在清理旧产物...",
     "selfUpdate.progress.cleanup.complete": "已清理旧产物。",
-    "selfUpdate.progress.skillsUpdate.start": "正在更新已安装的 skill...",
-    "selfUpdate.progress.skillsUpdate.complete": "已完成已安装 skill 更新。",
     "selfUpdate.lockBusy":
         "另一个更新已在进行中，请稍后再试。",
     "selfUpdate.lockBusyWithPid":
