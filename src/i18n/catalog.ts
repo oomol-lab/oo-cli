@@ -328,13 +328,13 @@ export const enMessages = {
     "errors.connectorRun.requestError":
         "The connector action run request failed: {message}",
     "errors.connectorRun.requestFailed":
-        "The connector action run request returned HTTP {status}.",
+        "Connector action {action} returned HTTP {status}.",
     "errors.connectorRun.requestFailedWithCode":
-        "The connector action run request returned HTTP {status} (errorCode: {errorCode}).",
+        "Connector action {action} returned HTTP {status} (errorCode: {errorCode}).",
     "errors.connectorRun.requestFailedWithMessage":
-        "The connector action run request returned HTTP {status}: {message}",
+        "Connector action {action} returned HTTP {status}: {message}",
     "errors.connectorRun.requestFailedWithMessageAndCode":
-        "The connector action run request returned HTTP {status} (errorCode: {errorCode}): {message}",
+        "Connector action {action} returned HTTP {status} (errorCode: {errorCode}): {message}",
     "errors.connectorSchema.asyncPollSchemaMissing":
         "The async connector action poll schema is missing for action {action}.",
     "errors.connectorSchema.asyncResultSchemaMissing":
@@ -1272,13 +1272,13 @@ export const zhMessages = {
     "errors.connectorRun.requestError":
         "运行 connector action 失败：{message}",
     "errors.connectorRun.requestFailed":
-        "运行 connector action 返回了 HTTP {status}。",
+        "Connector action {action} 返回了 HTTP {status}。",
     "errors.connectorRun.requestFailedWithCode":
-        "运行 connector action 返回了 HTTP {status}（errorCode: {errorCode}）。",
+        "Connector action {action} 返回了 HTTP {status}（errorCode: {errorCode}）。",
     "errors.connectorRun.requestFailedWithMessage":
-        "运行 connector action 返回了 HTTP {status}：{message}",
+        "Connector action {action} 返回了 HTTP {status}：{message}",
     "errors.connectorRun.requestFailedWithMessageAndCode":
-        "运行 connector action 返回了 HTTP {status}（errorCode: {errorCode}）：{message}",
+        "Connector action {action} 返回了 HTTP {status}（errorCode: {errorCode}）：{message}",
     "errors.connectorSchema.asyncPollSchemaMissing":
         "异步 connector action 缺少 action {action} 的轮询 schema。",
     "errors.connectorSchema.asyncResultSchemaMissing":

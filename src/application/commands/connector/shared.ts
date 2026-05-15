@@ -1,5 +1,6 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
+import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withRequestTarget } from "../../logging/log-fields.ts";
@@ -322,10 +323,16 @@ export async function runConnectorAction(
 
         if (!response.ok) {
             const failureResponse = parseConnectorFailureResponse(rawResponse);
+            const responseDiagnostics = collectSafeConnectorFailureDiagnostics(
+                response,
+                rawResponse,
+                failureResponse,
+            );
 
             context.logger.warn(
                 {
                     ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                    ...responseDiagnostics,
                     actionName: options.actionName,
                     durationMs,
                     errorCode: failureResponse?.errorCode,
@@ -340,10 +347,11 @@ export async function runConnectorAction(
                 "Connector action run request returned a non-success status.",
             );
 
-            throw createConnectorRunRequestFailedError(
-                response.status,
+            throw createConnectorRunRequestFailedError({
+                actionName: options.actionName,
                 failureResponse,
-            );
+                status: response.status,
+            });
         }
 
         context.logger.debug(
@@ -416,6 +424,102 @@ function parseConnectorFailureResponse(
     }
 }
 
+const safeResponseHeaderNames = [
+    "x-request-id",
+    "x-amzn-requestid",
+    "x-amzn-trace-id",
+    "x-correlation-id",
+    "cf-ray",
+    "trace-id",
+    "x-trace-id",
+] as const;
+
+const rawResponsePreviewMaxLength = 1000;
+
+const responsePreviewWhitespacePattern = /[\r\n\t]/g;
+// eslint-disable-next-line no-control-regex
+const responsePreviewControlCharsPattern = /[\x00-\x08\x0B-\x1F\x7F]/g;
+
+interface SafeConnectorFailureDiagnostics {
+    rawResponsePreview?: string;
+    responseBodyLength: number;
+    responseContentType?: string;
+    responseHeaders?: Record<string, string>;
+}
+
+/**
+ * Returns safe, bounded diagnostics for a non-success connector response.
+ *
+ * Always-on fields:
+ * - `responseBodyLength` (UTF-8 byte count of the response body)
+ * - `responseContentType` (when the response has a `Content-Type` header)
+ * - `responseHeaders` (a whitelisted subset of trace / request-id headers)
+ *
+ * Conditional `rawResponsePreview`:
+ * - Only emitted when the structured `connectorActionFailureResponseSchema`
+ *   yielded no usable fields (all of `message`, `errorCode`,
+ *   `meta.executionId` are absent or empty) AND the body is non-empty.
+ * - Bounded to {@link rawResponsePreviewMaxLength} characters with a `...`
+ *   marker; CR / LF / tab are folded to spaces and other ASCII control
+ *   characters are stripped to keep log output single-line and readable.
+ *
+ * Why preview is conditional: when the failure body matches the structured
+ * schema, `message` / `errorCode` / `executionId` already carry the safe
+ * subset of the response. Logging the raw preview anyway would expand the
+ * sensitive surface (prompts, signed URLs, payload echoes) without adding
+ * diagnostic value.
+ */
+function collectSafeConnectorFailureDiagnostics(
+    response: Response,
+    rawResponse: string,
+    failureResponse: ConnectorActionFailureResponse | undefined,
+): SafeConnectorFailureDiagnostics {
+    const diagnostics: SafeConnectorFailureDiagnostics = {
+        responseBodyLength: Buffer.byteLength(rawResponse, "utf8"),
+    };
+
+    const contentType = response.headers.get("content-type");
+    if (contentType !== null && contentType !== "") {
+        diagnostics.responseContentType = contentType;
+    }
+
+    const responseHeaders: Record<string, string> = {};
+    for (const headerName of safeResponseHeaderNames) {
+        const value = response.headers.get(headerName);
+        if (value !== null && value !== "") {
+            responseHeaders[headerName] = value;
+        }
+    }
+    if (Object.keys(responseHeaders).length > 0) {
+        diagnostics.responseHeaders = responseHeaders;
+    }
+
+    const hasStructuredFailureFields = isNonEmptyString(failureResponse?.message)
+        || isNonEmptyString(failureResponse?.errorCode)
+        || isNonEmptyString(failureResponse?.meta?.executionId);
+
+    if (rawResponse.length > 0 && !hasStructuredFailureFields) {
+        diagnostics.rawResponsePreview = createBoundedResponsePreview(rawResponse);
+    }
+
+    return diagnostics;
+}
+
+function createBoundedResponsePreview(rawResponse: string): string {
+    const flattened = rawResponse.replaceAll(responsePreviewWhitespacePattern, " ");
+    const stripped = flattened.replaceAll(responsePreviewControlCharsPattern, "");
+
+    if (stripped.length <= rawResponsePreviewMaxLength) {
+        return stripped;
+    }
+
+    return `${stripped.slice(0, rawResponsePreviewMaxLength)}...`;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+    return typeof value === "string" && value.length > 0;
+}
+
 function sanitizeConnectorFailureMessage(
     message: string | undefined,
 ): string | undefined {
@@ -433,17 +537,18 @@ function sanitizeConnectorFailureMessage(
     return `${singleLineMessage.slice(0, maxLength)}...`;
 }
 
-function createConnectorRunRequestFailedError(
-    status: number,
-    failureResponse: ConnectorActionFailureResponse | undefined,
-): CliUserError {
-    const responseMessage = failureResponse?.message;
-    const errorCode = failureResponse?.errorCode;
+function createConnectorRunRequestFailedError(options: {
+    actionName: string;
+    failureResponse: ConnectorActionFailureResponse | undefined;
+    status: number;
+}): CliUserError {
+    const responseMessage = options.failureResponse?.message;
+    const errorCode = options.failureResponse?.errorCode;
 
     if (isInsufficientCreditFailure({
         errorCode,
         message: responseMessage,
-        status,
+        status: options.status,
     })) {
         return createInsufficientCreditError();
     }
@@ -454,9 +559,10 @@ function createConnectorRunRequestFailedError(
                 "errors.connectorRun.requestFailedWithMessageAndCode",
                 1,
                 {
+                    action: options.actionName,
                     errorCode,
                     message: responseMessage,
-                    status,
+                    status: options.status,
                 },
             );
         }
@@ -465,8 +571,9 @@ function createConnectorRunRequestFailedError(
             "errors.connectorRun.requestFailedWithMessage",
             1,
             {
+                action: options.actionName,
                 message: responseMessage,
-                status,
+                status: options.status,
             },
         );
     }
@@ -476,13 +583,15 @@ function createConnectorRunRequestFailedError(
             "errors.connectorRun.requestFailedWithCode",
             1,
             {
+                action: options.actionName,
                 errorCode,
-                status,
+                status: options.status,
             },
         );
     }
 
     return new CliUserError("errors.connectorRun.requestFailed", 1, {
-        status,
+        action: options.actionName,
+        status: options.status,
     });
 }

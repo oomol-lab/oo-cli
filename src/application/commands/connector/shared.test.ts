@@ -210,6 +210,7 @@ describe("connector shared requests", () => {
 
         expect(error.key).toBe("errors.connectorRun.requestFailedWithCode");
         expect(error.params).toEqual({
+            action: "send_mail",
             errorCode: "invalid_input",
             status: 400,
         });
