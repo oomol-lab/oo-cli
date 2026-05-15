@@ -1036,7 +1036,8 @@ describe("embedded skill assets", () => {
         expect(claudeFindContent).not.toContain("request_user_input");
         expect(openClawFindContent).toContain("Prefer asking the user with a short multiple-choice prompt");
         expect(openClawFindContent).not.toContain("AskUserQuestion");
-        expect(openClawFindContractContent).toContain("request_user_input");
+        expect(openClawFindContractContent).not.toContain("skillSelectionPromptTool");
+        expect(openClawFindContractContent).not.toContain("request_user_input");
         expect(openClawFindContractContent).not.toContain("AskUserQuestion");
         expect(codexCreateContent).toContain("oo skills preflight --agent codex");
         expect(qoderWorkCreateContent).toContain("oo skills preflight --agent qoderwork");

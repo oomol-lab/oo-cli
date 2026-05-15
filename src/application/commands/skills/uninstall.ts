@@ -2,8 +2,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
 import { z } from "zod";
-import { parseEnumOption } from "../shared/input-parsing.ts";
-import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
+import { parseManagedSkillAgentOption } from "./managed-skill-agents.ts";
 import { uninstallRequestedSkill } from "./managed-skill-uninstall.ts";
 
 interface SkillsUninstallInput {
@@ -45,13 +44,5 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
 function parseSkillsUninstallAgent(
     value: string | undefined,
 ): BundledSkillAgentName | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    return parseEnumOption(
-        value,
-        availableBundledSkillAgentNames,
-        "errors.skills.uninstall.invalidAgent",
-    );
+    return parseManagedSkillAgentOption(value, "errors.skills.uninstall.invalidAgent");
 }

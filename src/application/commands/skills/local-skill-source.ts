@@ -1,14 +1,14 @@
-import type { BundledSkillAgentName } from "./embedded-assets.ts";
+import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 
 import { readdir } from "node:fs/promises";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
     resolveBundledSkillHomeDirectory,
 } from "./bundled-skill-paths.ts";
+import { readSkillMetadataFileState } from "./local-skill-ownership.ts";
 import {
     availableBundledSkillAgentNames,
-} from "./embedded-assets.ts";
-import { readSkillMetadataFileState } from "./local-skill-ownership.ts";
+} from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillsDirectoryPath,

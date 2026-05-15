@@ -2,13 +2,12 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
-import type { ManagedSkillHostTranslator } from "./managed-skill-host-labels.ts";
+import type { ManagedSkillAgentTranslator } from "./managed-skill-agents.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { writeLine } from "../shared/output.ts";
 import {
-
-    readManagedSkillHostLabel,
-} from "./managed-skill-host-labels.ts";
+    readManagedSkillAgentLabel,
+} from "./managed-skill-agents.ts";
 
 export interface ManagedSkillInstallPublication {
     agentName: BundledSkillAgentName;
@@ -173,10 +172,10 @@ function formatSkillNames(
 
 function formatAgentNames(
     agentNames: readonly BundledSkillAgentName[],
-    translator: ManagedSkillHostTranslator,
+    translator: ManagedSkillAgentTranslator,
     colors: TerminalColors,
 ): string {
     return agentNames.map(agentName =>
-        colors.cyan(readManagedSkillHostLabel(agentName, translator)),
+        colors.cyan(readManagedSkillAgentLabel(agentName, translator)),
     ).join(", ");
 }

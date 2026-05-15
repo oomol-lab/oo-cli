@@ -112,20 +112,12 @@ Interaction rules:
 - If no credible fallback exists, offer only these actions:
   1. Install the primary skill as `primarySkillName (primaryPackageName)`
   2. Install neither
-<!-- agentic:if agent=codex -->
-- First, try to use the `request_user_input` tool with one short multiple-choice
+<!-- agentic:if skillSelectionPromptTool -->
+- First, try to use the `<!-- agentic:var skillSelectionPromptTool -->` tool with one short multiple-choice
   question that includes only the actions that are actually available.
-- If the `request_user_input` tool is unavailable in the current mode or the
+- If the `<!-- agentic:var skillSelectionPromptTool -->` tool is unavailable in the current mode or the
   tool call fails, fall back to plain text.
-- If the `request_user_input` UI returns `None of the above`, treat that as
-  the same outcome as `Install neither`.
-<!-- agentic:endif -->
-<!-- agentic:if agent=claude|hermes|codebuddy|qoderwork|workbuddy|trae|trae-cn|deepseek-tui -->
-- First, try to use the `AskUserQuestion` tool with one short multiple-choice
-  question that includes only the actions that are actually available.
-- If the `AskUserQuestion` tool is unavailable in the current mode or the
-  tool call fails, fall back to plain text.
-- If the `AskUserQuestion` UI returns `None of the above`, treat that as
+- If the `<!-- agentic:var skillSelectionPromptTool -->` UI returns `None of the above`, treat that as
   the same outcome as `Install neither`.
 <!-- agentic:endif -->
 <!-- agentic:if agent=openclaw -->

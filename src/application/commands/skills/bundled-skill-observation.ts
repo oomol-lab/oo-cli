@@ -2,7 +2,6 @@ import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import type { BundledSkillMetadata } from "./skill-metadata.ts";
 
 import { readFile, stat } from "node:fs/promises";
-import { CliUserError } from "../../contracts/cli.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
     parseBundledSkillMetadataContent,
@@ -11,7 +10,9 @@ import {
     resolveBundledSkillHomeDirectory,
     resolveBundledSkillMetadataFilePath,
 } from "./bundled-skill-paths.ts";
-import { resolveManagedSkillHostMissingErrorKey } from "./managed-skill-host-errors.ts";
+import {
+    createManagedSkillAgentNotInstalledError,
+} from "./managed-skill-agents.ts";
 import {
     createBundledSkillMetadata,
     renderSkillMetadataJson,
@@ -27,15 +28,7 @@ export async function requireBundledSkillHomeDirectory(
     );
 
     if (!(await directoryExists(homeDirectory))) {
-        const missingHostErrorKey = resolveManagedSkillHostMissingErrorKey(agentName);
-
-        throw new CliUserError(
-            missingHostErrorKey,
-            1,
-            {
-                path: homeDirectory,
-            },
-        );
+        throw createManagedSkillAgentNotInstalledError(agentName, homeDirectory);
     }
 
     return homeDirectory;

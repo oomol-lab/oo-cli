@@ -1,9 +1,9 @@
-import type { BundledSkillAgentName } from "./embedded-assets.ts";
+import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import { resolveBundledSkillHomeDirectory } from "./bundled-skill-paths.ts";
-import { availableBundledSkillAgentNames } from "./embedded-assets.ts";
+import { availableBundledSkillAgentNames } from "./managed-skill-agents.ts";
 import { resolveManagedSkillDirectoryPath } from "./managed-skill-paths.ts";
 
 export interface ManagedSkillHost {

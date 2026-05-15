@@ -1,18 +1,11 @@
-import type { BundledSkillAgentName, BundledSkillName } from "./embedded-assets.ts";
+import type { BundledSkillName } from "./embedded-assets.ts";
+import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 
 import { dirname, join } from "node:path";
-import { resolveHomeDirectory } from "../../path/home-directory.ts";
+import {
+    resolveManagedSkillAgentHomeDirectory,
+} from "./managed-skill-agents.ts";
 
-const codexDirectoryName = ".codex";
-const claudeDirectoryName = ".claude";
-const codeBuddyDirectoryName = ".codebuddy";
-const deepSeekTuiDirectoryName = ".deepseek";
-const hermesDirectoryName = ".hermes";
-const openClawDirectoryName = ".openclaw";
-const qoderWorkDirectoryName = ".qoderwork";
-const traeCnDirectoryName = ".trae-cn";
-const traeDirectoryName = ".trae";
-const workBuddyDirectoryName = ".workbuddy";
 export const codexSkillsDirectoryName = "skills";
 export const canonicalBundledSkillsDirectoryName = "bundled";
 export const canonicalLocalSkillsDirectoryName = "local";
@@ -23,107 +16,68 @@ export const bundledSkillMetadataFileName = ".oo-metadata.json";
 export function resolveCodexHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    const explicitCodexHome = env.CODEX_HOME?.trim();
-
-    if (explicitCodexHome) {
-        return explicitCodexHome;
-    }
-
-    return join(resolveHomeDirectory(env), codexDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "codex");
 }
 
 export function resolveClaudeHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    return join(resolveHomeDirectory(env), claudeDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "claude");
 }
 
 export function resolveCodeBuddyHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    return join(resolveHomeDirectory(env), codeBuddyDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "codebuddy");
 }
 
 export function resolveDeepSeekTuiHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    return join(resolveHomeDirectory(env), deepSeekTuiDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "deepseek-tui");
 }
 
 export function resolveHermesHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    const explicitHermesHome = env.HERMES_HOME?.trim();
-
-    if (explicitHermesHome) {
-        return explicitHermesHome;
-    }
-
-    return join(resolveHomeDirectory(env), hermesDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "hermes");
 }
 
 export function resolveOpenClawHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    const explicitOpenClawHome = env.OPENCLAW_HOME?.trim();
-
-    if (explicitOpenClawHome) {
-        return explicitOpenClawHome;
-    }
-
-    return join(resolveHomeDirectory(env), openClawDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "openclaw");
 }
 
 export function resolveQoderWorkHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    return join(resolveHomeDirectory(env), qoderWorkDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "qoderwork");
 }
 
 export function resolveTraeHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    return join(resolveHomeDirectory(env), traeDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "trae");
 }
 
 export function resolveTraeCnHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    return join(resolveHomeDirectory(env), traeCnDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "trae-cn");
 }
 
 export function resolveWorkBuddyHomeDirectory(
     env: Record<string, string | undefined>,
 ): string {
-    return join(resolveHomeDirectory(env), workBuddyDirectoryName);
+    return resolveBundledSkillHomeDirectory(env, "workbuddy");
 }
 
 export function resolveBundledSkillHomeDirectory(
     env: Record<string, string | undefined>,
     agentName: BundledSkillAgentName,
 ): string {
-    switch (agentName) {
-        case "claude":
-            return resolveClaudeHomeDirectory(env);
-        case "codebuddy":
-            return resolveCodeBuddyHomeDirectory(env);
-        case "deepseek-tui":
-            return resolveDeepSeekTuiHomeDirectory(env);
-        case "codex":
-            return resolveCodexHomeDirectory(env);
-        case "hermes":
-            return resolveHermesHomeDirectory(env);
-        case "openclaw":
-            return resolveOpenClawHomeDirectory(env);
-        case "qoderwork":
-            return resolveQoderWorkHomeDirectory(env);
-        case "trae":
-            return resolveTraeHomeDirectory(env);
-        case "trae-cn":
-            return resolveTraeCnHomeDirectory(env);
-        case "workbuddy":
-            return resolveWorkBuddyHomeDirectory(env);
-    }
+    return resolveManagedSkillAgentHomeDirectory(env, agentName);
 }
 
 export function resolveBundledSkillDirectoryPath(
