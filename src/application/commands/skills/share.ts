@@ -33,6 +33,7 @@ import {
     parseSkillMarkdownMatter,
     toNonBlankString,
 } from "./skill-frontmatter.ts";
+import { isSkillIdReference } from "./skill-id.ts";
 
 interface SkillsShareInput {
     days?: string;
@@ -750,15 +751,6 @@ function createSkillShareInstallCommand(
     }
 
     return `oo skills install ${installPackageSpecifier} --skill ${skillId} -y`;
-}
-
-function isSkillIdReference(value: string): boolean {
-    const trimmedValue = value.trim();
-
-    return trimmedValue !== ""
-        && trimmedValue !== "."
-        && trimmedValue !== ".."
-        && basename(trimmedValue) === trimmedValue;
 }
 
 function resolveSkillIdFromPackageName(packageName: string): string {

@@ -304,6 +304,11 @@ const commandTelemetryDecisions = {
         properties: ["has_agent_filter", "source_filter"],
         reason: "Records filter usage without installed skill inventory.",
     },
+    "skills.locate": {
+        kind: "properties",
+        properties: ["has_agent_filter"],
+        reason: "Records locate filter usage without skill ids or local paths.",
+    },
     "skills.preflight": {
         kind: "generic",
         reason: "Generic command telemetry is enough; local paths are not recorded.",

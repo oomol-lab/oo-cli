@@ -155,6 +155,9 @@ export const enMessages = {
         "List bundled, registry, and local skills.",
     "commands.skills.list.summary":
         "List skills",
+    "commands.skills.locate.description":
+        "Print the local path for an installed skill.",
+    "commands.skills.locate.summary": "Locate a skill path",
     "commands.skills.sync.description":
         "Sync oo-managed registry skills through the skills sync API.",
     "commands.skills.sync.summary": "Sync registry skills",
@@ -421,8 +424,18 @@ export const enMessages = {
         "Invalid skill package metadata: {message}",
     "errors.skills.publish.invalidAgent":
         "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.",
+    "errors.skills.locate.invalidAgent":
+        "Unsupported skill agent: {value}. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, or deepseek-tui.",
+    "errors.skills.locate.ambiguous":
+        "Skill {name} matches multiple local paths. Pass --agent or publish one path directly:\n{paths}",
+    "errors.skills.locate.invalidSkillId":
+        "Invalid skill id {name}. Pass a skill id to locate, or pass a path directly to oo skills publish.",
+    "errors.skills.locate.notFound":
+        "Cannot find skill {name} in installed skill paths.",
     "errors.skills.publish.invalidSkillFile":
         "Cannot publish the skill at {path}: {message}",
+    "errors.skills.publish.invalidOwnershipMetadata":
+        "Cannot publish the skill because its oo metadata file at {path} is invalid.",
     "errors.skills.publish.invalidVisibility":
         "Invalid skill publish visibility: {value}. Use private or public.",
     "errors.skills.publish.bundledSkill":
@@ -448,7 +461,7 @@ export const enMessages = {
     "errors.skills.publish.requestFailed":
         "The skill package publish request returned HTTP {status}: {message}",
     "errors.skills.publish.skillNotFound":
-        "Cannot find skill {name} in local, bundled, registry, requested agent, or path sources.",
+        "Cannot find a skill directory or SKILL.md at {name}. Use oo skills locate <skill-id> to resolve an installed skill path.",
     "errors.skills.publish.visibilityRequired":
         "Package {packageName} does not have an existing visibility to preserve. Run in an interactive terminal or pass --visibility private or --visibility public.",
     "errors.skills.list.invalidAgent":
@@ -1111,6 +1124,9 @@ export const zhMessages = {
         "列出 bundled、registry 和 local skill。",
     "commands.skills.list.summary":
         "列出 skill",
+    "commands.skills.locate.description":
+        "输出已安装 skill 的本地路径。",
+    "commands.skills.locate.summary": "定位 skill 路径",
     "commands.skills.sync.description":
         "通过 skills sync API 同步由 oo 管理的 registry skill。",
     "commands.skills.sync.summary": "同步 registry skill",
@@ -1365,8 +1381,18 @@ export const zhMessages = {
         "skill 包元数据无效：{message}",
     "errors.skills.publish.invalidAgent":
         "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
+    "errors.skills.locate.invalidAgent":
+        "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
+    "errors.skills.locate.ambiguous":
+        "skill {name} 匹配到多个本地路径。请传入 --agent，或直接发布其中一个路径：\n{paths}",
+    "errors.skills.locate.invalidSkillId":
+        "无效的 skill id：{name}。请给 locate 传入 skill id；如需发布路径，请直接传给 oo skills publish。",
+    "errors.skills.locate.notFound":
+        "无法在已安装 skill 路径中找到 skill {name}。",
     "errors.skills.publish.invalidSkillFile":
         "无法发布 {path} 中的 skill：{message}",
+    "errors.skills.publish.invalidOwnershipMetadata":
+        "无法发布该 skill，因为位于 {path} 的 oo 元数据文件无效。",
     "errors.skills.publish.invalidVisibility":
         "无效的 skill 发布可见性：{value}。请使用 private 或 public。",
     "errors.skills.publish.bundledSkill":
@@ -1398,7 +1424,7 @@ export const zhMessages = {
     "errors.skills.uninstall.invalidAgent":
         "不支持的 skill Agent：{value}。请使用 codex、claude、hermes、codebuddy、workbuddy、trae、trae-cn、openclaw、qoderwork 或 deepseek-tui。",
     "errors.skills.publish.skillNotFound":
-        "无法在 local、bundled、registry、指定 Agent 或路径来源中找到 skill {name}。",
+        "无法在 {name} 找到 skill 目录或 SKILL.md。可使用 oo skills locate <skill-id> 解析已安装 skill 路径。",
     "errors.skills.share.cancelled":
         "已取消分享 skill {name}。",
     "errors.skills.share.confirmationRequired":

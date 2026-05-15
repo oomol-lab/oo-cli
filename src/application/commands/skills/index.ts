@@ -4,6 +4,7 @@ import { skillsCheckCommand } from "./check.ts";
 import { skillsInitCommand } from "./init.ts";
 import { skillsInstallCommand } from "./install.ts";
 import { skillsListCommand } from "./list.ts";
+import { skillsLocateCommand } from "./locate.ts";
 import { skillsPublishCommand } from "./publish.ts";
 import { skillsSearchCommand } from "./search.ts";
 import { skillsShareCommand } from "./share.ts";
@@ -19,6 +20,7 @@ export const skillsCommand: CliCommandDefinition = {
     children: [
         skillsSearchCommand,
         skillsListCommand,
+        skillsLocateCommand,
         skillsSyncCommand,
         skillsCheckCommand,
         skillsInitCommand,

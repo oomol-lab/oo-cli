@@ -45,15 +45,15 @@ Ask for the missing skill id or skill directory path only when needed:
 
 - skill id or path to a skill directory
 
-Choose the command shape from the source:
+Publish accepts a concrete path:
 
 ```bash
-oo skills publish <skill-id> --agent codex
-oo skills publish <path-to-skill-directory>
+oo skills publish <path-to-skill-directory-or-SKILL.md>
 ```
 
-When publishing by skill id from Codex, include `--agent codex`. When publishing
-by filesystem path, pass the path directly and omit `--agent`.
+If the user gives only a skill id, `oo skills locate <skill-id> --agent codex`
+can help resolve the local path. Use it when it is helpful, but do not force an
+extra locate step when the path is already clear from context.
 
 The publish command performs its own environment, authentication, and account
 checks, so run it directly.
@@ -69,9 +69,9 @@ resolves the account and asks any necessary ownership questions itself.
 Run the publish command directly:
 
 ```bash
-oo skills publish my-skill --agent codex
 oo skills publish ./my-skill
-oo skills publish my-skill --agent codex --visibility public
+oo skills publish /path/to/my-skill/SKILL.md
+oo skills publish ./my-skill --visibility public
 ```
 
 If the command prompts about publishing a registry-installed skill under the

@@ -956,8 +956,8 @@ describe("embedded skill assets", () => {
             expect(content).toContain("existing AI agent skill");
             expect(content).toContain("it does not need to be an oo-specific skill");
             expect(content).toContain("oo skills publish");
-            expect(content).toContain("When publishing by skill id");
-            expect(content).toContain("include `--agent");
+            expect(content).toContain("oo skills locate <skill-id>");
+            expect(content).toContain("extra locate step");
             expect(content).toContain("Pass `--visibility` only");
             expect(content).toContain("The publish command performs its own");
             expect(content).toContain("Do not ask whether to publish to the current account");
@@ -968,6 +968,7 @@ describe("embedded skill assets", () => {
             expect(content).not.toContain("--visibility private");
             expect(content).not.toContain("OOMOL/oo skill");
             expect(content).not.toContain("oo skills preflight");
+            expect(content).not.toContain("oo skills publish <skill-id> --agent");
             expect(content).not.toContain("Use `--agent` only as a source hint");
         }
     });

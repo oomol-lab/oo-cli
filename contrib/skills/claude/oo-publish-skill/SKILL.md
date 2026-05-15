@@ -46,18 +46,16 @@ Ask for the missing skill id or skill directory path only when needed:
 
 - skill id or path to a skill directory
 
-Choose the command shape from the source:
+Publish accepts a concrete path:
 
 ```bash
-oo skills publish <skill-id> --agent <agent>
-oo skills publish <path-to-skill-directory>
+oo skills publish <path-to-skill-directory-or-SKILL.md>
 ```
 
-When publishing by skill id, include `--agent <agent>`. Choose `<agent>`
-yourself from the supported ids according to the current host: `codex`,
-`claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `openclaw`, or
-`qoderwork`. Do not ask the user just to choose this source agent. When
-publishing by filesystem path, pass the path directly and omit `--agent`.
+If the user gives only a skill id, `oo skills locate <skill-id> --agent <agent>`
+can help resolve the local path. Choose `<agent>` yourself from the supported
+ids according to the current host. Use locate when it is helpful, but do not
+force an extra locate step when the path is already clear from context.
 
 The publish command performs its own environment, authentication, and account
 checks, so run it directly.
@@ -73,14 +71,10 @@ resolves the account and asks any necessary ownership questions itself.
 Run the publish command directly:
 
 ```bash
-oo skills publish my-skill --agent claude
 oo skills publish ./my-skill
-oo skills publish my-skill --agent claude --visibility public
+oo skills publish /path/to/my-skill/SKILL.md
+oo skills publish ./my-skill --visibility public
 ```
-
-If this shared skill file is running in Hermes, CodeBuddy, WorkBuddy, Trae,
-OpenClaw, QoderWork, or Codex instead of Claude Code, replace `claude` with that
-host id from the supported list.
 
 If the command prompts about publishing a registry-installed skill under the
 active account or overwriting an existing remote package, let that prompt drive
