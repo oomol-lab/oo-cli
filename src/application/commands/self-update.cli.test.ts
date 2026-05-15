@@ -299,8 +299,13 @@ describe("self-update commands", () => {
                 stdout: `Installed oo 2.0.0.\nExecutable: <EXECUTABLE_PATH>\nAdded <HOME>/.local/bin to PATH. Restart your shell to reload PATH and use oo.\n`,
             });
             expect(selfUpdateRuntime.commands).toEqual(
-                createExpectedManagedSkillMaintenanceCommands(targetVersionPath),
+                createExpectedManagedSkillInstallCommands(targetVersionPath),
             );
+            // Regression guard for the auto skills-update removal: the install
+            // flow must NOT auto-invoke `oo skills update` anymore.
+            expect(
+                selfUpdateRuntime.commands.map(command => command.commandArguments),
+            ).not.toContainEqual(["skills", "update"]);
         }
         finally {
             await sandbox.cleanup();
@@ -353,8 +358,10 @@ describe("self-update commands", () => {
             expect(snapshot.stderr).toContain("Activated executable.");
             expect(snapshot.stderr).toContain("Verified installation.");
             expect(snapshot.stderr).toContain("Cleaned up old artifacts.");
-            expect(snapshot.stderr).toContain("Updating installed skills...");
-            expect(snapshot.stderr).toContain("Finished installed skill update.");
+            // Regression guard for the auto skills-update removal: the self-update
+            // flow must NOT report a skills-update progress stage anymore.
+            expect(snapshot.stderr).not.toContain("Updating installed skills");
+            expect(snapshot.stderr).not.toContain("Finished installed skill update");
         }
         finally {
             await sandbox.cleanup();
@@ -457,8 +464,13 @@ describe("self-update commands", () => {
                 },
             });
             expect(selfUpdateRuntime.commands).toEqual(
-                createExpectedManagedSkillMaintenanceCommands(targetVersionPath),
+                createExpectedManagedSkillInstallCommands(targetVersionPath),
             );
+            // Regression guard for the auto skills-update removal: the update
+            // flow must NOT auto-invoke `oo skills update` anymore.
+            expect(
+                selfUpdateRuntime.commands.map(command => command.commandArguments),
+            ).not.toContainEqual(["skills", "update"]);
         }
         finally {
             await sandbox.cleanup();
@@ -696,8 +708,13 @@ describe("self-update commands", () => {
             expect(latestRequestCount).toBe(1);
             expect(binaryRequestCount).toBe(0);
             expect(selfUpdateRuntime.commands).toEqual(
-                createExpectedManagedSkillMaintenanceCommands(currentVersionPath),
+                createExpectedManagedSkillInstallCommands(currentVersionPath),
             );
+            // Regression guard for the auto skills-update removal: the
+            // already-up-to-date fast path must NOT auto-invoke `oo skills update`.
+            expect(
+                selfUpdateRuntime.commands.map(command => command.commandArguments),
+            ).not.toContainEqual(["skills", "update"]);
         }
         finally {
             await sandbox.cleanup();
@@ -760,7 +777,7 @@ describe("self-update commands", () => {
             expect(latestRequestCount).toBe(1);
             expect(binaryRequestCount).toBe(1);
             expect(selfUpdateRuntime.commands).toEqual(
-                createExpectedManagedSkillMaintenanceCommands(currentVersionPath),
+                createExpectedManagedSkillInstallCommands(currentVersionPath),
             );
             expect((await stat(legacyVersionPath)).isDirectory()).toBeTrue();
             await expect(Bun.file(currentVersionPath).exists()).resolves.toBeTrue();
@@ -874,7 +891,7 @@ describe("self-update commands", () => {
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(binaryRequestCount).toBe(1);
             expect(legacyCleanup.commands).toEqual([
-                ...createExpectedManagedSkillMaintenanceCommands(currentVersionPath),
+                ...createExpectedManagedSkillInstallCommands(currentVersionPath),
                 {
                     commandArguments: [
                         "uninstall",
@@ -939,8 +956,10 @@ describe("self-update commands", () => {
             expect(snapshot.stderr).toContain("Activated executable.");
             expect(snapshot.stderr).toContain("Verified installation.");
             expect(snapshot.stderr).toContain("Cleaned up old artifacts.");
-            expect(snapshot.stderr).toContain("Updating installed skills...");
-            expect(snapshot.stderr).toContain("Finished installed skill update.");
+            // Regression guard for the auto skills-update removal: the self-update
+            // flow must NOT report a skills-update progress stage anymore.
+            expect(snapshot.stderr).not.toContain("Updating installed skills");
+            expect(snapshot.stderr).not.toContain("Finished installed skill update");
         }
         finally {
             await sandbox.cleanup();
@@ -1047,17 +1066,12 @@ interface CapturedSelfUpdateCommand {
     timeoutMs: number;
 }
 
-function createExpectedManagedSkillMaintenanceCommands(
+function createExpectedManagedSkillInstallCommands(
     commandPath: string,
 ): CapturedSelfUpdateCommand[] {
     return [
         {
             commandArguments: ["skills", "add"],
-            commandPath,
-            timeoutMs: 40_000,
-        },
-        {
-            commandArguments: ["skills", "update"],
             commandPath,
             timeoutMs: 40_000,
         },

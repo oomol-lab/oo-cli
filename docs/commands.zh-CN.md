@@ -225,11 +225,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：当部分 shell profile 配置成功、另一部分失败时，install 会分别列出两组
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
   决定是否手动补全未配置的 profile。
-- 说明：install 成功后，CLI 会使用托管的可执行文件依次静默执行
-  `oo skills add` 与 `oo skills update`，让 bundled skills 刷新到已安装的 CLI
-  版本，同时检查并更新已安装的 oo-managed published skills。`oo skills add`
-  也会把安装成功的预设 registry skills 合并进同一份 skill 摘要。子命令的
-  stdout/stderr 不会透传；即使失败，也不会改变 install 的结果。
+- 说明：install 成功后，CLI 会使用托管的可执行文件静默执行一次
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。该命令也会把
+  安装成功的预设 registry skills 合并进同一份 skill 摘要。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
@@ -253,7 +251,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：`oo update` 会确保托管安装保持为当前可用状态，不额外暴露
   `--force`。
 - 说明：当最新发布版本与当前版本一致时，update 仍会先为当前激活的托管版本
-  执行托管 skill 刷新与更新维护流程，再输出“已是最新版本”的消息。
+  执行 `oo skills add`，再输出“已是最新版本”的消息。
 - 说明：update 成功后，CLI 会尽力移除在 `PATH` 中任意位置出现的旧全局
   package-manager `@oomol-lab/oo-cli` 安装；如果 `PATH` 中没有找到 `oo`
   候选项，CLI 会回退到当前命令路径进行判断。对于 npm 安装，清理命令会在可推断时
@@ -268,11 +266,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：当部分 shell profile 配置成功、另一部分失败时，update 会分别列出两组
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
   决定是否手动补全未配置的 profile。
-- 说明：update 成功后，CLI 会使用托管的可执行文件依次静默执行
-  `oo skills add` 与 `oo skills update`，让 bundled skills 刷新到已安装的 CLI
-  版本，同时检查并更新已安装的 oo-managed published skills。`oo skills add`
-  也会把安装成功的预设 registry skills 合并进同一份 skill 摘要。子命令的
-  stdout/stderr 不会透传；即使失败，也不会改变 update 的结果。
+- 说明：update 成功后，CLI 会使用托管的可执行文件静默执行一次
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。该命令也会把
+  安装成功的预设 registry skills 合并进同一份 skill 摘要。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
