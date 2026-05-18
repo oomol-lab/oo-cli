@@ -1,0 +1,119 @@
+name: Refresh CDN Cache
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PINNED_ALIYUN_CLI_VERSION: 3.0.286
+  REFRESH_URL: https://static.oomol.com/release/apps/oo-cli/latest.json
+  ALIYUN_REGION: cn-hangzhou
+
+jobs:
+  refresh-cdn-cache:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+
+    steps:
+      - name: Cache Aliyun CLI
+        id: cache_aliyun_cli
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/bin/aliyun
+          key: aliyun-cli-${{ runner.os }}-${{ runner.arch }}-${{ env.PINNED_ALIYUN_CLI_VERSION }}
+
+      - name: Install Aliyun CLI
+        run: |
+          set -euo pipefail
+
+          if [ ! -x "$HOME/.local/bin/aliyun" ]; then
+            mkdir -p "$HOME/.local/bin"
+            curl -fsSL "https://aliyuncli.alicdn.com/aliyun-cli-linux-${PINNED_ALIYUN_CLI_VERSION}-amd64.tgz" -o /tmp/aliyun-cli.tgz
+            mkdir -p /tmp/aliyun-cli
+            tar -xzf /tmp/aliyun-cli.tgz -C /tmp/aliyun-cli
+
+            ALIYUN_BIN="$(find /tmp/aliyun-cli -type f -name aliyun | head -n 1)"
+            if [ -z "$ALIYUN_BIN" ]; then
+              echo "Unable to find aliyun binary in downloaded archive" >&2
+              exit 1
+            fi
+
+            install "$ALIYUN_BIN" "$HOME/.local/bin/aliyun"
+          fi
+
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/aliyun" version
+
+      - name: Configure Alibaba Cloud credentials
+        id: aliyun_credentials
+        uses: aliyun/configure-aliyun-credentials-action@v1.1.0
+        with:
+          role-to-assume: ${{ vars.ALIYUN_CDN_CACHE_REFRESH_ROLE }}
+          oidc-provider-arn: ${{ vars.ALIYUN_OIDC_PROVIDER }}
+          role-session-name: github-action-cdn-cache-refresh
+          role-session-expiration: 1800
+          audience: https://github.com/oomol-lab
+
+      - name: Configure Aliyun CLI
+        env:
+          ALICLOUD_ACCESS_KEY_ID: ${{ steps.aliyun_credentials.outputs.aliyun-access-key-id }}
+          ALICLOUD_ACCESS_KEY_SECRET: ${{ steps.aliyun_credentials.outputs.aliyun-access-key-secret }}
+          ALICLOUD_SECURITY_TOKEN: ${{ steps.aliyun_credentials.outputs.aliyun-security-token }}
+        run: |
+          set -euo pipefail
+
+          aliyun configure set \
+            --mode StsToken \
+            --region "$ALIYUN_REGION" \
+            --access-key-id "$ALICLOUD_ACCESS_KEY_ID" \
+            --access-key-secret "$ALICLOUD_ACCESS_KEY_SECRET" \
+            --sts-token "$ALICLOUD_SECURITY_TOKEN"
+
+      - name: Refresh CDN cache
+        id: refresh
+        run: |
+          set -euo pipefail
+
+          aliyun dcdn DescribeDcdnRefreshQuota --region "$ALIYUN_REGION" > quota.json
+          cat quota.json
+
+          URL_REMAIN="$(jq -r '.UrlRemain // empty' quota.json)"
+          if [ -n "$URL_REMAIN" ] && [ "$URL_REMAIN" -lt 1 ]; then
+            echo "::error::DCDN URL refresh quota exhausted today (UrlRemain=$URL_REMAIN). Retry tomorrow or raise the daily quota via an Aliyun ticket."
+            exit 1
+          fi
+
+          echo "::notice title=Refresh target::File $REFRESH_URL"
+
+          aliyun dcdn RefreshDcdnObjectCaches \
+            --ObjectType File \
+            --ObjectPath "$REFRESH_URL" \
+            --region "$ALIYUN_REGION" > refresh-result.json
+          cat refresh-result.json
+
+          REFRESH_TASK_ID="$(jq -r '.RefreshTaskId // ""' refresh-result.json)"
+          REQUEST_ID="$(jq -r '.RequestId // ""' refresh-result.json)"
+
+          {
+            echo "## CDN cache refresh"
+            echo ""
+            echo "- URL: \`$REFRESH_URL\`"
+            echo "- Refresh task id: \`${REFRESH_TASK_ID:-unknown}\`"
+            echo "- Request id: \`${REQUEST_ID:-unknown}\`"
+            echo ""
+            echo "### DescribeDcdnRefreshQuota"
+            echo '```json'
+            cat quota.json
+            echo '```'
+            echo ""
+            echo "### RefreshDcdnObjectCaches"
+            echo '```json'
+            cat refresh-result.json
+            echo '```'
+            echo ""
+            echo "_DCDN refresh tasks typically take 5-6 minutes to take effect at every edge node._"
+          } >> "$GITHUB_STEP_SUMMARY"
