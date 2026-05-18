@@ -199,13 +199,21 @@ jobs:
       tag: ${{ needs.compute-version.outputs.tag_name }}
     secrets: inherit
 
-  notify-feishu-release:
+  refresh-cdn-cache:
     needs:
-      - compute-version
-      - publish
       - upload-release-binaries-to-oss
       - upload-skill-install-guide-to-oss
       - deploy-install-worker
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/refresh-cdn-cache.yaml
+    secrets: inherit
+
+  notify-feishu-release:
+    needs:
+      - compute-version
+      - refresh-cdn-cache
     runs-on: ubuntu-latest
     continue-on-error: true
     env:
