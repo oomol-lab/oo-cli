@@ -70,7 +70,7 @@ oo login
 
 > /oo 总结今天未读的 Gmail 邮件。
 
-> /oo 找到适合从这个 PDF 提取文字的能力。
+> /oo 为 https://oomol.com 生成一个二维码。
 
 `/oo` 是内置 skill 约定的触发前缀，Agent 会通过 `oo` 把请求路由到对应的能力。
 
