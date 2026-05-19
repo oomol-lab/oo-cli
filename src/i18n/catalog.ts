@@ -319,7 +319,7 @@ export const enMessages = {
     "errors.connectorRun.asyncFailed":
         "The async connector action failed with state {state}.",
     "errors.connectorRun.asyncHandleMissing":
-        "The async connector action response is missing handle field {field}.",
+        "The async connector action submit response is missing handle field {field}.",
     "errors.connectorRun.asyncResultMissing":
         "The async connector action poll response is missing result field {field}.",
     "errors.connectorRun.asyncStateMissing":
@@ -338,10 +338,14 @@ export const enMessages = {
         "Connector action {action} returned HTTP {status}: {message}",
     "errors.connectorRun.requestFailedWithMessageAndCode":
         "Connector action {action} returned HTTP {status} (errorCode: {errorCode}): {message}",
-    "errors.connectorSchema.asyncPollSchemaMissing":
-        "The async connector action poll schema is missing for action {action}.",
-    "errors.connectorSchema.asyncResultSchemaMissing":
-        "The async connector action result schema is missing field {field}.",
+    "errors.connectorRun.waitUnsupported":
+        "The --wait option is only supported for connector actions with an async result lifecycle.",
+    "errors.connectorRun.waitModeConflict":
+        "Use either --wait or --wait-result, not both.",
+    "errors.connectorRun.waitResultActionUnsupported":
+        "The result action {action} configured for --wait-result must declare an async result lifecycle.",
+    "errors.connectorRun.waitResultUnsupported":
+        "The --wait-result option is only supported for connector actions with an async submit lifecycle.",
     "errors.connectorSchema.readFailed":
         "Failed to read the connector action schema cache at {path}: {message}",
     "errors.connectorSchema.writeFailed":
@@ -654,6 +658,10 @@ export const enMessages = {
         "Specify comma-separated keywords to refine the connector action search",
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
+    "options.connectorRunWait":
+        "Poll until an async result action reaches a terminal state",
+    "options.connectorRunWaitResult":
+        "Submit an async action and wait for its result action",
     "options.debug": "Print the current log file path when the CLI exits",
     "options.description": "Set the required generated skill description",
     "options.days":
@@ -1256,7 +1264,7 @@ export const zhMessages = {
     "errors.connectorRun.asyncFailed":
         "异步 connector action 返回失败状态 {state}。",
     "errors.connectorRun.asyncHandleMissing":
-        "异步 connector action 响应缺少 handle 字段 {field}。",
+        "异步 connector action 的 submit 响应缺少 handle 字段 {field}。",
     "errors.connectorRun.asyncResultMissing":
         "异步 connector action 轮询响应缺少结果字段 {field}。",
     "errors.connectorRun.asyncStateMissing":
@@ -1275,10 +1283,14 @@ export const zhMessages = {
         "Connector action {action} 返回了 HTTP {status}：{message}",
     "errors.connectorRun.requestFailedWithMessageAndCode":
         "Connector action {action} 返回了 HTTP {status}（errorCode: {errorCode}）：{message}",
-    "errors.connectorSchema.asyncPollSchemaMissing":
-        "异步 connector action 缺少 action {action} 的轮询 schema。",
-    "errors.connectorSchema.asyncResultSchemaMissing":
-        "异步 connector action 的结果 schema 缺少字段 {field}。",
+    "errors.connectorRun.waitUnsupported":
+        "--wait 选项仅支持带有异步结果 lifecycle 的 connector action。",
+    "errors.connectorRun.waitModeConflict":
+        "--wait 和 --wait-result 只能使用其中一个。",
+    "errors.connectorRun.waitResultActionUnsupported":
+        "--wait-result 配置的结果 action {action} 必须声明异步结果 lifecycle。",
+    "errors.connectorRun.waitResultUnsupported":
+        "--wait-result 选项仅支持带有异步 submit lifecycle 的 connector action。",
     "errors.connectorSchema.readFailed":
         "读取 {path} 的 connector action schema cache 失败：{message}",
     "errors.connectorSchema.writeFailed":
@@ -1586,6 +1598,10 @@ export const zhMessages = {
         "指定用于细化 connector action 搜索的逗号分隔关键词",
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
+    "options.connectorRunWait":
+        "轮询异步结果 action，直到进入终态",
+    "options.connectorRunWaitResult":
+        "提交异步 action，并等待它的结果 action",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
     "options.description": "设置必填的生成 skill 描述",
     "options.days": "设置私有包临时分享天数（默认 7，最长 7）",

@@ -3,7 +3,6 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 
 import type {
-    ConnectorActionAsyncLifecycle,
     ConnectorActionDefinition,
     ConnectorActionMetadata,
 } from "./shared.ts";
@@ -45,10 +44,6 @@ export interface ConnectorActionSchemaOutput {
     outputSchema: unknown;
     service: string;
 }
-
-type SyncConnectorActionMetadata = ConnectorActionMetadata & {
-    asyncLifecycle?: undefined;
-};
 
 export async function loadConnectorActionSchema(
     options: {
@@ -161,38 +156,12 @@ export function deleteConnectorActionSchemaCache(
 
 export function createConnectorActionSchemaOutput(
     schema: ConnectorActionMetadata,
-    options: { pollActionSchema: ConnectorActionMetadata },
-): ConnectorActionSchemaOutput;
-export function createConnectorActionSchemaOutput(
-    schema: SyncConnectorActionMetadata,
-    options?: { pollActionSchema?: undefined },
-): ConnectorActionSchemaOutput;
-export function createConnectorActionSchemaOutput(
-    schema: ConnectorActionMetadata,
-    options: {
-        pollActionSchema?: ConnectorActionMetadata;
-    } = {},
 ): ConnectorActionSchemaOutput {
-    let outputSchema = schema.outputSchema;
-
-    if (schema.asyncLifecycle !== undefined) {
-        if (options.pollActionSchema === undefined) {
-            throw new CliUserError("errors.connectorSchema.asyncPollSchemaMissing", 1, {
-                action: schema.asyncLifecycle.poll.action,
-            });
-        }
-
-        outputSchema = readConnectorAsyncLifecycleRunOutputSchema(
-            schema.asyncLifecycle,
-            options.pollActionSchema.outputSchema,
-        );
-    }
-
     const output: ConnectorActionSchemaOutput = {
         description: schema.description,
         inputSchema: schema.inputSchema,
         name: schema.name,
-        outputSchema,
+        outputSchema: schema.outputSchema,
         service: schema.service,
     };
 
@@ -268,67 +237,6 @@ function openConnectorActionSchemaCache(
         id: connectorActionSchemaCacheId,
         maxEntries: connectorActionSchemaCacheMaxEntries,
     });
-}
-
-function readConnectorAsyncLifecycleRunOutputSchema(
-    lifecycle: ConnectorActionAsyncLifecycle,
-    pollOutputSchema: unknown,
-): unknown {
-    if (lifecycle.resultField === undefined) {
-        return pollOutputSchema;
-    }
-
-    const resultSchema = findJsonSchemaProperty(pollOutputSchema, lifecycle.resultField);
-
-    if (resultSchema === undefined) {
-        throw new CliUserError("errors.connectorSchema.asyncResultSchemaMissing", 1, {
-            field: lifecycle.resultField,
-        });
-    }
-
-    return resultSchema;
-}
-
-function findJsonSchemaProperty(schema: unknown, propertyName: string): unknown {
-    if (schema === null || typeof schema !== "object") {
-        return undefined;
-    }
-
-    const directProperty = readJsonSchemaProperty(schema, propertyName);
-    if (directProperty !== undefined) {
-        return directProperty;
-    }
-
-    const compositeSchemas = readJsonSchemaCompositeSchemas(schema);
-    for (const compositeSchema of compositeSchemas) {
-        const compositeProperty = findJsonSchemaProperty(compositeSchema, propertyName);
-        if (compositeProperty !== undefined) {
-            return compositeProperty;
-        }
-    }
-
-    return undefined;
-}
-
-function readJsonSchemaProperty(schema: object, propertyName: string): unknown {
-    const properties = (schema as { properties?: unknown }).properties;
-    if (properties === null || typeof properties !== "object") {
-        return undefined;
-    }
-
-    return (properties as Record<string, unknown>)[propertyName];
-}
-
-function readJsonSchemaCompositeSchemas(schema: object): readonly unknown[] {
-    const { anyOf, oneOf } = schema as {
-        anyOf?: unknown;
-        oneOf?: unknown;
-    };
-
-    return [
-        ...(Array.isArray(anyOf) ? anyOf : []),
-        ...(Array.isArray(oneOf) ? oneOf : []),
-    ];
 }
 
 function tryReadConnectorActionSchemaCache(

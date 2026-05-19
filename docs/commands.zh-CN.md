@@ -336,18 +336,25 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`-d, --data <data>` 支持直接传入 JSON，或使用 `@路径` 读取 JSON 文件。
   `--input <data>` 是 `--data <data>` 的 alias。
 - 选项：`--dry-run` 只做 payload 校验，不真正执行 action。
+- 选项：`--wait` 会轮询选中的 action，直到进入终态。只有选中 action 的
+  schema 声明了异步结果 lifecycle 时，这个选项才有效。
+- 选项：`--wait-result` 会提交异步 submit action，然后轮询它配置的结果
+  action。只有选中 action 的 schema 声明了异步 submit lifecycle 时，这个选项才有效。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：非 dry-run 的 JSON 输出会保持稳定结构
   `{ data, meta: { executionId } }`。
+- 输出：对于异步 submit action，默认输出 submit 结果，例如 handle 或
+  session id；CLI 不会自动等待。
+- 输出：使用 `--wait-result` 时，JSON 输出的 `data` 是完成后的结果，并包含
+  `meta.pollAction`、`meta.pollCount`、`meta.submitExecutionId` 和 `meta.handle`。
+- 输出：对于异步 result action，默认只执行一次 result action。使用
+  `--wait` 时，JSON 输出的 `data` 是完成后的结果，并包含 `meta.pollCount`。
 - 输出：dry-run 的 JSON 输出返回 `{ dryRun, ok }`。
 - 错误：stderr 会打印 HTTP 状态；如果失败响应包含服务端 `message` 或
   `errorCode`，也会一并输出。
 - 说明：命令会在执行前根据选中 action 的 contract 校验输入。
-- 说明：如果 action schema 声明了 `asyncLifecycle.defaultRunMode` 为 `wait`，
-  命令会自动轮询到完成。这时 JSON 输出的 `data` 是完成后的 run result，
-  原始 async handle 会放在 `meta.handle`。
-- 说明：text 模式下轮询 async action 时，交互式终端会在 stderr 显示进度。
-  JSON 输出不会混入进度文本。
+- 说明：text 模式下等待 async result action 时，交互式终端会在 stderr
+  显示进度。JSON 输出不会混入进度文本。
 
 ## Search
 

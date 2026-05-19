@@ -156,12 +156,10 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("loads full async lifecycle metadata after connector search before running", async () => {
+    test("loads full async submit lifecycle metadata after connector search and returns the handle", async () => {
         const sandbox = await createCliSandbox();
-        const originalSleep = Bun.sleep;
 
         try {
-            Bun.sleep = (() => Promise.resolve()) as typeof Bun.sleep;
             await writeAuthFile(sandbox);
 
             await sandbox.run(
@@ -226,20 +224,11 @@ describe("connectorCommand CLI", () => {
                             return new Response(JSON.stringify({
                                 data: {
                                     asyncLifecycle: {
-                                        defaultRunMode: "wait",
-                                        kind: "poll",
-                                        poll: {
-                                            action: "openai_image_async_result",
-                                            handleInputField: "sessionID",
-                                            handleOutputField: "sessionId",
-                                            intervalSeconds: 3,
-                                        },
-                                        resultField: "data",
-                                        state: {
-                                            failure: ["not_found"],
-                                            field: "state",
-                                            running: ["processing"],
-                                            success: ["completed"],
+                                        role: "submit",
+                                        resultAction: "openai_image_async_result",
+                                        handle: {
+                                            inputField: "sessionID",
+                                            outputField: "sessionId",
                                         },
                                     },
                                     description: "Submit OpenAI image generation.",
@@ -293,24 +282,18 @@ describe("connectorCommand CLI", () => {
             expect(result.stderr).toBe("");
             expect(JSON.parse(result.stdout)).toEqual({
                 data: {
-                    images: ["image-1"],
+                    sessionId: "session-1",
                 },
                 meta: {
-                    executionId: "poll-exec",
-                    handle: "session-1",
-                    pollAction: "openai_image_async_result",
-                    pollCount: 1,
-                    submitExecutionId: "submit-exec",
+                    executionId: "submit-exec",
                 },
             });
             expect(requests.map(request => request.url)).toEqual([
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
-                "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
             ]);
         }
         finally {
-            Bun.sleep = originalSleep;
             await sandbox.cleanup();
         }
     });
@@ -487,6 +470,28 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("renders connector run help with the wait option", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["connector", "run", "--help"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("--wait");
+            expect(result.stdout).toContain(
+                "Poll until an async result action reaches a terminal",
+            );
+            expect(result.stdout).toContain("--wait-result");
+            expect(result.stdout).toContain(
+                "Submit an async action and wait for its result action",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports connector run with cached schema and json output", async () => {
         const sandbox = await createCliSandbox();
 
@@ -583,6 +588,7 @@ describe("connectorCommand CLI", () => {
                     data_size_bucket: "<1KB",
                     dry_run: false,
                     service: "gmail",
+                    wait: false,
                 },
             });
             expect(telemetryPayload?.properties).not.toHaveProperty("data");
@@ -593,62 +599,181 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("waits for async lifecycle completion when connector run defaults to wait", async () => {
+    test("returns async submit handle without waiting by default", async () => {
         const sandbox = await createCliSandbox();
-        const originalSleep = Bun.sleep;
-        const sleepCalls: number[] = [];
 
         try {
-            Bun.sleep = ((durationMs: number) => {
-                sleepCalls.push(durationMs);
-
-                return Promise.resolve();
-            }) as typeof Bun.sleep;
-
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(
                 sandbox,
+                createAsyncSubmitActionSchema(),
+            );
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--json",
+                ],
                 {
-                    asyncLifecycle: {
-                        defaultRunMode: "wait",
-                        kind: "poll",
-                        poll: {
-                            action: "openai_image_async_result",
-                            handleInputField: "sessionID",
-                            handleOutputField: "sessionId",
-                            intervalSeconds: 3,
-                        },
-                        resultField: "data",
-                        state: {
-                            failure: ["not_found"],
-                            field: "state",
-                            running: ["processing"],
-                            success: ["completed"],
-                        },
-                    },
-                    description: "Submit OpenAI image generation.",
-                    inputSchema: {
-                        properties: {
-                            prompt: {
-                                type: "string",
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                sessionId: "session-1",
                             },
-                        },
-                        required: ["prompt"],
-                        type: "object",
-                    },
-                    name: "openai_image_async_submit",
-                    outputSchema: {
-                        properties: {
-                            sessionId: {
-                                type: "string",
+                            meta: {
+                                executionId: "submit-exec",
                             },
-                        },
-                        required: ["sessionId"],
-                        type: "object",
+                        }));
                     },
-                    service: "fusion-api",
                 },
             );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    sessionId: "session-1",
+                },
+                meta: {
+                    executionId: "submit-exec",
+                },
+            });
+            expect(requests.map(request => request.url)).toEqual([
+                "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
+            ]);
+            await expect(requests[0]?.json()).resolves.toEqual({
+                input: {
+                    prompt: "a cat",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("waits for async result lifecycle completion when --wait is enabled", async () => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                createAsyncResultActionSchema(),
+            );
+
+            const requests: Request[] = [];
+            const responses = [
+                {
+                    data: {
+                        state: "processing",
+                    },
+                    meta: {
+                        executionId: "poll-exec-1",
+                    },
+                },
+                {
+                    data: {
+                        data: {
+                            images: ["image-1"],
+                        },
+                        state: "completed",
+                    },
+                    meta: {
+                        executionId: "poll-exec-2",
+                    },
+                },
+            ];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify(responses.shift()));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    images: ["image-1"],
+                },
+                meta: {
+                    executionId: "poll-exec-2",
+                    pollAction: "openai_image_async_result",
+                    pollCount: 2,
+                },
+            });
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    action: "openai_image_async_result",
+                    command_full: "connector.run",
+                    data_size_bucket: "<1KB",
+                    dry_run: false,
+                    service: "fusion-api",
+                    wait: true,
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("sessionID");
+            expect(requests.map(request => request.url)).toEqual([
+                "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
+                "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
+            ]);
+            await expect(requests[0]?.json()).resolves.toEqual({
+                input: {
+                    sessionID: "session-1",
+                },
+            });
+            await expect(requests[1]?.json()).resolves.toEqual({
+                input: {
+                    sessionID: "session-1",
+                },
+            });
+            expect(sleepMock.sleepCalls).toEqual([3_000]);
+        }
+        finally {
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("submits async actions and waits for result action completion when --wait-result is enabled", async () => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
 
             const requests: Request[] = [];
             const responses = [
@@ -689,6 +814,7 @@ describe("connectorCommand CLI", () => {
                     "openai_image_async_submit",
                     "-d",
                     "{\"prompt\":\"a cat\"}",
+                    "--wait-result",
                     "--json",
                 ],
                 {
@@ -714,6 +840,24 @@ describe("connectorCommand CLI", () => {
                     submitExecutionId: "submit-exec",
                 },
             });
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    action: "openai_image_async_submit",
+                    command_full: "connector.run",
+                    data_size_bucket: "<1KB",
+                    dry_run: false,
+                    service: "fusion-api",
+                    wait: false,
+                    wait_result: true,
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("prompt");
             expect(requests.map(request => request.url)).toEqual([
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
@@ -734,69 +878,156 @@ describe("connectorCommand CLI", () => {
                     sessionID: "session-1",
                 },
             });
-            expect(sleepCalls).toEqual([3_000]);
+            expect(sleepMock.sleepCalls).toEqual([3_000]);
         }
         finally {
-            Bun.sleep = originalSleep;
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("preserves the original async submit handle value in wait-result metadata", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const requests: Request[] = [];
+            const responses = [
+                {
+                    data: {
+                        sessionId: 42,
+                    },
+                    meta: {
+                        executionId: "submit-exec",
+                    },
+                },
+                {
+                    data: {
+                        data: {
+                            images: ["image-1"],
+                        },
+                        state: "completed",
+                    },
+                    meta: {
+                        executionId: "poll-exec",
+                    },
+                },
+            ];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify(responses.shift()));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    images: ["image-1"],
+                },
+                meta: {
+                    executionId: "poll-exec",
+                    handle: 42,
+                    pollAction: "openai_image_async_result",
+                    pollCount: 1,
+                    submitExecutionId: "submit-exec",
+                },
+            });
+            await expect(requests[1]?.json()).resolves.toEqual({
+                input: {
+                    sessionID: 42,
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("runs async result actions once when --wait is omitted", async () => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                state: "processing",
+                            },
+                            meta: {
+                                executionId: "poll-exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    state: "processing",
+                },
+                meta: {
+                    executionId: "poll-exec-1",
+                },
+            });
+            expect(requests).toHaveLength(1);
+            expect(sleepMock.sleepCalls).toEqual([]);
+        }
+        finally {
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });
 
     test("renders async lifecycle progress to stderr for interactive connector run", async () => {
         const sandbox = await createCliSandbox();
-        const originalSleep = Bun.sleep;
+        const sleepMock = createBunSleepMock();
 
         try {
-            Bun.sleep = (() => Promise.resolve()) as typeof Bun.sleep;
-
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(
                 sandbox,
-                {
-                    asyncLifecycle: {
-                        defaultRunMode: "wait",
-                        kind: "poll",
-                        poll: {
-                            action: "openai_image_async_result",
-                            handleInputField: "sessionID",
-                            handleOutputField: "sessionId",
-                            intervalSeconds: 3,
-                        },
-                        resultField: "data",
-                        state: {
-                            failure: ["not_found"],
-                            field: "state",
-                            running: ["processing"],
-                            success: ["completed"],
-                        },
-                    },
-                    description: "Submit OpenAI image generation.",
-                    inputSchema: {
-                        type: "object",
-                    },
-                    name: "openai_image_async_submit",
-                    outputSchema: {
-                        properties: {
-                            sessionId: {
-                                type: "string",
-                            },
-                        },
-                        required: ["sessionId"],
-                        type: "object",
-                    },
-                    service: "fusion-api",
-                },
+                createAsyncResultActionSchema(),
             );
 
             const responses = [
-                {
-                    data: {
-                        sessionId: "session-1",
-                    },
-                    meta: {
-                        executionId: "submit-exec",
-                    },
-                },
                 {
                     data: {
                         state: "processing",
@@ -823,9 +1054,10 @@ describe("connectorCommand CLI", () => {
                     "run",
                     "fusion-api",
                     "-a",
-                    "openai_image_async_submit",
+                    "openai_image_async_result",
                     "-d",
-                    "{}",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
                 ],
                 {
                     fetcher: async () => new Response(JSON.stringify(responses.shift())),
@@ -843,66 +1075,21 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("\"images\":");
         }
         finally {
-            Bun.sleep = originalSleep;
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });
 
-    test("removes cached poll schema after async connector poll reports action_not_found", async () => {
+    test("removes cached result schema after async connector wait reports action_not_found", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(
                 sandbox,
-                {
-                    asyncLifecycle: {
-                        defaultRunMode: "wait",
-                        kind: "poll",
-                        poll: {
-                            action: "openai_image_async_result",
-                            handleInputField: "sessionID",
-                            handleOutputField: "sessionId",
-                            intervalSeconds: 3,
-                        },
-                        resultField: "data",
-                        state: {
-                            failure: ["not_found"],
-                            field: "state",
-                            running: ["processing"],
-                            success: ["completed"],
-                        },
-                    },
-                    description: "Submit OpenAI image generation.",
-                    inputSchema: {
-                        type: "object",
-                    },
-                    name: "openai_image_async_submit",
-                    outputSchema: {
-                        properties: {
-                            sessionId: {
-                                type: "string",
-                            },
-                        },
-                        required: ["sessionId"],
-                        type: "object",
-                    },
-                    service: "fusion-api",
-                },
-            );
-            await seedConnectorActionSchema(
-                sandbox,
-                {
-                    description: "Cached poll schema.",
-                    inputSchema: {
-                        type: "object",
-                    },
-                    name: "openai_image_async_result",
-                    outputSchema: {
-                        type: "object",
-                    },
-                    service: "fusion-api",
-                },
+                createAsyncResultActionSchema({
+                    description: "Cached result schema.",
+                }),
             );
 
             const runResult = await sandbox.run(
@@ -911,33 +1098,19 @@ describe("connectorCommand CLI", () => {
                     "run",
                     "fusion-api",
                     "-a",
-                    "openai_image_async_submit",
+                    "openai_image_async_result",
                     "-d",
-                    "{}",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
                     "--json",
                 ],
                 {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
-
-                        if (request.url.endsWith("openai_image_async_submit")) {
-                            return new Response(JSON.stringify({
-                                data: {
-                                    sessionId: "session-1",
-                                },
-                                meta: {
-                                    executionId: "submit-exec",
-                                },
-                            }));
-                        }
-
-                        return new Response(JSON.stringify({
-                            errorCode: "action_not_found",
-                            success: false,
-                        }), {
-                            status: 404,
-                        });
-                    },
+                    fetcher: async () => new Response(JSON.stringify({
+                        errorCode: "action_not_found",
+                        success: false,
+                    }), {
+                        status: 404,
+                    }),
                 },
             );
 
@@ -956,7 +1129,20 @@ describe("connectorCommand CLI", () => {
 
                         return new Response(JSON.stringify({
                             data: {
-                                description: "Fresh poll schema.",
+                                asyncLifecycle: {
+                                    role: "result",
+                                    wait: {
+                                        intervalSeconds: 3,
+                                        resultField: "data",
+                                        state: {
+                                            failure: ["not_found"],
+                                            field: "state",
+                                            running: ["processing"],
+                                            success: ["completed"],
+                                        },
+                                    },
+                                },
+                                description: "Fresh result schema.",
                                 inputSchema: {
                                     type: "object",
                                 },
@@ -979,7 +1165,7 @@ describe("connectorCommand CLI", () => {
             );
             expect(metadataRequestCount).toBe(1);
             expect(JSON.parse(schemaResult.stdout)).toMatchObject({
-                description: "Fresh poll schema.",
+                description: "Fresh result schema.",
                 name: "openai_image_async_result",
                 service: "fusion-api",
             });
@@ -994,44 +1180,293 @@ describe("connectorCommand CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-            await seedConnectorActionSchema(
-                sandbox,
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
+                    "--json",
+                ],
                 {
-                    asyncLifecycle: {
-                        defaultRunMode: "wait",
-                        kind: "poll",
-                        poll: {
-                            action: "openai_image_async_result",
-                            handleInputField: "sessionID",
-                            handleOutputField: "sessionId",
-                            intervalSeconds: 3,
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            state: "completed",
                         },
-                        resultField: "data",
-                        state: {
-                            failure: ["not_found"],
-                            field: "state",
-                            running: ["processing"],
-                            success: ["completed"],
+                        meta: {
+                            executionId: "poll-exec",
                         },
-                    },
-                    description: "Submit OpenAI image generation.",
-                    inputSchema: {
-                        type: "object",
-                    },
-                    name: "openai_image_async_submit",
-                    outputSchema: {
-                        properties: {
-                            sessionId: {
-                                type: "string",
-                            },
-                        },
-                        required: ["sessionId"],
-                        type: "object",
-                    },
-                    service: "fusion-api",
+                    })),
                 },
             );
 
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The async connector action poll response is missing result field data.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not render async completion progress when final result extraction fails", async () => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            state: "completed",
+                        },
+                        meta: {
+                            executionId: "poll-exec",
+                        },
+                    })),
+                    stderr: {
+                        isTTY: true,
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(
+                "The async connector action poll response is missing result field data.",
+            );
+            expect(result.stderr).not.toContain(
+                "Completed openai_image_async_result",
+            );
+        }
+        finally {
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails async connector wait when state field is missing", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            progress: 0.5,
+                        },
+                        meta: {
+                            executionId: "poll-exec",
+                        },
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The async connector action poll response is missing state field state.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails async connector wait on configured failure state", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            state: "not_found",
+                        },
+                        meta: {
+                            executionId: "poll-exec",
+                        },
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The async connector action failed with state not_found.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails async connector wait on unknown state", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            state: "queued",
+                        },
+                        meta: {
+                            executionId: "poll-exec",
+                        },
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The async connector action returned unsupported state queued.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("times out async connector wait", async () => {
+        const sandbox = await createCliSandbox();
+        const originalDateNow = Date.now;
+        let now = 0;
+        const sleepMock = createBunSleepMock((durationMs) => {
+            now += durationMs + 1;
+        });
+
+        try {
+            Date.now = (() => now) as typeof Date.now;
+
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                createAsyncResultActionSchema({
+                    asyncLifecycle: {
+                        role: "result",
+                        wait: {
+                            intervalSeconds: 6 * 3_600,
+                            resultField: "data",
+                            state: {
+                                failure: ["not_found"],
+                                field: "state",
+                                running: ["processing"],
+                                success: ["completed"],
+                            },
+                        },
+                    },
+                }),
+            );
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            state: "processing",
+                        },
+                        meta: {
+                            executionId: "poll-exec",
+                        },
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "Timed out waiting for async connector action openai_image_async_result.",
+            );
+        }
+        finally {
+            Date.now = originalDateNow;
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects --wait on async submit actions before payload validation", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+
+            let requestCount = 0;
             const result = await sandbox.run(
                 [
                     "connector",
@@ -1041,22 +1476,105 @@ describe("connectorCommand CLI", () => {
                     "openai_image_async_submit",
                     "-d",
                     "{}",
+                    "--wait",
                     "--json",
                 ],
                 {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
+                    fetcher: async () => {
+                        requestCount += 1;
 
-                        if (request.url.endsWith("openai_image_async_submit")) {
-                            return new Response(JSON.stringify({
-                                data: {
-                                    sessionId: "session-1",
-                                },
-                                meta: {
-                                    executionId: "submit-exec",
-                                },
-                            }));
-                        }
+                        return new Response(JSON.stringify({
+                            errorCode: "action_not_found",
+                            success: false,
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The --wait option is only supported for connector actions with an async result lifecycle.",
+            );
+            expect(result.stderr).not.toContain("input payload is invalid");
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects --wait on regular connector actions", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "--action",
+                    "send_mail",
+                    "--data",
+                    "{}",
+                    "--wait",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The --wait option is only supported for connector actions with an async result lifecycle.",
+            );
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects --wait-result on async result actions before sending requests", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
 
                         return new Response(JSON.stringify({
                             data: {
@@ -1070,11 +1588,142 @@ describe("connectorCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(1);
+            expect(result.exitCode).toBe(2);
             expect(result.stdout).toBe("");
             expect(result.stderr).toContain(
-                "The async connector action poll response is missing result field data.",
+                "The --wait-result option is only supported for connector actions with an async submit lifecycle.",
             );
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects --wait-result on regular connector actions before sending requests", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "--action",
+                    "send_mail",
+                    "--data",
+                    "{}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The --wait-result option is only supported for connector actions with an async submit lifecycle.",
+            );
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects conflicting async wait modes before payload validation", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{}",
+                    "--wait",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                sessionId: "session-1",
+                            },
+                            meta: {
+                                executionId: "submit-exec",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "Use either --wait or --wait-result, not both.",
+            );
+            expect(result.stderr).not.toContain("input payload is invalid");
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects conflicting async wait modes before auth and data loading", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "@missing-input.json",
+                    "--wait",
+                    "--wait-result",
+                    "--json",
+                ],
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "Use either --wait or --wait-result, not both.",
+            );
+            expect(result.stderr).not.toContain("Log in first");
+            expect(result.stderr).not.toContain("Failed to read input");
         }
         finally {
             await sandbox.cleanup();
@@ -1418,6 +2067,7 @@ describe("connectorCommand CLI", () => {
                     error_code: "invalid_input",
                     http_status: 400,
                     service: "gmail",
+                    wait: false,
                 },
             });
         }
@@ -1426,44 +2076,15 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("surfaces failing async poll action name and html body diagnostics on non-standard 500", async () => {
+    test("surfaces failing async result action name and html body diagnostics on non-standard 500", async () => {
         const sandbox = await createCliSandbox();
-        const originalSleep = Bun.sleep;
+        const sleepMock = createBunSleepMock();
 
         try {
-            Bun.sleep = ((_durationMs: number) => Promise.resolve()) as typeof Bun.sleep;
-
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(
                 sandbox,
-                {
-                    asyncLifecycle: {
-                        defaultRunMode: "wait",
-                        kind: "poll",
-                        poll: {
-                            action: "openai_image_async_result",
-                            handleInputField: "sessionID",
-                            handleOutputField: "sessionId",
-                            intervalSeconds: 3,
-                        },
-                        resultField: "data",
-                        state: {
-                            failure: ["not_found"],
-                            field: "state",
-                            running: ["processing"],
-                            success: ["completed"],
-                        },
-                    },
-                    description: "Submit OpenAI image generation.",
-                    inputSchema: {
-                        type: "object",
-                    },
-                    name: "openai_image_async_submit",
-                    outputSchema: {
-                        type: "object",
-                    },
-                    service: "fusion-api",
-                },
+                createAsyncResultActionSchema(),
             );
 
             const result = await sandbox.run(
@@ -1473,51 +2094,33 @@ describe("connectorCommand CLI", () => {
                     "run",
                     "fusion-api",
                     "-a",
-                    "openai_image_async_submit",
+                    "openai_image_async_result",
                     "-d",
-                    "{\"prompt\":\"a cat\"}",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
                     "--json",
                 ],
                 {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
-
-                        if (request.url.endsWith("openai_image_async_submit")) {
-                            return new Response(JSON.stringify({
-                                data: {
-                                    sessionId: "session-1",
-                                },
-                                meta: {
-                                    executionId: "submit-exec",
-                                },
-                            }));
-                        }
-
-                        // Simulate a non-standard upstream 500: HTML body + trace headers,
-                        // no JSON failure schema match.
-                        return new Response(
-                            "<html><body>Internal Server Error</body></html>",
-                            {
-                                headers: {
-                                    "cf-ray": "abcdef1234-SJC",
-                                    "content-type": "text/html; charset=utf-8",
-                                    "x-request-id": "req-abc-123",
-                                },
-                                status: 500,
+                    fetcher: async () => new Response(
+                        "<html><body>Internal Server Error</body></html>",
+                        {
+                            headers: {
+                                "cf-ray": "abcdef1234-SJC",
+                                "content-type": "text/html; charset=utf-8",
+                                "x-request-id": "req-abc-123",
                             },
-                        );
-                    },
+                            status: 500,
+                        },
+                    ),
                 },
             );
 
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(1);
-            // The failing action is the poll action, not the submit action that the user typed.
             expect(result.stderr).toContain(
                 "Connector action openai_image_async_result returned HTTP 500.",
             );
-            // Debug log records the failing poll action.
             expect(content).toContain("\"actionName\":\"openai_image_async_result\"");
             // Safe bounded diagnostics:
             expect(content).toContain("\"responseBodyLength\":");
@@ -1531,7 +2134,7 @@ describe("connectorCommand CLI", () => {
             expect(content).not.toContain("\"responseBody\":");
         }
         finally {
-            Bun.sleep = originalSleep;
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });
@@ -1839,20 +2442,11 @@ describe("connectorCommand CLI", () => {
                             return new Response(JSON.stringify({
                                 data: {
                                     asyncLifecycle: {
-                                        defaultRunMode: "wait",
-                                        kind: "poll",
-                                        poll: {
-                                            action: "openai_image_async_result",
-                                            handleInputField: "sessionID",
-                                            handleOutputField: "sessionId",
-                                            intervalSeconds: 3,
-                                        },
-                                        resultField: "data",
-                                        state: {
-                                            failure: ["not_found"],
-                                            field: "state",
-                                            running: ["processing"],
-                                            success: ["completed"],
+                                        role: "submit",
+                                        resultAction: "openai_image_async_result",
+                                        handle: {
+                                            inputField: "sessionID",
+                                            outputField: "sessionId",
                                         },
                                     },
                                     description: "Submit OpenAI image generation.",
@@ -1875,37 +2469,9 @@ describe("connectorCommand CLI", () => {
                             }));
                         }
 
-                        return new Response(JSON.stringify({
-                            data: {
-                                description: "Get OpenAI image generation result.",
-                                inputSchema: {
-                                    type: "object",
-                                },
-                                name: "openai_image_async_result",
-                                outputSchema: {
-                                    properties: {
-                                        data: {
-                                            properties: {
-                                                images: {
-                                                    items: {
-                                                        type: "string",
-                                                    },
-                                                    type: "array",
-                                                },
-                                            },
-                                            type: "object",
-                                        },
-                                        state: {
-                                            type: "string",
-                                        },
-                                    },
-                                    type: "object",
-                                },
-                                providerPermissions: [],
-                                requiredScopes: [],
-                                service: "fusion-api",
-                            },
-                        }));
+                        return new Response("unexpected", {
+                            status: 500,
+                        });
                     },
                 },
             );
@@ -1915,11 +2481,8 @@ describe("connectorCommand CLI", () => {
                 name: "openai_image_async_submit",
                 outputSchema: {
                     properties: {
-                        images: {
-                            items: {
-                                type: "string",
-                            },
-                            type: "array",
+                        sessionId: {
+                            type: "string",
                         },
                     },
                     type: "object",
@@ -1928,7 +2491,6 @@ describe("connectorCommand CLI", () => {
             });
             expect(requests.map(request => request.url)).toEqual([
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
-                "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
             ]);
         }
         finally {
@@ -2143,6 +2705,98 @@ type SeedConnectorAction = ConnectorActionDefinition & Partial<Pick<
     ConnectorActionMetadata,
     "asyncLifecycle" | "providerPermissions" | "requiredScopes"
 >>;
+
+function createAsyncSubmitActionSchema(
+    overrides: Partial<SeedConnectorAction> = {},
+): SeedConnectorAction {
+    return {
+        asyncLifecycle: {
+            role: "submit",
+            resultAction: "openai_image_async_result",
+            handle: {
+                inputField: "sessionID",
+                outputField: "sessionId",
+            },
+        },
+        description: "Submit OpenAI image generation.",
+        inputSchema: {
+            properties: {
+                prompt: {
+                    type: "string",
+                },
+            },
+            required: ["prompt"],
+            type: "object",
+        },
+        name: "openai_image_async_submit",
+        outputSchema: {
+            properties: {
+                sessionId: {
+                    type: "string",
+                },
+            },
+            required: ["sessionId"],
+            type: "object",
+        },
+        service: "fusion-api",
+        ...overrides,
+    };
+}
+
+function createAsyncResultActionSchema(
+    overrides: Partial<SeedConnectorAction> = {},
+): SeedConnectorAction {
+    return {
+        asyncLifecycle: {
+            role: "result",
+            wait: {
+                intervalSeconds: 3,
+                resultField: "data",
+                state: {
+                    failure: ["not_found"],
+                    field: "state",
+                    running: ["processing"],
+                    success: ["completed"],
+                },
+            },
+        },
+        description: "Get OpenAI image generation result.",
+        inputSchema: {
+            properties: {
+                sessionID: {
+                    type: "string",
+                },
+            },
+            required: ["sessionID"],
+            type: "object",
+        },
+        name: "openai_image_async_result",
+        outputSchema: {
+            type: "object",
+        },
+        service: "fusion-api",
+        ...overrides,
+    };
+}
+
+function createBunSleepMock(onSleep?: (durationMs: number) => void) {
+    const originalSleep = Bun.sleep;
+    const sleepCalls: number[] = [];
+
+    Bun.sleep = ((durationMs: number) => {
+        sleepCalls.push(durationMs);
+        onSleep?.(durationMs);
+
+        return Promise.resolve();
+    }) as typeof Bun.sleep;
+
+    return {
+        restore: () => {
+            Bun.sleep = originalSleep;
+        },
+        sleepCalls,
+    };
+}
 
 async function seedConnectorActionSchema(
     sandbox: {

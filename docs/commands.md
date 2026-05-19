@@ -386,20 +386,30 @@ Validate input data and run one connector action.
 - Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
   `--input <data>` is an alias for `--data <data>`.
 - Options: `--dry-run` validates the payload without executing the action.
+- Options: `--wait` polls the selected action until it reaches a terminal state.
+  This option is only valid when the selected action schema declares an async
+  result lifecycle.
+- Options: `--wait-result` submits an async submit action and then polls its
+  configured result action. This option is only valid when the selected action
+  schema declares an async submit lifecycle.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.
+- Output: for async submit actions, the default output is the submit result,
+  such as a handle or session id. The CLI does not wait automatically.
+- Output: with `--wait-result`, JSON output uses the completed result in `data`
+  and includes `meta.pollAction`, `meta.pollCount`, `meta.submitExecutionId`,
+  and `meta.handle`.
+- Output: for async result actions, the default output is one result action
+  response. With `--wait`, JSON output uses the completed result in `data` and
+  includes `meta.pollCount`.
 - Output: dry-run JSON output returns `{ dryRun, ok }`.
 - Errors: stderr prints the HTTP status and includes the server `message`
   and `errorCode` when the failure response provides them.
 - Notes: the command validates the input against the selected action contract
   before executing.
-- Notes: actions whose schema declares `asyncLifecycle.defaultRunMode` as
-  `wait` are automatically polled until completion. In that case JSON output
-  uses the completed run result in `data`, and the original async handle is
-  included in `meta.handle`.
-- Notes: while polling an async action in text mode, interactive terminals show
-  progress on stderr. JSON output does not include progress text.
+- Notes: while waiting for an async result action in text mode, interactive
+  terminals show progress on stderr. JSON output does not include progress text.
 
 ## Search
 

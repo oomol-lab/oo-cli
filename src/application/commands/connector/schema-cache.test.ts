@@ -235,33 +235,29 @@ describe("connector schema cache", () => {
         });
     });
 
-    test("loadConnectorActionSchema rejects async lifecycle with non-positive poll interval", async () => {
+    test("loadConnectorActionSchema rejects async lifecycle with non-positive wait interval", async () => {
         await expect(loadConnectorActionSchema(
             {
                 account: createAccount(),
-                actionName: "openai_image_async_submit",
+                actionName: "openai_image_async_result",
                 serviceName: "fusion-api",
             },
             createCacheContext({
                 fetcher: async () => createMetadataResponse({
                     asyncLifecycle: {
-                        defaultRunMode: "wait",
-                        kind: "poll",
-                        poll: {
-                            action: "openai_image_async_result",
-                            handleInputField: "sessionID",
-                            handleOutputField: "sessionId",
+                        role: "result",
+                        wait: {
                             intervalSeconds: 0,
-                        },
-                        resultField: "data",
-                        state: {
-                            failure: ["not_found"],
-                            field: "state",
-                            running: ["processing"],
-                            success: ["completed"],
+                            resultField: "data",
+                            state: {
+                                failure: ["not_found"],
+                                field: "state",
+                                running: ["processing"],
+                                success: ["completed"],
+                            },
                         },
                     },
-                    name: "openai_image_async_submit",
+                    name: "openai_image_async_result",
                     service: "fusion-api",
                 }),
             }),
@@ -401,23 +397,14 @@ describe("connector schema cache", () => {
         });
     });
 
-    test("createConnectorActionSchemaOutput derives the public output schema for async actions", () => {
+    test("createConnectorActionSchemaOutput preserves async submit output schema", () => {
         const schema = {
             asyncLifecycle: {
-                defaultRunMode: "wait",
-                kind: "poll",
-                poll: {
-                    action: "openai_image_async_result",
-                    handleInputField: "sessionID",
-                    handleOutputField: "sessionId",
-                    intervalSeconds: 3,
-                },
-                resultField: "data",
-                state: {
-                    failure: ["not_found"],
-                    field: "state",
-                    running: ["processing"],
-                    success: ["completed"],
+                role: "submit",
+                resultAction: "openai_image_async_result",
+                handle: {
+                    inputField: "sessionID",
+                    outputField: "sessionId",
                 },
             },
             description: "Submit OpenAI image generation.",
@@ -437,37 +424,8 @@ describe("connector schema cache", () => {
             requiredScopes: [],
             service: "fusion-api",
         } satisfies ConnectorActionMetadata;
-        const pollActionSchema = {
-            description: "Get OpenAI image generation result.",
-            inputSchema: {
-                type: "object",
-            },
-            name: "openai_image_async_result",
-            outputSchema: {
-                properties: {
-                    data: {
-                        properties: {
-                            images: {
-                                items: {
-                                    type: "string",
-                                },
-                                type: "array",
-                            },
-                        },
-                        type: "object",
-                    },
-                    state: {
-                        type: "string",
-                    },
-                },
-                type: "object",
-            },
-            providerPermissions: [],
-            requiredScopes: [],
-            service: "fusion-api",
-        } satisfies ConnectorActionMetadata;
 
-        expect(createConnectorActionSchemaOutput(schema, { pollActionSchema })).toEqual({
+        expect(createConnectorActionSchemaOutput(schema)).toEqual({
             description: "Submit OpenAI image generation.",
             inputSchema: {
                 type: "object",
@@ -475,11 +433,8 @@ describe("connector schema cache", () => {
             name: "openai_image_async_submit",
             outputSchema: {
                 properties: {
-                    images: {
-                        items: {
-                            type: "string",
-                        },
-                        type: "array",
+                    sessionId: {
+                        type: "string",
                     },
                 },
                 type: "object",
@@ -488,9 +443,21 @@ describe("connector schema cache", () => {
         });
     });
 
-    test("createConnectorActionSchemaOutput derives the public output schema from anyOf result branches", () => {
-        const schema = createAsyncSubmitSchemaFixture();
-        const pollActionSchema = {
+    test("createConnectorActionSchemaOutput preserves async result output schema", () => {
+        const schema = {
+            asyncLifecycle: {
+                role: "result",
+                wait: {
+                    intervalSeconds: 3,
+                    resultField: "data",
+                    state: {
+                        failure: ["not_found"],
+                        field: "state",
+                        running: ["processing"],
+                        success: ["completed"],
+                    },
+                },
+            },
             description: "Get OpenAI image generation result.",
             inputSchema: {
                 type: "object",
@@ -539,82 +506,15 @@ describe("connector schema cache", () => {
             service: "fusion-api",
         } satisfies ConnectorActionMetadata;
 
-        expect(createConnectorActionSchemaOutput(schema, { pollActionSchema }).outputSchema).toEqual({
-            properties: {
-                images: {
-                    items: {
-                        type: "string",
-                    },
-                    type: "array",
-                },
-            },
-            type: "object",
-        });
-    });
-
-    test("createConnectorActionSchemaOutput requires the poll action schema for async actions", () => {
-        const createOutput = createConnectorActionSchemaOutput as (
-            schema: ConnectorActionMetadata,
-        ) => unknown;
-
-        expect(() =>
-            createOutput(createAsyncSubmitSchemaFixture()),
-        ).toThrow("errors.connectorSchema.asyncPollSchemaMissing");
-    });
-
-    test("createConnectorActionSchemaOutput fails when async result schema field is missing", () => {
-        const schema = {
-            asyncLifecycle: {
-                defaultRunMode: "wait",
-                kind: "poll",
-                poll: {
-                    action: "openai_image_async_result",
-                    handleInputField: "sessionID",
-                    handleOutputField: "sessionId",
-                    intervalSeconds: 3,
-                },
-                resultField: "data",
-                state: {
-                    failure: ["not_found"],
-                    field: "state",
-                    running: ["processing"],
-                    success: ["completed"],
-                },
-            },
-            description: "Submit OpenAI image generation.",
-            inputSchema: {
-                type: "object",
-            },
-            name: "openai_image_async_submit",
-            outputSchema: {
-                type: "object",
-            },
-            providerPermissions: [],
-            requiredScopes: [],
-            service: "fusion-api",
-        } satisfies ConnectorActionMetadata;
-        const pollActionSchema = {
+        expect(createConnectorActionSchemaOutput(schema)).toEqual({
             description: "Get OpenAI image generation result.",
             inputSchema: {
                 type: "object",
             },
             name: "openai_image_async_result",
-            outputSchema: {
-                properties: {
-                    state: {
-                        type: "string",
-                    },
-                },
-                type: "object",
-            },
-            providerPermissions: [],
-            requiredScopes: [],
+            outputSchema: schema.outputSchema,
             service: "fusion-api",
-        } satisfies ConnectorActionMetadata;
-
-        expect(() =>
-            createConnectorActionSchemaOutput(schema, { pollActionSchema }),
-        ).toThrow("errors.connectorSchema.asyncResultSchemaMissing");
+        });
     });
 
     test("isConnectorActionSchemaNotFoundError detects 404 and action_not_found failures", () => {
@@ -675,44 +575,6 @@ function createAccount() {
         apiKey: "secret-1",
         endpoint: "oomol.com",
         id: "user-1",
-    };
-}
-
-function createAsyncSubmitSchemaFixture(): ConnectorActionMetadata {
-    return {
-        asyncLifecycle: {
-            defaultRunMode: "wait",
-            kind: "poll",
-            poll: {
-                action: "openai_image_async_result",
-                handleInputField: "sessionID",
-                handleOutputField: "sessionId",
-                intervalSeconds: 3,
-            },
-            resultField: "data",
-            state: {
-                failure: ["not_found"],
-                field: "state",
-                running: ["processing"],
-                success: ["completed"],
-            },
-        },
-        description: "Submit OpenAI image generation.",
-        inputSchema: {
-            type: "object",
-        },
-        name: "openai_image_async_submit",
-        outputSchema: {
-            properties: {
-                sessionId: {
-                    type: "string",
-                },
-            },
-            type: "object",
-        },
-        providerPermissions: [],
-        requiredScopes: [],
-        service: "fusion-api",
     };
 }
 
