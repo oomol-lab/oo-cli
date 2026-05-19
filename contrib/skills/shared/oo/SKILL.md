@@ -86,6 +86,13 @@ These rules override every local heuristic.
    the named blocker without changing the user's intent, try that fallback once.
    Otherwise do not retry blindly, and do not replace a remote `oo` capability
    with local code or direct third-party APIs.
+10. Reference reads are non-negotiable. Before invoking the first command in
+    an `oo` command domain during a turn, read the corresponding file under
+    `references/` unless it was already read in this turn. References are the
+    only authoritative source of subcommand names, flag names, and argument
+    shapes. Do not infer command shapes from prior CLI knowledge. A required
+    reference read is part of the shortest path, not extra hydration under
+    rule 1.
 
 ## Operating state machine
 
@@ -122,22 +129,22 @@ proves its output.
    Use the fallback only when the primary path hits a named blocker the fallback
    avoids without changing the user's intent.
 5. Inspect contract
-   Package-backed: read
-   [references/package-execution.md](references/package-execution.md), then
-   inspect package metadata. Connector-backed: read
-   [references/connector-execution.md](references/connector-execution.md), then
-   inspect the contract with `oo connector schema "<service>" --action
-   "<action>"`. File-like inputs or artifact downloads may require
-   [references/file-transfer.md](references/file-transfer.md).
+   Read [references/package-execution.md](references/package-execution.md) for
+   the package-backed path or
+   [references/connector-execution.md](references/connector-execution.md) for
+   the connector-backed path before inspecting the contract, and use only the
+   canonical forms documented there. File-like inputs or artifact downloads
+   may require [references/file-transfer.md](references/file-transfer.md).
 6. Build payload
    Use only fields exposed by the selected contract. Prefer user-provided values
    over defaults, samples, and placeholders. Ask one focused follow-up only when
    a required value is missing, risky to infer, destructive, broadly shared, or
    externally visible but ambiguous.
 7. Execute
-   Execute the selected package or connector path through `oo`. For package
-   tasks, `oo cloud-task run` returns a task handle, not the final result; after
-   a `taskID` exists, read
+   Execute the selected package or connector path through `oo`, using only the
+   canonical shape documented in the reference read at step 5. For package
+   tasks, `oo cloud-task run` returns a task handle, not the final result;
+   after a `taskID` exists, read
    [references/task-lifecycle.md](references/task-lifecycle.md).
 8. Materialize
    Save outputs locally only when doing so helps the user and the selected path
