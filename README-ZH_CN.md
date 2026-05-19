@@ -1,23 +1,52 @@
-# oo
+<p align="center">
+  <img src="./docs/assets/logo.png" alt="oo" width="120" />
+</p>
 
-[English](./README.md) | [简体中文](./README-ZH_CN.md)
+<h1 align="center">oo</h1>
 
-`oo` 是 OOMOL 的命令行工具，用来在终端里处理 OOMOL 账号、package 和云端任务相关操作。
+<p align="center">
+  把 AI Agent 接入 OOMOL 托管能力和你已链接的账号。
+</p>
 
-## 简介
+<p align="center">
+  <a href="https://github.com/oomol-lab/oo-cli/releases/latest"><img src="https://img.shields.io/github/v/release/oomol-lab/oo-cli?display_name=tag" alt="Release" /></a>
+  <a href="https://github.com/oomol-lab/oo-cli/actions/workflows/publish.yaml"><img src="https://img.shields.io/github/actions/workflow/status/oomol-lab/oo-cli/publish.yaml?branch=main&label=Publish" alt="Publish" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/oomol-lab/oo-cli" alt="License" /></a>
+  <a href="https://console.oomol.com/connections"><img src="https://img.shields.io/badge/console-oomol.com-blue" alt="Console" /></a>
+</p>
 
-`oo` 为常见的 OOMOL 终端工作流提供统一入口，包括账号认证、持久化 CLI
-配置、package 搜索与信息查看、cloud task 执行，以及 shell 补全脚本生成。
+<p align="center">
+  <a href="./README.md">English</a> · <a href="./README-ZH_CN.md">简体中文</a>
+</p>
+
+---
+
+## oo 是什么
+
+`oo` 是一个 CLI，让本机的 AI Agent 能发现、查看并调用 OOMOL 托管能力，以及你
+已经链接的第三方账号。
+
+通过 `oo` 可以触达两类能力：
+
+- **链接账号**：你在 [OOMOL Console][connections] 一次性授权的第三方服务
+  （Gmail、Google Calendar、Google Drive、Notion、Slack、GitHub 等）。授权完成
+  后，AI Agent 即可通过 `oo` 调用它们，无需再次登录。
+- **托管能力**：OOMOL 维护的 AI 管线，包括 OCR、翻译、转写、TTS、文生图、字幕、
+  长文档理解等。
+
+你不需要记任何命令——内置 skill 会告诉受支持的 AI Agent 何时、如何把工作区之外
+的任务路由给 `oo`。
+
+## 工作方式
+
+1. **在本机安装 `oo`**。
+2. **执行 `oo login`** 把本机绑定到你的 OOMOL 账号。
+3. **在 <https://console.oomol.com/connections> 链接服务**，然后用自然语言告诉
+   AI Agent 你的意图——内置 `oo` skill 会指导它选择并调用合适的能力。
 
 ## 安装
 
-按你的平台选择对应命令：
-
-macOS / Linux（二选一）：
-
-```bash
-wget -qO - https://cli.oomol.com/install.sh | bash
-```
+macOS / Linux：
 
 ```bash
 curl -fsSL https://cli.oomol.com/install.sh | bash
@@ -29,82 +58,42 @@ Windows PowerShell：
 irm https://cli.oomol.com/install.ps1 | iex
 ```
 
-Windows CMD：
-
-```bat
-curl -fsSL https://cli.oomol.com/install.cmd -o install.cmd && install.cmd && del install.cmd
-```
+其他安装脚本（`wget`、Windows CMD 等）见 <https://oomol.com/cli/>。
 
 ## 快速开始
-
-1. 登录：
 
 ```bash
 oo login
 ```
 
-2. 打开 Codex，输入下面这句开始工作：
+然后用自然语言告诉 AI Agent 你想做什么，不需要记命令：
 
-```text
-$oo 帮我生成 OOMOL 字符串的二维码
-```
+> /oo 总结今天未读的 Gmail 邮件。
 
-## 内置 Skill
+> /oo 找到适合从这个 PDF 提取文字的能力。
 
-首次打开 `oo` 之后，只要本地已存在受支持的宿主目录，就会自动安装内置
-skills：
+`/oo` 是内置 skill 约定的触发前缀，Agent 会通过 `oo` 把请求路由到对应的能力。
 
-- Codex：`${CODEX_HOME:-~/.codex}/skills/oo` 和
-  `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`
-- Claude Code：`~/.claude/skills/oo` 和
-  `~/.claude/skills/oo-find-skills`
-- Hermes：`${HERMES_HOME:-~/.hermes}/skills/oo` 和
-  `${HERMES_HOME:-~/.hermes}/skills/oo-find-skills`
-- CodeBuddy：`~/.codebuddy/skills/oo` 和
-  `~/.codebuddy/skills/oo-find-skills`
-- WorkBuddy：`~/.workbuddy/skills/oo` 和
-  `~/.workbuddy/skills/oo-find-skills`
-- Trae：`~/.trae/skills/oo` 和 `~/.trae/skills/oo-find-skills`
-- Trae CN：`~/.trae-cn/skills/oo` 和
-  `~/.trae-cn/skills/oo-find-skills`
-- OpenClaw：`${OPENCLAW_HOME:-~/.openclaw}/skills/oo` 和
-  `${OPENCLAW_HOME:-~/.openclaw}/skills/oo-find-skills`
-- QoderWork：`~/.qoderwork/skills/oo` 和
-  `~/.qoderwork/skills/oo-find-skills`
+## 受支持的 AI Agent
 
-之后你就可以在任一受支持宿主中使用它们。比如在 Codex 中：
+首次启动时，`oo` 会向本机已存在的以下 AI Agent 宿主安装内置 skill：
+Codex、Claude Code、Hermes、CodeBuddy、WorkBuddy、Trae、Trae CN、OpenClaw、
+QoderWork、DeepSeek TUI。
 
-```text
-$oo 帮我生成 OOMOL 字符串的二维码
-```
+内置 skill 会随 `oo` 每次发布同步更新。具体的 skill 安装位置和手动管理方式见
+[命令参考](./docs/commands.zh-CN.md)。
 
-也可以手动安装全部内置 skills：
+## 隐私
 
-```bash
-oo skills install
-```
+`oo` 默认记录受隐私约束的 telemetry，事件不包含自由文本输入、路径、用户名、
+hostname、IP 地址、真实 OOMOL 账号 ID 或账号名。Telemetry 控制方式和完整隐私
+边界见 [PRIVACY-ZH_CN.md](./PRIVACY-ZH_CN.md)。
 
-如果你想单独安装搜索辅助 skill，也可以执行：
+## 链接
 
-```bash
-oo skills install oo-find-skills
-```
-
-## Telemetry
-
-`oo` 默认记录受隐私约束的命令使用 telemetry。Telemetry 事件不包含
-free-form 输入文本、路径、用户名、hostname、IP 地址、真实 OOMOL 账号 ID
-或账号名。事件会关闭 PostHog person profile 处理，并使用本地随机 device id
-做设备级聚合。
-
-可以通过 `oo telemetry disable`、`OO_TELEMETRY_DISABLED=1` 或
-`DO_NOT_TRACK=1` 关闭 telemetry。使用 `oo telemetry status` 查看实际开关状态和本地待发送事件数量。
-完整边界见 [PRIVACY-ZH_CN.md](./PRIVACY-ZH_CN.md)。
-
-## 文档
-
+- [OOMOL Console — Connections](https://console.oomol.com/connections)
 - [命令参考](./docs/commands.zh-CN.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Privacy](./PRIVACY-ZH_CN.md)
 
-## 贡献
-
-贡献流程和仓库约定见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+[connections]: https://console.oomol.com/connections

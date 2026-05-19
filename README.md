@@ -1,25 +1,56 @@
-# oo
+<p align="center">
+  <img src="./docs/assets/logo.png" alt="oo" width="120" />
+</p>
 
-[English](./README.md) | [简体中文](./README-ZH_CN.md)
+<h1 align="center">oo</h1>
 
-`oo` is OOMOL's command-line interface for working with OOMOL accounts,
-packages, and cloud tasks from the terminal.
+<p align="center">
+  Plug AI agents into OOMOL's hosted capabilities and your connected accounts.
+</p>
 
-## Overview
+<p align="center">
+  <a href="https://github.com/oomol-lab/oo-cli/releases/latest"><img src="https://img.shields.io/github/v/release/oomol-lab/oo-cli?display_name=tag" alt="Release" /></a>
+  <a href="https://github.com/oomol-lab/oo-cli/actions/workflows/publish.yaml"><img src="https://img.shields.io/github/actions/workflow/status/oomol-lab/oo-cli/publish.yaml?branch=main&label=Publish" alt="Publish" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/oomol-lab/oo-cli" alt="License" /></a>
+  <a href="https://console.oomol.com/connections"><img src="https://img.shields.io/badge/console-oomol.com-blue" alt="Console" /></a>
+</p>
 
-`oo` provides a terminal interface for common OOMOL workflows. It covers
-account authentication, persisted CLI configuration, package discovery, package
-inspection, cloud task execution, and shell completion generation.
+<p align="center">
+  <a href="./README.md">English</a> · <a href="./README-ZH_CN.md">简体中文</a>
+</p>
 
-## Installation
+---
 
-Choose the command for your platform:
+## What is oo?
 
-macOS / Linux (pick one):
+`oo` is the CLI that lets AI agents on your machine discover, inspect, and call
+OOMOL's hosted capabilities and the third-party services you've already
+connected.
 
-```bash
-wget -qO - https://cli.oomol.com/install.sh | bash
-```
+Two kinds of capabilities are reachable through `oo`:
+
+- **Connected accounts** — third-party services you authorize once in the
+  [OOMOL Console][connections] (Gmail, Google Calendar, Google Drive, Notion,
+  Slack, GitHub, and more). Once a service is connected, your AI agent can act
+  on it through `oo` without re-authenticating.
+- **Hosted capabilities** — managed AI pipelines such as OCR, translation,
+  transcription, text-to-speech, text-to-image, subtitling, and long-document
+  understanding.
+
+You don't memorize commands. The bundled skills teach supported AI agents
+when and how to route out-of-workspace work through `oo`.
+
+## How it works
+
+1. **Install `oo`** on this machine.
+2. **Run `oo login`** to link this machine to your OOMOL account.
+3. **Connect services** at <https://console.oomol.com/connections>, then ask
+   your AI agent — the bundled `oo` skill tells it when and how to call the
+   right capability.
+
+## Install
+
+macOS / Linux:
 
 ```bash
 curl -fsSL https://cli.oomol.com/install.sh | bash
@@ -31,84 +62,46 @@ Windows PowerShell:
 irm https://cli.oomol.com/install.ps1 | iex
 ```
 
-Windows CMD:
+Other install scripts (`wget`, Windows CMD, etc.) are listed at
+<https://oomol.com/cli/>.
 
-```bat
-curl -fsSL https://cli.oomol.com/install.cmd -o install.cmd && install.cmd && del install.cmd
-```
-
-## Quick Start
-
-1. Log in:
+## Quick start
 
 ```bash
 oo login
 ```
 
-2. Open Codex and start working with:
+Then talk to your AI agent in natural language — describe intent, not commands:
 
-```text
-$oo generate a QR code for the string OOMOL
-```
+> /oo summarize unread Gmail messages from today.
 
-## Bundled Skills
+> /oo find the right capability for extracting text from this PDF.
 
-On the first `oo` launch, bundled skills are installed automatically into each
-supported local host that already exists:
+`/oo` is the prompt convention picked up by the bundled skill; the agent will
+route the request through `oo` for you.
 
-- Codex: `${CODEX_HOME:-~/.codex}/skills/oo` and
-  `${CODEX_HOME:-~/.codex}/skills/oo-find-skills`
-- Claude Code: `~/.claude/skills/oo` and `~/.claude/skills/oo-find-skills`
-- Hermes: `${HERMES_HOME:-~/.hermes}/skills/oo` and
-  `${HERMES_HOME:-~/.hermes}/skills/oo-find-skills`
-- CodeBuddy: `~/.codebuddy/skills/oo` and
-  `~/.codebuddy/skills/oo-find-skills`
-- WorkBuddy: `~/.workbuddy/skills/oo` and
-  `~/.workbuddy/skills/oo-find-skills`
-- Trae: `~/.trae/skills/oo` and `~/.trae/skills/oo-find-skills`
-- Trae CN: `~/.trae-cn/skills/oo` and
-  `~/.trae-cn/skills/oo-find-skills`
-- OpenClaw: `${OPENCLAW_HOME:-~/.openclaw}/skills/oo` and
-  `${OPENCLAW_HOME:-~/.openclaw}/skills/oo-find-skills`
-- QoderWork: `~/.qoderwork/skills/oo` and
-  `~/.qoderwork/skills/oo-find-skills`
+## Supported AI agents
 
-Then you can use them in any supported host. For example, in Codex:
+On first launch, `oo` installs bundled skills into any of the following AI
+agent hosts that already exist on this machine: Codex, Claude Code, Hermes,
+CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork, and DeepSeek TUI.
 
-```text
-$oo generate a QR code for the string OOMOL
-```
+Bundled skills are kept in sync with each `oo` release. See the
+[command reference](./docs/commands.md) for the exact skill targets and how to
+manage them manually.
 
-You can also install all bundled skills explicitly with:
+## Privacy
 
-```bash
-oo skills install
-```
+`oo` records privacy-constrained telemetry by default. Events do not include
+free-form input text, paths, usernames, hostnames, IP addresses, real OOMOL
+account ids, or account names. Telemetry controls and the full boundary are
+documented in [PRIVACY.md](./PRIVACY.md).
 
-And you can install the search helper explicitly with:
+## Links
 
-```bash
-oo skills install oo-find-skills
-```
-
-## Telemetry
-
-`oo` records privacy-constrained command usage telemetry by default. Telemetry
-events do not include free-form input text, paths, usernames, hostnames, IP
-addresses, real OOMOL account ids, or account names. Events are sent with
-PostHog person profile processing disabled and use a random local device id for
-device-level aggregation.
-
-Disable telemetry with `oo telemetry disable`, `OO_TELEMETRY_DISABLED=1`, or
-`DO_NOT_TRACK=1`. Use `oo telemetry status` to inspect the effective state and
-pending local event count. See [PRIVACY.md](./PRIVACY.md) for the full
-telemetry boundary.
-
-## Documentation
-
+- [OOMOL Console — Connections](https://console.oomol.com/connections)
 - [Command reference](./docs/commands.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Privacy](./PRIVACY.md)
 
-## Contributing
-
-For contribution workflow and repository conventions, see
-[CONTRIBUTING.md](./CONTRIBUTING.md).
+[connections]: https://console.oomol.com/connections
