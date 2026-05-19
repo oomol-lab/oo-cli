@@ -663,16 +663,9 @@ describe("connectorCommand CLI", () => {
 
     test("waits for async result lifecycle completion when --wait is enabled", async () => {
         const sandbox = await createCliSandbox();
-        const originalSleep = Bun.sleep;
-        const sleepCalls: number[] = [];
+        const sleepMock = createBunSleepMock();
 
         try {
-            Bun.sleep = ((durationMs: number) => {
-                sleepCalls.push(durationMs);
-
-                return Promise.resolve();
-            }) as typeof Bun.sleep;
-
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(
                 sandbox,
@@ -765,26 +758,19 @@ describe("connectorCommand CLI", () => {
                     sessionID: "session-1",
                 },
             });
-            expect(sleepCalls).toEqual([3_000]);
+            expect(sleepMock.sleepCalls).toEqual([3_000]);
         }
         finally {
-            Bun.sleep = originalSleep;
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });
 
     test("submits async actions and waits for result action completion when --wait-result is enabled", async () => {
         const sandbox = await createCliSandbox();
-        const originalSleep = Bun.sleep;
-        const sleepCalls: number[] = [];
+        const sleepMock = createBunSleepMock();
 
         try {
-            Bun.sleep = ((durationMs: number) => {
-                sleepCalls.push(durationMs);
-
-                return Promise.resolve();
-            }) as typeof Bun.sleep;
-
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
             await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
@@ -892,26 +878,94 @@ describe("connectorCommand CLI", () => {
                     sessionID: "session-1",
                 },
             });
-            expect(sleepCalls).toEqual([3_000]);
+            expect(sleepMock.sleepCalls).toEqual([3_000]);
         }
         finally {
-            Bun.sleep = originalSleep;
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("preserves the original async submit handle value in wait-result metadata", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const requests: Request[] = [];
+            const responses = [
+                {
+                    data: {
+                        sessionId: 42,
+                    },
+                    meta: {
+                        executionId: "submit-exec",
+                    },
+                },
+                {
+                    data: {
+                        data: {
+                            images: ["image-1"],
+                        },
+                        state: "completed",
+                    },
+                    meta: {
+                        executionId: "poll-exec",
+                    },
+                },
+            ];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify(responses.shift()));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    images: ["image-1"],
+                },
+                meta: {
+                    executionId: "poll-exec",
+                    handle: 42,
+                    pollAction: "openai_image_async_result",
+                    pollCount: 1,
+                    submitExecutionId: "submit-exec",
+                },
+            });
+            await expect(requests[1]?.json()).resolves.toEqual({
+                input: {
+                    sessionID: 42,
+                },
+            });
+        }
+        finally {
             await sandbox.cleanup();
         }
     });
 
     test("runs async result actions once when --wait is omitted", async () => {
         const sandbox = await createCliSandbox();
-        const originalSleep = Bun.sleep;
-        const sleepCalls: number[] = [];
+        const sleepMock = createBunSleepMock();
 
         try {
-            Bun.sleep = ((durationMs: number) => {
-                sleepCalls.push(durationMs);
-
-                return Promise.resolve();
-            }) as typeof Bun.sleep;
-
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
 
@@ -954,21 +1008,19 @@ describe("connectorCommand CLI", () => {
                 },
             });
             expect(requests).toHaveLength(1);
-            expect(sleepCalls).toEqual([]);
+            expect(sleepMock.sleepCalls).toEqual([]);
         }
         finally {
-            Bun.sleep = originalSleep;
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });
 
     test("renders async lifecycle progress to stderr for interactive connector run", async () => {
         const sandbox = await createCliSandbox();
-        const originalSleep = Bun.sleep;
+        const sleepMock = createBunSleepMock();
 
         try {
-            Bun.sleep = (() => Promise.resolve()) as typeof Bun.sleep;
-
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(
                 sandbox,
@@ -1023,7 +1075,7 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("\"images\":");
         }
         finally {
-            Bun.sleep = originalSleep;
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });
@@ -1165,6 +1217,54 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("does not render async completion progress when final result extraction fails", async () => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--wait",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            state: "completed",
+                        },
+                        meta: {
+                            executionId: "poll-exec",
+                        },
+                    })),
+                    stderr: {
+                        isTTY: true,
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(
+                "The async connector action poll response is missing result field data.",
+            );
+            expect(result.stderr).not.toContain(
+                "Completed openai_image_async_result",
+            );
+        }
+        finally {
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
     test("fails async connector wait when state field is missing", async () => {
         const sandbox = await createCliSandbox();
 
@@ -1294,16 +1394,13 @@ describe("connectorCommand CLI", () => {
     test("times out async connector wait", async () => {
         const sandbox = await createCliSandbox();
         const originalDateNow = Date.now;
-        const originalSleep = Bun.sleep;
+        let now = 0;
+        const sleepMock = createBunSleepMock((durationMs) => {
+            now += durationMs + 1;
+        });
 
         try {
-            let now = 0;
             Date.now = (() => now) as typeof Date.now;
-            Bun.sleep = ((durationMs: number) => {
-                now += durationMs + 1;
-
-                return Promise.resolve();
-            }) as typeof Bun.sleep;
 
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(
@@ -1357,7 +1454,7 @@ describe("connectorCommand CLI", () => {
         }
         finally {
             Date.now = originalDateNow;
-            Bun.sleep = originalSleep;
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });
@@ -1595,6 +1692,38 @@ describe("connectorCommand CLI", () => {
             );
             expect(result.stderr).not.toContain("input payload is invalid");
             expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects conflicting async wait modes before auth and data loading", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "@missing-input.json",
+                    "--wait",
+                    "--wait-result",
+                    "--json",
+                ],
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "Use either --wait or --wait-result, not both.",
+            );
+            expect(result.stderr).not.toContain("Log in first");
+            expect(result.stderr).not.toContain("Failed to read input");
         }
         finally {
             await sandbox.cleanup();
@@ -1949,11 +2078,9 @@ describe("connectorCommand CLI", () => {
 
     test("surfaces failing async result action name and html body diagnostics on non-standard 500", async () => {
         const sandbox = await createCliSandbox();
-        const originalSleep = Bun.sleep;
+        const sleepMock = createBunSleepMock();
 
         try {
-            Bun.sleep = ((_durationMs: number) => Promise.resolve()) as typeof Bun.sleep;
-
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(
                 sandbox,
@@ -2007,7 +2134,7 @@ describe("connectorCommand CLI", () => {
             expect(content).not.toContain("\"responseBody\":");
         }
         finally {
-            Bun.sleep = originalSleep;
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });
@@ -2649,6 +2776,25 @@ function createAsyncResultActionSchema(
         },
         service: "fusion-api",
         ...overrides,
+    };
+}
+
+function createBunSleepMock(onSleep?: (durationMs: number) => void) {
+    const originalSleep = Bun.sleep;
+    const sleepCalls: number[] = [];
+
+    Bun.sleep = ((durationMs: number) => {
+        sleepCalls.push(durationMs);
+        onSleep?.(durationMs);
+
+        return Promise.resolve();
+    }) as typeof Bun.sleep;
+
+    return {
+        restore: () => {
+            Bun.sleep = originalSleep;
+        },
+        sleepCalls,
     };
 }
 

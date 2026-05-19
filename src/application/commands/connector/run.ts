@@ -118,6 +118,10 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     handler: async (input, context) => {
         const actionName = requireConnectorActionName(input.action);
 
+        if (input.wait === true && input.waitResult === true) {
+            throw new CliUserError("errors.connectorRun.waitModeConflict", 2);
+        }
+
         const account = await requireCurrentAccount(context);
         const inputData = await readJsonInputValue(
             input.data,
@@ -145,10 +149,6 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             },
             context,
         );
-
-        if (input.wait === true && input.waitResult === true) {
-            throw new CliUserError("errors.connectorRun.waitModeConflict", 2);
-        }
 
         let resultLifecycle: ConnectorActionAsyncResultLifecycle | undefined;
         let submitLifecycle: ConnectorActionAsyncSubmitLifecycle | undefined;
@@ -383,7 +383,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
         data: resultResponse.data,
         meta: {
             ...resultResponse.meta,
-            handle: String(handle),
+            handle,
             submitExecutionId: submitResponse.meta.executionId,
         },
     };
@@ -447,13 +447,15 @@ async function waitForConnectorAsyncResult(
         );
 
         if (wait.state.success.includes(state)) {
+            const resultData = readConnectorAsyncLifecycleResult(
+                pollResponse.data,
+                wait.resultField,
+            );
+
             options.progressReporter?.complete(options.actionName, pollCount);
 
             return {
-                data: readConnectorAsyncLifecycleResult(
-                    pollResponse.data,
-                    wait.resultField,
-                ),
+                data: resultData,
                 meta: {
                     ...pollResponse.meta,
                     pollAction: options.actionName,
