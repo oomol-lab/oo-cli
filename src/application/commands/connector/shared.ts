@@ -18,23 +18,33 @@ export const connectorActionDefinitionSchema = z.object({
     service: z.string().min(1),
 });
 
-export const connectorActionAsyncLifecycleSchema = z.object({
-    defaultRunMode: z.literal("wait"),
-    kind: z.literal("poll"),
-    poll: z.object({
-        action: z.string().min(1),
-        handleInputField: z.string().min(1),
-        handleOutputField: z.string().min(1),
-        intervalSeconds: z.number().positive(),
-    }),
-    resultField: z.string().min(1).optional(),
-    state: z.object({
-        failure: z.array(z.string()),
-        field: z.string().min(1),
-        running: z.array(z.string()),
-        success: z.array(z.string()),
+const connectorActionAsyncLifecycleSubmitSchema = z.object({
+    role: z.literal("submit"),
+    resultAction: z.string().min(1),
+    handle: z.object({
+        inputField: z.string().min(1),
+        outputField: z.string().min(1),
     }),
 });
+
+const connectorActionAsyncLifecycleResultSchema = z.object({
+    role: z.literal("result"),
+    wait: z.object({
+        intervalSeconds: z.number().positive(),
+        resultField: z.string().min(1).optional(),
+        state: z.object({
+            failure: z.array(z.string()),
+            field: z.string().min(1),
+            running: z.array(z.string()),
+            success: z.array(z.string()),
+        }),
+    }),
+});
+
+export const connectorActionAsyncLifecycleSchema = z.discriminatedUnion("role", [
+    connectorActionAsyncLifecycleSubmitSchema,
+    connectorActionAsyncLifecycleResultSchema,
+]);
 
 export const connectorActionMetadataSchema = connectorActionDefinitionSchema.extend({
     asyncLifecycle: connectorActionAsyncLifecycleSchema.optional(),

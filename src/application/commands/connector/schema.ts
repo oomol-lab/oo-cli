@@ -74,29 +74,7 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
             },
             context,
         );
-        if (actionSchema.asyncLifecycle === undefined) {
-            const { asyncLifecycle: _asyncLifecycle, ...syncActionSchema } = actionSchema;
 
-            writeJsonOutput(
-                context.stdout,
-                createConnectorActionSchemaOutput(syncActionSchema),
-            );
-            return;
-        }
-
-        const pollActionSchema = await loadConnectorActionSchema(
-            {
-                account,
-                actionName: actionSchema.asyncLifecycle.poll.action,
-                refresh: input.refresh,
-                serviceName: input.serviceName,
-            },
-            context,
-        );
-
-        writeJsonOutput(
-            context.stdout,
-            createConnectorActionSchemaOutput(actionSchema, { pollActionSchema }),
-        );
+        writeJsonOutput(context.stdout, createConnectorActionSchemaOutput(actionSchema));
     },
 };

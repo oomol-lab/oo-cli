@@ -169,8 +169,10 @@ const commandTelemetryDecisions = {
             "error_code",
             "http_status",
             "service",
+            "wait",
+            "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, and stable error code.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, and stable error code.",
     },
     "connector.search": {
         kind: "properties",
