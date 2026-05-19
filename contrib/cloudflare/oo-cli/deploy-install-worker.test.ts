@@ -3,8 +3,10 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 const workerDirectoryPath = import.meta.dir;
-const workflowPath = join(workerDirectoryPath, "..", "..", "..", ".github", "workflows", "deploy-install-worker.yaml");
+const repositoryRootPath = join(workerDirectoryPath, "..", "..", "..");
+const workflowPath = join(repositoryRootPath, ".github", "workflows", "deploy-install-worker.yaml");
 const wranglerConfigPath = join(workerDirectoryPath, "wrangler.jsonc");
+const indexHtmlPath = join(repositoryRootPath, "contrib", "install", "index.html");
 
 describe("install worker deployment", () => {
     test("deploys the install assets through the expected worker endpoints", async () => {
@@ -35,6 +37,7 @@ describe("install worker deployment", () => {
         expect(workflow).toContain("|| github.sha }}");
         expect(workflow).toContain("Prepare install worker assets");
         expect(workflow).toContain("asset_directory=\"dist/install-worker-assets\"");
+        expect(workflow).toContain("cp contrib/install/index.html");
         expect(workflow).toContain("cp contrib/install/install.cmd");
         expect(workflow).toContain("cp contrib/install/install-guide.md");
         expect(workflow).toContain("cp contrib/install/install.ps1");
@@ -42,5 +45,14 @@ describe("install worker deployment", () => {
         expect(workflow).toContain("uses: cloudflare/wrangler-action@v4");
         expect(workflow).toContain("workingDirectory: contrib/cloudflare/oo-cli");
         expect(workflow).toContain("command: deploy");
+    });
+
+    test("serves a landing page that redirects to the OOMOL CLI site", async () => {
+        const indexHtml = await readFile(indexHtmlPath, "utf8");
+
+        expect(indexHtml).toContain("http-equiv=\"refresh\"");
+        expect(indexHtml).toContain("content=\"0; url=https://oomol.com/cli/\"");
+        expect(indexHtml).toContain("window.location.replace(\"https://oomol.com/cli/\")");
+        expect(indexHtml).toContain("<a href=\"https://oomol.com/cli/\">https://oomol.com/cli/</a>");
     });
 });
