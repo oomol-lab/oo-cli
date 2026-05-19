@@ -68,7 +68,7 @@ oo login
 
 然后用自然语言告诉 AI Agent 你想做什么，不需要记命令：
 
-> /oo 总结今天未读的 Gmail 邮件。
+> /oo 总结我最近 5 封 Gmail 邮件。
 
 > /oo 为 https://oomol.com 生成一个二维码。
 

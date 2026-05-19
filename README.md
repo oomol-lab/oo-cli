@@ -73,7 +73,7 @@ oo login
 
 Then talk to your AI agent in natural language — describe intent, not commands:
 
-> /oo summarize unread Gmail messages from today.
+> /oo summarize my latest 5 Gmail messages.
 
 > /oo generate a QR code for https://oomol.com.
 
