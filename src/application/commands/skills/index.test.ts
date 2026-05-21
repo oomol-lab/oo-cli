@@ -2696,6 +2696,7 @@ describe("skills commands", () => {
                 expect((await lstat(copiedSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
             }
             for (const skillDirectoryPath of [
+                universalSkillDirectoryPath,
                 codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 hermesSkillDirectoryPath,
