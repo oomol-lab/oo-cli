@@ -21,7 +21,7 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
+                "Missing required --agent. Choose universal, codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
             );
         }
         finally {
@@ -31,17 +31,17 @@ describe("skills preflight command", () => {
 
     test("checks the requested agent skill directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(codexHomeDirectory);
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(universalHomeDirectory);
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run([
                 "skills",
                 "preflight",
                 "--agent",
-                "codex",
+                "universal",
             ]);
 
             expect(result.exitCode).toBe(0);
