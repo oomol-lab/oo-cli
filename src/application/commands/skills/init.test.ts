@@ -309,7 +309,7 @@ describe("skills init command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Missing required --agent. Choose codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
+                "Missing required --agent. Choose universal, codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
             );
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",

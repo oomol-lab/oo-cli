@@ -54,17 +54,9 @@ Publish accepts a concrete path:
 oo skills publish <path-to-skill-directory-or-SKILL.md>
 ```
 
-<!-- agentic:if agent=codex -->
-If the user gives only a skill id, `oo skills locate <skill-id> --agent codex`
+If the user gives only a skill id, `oo skills locate <skill-id> --agent <!-- agentic:var agent -->`
 can help resolve the local path. Use it when it is helpful, but do not force an
 extra locate step when the path is already clear from context.
-<!-- agentic:endif -->
-<!-- agentic:if agent=claude|hermes|codebuddy|qoderwork|workbuddy|trae|trae-cn|openclaw|deepseek-tui -->
-If the user gives only a skill id, `oo skills locate <skill-id> --agent <agent>`
-can help resolve the local path. Choose `<agent>` yourself from the supported
-ids according to the current host. Use locate when it is helpful, but do not
-force an extra locate step when the path is already clear from context.
-<!-- agentic:endif -->
 
 The publish command performs its own environment, authentication, and account
 checks, so run it directly.

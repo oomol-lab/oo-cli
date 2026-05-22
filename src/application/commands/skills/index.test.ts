@@ -2582,6 +2582,7 @@ describe("skills commands", () => {
 
     test("installs a published registry skill into every existing supported host", async () => {
         const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
@@ -2592,6 +2593,7 @@ describe("skills commands", () => {
         const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
         const qoderWorkHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "qoderwork");
         const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
+        const universalSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const hermesSkillDirectoryPath = join(hermesHomeDirectory, "skills", "chatgpt");
@@ -2614,6 +2616,7 @@ describe("skills commands", () => {
 
         try {
             await Promise.all([
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(codexHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
                 mkdir(hermesHomeDirectory, { recursive: true }),
@@ -2661,11 +2664,12 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                "Installed skill chatgpt to 10 agents: Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork, DeepSeek TUI.\n",
+                "Installed skill chatgpt to 11 agents: Universal, Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork, DeepSeek TUI.\n",
             );
             const canonicalSkillRealPath = await realpath(canonicalSkillDirectoryPath);
 
             for (const copiedSkillDirectoryPath of [
+                universalSkillDirectoryPath,
                 codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
@@ -2692,6 +2696,7 @@ describe("skills commands", () => {
                 expect((await lstat(copiedSkillDirectoryPath)).isSymbolicLink()).toBeFalse();
             }
             for (const skillDirectoryPath of [
+                universalSkillDirectoryPath,
                 codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 hermesSkillDirectoryPath,

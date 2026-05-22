@@ -16,6 +16,11 @@ export interface SupportedSkillAgent {
 
 export const supportedSkillAgents = [
     {
+        homeDirectoryName: ".agents",
+        name: "universal",
+        title: "Universal",
+    },
+    {
         homeDirectoryName: ".codex",
         homeEnvVar: "CODEX_HOME",
         name: "codex",

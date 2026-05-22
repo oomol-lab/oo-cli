@@ -343,6 +343,7 @@ describe("embedded skill assets", () => {
 
     test("maps bundled skills to the shared source directory", () => {
         expect([...availableBundledSkillAgentNames]).toEqual([
+            "universal",
             "codex",
             "claude",
             "hermes",
@@ -987,7 +988,7 @@ describe("embedded skill assets", () => {
             );
         }
 
-        for (const agentName of ["codex", "deepseek-tui", "qoderwork", "trae", "trae-cn", "workbuddy"] as const) {
+        for (const agentName of ["universal", "codex", "deepseek-tui", "qoderwork", "trae", "trae-cn", "workbuddy"] as const) {
             for (const skillName of availableBundledSkillNames) {
                 const skillFile = getBundledSkillFiles(skillName, agentName)
                     .find(file => file.relativePath === "SKILL.md");
@@ -1015,6 +1016,7 @@ describe("embedded skill assets", () => {
             "references/oo-cli-contract.md",
         );
         const codexCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "codex", "SKILL.md");
+        const universalCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "universal", "SKILL.md");
         const qoderWorkCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "qoderwork", "SKILL.md");
         const qoderWorkPublishSkillFile = getRequiredBundledSkillFile("oo-publish-skill", "qoderwork", "SKILL.md");
 
@@ -1025,6 +1027,7 @@ describe("embedded skill assets", () => {
         const openClawFindContent = await readBundledSkillFileContent(openClawFindSkillFile);
         const openClawFindContractContent = await readBundledSkillFileContent(openClawFindContractFile);
         const codexCreateContent = await readBundledSkillFileContent(codexCreateSkillFile);
+        const universalCreateContent = await readBundledSkillFileContent(universalCreateSkillFile);
         const qoderWorkCreateContent = await readBundledSkillFileContent(qoderWorkCreateSkillFile);
         const qoderWorkPublishContent = await readBundledSkillFileContent(qoderWorkPublishSkillFile);
 
@@ -1040,6 +1043,8 @@ describe("embedded skill assets", () => {
         expect(openClawFindContractContent).not.toContain("request_user_input");
         expect(openClawFindContractContent).not.toContain("AskUserQuestion");
         expect(codexCreateContent).toContain("oo skills preflight --agent codex");
+        expect(universalCreateContent).toContain("oo skills preflight --agent universal");
+        expect(universalCreateContent).toContain("Check Universal execution permissions");
         expect(qoderWorkCreateContent).toContain("oo skills preflight --agent qoderwork");
         expect(qoderWorkCreateContent).toContain("Check QoderWork execution permissions");
         expect(qoderWorkPublishContent).toContain("`qoderwork` with that host id");

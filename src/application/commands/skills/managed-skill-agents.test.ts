@@ -16,6 +16,7 @@ import {
 describe("managed skill agents", () => {
     test("exposes supported agents in display order", () => {
         expect([...availableBundledSkillAgentNames]).toEqual([
+            "universal",
             "codex",
             "claude",
             "hermes",
@@ -28,8 +29,9 @@ describe("managed skill agents", () => {
             "deepseek-tui",
         ]);
         expect(formatSupportedSkillAgentNames()).toBe(
-            "codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui",
+            "universal, codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui",
         );
+        expect(compareManagedSkillAgentNames("universal", "codex")).toBeLessThan(0);
         expect(compareManagedSkillAgentNames("codex", "claude")).toBeLessThan(0);
         expect(compareManagedSkillAgentNames("deepseek-tui", "qoderwork")).toBeGreaterThan(0);
     });
@@ -47,6 +49,9 @@ describe("managed skill agents", () => {
 
         expect(resolveManagedSkillAgentHomeDirectory(env, "codex")).toBe(
             codexHomeDirectory,
+        );
+        expect(resolveManagedSkillAgentHomeDirectory(env, "universal")).toBe(
+            join(userHomeDirectory, ".agents"),
         );
         expect(resolveManagedSkillAgentHomeDirectory(env, "hermes")).toBe(
             join(userHomeDirectory, ".hermes"),

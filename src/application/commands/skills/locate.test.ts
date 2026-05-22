@@ -163,7 +163,7 @@ describe("skills locate command", () => {
 
             expect(result.exitCode).toBe(2);
             expect(result.stderr).toBe(
-                "Unsupported skill agent: unknown. Use codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
+                "Unsupported skill agent: unknown. Use universal, codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
             );
         }
         finally {
