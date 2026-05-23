@@ -20,6 +20,7 @@ interface SearchInput {
     text: string;
     format?: (typeof searchFormatValues)[number];
     onlyPackageId?: boolean;
+    showSchemaVersion?: boolean;
 }
 
 export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
@@ -46,6 +47,7 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
         text: z.string(),
         format: z.enum(searchFormatValues).optional(),
         onlyPackageId: z.boolean().optional(),
+        showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
@@ -71,7 +73,9 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
             const packageIds = readPackageSearchIds(response.packages);
 
             if (input.format === "json") {
-                writeJsonOutput(context.stdout, packageIds);
+                writeJsonOutput(context.stdout, packageIds, {
+                    showSchemaVersion: input.showSchemaVersion,
+                });
                 return;
             }
 
@@ -84,7 +88,9 @@ export const packageSearchCommand: CliCommandDefinition<SearchInput> = {
         }
 
         if (input.format === "json") {
-            writeJsonOutput(context.stdout, response.rawPackages);
+            writeJsonOutput(context.stdout, response.rawPackages, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

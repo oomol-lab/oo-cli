@@ -27,6 +27,7 @@ import { formatFileUploadRecordDetailsAsText } from "./text.ts";
 interface FileUploadInput {
     format?: string;
     filePath: string;
+    showSchemaVersion?: boolean;
 }
 
 type RecordTelemetryProperties = NonNullable<
@@ -49,6 +50,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
     inputSchema: z.object({
         format: z.string().optional(),
         filePath: z.string(),
+        showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
@@ -105,7 +107,9 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
         const view = serializeFileUploadRecord(record, uploadedAtMs, context.logger);
 
         if (format === "json") {
-            writeJsonOutput(context.stdout, view);
+            writeJsonOutput(context.stdout, view, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

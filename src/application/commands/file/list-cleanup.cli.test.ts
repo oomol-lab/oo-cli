@@ -113,4 +113,40 @@ describe("file list and cleanup CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("includes schemaVersion in cleanup json output when --show-schema-version is set", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["file", "cleanup", "--json", "--show-schema-version"],
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                deletedCount: 0,
+                schemaVersion: "1.0.0",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("ignores --show-schema-version when --json is not set", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["file", "cleanup", "--show-schema-version"],
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).not.toContain("schemaVersion");
+            expect(result.stdout).not.toContain("1.0.0");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });

@@ -11,6 +11,18 @@
 - `-h, --help`：显示当前命令的帮助信息。
 - `-V, --version`：显示当前 CLI 版本、构建时间和 commit hash。
 
+## JSON 输出
+
+文档中带有 `--format=json` 和 `--json` 的命令遵循以下约定：
+
+- `--show-schema-version` 会在 JSON 输出中加入 `schemaVersion` 字段，当前固定
+  为 `1.0.0`。
+- 当原始输出是 JSON 对象时，`schemaVersion` 作为顶层字段合并进对象中。
+- 当原始输出是 JSON 数组时，会被包裹为
+  `{ "schemaVersion": "1.0.0", "items": <数组> }`。
+- 如果没有通过 `--format=json` 或 `--json` 请求 JSON 输出，
+  `--show-schema-version` 不会产生任何效果。
+
 ## Debug 日志
 
 - CLI 会把结构化 debug 日志写入按平台区分的持久化日志目录：

@@ -18,6 +18,7 @@ import { connectorFormatValues } from "./shared.ts";
 interface ConnectorSearchInput {
     format?: (typeof connectorFormatValues)[number];
     keywords?: string;
+    showSchemaVersion?: boolean;
     text: string;
 }
 
@@ -45,6 +46,7 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
     inputSchema: z.object({
         format: z.enum(connectorFormatValues).optional(),
         keywords: z.string().optional(),
+        showSchemaVersion: z.boolean().optional(),
         text: z.string(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
@@ -72,7 +74,9 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
 
         if (results.length === 0) {
             if (input.format === "json") {
-                writeJsonOutput(context.stdout, []);
+                writeJsonOutput(context.stdout, [], {
+                    showSchemaVersion: input.showSchemaVersion,
+                });
                 return;
             }
 
@@ -83,7 +87,9 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
         }
 
         if (input.format === "json") {
-            writeJsonOutput(context.stdout, results);
+            writeJsonOutput(context.stdout, results, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

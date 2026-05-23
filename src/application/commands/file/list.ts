@@ -14,6 +14,7 @@ import { formatFileUploadListAsText } from "./text.ts";
 interface FileListInput {
     format?: string;
     limit?: string;
+    showSchemaVersion?: boolean;
     status?: string;
 }
 
@@ -39,6 +40,7 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
     inputSchema: z.object({
         format: z.string().optional(),
         limit: z.string().optional(),
+        showSchemaVersion: z.boolean().optional(),
         status: z.string().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
@@ -56,7 +58,9 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
             .map(record => serializeFileUploadRecord(record, now, context.logger));
 
         if (format === "json") {
-            writeJsonOutput(context.stdout, records);
+            writeJsonOutput(context.stdout, records, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

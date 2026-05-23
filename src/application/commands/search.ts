@@ -33,6 +33,7 @@ export const mixedSearchKindColor = "#7FDBFF";
 interface MixedSearchInput {
     format?: (typeof searchFormatValues)[number];
     keywords?: string;
+    showSchemaVersion?: boolean;
     text: string;
 }
 
@@ -83,6 +84,7 @@ export const mixedSearchCommand: CliCommandDefinition<MixedSearchInput> = {
     inputSchema: z.object({
         format: z.enum(searchFormatValues).optional(),
         keywords: z.string().optional(),
+        showSchemaVersion: z.boolean().optional(),
         text: z.string(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
@@ -126,6 +128,7 @@ export const mixedSearchCommand: CliCommandDefinition<MixedSearchInput> = {
                     packageResponse.packages,
                     connectorResults,
                 ),
+                { showSchemaVersion: input.showSchemaVersion },
             );
             return;
         }

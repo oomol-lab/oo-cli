@@ -6,6 +6,7 @@ import { createFormatInputError, parseFileFormat } from "./shared.ts";
 
 interface FileCleanupInput {
     format?: string;
+    showSchemaVersion?: boolean;
 }
 
 const staleDownloadSessionTtlMs = 14 * 24 * 60 * 60 * 1000;
@@ -17,6 +18,7 @@ export const fileCleanupCommand: CliCommandDefinition<FileCleanupInput> = {
     options: [...jsonOutputOptions],
     inputSchema: z.object({
         format: z.string().optional(),
+        showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
@@ -32,6 +34,8 @@ export const fileCleanupCommand: CliCommandDefinition<FileCleanupInput> = {
         if (format === "json") {
             writeJsonOutput(context.stdout, {
                 deletedCount,
+            }, {
+                showSchemaVersion: input.showSchemaVersion,
             });
             return;
         }

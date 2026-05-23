@@ -150,18 +150,20 @@ exports[`packageSearchCommand CLI renders package search help when text argument
 "Search packages with free-form text against the intent search API.
 
 Arguments:
-  text               Search text
+  text                   Search text
 
 Options:
-  --format <format>  Specify output format (use json for structured output)
-  --json             Alias for --format=json
-  --only-package-id  Return only package ids
-  -h, --help         Show help for command
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --show-schema-version  Include schemaVersion in JSON output (no effect without
+                         --json)
+  --only-package-id      Return only package ids
+  -h, --help             Show help for command
 
 Global Options:
-  -V, --version      Show the current version
-  --debug            Print the current log file path when the CLI exits
-  --lang <lang>      Specify the display language
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
 "
 ,
   },
@@ -172,18 +174,20 @@ Global Options:
 "Search packages with free-form text against the intent search API.
 
 Arguments:
-  text               Search text
+  text                   Search text
 
 Options:
-  --format <format>  Specify output format (use json for structured output)
-  --json             Alias for --format=json
-  --only-package-id  Return only package ids
-  -h, --help         Show help for command
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --show-schema-version  Include schemaVersion in JSON output (no effect without
+                         --json)
+  --only-package-id      Return only package ids
+  -h, --help             Show help for command
 
 Global Options:
-  -V, --version      Show the current version
-  --debug            Print the current log file path when the CLI exits
-  --lang <lang>      Specify the display language
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
 "
 ,
   },

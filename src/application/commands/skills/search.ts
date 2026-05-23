@@ -46,6 +46,7 @@ interface SkillsSearchInput {
     text: string;
     format?: (typeof searchFormatValues)[number];
     keywords?: string;
+    showSchemaVersion?: boolean;
 }
 
 export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
@@ -74,6 +75,7 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
         text: z.string(),
         format: z.enum(searchFormatValues).optional(),
         keywords: z.string().optional(),
+        showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
@@ -99,7 +101,9 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
         });
 
         if (input.format === "json") {
-            writeJsonOutput(context.stdout, response.data);
+            writeJsonOutput(context.stdout, response.data, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

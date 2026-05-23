@@ -56,6 +56,7 @@ interface ConnectorRunInput {
     dryRun?: boolean;
     format?: (typeof connectorFormatValues)[number];
     serviceName: string;
+    showSchemaVersion?: boolean;
     wait?: boolean;
     waitResult?: boolean;
 }
@@ -111,6 +112,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         dryRun: z.boolean().optional(),
         format: z.enum(connectorFormatValues).optional(),
         serviceName: z.string(),
+        showSchemaVersion: z.boolean().optional(),
         wait: z.boolean().optional(),
         waitResult: z.boolean().optional(),
     }),
@@ -175,6 +177,8 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
                 writeJsonOutput(context.stdout, {
                     dryRun: true,
                     ok: true,
+                }, {
+                    showSchemaVersion: input.showSchemaVersion,
                 });
                 return;
             }
@@ -249,7 +253,9 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         }
 
         if (input.format === "json") {
-            writeJsonOutput(context.stdout, response);
+            writeJsonOutput(context.stdout, response, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

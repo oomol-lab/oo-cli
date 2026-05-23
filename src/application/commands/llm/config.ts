@@ -10,6 +10,7 @@ export const defaultLlmModel = "oomol-chat";
 
 interface LlmConfigInput {
     format?: (typeof llmConfigFormatValues)[number];
+    showSchemaVersion?: boolean;
 }
 
 interface LlmConfigOutput {
@@ -27,9 +28,10 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
     options: [...jsonOutputOptions],
     inputSchema: z.object({
         format: z.enum(llmConfigFormatValues).optional(),
+        showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
-    handler: async (_, context) => {
+    handler: async (input, context) => {
         const account = await requireCurrentAccount(context);
         const baseUrl = createLlmBaseUrl(account.endpoint);
         const config: LlmConfigOutput = {
@@ -39,7 +41,9 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
             model: defaultLlmModel,
         };
 
-        writeJsonOutput(context.stdout, config);
+        writeJsonOutput(context.stdout, config, {
+            showSchemaVersion: input.showSchemaVersion,
+        });
     },
 };
 

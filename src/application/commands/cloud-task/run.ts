@@ -24,6 +24,7 @@ interface CloudTaskRunInput {
     dryRun?: boolean;
     format?: string;
     packageSpecifier: string;
+    showSchemaVersion?: boolean;
 }
 
 const cloudTaskRunDataErrorKeys = {
@@ -73,6 +74,7 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
         dryRun: z.boolean().optional(),
         format: z.string().optional(),
         packageSpecifier: z.string(),
+        showSchemaVersion: z.boolean().optional(),
     }),
     handler: async (input, context) => {
         const format = parseCloudTaskFormat(input.format);
@@ -125,6 +127,8 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
                 writeJsonOutput(context.stdout, {
                     dryRun: true,
                     ok: true,
+                }, {
+                    showSchemaVersion: input.showSchemaVersion,
                 });
                 return;
             }
@@ -154,7 +158,9 @@ export const cloudTaskRunCommand: CliCommandDefinition<CloudTaskRunInput> = {
         );
 
         if (format === "json") {
-            writeJsonOutput(context.stdout, response);
+            writeJsonOutput(context.stdout, response, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 
