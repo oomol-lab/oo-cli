@@ -22,6 +22,7 @@ interface CloudTaskListInput {
     nextToken?: string;
     packageId?: string;
     packageName?: string;
+    showSchemaVersion?: boolean;
     size?: string;
     status?: string;
 }
@@ -82,6 +83,7 @@ export const cloudTaskListCommand: CliCommandDefinition<CloudTaskListInput> = {
         nextToken: z.string().optional(),
         packageId: z.string().optional(),
         packageName: z.string().optional(),
+        showSchemaVersion: z.boolean().optional(),
         size: z.string().optional(),
         status: z.string().optional(),
     }),
@@ -157,7 +159,9 @@ export const cloudTaskListCommand: CliCommandDefinition<CloudTaskListInput> = {
         });
 
         if (format === "json") {
-            writeJsonOutput(context.stdout, response);
+            writeJsonOutput(context.stdout, response, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

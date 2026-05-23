@@ -13,6 +13,7 @@ import { formatCloudTaskResultAsText } from "./text.ts";
 
 interface CloudTaskResultInput {
     format?: string;
+    showSchemaVersion?: boolean;
     taskId: string;
 }
 
@@ -31,6 +32,7 @@ export const cloudTaskResultCommand: CliCommandDefinition<CloudTaskResultInput> 
     options: [...jsonOutputOptions],
     inputSchema: z.object({
         format: z.string().optional(),
+        showSchemaVersion: z.boolean().optional(),
         taskId: z.string(),
     }),
     handler: async (input, context) => {
@@ -49,7 +51,9 @@ export const cloudTaskResultCommand: CliCommandDefinition<CloudTaskResultInput> 
         });
 
         if (format === "json") {
-            writeJsonOutput(context.stdout, response);
+            writeJsonOutput(context.stdout, response, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

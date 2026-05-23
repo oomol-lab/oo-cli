@@ -46,17 +46,19 @@ exports[`file upload CLI supports file upload command help with the --json alias
 "Upload a file and store the signed download URL locally.
 
 Arguments:
-  filePath           File path
+  filePath               File path
 
 Options:
-  --format <format>  Specify output format (use json for structured output)
-  --json             Alias for --format=json
-  -h, --help         Show help for command
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --show-schema-version  Include schemaVersion in JSON output (no effect without
+                         --json)
+  -h, --help             Show help for command
 
 Global Options:
-  -V, --version      Show the current version
-  --debug            Print the current log file path when the CLI exits
-  --lang <lang>      Specify the display language
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
 "
 ,
 }

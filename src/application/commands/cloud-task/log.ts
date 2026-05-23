@@ -15,6 +15,7 @@ import {
 interface CloudTaskLogInput {
     format?: string;
     page?: string;
+    showSchemaVersion?: boolean;
     taskId: string;
 }
 
@@ -42,6 +43,7 @@ export const cloudTaskLogCommand: CliCommandDefinition<CloudTaskLogInput> = {
     inputSchema: z.object({
         format: z.string().optional(),
         page: z.string().optional(),
+        showSchemaVersion: z.boolean().optional(),
         taskId: z.string(),
     }),
     handler: async (input, context) => {
@@ -74,7 +76,9 @@ export const cloudTaskLogCommand: CliCommandDefinition<CloudTaskLogInput> = {
         });
 
         if (format === "json") {
-            writeJsonOutput(context.stdout, response);
+            writeJsonOutput(context.stdout, response, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

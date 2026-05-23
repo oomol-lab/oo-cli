@@ -49,6 +49,7 @@ interface LlmJsonInput {
     maxRetries?: string;
     model?: string;
     schema?: string;
+    showSchemaVersion?: boolean;
     system?: string;
 }
 
@@ -102,6 +103,7 @@ export const llmJsonCommand: CliCommandDefinition<LlmJsonInput> = {
         maxRetries: z.string().optional(),
         model: z.string().optional(),
         schema: z.string().optional(),
+        showSchemaVersion: z.boolean().optional(),
         system: z.string().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
@@ -145,7 +147,9 @@ export const llmJsonCommand: CliCommandDefinition<LlmJsonInput> = {
             ok: true,
         };
 
-        writeJsonOutput(context.stdout, output);
+        writeJsonOutput(context.stdout, output, {
+            showSchemaVersion: input.showSchemaVersion,
+        });
     },
 };
 

@@ -683,6 +683,8 @@ export const enMessages = {
     "options.format": "Specify output format (use json for structured output)",
     "options.input": "Provide LLM input JSON or @path to a JSON file",
     "options.json": "Alias for --format=json",
+    "options.showSchemaVersion":
+        "Include schemaVersion in JSON output (no effect without --json)",
     "options.connectorSchemaJson":
         "Accepted for compatibility; output is always JSON",
     "options.keywords":
@@ -1624,6 +1626,8 @@ export const zhMessages = {
     "options.format": "指定输出格式（使用 json 返回结构化内容）",
     "options.input": "提供 LLM 输入 JSON，或使用 @路径 读取 JSON 文件",
     "options.json": "--format=json 的别名",
+    "options.showSchemaVersion":
+        "在 JSON 输出中加入 schemaVersion 字段（未指定 --json 时无效）",
     "options.connectorSchemaJson":
         "兼容性选项；输出始终是 JSON",
     "options.keywords":

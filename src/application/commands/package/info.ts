@@ -24,6 +24,7 @@ type PackageInfoTextContext = Pick<CliExecutionContext, "stdout" | "translator">
 interface PackageInfoInput {
     format?: PackageInfoFormat;
     packageSpecifier: string;
+    showSchemaVersion?: boolean;
 }
 
 export const packageInfoCommand: CliCommandDefinition<PackageInfoInput> = {
@@ -42,6 +43,7 @@ export const packageInfoCommand: CliCommandDefinition<PackageInfoInput> = {
     inputSchema: z.object({
         format: z.enum(packageInfoFormatValues).optional(),
         packageSpecifier: z.string(),
+        showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
@@ -61,7 +63,9 @@ export const packageInfoCommand: CliCommandDefinition<PackageInfoInput> = {
         );
 
         if (input.format === "json") {
-            writeJsonOutput(context.stdout, response);
+            writeJsonOutput(context.stdout, response, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
             return;
         }
 

@@ -61,6 +61,64 @@ describe("file cleanup command", () => {
         expect(stdout.read()).toBe("{\"deletedCount\":2}\n");
     });
 
+    test("includes schemaVersion in json output when showSchemaVersion is set", async () => {
+        const stdout = createTextBuffer();
+
+        await fileCleanupCommand.handler!(
+            {
+                format: "json",
+                showSchemaVersion: true,
+            },
+            {
+                fileUploadStore: {
+                    deleteExpired() {
+                        return 2;
+                    },
+                },
+                fileDownloadSessionStore: {
+                    deleteDownloadSessionsUpdatedBefore() {
+                        return Promise.resolve(0);
+                    },
+                },
+                stdout: stdout.writer,
+                translator: createTranslator("en"),
+            } as unknown as CliExecutionContext,
+        );
+
+        expect(JSON.parse(stdout.read())).toEqual({
+            deletedCount: 2,
+            schemaVersion: "1.0.0",
+        });
+    });
+
+    test("ignores showSchemaVersion when format is not json", async () => {
+        const stdout = createTextBuffer();
+
+        await fileCleanupCommand.handler!(
+            {
+                showSchemaVersion: true,
+            },
+            {
+                fileUploadStore: {
+                    deleteExpired() {
+                        return 3;
+                    },
+                },
+                fileDownloadSessionStore: {
+                    deleteDownloadSessionsUpdatedBefore() {
+                        return Promise.resolve(0);
+                    },
+                },
+                stdout: stdout.writer,
+                translator: createTranslator("en"),
+            } as unknown as CliExecutionContext,
+        );
+
+        expect(stdout.read()).toBe(
+            "Deleted 3 expired or stale file transfer records.\n",
+        );
+    });
+
     test("maps invalid format input to a user-facing error", () => {
         const error = fileCleanupCommand.mapInputError!(
             new z.ZodError([]),

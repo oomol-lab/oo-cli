@@ -12,6 +12,20 @@ Project overview: [README.md](../README.md)
 - `-h, --help`: Show help for the current command.
 - `-V, --version`: Show the current CLI version, build time, and commit hash.
 
+## JSON Output
+
+Commands that document `--format=json` and `--json` share the following
+conventions:
+
+- `--show-schema-version` adds a `schemaVersion` field to the JSON payload.
+  The current value is `1.0.0`.
+- When the underlying payload is a JSON object, `schemaVersion` is merged
+  into it as a top-level field.
+- When the underlying payload is a JSON array, the response is wrapped as
+  `{ "schemaVersion": "1.0.0", "items": <array> }`.
+- `--show-schema-version` has no effect unless JSON output is requested with
+  `--format=json` or `--json`.
+
 ## Debug Logging
 
 - The CLI writes structured debug logs to a platform-specific persisted log

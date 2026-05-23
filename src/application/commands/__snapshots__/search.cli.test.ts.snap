@@ -75,6 +75,8 @@ Arguments:
 Options:
   --format <format>      Specify output format (use json for structured output)
   --json                 Alias for --format=json
+  --show-schema-version  Include schemaVersion in JSON output (no effect without
+                         --json)
   --keywords <keywords>  Specify comma-separated keywords to refine the
                          connector action search
   -h, --help             Show help for command
@@ -98,6 +100,8 @@ Arguments:
 Options:
   --format <format>      Specify output format (use json for structured output)
   --json                 Alias for --format=json
+  --show-schema-version  Include schemaVersion in JSON output (no effect without
+                         --json)
   --keywords <keywords>  Specify comma-separated keywords to refine the
                          connector action search
   -h, --help             Show help for command
