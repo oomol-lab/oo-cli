@@ -80,7 +80,9 @@ describe("info CLI", () => {
                 sandbox.env,
                 "codex",
             );
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(resolveManagedSkillsDirectoryPath(codexHomeDirectory), {
+                recursive: true,
+            });
 
             const result = await sandbox.run(["info", "--json"]);
 
@@ -164,7 +166,9 @@ describe("info CLI", () => {
                 sandbox.env,
                 "claude",
             );
-            await mkdir(claudeHomeDirectory, { recursive: true });
+            await mkdir(resolveManagedSkillsDirectoryPath(claudeHomeDirectory), {
+                recursive: true,
+            });
 
             const result = await sandbox.run(["info"], { version: "1.2.3" });
 
