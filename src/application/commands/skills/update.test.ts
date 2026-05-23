@@ -131,6 +131,32 @@ describe("skills update command", () => {
         }
     });
 
+    test("reports a generic not-installed error when the target is absent from every host", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+
+        try {
+            await Promise.all([
+                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(claudeHomeDirectory, { recursive: true }),
+            ]);
+
+            const result = await sandbox.run(["skills", "update", "aaa"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Skill aaa is not installed as an oo-managed skill in any supported agent.\n",
+            );
+            expect(result.stderr).not.toContain(codexHomeDirectory);
+            expect(result.stderr).not.toContain(claudeHomeDirectory);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("rejects an explicit update target with unparseable metadata as unmanaged", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");

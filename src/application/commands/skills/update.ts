@@ -451,21 +451,18 @@ async function resolveSelectedManagedSkills(
         const unmanagedTarget = targetStates.find(
             target => target.hasDirectoryWithoutMetadata,
         );
-        const firstTarget = targetStates[0]!;
 
-        throw new CliUserError(
-            unmanagedTarget !== undefined
-                ? "errors.skills.update.notManaged"
-                : "errors.skills.notInstalled",
-            1,
-            {
-                hostName: unmanagedTarget?.agentName
-                    ?? firstTarget.agentName,
+        if (unmanagedTarget !== undefined) {
+            throw new CliUserError("errors.skills.update.notManaged", 1, {
+                hostName: unmanagedTarget.agentName,
                 name: requestedSkillName,
-                path: unmanagedTarget?.installedSkillDirectoryPath
-                    ?? firstTarget.installedSkillDirectoryPath,
-            },
-        );
+                path: unmanagedTarget.installedSkillDirectoryPath,
+            });
+        }
+
+        throw new CliUserError("errors.skills.update.notInstalled", 1, {
+            name: requestedSkillName,
+        });
     }
 
     return selectedSkills;
