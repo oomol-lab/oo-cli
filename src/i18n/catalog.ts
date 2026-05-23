@@ -582,6 +582,8 @@ export const enMessages = {
         "Managed skill {name} cannot be updated in {hostNames} because its package metadata is missing.",
     "errors.skills.update.notManaged":
         "Skill {name} in host {hostName} is not managed by oo and cannot be updated.",
+    "errors.skills.update.notInstalled":
+        "Skill {name} is not installed as an oo-managed skill in any supported agent.",
     "errors.skills.nameConflict":
         "Skill name {name} is already used by a non-OOMOL skill at {path}.",
     "errors.skills.storageConflict":
@@ -1528,6 +1530,8 @@ export const zhMessages = {
         "无法在 {hostNames} 中更新由 oo 管理的 skill {name}，因为缺少 package 元数据。",
     "errors.skills.update.notManaged":
         "Agent {hostName} 中的 skill {name} 不是由 oo 管理的 skill，无法更新。",
+    "errors.skills.update.notInstalled":
+        "Skill {name} 未作为 oo 管理的 skill 安装到任何受支持的 agent 中。",
     "errors.skills.nameConflict":
         "Skill 名称 {name} 已被 {path} 中的非 OOMOL skill 占用。",
     "errors.skills.storageConflict":
