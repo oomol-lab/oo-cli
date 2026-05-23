@@ -434,9 +434,10 @@ registry skills。
 - 安全规则：启动同步不会请求 registry，不要求登录，不会产生额外命令输出，也
   不会覆盖不由 `oo` 管理的同名目标。
 
-### `oo skills list`
+### `oo skills info`
 
-默认列出 bundled 和 registry skill。只有显式请求时才列出 local skill。
+默认列出 bundled 和 registry skill。只有显式请求时才列出 local skill。为兼容
+旧版用法，`oo skills list` 作为别名仍然可用。
 
 - 选项：`--source <source>`、`-s <source>` 将列表过滤为一个来源：
   `bundled`、`registry` 或 `local`。

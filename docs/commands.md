@@ -501,10 +501,10 @@ for every supported host directory that already exists.
   require authentication, does not print additional command output, and does
   not overwrite same-name targets that are not managed by `oo`.
 
-### `oo skills list`
+### `oo skills info`
 
-List bundled and registry skills by default. Local skills are listed only when
-requested.
+Show bundled and registry skills by default. Local skills are listed only when
+requested. `oo skills list` is accepted as an alias for backwards compatibility.
 
 - Options: `--source <source>`, `-s <source>` filters the list to one source:
   `bundled`, `registry`, or `local`.

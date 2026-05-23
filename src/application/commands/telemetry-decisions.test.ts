@@ -305,7 +305,7 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records install source, product-domain package dimension, and bounded skill samples.",
     },
-    "skills.list": {
+    "skills.info": {
         kind: "properties",
         properties: ["has_agent_filter", "source_filter"],
         reason: "Records filter usage without installed skill inventory.",

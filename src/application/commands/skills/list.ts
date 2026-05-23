@@ -104,9 +104,10 @@ interface SkillsListInput {
 }
 
 export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
-    name: "list",
-    summaryKey: "commands.skills.list.summary",
-    descriptionKey: "commands.skills.list.description",
+    name: "info",
+    aliases: ["list"],
+    summaryKey: "commands.skills.info.summary",
+    descriptionKey: "commands.skills.info.description",
     options: [
         {
             name: "agent",
