@@ -104,6 +104,9 @@ export const enMessages = {
     "commands.file.upload.description":
         "Upload a file and store the signed download URL locally.",
     "commands.file.upload.summary": "Upload a file",
+    "commands.info.description":
+        "Print CLI environment details, persisted store paths, and detected skill agents.",
+    "commands.info.summary": "Show CLI environment info",
     "commands.install.description":
         "Install one oo-managed CLI release into the local managed runtime.",
     "commands.install.summary": "Install the CLI",
@@ -628,6 +631,22 @@ export const enMessages = {
     "errors.log.invalidIndex":
         "Invalid log index: {value}. Use an integer greater than or equal to 1.",
     "log.print.missing": "No debug log was found for index {index}.",
+    "info.section.cli": "CLI",
+    "info.section.agents": "Agents",
+    "info.section.features": "Features",
+    "info.cli.version": "Version",
+    "info.cli.platform": "Platform",
+    "info.cli.arch": "Architecture",
+    "info.cli.storeDir": "Store directory",
+    "info.cli.logDir": "Log directory",
+    "info.cli.authFile": "Auth file",
+    "info.cli.settingsFile": "Settings file",
+    "info.agents.empty": "No supported skill agents detected.",
+    "info.agents.skillDir": "Skill directory",
+    "info.agents.status.available": "available",
+    "info.agents.status.no_skills": "no skills",
+    "info.agents.status.not_installed": "not installed",
+    "info.features.empty": "No optional features enabled.",
     "checkUpdate.unavailable":
         "Unable to check for updates right now. Please try again later.",
     "checkUpdate.upToDate": "Already up to date at {version}.",
@@ -1074,6 +1093,9 @@ export const zhMessages = {
     "commands.file.summary": "管理临时文件传输",
     "commands.file.upload.description": "上传文件，并在本地保存带签名的下载地址。",
     "commands.file.upload.summary": "上传文件",
+    "commands.info.description":
+        "打印 CLI 运行环境信息、本地存储路径以及检测到的 skill 代理。",
+    "commands.info.summary": "显示 CLI 环境信息",
     "commands.install.description":
         "把一个由 oo 管理的 CLI 版本安装到本地托管运行时中。",
     "commands.install.summary": "安装 CLI",
@@ -1574,6 +1596,22 @@ export const zhMessages = {
     "errors.log.invalidIndex":
         "无效的日志序号：{value}。请使用大于等于 1 的整数。",
     "log.print.missing": "未找到序号为 {index} 的 debug 日志。",
+    "info.section.cli": "CLI",
+    "info.section.agents": "代理",
+    "info.section.features": "特性",
+    "info.cli.version": "版本",
+    "info.cli.platform": "操作系统",
+    "info.cli.arch": "架构",
+    "info.cli.storeDir": "存储目录",
+    "info.cli.logDir": "日志目录",
+    "info.cli.authFile": "认证文件",
+    "info.cli.settingsFile": "配置文件",
+    "info.agents.empty": "未检测到任何支持的 skill 代理。",
+    "info.agents.skillDir": "Skill 目录",
+    "info.agents.status.available": "已安装",
+    "info.agents.status.no_skills": "尚未注入 skill",
+    "info.agents.status.not_installed": "未安装",
+    "info.features.empty": "暂未启用任何可选特性。",
     "checkUpdate.unavailable": "暂时无法检查更新，请稍后重试。",
     "checkUpdate.upToDate": "当前已是最新版本 {version}。",
     "checkUpdate.unsupportedVersion":

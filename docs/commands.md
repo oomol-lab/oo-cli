@@ -350,6 +350,36 @@ Check whether a newer CLI release is available.
 - Notes: when the update check is temporarily unavailable, the CLI prints a
   retry-later message instead of exiting with an error.
 
+## Environment
+
+### `oo info`
+
+Print CLI environment details, persisted store paths, and detected skill
+agents.
+
+- Options: `--format=json` and `--json` switch to structured JSON output.
+  Without those flags, the command prints a human-readable colored summary.
+- Output (JSON): a single object with three top-level fields:
+  - `cli`: an object with the following string fields. `version` is the
+    running CLI version. `platform` is the Node-style platform identifier
+    (`darwin`, `linux`, `win32`, etc.). `arch` is the Node-style architecture
+    identifier (`arm64`, `x64`, etc.). `storeDir` is the root directory of
+    the persisted store. `logDir` is the persisted debug log directory.
+    `authFile` is the persisted auth file path. `settingsFile` is the
+    persisted configuration file path.
+  - `agents`: an array of `{ id, skillDir, status }` entries, one per
+    supported skill agent. `id` is the stable agent identifier (for example
+    `codex`, `claude`, `hermes`). `skillDir` is the agent's resolved skill
+    directory. `status` is one of `available`, `no_skills`, or
+    `not_installed`. `available` means both the agent home directory and
+    its skill directory exist locally. `no_skills` means the agent home
+    directory exists but the skill directory has not been created yet (for
+    example when `oo` could not write skills into the agent). `not_installed`
+    means the agent home directory itself is missing, so `oo` has nowhere to
+    install skills.
+  - `features`: a reserved array for optional CLI capability flags. The CLI
+    currently always returns an empty array.
+
 ## Connector
 
 ### `oo connector search <text>`

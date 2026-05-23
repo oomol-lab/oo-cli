@@ -299,6 +299,30 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   最新发布版本。
 - 说明：如果更新检查暂时不可用，CLI 会输出稍后重试的提示，而不是直接报错退出。
 
+## 环境
+
+### `oo info`
+
+打印 CLI 运行环境信息、本地持久化路径以及检测到的 skill 代理。
+
+- 选项：`--format=json` 与 `--json` 用于切换到结构化 JSON 输出。
+  不指定时，命令会输出带颜色的可读摘要。
+- 输出（JSON）：返回一个对象，包含三个顶层字段：
+  - `cli`：包含以下字符串字段：`version` 为当前 CLI 版本；
+    `platform` 为 Node 风格的操作系统标识（如 `darwin`、`linux`、`win32`）；
+    `arch` 为 Node 风格的架构标识（如 `arm64`、`x64`）；
+    `storeDir` 为持久化存储根目录；`logDir` 为持久化 debug 日志目录；
+    `authFile` 为认证文件路径；`settingsFile` 为配置文件路径。
+  - `agents`：每个受支持的 skill 代理对应一项，结构为
+    `{ id, skillDir, status }`。`id` 为稳定的代理标识（例如 `codex`、
+    `claude`、`hermes` 等）；`skillDir` 为该代理对应的 skill 目录；
+    `status` 取值为 `available`、`no_skills` 或 `not_installed` 三者之一。
+    `available` 表示代理 home 目录与 skill 目录均存在；`no_skills` 表示
+    代理 home 目录存在但 skill 目录尚未创建（例如 `oo` 还没有向该代理
+    写入 skill）；`not_installed` 表示代理 home 目录本身不存在，`oo`
+    暂时无法向其安装 skill。
+  - `features`：保留字段，用于后续可选能力开关。当前始终返回空数组。
+
 ## Connector
 
 ### `oo connector search <text>`
