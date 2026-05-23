@@ -154,10 +154,10 @@ export const enMessages = {
         "Search published skills against the skills search API.",
     "commands.skills.search.summary":
         "Search published skills",
-    "commands.skills.list.description":
-        "List bundled, registry, and local skills.",
-    "commands.skills.list.summary":
-        "List skills",
+    "commands.skills.info.description":
+        "Show bundled, registry, and local skills installed in this environment.",
+    "commands.skills.info.summary":
+        "Show installed skills",
     "commands.skills.locate.description":
         "Print the local path for an installed skill.",
     "commands.skills.locate.summary": "Locate a skill path",
@@ -1135,10 +1135,10 @@ export const zhMessages = {
         "使用自由文本通过 skills search API 搜索已发布的 skill。",
     "commands.skills.search.summary":
         "搜索已发布的 skill",
-    "commands.skills.list.description":
-        "列出 bundled、registry 和 local skill。",
-    "commands.skills.list.summary":
-        "列出 skill",
+    "commands.skills.info.description":
+        "查看当前环境中已安装的 bundled、registry 和 local skill。",
+    "commands.skills.info.summary":
+        "查看已安装的 skill",
     "commands.skills.locate.description":
         "输出已安装 skill 的本地路径。",
     "commands.skills.locate.summary": "定位 skill 路径",

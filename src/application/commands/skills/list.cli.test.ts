@@ -77,6 +77,66 @@ describe("skills list CLI", () => {
         }
     });
 
+    test("exposes the same listing under the info command name", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const skillsDirectoryPath = join(codexHomeDirectory, "skills");
+        const alphaSkillDirectoryPath = join(skillsDirectoryPath, "alpha-skill");
+
+        try {
+            await mkdir(alphaSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(alphaSkillDirectoryPath, ".oo-metadata.json"),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.2.3",
+                }),
+            );
+
+            const infoResult = await sandbox.run(["skills", "info"], {
+                version: "9.9.9",
+            });
+            const listResult = await sandbox.run(["skills", "list"], {
+                version: "9.9.9",
+            });
+
+            expect(infoResult.exitCode).toBe(0);
+            expect(infoResult.stderr).toBe("");
+            expect(infoResult.stdout).toBe(listResult.stdout);
+            expect(infoResult.stdout).toContain("alpha-skill");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records info telemetry when invoked through the list alias", async () => {
+        const sandbox = await createCliSandbox();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+
+        try {
+            const result = await sandbox.run(["skills", "list"]);
+
+            expect(result.exitCode).toBe(0);
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "skills.info",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("excludes local skills by default and lists them with --source local", async () => {
         const sandbox = await createCliSandbox();
         const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
@@ -225,7 +285,7 @@ describe("skills list CLI", () => {
 
             expect(telemetryPayload).toMatchObject({
                 properties: {
-                    command_full: "skills.list",
+                    command_full: "skills.info",
                     has_agent_filter: true,
                     source_filter: "local",
                 },
