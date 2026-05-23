@@ -214,6 +214,10 @@ const commandTelemetryDecisions = {
         properties: ["bytes_total_bucket", "rejected_too_large"],
         reason: "Records upload size bucket and rejection state without path or filename.",
     },
+    "info": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; environment paths and agent presence are not recorded.",
+    },
     "install": {
         kind: "properties",
         properties: [

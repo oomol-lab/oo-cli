@@ -1,0 +1,46 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`info CLI prints a human-readable view when --json is not set 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"CLI
+  Version: 1.2.3
+  Platform: darwin
+  Architecture: arm64
+  Store directory: <XDG_CONFIG_HOME>/oo
+  Log directory: <HOME>/Library/Logs/oo
+  Auth file: <XDG_CONFIG_HOME>/oo/auth.toml
+  Settings file: <XDG_CONFIG_HOME>/oo/settings.toml
+
+Agents
+  universal (not installed)
+    Skill directory: <HOME>/.agents/skills
+  codex (not installed)
+    Skill directory: <HOME>/.codex/skills
+  claude (not installed)
+    Skill directory: <HOME>/.claude/skills
+  hermes (not installed)
+    Skill directory: <HOME>/.hermes/skills
+  codebuddy (not installed)
+    Skill directory: <HOME>/.codebuddy/skills
+  workbuddy (not installed)
+    Skill directory: <HOME>/.workbuddy/skills
+  trae (not installed)
+    Skill directory: <HOME>/.trae/skills
+  trae-cn (not installed)
+    Skill directory: <HOME>/.trae-cn/skills
+  openclaw (not installed)
+    Skill directory: <HOME>/.openclaw/skills
+  qoderwork (not installed)
+    Skill directory: <HOME>/.qoderwork/skills
+  deepseek-tui (not installed)
+    Skill directory: <HOME>/.deepseek/skills
+
+Features
+  No optional features enabled.
+"
+,
+}
+`;

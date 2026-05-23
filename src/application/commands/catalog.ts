@@ -8,6 +8,7 @@ import { completionCommand } from "./completion.ts";
 import { configCommand } from "./config/index.ts";
 import { connectorCommand } from "./connector/index.ts";
 import { fileCommand } from "./file/index.ts";
+import { infoCommand } from "./info.ts";
 import { installCommand } from "./install.ts";
 import { llmCommand } from "./llm/index.ts";
 import { logCommand } from "./log/index.ts";
@@ -46,6 +47,7 @@ export function createCliCatalog(): CliCatalog {
             cloudTaskCommand,
             connectorCommand,
             fileCommand,
+            infoCommand,
             installCommand,
             llmCommand,
             loginCommand,

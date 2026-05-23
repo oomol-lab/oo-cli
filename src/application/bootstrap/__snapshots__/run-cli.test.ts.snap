@@ -45,6 +45,7 @@ Commands:
   cloud-task                Manage cloud tasks
   connector                 Manage connector actions
   file                      Manage temporary file transfers
+  info [options]            Show CLI environment info
   llm                       Manage LLM client config
   login [options]           Log in with an OOMOL account (alias for auth login)
   logout                    Log out the current account (alias for auth logout)
@@ -81,6 +82,7 @@ Commands:
   cloud-task                Manage cloud tasks
   connector                 Manage connector actions
   file                      Manage temporary file transfers
+  info [options]            Show CLI environment info
   llm                       Manage LLM client config
   login [options]           Log in with an OOMOL account (alias for auth login)
   logout                    Log out the current account (alias for auth logout)
@@ -120,6 +122,7 @@ Commands:
   cloud-task                Manage cloud tasks
   connector                 Manage connector actions
   file                      Manage temporary file transfers
+  info [options]            Show CLI environment info
   llm                       Manage LLM client config
   login [options]           Log in with an OOMOL account (alias for auth login)
   logout                    Log out the current account (alias for auth logout)
@@ -157,6 +160,7 @@ exports[`runCli bootstrap renders help in English and Chinese 1`] = `
   cloud-task                管理云任务
   connector                 管理 connector action
   file                      管理临时文件传输
+  info [options]            显示 CLI 环境信息
   llm                       管理 LLM client 配置
   login [options]           登录 OOMOL 账号（auth login 的别名）
   logout                    登出当前账号（auth logout 的别名）
@@ -190,6 +194,7 @@ Commands:
   cloud-task                Manage cloud tasks
   connector                 Manage connector actions
   file                      Manage temporary file transfers
+  info [options]            Show CLI environment info
   llm                       Manage LLM client config
   login [options]           Log in with an OOMOL account (alias for auth login)
   logout                    Log out the current account (alias for auth logout)
@@ -227,6 +232,7 @@ Commands:
   cloud-task                Manage cloud tasks
   connector                 Manage connector actions
   file                      Manage temporary file transfers
+  info [options]            Show CLI environment info
   llm                       Manage LLM client config
   login [options]           Log in with an OOMOL account (alias for auth login)
   logout                    Log out the current account (alias for auth logout)
