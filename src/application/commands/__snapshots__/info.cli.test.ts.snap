@@ -7,10 +7,10 @@ exports[`info CLI prints a human-readable view when --json is not set 1`] = `
   "stdout": 
 "CLI
   Version: 1.2.3
-  Platform: darwin
-  Architecture: arm64
+  Platform: <PLATFORM>
+  Architecture: <ARCH>
   Store directory: <XDG_CONFIG_HOME>/oo
-  Log directory: <HOME>/Library/Logs/oo
+  Log directory: <LOG_DIR>
   Auth file: <XDG_CONFIG_HOME>/oo/auth.toml
   Settings file: <XDG_CONFIG_HOME>/oo/settings.toml
 

@@ -116,10 +116,20 @@ describe("info CLI", () => {
             const result = await sandbox.run(["info"], {
                 version: "1.2.3",
             });
+            const logDirectoryPath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).logDirectoryPath;
 
             expect(createCliSnapshot(result, {
                 sandbox,
                 stripAnsi: true,
+                replacements: [
+                    { placeholder: "<LOG_DIR>", value: logDirectoryPath },
+                    { placeholder: "<PLATFORM>", value: process.platform },
+                    { placeholder: "<ARCH>", value: process.arch },
+                ],
             })).toMatchSnapshot();
         }
         finally {
