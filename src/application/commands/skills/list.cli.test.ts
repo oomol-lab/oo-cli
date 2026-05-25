@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 
 import { join } from "node:path";
 
@@ -10,18 +10,18 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
-import { createTerminalColors } from "../../terminal-colors.ts";
+import { resolveBundledSkillCanonicalDirectoryPath } from "./bundled-skill-paths.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
-import { createLocalSkillMetadata, renderSkillMetadataJson } from "./skill-metadata.ts";
+import {
+    createLocalSkillMetadata,
+    renderSkillMetadataJson,
+} from "./skill-metadata.ts";
 
-const managedSkillNameColor = "#59F78D";
-const managedSkillSourceColor = "#CAA8FA";
-const managedSkillVersionColor = "#7DD3FC";
 const bundledSkillNames = [
     "oo",
     "oo-find-skills",
@@ -29,22 +29,20 @@ const bundledSkillNames = [
     "oo-publish-skill",
 ] as const;
 
-describe("skills list CLI", () => {
-    test("lists skills with source, package, and version details", async () => {
+describe("skills info CLI", () => {
+    test("renders the new inventory text output with controlState per host", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillsDirectoryPath = join(codexHomeDirectory, "skills");
-        const alphaSkillDirectoryPath = join(skillsDirectoryPath, "alpha-skill");
-        const unmanagedSkillDirectoryPath = join(skillsDirectoryPath, "custom-skill");
+        const alphaSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "alpha-skill",
+        );
 
         try {
             await mkdir(codexHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install"], {
-                version: "9.9.9",
-            });
+            await sandbox.run(["skills", "install"], { version: "9.9.9" });
             await mkdir(alphaSkillDirectoryPath, { recursive: true });
-            await mkdir(unmanagedSkillDirectoryPath, { recursive: true });
-            await Bun.write(
+            await writeFile(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
                 renderSkillMetadataJson({
                     packageName: "@oomol/alpha",
@@ -52,40 +50,46 @@ describe("skills list CLI", () => {
                 }),
             );
 
-            const result = await sandbox.run(["skills", "list"], {
+            const result = await sandbox.run(["skills", "info"], {
                 version: "9.9.9",
             });
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 5 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("Codex"),
-                    "alpha-skill",
-                    "  Host: Codex",
-                    "  Source: registry",
-                    "  Package: @oomol/alpha",
-                    "  Version: 1.2.3",
-                    "",
-                ].join("\n"),
+            expect(result.stdout).toContain(
+                "✓ Found 5 skills (bundled: 4, registry: 1, local: 0).",
             );
+            for (const skillName of bundledSkillNames) {
+                expect(result.stdout).toContain(skillName);
+            }
+            expect(result.stdout).toContain("alpha-skill");
+            expect(result.stdout).toContain("  Kind: bundled");
+            expect(result.stdout).toContain("  Kind: registry");
+            expect(result.stdout).toContain("  Package: <internal>");
+            expect(result.stdout).toContain("  Package: @oomol/alpha");
+            expect(result.stdout).toContain("  Version: 9.9.9");
+            expect(result.stdout).toContain("  Version: 1.2.3");
+            expect(result.stdout).toContain("  Hosts:");
+            expect(result.stdout).toMatch(/Codex\s+installed\s+\S*controlled/);
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("exposes the same listing under the info command name", async () => {
+    test("text output never contains absolute paths or sourcePath", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillsDirectoryPath = join(codexHomeDirectory, "skills");
-        const alphaSkillDirectoryPath = join(skillsDirectoryPath, "alpha-skill");
+        const alphaSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "alpha-skill",
+        );
 
         try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], { version: "9.9.9" });
             await mkdir(alphaSkillDirectoryPath, { recursive: true });
-            await Bun.write(
+            await writeFile(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
                 renderSkillMetadataJson({
                     packageName: "@oomol/alpha",
@@ -93,15 +97,100 @@ describe("skills list CLI", () => {
                 }),
             );
 
-            const infoResult = await sandbox.run(["skills", "info"], {
-                version: "9.9.9",
-            });
-            const listResult = await sandbox.run(["skills", "list"], {
+            const result = await sandbox.run(["skills", "info"], {
                 version: "9.9.9",
             });
 
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).not.toContain(codexHomeDirectory);
+            expect(result.stdout).not.toContain(alphaSkillDirectoryPath);
+            expect(result.stdout).not.toMatch(/Path:/);
+            expect(result.stdout).not.toMatch(/source:/);
+            expect(result.stdout).not.toMatch(/sourcePath/);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("local skill text output omits paths", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const localSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "campaign-writer",
+        );
+
+        try {
+            await writeLocalSkillDirectory(localSkillDirectoryPath, "campaign-writer");
+
+            const result = await sandbox.run([
+                "skills",
+                "info",
+                "--source",
+                "local",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("campaign-writer");
+            expect(result.stdout).toContain("  Kind: local");
+            expect(result.stdout).toContain("  Package: <local>");
+            expect(result.stdout).toContain("  Hosts:");
+            expect(result.stdout).not.toContain(localSkillDirectoryPath);
+            expect(result.stdout).not.toMatch(/Path:/);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("default view excludes local skills; --source local includes them", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const localSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "campaign-writer",
+        );
+
+        try {
+            await writeLocalSkillDirectory(localSkillDirectoryPath, "campaign-writer");
+
+            const defaultResult = await sandbox.run(["skills", "info"]);
+            const localResult = await sandbox.run(["skills", "info", "--source", "local"]);
+
+            expect(defaultResult.exitCode).toBe(0);
+            expect(defaultResult.stdout).not.toContain("campaign-writer");
+            expect(localResult.exitCode).toBe(0);
+            expect(localResult.stdout).toContain("campaign-writer");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("exposes the same listing under both info and list command names", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const alphaSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "alpha-skill",
+        );
+
+        try {
+            await mkdir(alphaSkillDirectoryPath, { recursive: true });
+            await writeFile(
+                join(alphaSkillDirectoryPath, ".oo-metadata.json"),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.2.3",
+                }),
+            );
+
+            const infoResult = await sandbox.run(["skills", "info"], { version: "9.9.9" });
+            const listResult = await sandbox.run(["skills", "list"], { version: "9.9.9" });
+
             expect(infoResult.exitCode).toBe(0);
-            expect(infoResult.stderr).toBe("");
             expect(infoResult.stdout).toBe(listResult.stdout);
             expect(infoResult.stdout).toContain("alpha-skill");
         }
@@ -137,117 +226,603 @@ describe("skills list CLI", () => {
         }
     });
 
-    test("excludes local skills by default and lists them with --source local", async () => {
+    test("--source registry filter still reports full summary counts", async () => {
         const sandbox = await createCliSandbox();
-        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
-        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codeBuddyHomeDirectory,
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const alphaSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "alpha-skill",
+        );
+        const localSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
             "campaign-writer",
         );
 
         try {
-            await mkdir(codeBuddyHomeDirectory, { recursive: true });
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], { version: "9.9.9" });
+            await mkdir(alphaSkillDirectoryPath, { recursive: true });
+            await writeFile(
+                join(alphaSkillDirectoryPath, ".oo-metadata.json"),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.2.3",
+                }),
+            );
+            await writeLocalSkillDirectory(localSkillDirectoryPath, "campaign-writer");
 
-            const initResult = await sandbox.run([
+            const result = await sandbox.run([
                 "skills",
-                "init",
-                "Campaign Writer",
-                "--agent",
-                "codebuddy",
-                "--description",
-                "Write campaign briefs using a known package workflow.",
-            ]);
-            const allSourcesResult = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-            const result = await sandbox.run(["skills", "list", "--source", "local"]);
+                "info",
+                "--source",
+                "registry",
+            ], { version: "9.9.9" });
 
-            expect(initResult.exitCode).toBe(0);
-            expect(allSourcesResult.exitCode).toBe(0);
-            expect(allSourcesResult.stderr).toBe("");
             expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            const expectedOutput = [
-                "✓ Found 1 skills.",
-                "",
-                "campaign-writer",
-                "  Host: CodeBuddy",
-                "  Source: local",
-                "  Package: <local>",
-                "  Version: unknown",
-                `  Path: ${skillDirectoryPath}`,
-                "",
-            ].join("\n");
-
-            expect(allSourcesResult.stdout).not.toContain("campaign-writer");
-            expect(result.stdout).toBe(expectedOutput);
+            // Summary reports the full inventory regardless of filter.
+            expect(result.stdout).toContain(
+                "Found 1 skills (bundled: 4, registry: 1, local: 1)",
+            );
+            expect(result.stdout).toContain("alpha-skill");
+            expect(result.stdout).not.toContain("campaign-writer");
+            // Bundled skill names should be filtered out.
+            for (const bundledName of bundledSkillNames) {
+                expect(result.stdout).not.toMatch(new RegExp(`^${bundledName}$`, "m"));
+            }
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("filters local skills by agent without merging same-name local entries", async () => {
+    test("--agent filter scopes hosts but summary still reflects full inventory", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
-        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(claudeHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], { version: "9.9.9" });
+
+            const result = await sandbox.run([
+                "skills",
+                "info",
+                "--agent",
+                "codex",
+            ], { version: "9.9.9" });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Found 4 skills (bundled: 4, registry: 0, local: 0)",
+            );
+            expect(result.stdout).toContain("Codex");
+            expect(result.stdout).not.toContain("Claude Code");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("validates the source filter", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["skills", "info", "--source", "unknown"]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Invalid source: unknown. Use bundled, registry, or local.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints a no-results message when no skills are installed", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["skills", "info"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe("! No skills were found.\n");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json emits structured payload without schemaVersion by default", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const alphaSkillDirectoryPath = resolveManagedSkillDirectoryPath(
             codexHomeDirectory,
-            "shared-skill",
-        );
-        const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codeBuddyHomeDirectory,
-            "shared-skill",
+            "alpha-skill",
         );
 
         try {
-            await Promise.all([
-                writeLocalSkill(codexSkillDirectoryPath, "shared-skill"),
-                writeLocalSkill(codeBuddySkillDirectoryPath, "shared-skill"),
-            ]);
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], { version: "9.9.9" });
+            await mkdir(alphaSkillDirectoryPath, { recursive: true });
+            await writeFile(
+                join(alphaSkillDirectoryPath, ".oo-metadata.json"),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.2.3",
+                }),
+            );
 
-            const allLocalResult = await sandbox.run(["skills", "list", "--source", "local"]);
-            const codexLocalResult = await sandbox.run([
+            const result = await sandbox.run(["skills", "info", "--json"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload).not.toHaveProperty("schemaVersion");
+            expect(payload).toHaveProperty("summary");
+            expect(payload.summary).toEqual({
+                bundledSkills: 4,
+                registrySkills: 1,
+                localSkills: 0,
+            });
+            expect(Array.isArray(payload.skills)).toBe(true);
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const registryEntry = skills.find(skill => skill.id === "alpha-skill");
+
+            expect(registryEntry).toBeDefined();
+            expect(registryEntry).toMatchObject({
+                id: "alpha-skill",
+                name: "alpha-skill",
+                kind: "registry",
+                packageName: "@oomol/alpha",
+                version: "1.2.3",
+            });
+            expect(Array.isArray(registryEntry?.hosts)).toBe(true);
+            const hosts = registryEntry?.hosts as Array<Record<string, unknown>>;
+            const codexHost = hosts.find(host => host.agentId === "codex");
+
+            expect(codexHost).toMatchObject({
+                agentId: "codex",
+                status: "installed",
+                version: "1.2.3",
+            });
+            expect(codexHost?.path).toBe(alphaSkillDirectoryPath);
+            expect(codexHost?.sourcePath).toBeTypeOf("string");
+            // controlState is "unknown" here since the canonical registry
+            // source was never created by this lightweight test; other tests
+            // cover the controlled/modified/non-managed branches explicitly.
+            expect(["controlled", "modified", "unknown"]).toContain(
+                codexHost?.controlState as string,
+            );
+            const ooEntry = skills.find(skill => skill.id === "oo");
+
+            expect(ooEntry?.kind).toBe("bundled");
+            expect(ooEntry?.packageName).toBeNull();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json --show-schema-version prepends schemaVersion", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], { version: "9.9.9" });
+
+            const result = await sandbox.run([
                 "skills",
-                "list",
-                "--source",
-                "local",
-                "--agent",
-                "codex",
-            ]);
+                "info",
+                "--json",
+                "--show-schema-version",
+            ], { version: "9.9.9" });
 
-            expect(allLocalResult.exitCode).toBe(0);
-            expect(allLocalResult.stderr).toBe("");
-            expect(allLocalResult.stdout).toBe([
-                "✓ Found 2 skills.",
-                "",
-                "shared-skill",
-                "  Host: CodeBuddy",
-                "  Source: local",
-                "  Package: <local>",
-                "  Version: unknown",
-                `  Path: ${codeBuddySkillDirectoryPath}`,
-                "",
-                "shared-skill",
-                "  Host: Codex",
-                "  Source: local",
-                "  Package: <local>",
-                "  Version: unknown",
-                `  Path: ${codexSkillDirectoryPath}`,
-                "",
-            ].join("\n"));
-            expect(codexLocalResult.exitCode).toBe(0);
-            expect(codexLocalResult.stdout).toBe([
-                "✓ Found 1 skills.",
-                "",
-                "shared-skill",
-                "  Host: Codex",
-                "  Source: local",
-                "  Package: <local>",
-                "  Version: unknown",
-                `  Path: ${codexSkillDirectoryPath}`,
-                "",
-            ].join("\n"));
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.schemaVersion).toBe("1.0.0");
+            expect(payload).toHaveProperty("summary");
+            expect(payload).toHaveProperty("skills");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json modified host content surfaces controlState=modified", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], { version: "9.9.9" });
+            // Mutate the host installation to diverge from canonical source.
+            const skillMdPath = join(codexHomeDirectory, "skills", "oo", "SKILL.md");
+
+            await writeFile(skillMdPath, "modified content\n");
+
+            const result = await sandbox.run(["skills", "info", "--json"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const ooEntry = skills.find(skill => skill.id === "oo");
+            const hosts = ooEntry?.hosts as Array<Record<string, unknown>>;
+            const codexHost = hosts.find(host => host.agentId === "codex");
+
+            expect(codexHost?.controlState).toBe("modified");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json host directory without .oo-metadata.json surfaces controlState=non-managed", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const claudeOoSkillDirectory = resolveManagedSkillDirectoryPath(
+            claudeHomeDirectory,
+            "oo",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], { version: "9.9.9" });
+            // Create a same-name directory on Claude without .oo-metadata.json.
+            await mkdir(claudeOoSkillDirectory, { recursive: true });
+            await writeFile(join(claudeOoSkillDirectory, "SKILL.md"), "user content\n");
+
+            const result = await sandbox.run(["skills", "info", "--json"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const ooEntry = skills.find(skill => skill.id === "oo");
+            const hosts = ooEntry?.hosts as Array<Record<string, unknown>>;
+            const claudeHost = hosts.find(host => host.agentId === "claude");
+
+            expect(claudeHost?.controlState).toBe("non-managed");
+            expect(claudeHost?.sourcePath).toBeNull();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json invalid metadata on host scanned before managed install still surfaces as unknown", async () => {
+        const sandbox = await createCliSandbox();
+        // Universal is scanned before codex in supportedSkillAgents order.
+        // Place invalid metadata on universal and the managed install on codex
+        // to exercise the second-pass shadow attach.
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(
+            sandbox.env,
+            "universal",
+        );
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalOoSkillDirectory = resolveManagedSkillDirectoryPath(
+            universalHomeDirectory,
+            "oo",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], { version: "9.9.9" });
+            await mkdir(universalOoSkillDirectory, { recursive: true });
+            await writeFile(
+                resolveManagedSkillMetadataFilePath(universalOoSkillDirectory),
+                "not valid json{{",
+            );
+
+            const result = await sandbox.run(["skills", "info", "--json"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const ooEntry = skills.find(skill => skill.id === "oo");
+            const hosts = ooEntry?.hosts as Array<Record<string, unknown>>;
+            const universalHost = hosts.find(host => host.agentId === "universal");
+            const codexHost = hosts.find(host => host.agentId === "codex");
+
+            expect(universalHost).toBeDefined();
+            expect(universalHost?.controlState).toBe("unknown");
+            expect(codexHost?.controlState).toBe("controlled");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json invalid .oo-metadata.json surfaces controlState=unknown", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const claudeOoSkillDirectory = resolveManagedSkillDirectoryPath(
+            claudeHomeDirectory,
+            "oo",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], { version: "9.9.9" });
+            // Create a same-name directory on Claude with broken metadata.
+            await mkdir(claudeOoSkillDirectory, { recursive: true });
+            await writeFile(
+                resolveManagedSkillMetadataFilePath(claudeOoSkillDirectory),
+                "not valid json{{",
+            );
+
+            const result = await sandbox.run(["skills", "info", "--json"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const ooEntry = skills.find(skill => skill.id === "oo");
+            const hosts = ooEntry?.hosts as Array<Record<string, unknown>>;
+            const claudeHost = hosts.find(host => host.agentId === "claude");
+
+            expect(claudeHost?.controlState).toBe("unknown");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json missing canonical source surfaces controlState=unknown", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install", "oo"], { version: "9.9.9" });
+            // Wipe the canonical bundled source so the host install has no
+            // counterpart to compare against.
+            const storePaths = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            });
+            const canonicalDirectory = resolveBundledSkillCanonicalDirectoryPath(
+                storePaths.settingsFilePath,
+                "oo",
+                "codex",
+            );
+
+            await rm(canonicalDirectory, { recursive: true, force: true });
+
+            const result = await sandbox.run(["skills", "info", "--json"], {
+                version: "9.9.9",
+            });
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const ooEntry = skills.find(skill => skill.id === "oo");
+            const hosts = ooEntry?.hosts as Array<Record<string, unknown>>;
+            const codexHost = hosts.find(host => host.agentId === "codex");
+
+            expect(codexHost?.controlState).toBe("unknown");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json local skill exposes sourcePath=null and controlState=controlled", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const localSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "campaign-writer",
+        );
+
+        try {
+            await writeLocalSkillDirectory(localSkillDirectoryPath, "campaign-writer");
+
+            const result = await sandbox.run(["skills", "info", "--json", "--source", "local"]);
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const entry = skills.find(skill => skill.id === "campaign-writer");
+
+            expect(entry).toMatchObject({
+                kind: "local",
+                packageName: null,
+                version: null,
+            });
+            const hosts = entry?.hosts as Array<Record<string, unknown>>;
+            const codexHost = hosts.find(host => host.agentId === "codex");
+
+            expect(codexHost?.controlState).toBe("controlled");
+            expect(codexHost?.sourcePath).toBeNull();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json multi-host different versions folds into one skill with per-host versions", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const codexAlphaSkillDirectory = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "alpha-skill",
+        );
+        const claudeAlphaSkillDirectory = resolveManagedSkillDirectoryPath(
+            claudeHomeDirectory,
+            "alpha-skill",
+        );
+
+        try {
+            await mkdir(codexAlphaSkillDirectory, { recursive: true });
+            await mkdir(claudeAlphaSkillDirectory, { recursive: true });
+            await writeFile(
+                join(codexAlphaSkillDirectory, ".oo-metadata.json"),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.2.3",
+                }),
+            );
+            await writeFile(
+                join(claudeAlphaSkillDirectory, ".oo-metadata.json"),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.5.0",
+                }),
+            );
+
+            const result = await sandbox.run(["skills", "info", "--json"]);
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const alphaEntries = skills.filter(skill => skill.id === "alpha-skill");
+
+            expect(alphaEntries).toHaveLength(1);
+            const hosts = alphaEntries[0]?.hosts as Array<Record<string, unknown>>;
+            const codexHost = hosts.find(host => host.agentId === "codex");
+            const claudeHost = hosts.find(host => host.agentId === "claude");
+
+            expect(codexHost?.version).toBe("1.2.3");
+            expect(claudeHost?.version).toBe("1.5.0");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json summary unaffected by --source filter", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const alphaSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "alpha-skill",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await sandbox.run(["skills", "install"], { version: "9.9.9" });
+            await mkdir(alphaSkillDirectoryPath, { recursive: true });
+            await writeFile(
+                join(alphaSkillDirectoryPath, ".oo-metadata.json"),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.2.3",
+                }),
+            );
+
+            const fullResult = await sandbox.run(["skills", "info", "--json"], {
+                version: "9.9.9",
+            });
+            const registryResult = await sandbox.run([
+                "skills",
+                "info",
+                "--json",
+                "--source",
+                "registry",
+            ], { version: "9.9.9" });
+
+            const fullPayload = JSON.parse(fullResult.stdout) as Record<string, unknown>;
+            const registryPayload = JSON.parse(registryResult.stdout) as Record<string, unknown>;
+
+            expect(registryPayload.summary).toEqual(fullPayload.summary);
+            const registrySkills = registryPayload.skills as Array<Record<string, unknown>>;
+
+            expect(registrySkills.every(skill => skill.kind === "registry")).toBe(true);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json reports description from canonical SKILL.md", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "alpha-skill",
+        );
+        const hostDirectory = resolveManagedSkillDirectoryPath(
+            codexHomeDirectory,
+            "alpha-skill",
+        );
+
+        try {
+            await mkdir(hostDirectory, { recursive: true });
+            await mkdir(canonicalDirectory, { recursive: true });
+            await writeFile(
+                join(canonicalDirectory, "SKILL.md"),
+                [
+                    "---",
+                    "name: alpha-skill",
+                    "description: Alpha helper for orchestration tests.",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+            await writeFile(
+                resolveManagedSkillMetadataFilePath(canonicalDirectory),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.2.3",
+                }),
+            );
+            await writeFile(
+                join(hostDirectory, ".oo-metadata.json"),
+                renderSkillMetadataJson({
+                    packageName: "@oomol/alpha",
+                    version: "1.2.3",
+                }),
+            );
+
+            const result = await sandbox.run(["skills", "info", "--json"]);
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const entry = skills.find(skill => skill.id === "alpha-skill");
+
+            expect(entry?.description).toBe(
+                "Alpha helper for orchestration tests.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("treats the removed list-local command as unknown", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["skills", "list-local"]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("Unknown command: list-local.");
         }
         finally {
             await sandbox.cleanup();
@@ -267,11 +842,11 @@ describe("skills list CLI", () => {
         );
 
         try {
-            await writeLocalSkill(skillDirectoryPath, "telemetry-skill");
+            await writeLocalSkillDirectory(skillDirectoryPath, "telemetry-skill");
 
             const result = await sandbox.run([
                 "skills",
-                "list",
+                "info",
                 "--source",
                 "local",
                 "--agent",
@@ -298,452 +873,14 @@ describe("skills list CLI", () => {
             await sandbox.cleanup();
         }
     });
-
-    test("filters listed skills by source with the short option", async () => {
-        const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            "alpha-skill",
-        );
-
-        try {
-            await mkdir(codexHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install"], {
-                version: "9.9.9",
-            });
-            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
-            await Bun.write(
-                join(canonicalSkillDirectoryPath, "SKILL.md"),
-                "# Alpha\n",
-            );
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
-                renderSkillMetadataJson({
-                    packageName: "@oomol/alpha",
-                    version: "1.2.3",
-                }),
-            );
-
-            const result = await sandbox.run(["skills", "list", "-s", "registry"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 1 skills.",
-                    "",
-                    "alpha-skill",
-                    "  Host: Codex",
-                    "  Source: registry",
-                    "  Package: @oomol/alpha",
-                    "  Version: 1.2.3",
-                    "",
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("validates the source filter", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            const result = await sandbox.run(["skills", "list", "--source", "unknown"]);
-
-            expect(result.exitCode).toBe(2);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toBe(
-                "Invalid source: unknown. Use bundled, registry, or local.\n",
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("prints a no-results message when no local skills exist", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            const result = await sandbox.run(["skills", "list", "--source", "local"]);
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe("! No skills were found.\n");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("treats the removed list-local command as unknown", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            const result = await sandbox.run(["skills", "list-local"]);
-
-            expect(result.exitCode).toBe(2);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toContain("Unknown command: list-local.");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("lists startup-synchronized OpenClaw bundled installs when Codex is not installed", async () => {
-        const sandbox = await createCliSandbox();
-        const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
-
-        try {
-            await mkdir(openClawHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install", "oo"], {
-                version: "9.9.9",
-            });
-
-            const result = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 4 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("OpenClaw"),
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("lists startup-synchronized QoderWork bundled installs when Codex is not installed", async () => {
-        const sandbox = await createCliSandbox();
-        const qoderWorkHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "qoderwork");
-
-        try {
-            await mkdir(qoderWorkHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install", "oo"], {
-                version: "9.9.9",
-            });
-
-            const result = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 4 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("QoderWork"),
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("lists startup-synchronized CodeBuddy bundled installs when Codex is not installed", async () => {
-        const sandbox = await createCliSandbox();
-        const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
-
-        try {
-            await mkdir(codeBuddyHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install", "oo"], {
-                version: "9.9.9",
-            });
-
-            const result = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 4 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("CodeBuddy"),
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("lists startup-synchronized DeepSeek TUI bundled installs when Codex is not installed", async () => {
-        const sandbox = await createCliSandbox();
-        const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
-
-        try {
-            await mkdir(deepSeekTuiHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install", "oo"], {
-                version: "9.9.9",
-            });
-
-            const result = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 4 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("DeepSeek TUI"),
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("lists startup-synchronized WorkBuddy bundled installs when Codex is not installed", async () => {
-        const sandbox = await createCliSandbox();
-        const workBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "workbuddy");
-
-        try {
-            await mkdir(workBuddyHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install", "oo"], {
-                version: "9.9.9",
-            });
-
-            const result = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 4 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("WorkBuddy"),
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("lists startup-synchronized Trae bundled installs when Codex is not installed", async () => {
-        const sandbox = await createCliSandbox();
-        const traeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae");
-
-        try {
-            await mkdir(traeHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install", "oo"], {
-                version: "9.9.9",
-            });
-
-            const result = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 4 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("Trae"),
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("lists startup-synchronized Trae CN bundled installs when Codex is not installed", async () => {
-        const sandbox = await createCliSandbox();
-        const traeCnHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "trae-cn");
-
-        try {
-            await mkdir(traeCnHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install", "oo"], {
-                version: "9.9.9",
-            });
-
-            const result = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 4 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("Trae CN"),
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("lists startup-synchronized Hermes bundled installs when Codex is not installed", async () => {
-        const sandbox = await createCliSandbox();
-        const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
-
-        try {
-            await mkdir(hermesHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install", "oo"], {
-                version: "9.9.9",
-            });
-
-            const result = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 4 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("Hermes"),
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("groups identical skills installed across multiple hosts", async () => {
-        const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
-
-        try {
-            await mkdir(codexHomeDirectory, { recursive: true });
-            await mkdir(claudeHomeDirectory, { recursive: true });
-            await sandbox.run(["skills", "install"], {
-                version: "9.9.9",
-            });
-
-            const result = await sandbox.run(["skills", "list"], {
-                version: "9.9.9",
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe(
-                [
-                    "✓ Found 4 skills.",
-                    "",
-                    ...createExpectedBundledSkillLines("Codex, Claude Code"),
-                ].join("\n"),
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("prints a no-results message when no supported host is installed", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            const result = await sandbox.run(["skills", "list"]);
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toBe("! No skills were found.\n");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("renders skills list output with field-specific colors", async () => {
-        const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillsDirectoryPath = join(codexHomeDirectory, "skills");
-        const alphaSkillDirectoryPath = join(skillsDirectoryPath, "alpha-skill");
-        const colors = createTerminalColors(true);
-
-        try {
-            await mkdir(alphaSkillDirectoryPath, { recursive: true });
-            await Bun.write(
-                join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
-                    packageName: "@oomol/alpha",
-                    version: "1.2.3",
-                }),
-            );
-
-            const result = await sandbox.run(["skills", "list"], {
-                stdout: {
-                    hasColors: true,
-                },
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain(
-                colors.bold(colors.hex(managedSkillNameColor)("alpha-skill")),
-            );
-            expect(result.stdout).toContain(
-                `${colors.dim("Host:")} ${colors.hex(managedSkillSourceColor)("Codex")}`,
-            );
-            expect(result.stdout).toContain(
-                `${colors.dim("Source:")} ${colors.hex(managedSkillSourceColor)("registry")}`,
-            );
-            expect(result.stdout).toContain(
-                `${colors.dim("Package:")} ${colors.hex(managedSkillSourceColor)("@oomol/alpha")}`,
-            );
-            expect(result.stdout).toContain(
-                `${colors.dim("Version:")} ${colors.hex(managedSkillVersionColor)("1.2.3")}`,
-            );
-            expect(result.stdout).not.toContain(colors.dim("Path:"));
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
 });
 
-function createExpectedBundledSkillLines(
-    hostName: string,
-): string[] {
-    return bundledSkillNames.flatMap(skillName => [
-        skillName,
-        `  Host: ${hostName}`,
-        "  Source: bundled",
-        "  Version: 9.9.9",
-        "",
-    ]);
-}
-
-async function writeLocalSkill(
+async function writeLocalSkillDirectory(
     skillDirectoryPath: string,
     skillName: string,
 ): Promise<void> {
     await mkdir(skillDirectoryPath, { recursive: true });
-    await Bun.write(
+    await writeFile(
         join(skillDirectoryPath, "SKILL.md"),
         [
             "---",
@@ -753,7 +890,7 @@ async function writeLocalSkill(
             "",
         ].join("\n"),
     );
-    await Bun.write(
+    await writeFile(
         resolveManagedSkillMetadataFilePath(skillDirectoryPath),
         renderSkillMetadataJson(createLocalSkillMetadata()),
     );

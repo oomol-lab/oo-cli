@@ -444,31 +444,88 @@ registry skills。
 - 选项：`--agent <agent>` 将扫描范围限制为一个受支持 Agent：`universal`、
   `codex`、`claude`、`hermes`、`codebuddy`、`workbuddy`、`trae`、`trae-cn`、
   `openclaw`、`qoderwork` 或 `deepseek-tui`。
+- 选项：`--json` / `--format json` 以结构化 JSON 输出（详见下文）。
+  `--show-schema-version`（仅在 JSON 模式下生效）会在 payload 顶层添加
+  `schemaVersion` 字段；不带该 flag 时，payload 顶层直接从 `summary` 开始。
 - managed 所有权规则：命令会扫描每个已存在的受支持本地 skill 根目录：
   `~/.agents/skills`、`${CODEX_HOME:-~/.codex}/skills`、`~/.claude/skills`，
   以及 `${HERMES_HOME:-~/.hermes}/skills`、`~/.codebuddy/skills`、
   `~/.workbuddy/skills`、`~/.trae/skills`、`~/.trae-cn/skills`、
   `${OPENCLAW_HOME:-~/.openclaw}/skills`、`~/.qoderwork/skills`、
   `~/.deepseek/skills`。只保留 `.oo-metadata.json` 能识别为由 oo 管理的
-  bundled、registry 或 local skill 的子目录；已有的 legacy bundled 和 registry
-  metadata 仍可读取。
+  bundled、registry 或 local skill 的子目录。某个 Agent 目录中存在同名但
+  没有 `.oo-metadata.json` 的子目录时，会作为匹配 managed skill 的
+  `non-managed` host 出现，不会单独列出为顶层 skill。
 - local 来源规则：`--source local` 会列出 Agent skill 目录中的 oo-managed local
-  skill。`--source local --agent <agent>` 只列出该 Agent 的 local skill。即使多个
-  Agent 中存在同名 local skill，也会按 Agent 和路径分别显示，不会合并。
-- 输出：文本输出会先打印摘要行，再为每个唯一的可见 skill 身份打印一个块。
-  如果多个 Agent 中的安装具有相同 `name`、来源、package 和版本，则会折叠到同一个
-  块中；local skill 例外，会按路径保持独立。
+  skill。`--source local --agent <agent>` 只列出该 Agent 的 local skill。
+- 身份规则：顶层 skill 的身份是 `kind + name + packageName`。不同 Agent 上
+  的版本差异不会拆分成多条 skill；JSON 输出会在 `hosts[].version` 中反映
+  每个 host 的实际版本。
 - 排序：bundled skills 会排在最前面；其中 `oo` 优先，其次
   `oo-find-skills`，再其次 `oo-create-skill`，再其次 `oo-publish-skill`；其余
-  skill 按名称排序。managed 块内的 Agent 名称按 `Universal`、`Codex`、
-  `Claude Code`、`Hermes`、`CodeBuddy`、`WorkBuddy`、`Trae`、`Trae CN`、
-  `OpenClaw`、`QoderWork`、`DeepSeek TUI` 顺序显示。
-- 输出：每个 skill 块会显示 skill 名称，以及 `Host`、`Source` 和 `Version`。
-  `Source` 为 `bundled`、`registry` 或 `local`。registry 和 local 块还会显示
-  `Package`；local 块还会显示 `Path`。`Host` 会列出匹配的受支持 Agent。local
-  的 `Path` 显示 agent-native skill 目录。
-- 说明：如果折叠后的 skill 安装在多个受支持 Agent 中，`Host` 字段会列出所有匹配的
-  Agent。
+  skill 按名称排序。Host 顺序按 `Universal`、`Codex`、`Claude Code`、
+  `Hermes`、`CodeBuddy`、`WorkBuddy`、`Trae`、`Trae CN`、`OpenClaw`、
+  `QoderWork`、`DeepSeek TUI` 显示。
+- 文本输出：先打印摘要行，再为每个可见 skill 打印一个块，块内逐行列出每个
+  host 的 Agent、安装状态以及 `controlState`（见下）。**文本输出不会打印任
+  何本地路径或源路径**；如需机器可读细节请使用 JSON 输出。
+- `controlState` 取值（每个 host 独立）：
+  - `controlled` —— host 目录由 oo 管理，且内容与 canonical 源一致。
+  - `modified` —— host 目录由 oo 管理，但内容已在本地被修改。
+  - `non-managed` —— host 目录与某个 oo-managed skill 同名，但自身没有
+    `.oo-metadata.json`。
+  - `unknown` —— metadata 解析失败、源路径不可用，或目录内容对比失败。
+
+#### JSON 输出
+
+带 `--json` 或 `--format json` 时，命令向 stdout 写入一行 JSON。带
+`--show-schema-version` 时顶层会前置 `"schemaVersion": "1.0.0"` 字段。
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "summary": {
+    "registrySkills": 3,
+    "localSkills": 2,
+    "bundledSkills": 4
+  },
+  "skills": [
+    {
+      "id": "oo",
+      "name": "oo",
+      "kind": "bundled",
+      "packageName": null,
+      "version": "1.2.3",
+      "description": "Use OOMOL hosted capabilities",
+      "hosts": [
+        {
+          "agentId": "codex",
+          "status": "installed",
+          "path": "/Users/name/.codex/skills/oo",
+          "sourcePath": "/Users/name/Library/Application Support/oo/skills/bundled/codex/oo",
+          "version": "1.2.3",
+          "controlState": "controlled"
+        }
+      ]
+    }
+  ]
+}
+```
+
+字段语义：
+
+- `summary` **始终反映全量 inventory**，不受 `--source` / `--agent` 过滤影响。
+  即使 `skills` 视图被过滤了，也能从 `summary` 看到全部数量。
+- `skills` 反映当前过滤后的视图。默认不包含 local skill（与旧版
+  `oo skills list` 行为一致），需要时传 `--source local` 查看。
+- `skills[].packageName` 对 bundled 和 local skill 为 `null`。bundled
+  skill 并非通过 registry 包分发，因此 JSON 中不发明虚构 `packageName`；
+  文本输出仍使用 `<internal>` / `<local>` 作为人类可读的占位符。
+- `skills[].version` 是顶层版本。当同一 skill 在不同 host 上版本不同时，
+  顶层仍是一条 entry，每个 host 的实际版本通过 `hosts[].version` 体现。
+- `hosts[].status` 当前固定为 `"installed"`，字段保留以备未来扩展。
+- `hosts[].sourcePath` 对 bundled 和 registry skill 是 canonical 源路径；
+  对 local skill 与 non-managed host entry 为 `null`。
 
 ### `oo skills locate <skill-id>`
 

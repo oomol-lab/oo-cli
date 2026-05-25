@@ -1,8 +1,8 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
-import type { ManagedSkillListItem } from "./list.ts";
 import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
+import type { ManagedSkillListItem } from "./managed-skill-listings.ts";
 import type { PreparedRegistrySkillPublication } from "./registry-skill-publication.ts";
 
 import { z } from "zod";
@@ -13,14 +13,14 @@ import {
     directoryExists,
 } from "./bundled-skill-observation.ts";
 import {
-    listManagedSkillInstallations,
-    listManagedSkillInstallationsForHosts,
-} from "./list.ts";
-import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
+import {
+    listManagedSkillInstallations,
+    listManagedSkillInstallationsForHosts,
+} from "./managed-skill-listings.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     isManagedSkillPathContained,

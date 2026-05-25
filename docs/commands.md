@@ -511,34 +511,103 @@ requested. `oo skills list` is accepted as an alias for backwards compatibility.
 - Options: `--agent <agent>` narrows the scan to one supported agent:
   `universal`, `codex`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`,
   `trae-cn`, `openclaw`, `qoderwork`, or `deepseek-tui`.
+- Options: `--json` / `--format json` emits a structured JSON payload (see JSON
+  output below). `--show-schema-version` (only meaningful with JSON output)
+  adds a top-level `schemaVersion` field; without it, the payload starts at
+  `summary`.
 - Managed ownership rule: the command scans each existing supported local skill root:
   `~/.agents/skills`, `${CODEX_HOME:-~/.codex}/skills`,
   `~/.claude/skills`, `${HERMES_HOME:-~/.hermes}/skills`,
   `~/.codebuddy/skills`, `~/.workbuddy/skills`, `~/.trae/skills`,
   `~/.trae-cn/skills`, `${OPENCLAW_HOME:-~/.openclaw}/skills`,
-  `~/.qoderwork/skills`, and `~/.deepseek/skills`. It keeps only child directories whose
-  `.oo-metadata.json` identifies an oo-managed bundled, registry, or local
-  skill. Existing legacy bundled and registry metadata remains readable.
+  `~/.qoderwork/skills`, and `~/.deepseek/skills`. It keeps only child
+  directories whose `.oo-metadata.json` identifies an oo-managed bundled,
+  registry, or local skill. A child directory with the same name but without
+  `.oo-metadata.json` is surfaced as a `non-managed` host of the matching
+  managed skill (it is not listed as a separate top-level skill).
 - Local source rule: `--source local` lists oo-managed local skills from agent
   skill directories. `--source local --agent <agent>` lists only that agent's
-  local skills. Local entries are kept distinct by agent and path, even when
-  multiple agents contain a local skill with the same name.
-- Output: text output prints a summary line and one block per unique visible
-  skill identity. Identical `name`/source/package/version installs across
-  multiple hosts are folded into one block, except local skills, which stay
-  distinct by path.
+  local skills.
+- Identity: top-level skill identity is `kind + name + packageName`. Version
+  differences across hosts do not split a skill into separate entries;
+  per-host versions are reflected in the JSON output's `hosts[].version`.
 - Ordering: bundled skills are listed first when present, with `oo` before
   `oo-find-skills` before `oo-create-skill` before `oo-publish-skill`; the
-  remaining skills are ordered by skill name. Host names within a managed block
+  remaining skills are ordered by skill name. Host entries within a skill
   follow `Universal`, `Codex`, `Claude Code`, `Hermes`, `CodeBuddy`,
   `WorkBuddy`, `Trae`, `Trae CN`, `OpenClaw`, `QoderWork`, `DeepSeek TUI`
   order.
-- Output: each skill block shows the skill name plus `Host`, `Source`, and
-  `Version`. `Source` is `bundled`, `registry`, or `local`. Registry and local
-  blocks also show `Package`; local blocks also show `Path`. `Host` lists
-  matching supported hosts. Local `Path` shows the agent-native skill directory.
-- Notes: when a folded skill is installed in multiple supported hosts, the
-  `Host` field lists all matching hosts.
+- Text output: text output prints a summary line and one block per visible
+  skill, then per-host rows showing the agent, install status, and
+  `controlState` (see below). Local paths and source paths are never printed
+  in text output; use JSON for machine-readable detail.
+- `controlState` values (per host):
+  - `controlled` — the host directory is oo-managed and its contents match the
+    canonical source.
+  - `modified` — the host directory is oo-managed but its contents have been
+    edited locally.
+  - `non-managed` — the host directory exists with the same name as an
+    oo-managed skill but has no `.oo-metadata.json` of its own.
+  - `unknown` — metadata cannot be parsed, the source path is unavailable, or
+    the directory comparison failed.
+
+#### JSON output
+
+When `--json` or `--format json` is supplied, the command writes a single line
+of JSON to stdout. With `--show-schema-version`, the top-level object is
+prefixed with `"schemaVersion": "1.0.0"`.
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "summary": {
+    "registrySkills": 3,
+    "localSkills": 2,
+    "bundledSkills": 4
+  },
+  "skills": [
+    {
+      "id": "oo",
+      "name": "oo",
+      "kind": "bundled",
+      "packageName": null,
+      "version": "1.2.3",
+      "description": "Use OOMOL hosted capabilities",
+      "hosts": [
+        {
+          "agentId": "codex",
+          "status": "installed",
+          "path": "/Users/name/.codex/skills/oo",
+          "sourcePath": "/Users/name/Library/Application Support/oo/skills/bundled/codex/oo",
+          "version": "1.2.3",
+          "controlState": "controlled"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Field semantics:
+
+- `summary` always reflects the full inventory and is **not** affected by
+  `--source` or `--agent` filters. Use it to see how many skills exist in
+  total even when the `skills` view is filtered.
+- `skills` reflects the current filtered view. By default, local skills are
+  hidden from `skills` (matching legacy `oo skills list` behavior); pass
+  `--source local` to view them.
+- `skills[].packageName` is `null` for bundled and local skills. Bundled
+  skills are not distributed via a registry package, so no virtual
+  `packageName` is invented in JSON. Text output displays `<internal>` /
+  `<local>` as human-facing placeholders.
+- `skills[].version` is the top-level version. When the same skill is
+  installed at different versions across hosts, the top-level is one entry;
+  per-host versions appear in `hosts[].version`.
+- `hosts[].status` is `"installed"` in this release. The field is reserved
+  for future host states.
+- `hosts[].sourcePath` is the canonical source directory for bundled and
+  registry skills, `null` for local skills, and `null` for non-managed host
+  entries.
 
 ### `oo skills locate <skill-id>`
 
