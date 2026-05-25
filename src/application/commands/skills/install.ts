@@ -17,6 +17,7 @@ import { createSkillIdsTelemetryProperties } from "./telemetry.ts";
 
 interface SkillsInstallInput {
     all?: boolean;
+    force?: boolean;
     packageName?: string;
     skill?: string[];
     yes?: boolean;
@@ -62,15 +63,28 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             longFlag: "--all",
             descriptionKey: "options.all",
         },
+        {
+            name: "force",
+            longFlag: "--force",
+            shortFlag: "-f",
+            descriptionKey: "options.skills.install.force",
+        },
     ],
     inputSchema: z.object({
         all: z.boolean().optional(),
+        force: z.boolean().optional(),
         packageName: z.string().optional(),
         skill: z.array(z.string()).optional(),
         yes: z.boolean().optional(),
     }),
     handler: async (input, context) => {
         await migrateLegacyCanonicalSkillLayout(context);
+
+        const force = input.force === true;
+
+        context.telemetry?.recordProperties({
+            has_force: force,
+        });
 
         if (input.packageName === undefined) {
             context.telemetry?.recordProperties({
@@ -82,10 +96,10 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             const summaries: ManagedSkillInstallSummary[] = [];
 
             for (const skillName of availableBundledSkillNames) {
-                summaries.push(await installBundledSkill(skillName, context));
+                summaries.push(await installBundledSkill(skillName, context, { force }));
             }
 
-            summaries.push(...await installPresetSkillPackages(context));
+            summaries.push(...await installPresetSkillPackages(context, force));
             writeManagedSkillInstallSummary(context, summaries);
             return;
         }
@@ -106,6 +120,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             const summary = await installBundledSkill(
                 packageSpecifier.packageName as BundledSkillName,
                 context,
+                { force },
             );
 
             writeManagedSkillInstallSummary(context, [summary]);
@@ -115,6 +130,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         await installRegistrySkills(
             {
                 all: input.all === true,
+                force,
                 packageName: packageSpecifier.packageName,
                 packageShareId: packageSpecifier.packageShareId,
                 packageVersion: packageSpecifier.packageVersion,
@@ -128,6 +144,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
 
 async function installPresetSkillPackages(
     context: CliExecutionContext,
+    force: boolean,
 ): Promise<ManagedSkillInstallSummary[]> {
     const summaries: ManagedSkillInstallSummary[] = [];
 
@@ -136,6 +153,7 @@ async function installPresetSkillPackages(
             summaries.push(...await installRegistrySkills(
                 {
                     all: true,
+                    force,
                     packageName,
                     recordTelemetry: false,
                     skillNames: [],

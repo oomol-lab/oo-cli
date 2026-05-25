@@ -52,6 +52,7 @@ interface ManagedSkillPathState {
 
 export interface RegistrySkillInstallRequest {
     all: boolean;
+    force?: boolean;
     packageName: string;
     packageShareId?: string;
     packageVersion?: string;
@@ -178,6 +179,7 @@ export async function installRegistrySkills(
                     availableHosts,
                     settingsFilePath,
                     context,
+                    request.force === true,
                 );
                 installedSummaries.push(...summaries);
 
@@ -237,9 +239,12 @@ async function executeInstallActions(
     availableHosts: readonly ManagedSkillHost[],
     settingsFilePath: string,
     context: CliExecutionContext,
+    force: boolean,
 ): Promise<ManagedSkillInstallSummary[]> {
     for (const { skillName } of installActions) {
         await validateRegistrySkillPublicationTargets({
+            context,
+            force,
             hostInstallations: resolveManagedSkillHostInstallations(
                 availableHosts,
                 skillName,
@@ -344,6 +349,7 @@ async function resolveSelectionActions(
                     availableHosts,
                     context,
                     shouldWriteOutput,
+                    request.force === true,
                 ),
             ),
             isInteractive: false,
@@ -433,10 +439,18 @@ async function filterConfirmedSkillNames(
         "settingsStore" | "stdin" | "stdout" | "translator"
     >,
     shouldWriteOutput: boolean,
+    force: boolean,
 ): Promise<string[]> {
     const confirmedSkillNames: string[] = [];
 
     for (const skillName of skillNames) {
+        if (force) {
+            // --force bypasses the conflict check; the unmanaged-directory
+            // warning is emitted later by validateRegistrySkillPublicationTargets.
+            confirmedSkillNames.push(skillName);
+            continue;
+        }
+
         const status = await readRegistrySkillInstallStatus(
             packageName,
             skillName,
