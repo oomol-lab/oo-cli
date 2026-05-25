@@ -7,7 +7,7 @@ import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
 import {
     listLocalSkillInstallations,
     listManagedSkillInstallations,
-} from "./list.ts";
+} from "./managed-skill-listings.ts";
 import {
     createBundledSkillMetadata,
     createRegistrySkillMetadata,

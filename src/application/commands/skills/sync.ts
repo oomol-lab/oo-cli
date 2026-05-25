@@ -1,7 +1,7 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
-import type { ManagedSkillListItem } from "./list.ts";
 import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
+import type { ManagedSkillListItem } from "./managed-skill-listings.ts";
 
 import ignore from "ignore";
 import { z } from "zod";
@@ -12,13 +12,13 @@ import { parseCommaSeparatedValues } from "../shared/list-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import { requestText } from "../shared/request.ts";
 import {
-    listManagedSkillInstallations,
-    listManagedSkillInstallationsForHosts,
-} from "./list.ts";
-import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
 } from "./managed-skill-hosts.ts";
+import {
+    listManagedSkillInstallations,
+    listManagedSkillInstallationsForHosts,
+} from "./managed-skill-listings.ts";
 import {
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
