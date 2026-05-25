@@ -297,13 +297,14 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "bundled_skill",
+            "has_force",
             "package_kind",
             "package_name",
             "skill_ids_count_bucket",
             "skill_ids_sample",
             "skill_ids_truncated",
         ],
-        reason: "Records install source, product-domain package dimension, and bounded skill samples.",
+        reason: "Records install source, product-domain package dimension, bounded skill samples, and force-flag usage.",
     },
     "skills.info": {
         kind: "properties",

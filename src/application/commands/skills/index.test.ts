@@ -1288,6 +1288,11 @@ describe("skills commands", () => {
         const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
 
         try {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
@@ -1308,6 +1313,20 @@ describe("skills commands", () => {
             const metadataPath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
             const metadataContent = await readFile(metadataPath, "utf8");
             expect(metadataContent).toContain("\"kind\": \"bundled\"");
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+            )!;
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    bundled_skill: "oo",
+                    command_full: "skills.install",
+                    has_force: true,
+                    package_kind: "bundled",
+                },
+            });
+            expect(telemetryPayload.properties).not.toHaveProperty("cwd");
+            expect(telemetryPayload.properties).not.toHaveProperty("path");
+            expect(telemetryPayload.properties).not.toHaveProperty("file_name");
         }
         finally {
             await sandbox.cleanup();
