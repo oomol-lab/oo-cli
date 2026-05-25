@@ -725,6 +725,13 @@ registry skills。
 - 选项：`--all` 是安装全部已发布 skill 的快捷方式，并跳过 skill 选择提示。
 - 选项：`-y, --yes` 用于跳过确认提示。当 package 下有多个 skill 且未显式
   提供 `--skill` 时，`-y` 会安装全部 skill。
+- 选项：`-f, --force` 在目标目录存在同名 skill 但**不受 oo 管理**（缺少可读
+  `.oo-metadata.json`）时，允许覆盖安装。覆盖会先移除原目录内容再写入新
+  skill，并以 `warn` 日志记录此事件。`--force` **不会**绕过路径校验、
+  package 校验、auth 或下载校验；**不影响**启动自动同步、`oo skills update`、
+  `oo skills sync`、`oo skills uninstall`、`oo skills publish`；多 skill
+  package 下也**不**会因此隐式选中全部 skill（如需可配合 `--skill` 或
+  `--all -y` 使用）。
 - 输出：非交互安装成功时，会按已安装 skill 和目标 AI Agent 聚合输出精简摘要；
   当实际只写入一个目标时，摘要会包含该目标路径。
 - 输出：未提供 `[packageName]` 且有预设 registry skills 安装成功时，这些

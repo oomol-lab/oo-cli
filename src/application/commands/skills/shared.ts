@@ -44,7 +44,9 @@ export interface BundledSkillHostInstallation extends ManagedSkillHostInstallati
 export async function installBundledSkill(
     skillName: BundledSkillName,
     context: CliExecutionContext,
+    options: { force?: boolean } = {},
 ): Promise<ManagedSkillInstallSummary> {
+    const force = options.force === true;
     const installations = await resolveAvailableBundledSkillHostInstallations(
         context,
         skillName,
@@ -59,6 +61,7 @@ export async function installBundledSkill(
             skillName,
             installation,
             context,
+            force,
         );
     }
 
@@ -180,6 +183,7 @@ async function validateBundledSkillInstallationTarget(
     skillName: BundledSkillName,
     installation: BundledSkillHostInstallation,
     context: Pick<CliExecutionContext, "logger">,
+    force: boolean,
 ): Promise<void> {
     const installedSkillDirectoryExists = await directoryExists(
         installation.installedSkillDirectoryPath,
@@ -197,17 +201,14 @@ async function validateBundledSkillInstallationTarget(
             installedDirectoryExists: true,
             installedDirectoryManaged: installedSkillDirectoryManaged,
         }) === "nameConflict") {
-            context.logger.warn(
-                {
-                    agentName: installation.agentName,
-                    path: installation.installedSkillDirectoryPath,
-                    skillName,
-                },
-                "Bundled skill install was blocked by an unmanaged directory.",
-            );
-            throw new CliUserError("errors.skills.nameConflict", 1, {
-                name: skillName,
+            reportUnmanagedBundledSkillConflict(context.logger, {
+                agentName: installation.agentName,
+                blockedMessage: "Bundled skill install was blocked by an unmanaged directory.",
+                errorKey: "errors.skills.nameConflict",
+                force,
+                forcedMessage: "Forcefully overwriting unmanaged skill directory because --force was set.",
                 path: installation.installedSkillDirectoryPath,
+                skillName,
             });
         }
     }
@@ -234,16 +235,43 @@ async function validateBundledSkillInstallationTarget(
         return;
     }
 
-    context.logger.warn(
-        {
-            agentName: installation.agentName,
-            path: installation.canonicalSkillDirectoryPath,
-            skillName,
-        },
-        "Bundled skill install was blocked by an unmanaged canonical directory.",
-    );
-    throw new CliUserError("errors.skills.storageConflict", 1, {
-        name: skillName,
+    reportUnmanagedBundledSkillConflict(context.logger, {
+        agentName: installation.agentName,
+        blockedMessage: "Bundled skill install was blocked by an unmanaged canonical directory.",
+        errorKey: "errors.skills.storageConflict",
+        force,
+        forcedMessage: "Forcefully overwriting unmanaged bundled skill canonical storage because --force was set.",
         path: installation.canonicalSkillDirectoryPath,
+        skillName,
+    });
+}
+
+function reportUnmanagedBundledSkillConflict(
+    logger: Pick<CliExecutionContext["logger"], "warn">,
+    options: {
+        agentName: BundledSkillAgentName;
+        blockedMessage: string;
+        errorKey: string;
+        force: boolean;
+        forcedMessage: string;
+        path: string;
+        skillName: BundledSkillName;
+    },
+): void {
+    const logFields = {
+        agentName: options.agentName,
+        path: options.path,
+        skillName: options.skillName,
+    };
+
+    if (options.force) {
+        logger.warn(logFields, options.forcedMessage);
+        return;
+    }
+
+    logger.warn(logFields, options.blockedMessage);
+    throw new CliUserError(options.errorKey, 1, {
+        name: options.skillName,
+        path: options.path,
     });
 }

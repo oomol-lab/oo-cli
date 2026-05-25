@@ -850,6 +850,15 @@ Install bundled or published skills into supported local skill directories.
 - Options: `-y, --yes` skips confirmation prompts. When a package publishes
   multiple skills and no explicit `--skill` is provided, `-y` installs all of
   them.
+- Options: `-f, --force` overrides install when the target directory exists
+  with the same skill name but is **not** managed by oo (no readable
+  `.oo-metadata.json`). The previous directory contents are removed before the
+  new skill is written; a `warn` log records the overwrite. `--force` does
+  **not** bypass path containment, package validation, auth, or download
+  validation; it does **not** affect startup auto-sync, `oo skills update`,
+  `oo skills sync`, `oo skills uninstall`, or `oo skills publish`; and it does
+  **not** implicitly select all skills inside a multi-skill package (use
+  `--skill` or `--all -y` together with `--force`).
 - Output: successful non-interactive installs print a compact summary grouped by
   installed skills and target AI agents. When exactly one target is written, the
   summary includes that target path.

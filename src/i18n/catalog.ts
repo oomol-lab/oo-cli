@@ -739,6 +739,8 @@ export const enMessages = {
     "options.timeout":
         "Set how long to wait before timing out (default 6h, range 10s to 24h)",
     "options.yes": "Skip confirmation prompts",
+    "options.skills.install.force":
+        "Force install even when a same-name skill directory exists and is not managed by oo",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
     "selfUpdate.install.success": "Installed oo {version}.",
@@ -1715,6 +1717,8 @@ export const zhMessages = {
     "options.system": "System prompt 文本，或使用 @路径 读取文本文件",
     "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
     "options.yes": "跳过确认提示",
+    "options.skills.install.force":
+        "强制安装，即使同名 skill 目录已存在且不受 oo 管理",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
     "selfUpdate.install.success": "已安装 oo {version}。",

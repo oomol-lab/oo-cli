@@ -1283,6 +1283,106 @@ describe("skills commands", () => {
         }
     });
 
+    test("`--force` overwrites an unmanaged same-name bundled host directory", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
+
+        try {
+            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await Bun.write(
+                ownershipFilePath,
+                [
+                    "interface:",
+                    "  display_name: oo",
+                    "  short_description: Custom skill",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["skills", "install", "oo", "--force"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const metadataPath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
+            const metadataContent = await readFile(metadataPath, "utf8");
+            expect(metadataContent).toContain("\"kind\": \"bundled\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("`-f` short flag matches `--force` for unmanaged bundled host overwrites", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(join(skillDirectoryPath, "user-file.txt"), "user content");
+
+            const result = await sandbox.run(["skills", "install", "oo", "-f"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const metadataPath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
+            const metadataContent = await readFile(metadataPath, "utf8");
+            expect(metadataContent).toContain("\"kind\": \"bundled\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("`--force` overwrites unmanaged content in the bundled canonical storage", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "oo",
+        );
+        const ownershipFilePath = join(
+            canonicalSkillDirectoryPath,
+            "agents",
+            "openai.yaml",
+        );
+
+        try {
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+                recursive: true,
+            });
+            await Bun.write(
+                ownershipFilePath,
+                [
+                    "interface:",
+                    "  display_name: oo",
+                    "  short_description: Custom skill",
+                    "",
+                ].join("\n"),
+            );
+
+            const result = await sandbox.run(["skills", "install", "oo", "--force"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            // After overwrite, canonical metadata should exist and indicate bundled.
+            const metadataPath = resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath);
+            const metadataContent = await readFile(metadataPath, "utf8");
+            expect(metadataContent).toContain("\"kind\": \"bundled\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("uninstalls all bundled skills from the Codex skills directory when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
@@ -2839,6 +2939,81 @@ describe("skills commands", () => {
             await expect(stat(codexSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("`--force` installs a published registry skill over an unmanaged host target", async () => {
+        const sandbox = await createCliSandbox();
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
+
+        try {
+            await Promise.all([
+                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(claudeSkillDirectoryPath, { recursive: true }),
+            ]);
+            await Bun.write(join(claudeSkillDirectoryPath, "SKILL.md"), "# Existing\n");
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "--skill", "chatgpt", "--force"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.3",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            // Unmanaged Claude target has been overwritten by the registry install.
+            const claudeSkillMd = await readFile(
+                join(claudeSkillDirectoryPath, "SKILL.md"),
+                "utf8",
+            );
+            expect(claudeSkillMd).not.toBe("# Existing\n");
+            expect(claudeSkillMd).toContain("# ChatGPT");
+            expect(
+                await readFile(
+                    resolveManagedSkillMetadataFilePath(claudeSkillDirectoryPath),
+                    "utf8",
+                ),
+            ).toBe(
+                renderSkillMetadataJson(
+                    createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" }),
+                ),
+            );
+            // Codex target also receives the registry install through the same run.
+            expect(
+                await readFile(join(codexSkillDirectoryPath, "SKILL.md"), "utf8"),
+            ).toContain("# ChatGPT");
         }
         finally {
             await sandbox.cleanup();
