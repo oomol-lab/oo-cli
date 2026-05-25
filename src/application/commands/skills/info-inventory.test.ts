@@ -68,6 +68,24 @@ describe("compareSkillDirectoryContent", () => {
         expect(verdict).toBe("unreadable");
     });
 
+    test("returns different when host contains a symlink not present in source", async () => {
+        const root = await createTemporaryDirectory("oo-skills-info-inner-symlink");
+        const host = join(root, "host");
+        const source = join(root, "source");
+        const target = join(root, "target.txt");
+
+        await mkdir(host, { recursive: true });
+        await mkdir(source, { recursive: true });
+        await writeFile(target, "outside\n");
+        await writeFile(join(host, "SKILL.md"), "hello\n");
+        await writeFile(join(source, "SKILL.md"), "hello\n");
+        await symlink(target, join(host, "extra.txt"));
+
+        const verdict = await compareSkillDirectoryContent(host, source);
+
+        expect(verdict).toBe("different");
+    });
+
     test("returns equal for nested directories with identical files", async () => {
         const root = await createTemporaryDirectory("oo-skills-info-nested");
         const left = join(root, "left");
@@ -217,6 +235,39 @@ describe("resolveHostControlState", () => {
         await mkdir(sourcePath, { recursive: true });
         await writeFile(join(hostPath, "SKILL.md"), "user-edited\n");
         await writeFile(join(sourcePath, "SKILL.md"), "original\n");
+
+        const verdict = await resolveHostControlState({
+            scan: {
+                ...baseScan,
+                path: hostPath,
+                metadata: {
+                    kind: "registry",
+                    schemaVersion: 1,
+                    packageName: "@oomol/x",
+                    version: "1.0.0",
+                },
+                metadataPresent: true,
+                metadataParseable: true,
+            },
+            sourcePath,
+            kind: "registry",
+        });
+
+        expect(verdict).toBe("modified");
+    });
+
+    test("returns modified when host contains a symlink absent from source", async () => {
+        const root = await createTemporaryDirectory("oo-skills-info-state-tampered-symlink");
+        const hostPath = join(root, "host");
+        const sourcePath = join(root, "source");
+        const target = join(root, "target.txt");
+
+        await mkdir(hostPath, { recursive: true });
+        await mkdir(sourcePath, { recursive: true });
+        await writeFile(target, "outside\n");
+        await writeFile(join(hostPath, "SKILL.md"), "hello\n");
+        await writeFile(join(sourcePath, "SKILL.md"), "hello\n");
+        await symlink(target, join(hostPath, "extra.txt"));
 
         const verdict = await resolveHostControlState({
             scan: {

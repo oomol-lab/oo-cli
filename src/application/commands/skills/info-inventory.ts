@@ -479,7 +479,7 @@ export async function compareSkillDirectoryContent(
 
 interface DirectoryFingerprintEntry {
     relPath: string;
-    kind: "file" | "directory";
+    kind: "file" | "directory" | "symlink";
     size: number;
     sha256: string;
 }
@@ -531,9 +531,22 @@ async function walkDirectory(
             continue;
         }
 
-        // Skip sockets / devices / FIFOs; symlinks are followed by readFile if
-        // they point at regular files, otherwise readFile will throw and the
-        // outer try/catch reports unreadable.
+        if (entry.isSymbolicLink()) {
+            // Managed skill source trees never contain symlinks (the publish
+            // pipeline rejects them), so any symlink inside a host directory
+            // must be local tampering. Record it with a dedicated kind so the
+            // fingerprint diverges from the clean source and the host is
+            // reported as `modified` instead of `controlled`.
+            entries.push({
+                relPath,
+                kind: "symlink",
+                size: 0,
+                sha256: "",
+            });
+            continue;
+        }
+
+        // Skip sockets / devices / FIFOs.
     }
 }
 
