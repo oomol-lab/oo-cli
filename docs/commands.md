@@ -68,6 +68,51 @@ Remove the current account from persisted auth data.
 
 Show the current account and validate its API key.
 
+- Options: `--format=json` and `--json` switch to structured JSON output.
+  `--show-schema-version` prepends `schemaVersion` to the payload.
+- JSON shape (one of three):
+
+  ```json
+  {
+    "status": "logged-in",
+    "activeAccountId": "user-1",
+    "accounts": [
+      { "id": "user-1", "name": "Alice", "endpoint": "oomol.com", "active": true, "apiKeyStatus": "valid" },
+      { "id": "user-2", "name": "Bob",   "endpoint": "oomol.com", "active": false }
+    ]
+  }
+  ```
+
+  ```json
+  { "status": "logged-out", "activeAccountId": null, "accounts": [] }
+  ```
+
+  ```json
+  {
+    "status": "active-account-missing",
+    "activeAccountId": null,
+    "missingAccountId": "user-1",
+    "accounts": [
+      { "id": "user-2", "name": "Bob", "endpoint": "oomol.com", "active": false }
+    ]
+  }
+  ```
+
+- Notes (JSON):
+  - The `apiKey` field is **never** emitted, and the JSON payload never
+    contains the actual API key string under any field name.
+  - `accounts[]` lists every account saved in the local auth file in its
+    original order; each entry is `{ id, name, endpoint, active, apiKeyStatus? }`.
+  - `activeAccountId` is the active account id, or `null` when no active
+    account can be resolved (including the `active-account-missing` state).
+  - `accounts[].active` is `true` only for the active account.
+  - `accounts[].apiKeyStatus` is present only on the active entry and uses
+    the enum `valid` / `invalid` / `request_failed` / `request_failed_sandbox`.
+  - `missingAccountId` appears only when the auth file records an active id
+    that is no longer present in `accounts[]`.
+  - All three statuses exit `0` (this is a query command). Argument errors
+    (for example `--format xml`) still exit `2`.
+
 ### `oo auth switch`
 
 Switch to the next saved account.

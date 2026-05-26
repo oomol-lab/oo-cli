@@ -14,9 +14,11 @@ import {
     readLatestLogContent,
     runPrintedAuthLogin,
     toRequest,
+    writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
+import { JSON_OUTPUT_SCHEMA_VERSION } from "../json-output.ts";
 
 const loginUrlColor = "#c09ff5";
 
@@ -574,6 +576,229 @@ describe("auth CLI", () => {
             expect(result.stdout).toContain(
                 "Request failed (network-restricted sandbox, try requesting elevated permissions)",
             );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json logged-in returns active account with valid apiKeyStatus", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(
+                ["auth", "status", "--json"],
+                {
+                    fetcher: async () => new Response(null, { status: 200 }),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload).toEqual({
+                status: "logged-in",
+                activeAccountId: "user-1",
+                accounts: [
+                    {
+                        id: "user-1",
+                        name: "Alice",
+                        endpoint: defaultAuthEndpoint,
+                        active: true,
+                        apiKeyStatus: "valid",
+                    },
+                    {
+                        id: "user-2",
+                        name: "Bob",
+                        endpoint: defaultAuthEndpoint,
+                        active: false,
+                    },
+                ],
+            });
+            expect(result.stdout).not.toContain("apiKey\"");
+            expect(result.stdout).not.toContain("secret-1");
+            expect(result.stdout).not.toContain("secret-2");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json maps HTTP 401 to apiKeyStatus invalid", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["auth", "status", "--json"],
+                {
+                    fetcher: async () => new Response(null, { status: 401 }),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const accounts = payload.accounts as Array<Record<string, unknown>>;
+
+            expect(accounts[0]?.apiKeyStatus).toBe("invalid");
+            expect(result.stdout).not.toContain("secret-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json maps generic fetch error to apiKeyStatus request_failed", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["auth", "status", "--json"],
+                {
+                    fetcher: async () => {
+                        throw new Error("network blip");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const accounts = payload.accounts as Array<Record<string, unknown>>;
+
+            expect(accounts[0]?.apiKeyStatus).toBe("request_failed");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json maps sandbox socket error to apiKeyStatus request_failed_sandbox", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["auth", "status", "--json"],
+                {
+                    fetcher: async () => {
+                        throw createFailedToOpenSocketError("network down");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const accounts = payload.accounts as Array<Record<string, unknown>>;
+
+            expect(accounts[0]?.apiKeyStatus).toBe("request_failed_sandbox");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json logged-out returns empty accounts when no auth file exists", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["auth", "status", "--json"]);
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload).toEqual({
+                status: "logged-out",
+                activeAccountId: null,
+                accounts: [],
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json active-account-missing exposes stale id and excludes it from accounts", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(["auth", "status", "--json"]);
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload).toEqual({
+                status: "active-account-missing",
+                activeAccountId: null,
+                missingAccountId: "user-1",
+                accounts: [
+                    {
+                        id: "user-2",
+                        name: "Bob",
+                        endpoint: defaultAuthEndpoint,
+                        active: false,
+                    },
+                ],
+            });
+            expect(result.stdout).not.toContain("secret-2");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json --show-schema-version prepends schemaVersion", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["auth", "status", "--json", "--show-schema-version"],
+                {
+                    fetcher: async () => new Response(null, { status: 200 }),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.schemaVersion).toBe(JSON_OUTPUT_SCHEMA_VERSION);
+            expect(payload.status).toBe("logged-in");
+            expect(result.stdout).not.toContain("secret-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--format xml exits 2 with format error", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["auth", "status", "--format", "xml"]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).not.toBe("");
         }
         finally {
             await sandbox.cleanup();

@@ -1,10 +1,13 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
-import type { AuthAccount } from "../../schemas/auth.ts";
+import type { AuthAccount, AuthFile } from "../../schemas/auth.ts";
+
+import { z } from "zod";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { createFormatInputError } from "../shared/input-parsing.ts";
 import { isNetworkRestrictedSandboxError } from "../shared/request.ts";
 import {
-    emptyAuthCommandInputSchema,
     formatAuthStrong,
     readCurrentAuth,
     writeAuthBlock,
@@ -22,63 +25,172 @@ const apiKeyStatusConfig = {
 
 type ApiKeyStatus = keyof typeof apiKeyStatusConfig;
 
-export const authStatusCommand: CliCommandDefinition = {
+interface ActiveAccountStatus {
+    account: AuthAccount;
+    apiKeyStatus: ApiKeyStatus;
+}
+
+const authStatusFormatValues = ["json"] as const;
+
+interface AuthStatusInput {
+    format?: (typeof authStatusFormatValues)[number];
+    showSchemaVersion?: boolean;
+}
+
+interface AuthStatusJsonAccount {
+    id: string;
+    name: string;
+    endpoint: string;
+    active: boolean;
+    apiKeyStatus?: ApiKeyStatus;
+}
+
+type AuthStatusJsonPayload
+    = | {
+        status: "logged-in";
+        activeAccountId: string;
+        accounts: AuthStatusJsonAccount[];
+    }
+    | {
+        status: "logged-out";
+        activeAccountId: null;
+        accounts: AuthStatusJsonAccount[];
+    }
+    | {
+        status: "active-account-missing";
+        activeAccountId: null;
+        missingAccountId: string;
+        accounts: AuthStatusJsonAccount[];
+    };
+
+export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
     name: "status",
     summaryKey: "commands.auth.status.summary",
     descriptionKey: "commands.auth.status.description",
-    inputSchema: emptyAuthCommandInputSchema,
-    handler: async (_, context) => {
+    options: [...jsonOutputOptions],
+    inputSchema: z.object({
+        format: z.enum(authStatusFormatValues).optional(),
+        showSchemaVersion: z.boolean().optional(),
+    }),
+    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
+    handler: async (input, context) => {
         const { authFile, currentAccount } = await readCurrentAuth(context);
 
         context.telemetry?.recordProperties({
             account_count_bucket: bucketTelemetryCount(authFile.auth.length),
         });
 
-        if (!currentAccount) {
-            const hasStaleId = authFile.id !== "";
+        const activeStatus: ActiveAccountStatus | undefined
+            = currentAccount === undefined
+                ? undefined
+                : {
+                        account: currentAccount,
+                        apiKeyStatus: await readApiKeyStatus(currentAccount, context),
+                    };
 
-            if (hasStaleId) {
-                writeAuthBlock(context, {
-                    tone: "danger",
-                    summary: context.translator.t("auth.account.activeAccountMissing"),
-                    details: [
-                        {
-                            label: context.translator.t("auth.status.accountId"),
-                            value: authFile.id,
-                        },
-                    ],
-                });
-            }
-            else {
-                writeAuthBlock(context, {
-                    tone: "warning",
-                    summary: context.translator.t("auth.status.loggedOut"),
-                });
-            }
+        if (input.format === "json") {
+            writeJsonOutput(
+                context.stdout,
+                buildAuthStatusJsonPayload(authFile, activeStatus),
+                { showSchemaVersion: input.showSchemaVersion },
+            );
             return;
         }
 
-        const apiKeyStatus = await readApiKeyStatus(currentAccount, context);
-        const statusConfig = apiKeyStatusConfig[apiKeyStatus];
-        writeAuthBlock(context, {
-            tone: statusConfig.tone,
-            summary: context.translator.t("auth.account.loggedIn", {
-                endpoint: formatAuthStrong(context, currentAccount.endpoint),
-                name: formatAuthStrong(context, currentAccount.name),
-            }),
-            details: [
-                {
-                    label: context.translator.t("auth.status.activeAccount"),
-                    value: "true",
-                },
-                {
-                    label: context.translator.t("auth.status.apiKeyStatus"),
-                    value: context.translator.t(statusConfig.translationKey),
-                },
-            ],
-        });
+        writeAuthStatusText(context, authFile, activeStatus);
     },
 };
+
+function buildAuthStatusJsonPayload(
+    authFile: AuthFile,
+    activeStatus: ActiveAccountStatus | undefined,
+): AuthStatusJsonPayload {
+    const activeId = activeStatus?.account.id;
+    const accounts: AuthStatusJsonAccount[] = authFile.auth.map((account) => {
+        const isActive = account.id === activeId;
+        return {
+            id: account.id,
+            name: account.name,
+            endpoint: account.endpoint,
+            active: isActive,
+            ...(isActive && activeStatus !== undefined
+                ? { apiKeyStatus: activeStatus.apiKeyStatus }
+                : {}),
+        };
+    });
+
+    if (activeStatus !== undefined) {
+        return {
+            status: "logged-in",
+            activeAccountId: activeStatus.account.id,
+            accounts,
+        };
+    }
+
+    if (authFile.id !== "") {
+        return {
+            status: "active-account-missing",
+            activeAccountId: null,
+            missingAccountId: authFile.id,
+            accounts,
+        };
+    }
+
+    return {
+        status: "logged-out",
+        activeAccountId: null,
+        accounts,
+    };
+}
+
+function writeAuthStatusText(
+    context: CliExecutionContext,
+    authFile: AuthFile,
+    activeStatus: ActiveAccountStatus | undefined,
+): void {
+    if (activeStatus === undefined) {
+        if (authFile.id !== "") {
+            writeAuthBlock(context, {
+                tone: "danger",
+                summary: context.translator.t("auth.account.activeAccountMissing"),
+                details: [
+                    {
+                        label: context.translator.t("auth.status.accountId"),
+                        value: authFile.id,
+                    },
+                ],
+            });
+            return;
+        }
+
+        writeAuthBlock(context, {
+            tone: "warning",
+            summary: context.translator.t("auth.status.loggedOut"),
+        });
+        return;
+    }
+
+    const { account, apiKeyStatus } = activeStatus;
+    const statusConfig = apiKeyStatusConfig[apiKeyStatus];
+
+    writeAuthBlock(context, {
+        tone: statusConfig.tone,
+        summary: context.translator.t("auth.account.loggedIn", {
+            endpoint: formatAuthStrong(context, account.endpoint),
+            name: formatAuthStrong(context, account.name),
+        }),
+        details: [
+            {
+                label: context.translator.t("auth.status.activeAccount"),
+                value: "true",
+            },
+            {
+                label: context.translator.t("auth.status.apiKeyStatus"),
+                value: context.translator.t(statusConfig.translationKey),
+            },
+        ],
+    });
+}
 
 async function readApiKeyStatus(
     account: AuthAccount,
