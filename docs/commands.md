@@ -1035,6 +1035,118 @@ Remove oo-managed skills from supported local skill directories.
   agent-native local skill exists for the requested skill, or an existing same-name
   target is not managed by `oo`, the command exits with an error.
 
+### `oo skills repair`
+
+Force re-deploy one or more oo-managed skills from their trusted source into one
+or more agent skill directories. Always overwrites the target directory.
+
+This is **not** `oo skills update`: the command never goes to the network, never
+fetches a new registry package version, and never changes the package or
+version that is recorded for an installed skill. It only rewrites the agent
+copy from the trusted local source.
+
+- Options: `--skill <skill>` is required and may be repeated to repair multiple
+  skills. Inputs are de-duplicated; input order is preserved.
+- Options: `--agent <agent>` may be repeated to choose target agents. When
+  omitted, the command targets every currently-available supported agent (the
+  same set used by `oo skills install` defaults). Inputs are de-duplicated.
+- Options: `--json` / `--format json` emits a structured payload (see JSON
+  output below). `--show-schema-version` (only meaningful with JSON output)
+  prepends `schemaVersion`.
+- Source priority:
+  - If `<skill>` is a bundled skill name (`oo`, `oo-find-skills`,
+    `oo-create-skill`, `oo-publish-skill`), the command re-materializes the
+    per-agent bundled canonical source from the CLI's embedded assets, then
+    publishes that canonical source to the target agent. A repair on a bundled
+    skill therefore **also** refreshes the canonical bundled storage at
+    `<config-dir>/skills/bundled/<agent>/<skill>`.
+  - Otherwise, the command checks
+    `<config-dir>/skills/registry/<skill>` for managed registry metadata. If
+    found, the command publishes the canonical registry source to the target
+    agent. Registry repair never refreshes the canonical registry directory.
+  - If the skill is only known as a local skill in an agent's `skills`
+    directory, the command exits with `errors.skills.repair.localUnsupported`.
+    `repair` does not copy local skills across agents.
+  - If neither bundled nor managed registry source can be found, the affected
+    `(skill, agent)` pair surfaces as a per-pair failure with
+    `error.code: source_not_found`. The command does not fall back to copying
+    from one host's installed directory into another.
+- Overwrite semantics: the target host directory is rewritten regardless of
+  whether it is currently managed, manually modified, has corrupt metadata, or
+  is an unmanaged same-name directory. `repair` carries `--force`-style
+  semantics for the exact `(source, target agent, skill)` pair that it
+  resolves.
+- Safety: `repair` does not bypass path containment checks, the supported-agent
+  name list, registry canonical metadata validation, startup auto-sync rules,
+  or the existing safety borders for `oo skills add`, `oo skills update`,
+  `oo skills sync`, `oo skills publish`, and `oo skills uninstall`.
+- Fail-soft execution: each `(skill, agent)` pair is attempted independently.
+  If any pair fails, the command continues with the remaining pairs, prints a
+  summary of successes and failures, and finally exits non-zero.
+- Failure inputs that abort up-front (no JSON payload, normal CLI error):
+  - Missing `--skill` -> `errors.skills.repair.skillRequired`.
+  - `--agent` value outside the supported list -> existing
+    `errors.skills.list.invalidAgent`.
+  - Explicit `--agent` whose home directory does not exist ->
+    `errors.skills.agentNotInstalled`.
+  - Skill resolves only as a local skill ->
+    `errors.skills.repair.localUnsupported`.
+- Text output: text output prints the success summary, a per-skill agent
+  list, and any failures. Text output never prints filesystem paths;
+  consumers that need machine-readable paths should use `--json`.
+
+#### JSON output
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "summary": {
+    "requestedSkills": 2,
+    "targetAgents": 3,
+    "repaired": 5,
+    "failed": 1
+  },
+  "results": [
+    {
+      "skill": "oo",
+      "kind": "bundled",
+      "agentId": "codex",
+      "status": "repaired",
+      "path": "/Users/name/.codex/skills/oo",
+      "sourcePath": "/Users/name/Library/Application Support/oo/skills/bundled/codex/oo",
+      "version": "1.2.3"
+    },
+    {
+      "skill": "chatgpt",
+      "kind": "registry",
+      "agentId": "claude",
+      "status": "failed",
+      "path": "/Users/name/.claude/skills/chatgpt",
+      "sourcePath": "/Users/name/Library/Application Support/oo/skills/registry/chatgpt",
+      "version": "0.4.0",
+      "error": {
+        "code": "write_failed",
+        "message": "Failed to write the skill source to the target agent directory."
+      }
+    }
+  ]
+}
+```
+
+`schemaVersion` is included only when `--show-schema-version` is set.
+
+`error.code` values are an enumerated, machine-readable set:
+
+- `source_not_found`
+- `source_invalid`
+- `invalid_path`
+- `write_failed`
+- `unknown`
+
+`error.message` is a templated, scrubbed string; it never contains stack
+traces, raw exception messages, or filesystem paths beyond what already
+appears in the surrounding `path` / `sourcePath` fields.
+
 ## Logs
 
 ### `oo log path`

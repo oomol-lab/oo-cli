@@ -354,6 +354,19 @@ const commandTelemetryDecisions = {
         kind: "generic",
         reason: "Generic command telemetry is enough; sync source paths are not recorded.",
     },
+    "skills.repair": {
+        kind: "properties",
+        properties: [
+            "has_agent_filter",
+            "agent_count_bucket",
+            "skill_count_bucket",
+            "has_bundled_source",
+            "has_registry_source",
+            "success_count_bucket",
+            "failure_count_bucket",
+        ],
+        reason: "Records bucketed counts and source-kind flags; never records skill names or paths.",
+    },
     "skills.uninstall": {
         kind: "generic",
         reason: "Generic command telemetry is enough; local uninstall paths are not recorded.",
