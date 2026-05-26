@@ -59,6 +59,49 @@
 
 显示当前账号，并校验其 API key 状态。
 
+- 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出。
+  `--show-schema-version` 会向 payload 顶层添加 `schemaVersion`。
+- JSON 三种形态：
+
+  ```json
+  {
+    "status": "logged-in",
+    "activeAccountId": "user-1",
+    "accounts": [
+      { "id": "user-1", "name": "Alice", "endpoint": "oomol.com", "active": true, "apiKeyStatus": "valid" },
+      { "id": "user-2", "name": "Bob",   "endpoint": "oomol.com", "active": false }
+    ]
+  }
+  ```
+
+  ```json
+  { "status": "logged-out", "activeAccountId": null, "accounts": [] }
+  ```
+
+  ```json
+  {
+    "status": "active-account-missing",
+    "activeAccountId": null,
+    "missingAccountId": "user-1",
+    "accounts": [
+      { "id": "user-2", "name": "Bob", "endpoint": "oomol.com", "active": false }
+    ]
+  }
+  ```
+
+- 说明（JSON）：
+  - **绝不**输出 `apiKey` 字段；JSON payload 在任何字段下都不包含实际 API key 字符串。
+  - `accounts[]` 按原顺序列出本地 auth file 中保存的全部账号，每条 entry 为
+    `{ id, name, endpoint, active, apiKeyStatus? }`。
+  - `activeAccountId` 是当前激活账号 ID；无可用激活账号时（包括
+    `active-account-missing` 状态）为 `null`。
+  - `accounts[].active` 仅在激活账号上为 `true`。
+  - `accounts[].apiKeyStatus` 只在激活账号 entry 出现，枚举为
+    `valid` / `invalid` / `request_failed` / `request_failed_sandbox`。
+  - `missingAccountId` 仅在 auth file 记录的 active id 已不存在于
+    `accounts[]` 时出现。
+  - 三种状态都以 0 退出（查询命令）；参数错误（如 `--format xml`）仍以 2 退出。
+
 ### `oo auth switch`
 
 切换到下一个已保存账号。
