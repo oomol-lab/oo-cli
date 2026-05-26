@@ -1,5 +1,6 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
+import { skillsCheckUpdateCommand } from "./check-update.ts";
 import { skillsCheckCommand } from "./check.ts";
 import { skillsInitCommand } from "./init.ts";
 import { skillsInstallCommand } from "./install.ts";
@@ -32,5 +33,6 @@ export const skillsCommand: CliCommandDefinition = {
         skillsUpdateCommand,
         skillsUninstallCommand,
         skillsRepairCommand,
+        skillsCheckUpdateCommand,
     ],
 };
