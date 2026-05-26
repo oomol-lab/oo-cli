@@ -866,6 +866,19 @@ registry skills。
   Trae CN、OpenClaw、QoderWork 和 DeepSeek TUI 的受支持根目录都不存在时，命令会直接报错退出。
 - 说明：只有当 bundled 或 registry skill 的 `.oo-metadata.json` 能识别对应来源
   时，`oo` 才会认为这是自己管理的安装；否则会视为其他 skill，并拒绝覆盖。
+- 选项：`--json` / `--format json` 输出结构化 payload（见下方"mutation 命令的
+  JSON 输出"）。
+- `error.code` 枚举（install JSON）：`not_authenticated` / `no_supported_hosts`
+  / `invalid_path` / `invalid_package_specifier` / `package_lookup_failed`
+  / `package_download_failed` / `invalid_package_archive`
+  / `skill_not_found_in_package` / `name_conflict` / `storage_conflict`
+  / `confirmation_required` / `publication_failed` / `unknown`。
+- 当指定 `--json` 时，命令自动进入非交互模式：若多 skill package 未提供
+  `--skill` / `--all` / `--yes`，会返回顶层 `confirmation_required` 错误并以
+  exit 1 退出。
+- `targets[].previousState` 取值为 `absent | managed | unmanaged | unknown`。
+  当 `--force` 覆盖一个非受管目录时，target 仍报告为 `installed`，但
+  `previousState` 为 `"unmanaged"`。
 
 ### `oo skills sync upload`
 
@@ -883,6 +896,15 @@ registry skills。
   数组，并携带当前账号的 `Authorization` header。
 - 行为：服务端清单会被覆盖；如果过滤后没有 registry skill，也会上传空数组。
 - 输出：成功时，文本输出会显示已上传的 registry skill 数量。
+- 选项：`--json` / `--format json` 输出结构化 payload。与其它 mutation 命令不
+  同，`oo skills sync upload --json` 顶层使用 `records[]` 而不是
+  `skills[]` / `targets[]`，因为操作单位是 sync record，不是本地 agent target。
+  payload 仍包含 `command` / `status` / `summary` / `errors[]`。
+- `error.code` 枚举（sync upload JSON）：`not_authenticated` /
+  `no_supported_hosts` / `sync_upload_failed` / `sync_invalid_response` /
+  `unknown`。
+- 行为：上传请求失败时，JSON payload 仍包含本来准备上传的 `records[]`，命令以
+  exit 1 退出。
 
 ### `oo skills sync apply`
 
@@ -898,6 +920,15 @@ registry skills。
 - 范围：该命令只应用 registry skill。bundled 和 local skill 永远不会通过该命令恢复。
 - 输出：当已上传清单为空时，文本输出会提示未找到已上传的 registry skill。否则会先
   输出常规安装摘要，再输出最终应用数量。
+- 选项：`--json` / `--format json` 输出结构化 payload，顶层使用 `skills[]`，每
+  条已应用记录占一项。单条记录的安装 / 查询失败放在
+  `skills[].status = "failed"` 并带稳定 `error.code`；只有 sync 协议层失败
+  （manifest 下载、响应 schema）才进入顶层 `errors[]`。
+- `error.code` 枚举（sync apply JSON）：`not_authenticated` /
+  `no_supported_hosts` / `invalid_path` / `package_lookup_failed` /
+  `package_download_failed` / `invalid_package_archive` /
+  `publication_failed` / `sync_download_failed` / `sync_invalid_response` /
+  `unknown`。
 
 ### `oo skills update [skills...]`
 
@@ -917,6 +948,17 @@ registry skills。
 - 交互式终端：会显示实时进度。
 - 非交互式终端：对每个已是最新或失败的 skill 输出一行状态信息；对每个已更新
   的 Agent 目标路径输出一行成功信息。
+- 选项：`--json` / `--format json` 输出结构化 payload（见下方"mutation 命令的
+  JSON 输出"）。
+- `skills[].status`（update JSON）：`updated | repaired | current | failed`。
+  - `updated`：至少一个 host 版本号已升级。
+  - `repaired`：版本号未变，但有 host 的 publication 被重写（legacy symlink、
+    metadata 漂移等）。
+  - `current`：所有 host 无需写入。
+- `error.code` 枚举（update JSON）：`not_authenticated` / `no_supported_hosts`
+  / `invalid_path` / `not_installed` / `not_managed` / `bundled_unsupported`
+  / `package_lookup_failed` / `package_download_failed` /
+  `invalid_package_archive` / `publication_failed` / `unknown`。
 
 ### `oo skills check-update`
 
@@ -988,6 +1030,60 @@ registry skills。
 - `error.code` 枚举：`not_installed` / `not_managed` / `invalid_path` /
   `bundled_unsupported` / `package_lookup_failed` / `unknown`。
 
+#### mutation 命令的 JSON 输出
+
+`oo skills install`、`oo skills uninstall`、`oo skills update`、
+`oo skills sync apply` 共享一套 JSON envelope：
+
+```json
+{
+  "command": "skills.install",
+  "status": "completed",
+  "summary": { /* 每条命令各自的计数 */ },
+  "skills": [
+    {
+      "skillId": "demo",
+      "kind": "bundled | registry | local | unknown",
+      "packageName": "@alice/demo",
+      "previousVersion": "0.1.0",
+      "version": "0.2.0",
+      "status": "<per-command enum>",
+      "targets": [
+        {
+          "agentId": "codex",
+          "status": "<per-command enum>",
+          "path": "/Users/.../.codex/skills/demo",
+          "sourcePath": "/Users/.../oo/skills/managed/demo",
+          "version": "0.2.0",
+          "previousVersion": "0.1.0",
+          "previousState": "absent | managed | unmanaged | unknown",
+          "error": { "code": "<stable code>", "message": "..." }
+        }
+      ],
+      "error": { "code": "<stable code>", "message": "..." }
+    }
+  ],
+  "errors": [{ "code": "<command-level code>", "message": "..." }]
+}
+```
+
+`oo skills sync upload` 使用 `records[]` 而非 `skills[]` / `targets[]`，因为
+操作单位是 sync record，而不是 agent target。
+
+通用规则：
+
+- `command` 为 `skills.install` / `skills.uninstall` / `skills.update` /
+  `skills.sync.upload` / `skills.sync.apply` 之一。
+- `status` 为 `completed` / `partial-failure` / `failed` / `noop`。
+- `targets[]` 是每个 Agent 的结果。`uninstall` / `update` 通常会填
+  `previousVersion`；`install` 通常使用 `previousState`。
+- `error.message` 是固定英文模板，不做 i18n。
+- `--show-schema-version` 会在 payload 顶层添加 `schemaVersion`。
+- 参数错误（如 `--format xml`）仍以 exit 2 退出，不输出 JSON。其它失败仍输出
+  JSON payload，并以 exit 1 退出。
+- JSON 输出永远不会包含 `apiKey`、原始 HTTP 请求 / 响应体、stack trace 或未
+  脱敏的 endpoint secret。
+
 ### `oo skills uninstall [skill]`
 
 从受支持的本地 skill 目录移除由 oo 管理的 skill。
@@ -1024,6 +1120,15 @@ registry skills。
   任何会逃出这些根目录的名称都会被拒绝。
 - 说明：如果请求的 skill 在任何受支持目标中都不存在受管理安装，且不存在同名
   agent-native local skill，或某个已存在的同名目标不是由 `oo` 管理，命令会直接报错。
+- 选项：`--json` / `--format json` 输出结构化 payload（见上方"mutation 命令的
+  JSON 输出"）。
+- `skills[].status`（uninstall JSON）：`removed | failed`。`targets[].status`：
+  `removed | absent | unmanaged | failed`。
+- `error.code` 枚举（uninstall JSON）：`no_supported_hosts` / `invalid_path`
+  / `not_installed` / `not_managed` / `ambiguous_local_skill` /
+  `remove_failed` / `unknown`。
+- 行为：当未传 `[skill]` 时，`--json` 与文本输出范围一致——只卸载 bundled
+  skill，registry / local 不动。
 
 ### `oo skills repair`
 

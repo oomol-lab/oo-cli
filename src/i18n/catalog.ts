@@ -213,6 +213,16 @@ export const enMessages = {
         "Skill {name} is a local skill and is not repairable; local skills are agent-native sources.",
     "errors.skills.repair.partialFailure":
         "{count} skill-agent pair(s) failed to repair.",
+    "errors.skills.install.partialFailure":
+        "{count} skill operation(s) failed.",
+    "errors.skills.uninstall.partialFailure":
+        "{count} skill operation(s) failed.",
+    "errors.skills.update.partialFailure":
+        "{count} skill operation(s) failed.",
+    "errors.skills.sync.upload.partialFailure":
+        "Skill sync upload failed.",
+    "errors.skills.sync.apply.partialFailure":
+        "{count} skill operation(s) failed.",
     "errors.skills.repair.sourceNotFound":
         "Managed registry canonical source was not found.",
     "errors.skills.repair.sourceInvalid":
@@ -1259,6 +1269,16 @@ export const zhMessages = {
         "skill {name} 是 local skill，不支持 repair；local skill 是 Agent 原生 source。",
     "errors.skills.repair.partialFailure":
         "有 {count} 个 skill-Agent 组合修复失败。",
+    "errors.skills.install.partialFailure":
+        "有 {count} 个 skill 操作失败。",
+    "errors.skills.uninstall.partialFailure":
+        "有 {count} 个 skill 操作失败。",
+    "errors.skills.update.partialFailure":
+        "有 {count} 个 skill 操作失败。",
+    "errors.skills.sync.upload.partialFailure":
+        "Skill sync upload 失败。",
+    "errors.skills.sync.apply.partialFailure":
+        "有 {count} 个 skill 操作失败。",
     "errors.skills.repair.sourceNotFound":
         "未找到由 oo 管理的 registry canonical source。",
     "errors.skills.repair.sourceInvalid":
