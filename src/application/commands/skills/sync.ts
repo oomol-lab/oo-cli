@@ -261,6 +261,25 @@ async function runSyncUploadJsonReport(
     request: { ignorePatterns: readonly string[] },
     context: CliExecutionContext,
 ): Promise<SyncUploadReport> {
+    try {
+        return await runSyncUploadJsonReportInner(request, context);
+    }
+    catch (error) {
+        // Final safety net: any unexpected throw (filesystem, unknown
+        // exception path) still produces a stable JSON payload. The raw
+        // error goes to the logger; the JSON never carries raw error text.
+        context.logger.warn({ err: error }, "Skill sync upload --json failed unexpectedly.");
+        return buildSyncUploadReport([], 0, [{
+            code: "unknown",
+            message: syncUploadErrorMessages.unknown,
+        }]);
+    }
+}
+
+async function runSyncUploadJsonReportInner(
+    request: { ignorePatterns: readonly string[] },
+    context: CliExecutionContext,
+): Promise<SyncUploadReport> {
     const errors: SkillOperationError[] = [];
     let account: AuthAccount;
 
@@ -361,6 +380,23 @@ function toUploadError(error: unknown): SkillOperationError {
 }
 
 async function runSyncApplyJsonReport(
+    context: CliExecutionContext,
+): Promise<SyncApplyReport> {
+    try {
+        return await runSyncApplyJsonReportInner(context);
+    }
+    catch (error) {
+        // Final safety net: any unexpected throw (filesystem, unknown
+        // exception path) still produces a stable JSON payload.
+        context.logger.warn({ err: error }, "Skill sync apply --json failed unexpectedly.");
+        return buildSyncApplyReport([], 0, [{
+            code: "unknown",
+            message: syncApplyErrorMessages.unknown,
+        }]);
+    }
+}
+
+async function runSyncApplyJsonReportInner(
     context: CliExecutionContext,
 ): Promise<SyncApplyReport> {
     const errors: SkillOperationError[] = [];

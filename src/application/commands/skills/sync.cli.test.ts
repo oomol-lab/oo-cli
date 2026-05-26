@@ -23,38 +23,6 @@ import {
 
 const TEST_CLI_VERSION = "9.9.9";
 
-async function seedRegistrySkill(options: {
-    sandbox: Awaited<ReturnType<typeof createCliSandbox>>;
-    skillName: string;
-    packageName: string;
-    version: string;
-}): Promise<void> {
-    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, "codex");
-    const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
-    const storePaths = resolveStorePaths({
-        appName: APP_NAME,
-        env: options.sandbox.env,
-        platform: process.platform,
-    });
-    const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
-        storePaths.settingsFilePath,
-        options.skillName,
-    );
-
-    await mkdir(homeDirectory, { recursive: true });
-    await mkdir(canonicalDirectory, { recursive: true });
-    await mkdir(hostDirectory, { recursive: true });
-    await writeFile(join(canonicalDirectory, "SKILL.md"), "# r\n");
-    await writeFile(join(hostDirectory, "SKILL.md"), "# r\n");
-    const metadata = renderSkillMetadataJson(createRegistrySkillMetadata({
-        packageName: options.packageName,
-        version: options.version,
-    }));
-
-    await writeFile(resolveManagedSkillMetadataFilePath(canonicalDirectory), metadata);
-    await writeFile(resolveManagedSkillMetadataFilePath(hostDirectory), metadata);
-}
-
 describe("skills sync upload --json", () => {
     test("returns records[] with uploaded count", async () => {
         const sandbox = await createCliSandbox();
@@ -255,6 +223,48 @@ describe("skills sync upload --json", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("unexpected filesystem throw is normalized to unknown error JSON", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+
+            await mkdir(homeDirectory, { recursive: true });
+            // Make <home>/skills be a regular file rather than a directory.
+            // readSkillsDirectoryEntries on it will throw ENOTDIR (not ENOENT),
+            // which is *not* covered by any inner try/catch in the upload path.
+            // The outer safety net must convert it to a stable JSON payload.
+            const skillsPath = join(homeDirectory, "skills");
+
+            await writeFile(skillsPath, "not a directory\n");
+
+            const result = await sandbox.run(
+                ["skills", "sync", "upload", "--json"],
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async () => new Response("[]"),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.command).toBe("skills.sync.upload");
+            expect(payload.status).toBe("failed");
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(errors).toHaveLength(1);
+            expect(errors[0]).toMatchObject({ code: "unknown" });
+            // Raw error text must not leak into JSON.
+            expect(result.stdout).not.toContain("ENOTDIR");
+            expect(result.stdout).not.toContain("not a directory");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
 
 describe("skills sync apply --json", () => {
@@ -431,3 +441,35 @@ describe("skills sync apply --json", () => {
         }
     });
 });
+
+async function seedRegistrySkill(options: {
+    sandbox: Awaited<ReturnType<typeof createCliSandbox>>;
+    skillName: string;
+    packageName: string;
+    version: string;
+}): Promise<void> {
+    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, "codex");
+    const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
+    const storePaths = resolveStorePaths({
+        appName: APP_NAME,
+        env: options.sandbox.env,
+        platform: process.platform,
+    });
+    const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
+        storePaths.settingsFilePath,
+        options.skillName,
+    );
+
+    await mkdir(homeDirectory, { recursive: true });
+    await mkdir(canonicalDirectory, { recursive: true });
+    await mkdir(hostDirectory, { recursive: true });
+    await writeFile(join(canonicalDirectory, "SKILL.md"), "# r\n");
+    await writeFile(join(hostDirectory, "SKILL.md"), "# r\n");
+    const metadata = renderSkillMetadataJson(createRegistrySkillMetadata({
+        packageName: options.packageName,
+        version: options.version,
+    }));
+
+    await writeFile(resolveManagedSkillMetadataFilePath(canonicalDirectory), metadata);
+    await writeFile(resolveManagedSkillMetadataFilePath(hostDirectory), metadata);
+}
