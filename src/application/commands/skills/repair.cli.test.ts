@@ -1,5 +1,6 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import process from "node:process";
 
 import { describe, expect, test } from "bun:test";
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
@@ -594,4 +595,81 @@ describe("skills repair CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("repair omits success summary when every pair fails", async () => {
+        const sandbox = await createCliSandbox();
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+
+        try {
+            await mkdir(claudeHomeDirectory, { recursive: true });
+            await mkdir(codexHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "repair",
+                "--skill",
+                "nonexistent",
+                "--agent",
+                "claude",
+                "--agent",
+                "codex",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).not.toMatch(/^Repaired /m);
+            expect(result.stdout).toMatch(/^Failed to repair 2 /m);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    // The success summary must reflect only agents that actually had a skill
+    // repaired, not the total number of targeted agents. chmod is unreliable
+    // on Windows and a no-op for root on Unix, so the test is scoped to a
+    // non-root POSIX environment.
+    const isUnixNonRoot = process.platform !== "win32" && process.getuid?.() !== 0;
+    const partialFailureTest = isUnixNonRoot ? test : test.skip;
+
+    partialFailureTest(
+        "repair success summary counts only agents that had a repair succeed",
+        async () => {
+            const sandbox = await createCliSandbox();
+            const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+            const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const claudeOoDirectory = resolveManagedSkillDirectoryPath(claudeHomeDirectory, "oo");
+            const codexSkillsDirectory = join(codexHomeDirectory, "skills");
+
+            try {
+                await mkdir(claudeHomeDirectory, { recursive: true });
+                await mkdir(codexHomeDirectory, { recursive: true });
+                await sandbox.run(["skills", "install", "oo"], { version: TEST_CLI_VERSION });
+                await writeFile(join(claudeOoDirectory, "SKILL.md"), "tampered\n");
+                // Block writes into codex's skills root so that (oo, codex)
+                // fails while (oo, claude) still succeeds.
+                await chmod(codexSkillsDirectory, 0o555);
+
+                const result = await sandbox.run([
+                    "skills",
+                    "repair",
+                    "--skill",
+                    "oo",
+                    "--agent",
+                    "claude",
+                    "--agent",
+                    "codex",
+                ], { version: TEST_CLI_VERSION });
+
+                expect(result.exitCode).toBe(1);
+                expect(result.stdout).toMatch(/^Repaired 1 skill\(s\) for 1 agent\(s\)\./m);
+                expect(result.stdout).not.toMatch(/for 2 agent\(s\)/);
+                expect(result.stdout).toMatch(/^Failed to repair 1 /m);
+            }
+            finally {
+                await chmod(codexSkillsDirectory, 0o755).catch(() => undefined);
+                await sandbox.cleanup();
+            }
+        },
+    );
 });

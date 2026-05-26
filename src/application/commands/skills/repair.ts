@@ -411,9 +411,12 @@ function writeText(
     context: Pick<CliExecutionContext, "stdout" | "translator">,
     outcome: RepairOutcome,
 ): void {
-    const successfulBySkill = groupAgentsBySkill(
-        outcome.results.filter(entry => entry.status === "repaired"),
-    );
+    const successfulEntries = outcome.results.filter(entry => entry.status === "repaired");
+    const successfulBySkill = groupAgentsBySkill(successfulEntries);
+    // Count only agents that actually had at least one skill repaired, to keep
+    // the same "at least one success" counting rule as `skillCount`. Using
+    // `targetAgents` here would overstate the result on partial failure.
+    const successfulAgentCount = new Set(successfulEntries.map(entry => entry.agentId)).size;
     const failedEntries = outcome.results.filter(entry => entry.status === "failed");
 
     if (successfulBySkill.size > 0) {
@@ -421,7 +424,7 @@ function writeText(
             context.stdout,
             context.translator.t("skills.repair.success", {
                 skillCount: successfulBySkill.size,
-                agentCount: outcome.summary.targetAgents,
+                agentCount: successfulAgentCount,
             }),
         );
 
