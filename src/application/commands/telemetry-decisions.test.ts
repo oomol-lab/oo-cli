@@ -415,6 +415,10 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records self-update state without raw version strings.",
     },
+    "version": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; the CLI version and commit are already attached to every event via the global cli_version and cli_commit dimensions, and build time is not telemetry-relevant.",
+    },
 } as const satisfies Record<string, TelemetryDecision>;
 
 describe("command telemetry decisions", () => {

@@ -349,6 +349,46 @@ Check whether a newer CLI release is available.
   checks the latest published release.
 - Notes: when the update check is temporarily unavailable, the CLI prints a
   retry-later message instead of exiting with an error.
+- Options: `--format=json` and `--json` switch to structured JSON output. The
+  shape is one of:
+
+  ```json
+  { "status": "update-available", "currentVersion": "1.2.3", "latestVersion": "1.3.0" }
+  ```
+
+  ```json
+  { "status": "up-to-date", "currentVersion": "1.2.3", "latestVersion": "1.2.3" }
+  ```
+
+  ```json
+  { "status": "failed", "currentVersion": "1.2.3", "message": "Cannot reach update service." }
+  ```
+
+- Notes (JSON): `status` is the stable machine-readable enum. `message` is a
+  human-readable English string and should not be parsed by scripts. The
+  command exits `0` even when `status` is `"failed"` because the failure is a
+  query result; scripts should branch on `status`. Argument errors (for example
+  `--format xml`) still exit `2`.
+
+### `oo version`
+
+Print the CLI version.
+
+- Notes: text output is identical to `oo --version` / `oo -V`. Use `oo version`
+  when you want a command-style invocation, particularly in combination with
+  `--json` for script consumption.
+- Options: `--format=json` and `--json` switch to structured JSON output. The
+  payload mirrors the same data the text output prints (version, build time,
+  and commit hash) so callers can switch formats without losing fields:
+
+  ```json
+  { "version": "1.2.3", "buildTime": "2026-05-26T00:00:00.000Z", "commit": "abc12345" }
+  ```
+
+  `buildTime` is the build timestamp formatted as ISO 8601, or `null` when the
+  binary was built without an embedded build timestamp. `commit` is the first
+  eight characters of the git commit hash recorded at build time, or `null`
+  when unknown.
 
 ## Environment
 

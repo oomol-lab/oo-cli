@@ -19,6 +19,7 @@ import { mixedSearchCommand } from "./search.ts";
 import { skillsCommand } from "./skills/index.ts";
 import { telemetryCommand } from "./telemetry/index.ts";
 import { updateCommand } from "./update.ts";
+import { versionCommand } from "./version.ts";
 
 const globalOptions = [
     {
@@ -60,6 +61,7 @@ export function createCliCatalog(): CliCatalog {
             packageCommand,
             telemetryCommand,
             updateCommand,
+            versionCommand,
         ],
     };
 }

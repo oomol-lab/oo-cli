@@ -686,6 +686,9 @@ export const enMessages = {
     "commands.update.description":
         "Update the managed CLI install to the latest published release.",
     "commands.update.summary": "Update the CLI",
+    "commands.version.description":
+        "Print the CLI version. Use --json for a stable machine-readable payload.",
+    "commands.version.summary": "Print the CLI version",
     "help.arguments": "Arguments:",
     "help.commands": "Commands:",
     "help.extra.choices": "choices",
@@ -1694,6 +1697,9 @@ export const zhMessages = {
     "commands.update.description":
         "把托管 CLI 安装更新到最新发布版本。",
     "commands.update.summary": "更新 CLI",
+    "commands.version.description":
+        "输出 CLI 版本。使用 --json 输出稳定的机器可读 payload。",
+    "commands.version.summary": "输出 CLI 版本",
     "help.arguments": "参数：",
     "help.commands": "命令：",
     "help.extra.choices": "可选值",
