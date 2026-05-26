@@ -686,6 +686,25 @@ export const enMessages = {
     "commands.update.description":
         "Update the managed CLI install to the latest published release.",
     "commands.update.summary": "Update the CLI",
+    "commands.skills.checkUpdate.description":
+        "Check for available updates for installed registry skills without downloading or modifying them.",
+    "commands.skills.checkUpdate.summary":
+        "Check registry skills for updates",
+    "options.skills.checkUpdate.skill":
+        "Limit the check to one or more skill ids (may be repeated)",
+    "skills.checkUpdate.allCurrent":
+        "All checked registry skills are up to date.",
+    "skills.checkUpdate.summary":
+        "{updates} update(s) available, {repairs} repair(s) required, {current} up-to-date, {failed} failed.",
+    "skills.checkUpdate.updatesHeader": "Updates:",
+    "skills.checkUpdate.updatesLine":
+        "  {skillId}  {packageName}  {currentVersion} -> {latestVersion}",
+    "skills.checkUpdate.repairsHeader": "Repairs:",
+    "skills.checkUpdate.repairsLine":
+        "  {skillId}  {packageName}  {currentVersion}",
+    "skills.checkUpdate.failuresHeader": "Failures:",
+    "skills.checkUpdate.failuresLine":
+        "  {skillId}: {message}",
     "commands.version.description":
         "Print the CLI version. Use --json for a stable machine-readable payload.",
     "commands.version.summary": "Print the CLI version",
@@ -1697,6 +1716,25 @@ export const zhMessages = {
     "commands.update.description":
         "把托管 CLI 安装更新到最新发布版本。",
     "commands.update.summary": "更新 CLI",
+    "commands.skills.checkUpdate.description":
+        "检查已安装的 registry skill 是否有可用更新，仅查询不下载也不写入。",
+    "commands.skills.checkUpdate.summary":
+        "检查 registry skill 是否有更新",
+    "options.skills.checkUpdate.skill":
+        "仅检查指定的 skill id（可重复传入）",
+    "skills.checkUpdate.allCurrent":
+        "已检查的 registry skill 均为最新。",
+    "skills.checkUpdate.summary":
+        "{updates} 个可升级，{repairs} 个需修复，{current} 个已最新，{failed} 个失败。",
+    "skills.checkUpdate.updatesHeader": "可升级：",
+    "skills.checkUpdate.updatesLine":
+        "  {skillId}  {packageName}  {currentVersion} -> {latestVersion}",
+    "skills.checkUpdate.repairsHeader": "需修复：",
+    "skills.checkUpdate.repairsLine":
+        "  {skillId}  {packageName}  {currentVersion}",
+    "skills.checkUpdate.failuresHeader": "失败：",
+    "skills.checkUpdate.failuresLine":
+        "  {skillId}：{message}",
     "commands.version.description":
         "输出 CLI 版本。使用 --json 输出稳定的机器可读 payload。",
     "commands.version.summary": "输出 CLI 版本",

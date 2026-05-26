@@ -1080,6 +1080,84 @@ Update installed oo-managed published skills.
 - Non-interactive terminals: prints one status line for each current or failed
   skill, and one success line for each updated host target path.
 
+### `oo skills check-update`
+
+Check whether installed oo-managed registry skills have a newer published
+version, or have drifted from their canonical content. Read-only: the
+command **never** downloads a package archive or writes to any skill
+directory.
+
+- Options: `--skill <name>` limits the check to one or more skill ids;
+  the option may be repeated. Duplicate values are de-duplicated; the
+  original input order is preserved in the output.
+- Options: `--format=json` and `--json` switch to a structured payload.
+  `--show-schema-version` (only meaningful with JSON) prepends
+  `schemaVersion`.
+- Scope: only `registry` kind skills are checked. Bundled skills,
+  uninstalled skill names, and skill directories without registry metadata
+  are reported as `failed` entries (each carries a stable `error.code`).
+- Network: requires the current OOMOL account because the latest package
+  version is fetched from the registry's package-info endpoint. The
+  command does **not** download package tarballs.
+- JSON shape:
+
+  ```json
+  {
+    "summary": {
+      "registrySkills": 3,
+      "registrySkillUpdates": 1,
+      "registrySkillRepairs": 1,
+      "registrySkillsCurrent": 1,
+      "registrySkillFailures": 0
+    },
+    "skills": [
+      {
+        "skillId": "demo",
+        "packageName": "@alice/demo",
+        "currentVersion": "0.1.0",
+        "latestVersion": "0.2.0",
+        "status": "update-available"
+      },
+      {
+        "skillId": "foo",
+        "packageName": "@alice/foo",
+        "currentVersion": "0.2.0",
+        "latestVersion": "0.2.0",
+        "status": "up-to-date"
+      },
+      {
+        "skillId": "bar",
+        "packageName": "@alice/bar",
+        "currentVersion": "0.2.0",
+        "latestVersion": "0.2.0",
+        "status": "repair-required"
+      }
+    ]
+  }
+  ```
+
+- `status` values:
+  - `update-available` — registry latest is newer than the installed
+    version; `oo skills update` will upgrade.
+  - `up-to-date` — installed version matches the registry latest, **and**
+    all host directories match the canonical publication.
+  - `repair-required` — installed version equals the registry latest, but
+    the host publication has drifted from the canonical layout in a way
+    that `oo skills update` would rewrite. Concretely this fires when the
+    host directory is a legacy symlink (instead of a real copy) or when
+    its `.oo-metadata.json` records a different package/version than the
+    canonical metadata. **Content-level changes to host files are not
+    detected here**; run `oo skills info --json` to inspect host
+    `controlState` for content drift.
+  - `failed` — the skill could not be checked. The entry includes
+    `error.code` (machine-readable enum) and `error.message` (English
+    template).
+- Exit code: the command exits `0` even when individual entries are
+  `failed`, because failure is encoded in the payload. Argument errors
+  (for example `--format xml`) still exit `2`.
+- `error.code` enum: `not_installed` / `not_managed` / `invalid_path` /
+  `bundled_unsupported` / `package_lookup_failed` / `unknown`.
+
 ### `oo skills uninstall [skill]`
 
 Remove oo-managed skills from supported local skill directories.

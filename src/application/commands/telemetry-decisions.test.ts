@@ -367,6 +367,18 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records bucketed counts and source-kind flags; never records skill names or paths.",
     },
+    "skills.check-update": {
+        kind: "properties",
+        properties: [
+            "has_skill_filter",
+            "skill_count_bucket",
+            "checked_count_bucket",
+            "update_available_count_bucket",
+            "repair_required_count_bucket",
+            "failed_count_bucket",
+        ],
+        reason: "Records bucketed counts only; never records skill names, package names, versions, or paths.",
+    },
     "skills.uninstall": {
         kind: "generic",
         reason: "Generic command telemetry is enough; local uninstall paths are not recorded.",

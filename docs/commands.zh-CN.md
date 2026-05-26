@@ -918,6 +918,76 @@ registry skills。
 - 非交互式终端：对每个已是最新或失败的 skill 输出一行状态信息；对每个已更新
   的 Agent 目标路径输出一行成功信息。
 
+### `oo skills check-update`
+
+检查由 oo 管理的 registry skill 是否有新版本，或本地内容是否已偏离 canonical。
+**只查询，不下载 package archive，不写入任何 skill 目录**。
+
+- 选项：`--skill <name>` 限定要检查的 skill id，可重复传入。重复值会去重，
+  输出按原始输入顺序。
+- 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出。
+  `--show-schema-version`（仅在 JSON 模式下生效）会向 payload 顶层添加
+  `schemaVersion`。
+- 范围：只检查 `kind=registry` 的 skill。bundled skill、未安装的 skill 名、
+  或非 registry metadata 的 skill 目录都会作为 `failed` entry 上报，并带
+  稳定的 `error.code`。
+- 网络：需要登录 OOMOL 账号，因为命令会请求 registry 的 package-info 接口
+  获取最新版本号；**不会**下载 package tarball。
+- JSON 形态：
+
+  ```json
+  {
+    "summary": {
+      "registrySkills": 3,
+      "registrySkillUpdates": 1,
+      "registrySkillRepairs": 1,
+      "registrySkillsCurrent": 1,
+      "registrySkillFailures": 0
+    },
+    "skills": [
+      {
+        "skillId": "demo",
+        "packageName": "@alice/demo",
+        "currentVersion": "0.1.0",
+        "latestVersion": "0.2.0",
+        "status": "update-available"
+      },
+      {
+        "skillId": "foo",
+        "packageName": "@alice/foo",
+        "currentVersion": "0.2.0",
+        "latestVersion": "0.2.0",
+        "status": "up-to-date"
+      },
+      {
+        "skillId": "bar",
+        "packageName": "@alice/bar",
+        "currentVersion": "0.2.0",
+        "latestVersion": "0.2.0",
+        "status": "repair-required"
+      }
+    ]
+  }
+  ```
+
+- `status` 取值：
+  - `update-available` —— registry 最新版本高于已安装版本；`oo skills update`
+    会升级。
+  - `up-to-date` —— 已安装版本与 registry 最新版本一致，且所有 host 目录
+    与 canonical 内容一致。
+  - `repair-required` —— 已安装版本与 registry 最新版本一致，但 host
+    publication 与 canonical 布局发生了 `oo skills update` 会重写的偏离：
+    具体而言是 host 目录变成了 legacy symlink（不是真实拷贝），或者其
+    `.oo-metadata.json` 记录的 package/version 与 canonical metadata 不
+    一致。**host 文件内容级的修改不会在此命令中检测到**；如需检查内容
+    drift，请用 `oo skills info --json` 查看 host 的 `controlState`。
+  - `failed` —— 该 skill 无法完成检查；entry 含 `error.code`（机器可读枚举）
+    与 `error.message`（英文模板）。
+- 退出码：即使 entry 含 `failed`，命令仍以 0 退出（失败由 payload 字段表达）。
+  参数错误（如 `--format xml`）仍以 2 退出。
+- `error.code` 枚举：`not_installed` / `not_managed` / `invalid_path` /
+  `bundled_unsupported` / `package_lookup_failed` / `unknown`。
+
 ### `oo skills uninstall [skill]`
 
 从受支持的本地 skill 目录移除由 oo 管理的 skill。
