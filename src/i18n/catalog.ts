@@ -194,6 +194,33 @@ export const enMessages = {
     "commands.skills.uninstall.description":
         "Remove oo-managed skills from supported local skill directories.",
     "commands.skills.uninstall.summary": "Remove a managed skill",
+    "commands.skills.repair.description":
+        "Force re-deploy one or more oo-managed skills from their trusted source into one or more agent skill directories.",
+    "commands.skills.repair.summary": "Repair installed skills from trusted source",
+    "options.skills.repair.skill":
+        "Skill name to repair (required, may be repeated)",
+    "options.skills.repair.agent":
+        "Agent to repair into (may be repeated; defaults to all currently available supported agents)",
+    "skills.repair.success":
+        "Repaired {skillCount} skill(s) for {agentCount} agent(s).",
+    "skills.repair.success.line": "  {name}: {agents}",
+    "skills.repair.failure":
+        "Failed to repair {count} skill-agent pair(s).",
+    "skills.repair.failure.line": "  {name} ({agent}): {reason}",
+    "errors.skills.repair.skillRequired":
+        "At least one --skill <name> is required.",
+    "errors.skills.repair.localUnsupported":
+        "Skill {name} is a local skill and is not repairable; local skills are agent-native sources.",
+    "errors.skills.repair.partialFailure":
+        "{count} skill-agent pair(s) failed to repair.",
+    "errors.skills.repair.sourceNotFound":
+        "Managed registry canonical source was not found.",
+    "errors.skills.repair.sourceInvalid":
+        "Managed registry canonical metadata is missing or not a registry skill.",
+    "errors.skills.repair.invalidPath":
+        "Target path escapes the managed skills directory.",
+    "errors.skills.repair.writeFailed":
+        "Failed to write the skill source to the target agent directory.",
     "config.set.success": "Set {key} to {value}.",
     "config.unset.success": "Removed {key}.",
     "telemetry.disable.success": "Telemetry disabled.",
@@ -1191,6 +1218,33 @@ export const zhMessages = {
     "commands.skills.update.summary": "更新由 oo 管理的 skill",
     "commands.skills.uninstall.description": "从受支持的本地 skill 目录移除由 oo 管理的 skill。",
     "commands.skills.uninstall.summary": "移除一个受管理的 skill",
+    "commands.skills.repair.description":
+        "从可信 source 强制将一个或多个由 oo 管理的 skill 重新部署到一个或多个 Agent 的 skill 目录。",
+    "commands.skills.repair.summary": "从可信 source 修复已安装的 skill",
+    "options.skills.repair.skill":
+        "要修复的 skill 名称（必填，可重复传入）",
+    "options.skills.repair.agent":
+        "目标 Agent 名称（可重复；缺省时为当前所有可用的受支持 Agent）",
+    "skills.repair.success":
+        "已为 {agentCount} 个 Agent 修复 {skillCount} 个 skill。",
+    "skills.repair.success.line": "  {name}：{agents}",
+    "skills.repair.failure":
+        "有 {count} 个 skill-Agent 组合修复失败。",
+    "skills.repair.failure.line": "  {name}（{agent}）：{reason}",
+    "errors.skills.repair.skillRequired":
+        "至少需要传入一个 --skill <name>。",
+    "errors.skills.repair.localUnsupported":
+        "skill {name} 是 local skill，不支持 repair；local skill 是 Agent 原生 source。",
+    "errors.skills.repair.partialFailure":
+        "有 {count} 个 skill-Agent 组合修复失败。",
+    "errors.skills.repair.sourceNotFound":
+        "未找到由 oo 管理的 registry canonical source。",
+    "errors.skills.repair.sourceInvalid":
+        "registry canonical metadata 缺失或不是 registry skill。",
+    "errors.skills.repair.invalidPath":
+        "目标路径超出受管 skills 目录范围。",
+    "errors.skills.repair.writeFailed":
+        "写入 skill source 到目标 Agent 目录失败。",
     "config.set.success": "已将 {key} 设置为 {value}。",
     "config.unset.success": "已移除 {key}。",
     "telemetry.disable.success": "已关闭 telemetry。",

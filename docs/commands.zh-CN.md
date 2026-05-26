@@ -876,6 +876,105 @@ registry skills。
 - 说明：如果请求的 skill 在任何受支持目标中都不存在受管理安装，且不存在同名
   agent-native local skill，或某个已存在的同名目标不是由 `oo` 管理，命令会直接报错。
 
+### `oo skills repair`
+
+从可信 source 强制将一个或多个由 oo 管理的 skill 重新部署到一个或多个 Agent
+的 skill 目录，无论目标目录当前内容如何都直接覆盖。
+
+这**不是** `oo skills update`：命令不会联网，不会拉取 registry 的新版本，也
+不会改变已安装 skill 记录的 package/version。它只是用本机已有的可信 source
+重写 Agent 副本。
+
+- 选项：`--skill <skill>` 必填，可重复传入以同时修复多个 skill。输入会去重并
+  保留原顺序。
+- 选项：`--agent <agent>` 可重复传入以指定目标 Agent。缺省时目标为**所有当前
+  可用的受支持 Agent**（与 `oo skills install` 默认范围一致）。输入会去重。
+- 选项：`--json` / `--format json` 输出结构化 payload（见下文）。
+  `--show-schema-version` 仅在 JSON 模式下生效，向 payload 顶层添加
+  `schemaVersion`。
+- Source 判定顺序：
+  - 如果 `<skill>` 是内置 skill 名（`oo`、`oo-find-skills`、
+    `oo-create-skill`、`oo-publish-skill`），命令会从 CLI 内嵌资源**重新
+    materialize** 该 Agent 的 bundled canonical source，然后发布到目标 Agent。
+    因此对 bundled skill 的 repair **会同时**刷新
+    `<config-dir>/skills/bundled/<agent>/<skill>` 下的 canonical。
+  - 否则检查 `<config-dir>/skills/registry/<skill>` 是否存在合法的 registry
+    metadata。如果存在，命令把 canonical registry source 发布到目标 Agent；
+    **不**刷新 canonical registry 目录。
+  - 如果 skill 仅在某个 Agent 的 `skills` 目录里以 local skill 形式存在，命令
+    报 `errors.skills.repair.localUnsupported`；`repair` 不跨 Agent 复制
+    local skill。
+  - 既不是 bundled 也没有合法 registry canonical 时，对应的
+    `(skill, agent)` 组合作为 per-pair failure 输出，`error.code` 为
+    `source_not_found`，命令不会从某个 host 的已安装目录反推 source。
+- 覆盖语义：无论目标 host 目录当前是 managed、被本地修改、metadata 损坏、还是
+  同名 unmanaged 目录，都会被重写。`repair` 自带 `--force` 语义，但作用域仅限
+  解析出的 `(source, target agent, skill)` 精确组合。
+- 安全边界：`repair` 不绕过路径包含检查、受支持 Agent 名校验、registry
+  canonical metadata 校验、启动自动同步规则，也不影响 `oo skills add`、
+  `oo skills update`、`oo skills sync`、`oo skills publish`、
+  `oo skills uninstall` 的现有边界。
+- Fail-soft 执行：每个 `(skill, agent)` 组合独立尝试。任一组合失败时其它组合
+  继续执行，命令最后输出成功/失败汇总并以非 0 退出。
+- 命令前置校验失败（不输出 JSON payload，按普通 CLI 错误退出）：
+  - 缺少 `--skill` → `errors.skills.repair.skillRequired`
+  - `--agent` 值不在受支持 Agent 列表 → 现有 `errors.skills.list.invalidAgent`
+  - 显式 `--agent` 的 home 目录不存在 → `errors.skills.agentNotInstalled`
+  - skill 仅以 local skill 形式存在 → `errors.skills.repair.localUnsupported`
+- 文本输出：仅打印成功汇总、每个 skill 的目标 Agent 列表和失败原因，**永远不
+  打印任何路径**。需要机器可读路径的消费者请使用 `--json`。
+
+#### JSON 输出
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "summary": {
+    "requestedSkills": 2,
+    "targetAgents": 3,
+    "repaired": 5,
+    "failed": 1
+  },
+  "results": [
+    {
+      "skill": "oo",
+      "kind": "bundled",
+      "agentId": "codex",
+      "status": "repaired",
+      "path": "/Users/name/.codex/skills/oo",
+      "sourcePath": "/Users/name/Library/Application Support/oo/skills/bundled/codex/oo",
+      "version": "1.2.3"
+    },
+    {
+      "skill": "chatgpt",
+      "kind": "registry",
+      "agentId": "claude",
+      "status": "failed",
+      "path": "/Users/name/.claude/skills/chatgpt",
+      "sourcePath": "/Users/name/Library/Application Support/oo/skills/registry/chatgpt",
+      "version": "0.4.0",
+      "error": {
+        "code": "write_failed",
+        "message": "Failed to write the skill source to the target agent directory."
+      }
+    }
+  ]
+}
+```
+
+`schemaVersion` 仅在传入 `--show-schema-version` 时出现。
+
+`error.code` 是固定的机器可读枚举：
+
+- `source_not_found`
+- `source_invalid`
+- `invalid_path`
+- `write_failed`
+- `unknown`
+
+`error.message` 是脱敏过的模板文本，不包含 stack trace、原始 exception
+message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件系统路径。
+
 ## 日志
 
 ### `oo log path`
