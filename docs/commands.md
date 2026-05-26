@@ -1015,6 +1015,19 @@ Install bundled or published skills into supported local skill directories.
 - Notes: an existing bundled or registry skill installation is considered
   managed by `oo` only when its `.oo-metadata.json` identifies that source.
   Otherwise `oo` treats it as a different skill and will not overwrite it.
+- Options: `--json` / `--format json` emits a structured payload (see "JSON
+  output for mutation commands" below).
+- `error.code` enum (install JSON): `not_authenticated` / `no_supported_hosts` /
+  `invalid_path` / `invalid_package_specifier` / `package_lookup_failed` /
+  `package_download_failed` / `invalid_package_archive` /
+  `skill_not_found_in_package` / `name_conflict` / `storage_conflict` /
+  `confirmation_required` / `publication_failed` / `unknown`.
+- `--json` is implicitly non-interactive: when a multi-skill package is given
+  without `--skill`, `--all`, or `--yes`, the command emits a top-level
+  `confirmation_required` error and exits `1`.
+- `targets[].previousState` is one of `absent | managed | unmanaged | unknown`.
+  With `--force`, an overwritten unmanaged target is reported as `installed`
+  with `previousState: "unmanaged"`.
 
 ### `oo skills sync upload`
 
@@ -1035,6 +1048,15 @@ Upload installed oo-managed registry skills to the skills sync service.
 - Behavior: the server-side manifest is overwritten, including with an empty
   array when no registry skills remain after filtering.
 - Output: on success, text output prints the number of uploaded registry skills.
+- Options: `--json` / `--format json` emits a structured payload. Unlike the
+  other mutation commands, `oo skills sync upload --json` uses a top-level
+  `records[]` instead of `skills[]`/`targets[]`, because the operation unit is
+  the sync record, not an agent-side install target. The payload still includes
+  `command`, `status`, `summary`, and `errors[]`.
+- `error.code` enum (sync upload JSON): `not_authenticated` / `no_supported_hosts`
+  / `sync_upload_failed` / `sync_invalid_response` / `unknown`.
+- Behavior: when the upload request fails, the JSON payload still includes the
+  `records[]` that would have been uploaded, and the command exits `1`.
 
 ### `oo skills sync apply`
 
@@ -1053,6 +1075,15 @@ directories.
 - Output: when the uploaded manifest is empty, text output reports that no
   uploaded registry skills were found. Otherwise, regular install summaries are
   printed, followed by a final applied-count line.
+- Options: `--json` / `--format json` emits a structured payload with
+  `skills[]` (one entry per applied record). Single-record install/lookup
+  failures are reported in `skills[].status = "failed"` with a stable
+  `error.code`; only sync-protocol failures (manifest download, response
+  schema) go to top-level `errors[]`.
+- `error.code` enum (sync apply JSON): `not_authenticated` /
+  `no_supported_hosts` / `invalid_path` / `package_lookup_failed` /
+  `package_download_failed` / `invalid_package_archive` / `publication_failed`
+  / `sync_download_failed` / `sync_invalid_response` / `unknown`.
 
 ### `oo skills update [skills...]`
 
@@ -1079,6 +1110,17 @@ Update installed oo-managed published skills.
   skills.
 - Non-interactive terminals: prints one status line for each current or failed
   skill, and one success line for each updated host target path.
+- Options: `--json` / `--format json` emits a structured payload (see "JSON
+  output for mutation commands" above).
+- `skills[].status` (update JSON): `updated | repaired | current | failed`.
+  - `updated`: the version was bumped on at least one host.
+  - `repaired`: the version did not change, but a host publication was
+    rewritten (legacy symlink, metadata drift, etc.).
+  - `current`: no host needed any write.
+- `error.code` enum (update JSON): `not_authenticated` / `no_supported_hosts`
+  / `invalid_path` / `not_installed` / `not_managed` / `bundled_unsupported`
+  / `package_lookup_failed` / `package_download_failed` /
+  `invalid_package_archive` / `publication_failed` / `unknown`.
 
 ### `oo skills check-update`
 
@@ -1158,6 +1200,60 @@ directory.
 - `error.code` enum: `not_installed` / `not_managed` / `invalid_path` /
   `bundled_unsupported` / `package_lookup_failed` / `unknown`.
 
+#### JSON output for mutation commands
+
+`oo skills install`, `oo skills uninstall`, `oo skills update`, and
+`oo skills sync apply` share a common JSON envelope:
+
+```json
+{
+  "command": "skills.install",
+  "status": "completed",
+  "summary": { /* per-command counters */ },
+  "skills": [
+    {
+      "skillId": "demo",
+      "kind": "bundled | registry | local | unknown",
+      "packageName": "@alice/demo",
+      "previousVersion": "0.1.0",
+      "version": "0.2.0",
+      "status": "<per-command enum>",
+      "targets": [
+        {
+          "agentId": "codex",
+          "status": "<per-command enum>",
+          "path": "/Users/.../.codex/skills/demo",
+          "sourcePath": "/Users/.../oo/skills/managed/demo",
+          "version": "0.2.0",
+          "previousVersion": "0.1.0",
+          "previousState": "absent | managed | unmanaged | unknown",
+          "error": { "code": "<stable code>", "message": "..." }
+        }
+      ],
+      "error": { "code": "<stable code>", "message": "..." }
+    }
+  ],
+  "errors": [{ "code": "<command-level code>", "message": "..." }]
+}
+```
+
+`oo skills sync upload` uses `records[]` instead of `skills[]`/`targets[]`,
+because the operation unit is the sync record, not an install target.
+
+Common rules:
+
+- `command` is one of `skills.install` / `skills.uninstall` / `skills.update` /
+  `skills.sync.upload` / `skills.sync.apply`.
+- `status` is `completed` / `partial-failure` / `failed` / `noop`.
+- `targets[]` is per-agent. For `uninstall`/`update`, each target may include
+  `previousVersion`; `install` typically uses `previousState`.
+- `error.message` is a fixed English template; it is not localized.
+- `--show-schema-version` prepends a top-level `schemaVersion` field.
+- Argument errors (for example `--format xml`) still exit `2` and do not
+  produce JSON. Other failures still emit the JSON payload and exit `1`.
+- The JSON payload never includes `apiKey`, raw HTTP request/response bodies,
+  stack traces, or unredacted endpoint secrets.
+
 ### `oo skills uninstall [skill]`
 
 Remove oo-managed skills from supported local skill directories.
@@ -1197,6 +1293,15 @@ Remove oo-managed skills from supported local skill directories.
 - Notes: when no supported target has a managed installation and no matching
   agent-native local skill exists for the requested skill, or an existing same-name
   target is not managed by `oo`, the command exits with an error.
+- Options: `--json` / `--format json` emits a structured payload (see "JSON
+  output for mutation commands" above).
+- `skills[].status` (uninstall JSON): `removed | failed`. `targets[].status`:
+  `removed | absent | unmanaged | failed`.
+- `error.code` enum (uninstall JSON): `no_supported_hosts` / `invalid_path` /
+  `not_installed` / `not_managed` / `ambiguous_local_skill` / `remove_failed`
+  / `unknown`.
+- Behavior with `--json` and no `[skill]` argument: the command still only
+  uninstalls bundled skills; the existing scope is preserved verbatim.
 
 ### `oo skills repair`
 
