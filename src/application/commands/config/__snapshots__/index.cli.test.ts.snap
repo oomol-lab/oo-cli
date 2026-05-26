@@ -27,7 +27,7 @@ Options:
 
 Commands:
   auth                      Manage CLI authentication
-  check-update              Check for CLI updates
+  check-update [options]    Check for CLI updates
   cloud-task                Manage cloud tasks
   connector                 Manage connector actions
   file                      Manage temporary file transfers
@@ -43,6 +43,7 @@ Commands:
   packages                  Package utilities
   telemetry                 Manage CLI telemetry
   update|upgrade [options]  Update the CLI
+  version [options]         Print the CLI version
   help [command]            Show help for a command
 "
 ,
@@ -61,7 +62,7 @@ Commands:
 
 命令：
   auth                      管理 CLI 认证
-  check-update              检查 CLI 更新
+  check-update [options]    检查 CLI 更新
   cloud-task                管理云任务
   connector                 管理 connector action
   file                      管理临时文件传输
@@ -77,6 +78,7 @@ Commands:
   packages                  包相关工具
   telemetry                 管理 CLI telemetry
   update|upgrade [options]  更新 CLI
+  version [options]         输出 CLI 版本
   help [command]            显示命令帮助
 "
 ,

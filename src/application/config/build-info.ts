@@ -1,5 +1,7 @@
 import type { Translator } from "../contracts/translator.ts";
 
+const COMMIT_HASH_DISPLAY_LENGTH = 8;
+
 export interface CliBuildInfo {
     buildTimestamp?: number;
     commitHash?: string;
@@ -14,6 +16,22 @@ export function resolveCliBuildInfo(fallbackVersion: string): CliBuildInfo {
     };
 }
 
+export function formatBuildTimestampIso(
+    buildTimestamp: number | undefined,
+): string | undefined {
+    if (buildTimestamp === undefined) {
+        return undefined;
+    }
+
+    return new Date(buildTimestamp).toISOString();
+}
+
+export function shortenCommitHash(
+    commitHash: string | undefined,
+): string | undefined {
+    return commitHash?.slice(0, COMMIT_HASH_DISPLAY_LENGTH);
+}
+
 export function formatCliVersionText(
     buildInfo: CliBuildInfo,
     translator: Translator,
@@ -22,14 +40,12 @@ export function formatCliVersionText(
 
     return [
         `${translator.t("labels.version")}: ${buildInfo.version}`,
-        `${translator.t("versionInfo.buildTime")}: ${formatBuildTime(
-            buildInfo.buildTimestamp,
-            unknownValue,
-        )}`,
-        `${translator.t("versionInfo.commit")}: ${formatCommitHash(
-            buildInfo.commitHash,
-            unknownValue,
-        )}`,
+        `${translator.t("versionInfo.buildTime")}: ${
+            formatBuildTimestampIso(buildInfo.buildTimestamp) ?? unknownValue
+        }`,
+        `${translator.t("versionInfo.commit")}: ${
+            shortenCommitHash(buildInfo.commitHash) ?? unknownValue
+        }`,
     ].join("\n");
 }
 
@@ -58,22 +74,4 @@ function readCommitHash(): string | undefined {
     }
 
     return GIT_COMMIT.trim() || undefined;
-}
-
-function formatBuildTime(
-    buildTimestamp: number | undefined,
-    unknownValue: string,
-): string {
-    if (buildTimestamp === undefined) {
-        return unknownValue;
-    }
-
-    return new Date(buildTimestamp).toISOString();
-}
-
-function formatCommitHash(
-    commitHash: string | undefined,
-    unknownValue: string,
-): string {
-    return commitHash?.slice(0, 8) ?? unknownValue;
 }

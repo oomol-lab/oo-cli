@@ -227,4 +227,184 @@ describe("checkUpdateCommand CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("--json emits update-available payload with currentVersion and latestVersion", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["check-update", "--json"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({ version: "1.3.0" })),
+                    version: "1.2.3",
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload).toEqual({
+                status: "update-available",
+                currentVersion: "1.2.3",
+                latestVersion: "1.3.0",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json emits up-to-date payload with matching latestVersion", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["check-update", "--json"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({ version: "1.2.3" })),
+                    version: "1.2.3",
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload).toEqual({
+                status: "up-to-date",
+                currentVersion: "1.2.3",
+                latestVersion: "1.2.3",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json up-to-date reports remote latestVersion when current is ahead of remote", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["check-update", "--json"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({ version: "1.2.3" })),
+                    version: "1.3.0",
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            // status is up-to-date because current >= remote, but latestVersion
+            // must reflect what the server actually said, not echo currentVersion.
+            expect(payload).toEqual({
+                status: "up-to-date",
+                currentVersion: "1.3.0",
+                latestVersion: "1.2.3",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json emits failed payload (exit 0) when latest-version is unavailable", async () => {
+        const sandbox = await createCliSandbox();
+        const originalSleep = Bun.sleep;
+
+        try {
+            // Skip retry backoff so the test stays fast.
+            Bun.sleep = (() => Promise.resolve()) as typeof Bun.sleep;
+
+            const result = await sandbox.run(
+                ["check-update", "--json"],
+                {
+                    fetcher: async () => {
+                        throw new Error("temporary network failure");
+                    },
+                    version: "1.2.3",
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.status).toBe("failed");
+            expect(payload.currentVersion).toBe("1.2.3");
+            expect(payload.message).toBeTypeOf("string");
+            expect(payload).not.toHaveProperty("latestVersion");
+        }
+        finally {
+            Bun.sleep = originalSleep;
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json emits failed payload for unsupported version", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["check-update", "--json"],
+                {
+                    version: "development",
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.status).toBe("failed");
+            expect(payload.currentVersion).toBe("development");
+            expect(payload.message).toBeTypeOf("string");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json --show-schema-version prepends schemaVersion", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["check-update", "--json", "--show-schema-version"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({ version: "1.2.3" })),
+                    version: "1.2.3",
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.schemaVersion).toBe("1.0.0");
+            expect(payload.status).toBe("up-to-date");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--format xml exits 2 with a format error", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["check-update", "--format", "xml"],
+                {
+                    version: "1.2.3",
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).not.toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });

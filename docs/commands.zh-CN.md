@@ -298,6 +298,42 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：无论成功还是失败，检查结果都不会被缓存，因此每次执行都会重新检查
   最新发布版本。
 - 说明：如果更新检查暂时不可用，CLI 会输出稍后重试的提示，而不是直接报错退出。
+- 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出，形如：
+
+  ```json
+  { "status": "update-available", "currentVersion": "1.2.3", "latestVersion": "1.3.0" }
+  ```
+
+  ```json
+  { "status": "up-to-date", "currentVersion": "1.2.3", "latestVersion": "1.2.3" }
+  ```
+
+  ```json
+  { "status": "failed", "currentVersion": "1.2.3", "message": "Cannot reach update service." }
+  ```
+
+- 说明（JSON）：`status` 是稳定的机器可读枚举；`message` 是英文人类可读文本，
+  脚本不应解析。`status` 为 `"failed"` 时仍以 0 退出，因为这是查询结果而非
+  CLI 执行错误；脚本应通过 `status` 字段判断分支。参数错误（如 `--format xml`）
+  仍以 2 退出。
+
+### `oo version`
+
+打印 CLI 版本。
+
+- 说明：文本输出与 `oo --version` / `oo -V` 完全一致。当需要命令式调用（特别是
+  配合 `--json` 给脚本消费）时使用 `oo version`。
+- 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出。Payload 与文本输出
+  使用同一份数据（version、build 时间、commit hash），方便调用方在两种格式
+  间切换：
+
+  ```json
+  { "version": "1.2.3", "buildTime": "2026-05-26T00:00:00.000Z", "commit": "abc12345" }
+  ```
+
+  `buildTime` 为 ISO 8601 格式的构建时间戳；二进制构建时未嵌入构建时间戳
+  时为 `null`。`commit` 为构建时记录的 git commit hash 前 8 个字符；未知时
+  为 `null`。
 
 ## 环境
 
