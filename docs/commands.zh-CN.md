@@ -110,7 +110,17 @@
 
 ### `oo auth switch`
 
-切换到下一个已保存账号。
+切换当前激活的认证账号。
+
+- 不传参数时，按 `auth.toml` 中的顺序轮转到下一个已保存账号。
+- 选项：`-u, --user <user>` 切换到指定账号。匹配规则为：先按 `account.id`
+  精确匹配，再按 `account.name` 精确匹配（必须唯一）；不做模糊、忽略大小写
+  或子串匹配。
+- 当 `<user>` 按 name 命中多个账号时，命令以非零退出，不重写 `auth.toml`，
+  并提示需要传 account id 进行消歧。account id 是稳定字符串，可通过
+  `oo auth status --json` 获取。
+- 当指定的账号已是激活账号时，切换为幂等操作（exit `0`，不改变激活状态）。
+- 任何输出路径都不会将 API key 写入 stdout/stderr。
 
 ### `oo login`
 

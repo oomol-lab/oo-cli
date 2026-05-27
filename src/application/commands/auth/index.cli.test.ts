@@ -1043,6 +1043,184 @@ describe("auth CLI", () => {
         }
     });
 
+    test("--user switches by account id", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                    { id: "user-3", name: "Charlie", apiKey: "secret-3", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(["auth", "switch", "--user", "user-3"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Switched active account for oomol.com to Charlie");
+            expect(await readFile(authFilePath, "utf8")).toContain("id = \"user-3\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--user switches by unique account name (with -u short flag)", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(["auth", "switch", "-u", "Bob"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Switched active account for oomol.com to Bob");
+            expect(await readFile(authFilePath, "utf8")).toContain("id = \"user-2\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--user fails with userAmbiguous when multiple accounts share the same name", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                    { id: "user-3", name: "Bob", apiKey: "secret-3", endpoint: defaultAuthEndpoint },
+                ],
+            });
+            const before = await readFile(authFilePath, "utf8");
+
+            const result = await sandbox.run(["auth", "switch", "--user", "Bob"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("Multiple saved accounts have the name Bob");
+            expect(result.stderr).toContain("--user <account-id>");
+            // Auth file must not be rewritten.
+            expect(await readFile(authFilePath, "utf8")).toBe(before);
+            // Secrets must never leak to stdout/stderr.
+            expect(result.stdout + result.stderr).not.toContain("secret-1");
+            expect(result.stdout + result.stderr).not.toContain("secret-2");
+            expect(result.stdout + result.stderr).not.toContain("secret-3");
+            expect(result.stdout + result.stderr).not.toContain("apiKey");
+            expect(result.stdout + result.stderr).not.toContain("api_key");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--user fails with userNotFound when no account matches", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                ],
+            });
+            const before = await readFile(authFilePath, "utf8");
+
+            const result = await sandbox.run(["auth", "switch", "--user", "nope"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("No saved account matches nope");
+            expect(await readFile(authFilePath, "utf8")).toBe(before);
+            expect(result.stdout + result.stderr).not.toContain("secret-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--user is idempotent when target is already active", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(["auth", "switch", "--user", "user-1"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Switched active account for oomol.com to Alice");
+            expect(await readFile(authFilePath, "utf8")).toContain("id = \"user-1\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--user blank string fails without writing", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+            const before = await readFile(authFilePath, "utf8");
+
+            const result = await sandbox.run(["auth", "switch", "--user", "   "]);
+
+            // A whitespace-only --user is invalid input; the project's default
+            // CLI input-error path exits 1. The invariant we care about is
+            // that no switch is performed.
+            expect(result.exitCode).not.toBe(0);
+            expect(await readFile(authFilePath, "utf8")).toBe(before);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--user has precedence: id beats name when value matches both", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            // user-2's name happens to equal user-1's id; --user "user-1" must
+            // resolve to the id match (Alice), not the name match (Bob).
+            const authFilePath = await writeAuthFile(sandbox, {
+                activeId: "user-2",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "user-1", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(["auth", "switch", "--user", "user-1"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Switched active account for oomol.com to Alice");
+            expect(await readFile(authFilePath, "utf8")).toContain("id = \"user-1\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("renders the auth switch success block with gh-style emphasis when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
         const colors = createTerminalColors(true);

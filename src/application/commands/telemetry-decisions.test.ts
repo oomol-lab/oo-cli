@@ -87,8 +87,8 @@ const commandTelemetryDecisions = {
     },
     "auth.switch": {
         kind: "properties",
-        properties: ["account_count_bucket"],
-        reason: "Records bounded saved-account count without account identity.",
+        properties: ["account_count_bucket", "has_user_filter"],
+        reason: "Records bounded saved-account count and whether --user was used, without account identity.",
     },
     "check-update": {
         kind: "properties",

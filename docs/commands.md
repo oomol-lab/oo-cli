@@ -122,7 +122,21 @@ Show every saved auth account and validate the API key of the active one.
 
 ### `oo auth switch`
 
-Switch to the next saved account.
+Switch the active auth account.
+
+- With no arguments the command rotates to the next saved account in the
+  `auth.toml` order.
+- Options: `-u, --user <user>` switches to a specific account. The value is
+  matched against `account.id` first (exact match) and then against
+  `account.name` (exact match, must be unique). Matching is never fuzzy,
+  case-insensitive, or substring-based.
+- When `<user>` matches multiple accounts by name, the command exits non-zero
+  without rewriting `auth.toml` and asks the caller to pass an account id.
+  Account ids are stable strings — use `oo auth status --json` to discover
+  them.
+- When the requested account is already the active one, the switch is
+  idempotent (exit `0`, no rewrite mode change).
+- API key values are never written to stdout or stderr in any output path.
 
 ### `oo login`
 
