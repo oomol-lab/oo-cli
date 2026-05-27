@@ -66,8 +66,14 @@ Remove the current account from persisted auth data.
 
 ### `oo auth status`
 
-Show the current account and validate its API key.
+Show every saved auth account and validate the API key of the active one.
 
+- Text output lists all saved accounts under an `Accounts:` block. The active
+  account is annotated with `[active]`; the active account additionally shows
+  `API key status` resolved from a single profile request to its endpoint.
+  Inactive accounts are not validated, so `oo auth status` performs at most
+  one network request regardless of how many accounts are saved.
+- API key values are never written to stdout in text or JSON output.
 - Options: `--format=json` and `--json` switch to structured JSON output.
   `--show-schema-version` prepends `schemaVersion` to the payload.
 - JSON shape (one of three):

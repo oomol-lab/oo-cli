@@ -4,6 +4,7 @@ import type { AuthAccount, AuthFile } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
+import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { isNetworkRestrictedSandboxError } from "../shared/request.ts";
@@ -160,6 +161,7 @@ function writeAuthStatusText(
                     },
                 ],
             });
+            writeAuthAccountsList(context, authFile, undefined);
             return;
         }
 
@@ -167,6 +169,7 @@ function writeAuthStatusText(
             tone: "warning",
             summary: context.translator.t("auth.status.loggedOut"),
         });
+        writeAuthAccountsList(context, authFile, undefined);
         return;
     }
 
@@ -190,6 +193,34 @@ function writeAuthStatusText(
             },
         ],
     });
+    writeAuthAccountsList(context, authFile, account.id);
+}
+
+function writeAuthAccountsList(
+    context: CliExecutionContext,
+    authFile: AuthFile,
+    activeAccountId: string | undefined,
+): void {
+    if (authFile.auth.length === 0) {
+        return;
+    }
+
+    const colors = createWriterColors(context.stdout);
+    const label = context.translator.t("auth.status.accountsLabel");
+    const activeMarker = context.translator.t("auth.status.accountActive");
+
+    context.stdout.write(`  ${colors.dim("-")} ${label}:\n`);
+
+    for (const entry of authFile.auth) {
+        const isActive = entry.id === activeAccountId;
+        const namePart = isActive
+            ? `${colors.bold(entry.name)} ${colors.green(`[${activeMarker}]`)}`
+            : colors.bold(entry.name);
+
+        context.stdout.write(
+            `    ${colors.dim("*")} ${namePart} ${colors.dim(`(${entry.endpoint})`)}\n`,
+        );
+    }
 }
 
 async function readApiKeyStatus(

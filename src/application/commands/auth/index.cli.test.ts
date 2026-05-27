@@ -582,6 +582,150 @@ describe("auth CLI", () => {
         }
     });
 
+    test("text lists all saved accounts with [active] marker on the active one", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+            const requests: Request[] = [];
+
+            const result = await sandbox.run(
+                ["auth", "status"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+                        return new Response(null, { status: 200 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Logged in to oomol.com account Alice");
+            expect(result.stdout).toContain("Accounts:");
+            expect(result.stdout).toContain("Alice");
+            expect(result.stdout).toContain("Bob");
+            expect(result.stdout).toContain("[active]");
+            // Only Alice (the active account) gets the [active] marker.
+            expect(result.stdout).not.toContain("Bob [active]");
+            // Only the active account is validated.
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
+            // API key values must never leak to stdout.
+            expect(result.stdout).not.toContain("secret-1");
+            expect(result.stdout).not.toContain("secret-2");
+            expect(result.stdout).not.toContain("apiKey");
+            expect(result.stdout).not.toContain("api_key");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("text lists saved accounts when the active id is missing from the store", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-deleted",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+            const requests: Request[] = [];
+
+            const result = await sandbox.run(
+                ["auth", "status"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+                        return new Response(null, { status: 200 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("active account is missing");
+            expect(result.stdout).toContain("user-deleted");
+            expect(result.stdout).toContain("Accounts:");
+            expect(result.stdout).toContain("Alice");
+            expect(result.stdout).toContain("Bob");
+            // No account is active here.
+            expect(result.stdout).not.toContain("[active]");
+            // No API key validation happens without an active account.
+            expect(requests).toHaveLength(0);
+            expect(result.stdout).not.toContain("secret-1");
+            expect(result.stdout).not.toContain("secret-2");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("text logged-out without saved accounts stays compact", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["auth", "status"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Not logged in to any OOMOL account.");
+            expect(result.stdout).not.toContain("Accounts:");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("text logged-out with saved accounts still lists every account", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+            const requests: Request[] = [];
+
+            const result = await sandbox.run(
+                ["auth", "status"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+                        return new Response(null, { status: 200 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Not logged in to any OOMOL account.");
+            expect(result.stdout).toContain("Accounts:");
+            expect(result.stdout).toContain("Alice");
+            expect(result.stdout).toContain("Bob");
+            // No account is active; no `[active]` marker should appear.
+            expect(result.stdout).not.toContain("[active]");
+            // No API key validation happens without an active account.
+            expect(requests).toHaveLength(0);
+            // Secrets must never leak to stdout.
+            expect(result.stdout).not.toContain("secret-1");
+            expect(result.stdout).not.toContain("secret-2");
+            expect(result.stdout).not.toContain("apiKey");
+            expect(result.stdout).not.toContain("api_key");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("--json logged-in returns active account with valid apiKeyStatus", async () => {
         const sandbox = await createCliSandbox();
 
