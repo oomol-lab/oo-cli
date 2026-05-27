@@ -29,8 +29,9 @@ export const enMessages = {
     "commands.auth.status.description": "Show saved auth accounts and validate the active API key.",
     "commands.auth.status.summary": "Show auth status",
     "commands.auth.summary": "Manage CLI authentication",
-    "commands.auth.switch.description": "Switch to the next saved auth account.",
+    "commands.auth.switch.description": "Switch to the next saved auth account, or to a specific account with --user.",
     "commands.auth.switch.summary": "Switch to the next auth account",
+    "options.auth.switch.user": "Switch to the account whose id or unique name matches the given value",
     "commands.checkUpdate.description":
         "Check whether a newer CLI release is available.",
     "commands.checkUpdate.summary": "Check for CLI updates",
@@ -266,6 +267,10 @@ export const enMessages = {
         "You must log in before using this command.",
     "errors.auth.sessionTokenRequired":
         "Session token must not be empty.",
+    "errors.auth.switch.userAmbiguous":
+        "Multiple saved accounts have the name {value}. Pass --user <account-id> to disambiguate.",
+    "errors.auth.switch.userNotFound":
+        "No saved account matches {value}.",
     "errors.authStore.invalidToml":
         "The auth file at {path} is not valid TOML.",
     "errors.authStore.invalidSchema":
@@ -1103,8 +1108,9 @@ export const zhMessages = {
     "commands.auth.status.description": "显示已保存的认证账号，并校验当前激活账号的 API key。",
     "commands.auth.status.summary": "显示认证状态",
     "commands.auth.summary": "管理 CLI 认证",
-    "commands.auth.switch.description": "切换到下一个已保存的认证账号。",
+    "commands.auth.switch.description": "切换到下一个已保存的认证账号，或通过 --user 切换到指定账号。",
     "commands.auth.switch.summary": "切换到下一个认证账号",
+    "options.auth.switch.user": "切换到 id 或唯一 name 与该值匹配的账号",
     "commands.checkUpdate.description": "检查是否有新的 CLI 版本可用。",
     "commands.checkUpdate.summary": "检查 CLI 更新",
     "commands.cloudTask.description": "管理云任务执行流程。",
@@ -1317,6 +1323,10 @@ export const zhMessages = {
     "errors.auth.required":
         "使用此命令前请先登录。",
     "errors.auth.sessionTokenRequired": "session token 不能为空。",
+    "errors.auth.switch.userAmbiguous":
+        "存在多个 name 为 {value} 的账号。请通过 --user <account-id> 进行消歧。",
+    "errors.auth.switch.userNotFound":
+        "没有匹配 {value} 的已保存账号。",
     "errors.billing.insufficientCredit":
         "你的 OOMOL 账户余额不足。请充值后再重试：{url}",
     "errors.authStore.invalidToml": "认证文件 {path} 不是有效的 TOML。",
