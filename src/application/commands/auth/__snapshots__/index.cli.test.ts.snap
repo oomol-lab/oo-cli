@@ -23,6 +23,8 @@ exports[`auth CLI writes auth-store and auth status logs 1`] = `
 "✓ Logged in to oomol.com account Alice
   - Active account: true
   - API key status: Valid
+  - Accounts:
+    * Alice [active] (oomol.com)
 "
 ,
 }
@@ -173,6 +175,8 @@ exports[`auth CLI supports auth status for valid and invalid api keys 1`] = `
 "X Logged in to oomol.com account Alice
   - Active account: true
   - API key status: Invalid
+  - Accounts:
+    * Alice [active] (oomol.com)
 "
 ,
   },
@@ -183,6 +187,8 @@ exports[`auth CLI supports auth status for valid and invalid api keys 1`] = `
 "✓ Logged in to oomol.com account Alice
   - Active account: true
   - API key status: Valid
+  - Accounts:
+    * Alice [active] (oomol.com)
 "
 ,
   },

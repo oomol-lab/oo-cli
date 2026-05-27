@@ -57,8 +57,13 @@
 
 ### `oo auth status`
 
-显示当前账号，并校验其 API key 状态。
+显示已保存的全部认证账号，并校验当前激活账号的 API key 状态。
 
+- 文本输出会在 `Accounts:` 区块下列出所有已保存账号。当前激活账号会标注
+  `[active]`，并额外显示其 `API key status`——通过一次 profile 请求向该账号
+  对应的 endpoint 校验得到。其它账号不参与校验，所以无论有多少账号，
+  `oo auth status` 最多发送 1 次网络请求。
+- 文本和 JSON 输出都永远不会包含 API key 实际内容。
 - 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出。
   `--show-schema-version` 会向 payload 顶层添加 `schemaVersion`。
 - JSON 三种形态：
