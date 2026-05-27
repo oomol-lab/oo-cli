@@ -431,6 +431,39 @@ describe("auth CLI", () => {
         }
     });
 
+    test("supports auth info as an alias for auth status", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const statusResult = await sandbox.run(
+                ["auth", "status", "--json"],
+                {
+                    fetcher: async () => new Response(null, { status: 200 }),
+                },
+            );
+            const infoResult = await sandbox.run(
+                ["auth", "info", "--json"],
+                {
+                    fetcher: async () => new Response(null, { status: 200 }),
+                },
+            );
+
+            expect(infoResult.exitCode).toBe(0);
+            expect(infoResult.stderr).toBe("");
+            expect(infoResult.stdout).toBe(statusResult.stdout);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports auth status for valid and invalid api keys", async () => {
         const sandbox = await createCliSandbox();
 

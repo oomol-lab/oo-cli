@@ -66,6 +66,7 @@ type AuthStatusJsonPayload
 
 export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
     name: "status",
+    aliases: ["info"],
     summaryKey: "commands.auth.status.summary",
     descriptionKey: "commands.auth.status.description",
     options: [...jsonOutputOptions],

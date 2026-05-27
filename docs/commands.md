@@ -68,6 +68,7 @@ Remove the current account from persisted auth data.
 
 Show every saved auth account and validate the API key of the active one.
 
+- Aliases: `oo auth info`.
 - Text output lists all saved accounts under an `Accounts:` block. The active
   account is annotated with `[active]`; the active account additionally shows
   `API key status` resolved from a single profile request to its endpoint.
