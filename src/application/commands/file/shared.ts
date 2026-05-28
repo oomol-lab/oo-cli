@@ -397,6 +397,13 @@ async function uploadFilePart(
         maxRetries: fileUploadPartExtraRetries,
     });
 
+    // Materialize the part into a fresh Uint8Array before handing it to fetch.
+    // A BunFile-backed Blob slice can trigger a segfault in Bun's FetchTasklet
+    // teardown (Blob.Any.detach) — see crash report referenced in
+    // https://github.com/oomol-lab/oo-cli/issues/242. Using an in-memory typed
+    // array sidesteps the lazy file-backed code path entirely.
+    const partBytes = new Uint8Array(await partData.arrayBuffer());
+
     const response = await performLoggedRequest({
         context: {
             fetcher: uploadPartFetcher,
@@ -428,12 +435,12 @@ async function uploadFilePart(
                 method: "PUT",
             },
             start: {
-                bodyBytes: partData.size,
+                bodyBytes: partBytes.byteLength,
                 method: "PUT",
             },
         },
         init: {
-            body: partData,
+            body: partBytes,
             headers: {
                 "Content-Type": "application/octet-stream",
             },
