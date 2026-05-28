@@ -331,6 +331,21 @@ describe("npm-packages", () => {
         ]);
     });
 
+    test("omits --target when includeTarget is false", () => {
+        const args = buildCompileCommandArgs(
+            getRequiredTarget("darwin-arm64"),
+            {
+                buildTimestamp: 1_742_867_323_456,
+                gitCommit: "1234567890abcdef",
+                version: "1.2.3",
+            },
+            "dist/bin/oo",
+            { includeTarget: false },
+        );
+        expect(args).not.toContain("--target=bun-darwin-arm64");
+        expect(args.filter(arg => arg.startsWith("--target"))).toHaveLength(0);
+    });
+
     test("assembles staged platform packages into release artifacts", async () => {
         const rootDirectoryPath = process.cwd();
         const temporaryDirectoryPath = await createTemporaryDirectory(
@@ -477,6 +492,10 @@ describe("npm-packages", () => {
                                     version: "1.2.3",
                                 },
                                 executablePath,
+                                // Skip `--target` so Bun reuses the running runtime
+                                // instead of downloading a baseline variant that may
+                                // not be published yet (e.g. on canary).
+                                { includeTarget: false },
                             ),
                             {
                                 cwd: rootDirectoryPath,

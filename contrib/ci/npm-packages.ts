@@ -556,7 +556,9 @@ export function buildCompileCommandArgs(
     target: PlatformTarget,
     buildMetadata: CompileBuildMetadata,
     outputPath: string,
+    options?: { includeTarget?: boolean },
 ): string[] {
+    const includeTarget = options?.includeTarget ?? true;
     // Keep embedded asset filenames unique across bundled skills.
     return [
         "bun",
@@ -569,7 +571,7 @@ export function buildCompileCommandArgs(
         "--no-compile-autoload-dotenv",
         "--no-compile-autoload-bunfig",
         `--asset-naming=${compileAssetNamingPattern}`,
-        `--target=${target.bunTarget}`,
+        ...(includeTarget ? [`--target=${target.bunTarget}`] : []),
         ...buildCompileDefineArgs(buildMetadata),
         "./index.ts",
         "--outfile",
