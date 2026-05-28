@@ -22,7 +22,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version-file: .bun-version
+          bun-version: canary
 
       - name: Install
         run: bun install --frozen-lockfile
@@ -51,7 +51,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version-file: .bun-version
+          bun-version: canary
 
       - name: Install
         run: bun install --frozen-lockfile
