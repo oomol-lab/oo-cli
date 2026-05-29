@@ -224,15 +224,32 @@ describe("oo uninstall", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // Config files are not held open, so they are removed in-process on
+            // every platform.
             expect(await Bun.file(store.authFilePath).exists()).toBe(false);
             expect(await Bun.file(store.settingsFilePath).exists()).toBe(false);
-            // The entire config root is removed, including residual files.
-            expect(await Bun.file(join(store.rootDirectory, "leftover.txt")).exists()).toBe(false);
-            expect(await pathExists(store.rootDirectory)).toBe(false);
             // All registry skills removed under purge
             expect(await Bun.file(join(registrySkill, "SKILL.md")).exists()).toBe(false);
             // Local still retained even under purge
             expect(await Bun.file(join(localSkill, "SKILL.md")).exists()).toBe(true);
+
+            if (process.platform === "win32") {
+                // The running process may still hold open SQLite handles under the
+                // config root, so its wholesale removal — and any residual files
+                // like leftover.txt — is deferred to the post-exit helper. Right
+                // after this in-process run the root is still present and the
+                // message reports a scheduled cleanup rather than a completed one.
+                expect(result.stdout).toContain("scheduled");
+                expect(await Bun.file(join(store.rootDirectory, "leftover.txt")).exists()).toBe(true);
+                expect(await pathExists(store.rootDirectory)).toBe(true);
+            }
+            else {
+                expect(result.stdout).toContain("uninstalled");
+                // The entire config root is removed in-process, including residual
+                // files.
+                expect(await Bun.file(join(store.rootDirectory, "leftover.txt")).exists()).toBe(false);
+                expect(await pathExists(store.rootDirectory)).toBe(false);
+            }
         }
         finally {
             await sandbox.cleanup();
