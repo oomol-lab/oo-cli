@@ -56,6 +56,7 @@ Commands:
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
   telemetry                 Manage CLI telemetry
+  uninstall [options]       Uninstall the CLI
   update|upgrade [options]  Update the CLI
   version [options]         Print the CLI version
   help [command]            Show help for a command
@@ -94,6 +95,7 @@ Commands:
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
   telemetry                 Manage CLI telemetry
+  uninstall [options]       Uninstall the CLI
   update|upgrade [options]  Update the CLI
   version [options]         Print the CLI version
   help [command]            Show help for a command
@@ -135,6 +137,7 @@ Commands:
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
   telemetry                 Manage CLI telemetry
+  uninstall [options]       Uninstall the CLI
   update|upgrade [options]  Update the CLI
   version [options]         Print the CLI version
   help [command]            Show help for a command
@@ -174,6 +177,7 @@ exports[`runCli bootstrap renders help in English and Chinese 1`] = `
   search [options] <text>   搜索 package 与 connector action
   packages                  包相关工具
   telemetry                 管理 CLI telemetry
+  uninstall [options]       卸载 CLI
   update|upgrade [options]  更新 CLI
   version [options]         输出 CLI 版本
   help [command]            显示命令帮助
@@ -209,6 +213,7 @@ Commands:
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
   telemetry                 Manage CLI telemetry
+  uninstall [options]       Uninstall the CLI
   update|upgrade [options]  Update the CLI
   version [options]         Print the CLI version
   help [command]            Show help for a command
@@ -248,6 +253,7 @@ Commands:
   search [options] <text>   Search packages and connector actions
   packages                  Package utilities
   telemetry                 Manage CLI telemetry
+  uninstall [options]       Uninstall the CLI
   update|upgrade [options]  Update the CLI
   version [options]         Print the CLI version
   help [command]            Show help for a command

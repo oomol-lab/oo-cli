@@ -18,6 +18,7 @@ import { packageCommand } from "./package/index.ts";
 import { mixedSearchCommand } from "./search.ts";
 import { skillsCommand } from "./skills/index.ts";
 import { telemetryCommand } from "./telemetry/index.ts";
+import { uninstallCommand } from "./uninstall.ts";
 import { updateCommand } from "./update.ts";
 import { versionCommand } from "./version.ts";
 
@@ -60,6 +61,7 @@ export function createCliCatalog(): CliCatalog {
             mixedSearchCommand,
             packageCommand,
             telemetryCommand,
+            uninstallCommand,
             updateCommand,
             versionCommand,
         ],

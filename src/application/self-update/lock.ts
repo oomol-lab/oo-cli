@@ -218,6 +218,46 @@ export async function findActiveVersionOwner(options: {
     };
 }
 
+export async function findAnyActiveVersionOwner(options: {
+    excludeProcessId?: number;
+    locksDirectory: string;
+    platform: NodeJS.Platform;
+}): Promise<{ ownerPid: number } | undefined> {
+    const activeDirectory = join(options.locksDirectory, "active");
+    const versionEntries = await readDirectoryEntries(activeDirectory);
+
+    for (const versionEntry of versionEntries) {
+        const owner = await findActiveMarkerOwner(
+            join(activeDirectory, versionEntry),
+            options,
+        );
+
+        if (owner !== undefined) {
+            return owner;
+        }
+    }
+
+    const legacyEntries = await readDirectoryEntries(options.locksDirectory);
+
+    for (const legacyEntry of legacyEntries) {
+        if (!legacyEntry.endsWith(".lock")) {
+            continue;
+        }
+
+        const lock = await readVersionOwner(
+            join(options.locksDirectory, legacyEntry),
+        );
+
+        if (isLiveOwner(lock, options)) {
+            return {
+                ownerPid: lock.pid,
+            };
+        }
+    }
+
+    return undefined;
+}
+
 function createActiveVersionMarkerHandle(
     markerFilePath: string,
     marker: ActiveVersionMarker,
