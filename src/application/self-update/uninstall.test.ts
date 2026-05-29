@@ -6,6 +6,7 @@ import { join, win32 } from "node:path";
 import process from "node:process";
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { resolveManagedSkillMetadataFilePath } from "../commands/skills/managed-skill-paths.ts";
 import { presetSkillPackageNames } from "../commands/skills/preset-packages.ts";
 import {
@@ -14,6 +15,7 @@ import {
     createRegistrySkillMetadata,
     renderSkillMetadataJson,
 } from "../commands/skills/skill-metadata.ts";
+import { APP_NAME } from "../config/app-config.ts";
 import { readPathModule } from "./paths.ts";
 import {
     buildSelfUninstallPlan,
@@ -188,15 +190,56 @@ describe("buildSelfUninstallPlan", () => {
 
         expect(paths(immediateUserData).some(path => path.endsWith("auth.toml"))).toBe(true);
         expect(paths(immediateUserData).some(path => path.endsWith("settings.toml"))).toBe(true);
+
+        // The whole config root is also deferred on Windows (open SQLite under it).
+        const rootDirectory = resolveStorePaths({
+            appName: APP_NAME,
+            env: { HOME: tempHome },
+            homeDirectory: tempHome,
+            platform: "win32",
+        }).rootDirectory;
+
+        expect(paths(deferredUserData)).toContain(rootDirectory);
     });
 
-    test("--purge adds user-data targets", async () => {
+    test("--purge adds user-data targets including the config root last", async () => {
         const plan = await buildSelfUninstallPlan(nativeOptions({ purge: true }));
         const userData = plan.immediate.filter(item => item.category === "user-data");
 
         expect(userData.length).toBeGreaterThanOrEqual(4);
         expect(paths(userData).some(path => path.endsWith("auth.toml"))).toBe(true);
         expect(paths(userData).some(path => path.endsWith("settings.toml"))).toBe(true);
+
+        // The config root itself is removed, and it must be the last user-data
+        // item so it sweeps anything the explicit child items did not cover.
+        const rootDirectory = resolveStorePaths({
+            appName: APP_NAME,
+            env: { HOME: tempHome },
+            homeDirectory: tempHome,
+            platform: "linux",
+        }).rootDirectory;
+
+        expect(paths(userData)).toContain(rootDirectory);
+        expect(userData.at(-1)?.path).toBe(rootDirectory);
+    });
+
+    test("--purge config root resolves to the app-support directory on darwin", async () => {
+        const plan = await buildSelfUninstallPlan(
+            nativeOptions({ platform: "darwin", purge: true }),
+        );
+        const userData = plan.immediate.filter(item => item.category === "user-data");
+        const rootItem = userData.at(-1);
+
+        expect(rootItem?.path.endsWith(
+            join("Library", "Application Support", "oo"),
+        )).toBe(true);
+    });
+
+    test("non-purge plan never includes the config root", async () => {
+        const plan = await buildSelfUninstallPlan(nativeOptions());
+
+        expect(plan.immediate.every(item => item.category !== "user-data")).toBe(true);
+        expect(plan.deferred.every(item => item.category !== "user-data")).toBe(true);
     });
 
     test("classifies skills by metadata: bundled+preset removed, registry kept, local/unmanaged retained", async () => {

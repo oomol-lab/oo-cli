@@ -344,6 +344,17 @@ function addUserDataItems(args: {
             path: args.storePaths.logDirectoryPath,
         },
     );
+
+    // Finally, remove the app-support/config root itself so no empty `skills/`
+    // parent or other residual app data is left behind. It must come last so it
+    // sweeps anything the explicit child items above did not cover. On Windows
+    // it is deferred for the same reason as the data directory: the running
+    // process may still hold open SQLite handles under this root.
+    (args.isWindows ? args.deferred : args.immediate).push({
+        category: "user-data",
+        label: "Configuration directory",
+        path: args.storePaths.rootDirectory,
+    });
 }
 
 export interface PerformUninstallOptions {
