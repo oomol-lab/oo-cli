@@ -9,6 +9,7 @@ import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { resolveSelfUpdatePaths } from "../self-update/paths.ts";
 import { resolveManagedSkillMetadataFilePath } from "./skills/managed-skill-paths.ts";
+import { presetSkillPackageNames } from "./skills/preset-packages.ts";
 import {
     createBundledSkillMetadata,
     createLocalSkillMetadata,
@@ -16,7 +17,7 @@ import {
     renderSkillMetadataJson,
 } from "./skills/skill-metadata.ts";
 
-const PRESET_PACKAGE = "@alwaysmavs/gpt-image-2";
+const PRESET_PACKAGE = presetSkillPackageNames[0];
 
 function selfUpdatePaths(sandbox: Awaited<ReturnType<typeof createCliSandbox>>) {
     return resolveSelfUpdatePaths({

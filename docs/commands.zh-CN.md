@@ -368,13 +368,11 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   oo 管理的 skills，打印对应的 `npm uninstall -g @oomol-lab/oo-cli`（或等价）命令，
   并以非零状态退出，提示调用方二进制仍需手动删除。当可执行文件位于未知位置时，
   仅删除 oo 管理的 skills，并提示用户手动删除二进制。
-- Windows：正在运行的进程会持有自身可执行文件，以及（在 `--purge` 时）数据目录中
-  打开的 SQLite 数据库，而 Windows 无法删除被存活进程持有的文件。因此这些路径的删除
-  会交给一次性 PowerShell helper——它等待当前进程退出后删除这些路径并删除自身。其它
-  路径（versions、staging、locks、skills，以及 auth、settings、logs、telemetry 等
-  剩余用户数据）都在当前进程内删除。Unix 上所有路径都在当前进程内删除。
-- 安全：当有另一个存活的 `oo` 进程持有 active version marker 时，命令会拒绝执行；
-  且任何输出路径都不会把 API key 等机密写入 stdout/stderr。
+- Windows：在 `oo uninstall` 运行期间无法删除的文件，会在进程退出后删除。其它被卸载
+  计划选中的运行时路径、skills 和用户数据会在命令执行期间清理。Unix 上的清理会在命令
+  执行期间完成。
+- 安全：当检测到另一个运行中的 `oo` 进程时，命令会拒绝执行；且任何输出路径都不会把
+  API key 等机密写入 stdout/stderr。
 
 ### `oo check-update`
 

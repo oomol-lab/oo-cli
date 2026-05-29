@@ -2,11 +2,12 @@ import type { UninstallPlan, UninstallPlanItem } from "./uninstall.ts";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import process from "node:process";
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resolveManagedSkillMetadataFilePath } from "../commands/skills/managed-skill-paths.ts";
+import { presetSkillPackageNames } from "../commands/skills/preset-packages.ts";
 import {
     createBundledSkillMetadata,
     createLocalSkillMetadata,
@@ -19,10 +20,9 @@ import {
     createWindowsSelfDeleteScript,
     performSelfUninstall,
     shouldRemoveManagedSkill,
-
 } from "./uninstall.ts";
 
-const PRESET_PACKAGE = "@alwaysmavs/gpt-image-2";
+const PRESET_PACKAGE = presetSkillPackageNames[0];
 
 const noopLogger = {
     warn: () => {},
@@ -90,25 +90,34 @@ describe("shouldRemoveManagedSkill", () => {
 
 describe("createWindowsSelfDeleteScript", () => {
     test("waits for the parent pid then removes literal paths and itself", () => {
+        const deferredPath = win32.join(
+            "C:\\",
+            "Users",
+            "a b",
+            ".local",
+            "bin",
+            "oo.exe",
+        );
         const script = createWindowsSelfDeleteScript({
-            deferredPaths: ["C:\\Users\\a b\\.local\\bin\\oo.exe"],
+            deferredPaths: [deferredPath],
             processId: 4321,
         });
 
         expect(script).toContain("Wait-Process -Id 4321");
         expect(script).toContain(
-            "Remove-Item -LiteralPath 'C:\\Users\\a b\\.local\\bin\\oo.exe' -Force -Recurse -ErrorAction SilentlyContinue",
+            `Remove-Item -LiteralPath '${deferredPath}' -Force -Recurse -ErrorAction SilentlyContinue`,
         );
         expect(script).toContain("Remove-Item -LiteralPath $PSCommandPath");
     });
 
     test("escapes single quotes in paths", () => {
+        const deferredPath = win32.join("C:\\", "o'o", "oo.exe");
         const script = createWindowsSelfDeleteScript({
-            deferredPaths: ["C:\\o'o\\oo.exe"],
+            deferredPaths: [deferredPath],
             processId: 1,
         });
 
-        expect(script).toContain("'C:\\o''o\\oo.exe'");
+        expect(script).toContain(`'${deferredPath.replaceAll("'", "''")}'`);
     });
 });
 
@@ -264,6 +273,54 @@ describe("buildSelfUninstallPlan", () => {
 });
 
 describe("performSelfUninstall", () => {
+    test("checks active owners even when the plan does not remove locks", async () => {
+        const locksDirectory = join(tempHome, "locks");
+        const skillDirectory = join(tempHome, "skills", "oo");
+        const markerPath = join(
+            locksDirectory,
+            "active",
+            "1.2.3",
+            `${process.pid}.marker.lock`,
+        );
+
+        await mkdir(skillDirectory, { recursive: true });
+        await writeFile(join(skillDirectory, "SKILL.md"), "# x\n");
+        await mkdir(join(locksDirectory, "active", "1.2.3"), { recursive: true });
+        await writeJsonFile(markerPath, {
+            acquiredAt: new Date().toISOString(),
+            execPath: process.execPath,
+            kind: "active",
+            markerId: "marker",
+            pid: process.pid,
+            version: "1.2.3",
+        });
+
+        const plan: UninstallPlan = {
+            activeVersionLocksDirectory: locksDirectory,
+            deferred: [],
+            immediate: [
+                { category: "bundled-skill", label: "x", path: skillDirectory },
+            ],
+            installationMethod: "npm",
+            platform: process.platform,
+            purge: false,
+            retainedSkills: [],
+        };
+
+        const result = await performSelfUninstall({
+            logger: noopLogger,
+            plan,
+            processId: 999_999,
+            timestamp: 1,
+        });
+
+        expect(result).toEqual({
+            ownerPid: process.pid,
+            status: "busy",
+        });
+        expect(await Bun.file(join(skillDirectory, "SKILL.md")).exists()).toBe(true);
+    });
+
     test("unix removes immediate and deferred in-process", async () => {
         const binaryPath = join(tempHome, "bin", "oo");
         const versionsPath = join(tempHome, "versions");
@@ -273,6 +330,7 @@ describe("performSelfUninstall", () => {
         await mkdir(versionsPath, { recursive: true });
 
         const plan: UninstallPlan = {
+            activeVersionLocksDirectory: join(tempHome, "locks"),
             deferred: [],
             immediate: [
                 { category: "binary", label: "x", path: binaryPath },
@@ -308,6 +366,7 @@ describe("performSelfUninstall", () => {
         await writeFile(binaryPath, "binary");
 
         const plan: UninstallPlan = {
+            activeVersionLocksDirectory: join(tempHome, "locks"),
             deferred: [
                 { category: "binary", label: "x", path: binaryPath },
             ],
@@ -353,6 +412,7 @@ describe("performSelfUninstall", () => {
         await writeFile(binaryPath, "binary");
 
         const plan: UninstallPlan = {
+            activeVersionLocksDirectory: join(tempHome, "locks"),
             deferred: [
                 { category: "binary", label: "x", path: binaryPath },
             ],
@@ -391,6 +451,7 @@ describe("performSelfUninstall", () => {
         const unremovablePath = `${join(tempHome, "data")}${String.fromCharCode(0)}child`;
 
         const plan: UninstallPlan = {
+            activeVersionLocksDirectory: join(tempHome, "locks"),
             deferred: [],
             immediate: [
                 { category: "user-data", label: "x", path: unremovablePath },
@@ -412,3 +473,7 @@ describe("performSelfUninstall", () => {
         expect((result as { failedPaths: string[] }).failedPaths).toContain(unremovablePath);
     });
 });
+
+async function writeJsonFile(path: string, value: object): Promise<void> {
+    await writeFile(path, `${JSON.stringify(value)}\n`);
+}

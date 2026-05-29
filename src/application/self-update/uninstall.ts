@@ -48,6 +48,7 @@ export interface UninstallRetainedSkill {
 }
 
 export interface UninstallPlan {
+    activeVersionLocksDirectory: string;
     /**
      * Items whose removal must be deferred to a post-exit helper (the Windows
      * running image cannot unlink itself in-process). Membership in this array,
@@ -156,6 +157,7 @@ export async function buildSelfUninstallPlan(
     }
 
     return {
+        activeVersionLocksDirectory: selfUpdatePaths.locksDirectory,
         deferred,
         helperDirectory,
         immediate,
@@ -172,8 +174,6 @@ function addRuntimeItems(args: {
     isWindows: boolean;
     paths: SelfUpdatePaths;
 }): void {
-    const paths = args.paths;
-
     // The currently running Windows image (`~/.local/bin/oo.exe`) cannot be
     // unlinked while this process holds it open, so it is deferred to the
     // post-exit helper. Every other runtime path — including the per-version
@@ -182,24 +182,24 @@ function addRuntimeItems(args: {
     (args.isWindows ? args.deferred : args.immediate).push({
         category: "binary",
         label: "CLI executable",
-        path: paths.executablePath,
+        path: args.paths.executablePath,
     });
 
     args.immediate.push(
         {
             category: "versions",
             label: "Installed versions",
-            path: paths.versionsDirectory,
+            path: args.paths.versionsDirectory,
         },
         {
             category: "staging",
             label: "Self-update staging",
-            path: paths.stagingDirectory,
+            path: args.paths.stagingDirectory,
         },
         {
             category: "locks",
             label: "Self-update locks",
-            path: paths.locksDirectory,
+            path: args.paths.locksDirectory,
         },
     );
 }
@@ -368,21 +368,17 @@ export type PerformUninstallResult
 export async function performSelfUninstall(
     options: PerformUninstallOptions,
 ): Promise<PerformUninstallResult> {
-    const locksItem = options.plan.immediate.find(item => item.category === "locks");
+    const owner = await findAnyActiveVersionOwner({
+        excludeProcessId: options.processId,
+        locksDirectory: options.plan.activeVersionLocksDirectory,
+        platform: options.plan.platform,
+    });
 
-    if (locksItem !== undefined) {
-        const owner = await findAnyActiveVersionOwner({
-            excludeProcessId: options.processId,
-            locksDirectory: locksItem.path,
-            platform: options.plan.platform,
-        });
-
-        if (owner !== undefined) {
-            return {
-                ownerPid: owner.ownerPid,
-                status: "busy",
-            };
-        }
+    if (owner !== undefined) {
+        return {
+            ownerPid: owner.ownerPid,
+            status: "busy",
+        };
     }
 
     // The Windows running image must be removed by a detached helper after this
