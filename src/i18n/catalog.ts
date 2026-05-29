@@ -703,6 +703,43 @@ export const enMessages = {
     "commands.update.description":
         "Update the managed CLI install to the latest published release.",
     "commands.update.summary": "Update the CLI",
+    "commands.uninstall.description":
+        "Uninstall the CLI runtime and its built-in skills. Use --purge to also remove user data and all oo-managed registry skills.",
+    "commands.uninstall.summary": "Uninstall the CLI",
+    "options.uninstall.yes": "Skip the confirmation prompt (required in non-interactive terminals)",
+    "options.uninstall.dryRun": "Print what would be removed without deleting anything",
+    "options.uninstall.purge":
+        "Also remove user data (auth, settings, cache, logs, telemetry) and all oo-managed registry skills",
+    "uninstall.plan.header": "oo uninstall plan",
+    "uninstall.plan.removeRuntime": "Runtime to remove:",
+    "uninstall.plan.removeSkills": "Skills to remove:",
+    "uninstall.plan.removeData": "User data to remove:",
+    "uninstall.plan.deferred": "Removed after this process exits:",
+    "uninstall.plan.retained": "Retained:",
+    "uninstall.plan.retainedSkill.registry": "  registry skill: {path}",
+    "uninstall.plan.retainedSkill.local": "  local skill: {path}",
+    "uninstall.plan.retainedSkill.unmanaged": "  unmanaged: {path}",
+    "uninstall.plan.item": "  {label}: {path}",
+    "uninstall.plan.nothing": "Nothing to remove.",
+    "uninstall.confirm.prompt":
+        "This will uninstall oo and remove the listed items. Continue? [y/N] ",
+    "uninstall.confirm.purgePrompt":
+        "This will uninstall oo and PERMANENTLY delete your auth, settings, and oo-managed registry skills. Continue? [y/N] ",
+    "uninstall.confirm.invalid": "Please answer y or n.",
+    "uninstall.confirm.cancelled": "Uninstall cancelled.",
+    "uninstall.error.confirmationRequired":
+        "Refusing to uninstall without confirmation. Re-run with --yes in a non-interactive terminal.",
+    "uninstall.busy":
+        "Another oo process (pid {pid}) is still running. Close it and retry.",
+    "uninstall.partialFailure":
+        "Uninstall could not remove {count} path(s). Check permissions and retry.",
+    "uninstall.success": "oo has been uninstalled.",
+    "uninstall.success.scheduled":
+        "oo runtime cleanup scheduled; the executable is removed once this process exits.",
+    "uninstall.packageManager":
+        "oo was installed with {method}. Removed oo-managed skills; remove the binary with: {command}",
+    "uninstall.unknown":
+        "Cannot locate a managed oo install for the current executable. Removed oo-managed skills only; remove the binary manually.",
     "commands.skills.checkUpdate.description":
         "Check for available updates for installed registry skills without downloading or modifying them.",
     "commands.skills.checkUpdate.summary":
@@ -1750,6 +1787,43 @@ export const zhMessages = {
     "commands.update.description":
         "把托管 CLI 安装更新到最新发布版本。",
     "commands.update.summary": "更新 CLI",
+    "commands.uninstall.description":
+        "卸载 CLI 运行时及其内置 skills。使用 --purge 可同时删除用户数据和全部由 oo 管理的 registry skills。",
+    "commands.uninstall.summary": "卸载 CLI",
+    "options.uninstall.yes": "跳过确认提示（非交互式终端下必须传入）",
+    "options.uninstall.dryRun": "只打印将删除的内容，不实际删除",
+    "options.uninstall.purge":
+        "同时删除用户数据（auth、settings、cache、logs、telemetry）和全部由 oo 管理的 registry skills",
+    "uninstall.plan.header": "oo 卸载计划",
+    "uninstall.plan.removeRuntime": "将删除的运行时：",
+    "uninstall.plan.removeSkills": "将删除的 skills：",
+    "uninstall.plan.removeData": "将删除的用户数据：",
+    "uninstall.plan.deferred": "在当前进程退出后删除：",
+    "uninstall.plan.retained": "将保留：",
+    "uninstall.plan.retainedSkill.registry": "  registry skill：{path}",
+    "uninstall.plan.retainedSkill.local": "  local skill：{path}",
+    "uninstall.plan.retainedSkill.unmanaged": "  未受管：{path}",
+    "uninstall.plan.item": "  {label}：{path}",
+    "uninstall.plan.nothing": "没有可删除的内容。",
+    "uninstall.confirm.prompt":
+        "这将卸载 oo 并删除上面列出的内容。是否继续？[y/N] ",
+    "uninstall.confirm.purgePrompt":
+        "这将卸载 oo，并**永久删除**你的 auth、settings 以及全部由 oo 管理的 registry skills。是否继续？[y/N] ",
+    "uninstall.confirm.invalid": "请输入 y 或 n。",
+    "uninstall.confirm.cancelled": "已取消卸载。",
+    "uninstall.error.confirmationRequired":
+        "未确认，拒绝卸载。在非交互式终端中请加 --yes 重试。",
+    "uninstall.busy":
+        "还有另一个 oo 进程（pid {pid}）在运行。请先关闭它再重试。",
+    "uninstall.partialFailure":
+        "卸载未能删除 {count} 个路径。请检查权限后重试。",
+    "uninstall.success": "oo 已卸载。",
+    "uninstall.success.scheduled":
+        "oo 运行时清理已计划；可执行文件会在当前进程退出后删除。",
+    "uninstall.packageManager":
+        "oo 是通过 {method} 安装的。已删除 oo 管理的 skills；请用以下命令删除二进制：{command}",
+    "uninstall.unknown":
+        "无法定位当前可执行文件对应的受管 oo 安装。仅删除了 oo 管理的 skills；请手动删除二进制。",
     "commands.skills.checkUpdate.description":
         "检查已安装的 registry skill 是否有可用更新，仅查询不下载也不写入。",
     "commands.skills.checkUpdate.summary":

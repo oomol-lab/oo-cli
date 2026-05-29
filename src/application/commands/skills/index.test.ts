@@ -33,13 +33,13 @@ import {
     getBundledSkillFiles,
     readBundledSkillFileContent,
 } from "./embedded-assets.ts";
-import { presetSkillPackageNames } from "./install.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
+import { presetSkillPackageNames } from "./preset-packages.ts";
 import {
     installedRegistrySkillCompatibility,
     renderOoPackageExecutionGuidance,

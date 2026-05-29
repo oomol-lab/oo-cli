@@ -402,6 +402,44 @@ Update the managed `oo` install to the latest published release.
 
 Alias for `oo update`.
 
+### `oo uninstall`
+
+Uninstall the managed `oo` runtime and its built-in skills.
+
+- Arguments: none.
+- Options: `-y, --yes` skips the confirmation prompt and is required in
+  non-interactive terminals.
+- Options: `--dry-run` prints what would be removed (and retained) without
+  deleting anything.
+- Options: `--purge` additionally removes user data (auth, settings, cache,
+  logs, telemetry) and **all** oo-managed registry skills.
+- Default removal: the managed executable (`~/.local/bin/oo`), all installed
+  versions, self-update staging and locks, bundled skills, and the preset
+  registry skill package `@alwaysmavs/gpt-image-2` (host installs and canonical
+  source).
+- Default retention: PATH configuration is left untouched; non-preset registry
+  skills, local skills, and any same-name directory that is not oo-managed are
+  retained, as is user data (removed only with `--purge`).
+- Skill safety: a skill is removed only when its `.oo-metadata.json` proves
+  oo ownership (`kind: "bundled"`, or `kind: "registry"` matching the preset
+  list / `--purge`). Directories with missing, invalid, local, or non-matching
+  metadata are never deleted, so user-authored same-name skills are safe.
+- Installation method: when `oo` was installed via a package manager
+  (npm/bun/pnpm/yarn), the command removes oo-managed skills, prints the
+  matching `npm uninstall -g @oomol-lab/oo-cli` (or equivalent) command, and
+  exits non-zero so callers know the binary still needs manual removal. When the
+  executable is at an unknown location, it removes oo-managed skills only and
+  asks the user to remove the binary manually.
+- Windows: the running executable cannot delete itself in-process, so removal
+  of `~/.local/bin/oo.exe` is deferred to a one-shot PowerShell helper that
+  waits for this process to exit, then deletes the executable and removes
+  itself. Every other path (versions, staging, locks, skills) is removed
+  in-process. On Unix, the executable and version directory are removed
+  in-process.
+- Safety: the command refuses to run while another live `oo` process holds an
+  active version marker, and it never writes API keys or other secrets to
+  stdout/stderr.
+
 ### `oo check-update`
 
 Check whether a newer CLI release is available.

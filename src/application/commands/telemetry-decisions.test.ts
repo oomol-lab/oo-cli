@@ -450,6 +450,15 @@ const commandTelemetryDecisions = {
         kind: "excluded",
         reason: "Status must not change pending telemetry counts.",
     },
+    "uninstall": {
+        kind: "properties",
+        properties: [
+            "has_purge",
+            "installation_method",
+            "item_count_bucket",
+        ],
+        reason: "Records purge flag, installation method, and a bucketed count of removed items; never records skill names, package names, or paths.",
+    },
     "update": {
         kind: "properties",
         properties: [

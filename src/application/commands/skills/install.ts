@@ -35,6 +35,7 @@ import {
     skillOperationOutputOptions,
     writeSkillOperationJson,
 } from "./operation-result.ts";
+import { presetSkillPackageNames } from "./preset-packages.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 import {
     installBundledSkill,
@@ -59,8 +60,6 @@ interface SkillsInstallPackageSpecifier {
     packageShareId?: string;
     packageVersion: string;
 }
-
-export const presetSkillPackageNames = ["@alwaysmavs/gpt-image-2"] as const;
 
 const installErrorMessages: Record<string, string> = {
     not_authenticated: "Authentication is required.",

@@ -347,6 +347,34 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 `oo update` 的别名。
 
+### `oo uninstall`
+
+卸载受管的 `oo` 运行时及其内置 skills。
+
+- 参数：无。
+- 选项：`-y, --yes` 跳过确认提示；非交互式终端下必须传入。
+- 选项：`--dry-run` 只打印将删除（与将保留）的内容，不实际删除。
+- 选项：`--purge` 额外删除用户数据（auth、settings、cache、logs、telemetry）
+  以及**全部**由 oo 管理的 registry skills。
+- 默认删除：受管可执行文件（`~/.local/bin/oo`）、所有已安装版本、self-update
+  staging 与 locks、bundled skills，以及 preset registry skill 包
+  `@alwaysmavs/gpt-image-2`（host 安装与 canonical source）。
+- 默认保留：不动 PATH 配置；非 preset 的 registry skills、local skills、以及
+  任何不受 oo 管理的同名目录都保留；用户数据仅在 `--purge` 时删除。
+- skill 安全规则：仅当 `.oo-metadata.json` 能证明 oo 所有权（`kind: "bundled"`，
+  或 `kind: "registry"` 且匹配 preset 列表 / `--purge`）时才删除。metadata 缺失、
+  损坏、local 或不匹配的目录一律不删，因此用户手写的同名 skill 是安全的。
+- 安装方式：当 `oo` 是通过包管理器（npm/bun/pnpm/yarn）安装时，命令会删除
+  oo 管理的 skills，打印对应的 `npm uninstall -g @oomol-lab/oo-cli`（或等价）命令，
+  并以非零状态退出，提示调用方二进制仍需手动删除。当可执行文件位于未知位置时，
+  仅删除 oo 管理的 skills，并提示用户手动删除二进制。
+- Windows：正在运行的可执行文件无法在当前进程内自删，因此
+  `~/.local/bin/oo.exe` 的删除会交给一次性 PowerShell helper——它等待当前进程
+  退出后删除该可执行文件并删除自身。其它路径（versions、staging、locks、skills）
+  都在当前进程内删除。Unix 上可执行文件与版本目录都在当前进程内删除。
+- 安全：当有另一个存活的 `oo` 进程持有 active version marker 时，命令会拒绝执行；
+  且任何输出路径都不会把 API key 等机密写入 stdout/stderr。
+
 ### `oo check-update`
 
 检查是否有新的 CLI 版本可用。
