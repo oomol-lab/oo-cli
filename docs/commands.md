@@ -430,12 +430,13 @@ Uninstall the managed `oo` runtime and its built-in skills.
   exits non-zero so callers know the binary still needs manual removal. When the
   executable is at an unknown location, it removes oo-managed skills only and
   asks the user to remove the binary manually.
-- Windows: the running executable cannot delete itself in-process, so removal
-  of `~/.local/bin/oo.exe` is deferred to a one-shot PowerShell helper that
-  waits for this process to exit, then deletes the executable and removes
-  itself. Every other path (versions, staging, locks, skills) is removed
-  in-process. On Unix, the executable and version directory are removed
-  in-process.
+- Windows: the running process keeps its own image and (under `--purge`) the
+  SQLite databases in the data directory open, and Windows cannot delete files
+  held open by a live process. Removal of those paths is deferred to a one-shot
+  PowerShell helper that waits for this process to exit, then deletes them and
+  removes itself. Every other path (versions, staging, locks, skills, and the
+  remaining user data such as auth, settings, logs, and telemetry) is removed
+  in-process. On Unix, all paths are removed in-process.
 - Safety: the command refuses to run while another live `oo` process holds an
   active version marker, and it never writes API keys or other secrets to
   stdout/stderr.

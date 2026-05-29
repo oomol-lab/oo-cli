@@ -2,6 +2,7 @@ import type { Logger } from "pino";
 import type { SkillMetadata } from "../commands/skills/skill-metadata.ts";
 
 import type { InstallationMethod } from "./installation.ts";
+import type { SelfUpdatePaths } from "./paths.ts";
 import { mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
@@ -115,10 +116,25 @@ export async function buildSelfUninstallPlan(
     const immediate: UninstallPlanItem[] = [];
     const deferred: UninstallPlanItem[] = [];
     const retainedSkills: UninstallRetainedSkill[] = [];
-    let helperDirectory: string | undefined;
+
+    const selfUpdatePaths = resolveSelfUpdatePaths({
+        env: options.env,
+        homeDirectory: options.homeDirectory,
+        platform: options.platform,
+    });
+
+    // The Windows post-exit helper owns removal of every path the running
+    // process holds open — the running image, and under `--purge` the SQLite
+    // data directory. Resolve its directory for every Windows plan so any
+    // deferred path has a post-exit home. It is a sibling of staging/locks under
+    // `<temp|cache>/oo` and is never itself a removed plan path, so writing the
+    // helper there cannot recreate a directory we just deleted.
+    const helperDirectory = isWindows
+        ? join(dirname(selfUpdatePaths.stagingDirectory), "uninstall")
+        : undefined;
 
     if (installationMethod === "native") {
-        helperDirectory = addRuntimeItems({ deferred, immediate, isWindows, options });
+        addRuntimeItems({ deferred, immediate, isWindows, paths: selfUpdatePaths });
     }
 
     const storePaths = resolveStorePaths({
@@ -136,7 +152,7 @@ export async function buildSelfUninstallPlan(
     });
 
     if (options.purge) {
-        addUserDataItems({ immediate, storePaths });
+        addUserDataItems({ deferred, immediate, isWindows, storePaths });
     }
 
     return {
@@ -154,13 +170,9 @@ function addRuntimeItems(args: {
     deferred: UninstallPlanItem[];
     immediate: UninstallPlanItem[];
     isWindows: boolean;
-    options: BuildUninstallPlanOptions;
-}): string {
-    const paths = resolveSelfUpdatePaths({
-        env: args.options.env,
-        homeDirectory: args.options.homeDirectory,
-        platform: args.options.platform,
-    });
+    paths: SelfUpdatePaths;
+}): void {
+    const paths = args.paths;
 
     // The currently running Windows image (`~/.local/bin/oo.exe`) cannot be
     // unlinked while this process holds it open, so it is deferred to the
@@ -190,11 +202,6 @@ function addRuntimeItems(args: {
             path: paths.locksDirectory,
         },
     );
-
-    // Sibling of staging/locks under `<temp|cache>/oo`, never itself a removed
-    // plan path, so the helper script can be written without recreating a
-    // directory we are about to delete.
-    return join(dirname(paths.stagingDirectory), "uninstall");
 }
 
 async function addSkillItems(args: {
@@ -296,7 +303,9 @@ function resolveRetentionReason(
 }
 
 function addUserDataItems(args: {
+    deferred: UninstallPlanItem[];
     immediate: UninstallPlanItem[];
+    isWindows: boolean;
     storePaths: ReturnType<typeof resolveStorePaths>;
 }): void {
     args.immediate.push(
@@ -310,11 +319,20 @@ function addUserDataItems(args: {
             label: "Settings",
             path: args.storePaths.settingsFilePath,
         },
-        {
-            category: "user-data",
-            label: "Cache and data",
-            path: args.storePaths.dataDirectory,
-        },
+    );
+
+    // The running process keeps the SQLite databases under the data directory
+    // (cache, uploads, download sessions) open. Windows refuses to delete files
+    // held open by a live process, so on Windows the data directory is handed to
+    // the post-exit helper instead of being removed in-process. On Unix an open
+    // file can still be unlinked, so it is removed immediately.
+    (args.isWindows ? args.deferred : args.immediate).push({
+        category: "user-data",
+        label: "Cache and data",
+        path: args.storePaths.dataDirectory,
+    });
+
+    args.immediate.push(
         {
             category: "user-data",
             label: "Telemetry",

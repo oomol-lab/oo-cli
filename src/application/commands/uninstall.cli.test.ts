@@ -160,9 +160,22 @@ describe("oo uninstall", () => {
             });
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("uninstalled");
-            // Removed
-            expect(await Bun.file(runtime.executablePath).exists()).toBe(false);
+
+            if (process.platform === "win32") {
+                // The running image cannot unlink itself in place, so its removal
+                // is deferred to the post-exit helper: it is still present right
+                // after this in-process run, and the message reports a scheduled
+                // cleanup rather than a completed uninstall.
+                expect(result.stdout).toContain("scheduled");
+                expect(await Bun.file(runtime.executablePath).exists()).toBe(true);
+            }
+            else {
+                expect(result.stdout).toContain("uninstalled");
+                expect(await Bun.file(runtime.executablePath).exists()).toBe(false);
+            }
+
+            // Version directories are standalone copies, removed in-process on
+            // every platform.
             expect(await Bun.file(join(runtime.versionsDirectory, "1.2.3", "oo")).exists()).toBe(false);
             expect(await Bun.file(join(ooSkill, "SKILL.md")).exists()).toBe(false);
             expect(await Bun.file(join(presetSkill, "SKILL.md")).exists()).toBe(false);

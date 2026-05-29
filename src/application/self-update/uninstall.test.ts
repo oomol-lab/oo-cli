@@ -13,6 +13,7 @@ import {
     createRegistrySkillMetadata,
     renderSkillMetadataJson,
 } from "../commands/skills/skill-metadata.ts";
+import { readPathModule } from "./paths.ts";
 import {
     buildSelfUninstallPlan,
     createWindowsSelfDeleteScript,
@@ -118,7 +119,16 @@ describe("buildSelfUninstallPlan", () => {
 
         return {
             env: { HOME: tempHome },
-            execPath: join(tempHome, ".local", "bin", executableName),
+            // Build the exec path with the simulated platform's separators so the
+            // managed-path comparison in detectInstallationMethodFromExecPath
+            // matches even when the host platform differs (e.g. simulating linux
+            // on a Windows CI runner, where node:path.join would emit backslashes).
+            execPath: readPathModule(platform).join(
+                tempHome,
+                ".local",
+                "bin",
+                executableName,
+            ),
             homeDirectory: tempHome,
             platform,
             purge: overrides.purge ?? false,
@@ -145,6 +155,30 @@ describe("buildSelfUninstallPlan", () => {
         // versions/staging/locks are standalone copies, still removed in-process
         expect(categoriesOf(plan.immediate)).toContain("versions");
         expect(categoriesOf(plan.immediate)).not.toContain("binary");
+    });
+
+    test("win32 --purge defers the data directory but removes config files in-process", async () => {
+        const plan = await buildSelfUninstallPlan(
+            nativeOptions({ platform: "win32", purge: true }),
+        );
+
+        // The data directory holds open SQLite handles, so it is deferred to the
+        // post-exit helper alongside the running executable.
+        expect(plan.helperDirectory).toBeDefined();
+        const deferredUserData = plan.deferred.filter(
+            item => item.category === "user-data",
+        );
+
+        expect(paths(deferredUserData).some(path => path.endsWith("data"))).toBe(true);
+        expect(plan.immediate.some(item => item.path.endsWith("data"))).toBe(false);
+
+        // Config files are not held open and are still removed in-process.
+        const immediateUserData = plan.immediate.filter(
+            item => item.category === "user-data",
+        );
+
+        expect(paths(immediateUserData).some(path => path.endsWith("auth.toml"))).toBe(true);
+        expect(paths(immediateUserData).some(path => path.endsWith("settings.toml"))).toBe(true);
     });
 
     test("--purge adds user-data targets", async () => {
@@ -348,14 +382,13 @@ describe("performSelfUninstall", () => {
     });
 
     test("reports failedPaths when a path cannot be removed (P1)", async () => {
-        // Platform-independent removal failure: the parent is a regular file,
-        // so removing `<file>/child` raises ENOTDIR (not the ENOENT that
-        // `force: true` tolerates). No chmod/ACL semantics, so it behaves the
-        // same on POSIX and Windows CI.
-        const parentFile = join(tempHome, "not-a-directory");
-        const unremovablePath = join(parentFile, "child");
-
-        await writeFile(parentFile, "x");
+        // A path with an embedded NUL makes fs.rm reject on every platform:
+        // `force: true` only swallows missing-path errors, not the argument
+        // validation an invalid path triggers. This deterministically exercises
+        // the failure-tracking branch without depending on platform fs semantics
+        // (POSIX raises ENOTDIR for `<file>/child`, Windows raises a tolerated
+        // ENOENT instead).
+        const unremovablePath = `${join(tempHome, "data")}${String.fromCharCode(0)}child`;
 
         const plan: UninstallPlan = {
             deferred: [],
