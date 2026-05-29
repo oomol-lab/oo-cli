@@ -79,6 +79,13 @@ export const uninstallCommand: CliCommandDefinition<UninstallInput> = {
             ),
         });
 
+        // `--purge` deletes the config root, which contains the telemetry
+        // directory. Suppress this invocation's telemetry so the teardown flush
+        // does not re-create the directory we just removed.
+        if (purge && input.dryRun !== true) {
+            context.telemetry?.suppressCurrentInvocation();
+        }
+
         if (input.dryRun === true) {
             writeUninstallPlan(context, plan);
             return;
