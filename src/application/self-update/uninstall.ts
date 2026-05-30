@@ -468,7 +468,19 @@ async function spawnWindowsCleanupHelper(options: {
     await mkdir(helperDirectory, { recursive: true });
     await Bun.write(helperPath, options.script);
 
+    // Launch the helper through a `cmd /c start "" /b` trampoline. A process
+    // spawned directly by Bun joins Bun's kill-on-close job object and dies the
+    // instant this process exits: on Windows `detached` (UV_PROCESS_DETACHED)
+    // does NOT break a child out of that job, so a directly-spawned helper never
+    // survives to unlink the running image. `start` launches the helper as a
+    // job-breakaway process that outlives us. The empty "" is start's mandatory
+    // window-title argument; `/b` keeps it in this console so no window flashes.
     const command = [
+        "cmd",
+        "/c",
+        "start",
+        "",
+        "/b",
         "powershell",
         "-NoProfile",
         "-NonInteractive",
@@ -483,16 +495,20 @@ async function spawnWindowsCleanupHelper(options: {
         return;
     }
 
+    // Await the bootstrap `cmd`: `start` launches the breakaway helper and `cmd`
+    // exits immediately after. Awaiting guarantees the helper has been spawned
+    // before we return (and the caller proceeds to exit); otherwise the job
+    // could close and kill `cmd` before `start` ran. No `detached`/`unref()` is
+    // needed because the surviving helper is `start`'s child, not ours.
     const subprocess = Bun.spawn({
         cmd: command,
-        detached: true,
         stderr: "ignore",
         stdin: "ignore",
         stdout: "ignore",
         windowsHide: true,
     });
 
-    subprocess.unref();
+    await subprocess.exited;
 }
 
 function quotePowerShellSingle(value: string): string {
