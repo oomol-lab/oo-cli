@@ -435,7 +435,10 @@ describe("performSelfUninstall", () => {
         expect(result.status).toBe("completed");
         expect((result as { deferredToHelper: boolean }).deferredToHelper).toBe(true);
         expect(spawnedCommands).toHaveLength(1);
-        expect(spawnedCommands[0]![0]).toBe("powershell");
+        // The helper is launched through a `cmd /c start "" /b` trampoline so it
+        // breaks away from Bun's job object and survives this process exit.
+        expect(spawnedCommands[0]!.slice(0, 5)).toEqual(["cmd", "/c", "start", "", "/b"]);
+        expect(spawnedCommands[0]).toContain("powershell");
         // The running binary is NOT removed in-process; the helper handles it.
         expect(await Bun.file(binaryPath).exists()).toBe(true);
         // staging was removed in-process
@@ -517,6 +520,81 @@ describe("performSelfUninstall", () => {
     });
 });
 
+describe("performSelfUninstall windows helper integration", () => {
+    // Exercises the REAL spawn path (no spawnDetached mock): a child Bun process
+    // runs performSelfUninstall for a win32 plan and exits; the post-exit helper
+    // must then unlink the deferred executable. This is the regression guard for
+    // the job-object bug where a directly-spawned helper was killed on parent
+    // exit and never removed the running image. Windows-only by nature.
+    test.skipIf(process.platform !== "win32")(
+        "spawned helper deletes the deferred executable after the parent exits",
+        async () => {
+            const exePath = join(tempHome, "bin", "oo.exe");
+            const helperDir = join(tempHome, "uninstall-helper");
+            const locksDir = join(tempHome, "locks");
+
+            await mkdir(join(tempHome, "bin"), { recursive: true });
+            await writeFile(exePath, "fake binary");
+
+            // The driver imports the real module by absolute file URL, runs the
+            // win32 plan against the fake executable, then exits so the helper
+            // can take over removal.
+            const moduleUrl = new URL("./uninstall.ts", import.meta.url).href;
+            const driverPath = join(tempHome, "uninstall-driver.ts");
+
+            await writeFile(driverPath, [
+                `import { performSelfUninstall } from ${JSON.stringify(moduleUrl)};`,
+                `const [exe, helper, locks] = process.argv.slice(2);`,
+                `const noop = { warn() {}, info() {}, debug() {}, error() {} } as never;`,
+                `await performSelfUninstall({`,
+                `  logger: noop,`,
+                `  plan: {`,
+                `    activeVersionLocksDirectory: locks,`,
+                `    deferred: [{ category: "binary", label: "oo", path: exe }],`,
+                `    helperDirectory: helper,`,
+                `    immediate: [],`,
+                `    installationMethod: "native",`,
+                `    platform: "win32",`,
+                `    purge: false,`,
+                `    retainedSkills: [],`,
+                `  },`,
+                `  processId: process.pid,`,
+                `  timestamp: Date.now(),`,
+                `});`,
+                ``,
+            ].join("\n"));
+
+            const driver = Bun.spawn({
+                cmd: [process.execPath, driverPath, exePath, helperDir, locksDir],
+                stderr: "ignore",
+                stdin: "ignore",
+                stdout: "ignore",
+            });
+
+            await driver.exited;
+
+            // The breakaway helper waits for the driver pid to exit, then unlinks
+            // the executable. Poll until it disappears.
+            expect(await waitForMissing(exePath, 20_000)).toBe(true);
+        },
+        30_000,
+    );
+});
+
 async function writeJsonFile(path: string, value: object): Promise<void> {
     await writeFile(path, `${JSON.stringify(value)}\n`);
+}
+
+async function waitForMissing(path: string, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+        if (!(await Bun.file(path).exists())) {
+            return true;
+        }
+
+        await Bun.sleep(100);
+    }
+
+    return !(await Bun.file(path).exists());
 }
