@@ -17,9 +17,6 @@ becomes relevant.
 - `oo connector search`
 - `oo connector run`
 - `oo file upload`
-- `oo cloud-task run`
-- `oo cloud-task result`
-- `oo cloud-task wait`
 
 ## If auth may be the blocker
 
@@ -54,7 +51,7 @@ When either appears in any `oo` command output:
 - Stop immediately.
 - Treat it as insufficient credit or overdue billing, not a normal auth
   failure.
-- Do not retry or create replacement tasks.
+- Do not retry the same request after a billing stop.
 - Ask the user to recharge before retrying at:
 
 ```text
@@ -64,6 +61,6 @@ https://console.oomol.com/billing/token-recharge
 ## Other blockers
 
 For catalog miss, unsupported input shape, missing required values, connector
-re-authorization, or terminal task failure, return to the relevant reference
+re-authorization, or terminal action failure, return to the relevant reference
 page and report the named blocker. Do not broaden the problem into generic auth
 or billing troubleshooting unless command output points there.

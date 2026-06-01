@@ -95,35 +95,6 @@ const commandTelemetryDecisions = {
         properties: ["version_kind", "update_available"],
         reason: "Records update availability without raw version strings.",
     },
-    "cloud-task": {
-        kind: "generic",
-        reason: "Command group; child commands record cloud-task dimensions.",
-    },
-    "cloud-task.run": {
-        kind: "properties",
-        properties: ["block_id", "dry_run", "package_name", "package_version"],
-        reason: "Records product-domain package, version, and block dimensions for usage analytics.",
-    },
-    "cloud-task.wait": {
-        kind: "properties",
-        properties: ["final_status", "polled_count_bucket"],
-        reason: "Records terminal status and bounded polling count.",
-    },
-    "cloud-task.result": {
-        kind: "properties",
-        properties: ["final_status"],
-        reason: "Records terminal cloud-task status.",
-    },
-    "cloud-task.log": {
-        kind: "properties",
-        properties: ["log_count_bucket"],
-        reason: "Records bounded returned-log count without task logs.",
-    },
-    "cloud-task.list": {
-        kind: "properties",
-        properties: ["block_id", "package_name", "result_count_bucket"],
-        reason: "Records product-domain filter dimensions and bounded result count.",
-    },
     "completion": {
         kind: "properties",
         properties: ["shell"],

@@ -3,28 +3,21 @@ import { describe, expect, test } from "bun:test";
 import {
     installedRegistrySkillCompatibility,
     normalizeInstalledRegistrySkillMarkdown,
+    ooNoticeEndMarker,
+    ooNoticeStartMarker,
     removeManagedOoSkillArtifacts,
-    renderOoPackageExecutionGuidance,
 } from "./registry-skill-markdown.ts";
 
+const legacyOoNotice = [
+    ooNoticeStartMarker,
+    "",
+    "Important: legacy cloud task execution guidance.",
+    "",
+    ooNoticeEndMarker,
+].join("\n");
+
 describe("registry skill markdown", () => {
-    const guidance = renderOoPackageExecutionGuidance();
-
-    test("renders compact oo execution guidance for package-backed skills", () => {
-        expect(guidance).toContain("minimum viable execution contract");
-        expect(guidance).toContain("Do not search for extra packages");
-        expect(guidance).toContain("preserve the user's concrete constraints");
-        expect(guidance).toContain("Do not pass local absolute paths");
-        expect(guidance).toContain("local `file://...` URIs");
-        expect(guidance).toContain("explicitly supports local paths");
-        expect(guidance).toContain("not cloud-accessible");
-        expect(guidance).toContain("artifacts");
-        expect(guidance).toContain("Download only an explicit `resultURL`");
-        expect(guidance).toContain("structured `resultData` without `resultURL`");
-        expect(guidance).toContain("do not guess parameters and do not run yet");
-    });
-
-    test("adds compatibility and places the guidance immediately after the title", () => {
+    test("adds compatibility without injecting execution guidance", () => {
         const content = [
             "---",
             "name: chatgpt",
@@ -35,7 +28,7 @@ describe("registry skill markdown", () => {
             "",
             "# ChatGPT",
             "",
-            "Use `oo::text-tools::chat` for the remote workflow.",
+            "Use the connector workflow.",
             "",
         ].join("\n");
 
@@ -50,7 +43,7 @@ describe("registry skill markdown", () => {
         );
 
         expect(result).toBe(
-            [
+            `${[
                 "---",
                 "name: chatgpt",
                 "description: Chat with a model",
@@ -61,11 +54,8 @@ describe("registry skill markdown", () => {
                 "",
                 "# ChatGPT",
                 "",
-                guidance,
-                "",
-                "Use `oo::text-tools::chat` for the remote workflow.",
-                "",
-            ].join("\n"),
+                "Use the connector workflow.",
+            ].join("\n")}\n`,
         );
     });
 
@@ -81,7 +71,7 @@ describe("registry skill markdown", () => {
         );
 
         expect(result).toBe(
-            [
+            `${[
                 "---",
                 "name: chatgpt",
                 "description: \"Chat with a model\"",
@@ -91,91 +81,11 @@ describe("registry skill markdown", () => {
                 "---",
                 "",
                 "# ChatGPT",
-                "",
-                guidance,
-                "",
-            ].join("\n"),
+            ].join("\n")}\n`,
         );
     });
 
-    test("places the oo execution note at the start when the body has no title", () => {
-        const result = normalizeInstalledRegistrySkillMarkdown(
-            [
-                "---",
-                "name: chatgpt",
-                "description: \"Chat with a model\"",
-                "---",
-                "",
-                "Use `oo::text-tools::chat` for the remote workflow.",
-                "",
-            ].join("\n"),
-            {
-                description: "Chat with a model",
-                name: "chatgpt",
-                title: "ChatGPT",
-            },
-            "openai",
-        );
-
-        expect(result).toBe(
-            [
-                "---",
-                "name: chatgpt",
-                "description: \"Chat with a model\"",
-                `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
-                "---",
-                "",
-                guidance,
-                "",
-                "Use `oo::text-tools::chat` for the remote workflow.",
-                "",
-            ].join("\n"),
-        );
-    });
-
-    test("moves the guidance to immediately follow the title", () => {
-        const content = [
-            "---",
-            "name: chatgpt",
-            "description: \"Chat with a model\"",
-            `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
-            "---",
-            "",
-            "# ChatGPT",
-            "",
-            "Use `oo::text-tools::chat` for the remote workflow.",
-            "",
-        ].join("\n");
-
-        const result = normalizeInstalledRegistrySkillMarkdown(
-            content,
-            {
-                description: "Chat with a model",
-                name: "chatgpt",
-                title: "ChatGPT",
-            },
-            "openai",
-        );
-
-        expect(result).toBe(
-            [
-                "---",
-                "name: chatgpt",
-                "description: \"Chat with a model\"",
-                `compatibility: ${JSON.stringify(installedRegistrySkillCompatibility)}`,
-                "---",
-                "",
-                "# ChatGPT",
-                "",
-                guidance,
-                "",
-                "Use `oo::text-tools::chat` for the remote workflow.",
-                "",
-            ].join("\n"),
-        );
-    });
-
-    test("rewrites backticked oo self references to the published package name", () => {
+    test("does not rewrite backticked oo self references", () => {
         const content = [
             "---",
             "name: chatgpt",
@@ -185,7 +95,6 @@ describe("registry skill markdown", () => {
             "# ChatGPT",
             "",
             "Use `oo::self::summarize` for the primary workflow.",
-            "Mention oo::self::summarize in prose.",
             "Keep `oo::text-tools::chat` unchanged.",
             "",
         ].join("\n");
@@ -201,7 +110,7 @@ describe("registry skill markdown", () => {
         );
 
         expect(result).toBe(
-            [
+            `${[
                 "---",
                 "name: chatgpt",
                 "description: \"Mention oo::self::summarize in prose.\"",
@@ -210,14 +119,41 @@ describe("registry skill markdown", () => {
                 "",
                 "# ChatGPT",
                 "",
-                guidance,
-                "",
-                "Use `oo::@oomol/text-tools::summarize` for the primary workflow.",
-                "Mention oo::self::summarize in prose.",
+                "Use `oo::self::summarize` for the primary workflow.",
                 "Keep `oo::text-tools::chat` unchanged.",
-                "",
-            ].join("\n"),
+            ].join("\n")}\n`,
         );
+    });
+
+    test("strips a legacy managed OO notice block during normalize", () => {
+        const content = [
+            "---",
+            "name: chatgpt",
+            "description: \"Chat with a model\"",
+            "---",
+            "",
+            "# ChatGPT",
+            "",
+            legacyOoNotice,
+            "",
+            "Keep the connector workflow.",
+            "",
+        ].join("\n");
+
+        const result = normalizeInstalledRegistrySkillMarkdown(
+            content,
+            {
+                description: "Chat with a model",
+                name: "chatgpt",
+                title: "ChatGPT",
+            },
+            "openai",
+        );
+
+        expect(result).not.toContain(ooNoticeStartMarker);
+        expect(result).not.toContain("cloud task execution guidance");
+        expect(result).toContain("# ChatGPT");
+        expect(result).toContain("Keep the connector workflow.");
     });
 
     test("removes managed OO artifacts from skill markdown", () => {
@@ -234,7 +170,7 @@ describe("registry skill markdown", () => {
             "",
             "Keep this introduction.",
             "",
-            guidance,
+            legacyOoNotice,
             "",
             "Keep this tail.",
             "",

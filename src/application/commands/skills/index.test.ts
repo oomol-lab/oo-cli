@@ -40,10 +40,7 @@ import {
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
 import { presetSkillPackageNames } from "./preset-packages.ts";
-import {
-    installedRegistrySkillCompatibility,
-    renderOoPackageExecutionGuidance,
-} from "./registry-skill-markdown.ts";
+import { installedRegistrySkillCompatibility } from "./registry-skill-markdown.ts";
 import {
     createBundledSkillMetadata,
     createLocalSkillMetadata,
@@ -52,8 +49,6 @@ import {
 } from "./skill-metadata.ts";
 
 describe("skills commands", () => {
-    const guidance = renderOoPackageExecutionGuidance();
-
     test("installs all bundled skills when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
         const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
@@ -2196,9 +2191,7 @@ describe("skills commands", () => {
                     "",
                     "# ChatGPT",
                     "",
-                    guidance,
-                    "",
-                    "Use `oo::openai::chat` for the remote workflow.",
+                    "Use `oo::self::chat` for the remote workflow.",
                     "",
                 ].join("\n"),
             );
