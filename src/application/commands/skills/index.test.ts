@@ -225,6 +225,10 @@ describe("skills commands", () => {
                         }));
                     }
 
+                    if (isRegistryPackageDownloadCountRequest(request)) {
+                        return new Response(null, { status: 204 });
+                    }
+
                     throw new Error(`Unexpected request: ${request.url}`);
                 },
                 version: "9.9.9",
@@ -246,7 +250,7 @@ describe("skills commands", () => {
             await expect(stat(secondPresetSkillDirectoryPath)).resolves.toMatchObject({
                 isDirectory: expect.any(Function),
             });
-            expect(requests).toHaveLength(2);
+            expect(requests).toHaveLength(3);
         }
         finally {
             await sandbox.cleanup();
@@ -460,6 +464,10 @@ describe("skills commands", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -472,6 +480,7 @@ describe("skills commands", () => {
             );
             expect(requests.map(request => request.url)).toEqual([
                 "https://registry.oomol.com/-/oomol/package-info/oo/0.0.2",
+                "https://registry.oomol.com/-/oomol/packages/oo/0.0.2/download-count",
                 "https://registry.oomol.com/oo/-/meta/oo-0.0.2.tgz",
             ]);
         }
@@ -2170,6 +2179,10 @@ describe("skills commands", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -2215,9 +2228,10 @@ describe("skills commands", () => {
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
             );
-            expect(requests).toHaveLength(2);
+            expect(requests).toHaveLength(3);
             expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
             expect(requests[1]!.headers.get("Authorization")).toBe("secret-1");
+            expect(requests[2]!.headers.get("Authorization")).toBe("secret-1");
             const telemetryPayload = parseTelemetryRowPayload(
                 readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
             );
@@ -2277,6 +2291,10 @@ describe("skills commands", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -2289,6 +2307,7 @@ describe("skills commands", () => {
             );
             expect(requests.map(request => request.url)).toEqual([
                 "https://registry.oomol.com/-/oomol/package-info/%40alice%2Fopenai/0.0.2",
+                "https://registry.oomol.com/-/oomol/packages/@alice/openai/0.0.2/download-count",
                 "https://registry.oomol.com/@alice/openai/-/meta/openai-0.0.2.tgz",
             ]);
             expect(await readFile(metadataFilePath, "utf8")).toBe(
@@ -2339,6 +2358,10 @@ describe("skills commands", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -2354,6 +2377,7 @@ describe("skills commands", () => {
             );
             expect(requests.map(request => request.url)).toEqual([
                 "https://registry.oomol.com/-/oomol/package-info/openai/latest",
+                "https://registry.oomol.com/-/oomol/packages/openai/0.0.3/download-count",
                 "https://registry.oomol.com/-/oomol/package-shares/download-meta/share-1",
             ]);
             expect(requests.every(request =>
@@ -2605,6 +2629,10 @@ describe("skills commands", () => {
                         }));
                     }
 
+                    if (isRegistryPackageDownloadCountRequest(request)) {
+                        return new Response(null, { status: 204 });
+                    }
+
                     throw new Error(`Unexpected request: ${request.url}`);
                 },
             });
@@ -2674,6 +2702,10 @@ describe("skills commands", () => {
                             return new Response(await createRegistrySkillArchiveBytes({
                                 [`package/package/skills/${skillName}/SKILL.md`]: `# ${skillName}\n`,
                             }));
+                        }
+
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
                         }
 
                         throw new Error(`Unexpected request: ${request.url}`);
@@ -2773,6 +2805,10 @@ describe("skills commands", () => {
                             return new Response(await createRegistrySkillArchiveBytes({
                                 "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
                             }));
+                        }
+
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
                         }
 
                         throw new Error(`Unexpected request: ${request.url}`);
@@ -2887,6 +2923,10 @@ describe("skills commands", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -2940,6 +2980,10 @@ describe("skills commands", () => {
                                     },
                                 ],
                             }));
+                        }
+
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
                         }
 
                         throw new Error(`Unexpected request: ${request.url}`);
@@ -3003,6 +3047,10 @@ describe("skills commands", () => {
                             return new Response(await createRegistrySkillArchiveBytes({
                                 "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
                             }));
+                        }
+
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
                         }
 
                         throw new Error(`Unexpected request: ${request.url}`);
@@ -3070,6 +3118,10 @@ describe("skills commands", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -3132,6 +3184,10 @@ describe("skills commands", () => {
                             "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
                             "package/package/skills/vision/SKILL.md": "# Vision\n",
                         }));
+                    }
+
+                    if (isRegistryPackageDownloadCountRequest(request)) {
+                        return new Response(null, { status: 204 });
                     }
 
                     throw new Error(`Unexpected request: ${request.url}`);
@@ -3246,6 +3302,10 @@ describe("skills commands", () => {
                         }));
                     }
 
+                    if (isRegistryPackageDownloadCountRequest(request)) {
+                        return new Response(null, { status: 204 });
+                    }
+
                     throw new Error(`Unexpected request: ${request.url}`);
                 },
                 stdin,
@@ -3335,6 +3395,10 @@ describe("skills commands", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                     stdin,
@@ -3401,6 +3465,10 @@ describe("skills commands", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -3452,6 +3520,10 @@ describe("skills commands", () => {
                                     },
                                 ],
                             }));
+                        }
+
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
                         }
 
                         throw new Error(`Unexpected request: ${request.url}`);
@@ -3566,4 +3638,10 @@ async function writeLocalSkillDirectory(
         resolveManagedSkillMetadataFilePath(skillDirectoryPath),
         renderSkillMetadataJson(createLocalSkillMetadata()),
     );
+}
+
+function isRegistryPackageDownloadCountRequest(request: Request): boolean {
+    return request.method === "POST"
+        && request.url.includes("/-/oomol/packages/")
+        && request.url.endsWith("/download-count");
 }

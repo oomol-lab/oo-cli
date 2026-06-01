@@ -42,6 +42,7 @@ import {
 import {
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
+    tryReportRegistryPackageDownload,
 } from "./registry-skill-source.ts";
 import { createSkillIdsTelemetryProperties } from "./telemetry.ts";
 
@@ -253,6 +254,12 @@ async function executeInstallActions(
         });
     }
 
+    await tryReportRegistryPackageDownload(
+        packageInfo.packageName,
+        packageInfo.packageVersion,
+        account,
+        context,
+    );
     const packageBytes = await downloadRegistryPackageTarball(
         packageInfo.packageName,
         packageInfo.packageVersion,

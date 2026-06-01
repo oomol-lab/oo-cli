@@ -244,6 +244,10 @@ describe("skills update command", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -344,6 +348,10 @@ describe("skills update command", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -424,6 +432,10 @@ describe("skills update command", () => {
                             return new Response(await createRegistrySkillArchiveBytes({
                                 "package/package/skills/chatgpt/SKILL.md": "# ChatGPT fresh\n",
                             }));
+                        }
+
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
                         }
 
                         throw new Error(`Unexpected request: ${request.url}`);
@@ -553,6 +565,10 @@ describe("skills update command", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -645,6 +661,10 @@ describe("skills update command", () => {
                             }));
                         }
 
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
                         throw new Error(`Unexpected request: ${request.url}`);
                     },
                 },
@@ -730,6 +750,10 @@ describe("skills update command", () => {
                         return new Response(await createRegistrySkillArchiveBytes({
                             "package/package/skills/chatgpt/SKILL.md": "# ChatGPT fresh\n",
                         }));
+                    }
+
+                    if (isRegistryPackageDownloadCountRequest(request)) {
+                        return new Response(null, { status: 204 });
                     }
 
                     throw new Error(`Unexpected request: ${request.url}`);
@@ -868,4 +892,10 @@ async function writeUnparseableManagedSkillInstallation(
     await mkdir(skillDirectoryPath, { recursive: true });
     await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# Broken\n");
     await Bun.write(resolveManagedSkillMetadataFilePath(skillDirectoryPath), "{\n");
+}
+
+function isRegistryPackageDownloadCountRequest(request: Request): boolean {
+    return request.method === "POST"
+        && request.url.includes("/-/oomol/packages/")
+        && request.url.endsWith("/download-count");
 }

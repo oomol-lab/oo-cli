@@ -134,12 +134,6 @@ export async function downloadRegistryPackageTarball(
                 account.endpoint,
                 packageShareId,
             );
-    await reportRegistryPackageDownload(
-        packageName,
-        packageVersion,
-        account,
-        context,
-    );
     const response = await performLoggedRequest({
         context,
         createRequestFailedError: status => new CliUserError(
@@ -171,7 +165,7 @@ export async function downloadRegistryPackageTarball(
     return new Uint8Array(await response.arrayBuffer());
 }
 
-async function reportRegistryPackageDownload(
+export async function tryReportRegistryPackageDownload(
     packageName: string,
     packageVersion: string,
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
@@ -214,14 +208,7 @@ async function reportRegistryPackageDownload(
             requestUrl,
         });
     }
-    catch (error) {
-        context.logger.warn(
-            {
-                err: error,
-                ...withPackageIdentity(packageName, packageVersion),
-            },
-            "Failed to report registry skill package download count.",
-        );
+    catch {
     }
 }
 

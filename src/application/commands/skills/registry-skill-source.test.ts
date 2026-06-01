@@ -14,6 +14,7 @@ import {
     createRegistryPackageTarballRequestUrl,
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
+    tryReportRegistryPackageDownload,
 } from "./registry-skill-source.ts";
 
 describe("registry skill source", () => {
@@ -120,7 +121,7 @@ describe("registry skill source", () => {
         expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
     });
 
-    test("reports download count before downloading the package tarball", async () => {
+    test("downloads a package tarball with authorization", async () => {
         const requests: Request[] = [];
         const context = createRegistrySkillSourceContext({
             fetcher: async (input, init) => {
@@ -141,14 +142,12 @@ describe("registry skill source", () => {
                 context,
             ),
         ).resolves.toEqual(new Uint8Array([1, 2, 3]));
-        expect(requests).toHaveLength(2);
-        expect(requests[0]!.method).toBe("POST");
-        expect(requests[0]!.url).toBe(
-            "https://registry.oomol.com/-/oomol/packages/openai/0.0.3/download-count",
-        );
+        expect(requests).toHaveLength(1);
         expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
-        expect(requests[0]!.headers.get("Content-Type")).toBe("application/json");
-        expect(requests[1]!.headers.get("Authorization")).toBe("secret-1");
+        expect(requests[0]!.method).toBe("GET");
+        expect(requests[0]!.url).toBe(
+            "https://registry.oomol.com/openai/-/meta/openai-0.0.3.tgz",
+        );
     });
 
     test("downloads a shared package tarball with authorization", async () => {
@@ -173,30 +172,54 @@ describe("registry skill source", () => {
                 "share-1",
             ),
         ).resolves.toEqual(new Uint8Array([4, 5, 6]));
-        expect(requests).toHaveLength(2);
-        expect(requests[1]!.url).toBe(
+        expect(requests).toHaveLength(1);
+        expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
+        expect(requests[0]!.method).toBe("GET");
+        expect(requests[0]!.url).toBe(
             "https://registry.oomol.com/-/oomol/package-shares/download-meta/share-1",
         );
-        expect(requests[1]!.headers.get("Authorization")).toBe("secret-1");
     });
 
-    test("download count reporting failure does not block package download", async () => {
+    test("reports package download count with authorization", async () => {
         const requests: Request[] = [];
         const context = createRegistrySkillSourceContext({
             fetcher: async (input, init) => {
-                const request = toRequest(input, init);
+                requests.push(toRequest(input, init));
 
-                requests.push(request);
-                if (request.url.endsWith("/download-count")) {
-                    return new Response("failed", { status: 500 });
-                }
+                return new Response(null, { status: 204 });
+            },
+        });
 
-                return new Response(new Uint8Array([7, 8, 9]));
+        await tryReportRegistryPackageDownload(
+            "openai",
+            "0.0.3",
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+            },
+            context,
+        );
+        expect(requests).toHaveLength(1);
+        expect(requests[0]!.method).toBe("POST");
+        expect(requests[0]!.url).toBe(
+            "https://registry.oomol.com/-/oomol/packages/openai/0.0.3/download-count",
+        );
+        expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
+        expect(requests[0]!.headers.get("Content-Type")).toBe("application/json");
+    });
+
+    test("download count reporting failure does not throw", async () => {
+        const requests: Request[] = [];
+        const context = createRegistrySkillSourceContext({
+            fetcher: async (input, init) => {
+                requests.push(toRequest(input, init));
+
+                return new Response("failed", { status: 500 });
             },
         });
 
         await expect(
-            downloadRegistryPackageTarball(
+            tryReportRegistryPackageDownload(
                 "openai",
                 "0.0.3",
                 {
@@ -205,13 +228,10 @@ describe("registry skill source", () => {
                 },
                 context,
             ),
-        ).resolves.toEqual(new Uint8Array([7, 8, 9]));
-        expect(requests).toHaveLength(2);
+        ).resolves.toBeUndefined();
+        expect(requests).toHaveLength(1);
         expect(requests[0]!.url).toBe(
             "https://registry.oomol.com/-/oomol/packages/openai/0.0.3/download-count",
-        );
-        expect(requests[1]!.url).toBe(
-            "https://registry.oomol.com/openai/-/meta/openai-0.0.3.tgz",
         );
     });
 });
