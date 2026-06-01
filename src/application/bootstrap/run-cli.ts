@@ -485,7 +485,6 @@ function resolveCliErrorLogCategory(error: CliUserError): LogCategory {
 function isSystemCliUserError(error: CliUserError): boolean {
     return error.key.startsWith("errors.store.")
         || error.key.startsWith("errors.authStore.")
-        || error.key === "errors.cloudTaskRun.dataReadFailed"
         || error.key === "errors.unexpected"
         || error.key.endsWith(".invalidResponse")
         || error.key.endsWith(".requestError")

@@ -21,100 +21,80 @@ describe("embedded skill assets", () => {
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "claude").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "hermes").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "codebuddy").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "workbuddy").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "trae").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "trae-cn").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "openclaw").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "qoderwork").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(getBundledSkillFiles("oo", "deepseek-tui").map(file => file.relativePath)).toEqual([
             "SKILL.md",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
-            "references/package-execution.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
-            "references/task-lifecycle.md",
         ]);
         expect(
             getBundledSkillFiles("oo-find-skills", "codex").map(
@@ -389,16 +369,17 @@ describe("embedded skill assets", () => {
 
             expect(content).toContain("Scan all package and connector entries");
             expect(content).toContain("do not let array order");
-            expect(content).toContain("prefer Fusion API");
-            expect(content).toContain("connector actions first");
-            expect(content).toContain("then authenticated connector actions");
+            expect(content).toContain("prefer a connector action that directly fits");
+            expect(content).toContain("not executable candidates");
             expect(content).toContain("out-of-box");
-            expect(content).toContain("Prefer Fusion API over package/block");
-            expect(content).toContain("OOMOL built-in API capabilities");
-            expect(content).toContain("Prefer an authenticated connector over a package");
-            expect(content).toContain("Prefer a package/block only when");
+            expect(content).not.toContain("Fusion API");
+            expect(content).not.toContain("fusion-api");
+            expect(content).toContain("Use an authenticated connector when the user named a connected service");
+            expect(content).toContain("If only a package or block matches, report that this CLI cannot execute it");
             expect(content).toContain("run one connector refinement");
-            expect(content).toContain("before accepting a package-only path");
+            expect(content).toContain("before reporting that no executable capability is available");
+            expect(content).toContain("catalog signals only");
+            expect(content).not.toContain("package-execution.md");
             expect(content).toContain("Skill sidecar");
             expect(content).toContain("oo skills search");
             expect(content).toContain("sidecar discovery branch");
@@ -486,23 +467,16 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("guides oo runtime to upload local files before cloud payloads", async () => {
+    test("guides oo runtime to upload local files before remote payloads", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const skillFiles = getBundledSkillFiles("oo", agentName);
             const skillFile = skillFiles.find(file => file.relativePath === "SKILL.md");
-            const packageGuide = skillFiles.find(
-                file => file.relativePath === "references/package-execution.md",
-            );
             const fileTransferGuide = skillFiles.find(
                 file => file.relativePath === "references/file-transfer.md",
             );
 
             if (skillFile === undefined) {
                 throw new Error(`Missing ${agentName} oo SKILL.md`);
-            }
-
-            if (packageGuide === undefined) {
-                throw new Error(`Missing ${agentName} oo package-execution guide`);
             }
 
             if (fileTransferGuide === undefined) {
@@ -512,9 +486,6 @@ describe("embedded skill assets", () => {
             const skillContent = normalizeMarkdownWrappingForAssertion(
                 await readBundledSkillFileContent(skillFile),
             );
-            const packageContent = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(packageGuide),
-            );
             const fileTransferContent = normalizeMarkdownWrappingForAssertion(
                 await readBundledSkillFileContent(fileTransferGuide),
             );
@@ -523,16 +494,18 @@ describe("embedded skill assets", () => {
             expect(skillContent).toContain("not cloud-accessible artifacts");
             expect(skillContent).toContain("`oo file upload \"<filePath>\" --json`");
             expect(skillContent).toContain("returned `downloadUrl`");
-            expect(packageContent).toContain("local file path or local `file://...` URI");
-            expect(packageContent).toContain("upload the file with `oo file upload`");
-            expect(packageContent).toContain("submit the returned `downloadUrl`");
             expect(fileTransferContent).toContain("Local `file://...` URIs");
             expect(fileTransferContent).toContain("local filesystem references");
             expect(fileTransferContent).toContain("Do not submit local absolute paths");
-            expect(fileTransferContent).toContain("cloud payloads");
+            expect(fileTransferContent).toContain("remote payloads");
             expect(fileTransferContent).toContain("explicitly supports local paths");
-            expect(fileTransferContent).toContain("fail when the cloud task tries");
+            expect(fileTransferContent).toContain("fail when the remote action tries");
             expect(fileTransferContent).toContain("`oo file upload` did not return");
+
+            expect(skillContent).not.toContain("cloud-task");
+            expect(skillContent).not.toContain("task-lifecycle.md");
+            expect(skillContent).not.toContain("package-execution.md");
+            expect(fileTransferContent).not.toContain("cloud-task");
         }
     });
 

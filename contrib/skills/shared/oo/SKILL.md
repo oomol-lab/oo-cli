@@ -56,12 +56,12 @@ These rules override every local heuristic.
    language pair, file type, output format, destination, time range, recipients,
    and externally visible side effects.
 3. Capability contract before execution. Do not execute from a search result
-   alone. A callable path exists only after package metadata or connector schema
-   proves the exact callable id, required inputs, and output semantics.
+   alone. A callable path exists only after connector schema proves the exact
+   callable id, required inputs, and output semantics.
 4. Evidence over invention. Do not invent package IDs, versions, block IDs,
-   connector services, action names, schema fields, defaults, artifact URLs,
-   task status, or task results. Claims must come from `oo` command output,
-   package metadata, connector schema, or task result snapshots.
+   connector services, action names, schema fields, defaults, or artifact URLs.
+   Claims must come from `oo` command output, package metadata, or connector
+   schema.
 5. Smallest sufficient payload. Build the smallest payload that fully expresses
    the user's real intent. "Smallest" means no invented fields or irrelevant
    options; it does not mean dropping user constraints.
@@ -113,14 +113,12 @@ proves its output.
    Read [references/search-and-selection.md](references/search-and-selection.md)
    before the first search. Run `oo search "<goal>" --json` unless a complete
    capability contract is already known from current evidence.
-   A complete contract means package metadata or connector schema already
-   proves the callable id, required inputs, output semantics, and lifecycle; a
-   user-named service or guessed package name is not enough.
+   A complete contract means connector schema already proves the callable id,
+   required inputs, and output semantics; a user-named service is not enough.
    When running capability discovery, also run at most one
    `oo skills search "<goal>" --json` sidecar query. Record credible
    installable skill matches as possible future enhancements; do not install or
-   ask about installation before the selected package or connector capability
-   succeeds.
+   ask about installation before the selected connector capability succeeds.
 4. Select
    Inspect the first result set before refining. Keep one primary candidate and
    at most one materially different fallback. Prefer directness, named target
@@ -129,31 +127,27 @@ proves its output.
    Use the fallback only when the primary path hits a named blocker the fallback
    avoids without changing the user's intent.
 5. Inspect contract
-   Read [references/package-execution.md](references/package-execution.md) for
-   the package-backed path or
-   [references/connector-execution.md](references/connector-execution.md) for
-   the connector-backed path before inspecting the contract, and use only the
-   canonical forms documented there. File-like inputs or artifact downloads
-   may require [references/file-transfer.md](references/file-transfer.md).
+   Read [references/connector-execution.md](references/connector-execution.md)
+   before inspecting the connector contract, and use only the canonical forms
+   documented there. File-like inputs or artifact downloads may require
+   [references/file-transfer.md](references/file-transfer.md). Package and block
+   search results are catalog signals only; this CLI cannot execute them, so do
+   not build an execution contract from package metadata.
 6. Build payload
    Use only fields exposed by the selected contract. Prefer user-provided values
    over defaults, samples, and placeholders. Ask one focused follow-up only when
    a required value is missing, risky to infer, destructive, broadly shared, or
    externally visible but ambiguous.
 7. Execute
-   Execute the selected package or connector path through `oo`, using only the
-   canonical shape documented in the reference read at step 5. For package
-   tasks, `oo cloud-task run` returns a task handle, not the final result;
-   after a `taskID` exists, read
-   [references/task-lifecycle.md](references/task-lifecycle.md).
+   Execute the selected connector path through `oo`, using only the canonical
+   shape documented in the reference read at step 5.
 8. Materialize
    Save outputs locally only when doing so helps the user and the selected path
    exposes an explicit artifact URL.
 9. Report
-   Lead with the useful result. For running tasks, share the `taskID` and next
-   sensible action. For blockers, name the exact blocker and the next useful
-   move. If you group or summarize by an attribute, make sure the payload or
-   result actually used that attribute.
+   Lead with the useful result. For blockers, name the exact blocker and the
+   next useful move. If you group or summarize by an attribute, make sure the
+   payload or result actually used that attribute.
    After the first successful result, if a recorded skill match would clearly
    improve repeated use of the same capability, ask whether the user wants to
    install that specific skill using numbered choices: `1. Install
@@ -165,12 +159,6 @@ proves its output.
 ## Capability contract
 
 Before execution, hold the minimum viable contract in working memory.
-
-Package contract:
-
-- `callable`: resolved `packageName@packageVersion` plus `blockName`
-- `inputs`: selected block input handles, required values, and payload
-- `outputs`: task handle plus result or artifact expectation
 
 Connector contract:
 
@@ -185,16 +173,12 @@ unsupported input shape, or a blocker-specific fallback.
 
 ## Reference routing
 
-- Search or choose between package and connector:
+- Search and choose an executable connector candidate:
   [references/search-and-selection.md](references/search-and-selection.md)
-- Package metadata, block choice, payload, and run:
-  [references/package-execution.md](references/package-execution.md)
 - Connector schema, payload, run, storage-style actions, and re-authorization:
   [references/connector-execution.md](references/connector-execution.md)
 - Local files, URI-compatible inputs, and explicit artifact downloads:
   [references/file-transfer.md](references/file-transfer.md)
-- Cloud task wait/result semantics:
-  [references/task-lifecycle.md](references/task-lifecycle.md)
 - Auth and billing blockers:
   [references/auth-and-billing.md](references/auth-and-billing.md)
 - OOMOL LLM client configuration for local code:
@@ -202,12 +186,13 @@ unsupported input shape, or a blocker-specific fallback.
 
 ## Decision sketches
 
-### Single package
+### Managed AI pipeline
 
 User wants a managed transform such as OCR, translation, transcription, image
-generation, or document conversion. Search the outcome, inspect package info,
-choose the matching block, build the payload from declared handles, run the
-cloud task, then follow task lifecycle.
+generation, or document conversion. Search the outcome, pick a connector action
+that fits, read its schema, build the payload from required fields, then run the
+action. If only a package or block matches, report that this CLI cannot execute
+it and point the user to OOMOL Studio instead of trying to run it.
 
 ### Single connector
 

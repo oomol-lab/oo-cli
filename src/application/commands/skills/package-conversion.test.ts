@@ -28,9 +28,18 @@ import {
 } from "./package-templates.ts";
 import {
     installedRegistrySkillCompatibility,
-    renderOoPackageExecutionGuidance,
+    ooNoticeEndMarker,
+    ooNoticeStartMarker,
 } from "./registry-skill-markdown.ts";
 import { parseSkillMarkdownMatter } from "./skill-frontmatter.ts";
+
+const legacyOoNotice = [
+    ooNoticeStartMarker,
+    "",
+    "Important: legacy cloud task execution guidance.",
+    "",
+    ooNoticeEndMarker,
+].join("\n");
 
 describe("skill package conversion", () => {
     const cleanup = useTemporaryDirectoryCleanup();
@@ -714,7 +723,7 @@ describe("skill package conversion", () => {
             "",
             "Keep this introduction.",
             "",
-            renderOoPackageExecutionGuidance(),
+            legacyOoNotice,
             "",
             "Keep this tail.",
             "",

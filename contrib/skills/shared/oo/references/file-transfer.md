@@ -14,7 +14,7 @@ transfer workflows.
 
 - Upload only when the selected contract expects a URI-compatible value and the
   user currently has a local file.
-- Download only when the selected contract or task result exposes an explicit
+- Download only when the selected contract or action result exposes an explicit
   artifact URL.
 - Reuse a suitable user-provided remote URL instead of uploading the same
   content again.
@@ -43,16 +43,16 @@ Facts:
 
 Use this command when:
 
-- The selected package handle or connector input can safely accept a URI string
+- The selected connector input can safely accept a URI string
 - The user currently has only a local file path
 
 Rules:
 
-- Submit the returned `downloadUrl` in the cloud payload.
-- Do not submit local absolute paths or local `file://...` URIs in cloud
+- Submit the returned `downloadUrl` in the remote payload.
+- Do not submit local absolute paths or local `file://...` URIs in remote
   payloads unless the selected schema explicitly supports local paths; they may
-  pass URI validation but fail when the cloud task tries to fetch or upload the
-  file.
+  pass URI validation but fail when the remote action tries to fetch or upload
+  the file.
 - If the same workflow already produced an unexpired upload JSON for the same
   local file, reuse that saved `downloadUrl` instead of uploading again.
 - Do not guess upload reuse from file name alone. If the previous upload cannot
@@ -65,8 +65,8 @@ Rules:
 
 ## Sensitive transfer values
 
-- Treat `downloadUrl`, `resultURL`, and connector artifact URLs as sensitive
-  when they may be signed or temporary.
+- Treat `downloadUrl` and connector artifact URLs as sensitive when they may be
+  signed or temporary.
 - Do not print full signed URLs in final answers, debug summaries, or
   user-facing logs. Show only redacted forms such as `https://***` plus
   `fileName`, `fileSize`, and `expiresAt` when useful.
@@ -93,12 +93,10 @@ Facts:
 
 ## What counts as a downloadable artifact
 
-- Package task artifact: the `resultURL` field returned by
-  `oo cloud-task result --json`. When `resultURL` is `null` or absent, there is
-  no downloadable artifact. Do not synthesize one from `resultData` or logs.
 - Connector artifact: an output field whose `outputSchema` or action
   description documents it as a download URL, for example `transitUrl` on
-  `googledrive.download_file`.
+  `googledrive.download_file`. When no such field is present, there is no
+  downloadable artifact; do not synthesize one from other result fields or logs.
 - Non-artifacts: browse links, edit links, folder links, console URLs, web view
   links, logs, metadata ids, and any URL whose schema meaning is not file
   content.
@@ -110,7 +108,7 @@ or discover a download/export action first.
 ## Naming guidance
 
 - Pass `--name "<descriptive base name>"` when the inferred filename would be
-  opaque, such as a UUID, hash, task id, or generic `download` label.
+  opaque, such as a UUID, hash, or generic `download` label.
 - Preserve the inferred extension unless the user explicitly needs a different
   one.
 - Omit `[outDir]` unless the user asked for a specific destination.

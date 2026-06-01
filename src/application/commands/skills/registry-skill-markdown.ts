@@ -39,22 +39,19 @@ export function normalizeInstalledRegistrySkillMarkdown(
     skill: RegistrySkillSummary,
     packageName: string,
 ): string {
-    const normalizedContent = resolveOoSelfReferences(
-        normalizeLineEndings(content),
-        packageName,
-    );
+    const normalizedContent = normalizeLineEndings(content);
     const splitFrontmatter = trySplitFrontmatter(normalizedContent);
 
     if (splitFrontmatter === undefined) {
         return renderSkillMarkdown(
             createDefaultFrontmatterLines(skill, packageName),
-            insertOoPackageExecutionGuidance(normalizedContent),
+            removeOoNoticeBlocks(normalizedContent),
         );
     }
 
     return renderSkillMarkdown(
         upsertCompatibilityField(splitFrontmatter.frontmatterLines),
-        insertOoPackageExecutionGuidance(splitFrontmatter.body),
+        removeOoNoticeBlocks(splitFrontmatter.body),
     );
 }
 
@@ -62,13 +59,6 @@ function normalizeLineEndings(content: string): string {
     return content
         .replaceAll("\r\n", "\n")
         .replaceAll("\r", "\n");
-}
-
-function resolveOoSelfReferences(content: string, packageName: string): string {
-    return content.replaceAll(
-        "`oo::self::",
-        `\`oo::${packageName}::`,
-    );
 }
 
 function trySplitFrontmatter(content: string): SplitFrontmatterResult | undefined {
@@ -221,43 +211,15 @@ function readTopLevelFieldKey(line: string): string | undefined {
     return line.slice(0, separatorIndex).trim();
 }
 
-function insertOoPackageExecutionGuidance(body: string): string {
-    const guidance = renderOoPackageExecutionGuidance();
-    const trimmedBody = body.trim();
-
-    if (trimmedBody === "") {
-        return `${guidance}\n`;
-    }
-
-    const lines = trimmedBody.split("\n");
-    const firstLine = lines[0] ?? "";
-
-    if (isTopLevelHeading(firstLine)) {
-        const remainingBody = lines.slice(1).join("\n").trim();
-
-        if (remainingBody === "") {
-            return `${firstLine}\n\n${guidance}\n`;
-        }
-
-        return `${firstLine}\n\n${guidance}\n\n${remainingBody}\n`;
-    }
-
-    return `${guidance}\n\n${trimmedBody}\n`;
-}
-
 function renderSkillMarkdown(frontmatterLines: string[], body: string): string {
     return [
         "---",
         ...frontmatterLines,
         "---",
         "",
-        body.trimEnd(),
+        body.trim(),
         "",
     ].join("\n");
-}
-
-function isTopLevelHeading(line: string): boolean {
-    return line.startsWith("# ");
 }
 
 export function removeOoNoticeBlocks(content: string): string {
@@ -372,54 +334,4 @@ function readInlineStringFieldValue(line: string): string | undefined {
     }
 
     return rawValue;
-}
-
-export function renderOoPackageExecutionGuidance(): string {
-    return [
-        ooNoticeStartMarker,
-        "",
-        "Important:",
-        "If this skill mentions `oo::packageName` or `oo::packageName::blockName`,",
-        "follow the `oo` CLI path instead of reimplementing the capability locally.",
-        "Inspect the referenced package once with `oo packages info \"<packageName>\"",
-        "--json` or `oo packages info \"<packageName>@<version>\" --json`.",
-        "If only a package is referenced, choose the correct block id from the",
-        "returned metadata.",
-        "Even if a block is already named, inspect that block's `inputHandle` before",
-        "running it.",
-        "Build the minimum viable execution contract: resolved",
-        "`packageName@packageVersion`, `blocks[].blockName`, required inputs,",
-        "payload, and expected result or artifact.",
-        "Do not search for extra packages or inspect alternate blocks once that",
-        "contract is complete.",
-        "Use the resolved `packageVersion`, `blocks[].blockName`, and `inputHandle`",
-        "metadata to build `oo cloud-task run \"<packageName>@<packageVersion>\"",
-        "--block-id \"<blockName>\" --data '<json>' --json`.",
-        "Use only argument names and values that are defined by or directly derived",
-        "from the inspected metadata, and preserve the user's concrete constraints.",
-        "If a required local file input is URI-compatible, upload it first with",
-        "`oo file upload \"<filePath>\" --json` and pass the returned `downloadUrl`.",
-        "Do not pass local absolute paths or local `file://...` URIs into cloud",
-        "task payloads unless the inspected schema explicitly supports local paths;",
-        "otherwise upload local files first because they are not cloud-accessible",
-        "artifacts.",
-        "`oo cloud-task run ... --json` returns a `taskID`, not the final result.",
-        "To wait for completion, use `oo cloud-task wait \"<taskId>\" --timeout",
-        "\"<window>\"`.",
-        "Do not add `--json` to `oo cloud-task wait`.",
-        "Use a bounded timeout such as `2m` to `10m` for short tasks, `15m` to",
-        "`30m` for medium tasks, or `30m` to `60m` for long or unknown tasks.",
-        "If `wait` exits non-zero, do not assume failure. Check",
-        "`oo cloud-task result \"<taskId>\" --json` to distinguish timeout,",
-        "failure, and late success, and do not create a new task just because a",
-        "wait window ended.",
-        "Download only an explicit `resultURL` with `oo file download`; if success",
-        "returns structured `resultData` without `resultURL`, report the useful",
-        "structured result instead of inventing an artifact URL.",
-        "If the metadata is not sufficient to choose a safe block or construct safe",
-        "arguments, inspect only the missing contract field or report the blocker;",
-        "do not guess parameters and do not run yet.",
-        "",
-        ooNoticeEndMarker,
-    ].join("\n");
 }

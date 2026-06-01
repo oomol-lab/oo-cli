@@ -21,10 +21,7 @@ import {
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
-import {
-    installedRegistrySkillCompatibility,
-    renderOoPackageExecutionGuidance,
-} from "./registry-skill-markdown.ts";
+import { installedRegistrySkillCompatibility } from "./registry-skill-markdown.ts";
 import { stringifySkillMarkdownMatter } from "./skill-frontmatter.ts";
 import { renderSkillTitle } from "./skill-title.ts";
 
@@ -256,8 +253,6 @@ function renderInitializedSkillMarkdown(
         "",
         `# ${title ?? renderSkillTitle(skillName)}`,
         "",
-        renderOoPackageExecutionGuidance(),
-        "",
         "## When to Use",
         "",
         "TODO: Describe the user requests and outcomes that should trigger this skill.",
@@ -269,7 +264,7 @@ function renderInitializedSkillMarkdown(
         "",
         "## Execution",
         "",
-        "TODO: Describe the exact oo package/block or connector command path.",
+        "TODO: Describe the exact oo connector command path, for example an authenticated connector action.",
         "",
         "## Result Handling",
         "",
@@ -277,7 +272,7 @@ function renderInitializedSkillMarkdown(
         "",
         "## Failure Handling",
         "",
-        "TODO: Describe auth, billing, missing input, unsupported shape, timeout, or task failure blockers.",
+        "TODO: Describe auth, billing, missing input, unsupported shape, timeout, or action failure blockers.",
         "",
     ].join("\n");
 

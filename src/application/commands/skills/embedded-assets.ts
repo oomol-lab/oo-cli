@@ -13,9 +13,7 @@ import ooAuthAndBillingReferencePath from "../../../../contrib/skills/shared/oo/
 import ooConnectorExecutionReferencePath from "../../../../contrib/skills/shared/oo/references/connector-execution.md" with { type: "file" };
 import ooFileTransferReferencePath from "../../../../contrib/skills/shared/oo/references/file-transfer.md" with { type: "file" };
 import ooLlmClientReferencePath from "../../../../contrib/skills/shared/oo/references/llm-client.md" with { type: "file" };
-import ooPackageExecutionReferencePath from "../../../../contrib/skills/shared/oo/references/package-execution.md" with { type: "file" };
 import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/shared/oo/references/search-and-selection.md" with { type: "file" };
-import ooTaskLifecycleReferencePath from "../../../../contrib/skills/shared/oo/references/task-lifecycle.md" with { type: "file" };
 import ooSkillPath from "../../../../contrib/skills/shared/oo/SKILL.md" with { type: "file" };
 
 import {
@@ -55,9 +53,7 @@ const bundledSkillRegistry = {
             connectorExecution: ooConnectorExecutionReferencePath,
             fileTransfer: ooFileTransferReferencePath,
             llmClient: ooLlmClientReferencePath,
-            packageExecution: ooPackageExecutionReferencePath,
             searchAndSelection: ooSearchAndSelectionReferencePath,
-            taskLifecycle: ooTaskLifecycleReferencePath,
         }),
     ]),
     "oo-create-skill": createAgentDefinitions([
@@ -133,18 +129,14 @@ function createOoReferenceFiles(sourcePaths: {
     connectorExecution: string;
     fileTransfer: string;
     llmClient: string;
-    packageExecution: string;
     searchAndSelection: string;
-    taskLifecycle: string;
 }): readonly BundledSkillSourceFile[] {
     return [
         createAgenticMarkdownFile("references/auth-and-billing.md", sourcePaths.authAndBilling),
         createAgenticMarkdownFile("references/llm-client.md", sourcePaths.llmClient),
         createAgenticMarkdownFile("references/search-and-selection.md", sourcePaths.searchAndSelection),
-        createAgenticMarkdownFile("references/package-execution.md", sourcePaths.packageExecution),
         createAgenticMarkdownFile("references/connector-execution.md", sourcePaths.connectorExecution),
         createAgenticMarkdownFile("references/file-transfer.md", sourcePaths.fileTransfer),
-        createAgenticMarkdownFile("references/task-lifecycle.md", sourcePaths.taskLifecycle),
     ];
 }
 

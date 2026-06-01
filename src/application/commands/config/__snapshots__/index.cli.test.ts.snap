@@ -28,7 +28,6 @@ Options:
 Commands:
   auth                      Manage CLI authentication
   check-update [options]    Check for CLI updates
-  cloud-task                Manage cloud tasks
   connector                 Manage connector actions
   file                      Manage temporary file transfers
   info [options]            Show CLI environment info
@@ -64,7 +63,6 @@ Commands:
 命令：
   auth                      管理 CLI 认证
   check-update [options]    检查 CLI 更新
-  cloud-task                管理云任务
   connector                 管理 connector action
   file                      管理临时文件传输
   info [options]            显示 CLI 环境信息

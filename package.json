@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.0-development",
   "private": true,
-  "description": "OOMOL's command-line interface for accounts, packages, and cloud tasks.",
+  "description": "OOMOL's command-line interface for accounts and packages.",
   "author": "BlackHole1 <bh@bugs.cc>",
   "license": "MIT",
   "repository": {
@@ -13,7 +13,6 @@
   "keywords": [
     "oomol",
     "cli",
-    "cloud-task",
     "package",
     "terminal",
     "bun"

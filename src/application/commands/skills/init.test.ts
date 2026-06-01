@@ -8,10 +8,7 @@ import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts
 import {
     resolveManagedSkillDirectoryPath,
 } from "./managed-skill-paths.ts";
-import {
-    installedRegistrySkillCompatibility,
-    renderOoPackageExecutionGuidance,
-} from "./registry-skill-markdown.ts";
+import { installedRegistrySkillCompatibility } from "./registry-skill-markdown.ts";
 import {
     createLocalSkillMetadata,
     renderSkillMetadataJson,
@@ -66,8 +63,6 @@ describe("skills init command", () => {
                 "",
                 "# Campaign Writer",
                 "",
-                renderOoPackageExecutionGuidance(),
-                "",
                 "## When to Use",
                 "",
                 "TODO: Describe the user requests and outcomes that should trigger this skill.",
@@ -79,7 +74,7 @@ describe("skills init command", () => {
                 "",
                 "## Execution",
                 "",
-                "TODO: Describe the exact oo package/block or connector command path.",
+                "TODO: Describe the exact oo connector command path, for example an authenticated connector action.",
                 "",
                 "## Result Handling",
                 "",
@@ -87,7 +82,7 @@ describe("skills init command", () => {
                 "",
                 "## Failure Handling",
                 "",
-                "TODO: Describe auth, billing, missing input, unsupported shape, timeout, or task failure blockers.",
+                "TODO: Describe auth, billing, missing input, unsupported shape, timeout, or action failure blockers.",
                 "",
             ].join("\n"));
         }
@@ -129,8 +124,6 @@ describe("skills init command", () => {
                 "",
                 "# Minimal Skill",
                 "",
-                renderOoPackageExecutionGuidance(),
-                "",
                 "## When to Use",
                 "",
                 "TODO: Describe the user requests and outcomes that should trigger this skill.",
@@ -142,7 +135,7 @@ describe("skills init command", () => {
                 "",
                 "## Execution",
                 "",
-                "TODO: Describe the exact oo package/block or connector command path.",
+                "TODO: Describe the exact oo connector command path, for example an authenticated connector action.",
                 "",
                 "## Result Handling",
                 "",
@@ -150,7 +143,7 @@ describe("skills init command", () => {
                 "",
                 "## Failure Handling",
                 "",
-                "TODO: Describe auth, billing, missing input, unsupported shape, timeout, or task failure blockers.",
+                "TODO: Describe auth, billing, missing input, unsupported shape, timeout, or action failure blockers.",
                 "",
             ].join("\n"));
         }

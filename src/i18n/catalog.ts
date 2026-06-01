@@ -35,20 +35,6 @@ export const enMessages = {
     "commands.checkUpdate.description":
         "Check whether a newer CLI release is available.",
     "commands.checkUpdate.summary": "Check for CLI updates",
-    "commands.cloudTask.description": "Manage cloud task execution workflows.",
-    "commands.cloudTask.list.description": "List cloud tasks with optional filters.",
-    "commands.cloudTask.list.summary": "List cloud tasks",
-    "commands.cloudTask.log.description": "Show paginated logs for a cloud task.",
-    "commands.cloudTask.log.summary": "Show cloud task logs",
-    "commands.cloudTask.result.description": "Show the current result for a cloud task.",
-    "commands.cloudTask.result.summary": "Show cloud task result",
-    "commands.cloudTask.run.description":
-        "Validate input values and create a cloud task for a package block.",
-    "commands.cloudTask.run.summary": "Create a cloud task",
-    "commands.cloudTask.wait.description":
-        "Wait for a cloud task to finish by polling its result.",
-    "commands.cloudTask.wait.summary": "Wait for cloud task completion",
-    "commands.cloudTask.summary": "Manage cloud tasks",
     "commands.connector.description":
         "Search connector actions and run authenticated connector operations.",
     "commands.connector.summary": "Manage connector actions",
@@ -287,56 +273,6 @@ export const enMessages = {
         "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
     "errors.shared.networkRestrictedSandboxHint":
         "Current environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
-    "errors.cloudTask.invalidResponse":
-        "The cloud task service returned an unsupported response body.",
-    "errors.cloudTask.requestError":
-        "The cloud task request failed: {message}",
-    "errors.cloudTask.requestFailed":
-        "The cloud task request returned HTTP {status}.",
-    "errors.cloudTaskWait.failed":
-        "Cloud task {taskId} finished with a failed status.",
-    "errors.cloudTaskWait.invalidTimeout":
-        "Invalid value for {option}: {value}. Use 10s to 24h, with optional s, m, or h suffixes.",
-    "errors.cloudTaskWait.timedOut":
-        "Timed out after {timeout} while waiting for cloud task {taskId}.",
-    "errors.cloudTaskList.blockIdRequiresPackageId":
-        "You must provide --package-id (or --package-name) when using --block-id.",
-    "errors.cloudTaskList.conflictingOptionValues":
-        "Conflicting option values were provided for {left} and {right}.",
-    "errors.cloudTaskList.invalidSize":
-        "Invalid value for {option}: {value}. Use an integer between 1 and 100.",
-    "errors.cloudTaskList.invalidStatus":
-        "Invalid status: {value}. Use queued, scheduling, scheduled, running, success, or failed.",
-    "errors.cloudTaskRun.blockIdRequired":
-        "The --block-id option is required.",
-    "errors.cloudTaskRun.blockNotFound":
-        "The block id {blockId} was not found in the package metadata.",
-    "errors.cloudTaskRun.dataFilePathRequired":
-        "The @data file path cannot be empty.",
-    "errors.cloudTaskRun.dataReadFailed":
-        "Failed to read input data from {path}: {message}",
-    "errors.cloudTaskRun.dataRequired":
-        "The --data option is required.",
-    "errors.cloudTaskRun.invalidDataJson":
-        "The --data value is not valid JSON: {message}",
-    "errors.cloudTaskRun.invalidHandleSchema":
-        "The input schema for handle {handle} is invalid: {message}",
-    "errors.cloudTaskRun.invalidPackageSpecifier":
-        "Invalid package specifier: {value}. Use PACKAGE_NAME@SEMVER.",
-    "errors.cloudTaskRun.invalidPayload":
-        "The value for handle {handle} is invalid: {message}",
-    "errors.cloudTaskRun.validation.credentialUnsupported":
-        "Credential inputs are not supported in the CLI.",
-    "errors.cloudTaskRun.validation.expectedType":
-        "Expected type {expectedType}, but got {actualType}.",
-    "errors.cloudTaskRun.validation.invalidStoragePath":
-        "Expected a Unix-style path starting with {prefix}.",
-    "errors.cloudTaskRun.invalidPayloadShape":
-        "The --data payload must be a JSON object.",
-    "errors.cloudTaskRun.unknownInputHandle":
-        "The handle {handle} is not defined by block {blockId}.",
-    "errors.cloudTaskRun.unsupportedContentMediaType":
-        "The handle {handle} uses unsupported contentMediaType {contentMediaType}.",
     "errors.connectorAuthenticated.invalidResponse":
         "The authenticated connector services response body is unsupported.",
     "errors.connectorAuthenticated.requestError":
@@ -1048,29 +984,6 @@ export const enMessages = {
     "arguments.text": "Search text",
     "arguments.url": "URL",
     "arguments.value": "Configuration value",
-    "cloudTask.text.dryRunPassed": "Validation passed.",
-    "cloudTask.text.billing": "Billing",
-    "cloudTask.text.error": "Error",
-    "cloudTask.text.inputValues": "Input values",
-    "cloudTask.text.nextToken": "Next token",
-    "cloudTask.text.noLogs": "No logs were returned.",
-    "cloudTask.text.noTasks": "No tasks were found.",
-    "cloudTask.text.packageBlock": "Package/Block",
-    "cloudTask.text.progress": "Progress",
-    "cloudTask.text.resultData": "Result data:",
-    "cloudTask.text.resultUrl": "Result URL",
-    "cloudTask.text.taskId": "Task ID",
-    "cloudTask.text.createdAt": "Created",
-    "cloudTask.text.updatedAt": "Updated",
-    "cloudTask.text.waitingForCompletion":
-        "Waiting for completion after {elapsed}.",
-    "cloudTask.text.workload": "Workload",
-    "cloudTask.status.failed": "failed",
-    "cloudTask.status.running": "running",
-    "cloudTask.status.scheduled": "scheduled",
-    "cloudTask.status.scheduling": "scheduling",
-    "cloudTask.status.success": "success",
-    "cloudTask.status.queued": "queued",
     "connector.search.text.authenticated": "Authenticated",
     "connector.search.text.authenticated.no": "no",
     "connector.search.text.authenticated.yes": "yes",
@@ -1150,18 +1063,6 @@ export const zhMessages = {
     "options.auth.switch.user": "切换到 id 或唯一 name 与该值匹配的账号",
     "commands.checkUpdate.description": "检查是否有新的 CLI 版本可用。",
     "commands.checkUpdate.summary": "检查 CLI 更新",
-    "commands.cloudTask.description": "管理云任务执行流程。",
-    "commands.cloudTask.list.description": "按可选条件列出云任务。",
-    "commands.cloudTask.list.summary": "列出云任务",
-    "commands.cloudTask.log.description": "查看云任务的分页日志。",
-    "commands.cloudTask.log.summary": "显示云任务日志",
-    "commands.cloudTask.result.description": "查看云任务当前结果。",
-    "commands.cloudTask.result.summary": "显示云任务结果",
-    "commands.cloudTask.run.description": "校验输入值并为包内 block 创建云任务。",
-    "commands.cloudTask.run.summary": "创建云任务",
-    "commands.cloudTask.wait.description": "通过轮询任务结果等待云任务结束。",
-    "commands.cloudTask.wait.summary": "等待云任务完成",
-    "commands.cloudTask.summary": "管理云任务",
     "commands.connector.description":
         "搜索 connector action，并运行已认证的 connector 操作。",
     "commands.connector.summary": "管理 connector action",
@@ -1376,56 +1277,6 @@ export const zhMessages = {
         "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
     "errors.shared.networkRestrictedSandboxHint":
         "当前环境可能在网络受限的沙箱中，请尝试提权。",
-    "errors.cloudTask.invalidResponse":
-        "云任务服务返回了不受支持的响应内容。",
-    "errors.cloudTask.requestError":
-        "云任务请求失败：{message}",
-    "errors.cloudTask.requestFailed":
-        "云任务请求返回了 HTTP {status}。",
-    "errors.cloudTaskWait.failed":
-        "云任务 {taskId} 以失败状态结束。",
-    "errors.cloudTaskWait.invalidTimeout":
-        "{option} 的值无效：{value}。请使用 10s 到 24h 之间的值，可选后缀为 s、m 或 h。",
-    "errors.cloudTaskWait.timedOut":
-        "等待云任务 {taskId} 超时，已达到 {timeout}。",
-    "errors.cloudTaskList.blockIdRequiresPackageId":
-        "使用 --block-id 时必须同时提供 --package-id（或 --package-name）。",
-    "errors.cloudTaskList.conflictingOptionValues":
-        "为 {left} 和 {right} 提供了冲突的选项值。",
-    "errors.cloudTaskList.invalidSize":
-        "{option} 的值无效：{value}。请使用 1 到 100 之间的整数。",
-    "errors.cloudTaskList.invalidStatus":
-        "无效的 status：{value}。请使用 queued、scheduling、scheduled、running、success 或 failed。",
-    "errors.cloudTaskRun.blockIdRequired":
-        "--block-id 选项为必填。",
-    "errors.cloudTaskRun.blockNotFound":
-        "包元数据中不存在 block id {blockId}。",
-    "errors.cloudTaskRun.dataFilePathRequired":
-        "@data 文件路径不能为空。",
-    "errors.cloudTaskRun.dataReadFailed":
-        "读取 {path} 中的输入数据失败：{message}",
-    "errors.cloudTaskRun.dataRequired":
-        "--data 选项为必填。",
-    "errors.cloudTaskRun.invalidDataJson":
-        "--data 的值不是合法 JSON：{message}",
-    "errors.cloudTaskRun.invalidHandleSchema":
-        "Handle {handle} 的输入 schema 无效：{message}",
-    "errors.cloudTaskRun.invalidPackageSpecifier":
-        "无效的包标识：{value}。请使用 PACKAGE_NAME@SEMVER。",
-    "errors.cloudTaskRun.invalidPayload":
-        "Handle {handle} 的值无效：{message}",
-    "errors.cloudTaskRun.validation.credentialUnsupported":
-        "CLI 暂不支持 credential 类型输入。",
-    "errors.cloudTaskRun.validation.expectedType":
-        "期望类型为 {expectedType}，实际为 {actualType}。",
-    "errors.cloudTaskRun.validation.invalidStoragePath":
-        "期望值为以 {prefix} 开头的 Unix 风格路径。",
-    "errors.cloudTaskRun.invalidPayloadShape":
-        "--data 的 payload 必须是 JSON object。",
-    "errors.cloudTaskRun.unknownInputHandle":
-        "Block {blockId} 未定义 handle {handle}。",
-    "errors.cloudTaskRun.unsupportedContentMediaType":
-        "Handle {handle} 使用了暂不支持的 contentMediaType {contentMediaType}。",
     "errors.connectorAuthenticated.invalidResponse":
         "已认证 connector 服务列表返回了不受支持的响应内容。",
     "errors.connectorAuthenticated.requestError":
@@ -2129,28 +1980,6 @@ export const zhMessages = {
     "arguments.text": "搜索文本",
     "arguments.url": "URL",
     "arguments.value": "配置值",
-    "cloudTask.text.dryRunPassed": "校验通过。",
-    "cloudTask.text.billing": "账单",
-    "cloudTask.text.error": "错误",
-    "cloudTask.text.inputValues": "输入参数",
-    "cloudTask.text.nextToken": "下一页令牌",
-    "cloudTask.text.noLogs": "没有返回任何日志。",
-    "cloudTask.text.noTasks": "未找到任何任务。",
-    "cloudTask.text.packageBlock": "包 / Block",
-    "cloudTask.text.progress": "进度",
-    "cloudTask.text.resultData": "结果数据：",
-    "cloudTask.text.resultUrl": "结果 URL",
-    "cloudTask.text.taskId": "任务 ID",
-    "cloudTask.text.createdAt": "创建时间",
-    "cloudTask.text.updatedAt": "更新时间",
-    "cloudTask.text.waitingForCompletion": "已等待 {elapsed}，任务仍在进行中。",
-    "cloudTask.text.workload": "工作负载",
-    "cloudTask.status.failed": "失败",
-    "cloudTask.status.running": "运行中",
-    "cloudTask.status.scheduled": "已调度",
-    "cloudTask.status.scheduling": "调度中",
-    "cloudTask.status.success": "成功",
-    "cloudTask.status.queued": "排队中",
     "connector.search.text.authenticated": "已认证",
     "connector.search.text.authenticated.no": "否",
     "connector.search.text.authenticated.yes": "是",
