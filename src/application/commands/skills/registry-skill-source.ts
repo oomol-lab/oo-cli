@@ -63,6 +63,18 @@ export function createRegistryPackageShareDownloadMetaRequestUrl(
     );
 }
 
+export function createRegistryPackageDownloadCountRequestUrl(
+    endpoint: string,
+    packageName: string,
+    packageVersion: string,
+): URL {
+    const packagePath = encodeURI(packageName);
+
+    return new URL(
+        `https://registry.${endpoint}/-/oomol/packages/${packagePath}/${encodeURIComponent(packageVersion)}/download-count`,
+    );
+}
+
 export async function loadRegistryPackageSkillInfo(
     packageName: string,
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
@@ -151,6 +163,53 @@ export async function downloadRegistryPackageTarball(
     });
 
     return new Uint8Array(await response.arrayBuffer());
+}
+
+export async function tryReportRegistryPackageDownload(
+    packageName: string,
+    packageVersion: string,
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<void> {
+    const requestUrl = createRegistryPackageDownloadCountRequestUrl(
+        account.endpoint,
+        packageName,
+        packageVersion,
+    );
+
+    try {
+        await performLoggedRequest({
+            context,
+            createRequestFailedError: status => new CliUserError(
+                "errors.skills.install.packageDownloadFailed",
+                1,
+                {
+                    status,
+                },
+            ),
+            createUnexpectedError: error => new CliUserError(
+                "errors.skills.install.packageDownloadError",
+                1,
+                {
+                    message: error instanceof Error ? error.message : String(error),
+                },
+            ),
+            fields: {
+                common: withPackageIdentity(packageName, packageVersion),
+            },
+            init: {
+                headers: {
+                    "Authorization": account.apiKey,
+                    "Content-Type": "application/json",
+                },
+                method: "POST",
+            },
+            requestLabel: "Skills install package download count",
+            requestUrl,
+        });
+    }
+    catch {
+    }
 }
 
 function parseRegistryPackageSkillInfo(

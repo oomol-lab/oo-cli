@@ -55,6 +55,7 @@ import {
 import {
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
+    tryReportRegistryPackageDownload,
 } from "./registry-skill-source.ts";
 import { isBundledSkillName } from "./shared.ts";
 import {
@@ -608,6 +609,12 @@ async function prepareRegistrySkillGroupUpdate(
             ),
         );
 
+        await tryReportRegistryPackageDownload(
+            packageInfo.packageName,
+            packageInfo.packageVersion,
+            options.account,
+            context,
+        );
         const packageBytes = await downloadRegistryPackageTarball(
             packageInfo.packageName,
             packageInfo.packageVersion,
@@ -1099,6 +1106,12 @@ async function runGroupUpdateJson(
             ),
         );
 
+        await tryReportRegistryPackageDownload(
+            packageInfo.packageName,
+            packageInfo.packageVersion,
+            account,
+            context,
+        );
         packageBytes = await downloadRegistryPackageTarball(
             packageInfo.packageName,
             packageInfo.packageVersion,
