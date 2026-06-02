@@ -41,17 +41,20 @@ type LegacyCodexCleanupContext = Pick<
 export async function removeLegacyCodexManagedSkills(
     context: LegacyCodexCleanupContext,
 ): Promise<void> {
-    try {
-        await Promise.all([
-            removeLegacyCodexHomeManagedSkills(context),
-            removeLegacyCodexCanonicalBundledStorage(context),
-        ]);
-    }
-    catch (error) {
-        context.logger.warn(
-            { err: error },
-            "Legacy Codex managed skill cleanup failed.",
-        );
+    // Best-effort cleanup: run both branches to completion and never short-circuit
+    // on the first failure, so a failing branch cannot leave the other unfinished.
+    const results = await Promise.allSettled([
+        removeLegacyCodexHomeManagedSkills(context),
+        removeLegacyCodexCanonicalBundledStorage(context),
+    ]);
+
+    for (const result of results) {
+        if (result.status === "rejected") {
+            context.logger.warn(
+                { err: result.reason },
+                "Legacy Codex managed skill cleanup failed.",
+            );
+        }
     }
 }
 

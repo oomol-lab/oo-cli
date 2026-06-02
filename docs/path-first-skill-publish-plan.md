@@ -8,7 +8,7 @@ skill ids through hidden local, registry, and agent fallback rules.
 The primary flow becomes:
 
 ```bash
-oo skills locate <skill-id> --agent universal
+oo skills locate <skill-id>
 oo skills publish <path>
 ```
 

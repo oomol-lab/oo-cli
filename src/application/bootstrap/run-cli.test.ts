@@ -235,12 +235,8 @@ describe("runCli bootstrap", () => {
             await expect(stat(managedRegistryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
-            await expect(stat(localPath)).resolves.toMatchObject({
-                isDirectory: expect.any(Function),
-            });
-            await expect(stat(unmanagedPath)).resolves.toMatchObject({
-                isDirectory: expect.any(Function),
-            });
+            expect((await stat(localPath)).isDirectory()).toBe(true);
+            expect((await stat(unmanagedPath)).isDirectory()).toBe(true);
         }
         finally {
             await sandbox.cleanup();

@@ -52,12 +52,8 @@ describe("legacy codex managed skill cleanup", () => {
             await expect(stat(registrySkillPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
-            await expect(stat(localSkillPath)).resolves.toMatchObject({
-                isDirectory: expect.any(Function),
-            });
-            await expect(stat(unmanagedSkillPath)).resolves.toMatchObject({
-                isDirectory: expect.any(Function),
-            });
+            expect((await stat(localSkillPath)).isDirectory()).toBe(true);
+            expect((await stat(unmanagedSkillPath)).isDirectory()).toBe(true);
         }
         finally {
             logCapture.close();
@@ -100,9 +96,7 @@ describe("legacy codex managed skill cleanup", () => {
             await expect(stat(canonicalCodexPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
-            await expect(stat(canonicalUniversalPath)).resolves.toMatchObject({
-                isDirectory: expect.any(Function),
-            });
+            expect((await stat(canonicalUniversalPath)).isDirectory()).toBe(true);
         }
         finally {
             logCapture.close();
@@ -138,9 +132,7 @@ describe("legacy codex managed skill cleanup", () => {
             await expect(stat(overrideSkillPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
-            await expect(stat(defaultSkillPath)).resolves.toMatchObject({
-                isDirectory: expect.any(Function),
-            });
+            expect((await stat(defaultSkillPath)).isDirectory()).toBe(true);
         }
         finally {
             logCapture.close();
@@ -167,6 +159,52 @@ describe("legacy codex managed skill cleanup", () => {
 
             logCapture.close();
             expect(logCapture.read()).toBe("");
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("completes the canonical cleanup even when the home cleanup fails", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-legacy-codex");
+        const configDirectoryPath = join(rootDirectory, "config");
+        const settingsFilePath = join(configDirectoryPath, "settings.toml");
+        const codexHomeDirectory = join(rootDirectory, ".codex");
+        const codexSkillsPath = join(codexHomeDirectory, "skills");
+        const canonicalCodexPath = join(
+            configDirectoryPath,
+            "skills",
+            "bundled",
+            "codex",
+        );
+        const logCapture = createLogCapture();
+
+        try {
+            // Make the legacy Codex skills path a file so readdir fails with a
+            // non-ENOENT error, forcing the home-cleanup branch to reject.
+            await mkdir(codexHomeDirectory, { recursive: true });
+            await Bun.write(codexSkillsPath, "not a directory\n");
+            await mkdir(canonicalCodexPath, { recursive: true });
+            await Bun.write(join(canonicalCodexPath, "marker"), "stale\n");
+
+            await removeLegacyCodexManagedSkills(
+                createCleanupContext({
+                    env: { HOME: rootDirectory, USERPROFILE: rootDirectory },
+                    logger: logCapture.logger as unknown as Logger,
+                    settingsFilePath,
+                }),
+            );
+
+            // The home branch rejected, but the canonical branch must still have
+            // run to completion (Promise.allSettled, not a fail-fast Promise.all).
+            await expect(stat(canonicalCodexPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+
+            logCapture.close();
+            expect(logCapture.read()).toContain(
+                "Legacy Codex managed skill cleanup failed.",
+            );
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });

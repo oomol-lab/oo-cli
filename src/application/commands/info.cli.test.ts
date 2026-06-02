@@ -80,11 +80,11 @@ describe("info CLI", () => {
                 sandbox.env,
                 "universal",
             );
-            await mkdir(resolveManagedSkillsDirectoryPath(universalHomeDirectory), {
-                recursive: true,
-            });
 
-            const result = await sandbox.run(["info", "--json"]);
+            // The universal host is always provisioned: a full CLI run materializes
+            // ~/.agents/skills during startup sync, so it is reported "available"
+            // without the test creating the directory first.
+            const result = await sandbox.run(["info", "--json"], { version: "1.2.3" });
 
             expect(result.exitCode).toBe(0);
             const payload = JSON.parse(result.stdout);

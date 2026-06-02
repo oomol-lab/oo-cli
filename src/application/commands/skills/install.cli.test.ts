@@ -52,7 +52,8 @@ describe("skills install --json", () => {
             const targets = ooSkill!.targets as Array<Record<string, unknown>>;
 
             expect(targets.length).toBeGreaterThanOrEqual(1);
-            expect(targets[0]).toMatchObject({
+            const universalTarget = targets.find(target => target.agentId === "universal");
+            expect(universalTarget).toMatchObject({
                 agentId: "universal",
                 status: "installed",
             });

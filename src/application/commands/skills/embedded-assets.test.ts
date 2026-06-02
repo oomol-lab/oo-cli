@@ -611,8 +611,7 @@ describe("embedded skill assets", () => {
             );
 
             expect(content).toContain("Author, generate, or scaffold a new local AI agent skill");
-            expect(content).toContain("create a skill, write a skill, or make a");
-            expect(content).toContain("Claude/agent skill");
+            expect(content).toContain("create a skill, write a skill, or make an agent skill");
             expect(content).toContain("connector action");
             expect(content).toContain("capability discovery is needed first");
             expect(content).toContain("oo skills preflight --agent");
