@@ -442,23 +442,23 @@ const commandTelemetryDecisions = {
     },
     "variables": {
         kind: "generic",
-        reason: "Command group; child commands never record variable keys or values.",
+        reason: "Command group; child commands never record variable names or values.",
     },
     "variables.list": {
         kind: "generic",
-        reason: "Generic command telemetry is enough; variable keys and values are not recorded.",
+        reason: "Generic command telemetry is enough; variable names and values are not recorded.",
     },
     "variables.get": {
         kind: "generic",
-        reason: "Generic command telemetry is enough; the variable key and value are not recorded.",
+        reason: "Generic command telemetry is enough; the variable name and value are not recorded.",
     },
     "variables.create": {
         kind: "generic",
-        reason: "Generic command telemetry is enough; the variable key and value are not recorded.",
+        reason: "Generic command telemetry is enough; the variable name and value are not recorded.",
     },
     "variables.delete": {
         kind: "generic",
-        reason: "Generic command telemetry is enough; the variable key is not recorded.",
+        reason: "Generic command telemetry is enough; the variable name is not recorded.",
     },
     "version": {
         kind: "generic",
