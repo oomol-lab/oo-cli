@@ -440,6 +440,26 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records self-update state without raw version strings.",
     },
+    "variables": {
+        kind: "generic",
+        reason: "Command group; child commands never record variable names or values.",
+    },
+    "variables.list": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; variable names and values are not recorded.",
+    },
+    "variables.get": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; the variable name and value are not recorded.",
+    },
+    "variables.create": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; the variable name and value are not recorded.",
+    },
+    "variables.delete": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; the variable name is not recorded.",
+    },
     "version": {
         kind: "generic",
         reason: "Generic command telemetry is enough; the CLI version and commit are already attached to every event via the global cli_version and cli_commit dimensions, and build time is not telemetry-relevant.",

@@ -36,6 +36,7 @@ export interface TextBuffer {
 
 export interface TestInteractiveInput extends InteractiveInput {
     feed: (chunk: string) => void;
+    end: () => void;
 }
 
 export interface TextBufferOptions {
@@ -186,30 +187,56 @@ export function createTextBuffer(options: TextBufferOptions = {}): TextBuffer {
     };
 }
 
-export function createInteractiveInput(): TestInteractiveInput {
-    const listeners = new Set<(chunk: string | Uint8Array) => void>();
+export function createInteractiveInput(
+    options: { isTTY?: boolean } = {},
+): TestInteractiveInput {
+    const dataListeners = new Set<(chunk: string | Uint8Array) => void>();
+    const endListeners = new Set<(chunk: string | Uint8Array) => void>();
     const bufferedChunks: Uint8Array[] = [];
     const textEncoder = new TextEncoder();
+    let ended = false;
 
     return {
-        isTTY: true,
+        isTTY: options.isTTY ?? true,
         feed(chunk) {
             const encodedChunk = textEncoder.encode(chunk);
 
-            if (listeners.size === 0) {
+            if (dataListeners.size === 0) {
                 bufferedChunks.push(encodedChunk);
                 return;
             }
 
-            for (const listener of listeners) {
+            for (const listener of dataListeners) {
                 listener(encodedChunk);
             }
         },
-        off(_, listener) {
-            listeners.delete(listener);
+        end() {
+            ended = true;
+
+            for (const listener of endListeners) {
+                (listener as () => void)();
+            }
         },
-        on(_, listener) {
-            listeners.add(listener);
+        off(event, listener) {
+            if (event === "end") {
+                endListeners.delete(listener);
+                return;
+            }
+
+            dataListeners.delete(listener);
+        },
+        on(event, listener) {
+            if (event === "end") {
+                endListeners.add(listener);
+
+                if (ended) {
+                    (listener as () => void)();
+                }
+
+                return;
+            }
+
+            dataListeners.add(listener);
 
             while (bufferedChunks.length > 0) {
                 const chunk = bufferedChunks.shift();

@@ -584,19 +584,26 @@ export function createLazyInput(factory: () => InteractiveInput): InteractiveInp
         pause() {
             source().pause?.();
         },
-        on(event: "data", listener: (chunk: string | Uint8Array) => void) {
+        on(event: "data" | "end", listener: (chunk: string | Uint8Array) => void) {
             source().on(event, listener);
         },
-        off(event: "data", listener: (chunk: string | Uint8Array) => void) {
+        off(event: "data" | "end", listener: (chunk: string | Uint8Array) => void) {
             source().off(event, listener);
         },
     };
 }
 
 function createDetachedStdin(): InteractiveInput {
+    // A detached stdin behaves like an already-ended empty stream: no `data`
+    // is ever delivered, and `end` fires asynchronously so readers (e.g.
+    // `--stdin`) resolve with an empty string instead of hanging on EOF.
     return {
         isTTY: false,
-        on() {},
+        on(event: "data" | "end", listener: (chunk: string | Uint8Array) => void) {
+            if (event === "end") {
+                queueMicrotask(() => (listener as () => void)());
+            }
+        },
         off() {},
     };
 }

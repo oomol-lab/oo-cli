@@ -19,6 +19,7 @@ import { skillsCommand } from "./skills/index.ts";
 import { telemetryCommand } from "./telemetry/index.ts";
 import { uninstallCommand } from "./uninstall.ts";
 import { updateCommand } from "./update.ts";
+import { variablesCommand } from "./variables/index.ts";
 import { versionCommand } from "./version.ts";
 
 const globalOptions = [
@@ -61,6 +62,7 @@ export function createCliCatalog(): CliCatalog {
             telemetryCommand,
             uninstallCommand,
             updateCommand,
+            variablesCommand,
             versionCommand,
         ],
     };

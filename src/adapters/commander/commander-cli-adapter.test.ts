@@ -178,6 +178,34 @@ describe("CommanderCliAdapter", () => {
             },
         ]);
     });
+
+    test("lists every command alias in the help command list", async () => {
+        const adapter = new CommanderCliAdapter();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const catalog: CliCatalog = {
+            commands: [
+                {
+                    aliases: ["d", "dd", "ddd"],
+                    name: "demo",
+                    summaryKey: "commands.help.summary",
+                },
+            ],
+            descriptionKey: "app.description",
+            globalOptions: [],
+            name: "oo",
+        };
+
+        const exitCode = await adapter.run({
+            argv: ["help"],
+            catalog,
+            context: createCommanderContext(catalog, stdout.writer, stderr.writer),
+        });
+
+        expect(exitCode).toBe(0);
+        expect(stdout.read()).toContain("demo|d|dd|ddd");
+        expect(stderr.read()).toBe("");
+    });
 });
 
 function createCommanderContext(

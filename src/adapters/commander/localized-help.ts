@@ -69,6 +69,24 @@ export class LocalizedHelp extends Help {
         ]);
     }
 
+    override subcommandTerm(cmd: Command): string {
+        const term = super.subcommandTerm(cmd);
+        const aliases = cmd.aliases();
+
+        // Commander only renders the first alias (name|alias0). Expand the
+        // term so every registered alias is discoverable in the command list.
+        if (aliases.length <= 1) {
+            return term;
+        }
+
+        const firstAliasPrefix = `${cmd.name()}|${aliases[0]}`;
+        const allAliasesPrefix = `${cmd.name()}|${aliases.join("|")}`;
+
+        return term.startsWith(firstAliasPrefix)
+            ? `${allAliasesPrefix}${term.slice(firstAliasPrefix.length)}`
+            : term;
+    }
+
     override visibleGlobalOptions(cmd: Command): Option[] {
         if (!this.showGlobalOptions || cmd.parent === null) {
             return [];
