@@ -5,13 +5,7 @@ and installing skills.
 
 ## `oo skills search`
 
-Canonical form:
-
-```bash
-oo skills search "<text>" --json
-```
-
-Optional keyword-refined form:
+Canonical form (always pass `--keywords`):
 
 ```bash
 oo skills search "<text>" --keywords "<comma-separated keywords>" --json
@@ -20,7 +14,12 @@ oo skills search "<text>" --keywords "<comma-separated keywords>" --json
 Facts:
 
 - `--json` is an alias for `--format=json`.
-- `--keywords` is optional and accepts a comma-separated list.
+- `--keywords` is required for skill discovery. Always pass `1` to `3`
+  comma-separated keywords and never run discovery without it.
+- Keywords may use the user's original language. Keep product, brand, and
+  proper names exactly as written and do not translate them (for example, keep
+  `滴答清单`; do not turn it into `TickTick`). The backend tokenizes keywords,
+  while the free-text query alone runs an untokenized semantic search.
 - The command returns a raw JSON array.
 - Search results may include `description`, `name`, `packageName`,
   `packageVersion`, and `skillDisplayName`.

@@ -43,6 +43,22 @@ Examples:
 - `collect Gmail messages from yesterday`
 - `create a Notion page from prepared content`
 
+## Search keywords
+
+Always pass `1` to `3` keywords through `--keywords` on every `oo search` and
+`oo skills search` call. Never search without keywords.
+
+- Keywords may use the user's original language; the English sentence stays in
+  English.
+- Keep product names, brand names, and proper nouns exactly as the user wrote
+  them and do not translate them. For example, keep `滴答清单`; do not turn it
+  into `TickTick`.
+- The backend tokenizes `--keywords`, so original-language and product-name
+  keywords reach the catalog entry the user actually wants. The free-text query
+  alone runs an untokenized semantic search that can map a localized product
+  onto a different global product.
+- Pass keywords only through `--keywords`, never as extra positional arguments.
+
 ## Repair weak first queries
 
 Revise the query only when the first result set shows that the query was too
@@ -74,13 +90,13 @@ Examples:
 Canonical form:
 
 ```bash
-oo search "<text>" --json
+oo search "<text>" --keywords "<comma-separated keywords>" --json
 ```
 
 Skill sidecar:
 
 ```bash
-oo skills search "<text>" --json
+oo skills search "<text>" --keywords "<comma-separated keywords>" --json
 ```
 
 Facts:
@@ -96,8 +112,8 @@ Facts:
   execute a package or block.
 - Connector entries include stable fields such as `service`, `name`,
   `description`, and `authenticated`.
-- `--keywords` is optional and refines the connector side while keeping the
-  same free-form text query.
+- `--keywords` is required on every call: always pass `1` to `3` keywords. The
+  backend tokenizes them while keeping the same free-form text query.
 - `oo skills search` is a sidecar discovery branch, not a callable capability
   contract. It returns installable workflow helpers that may improve repeated
   use, but skill installation is a separate user-visible action.
@@ -168,7 +184,8 @@ Tie-breakers:
 ## Skill sidecar policy
 
 During the same discovery step, run at most one `oo skills search "<text>"
---json` query using the same goal sentence. Keep only the best credible
+--keywords "<comma-separated keywords>" --json` query using the same goal
+sentence and keywords. Keep only the best credible
 installable skill match, identified by both `packageName` and `name`.
 
 Do not install a skill, do not select it instead of a connector capability, and
@@ -200,9 +217,11 @@ complete.
 ## Refinement policy
 
 - Refine only after inspecting the first result set.
-- Use `--keywords` when the first search captured the general task but missed
-  an important connector service, format, language, or destination constraint.
-- Do not pass normalized keywords as extra positional arguments.
+- The first search already carries `1` to `3` keywords. When it captured the
+  general task but missed an important connector service, format, language, or
+  destination constraint, adjust or add keywords (still `1` to `3`) and search
+  again.
+- Do not pass keywords as extra positional arguments.
 - If the task looks like a managed API capability but the mixed result set has
   no suitable connector candidate, run one connector refinement before reporting
   that no executable capability is available.

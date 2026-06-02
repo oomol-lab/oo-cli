@@ -18,32 +18,40 @@ expectations, output-shape rules, or failure-handling details.
 
 ## Workflow
 
-### 1. Normalize the request into English search terms
+### 1. Normalize the request into a search sentence and keywords
 
 Convert the user request into:
 
 - one short internal intent statement
 - one concise English sentence for the search text
-- `0` to `3` English keywords or short phrases for the optional `--keywords`
-  filter
+- `1` to `3` required keywords or short phrases for the `--keywords` filter
 
 Rules:
 
-- The sentence and keywords must always be in English, regardless of the
-  user's language.
+- The sentence must always be in English, regardless of the user's language.
+- Keywords are required on every search. Always provide `1` to `3` keywords and
+  never run a search without `--keywords`.
+- Keywords may use the user's original language. Keep product names, brand
+  names, and proper nouns exactly as the user wrote them and do not translate
+  them. For example, keep `滴答清单` as `滴答清单`; do not turn it into
+  `TickTick`.
+- The backend tokenizes `--keywords`, so original-language and product-name
+  keywords reach the catalog entry the user actually wants. The free-text
+  sentence alone runs an untokenized semantic search that can map a localized
+  product onto a different global product.
 - The sentence should describe only the user's need itself.
 - Prefer a short sentence built from task + capability + domain or constraint.
 - Do not add meta words such as `skill`, `skills`, `search`, `install`, or
   `Codex` unless the user's actual need depends on those words.
 - Avoid filler words.
-- Use keywords only when they add extra filtering signal that the sentence does
-  not already capture.
-- Prefer `0` to `3` keywords. Do not exceed `3`.
+- Do not exceed `3` keywords.
 
 Examples:
 
 - Sentence: `translate scanned images from Japanese to English`
   Keywords: `Japanese`, `image translation`
+- Sentence: `create a task in the dida365 to-do app`
+  Keywords: `滴答清单`, `dida365`
 - Sentence: `generate a QR code from text`
   Keywords: `QR code`
 - Sentence: `convert speech to text`
@@ -51,18 +59,12 @@ Examples:
 - Sentence: `write Markdown more effectively`
   Keywords: `Markdown`, `writing`
 
-Use the sentence as the main search text. Add `--keywords` only when the extra
-keywords help narrow the search.
+Use the sentence as the main search text and always pass the `1` to `3`
+keywords through `--keywords`.
 
 ### 2. Search for candidate skills
 
-Run:
-
-```bash
-oo skills search "<english query>" --json
-```
-
-Or, when helpful:
+Always run the keyword-refined form:
 
 ```bash
 oo skills search "<english sentence>" --keywords "<comma-separated keywords>" --json
