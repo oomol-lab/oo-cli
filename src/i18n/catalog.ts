@@ -22,7 +22,7 @@ export const enMessages = {
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
     "commands.auth.description": "Manage CLI authentication accounts.",
     "commands.auth.login.description":
-        "Log in with an OOMOL account using device login or a session token.",
+        "Log in with an OOMOL account using device login, a session token, or an API key.",
     "commands.auth.login.summary": "Log in with an OOMOL account",
     "commands.auth.logout.description": "Remove the current account from persisted auth data.",
     "commands.auth.logout.summary": "Log out the current account",
@@ -117,7 +117,7 @@ export const enMessages = {
         "Print one previous persisted debug log file by index.",
     "commands.log.print.summary": "Print a previous debug log",
     "commands.login.description":
-        "Log in with an OOMOL account using device login or a session token. Alias for auth login.",
+        "Log in with an OOMOL account using device login, a session token, or an API key. Alias for auth login.",
     "commands.login.summary": "Log in with an OOMOL account (alias for auth login)",
     "commands.logout.description":
         "Remove the current account from persisted auth data. Alias for auth logout.",
@@ -229,8 +229,14 @@ export const enMessages = {
     "errors.commander.suggestion": "Did you mean {value}?",
     "errors.commander.unknownCommand": "Unknown command: {value}.",
     "errors.commander.unknownOption": "Unknown option: {value}.",
+    "errors.auth.apiKeyInvalid":
+        "The API key is invalid or has expired.",
+    "errors.auth.apiKeyRequired":
+        "API key must not be empty.",
     "errors.auth.loginInvalidResponse":
         "The auth login service returned an unsupported response body.",
+    "errors.auth.loginMethodConflict":
+        "Use only one of --api-key or --session-token.",
     "errors.auth.loginRequestError":
         "The auth login request failed: {message}",
     "errors.auth.loginRequestFailed":
@@ -755,6 +761,7 @@ export const enMessages = {
     "options.showUrl": "Include download URLs in text output",
     "options.size": "Specify the number of items per page",
     "options.status": "Filter by task status",
+    "options.apiKey": "Log in with an existing API key",
     "options.sessionToken": "Log in with a session token",
     "options.schema": "Provide response JSON Schema or @path to a JSON file",
     "options.system": "System prompt text or @path to a text file",
@@ -1046,7 +1053,7 @@ export const zhMessages = {
     "auth.status.loggedOut": "当前没有登录任何 OOMOL 账号。",
     "auth.switch.success": "已将 {endpoint} 的当前激活账号切换为 {name}",
     "commands.auth.description": "管理 CLI 的认证账号。",
-    "commands.auth.login.description": "通过 device login 或 session token 登录 OOMOL 账号。",
+    "commands.auth.login.description": "通过 device login、session token 或 API key 登录 OOMOL 账号。",
     "commands.auth.login.summary": "登录 OOMOL 账号",
     "commands.auth.logout.description": "从持久化认证数据中移除当前账号。",
     "commands.auth.logout.summary": "登出当前账号",
@@ -1134,7 +1141,7 @@ export const zhMessages = {
     "commands.log.path.summary": "显示日志目录路径",
     "commands.log.print.description": "按序号打印某一份更早的持久化 debug 日志文件内容。",
     "commands.log.print.summary": "输出某一份更早的 debug 日志",
-    "commands.login.description": "通过 device login 或 session token 登录 OOMOL 账号。是 auth login 的别名。",
+    "commands.login.description": "通过 device login、session token 或 API key 登录 OOMOL 账号。是 auth login 的别名。",
     "commands.login.summary": "登录 OOMOL 账号（auth login 的别名）",
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
     "commands.logout.summary": "登出当前账号（auth logout 的别名）",
@@ -1241,7 +1248,10 @@ export const zhMessages = {
     "errors.commander.suggestion": "你是想输入 {value} 吗？",
     "errors.commander.unknownCommand": "未知命令：{value}。",
     "errors.commander.unknownOption": "未知选项：{value}。",
+    "errors.auth.apiKeyInvalid": "API key 无效或已过期。",
+    "errors.auth.apiKeyRequired": "API key 不能为空。",
     "errors.auth.loginInvalidResponse": "auth login 服务返回了不受支持的响应内容。",
+    "errors.auth.loginMethodConflict": "--api-key 与 --session-token 只能使用其中一个。",
     "errors.auth.loginRequestError": "auth login 请求失败：{message}",
     "errors.auth.loginRequestFailed": "auth login 请求返回了 HTTP {status}。",
     "errors.auth.loginTimeout": "等待 device login 完成超过 {timeout}，已超时。",
@@ -1750,6 +1760,7 @@ export const zhMessages = {
     "options.showUrl": "在文本输出中包含下载 URL",
     "options.size": "指定每页数量",
     "options.status": "按任务状态过滤",
+    "options.apiKey": "使用已有 API key 登录",
     "options.sessionToken": "使用 session token 登录",
     "options.schema": "提供响应 JSON Schema，或使用 @路径 读取 JSON 文件",
     "options.system": "System prompt 文本，或使用 @路径 读取文本文件",

@@ -6,6 +6,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import {
+    requestAuthAccountWithApiKey,
     requestAuthAccountWithSessionToken,
     startAuthLoginSession,
 } from "../../auth/login-flow.ts";
@@ -22,9 +23,21 @@ import {
 const loginUrlColor = "#c09ff5";
 const defaultAuthEndpoint = "oomol.com";
 
+type LoginMethod = "api_key" | "device_login" | "session_token";
+
+const persistedLogMessages = {
+    api_key: "Auth account persisted after api key login.",
+    device_login: "Auth account persisted after device login.",
+    session_token: "Auth account persisted after fast login.",
+} as const satisfies Record<LoginMethod, string>;
+
 const authLoginCommandInputSchema = z.object({
+    apiKey: z.string().trim().min(1).optional(),
     sessionToken: z.string().trim().min(1).optional(),
-});
+}).refine(
+    input => !(input.apiKey !== undefined && input.sessionToken !== undefined),
+    { message: "Use only one of --api-key or --session-token." },
+);
 
 export type AuthLoginCommandInput = z.output<typeof authLoginCommandInputSchema>;
 
@@ -34,6 +47,12 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
     descriptionKey: "commands.auth.login.description",
     options: [
         {
+            name: "apiKey",
+            longFlag: "--api-key",
+            valueName: "api-key",
+            descriptionKey: "options.apiKey",
+        },
+        {
             name: "sessionToken",
             longFlag: "--session-token",
             valueName: "session-token",
@@ -41,24 +60,19 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
         },
     ],
     inputSchema: authLoginCommandInputSchema,
-    mapInputError: () => new CliUserError("errors.auth.sessionTokenRequired", 2),
+    mapInputError: (_error, rawInput) => mapLoginInputError(rawInput),
     handler: async (input: AuthLoginCommandInput, context) => {
         const authEndpoint = readAuthEndpoint(context.env);
-        const loginMethod = input.sessionToken === undefined
-            ? "device_login" as const
-            : "session_token" as const;
+        const loginMethod = resolveLoginMethod(input);
 
         context.telemetry?.recordProperties({ auth_method: loginMethod });
 
-        const account = loginMethod === "device_login"
-            ? await runDeviceLogin(authEndpoint, context)
-            : await requestAuthAccountWithSessionToken({
-                    endpoint: authEndpoint,
-                    fetcher: context.fetcher,
-                    logger: context.logger,
-                    sessionToken: input.sessionToken!,
-                    translator: context.translator,
-                });
+        const account = await resolveAuthAccount(
+            loginMethod,
+            input,
+            authEndpoint,
+            context,
+        );
 
         const nextAuthFile = await context.authStore.update(authFile =>
             upsertAuthAccount(authFile, account),
@@ -73,9 +87,7 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
                 loginMethod,
                 name: account.name,
             },
-            loginMethod === "device_login"
-                ? "Auth account persisted after device login."
-                : "Auth account persisted after fast login.",
+            persistedLogMessages[loginMethod],
         );
 
         writeAuthBlock(context, {
@@ -93,6 +105,63 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
         });
     },
 };
+
+function resolveLoginMethod(input: AuthLoginCommandInput): LoginMethod {
+    if (input.apiKey !== undefined) {
+        return "api_key";
+    }
+
+    if (input.sessionToken !== undefined) {
+        return "session_token";
+    }
+
+    return "device_login";
+}
+
+async function resolveAuthAccount(
+    loginMethod: LoginMethod,
+    input: AuthLoginCommandInput,
+    authEndpoint: string,
+    context: CliExecutionContext,
+): Promise<AuthAccount> {
+    switch (loginMethod) {
+        case "api_key":
+            return await requestAuthAccountWithApiKey({
+                apiKey: input.apiKey!,
+                endpoint: authEndpoint,
+                fetcher: context.fetcher,
+                logger: context.logger,
+                translator: context.translator,
+            });
+        case "device_login":
+            return await runDeviceLogin(authEndpoint, context);
+        case "session_token":
+            return await requestAuthAccountWithSessionToken({
+                endpoint: authEndpoint,
+                fetcher: context.fetcher,
+                logger: context.logger,
+                sessionToken: input.sessionToken!,
+                translator: context.translator,
+            });
+    }
+}
+
+function mapLoginInputError(
+    rawInput: Record<string, unknown>,
+): CliUserError {
+    const hasApiKey = typeof rawInput.apiKey === "string";
+    const hasSessionToken = typeof rawInput.sessionToken === "string";
+
+    if (hasApiKey && hasSessionToken) {
+        return new CliUserError("errors.auth.loginMethodConflict", 2);
+    }
+
+    if (hasApiKey) {
+        return new CliUserError("errors.auth.apiKeyRequired", 2);
+    }
+
+    return new CliUserError("errors.auth.sessionTokenRequired", 2);
+}
 
 async function runDeviceLogin(
     authEndpoint: string,

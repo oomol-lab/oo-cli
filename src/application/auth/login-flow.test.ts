@@ -7,6 +7,7 @@ import {
 } from "../../../__tests__/helpers.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import {
+    requestAuthAccountWithApiKey,
     requestAuthAccountWithSessionToken,
     startAuthLoginSession,
 } from "./login-flow.ts";
@@ -354,6 +355,183 @@ describe("startAuthLoginSession", () => {
             expect(logs).not.toContain(encodedSessionToken);
             expect(logs).not.toContain(searchEncodedSessionToken);
             expect(logs).toContain("session_token=<redacted>");
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+});
+
+describe("requestAuthAccountWithApiKey", () => {
+    test("resolves an account from the users profile endpoint", async () => {
+        const logCapture = createLogCapture();
+        const endpoint = "example.test";
+        const apiKey = "api-key-1";
+        const requests: Request[] = [];
+
+        try {
+            const account = await requestAuthAccountWithApiKey({
+                apiKey,
+                endpoint,
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    const requestUrl = new URL(request.url);
+
+                    requests.push(request);
+
+                    if (
+                        request.method === "GET"
+                        && requestUrl.host === `api.${endpoint}`
+                        && requestUrl.pathname === "/v1/users/profile"
+                        && request.headers.get("Authorization") === apiKey
+                    ) {
+                        return new Response(JSON.stringify({
+                            displayname: "Kevin Cui",
+                            email: "bh@bugs.cc",
+                            nickname: "Kevin Cui",
+                            uid: "019343c2-c43d-710f-81b2-dfa68d3079de",
+                            username: "BlackHole1",
+                        }));
+                    }
+
+                    throw new Error(`Unexpected request: ${request.method} ${requestUrl}`);
+                },
+                logger: logCapture.logger,
+                translator: createTranslator("en"),
+            });
+
+            expect(requests).toHaveLength(1);
+            expect(account).toEqual({
+                apiKey,
+                endpoint,
+                id: "019343c2-c43d-710f-81b2-dfa68d3079de",
+                name: "BlackHole1",
+            });
+
+            const request = requests[0];
+
+            expect(request?.method).toBe("GET");
+            expect(request?.url).toBe(`https://api.${endpoint}/v1/users/profile`);
+
+            const logs = logCapture.read();
+
+            expect(logs).toContain("\"msg\":\"Auth api key login request started.\"");
+            expect(logs).toContain("\"msg\":\"Auth api key login completed successfully.\"");
+            expect(logs).not.toContain(apiKey);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("throws an invalid api key error when the profile request is unauthorized", async () => {
+        const logCapture = createLogCapture();
+
+        try {
+            await expect(requestAuthAccountWithApiKey({
+                apiKey: "api-key-1",
+                endpoint: "example.test",
+                fetcher: async () => new Response(null, { status: 401 }),
+                logger: logCapture.logger,
+                translator: createTranslator("en"),
+            })).rejects.toMatchObject({
+                key: "errors.auth.apiKeyInvalid",
+            });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("throws an invalid api key error when the profile request is forbidden", async () => {
+        const logCapture = createLogCapture();
+
+        try {
+            await expect(requestAuthAccountWithApiKey({
+                apiKey: "api-key-1",
+                endpoint: "example.test",
+                fetcher: async () => new Response(null, { status: 403 }),
+                logger: logCapture.logger,
+                translator: createTranslator("en"),
+            })).rejects.toMatchObject({
+                key: "errors.auth.apiKeyInvalid",
+            });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("throws a generic request error when the profile request fails with a server error", async () => {
+        const logCapture = createLogCapture();
+
+        try {
+            await expect(requestAuthAccountWithApiKey({
+                apiKey: "api-key-1",
+                endpoint: "example.test",
+                fetcher: async () => new Response(null, { status: 500 }),
+                logger: logCapture.logger,
+                translator: createTranslator("en"),
+            })).rejects.toMatchObject({
+                key: "errors.auth.loginRequestFailed",
+                params: {
+                    status: 500,
+                },
+            });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("throws an invalid response error when the profile body is unsupported", async () => {
+        const logCapture = createLogCapture();
+
+        try {
+            await expect(requestAuthAccountWithApiKey({
+                apiKey: "api-key-1",
+                endpoint: "example.test",
+                fetcher: async () => new Response(JSON.stringify({
+                    username: "BlackHole1",
+                })),
+                logger: logCapture.logger,
+                translator: createTranslator("en"),
+            })).rejects.toMatchObject({
+                key: "errors.auth.loginInvalidResponse",
+            });
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("redacts the api key from profile request failures", async () => {
+        const logCapture = createLogCapture();
+        const endpoint = "example.test";
+        const apiKey = "super-secret-api-key";
+
+        try {
+            await expect(requestAuthAccountWithApiKey({
+                apiKey,
+                endpoint,
+                fetcher: async () => {
+                    throw new Error(
+                        `Failed to fetch https://api.${endpoint}/v1/users/profile with Authorization ${apiKey}`,
+                    );
+                },
+                logger: logCapture.logger,
+                translator: createTranslator("en"),
+            })).rejects.toMatchObject({
+                key: "errors.auth.loginRequestError",
+                params: {
+                    message:
+                        `Failed to fetch https://api.${endpoint}/v1/users/profile with Authorization <redacted>`,
+                },
+            });
+
+            const logs = logCapture.read();
+
+            expect(logs).not.toContain(apiKey);
         }
         finally {
             logCapture.close();

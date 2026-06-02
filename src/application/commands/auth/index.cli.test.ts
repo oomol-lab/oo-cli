@@ -318,6 +318,102 @@ describe("auth CLI", () => {
         }
     });
 
+    test("supports login with an API key", async () => {
+        const sandbox = await createCliSandbox();
+        const apiKey = "secret-api-1";
+        const requests: Request[] = [];
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+            const result = await sandbox.run(
+                ["login", "--api-key", apiKey],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+                        const requestUrl = new URL(request.url);
+
+                        requests.push(request);
+
+                        if (
+                            request.method === "GET"
+                            && requestUrl.host === `api.${defaultAuthEndpoint}`
+                            && requestUrl.pathname === "/v1/users/profile"
+                            && request.headers.get("Authorization") === apiKey
+                        ) {
+                            return new Response(JSON.stringify({
+                                displayname: "Kevin Cui",
+                                email: "bh@bugs.cc",
+                                nickname: "Kevin Cui",
+                                uid: "019343c2-c43d-710f-81b2-dfa68d3079de",
+                                username: "BlackHole1",
+                            }));
+                        }
+
+                        throw new Error(`Unexpected auth api key login request: ${request.method} ${requestUrl}`);
+                    },
+                },
+            );
+            const authFileContent = await readFile(authFilePath, "utf8");
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(result.stdout).not.toContain("Open this login URL");
+            expect(result.stdout).not.toContain("Waiting for the device login");
+            expect(createCliSnapshot(result)).toEqual({
+                exitCode: 0,
+                stderr: "",
+                stdout:
+                    "✓ Logged in to oomol.com account BlackHole1\n  - Active account: true\n",
+            });
+            expect(authFileContent).toContain("id = \"019343c2-c43d-710f-81b2-dfa68d3079de\"");
+            expect(authFileContent).toContain("name = \"BlackHole1\"");
+            expect(authFileContent).toContain("api_key = \"secret-api-1\"");
+            expect(authFileContent).toContain("endpoint = \"oomol.com\"");
+            expect(content).toContain(`"msg":"Auth api key login request started."`);
+            expect(content).toContain(`"msg":"Auth api key login completed successfully."`);
+            expect(content).toContain(`"msg":"Auth account persisted after api key login."`);
+            expect(content).not.toContain(apiKey);
+            expect(result.stdout).not.toContain(apiKey);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects combining --api-key with --session-token", async () => {
+        const sandbox = await createCliSandbox();
+        const authFilePath = join(
+            sandbox.env.XDG_CONFIG_HOME!,
+            APP_NAME,
+            "auth.toml",
+        );
+
+        try {
+            const result = await sandbox.run(
+                ["login", "--api-key", "secret-api-1", "--session-token", "session-1"],
+                {
+                    fetcher: async () => {
+                        throw new Error("No request should be made for conflicting login options.");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("--api-key");
+            expect(result.stderr).toContain("--session-token");
+            expect(await Bun.file(authFilePath).exists()).toBeFalse();
+            expect(result.stdout + result.stderr).not.toContain("secret-api-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("renders the auth login url and success block with color styling when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
         const colors = createTerminalColors(true);

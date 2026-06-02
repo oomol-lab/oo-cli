@@ -42,14 +42,17 @@
 
 ### `oo auth login`
 
-启动 device login 流程，或使用 session token 登录，并保存登录成功后的账号。
+启动 device login 流程，或使用 session token、API key 登录，并保存登录成功后的账号。
 
-- 说明：未传入 `--session-token` 时，CLI 会打印验证地址，并把用户 code 放在
-  `user_code` query 参数中，然后最多等待 10 分钟，直到 device login 验证成功；
+- 说明：未传入 `--session-token` 也未传入 `--api-key` 时，CLI 会打印验证地址，并把用户
+  code 放在 `user_code` query 参数中，然后最多等待 10 分钟，直到 device login 验证成功；
   如果超过该时间仍未完成验证，会以超时错误退出。
 - 选项：
   - `--session-token <session-token>`：使用已有 session token 登录。传入后 CLI 不会
     打印 device-login URL，也不会轮询验证结果。
+  - `--api-key <api-key>`：使用已有 API key 登录。CLI 会通过账号 profile 校验该 key，
+    校验通过后直接保存账号，不会打印 device-login URL 或轮询；若 key 无效或已过期则以
+    错误退出。`--api-key` 与 `--session-token` 不能同时使用。
 
 ### `oo auth logout`
 
@@ -124,7 +127,8 @@
 
 ### `oo login`
 
-`oo auth login` 的别名。支持相同的 `--session-token <session-token>` 选项。
+`oo auth login` 的别名。支持相同的 `--session-token <session-token>` 与
+`--api-key <api-key>` 选项。
 
 ### `oo logout`
 
