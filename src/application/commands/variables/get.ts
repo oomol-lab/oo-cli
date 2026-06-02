@@ -3,10 +3,10 @@ import { z } from "zod";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
-import { getVariable, mapVariablesInputError, variableFormatValues, variableKeySchema } from "./shared.ts";
+import { getVariable, mapVariablesInputError, variableFormatValues, variableNameSchema } from "./shared.ts";
 
 interface VariablesGetInput {
-    key: string;
+    name: string;
     format?: (typeof variableFormatValues)[number];
     showSchemaVersion?: boolean;
 }
@@ -18,21 +18,21 @@ export const variablesGetCommand: CliCommandDefinition<VariablesGetInput> = {
     missingArgumentBehavior: "showHelp",
     arguments: [
         {
-            name: "key",
-            descriptionKey: "arguments.variableKey",
+            name: "name",
+            descriptionKey: "arguments.variableName",
             required: true,
         },
     ],
     options: [...jsonOutputOptions],
     inputSchema: z.object({
-        key: variableKeySchema,
+        name: variableNameSchema,
         format: z.enum(variableFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: mapVariablesInputError,
     handler: async (input, context) => {
         const account = await requireCurrentAccount(context);
-        const variable = await getVariable(account, input.key, context);
+        const variable = await getVariable(account, input.name, context);
 
         if (input.format === "json") {
             writeJsonOutput(context.stdout, variable, {

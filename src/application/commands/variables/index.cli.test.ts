@@ -7,13 +7,13 @@ import {
 } from "../../../../__tests__/helpers.ts";
 
 const VARIABLE = {
-    key: "model-config",
+    name: "model-config",
     value: "{\"model\":\"gpt-4.1\"}",
     updatedAt: "2026-06-01T08:01:49.000Z",
 };
 
 describe("variables list", () => {
-    test("GET /v1/variables 带鉴权；文本只显示 key + updatedAt，不显示 value", async () => {
+    test("GET /v1/variables 带鉴权；文本只显示 name + updatedAt，不显示 value", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
 
@@ -163,7 +163,7 @@ describe("variables create / update", () => {
             const result = await sandbox.run(["variables", "update", "k", "v"], {
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init));
-                    return new Response(JSON.stringify({ ...VARIABLE, key: "k", value: "v" }));
+                    return new Response(JSON.stringify({ ...VARIABLE, name: "k", value: "v" }));
                 },
             });
 
@@ -186,7 +186,7 @@ describe("variables create / update", () => {
             const result = await sandbox.run(["variables", "create", "k", ""], {
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init));
-                    return new Response(JSON.stringify({ ...VARIABLE, key: "k", value: "" }));
+                    return new Response(JSON.stringify({ ...VARIABLE, name: "k", value: "" }));
                 },
             });
 
@@ -210,7 +210,7 @@ describe("variables create / update", () => {
             const result = await sandbox.run(["variables", "create", "k", "--from-file", filePath], {
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init));
-                    return new Response(JSON.stringify({ ...VARIABLE, key: "k", value: "from-file-value\n" }));
+                    return new Response(JSON.stringify({ ...VARIABLE, name: "k", value: "from-file-value\n" }));
                 },
             });
 
@@ -236,7 +236,7 @@ describe("variables create / update", () => {
                 stdin,
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init));
-                    return new Response(JSON.stringify({ ...VARIABLE, key: "k", value: "piped\nvalue" }));
+                    return new Response(JSON.stringify({ ...VARIABLE, name: "k", value: "piped\nvalue" }));
                 },
             });
 
@@ -282,7 +282,7 @@ describe("variables create / update", () => {
             const result = await sandbox.run(["variables", "create", "k", "--stdin"], {
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init));
-                    return new Response(JSON.stringify({ ...VARIABLE, key: "k", value: "" }));
+                    return new Response(JSON.stringify({ ...VARIABLE, name: "k", value: "" }));
                 },
             });
 
@@ -363,7 +363,7 @@ describe("variables create / update", () => {
 });
 
 describe("variables delete", () => {
-    test("DELETE 204 成功；--json 输出 {key,deleted:true}", async () => {
+    test("DELETE 204 成功；--json 输出 {name,deleted:true}", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
 
@@ -380,7 +380,7 @@ describe("variables delete", () => {
             expect(result.exitCode).toBe(0);
             expect(requests[0]!.method).toBe("DELETE");
             expect(new URL(requests[0]!.url).pathname).toBe("/v1/variables/k");
-            expect(JSON.parse(result.stdout)).toEqual({ key: "k", deleted: true });
+            expect(JSON.parse(result.stdout)).toEqual({ name: "k", deleted: true });
         }
         finally {
             await sandbox.cleanup();
@@ -389,7 +389,7 @@ describe("variables delete", () => {
 });
 
 describe("variables validation & auth", () => {
-    test("无效 key（含 /）报错 exit 2，不发请求", async () => {
+    test("无效 name（含 /）报错 exit 2，不发请求", async () => {
         const sandbox = await createCliSandbox();
         let called = false;
 

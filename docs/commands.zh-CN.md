@@ -1382,45 +1382,45 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 
 ## Variables
 
-在 OOMOL 云端存取当前账号的字符串键值变量。别名：`oo variable`、`oo var`、
+在 OOMOL 云端存取当前账号的具名字符串变量。别名：`oo variable`、`oo var`、
 `oo vars`。所有子命令都需要当前账号；value 以字符串存储（如需存 JSON 请自行序列化）。
 
 ### `oo variables list`
 
 列出当前账号的全部变量，按最近更新时间倒序（无分页；每个账号最多 200 个）。
 
-- 文本输出：每行一个变量，只显示 `key` 和 `updatedAt`；不打印完整 value。读取
+- 文本输出：每行一个变量，只显示 `name` 和 `updatedAt`；不打印完整 value。读取
   value 请用 `oo variables get` 或 `--json`。
 - 选项：`--format <format>` / `--json` 返回结构化输出
-  `{ "variables": [{ "key", "value", "updatedAt" }] }`，包含完整 value。
+  `{ "variables": [{ "name", "value", "updatedAt" }] }`，包含完整 value。
 
-### `oo variables get <key>`
+### `oo variables get <name>`
 
 读取变量的值。
 
-- 参数：`<key>` 必填（1-256 个字符；不能包含 `/` 或控制字符）。
+- 参数：`<name>` 必填（1-256 个字符；不能包含 `/` 或控制字符）。
 - 文本输出：原始 value，并追加换行。
-- 选项：`--format <format>` / `--json` 返回 `{ "key", "value", "updatedAt" }`。
+- 选项：`--format <format>` / `--json` 返回 `{ "name", "value", "updatedAt" }`。
 - 说明：变量不存在时以非零码退出。
 
-### `oo variables create <key> [value]`（别名：`oo variables update`）
+### `oo variables create <name> [value]`（别名：`oo variables update`）
 
 为当前账号创建或替换变量（last-write-wins）。`create` 与 `update` 完全等价。
 
-- 参数：`<key>` 必填。`[value]` 为可选的位置参数值。
+- 参数：`<name>` 必填。`[value]` 为可选的位置参数值。
 - value 来源：`[value]`、`--from-file <path>`、`--stdin` 三者必须且只能提供一个。
   允许空字符串。
 - 选项：`--from-file <path>` 按 UTF-8 原文读取文件内容作为 value。
 - 选项：`--stdin` 从标准输入读取到 EOF 作为 value（原文）；当 stdin 是交互式终端时报错。
-- 选项：`--format <format>` / `--json` 返回 `{ "key", "value", "updatedAt" }`。
+- 选项：`--format <format>` / `--json` 返回 `{ "name", "value", "updatedAt" }`。
 - 说明：value 上限为 64 KiB（65536 字节，UTF-8）。
 
-### `oo variables delete <key>`
+### `oo variables delete <name>`
 
-删除当前账号的变量。幂等：即使 key 不存在也成功。
+删除当前账号的变量。幂等：即使 name 不存在也成功。
 
-- 参数：`<key>` 必填。
-- 选项：`--json` 返回 `{ "key", "deleted": true }`。
+- 参数：`<name>` 必填。
+- 选项：`--json` 返回 `{ "name", "deleted": true }`。
 
 ## Shell 补全
 

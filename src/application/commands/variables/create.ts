@@ -8,11 +8,11 @@ import {
     putVariable,
     resolveVariableValue,
     variableFormatValues,
-    variableKeySchema,
+    variableNameSchema,
 } from "./shared.ts";
 
 interface VariablesCreateInput {
-    key: string;
+    name: string;
     value?: string;
     fromFile?: string;
     stdin?: boolean;
@@ -28,8 +28,8 @@ export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> 
     missingArgumentBehavior: "showHelp",
     arguments: [
         {
-            name: "key",
-            descriptionKey: "arguments.variableKey",
+            name: "name",
+            descriptionKey: "arguments.variableName",
             required: true,
         },
         {
@@ -53,7 +53,7 @@ export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> 
         ...jsonOutputOptions,
     ],
     inputSchema: z.object({
-        key: variableKeySchema,
+        name: variableNameSchema,
         value: z.string().optional(),
         fromFile: z.string().optional(),
         stdin: z.boolean().optional(),
@@ -64,7 +64,7 @@ export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> 
     handler: async (input, context) => {
         const account = await requireCurrentAccount(context);
         const value = await resolveVariableValue(input, context);
-        const variable = await putVariable(account, input.key, value, context);
+        const variable = await putVariable(account, input.name, value, context);
 
         if (input.format === "json") {
             writeJsonOutput(context.stdout, variable, {
@@ -74,7 +74,7 @@ export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> 
         }
 
         writeLine(context.stdout, context.translator.t("variables.create.success", {
-            key: variable.key,
+            name: variable.name,
             updatedAt: variable.updatedAt,
         }));
     },

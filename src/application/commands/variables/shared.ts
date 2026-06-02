@@ -9,11 +9,11 @@ import { createFormatInputError } from "../shared/input-parsing.ts";
 import { performLoggedRequest } from "../shared/request.ts";
 import { readStdinToEnd } from "../shared/stdin.ts";
 
-export const MAX_VARIABLE_KEY_LENGTH = 256;
+export const MAX_VARIABLE_NAME_LENGTH = 256;
 export const MAX_VARIABLE_VALUE_BYTES = 65536;
 
 export interface Variable {
-    key: string;
+    name: string;
     value: string;
     updatedAt: string;
 }
@@ -30,12 +30,12 @@ function hasControlCharacter(value: string): boolean {
     });
 }
 
-export const variableKeySchema = z.string()
+export const variableNameSchema = z.string()
     .trim()
     .min(1)
-    .max(MAX_VARIABLE_KEY_LENGTH)
-    .refine(key => !key.includes("/"), "Variable key must not contain '/'")
-    .refine(key => !hasControlCharacter(key), "Variable key must not contain control characters");
+    .max(MAX_VARIABLE_NAME_LENGTH)
+    .refine(name => !name.includes("/"), "Variable name must not contain '/'")
+    .refine(name => !hasControlCharacter(name), "Variable name must not contain control characters");
 
 export const variableFormatValues = ["json"] as const;
 
@@ -43,9 +43,9 @@ export function mapVariablesInputError(
     error: ZodError,
     rawInput: Record<string, unknown>,
 ): CliUserError {
-    if (error.issues.some(issue => issue.path[0] === "key")) {
-        return new CliUserError("errors.variables.invalidKey", 2, {
-            value: String(rawInput.key ?? ""),
+    if (error.issues.some(issue => issue.path[0] === "name")) {
+        return new CliUserError("errors.variables.invalidName", 2, {
+            value: String(rawInput.name ?? ""),
         });
     }
 
@@ -109,7 +109,7 @@ export async function resolveVariableValue(
 // MARK: - 请求
 
 const variableSchema = z.object({
-    key: z.string(),
+    name: z.string(),
     value: z.string(),
     updatedAt: z.string(),
 });
@@ -118,9 +118,9 @@ const variableListSchema = z.object({
     variables: z.array(variableSchema),
 });
 
-export function createVariablesRequestUrl(endpoint: string, key?: string): URL {
+export function createVariablesRequestUrl(endpoint: string, name?: string): URL {
     const base = `https://cli-api.${endpoint}/v1/variables`;
-    return new URL(key === undefined ? base : `${base}/${encodeURIComponent(key)}`);
+    return new URL(name === undefined ? base : `${base}/${encodeURIComponent(name)}`);
 }
 
 function unexpectedError(error: unknown): CliUserError {
@@ -174,18 +174,18 @@ export async function listVariables(
 
 export async function getVariable(
     account: VariableAccount,
-    key: string,
+    name: string,
     context: RequestContext,
 ): Promise<Variable> {
     const response = await performLoggedRequest({
         context,
         createRequestFailedError: status => status === 404
-            ? new CliUserError("errors.variables.notFound", 1, { key })
+            ? new CliUserError("errors.variables.notFound", 1, { name })
             : requestFailedError(status),
         createUnexpectedError: unexpectedError,
         init: { headers: { Authorization: account.apiKey } },
         requestLabel: "Variables get",
-        requestUrl: createVariablesRequestUrl(account.endpoint, key),
+        requestUrl: createVariablesRequestUrl(account.endpoint, name),
     });
 
     return await parseVariable(response);
@@ -193,7 +193,7 @@ export async function getVariable(
 
 export async function putVariable(
     account: VariableAccount,
-    key: string,
+    name: string,
     value: string,
     context: RequestContext,
 ): Promise<Variable> {
@@ -212,7 +212,7 @@ export async function putVariable(
             method: "PUT",
         },
         requestLabel: "Variables create",
-        requestUrl: createVariablesRequestUrl(account.endpoint, key),
+        requestUrl: createVariablesRequestUrl(account.endpoint, name),
     });
 
     return await parseVariable(response);
@@ -220,7 +220,7 @@ export async function putVariable(
 
 export async function deleteVariable(
     account: VariableAccount,
-    key: string,
+    name: string,
     context: RequestContext,
 ): Promise<void> {
     await performLoggedRequest({
@@ -232,6 +232,6 @@ export async function deleteVariable(
             method: "DELETE",
         },
         requestLabel: "Variables delete",
-        requestUrl: createVariablesRequestUrl(account.endpoint, key),
+        requestUrl: createVariablesRequestUrl(account.endpoint, name),
     });
 }

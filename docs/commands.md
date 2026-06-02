@@ -1598,7 +1598,7 @@ Show package metadata for one package.
 
 ## Variables
 
-Store and read string key-value variables for the current account in the
+Store and read named string variables for the current account in the
 OOMOL cloud. Aliases: `oo variable`, `oo var`, `oo vars`. All subcommands
 require the current account; values are stored as strings (serialize JSON
 yourself if needed).
@@ -1608,42 +1608,42 @@ yourself if needed).
 List all variables for the current account, most recently updated first (no
 pagination; up to 200 per account).
 
-- Text output: one line per variable, `key` and `updatedAt` only. Full values
+- Text output: one line per variable, `name` and `updatedAt` only. Full values
   are not printed; use `oo variables get` or `--json` to read a value.
 - Options: `--format <format>` / `--json` return structured output as
-  `{ "variables": [{ "key", "value", "updatedAt" }] }` with full values.
+  `{ "variables": [{ "name", "value", "updatedAt" }] }` with full values.
 
-### `oo variables get <key>`
+### `oo variables get <name>`
 
 Read the value of a variable.
 
-- Arguments: `<key>` is required (1-256 characters; no `/` or control
+- Arguments: `<name>` is required (1-256 characters; no `/` or control
   characters).
 - Text output: the raw value followed by a newline.
-- Options: `--format <format>` / `--json` return `{ "key", "value", "updatedAt" }`.
+- Options: `--format <format>` / `--json` return `{ "name", "value", "updatedAt" }`.
 - Notes: exits non-zero if the variable does not exist.
 
-### `oo variables create <key> [value]` (alias: `oo variables update`)
+### `oo variables create <name> [value]` (alias: `oo variables update`)
 
 Create or replace a variable for the current account (last-write-wins).
 `create` and `update` are identical.
 
-- Arguments: `<key>` is required. `[value]` is an optional positional value.
+- Arguments: `<name>` is required. `[value]` is an optional positional value.
 - Value source: exactly one of `[value]`, `--from-file <path>`, or `--stdin`
   must be provided. An empty string is allowed.
 - Options: `--from-file <path>` reads the value verbatim from a UTF-8 file.
 - Options: `--stdin` reads the value verbatim from standard input until EOF;
   it errors if stdin is an interactive terminal.
-- Options: `--format <format>` / `--json` return `{ "key", "value", "updatedAt" }`.
+- Options: `--format <format>` / `--json` return `{ "name", "value", "updatedAt" }`.
 - Notes: the value is limited to 64 KiB (65536 bytes, UTF-8).
 
-### `oo variables delete <key>`
+### `oo variables delete <name>`
 
 Delete a variable for the current account. Idempotent: succeeds even if the
-key does not exist.
+name does not exist.
 
-- Arguments: `<key>` is required.
-- Options: `--json` returns `{ "key", "deleted": true }`.
+- Arguments: `<name>` is required.
+- Options: `--json` returns `{ "name", "deleted": true }`.
 
 ## Shell Completion
 
