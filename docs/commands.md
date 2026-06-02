@@ -345,8 +345,7 @@ Install one managed `oo` release into the local self-managed runtime.
   then decide whether to update the failed profiles manually.
 - Notes: after a successful install workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
-  installed CLI version. That command also includes any successfully installed
-  preset registry skills in the same skill summary.
+  installed CLI version.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 
@@ -398,8 +397,7 @@ Update the managed `oo` install to the latest published release.
   then decide whether to update the failed profiles manually.
 - Notes: after a successful update workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
-  installed CLI version. That command also includes any successfully installed
-  preset registry skills in the same skill summary.
+  installed CLI version.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 
@@ -419,16 +417,14 @@ Uninstall the managed `oo` runtime and its built-in skills.
 - Options: `--purge` additionally removes user data (auth, settings, cache,
   logs, telemetry) and **all** oo-managed registry skills.
 - Default removal: the managed executable (`~/.local/bin/oo`), all installed
-  versions, self-update staging and locks, bundled skills, and the preset
-  registry skill package `@alwaysmavs/gpt-image-2` (host installs and canonical
-  source).
-- Default retention: PATH configuration is left untouched; non-preset registry
-  skills, local skills, and any same-name directory that is not oo-managed are
+  versions, self-update staging and locks, and bundled skills.
+- Default retention: PATH configuration is left untouched; registry skills,
+  local skills, and any same-name directory that is not oo-managed are
   retained, as is user data (removed only with `--purge`).
 - Skill safety: a skill is removed only when its `.oo-metadata.json` proves
-  oo ownership (`kind: "bundled"`, or `kind: "registry"` matching the preset
-  list / `--purge`). Directories with missing, invalid, local, or non-matching
-  metadata are never deleted, so user-authored same-name skills are safe.
+  oo ownership (`kind: "bundled"`, or `kind: "registry"` under `--purge`).
+  Directories with missing, invalid, local, or non-matching metadata are never
+  deleted, so user-authored same-name skills are safe.
 - Installation method: when `oo` was installed via a package manager
   (npm/bun/pnpm/yarn), the command removes oo-managed skills, prints the
   matching `npm uninstall -g @oomol-lab/oo-cli` (or equivalent) command, and
@@ -976,8 +972,7 @@ Install bundled or published skills into supported local skill directories.
 
 - Alias: `oo skills add [packageName]`.
 - Arguments: `[packageName]` is optional.
-- Arguments: when omitted, the command installs all bundled skills, then
-  best-effort installs all skills from preset registry skill packages.
+- Arguments: when omitted, the command installs all bundled skills.
 - Arguments: when `[packageName]` is `oo`, `oo-find-skills`,
   `oo-create-skill`, or `oo-publish-skill`, the command installs the
   corresponding bundled skill.
@@ -1008,13 +1003,8 @@ Install bundled or published skills into supported local skill directories.
 - Output: successful non-interactive installs print a compact summary grouped by
   installed skills and target AI agents. When exactly one target is written, the
   summary includes that target path.
-- Output: when omitted `[packageName]` also installs preset registry skills
-  successfully, those skill names are included in the same `Installed ...`
-  summary and `Skills:` list.
 - Notes: when a package publishes exactly one skill and no `--skill` is
   provided, the command installs that skill automatically.
-- Notes: preset registry skill package failures are ignored and do not change
-  the command result.
 - Notes: when a package publishes multiple skills and no `--skill`, `--all`, or
   `-y` is provided, the command opens an interactive picker in a TTY.
 - Notes: in the interactive picker, skills already installed from the same

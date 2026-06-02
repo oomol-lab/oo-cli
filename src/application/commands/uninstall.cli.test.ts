@@ -10,15 +10,12 @@ import { APP_NAME } from "../config/app-config.ts";
 import { resolveSelfUpdatePaths } from "../self-update/paths.ts";
 import { pathExists } from "../shared/fs-utils.ts";
 import { resolveManagedSkillMetadataFilePath } from "./skills/managed-skill-paths.ts";
-import { presetSkillPackageNames } from "./skills/preset-packages.ts";
 import {
     createBundledSkillMetadata,
     createLocalSkillMetadata,
     createRegistrySkillMetadata,
     renderSkillMetadataJson,
 } from "./skills/skill-metadata.ts";
-
-const PRESET_PACKAGE = presetSkillPackageNames[0];
 
 function selfUpdatePaths(sandbox: Awaited<ReturnType<typeof createCliSandbox>>) {
     return resolveSelfUpdatePaths({
@@ -120,7 +117,7 @@ describe("oo uninstall", () => {
         }
     });
 
-    test("--yes removes runtime + bundled + preset, keeps registry/local/unmanaged", async () => {
+    test("--yes removes runtime + bundled, keeps registry/local/unmanaged", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -129,14 +126,6 @@ describe("oo uninstall", () => {
                 sandbox,
                 skillName: "oo",
                 metadataJson: renderSkillMetadataJson(createBundledSkillMetadata("1.2.3")),
-            });
-            const presetSkill = await seedHostSkill({
-                sandbox,
-                skillName: "gpt-image-2",
-                metadataJson: renderSkillMetadataJson(createRegistrySkillMetadata({
-                    packageName: PRESET_PACKAGE,
-                    version: "0.1.0",
-                })),
             });
             const registrySkill = await seedHostSkill({
                 sandbox,
@@ -180,7 +169,6 @@ describe("oo uninstall", () => {
             // every platform.
             expect(await Bun.file(join(runtime.versionsDirectory, "1.2.3", "oo")).exists()).toBe(false);
             expect(await Bun.file(join(ooSkill, "SKILL.md")).exists()).toBe(false);
-            expect(await Bun.file(join(presetSkill, "SKILL.md")).exists()).toBe(false);
             // Retained
             expect(await Bun.file(join(registrySkill, "SKILL.md")).exists()).toBe(true);
             expect(await Bun.file(join(localSkill, "SKILL.md")).exists()).toBe(true);

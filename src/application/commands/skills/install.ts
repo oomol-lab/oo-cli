@@ -35,7 +35,6 @@ import {
     skillOperationOutputOptions,
     writeSkillOperationJson,
 } from "./operation-result.ts";
-import { presetSkillPackageNames } from "./preset-packages.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 import {
     installBundledSkill,
@@ -164,12 +163,6 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
                 summaries.push(await installBundledSkill(skillName, context, { force }));
             }
 
-            for (const { summaries: presetSummaries } of await installPresetSkillPackages(
-                context,
-                force,
-            )) {
-                summaries.push(...presetSummaries);
-            }
             writeManagedSkillInstallSummary(context, summaries);
             return;
         }
@@ -231,19 +224,6 @@ async function runInstallJsonReport(
             skills.push(result);
         }
 
-        const settingsFilePath = context.settingsStore.getFilePath();
-        const presetGroups = await installPresetSkillPackages(context, options.force);
-
-        for (const { packageName, summaries } of presetGroups) {
-            for (const summary of summaries) {
-                skills.push(await buildRegistrySkillResult(
-                    summary,
-                    packageName,
-                    undefined,
-                    settingsFilePath,
-                ));
-            }
-        }
         return buildReport(skills, errors, skills.length);
     }
 
@@ -586,48 +566,6 @@ function recordInstallTelemetry(
         has_bundled_skill: hasBundled,
         has_registry_skill: hasRegistry,
     });
-}
-
-interface PresetSkillPackageInstallGroup {
-    packageName: string;
-    summaries: ManagedSkillInstallSummary[];
-}
-
-async function installPresetSkillPackages(
-    context: CliExecutionContext,
-    force: boolean,
-): Promise<PresetSkillPackageInstallGroup[]> {
-    const groups: PresetSkillPackageInstallGroup[] = [];
-
-    for (const packageName of presetSkillPackageNames) {
-        try {
-            const summaries = await installRegistrySkills(
-                {
-                    all: true,
-                    force,
-                    packageName,
-                    recordTelemetry: false,
-                    skillNames: [],
-                    writeOutput: false,
-                    yes: true,
-                },
-                context,
-            );
-
-            groups.push({ packageName, summaries });
-        }
-        catch (error) {
-            context.logger.warn(
-                {
-                    err: error,
-                    packageName,
-                },
-                "Preset skill package install skipped.",
-            );
-        }
-    }
-
-    return groups;
 }
 
 function parseSkillsInstallPackageSpecifier(

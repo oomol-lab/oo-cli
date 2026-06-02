@@ -18,9 +18,6 @@ import {
 import {
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "../commands/skills/managed-skill-paths.ts";
-import {
-    presetSkillPackageNames,
-} from "../commands/skills/preset-packages.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { pathExists } from "../shared/fs-utils.ts";
 import { detectInstallationMethodFromExecPath } from "./installation.ts";
@@ -96,10 +93,7 @@ export function shouldRemoveManagedSkill(
     }
 
     if (metadata.kind === "registry") {
-        return options.purge
-            || (presetSkillPackageNames as readonly string[]).includes(
-                metadata.packageName,
-            );
+        return options.purge;
     }
 
     return false;
