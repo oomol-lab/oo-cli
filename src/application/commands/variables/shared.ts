@@ -21,7 +21,7 @@ export interface Variable {
 type RequestContext = Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
 type VariableAccount = Pick<AuthAccount, "apiKey" | "endpoint">;
 
-// MARK: - 校验
+// MARK: - Validation
 
 function hasControlCharacter(value: string): boolean {
     return [...value].some((char) => {
@@ -52,7 +52,7 @@ export function mapVariablesInputError(
     return createFormatInputError(rawInput);
 }
 
-// MARK: - value 来源解析（positional / --from-file / --stdin 三选一）
+// MARK: - Value source resolution (exactly one of: positional / --from-file / --stdin)
 
 export interface VariableValueSourceInput {
     value?: string;
@@ -106,7 +106,7 @@ export async function resolveVariableValue(
     return value;
 }
 
-// MARK: - 请求
+// MARK: - Requests
 
 const variableSchema = z.object({
     name: z.string(),

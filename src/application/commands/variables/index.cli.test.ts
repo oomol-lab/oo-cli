@@ -13,7 +13,7 @@ const VARIABLE = {
 };
 
 describe("variables list", () => {
-    test("GET /v1/variables 带鉴权；文本只显示 name + updatedAt，不显示 value", async () => {
+    test("GET /v1/variables with auth; text shows only name + updatedAt, not value", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
 
@@ -45,7 +45,7 @@ describe("variables list", () => {
         }
     });
 
-    test("--json 输出完整 value", async () => {
+    test("--json outputs the full value", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -65,7 +65,7 @@ describe("variables list", () => {
         }
     });
 
-    test("空列表显示 no variables 文案", async () => {
+    test("an empty list shows the no-variables message", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -85,7 +85,7 @@ describe("variables list", () => {
 });
 
 describe("variables get", () => {
-    test("输出完整 raw value", async () => {
+    test("outputs the full raw value", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
 
@@ -108,7 +108,7 @@ describe("variables get", () => {
         }
     });
 
-    test("404 返回 not found 用户错误，exit 1", async () => {
+    test("404 returns a not-found user error, exit 1", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -128,7 +128,7 @@ describe("variables get", () => {
 });
 
 describe("variables create / update", () => {
-    test("PUT body 为 {value}，positional value", async () => {
+    test("PUT body is {value} from a positional value", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
 
@@ -153,7 +153,7 @@ describe("variables create / update", () => {
         }
     });
 
-    test("update alias 行为等同 create（PUT）", async () => {
+    test("update alias behaves the same as create (PUT)", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
 
@@ -176,7 +176,7 @@ describe("variables create / update", () => {
         }
     });
 
-    test("空字符串合法", async () => {
+    test("an empty string is valid", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
 
@@ -198,7 +198,7 @@ describe("variables create / update", () => {
         }
     });
 
-    test("--from-file 读取文件原文", async () => {
+    test("--from-file reads the file contents verbatim", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
         const filePath = `${sandbox.env.HOME}/value.txt`;
@@ -222,7 +222,7 @@ describe("variables create / update", () => {
         }
     });
 
-    test("--stdin 读取管道输入（非 TTY）", async () => {
+    test("--stdin reads piped input (non-TTY)", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
         const stdin = createInteractiveInput({ isTTY: false });
@@ -248,7 +248,7 @@ describe("variables create / update", () => {
         }
     });
 
-    test("--stdin 在 TTY 下报错且不发请求，exit 2", async () => {
+    test("--stdin errors under a TTY and sends no request, exit 2", async () => {
         const sandbox = await createCliSandbox();
         let called = false;
         const stdin = createInteractiveInput({ isTTY: true });
@@ -272,7 +272,7 @@ describe("variables create / update", () => {
         }
     });
 
-    test("--stdin 在 detached（未提供 stdin）下立即以空串 PUT，不挂住", async () => {
+    test("--stdin under a detached stdin PUTs an empty string immediately without hanging", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
 
@@ -295,7 +295,7 @@ describe("variables create / update", () => {
         }
     });
 
-    test("多个 value 来源（positional + --stdin）报错 exit 2，不发请求", async () => {
+    test("multiple value sources (positional + --stdin) error with exit 2 and send no request", async () => {
         const sandbox = await createCliSandbox();
         let called = false;
         const stdin = createInteractiveInput({ isTTY: false });
@@ -321,7 +321,7 @@ describe("variables create / update", () => {
         }
     });
 
-    test("value 超过 64 KiB 报错 exit 2，不发请求", async () => {
+    test("value over 64 KiB errors with exit 2 and sends no request", async () => {
         const sandbox = await createCliSandbox();
         let called = false;
 
@@ -343,7 +343,7 @@ describe("variables create / update", () => {
         }
     });
 
-    test("409 返回 quota exceeded", async () => {
+    test("409 returns quota exceeded", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -363,7 +363,7 @@ describe("variables create / update", () => {
 });
 
 describe("variables delete", () => {
-    test("DELETE 204 成功；--json 输出 {name,deleted:true}", async () => {
+    test("DELETE 204 succeeds; --json outputs {name, deleted: true}", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
 
@@ -389,7 +389,7 @@ describe("variables delete", () => {
 });
 
 describe("variables validation & auth", () => {
-    test("无效 name（含 /）报错 exit 2，不发请求", async () => {
+    test("an invalid name (contains /) errors with exit 2 and sends no request", async () => {
         const sandbox = await createCliSandbox();
         let called = false;
 
@@ -411,7 +411,7 @@ describe("variables validation & auth", () => {
         }
     });
 
-    test("未登录时报 auth 错误", async () => {
+    test("reports an auth error when not logged in", async () => {
         const sandbox = await createCliSandbox();
         let called = false;
 
@@ -431,7 +431,7 @@ describe("variables validation & auth", () => {
         }
     });
 
-    test("variable 顶层别名可用", async () => {
+    test("the variable top-level alias works", async () => {
         const sandbox = await createCliSandbox();
 
         try {

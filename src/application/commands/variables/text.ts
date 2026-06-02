@@ -1,7 +1,8 @@
 import type { Variable } from "./shared.ts";
 
-// list 文本视图只展示 name 与 updatedAt；完整 value 走 `get` 或 `--json`，
-// 避免把 token / secret-like / 大 JSON value 刷到终端。
+// The list text view shows only name and updatedAt; the full value is exposed
+// via `get` or `--json`, to avoid flushing tokens / secret-like / large JSON
+// values to the terminal.
 export function formatVariableListLine(variable: Variable): string {
     return `${variable.name}\t${variable.updatedAt}`;
 }
