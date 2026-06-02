@@ -41,8 +41,7 @@ Commands:
   config                       Manage persisted configuration
   skills                       Manage AI agent skills
   log                          Manage persisted debug logs
-  search [options] <text>      Search packages and connector actions
-  packages                     Package utilities
+  search [options] <text>      Search connector actions
   telemetry                    Manage CLI telemetry
   uninstall [options]          Uninstall the CLI
   update|upgrade [options]     Update the CLI
@@ -77,8 +76,7 @@ Commands:
   config                       管理持久化配置
   skills                       管理 AI Agent skill
   log                          管理持久化 debug 日志
-  search [options] <text>      搜索 package 与 connector action
-  packages                     包相关工具
+  search [options] <text>      搜索 connector action
   telemetry                    管理 CLI telemetry
   uninstall [options]          卸载 CLI
   update|upgrade [options]     更新 CLI

@@ -518,19 +518,17 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 ### `oo search <text>`
 
-使用一个自由文本查询同时搜索 package 与 connector action。
+使用一个自由文本查询搜索 connector action。
 
-- 参数：`<text>` 会同时发送到两个搜索来源。
-- 选项：`--keywords <keywords>` 会在搜索 connector action 时发送一个逗号分隔
-  的关键词列表，并移除空项与重复项。
-- 选项：`--format=json` 和 `--json` 会输出一个混合 `package` 与
-  `connector` 条目的 JSON 数组，并使用 `kind` 作为区分字段。
-- 输出：package JSON 条目包含稳定 CLI 字段 `kind`、`packageId`、
-  `displayName`、`description` 和 `blocks`。
-- 输出：connector JSON 条目包含稳定 CLI 字段 `kind`、`service`、
-  `name`、`description` 和 `authenticated`。
-- 输出：文本输出会为每个结果打印一个块，并额外包含一行 `类型` 字段，而不
-  再输出来源分组标题。
+- 参数：`<text>` 为语义搜索文本。
+- 选项：`--keywords <keywords>` 接收逗号分隔的关键词列表，去掉空项和重复项
+  后发送。
+- 选项：`--format=json` 和 `--json` 会输出匹配 action 条目的 JSON 数组。
+- 输出：每条结果都会附加 `authenticated`。
+- 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
+  `authenticated`。
+- 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
+  描述和认证状态。
 - 说明：使用 `oo connector schema "<service>" --action "<action>"` 获取完整
   connector action contract。
 
@@ -1357,28 +1355,6 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 - 说明：会删除满足 `expiresAt <= now` 的本地上传记录。
 - 说明：超过 14 天且未被活跃下载进程占用的下载续传 session 会被删除。
 - 说明：JSON 输出结构为 `{ "deletedCount": number }`。
-
-## Package 检索
-
-### `oo packages search <text>`
-
-使用自由文本按意图搜索 package。
-
-- 参数：`<text>` 为搜索文本。
-- 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
-- 选项：`--json` 是 `--format=json` 的别名。
-- 选项：`--only-package-id` 仅返回 package id。
-- 说明：搜索文本超过 200 个字符时，会在发送请求前被截断。
-
-### `oo packages info <packageSpecifier>`
-
-查看单个 package 的元数据。
-
-- 参数：`<packageSpecifier>` 为 package 标识，版本可选。示例：
-  `foo/bar`、`foo/bar@latest`、`foo/bar@1.2.3`。
-- 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
-- 选项：`--json` 是 `--format=json` 的别名。
-- 说明：如果未指定版本，CLI 会解析为最新版本。
 
 ## Variables
 

@@ -362,19 +362,18 @@ describe("embedded skill assets", () => {
                 await readBundledSkillFileContent(searchGuide),
             );
 
-            expect(content).toContain("Scan all package and connector entries");
+            expect(content).toContain("Scan all connector entries");
             expect(content).toContain("do not let array order");
-            expect(content).toContain("prefer a connector action that directly fits");
-            expect(content).toContain("not executable candidates");
             expect(content).toContain("out-of-box");
             expect(content).not.toContain("Fusion API");
             expect(content).not.toContain("fusion-api");
             expect(content).toContain("Use an authenticated connector when the user named a connected service");
-            expect(content).toContain("If only a package or block matches, report that this CLI cannot execute it");
             expect(content).toContain("run one connector refinement");
             expect(content).toContain("before reporting that no executable capability is available");
-            expect(content).toContain("catalog signals only");
+            expect(content).not.toContain("catalog signals only");
             expect(content).not.toContain("package-execution.md");
+            expect(content).not.toContain("packageId");
+            expect(content).not.toContain("uses `kind` as the");
             expect(content).toContain("Skill sidecar");
             expect(content).toContain("oo skills search");
             expect(content).toContain("sidecar discovery branch");

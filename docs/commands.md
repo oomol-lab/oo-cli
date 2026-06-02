@@ -600,19 +600,18 @@ Validate input data and run one connector action.
 
 ### `oo search <text>`
 
-Search packages and connector actions with one free-form query.
+Search connector actions with one free-form query.
 
-- Arguments: `<text>` is the search text sent to both discovery sources.
+- Arguments: `<text>` is the semantic search text.
 - Options: `--keywords <keywords>` sends a comma-separated keyword list after
-  trimming empty and duplicate entries when searching connector actions.
-- Options: `--format=json` and `--json` print one JSON array that mixes
-  `package` and `connector` items and uses `kind` as the discriminator.
-- Output: package JSON entries include the stable CLI fields `kind`,
-  `packageId`, `displayName`, `description`, and `blocks`.
-- Output: connector JSON entries include the stable CLI fields `kind`,
-  `service`, `name`, `description`, and `authenticated`.
-- Output: text output prints one block per result and includes a `Kind` line
-  for each block instead of source section headers.
+  trimming empty and duplicate entries.
+- Options: `--format=json` and `--json` print a JSON array of matching action
+  entries.
+- Output: every match is enriched with `authenticated`.
+- Output: JSON entries include the stable CLI fields `service`, `name`,
+  `description`, and `authenticated`.
+- Output: text output prints one block per action with the service/action
+  label, optional description, and authenticated state.
 - Notes: use `oo connector schema "<service>" --action "<action>"` to inspect
   the full connector action contract.
 
@@ -1570,31 +1569,6 @@ Delete expired or stale file transfer records.
 - Notes: download resume sessions older than 14 days are deleted when they are
   not owned by an active download process.
 - Notes: the JSON response shape is `{ "deletedCount": number }`.
-
-## Package Discovery
-
-### `oo packages search <text>`
-
-Search packages with free-form intent text.
-
-- Arguments: `<text>` is the search query.
-- Options: `--format <format>` returns structured output. Supported value:
-  `json`.
-- Options: `--json` is an alias for `--format=json`.
-- Options: `--only-package-id` returns only package IDs.
-- Notes: queries longer than 200 characters are truncated before the request is
-  sent.
-
-### `oo packages info <packageSpecifier>`
-
-Show package metadata for one package.
-
-- Arguments: `<packageSpecifier>` is the package name with an optional version.
-  Examples: `foo/bar`, `foo/bar@latest`, `foo/bar@1.2.3`.
-- Options: `--format <format>` returns structured output. Supported value:
-  `json`.
-- Options: `--json` is an alias for `--format=json`.
-- Notes: if no version is provided, the CLI resolves the latest version.
 
 ## Variables
 

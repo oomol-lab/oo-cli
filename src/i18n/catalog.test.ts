@@ -22,7 +22,6 @@ describe("message catalog", () => {
         expect(enMessages["errors.skills.list.invalidSource"]).toBe(
             "Invalid source: {value}. Use bundled, registry, or local.",
         );
-        expect(enMessages["labels.blocks"]).toBe("Blocks:");
         expect(enMessages["labels.status"]).toBe("Status");
         expect(enMessages["labels.version"]).toBe("Version");
         expect(zhMessages["auth.account.loggedIn"]).toBe(
@@ -43,7 +42,6 @@ describe("message catalog", () => {
         expect(zhMessages["errors.skills.list.invalidSource"]).toBe(
             "无效的 source：{value}。请使用 bundled、registry 或 local。",
         );
-        expect(zhMessages["labels.blocks"]).toBe("功能块：");
         expect(zhMessages["labels.status"]).toBe("状态");
         expect(zhMessages["labels.version"]).toBe("版本");
     });
@@ -58,10 +56,33 @@ describe("message catalog", () => {
             "errors.fileList.invalidLimit",
             "errors.packageInfo.invalidFormat",
             "errors.search.invalidFormat",
+            "errors.search.invalidResponse",
+            "errors.search.requestError",
+            "errors.search.requestFailed",
             "errors.skillsSearch.invalidFormat",
             "file.text.status",
+            "labels.blocks",
+            "arguments.packageSpecifier",
+            "options.onlyPackageId",
+            "commands.package.summary",
+            "commands.package.description",
+            "commands.package.info.summary",
+            "commands.package.info.description",
+            "commands.mixedSearch.summary",
+            "commands.mixedSearch.description",
+            "mixedSearch.text.kind",
+            "mixedSearch.text.kind.connector",
+            "mixedSearch.text.kind.package",
+            "mixedSearch.text.noResults",
             "packageInfo.text.blocks",
+            "packageInfo.text.inputHandle",
+            "packageInfo.text.outputHandle",
+            "packageInfo.text.optional",
+            "packageInfo.text.required",
             "search.text.blocks",
+            "search.text.noResults",
+            "search.text.unnamedBlock",
+            "search.text.unnamedPackage",
             "skills.list.version",
             "skills.list.source.bundled",
             "skills.list.source.local",

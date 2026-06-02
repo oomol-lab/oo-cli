@@ -233,20 +233,6 @@ const commandTelemetryDecisions = {
         properties: ["account_count_bucket"],
         reason: "Top-level auth alias records the same safe auth dimensions as auth.logout.",
     },
-    "packages": {
-        kind: "generic",
-        reason: "Command group; child commands record package dimensions.",
-    },
-    "packages.info": {
-        kind: "properties",
-        properties: ["package_name", "package_version"],
-        reason: "Records product-domain package and version dimensions for usage analytics.",
-    },
-    "packages.search": {
-        kind: "properties",
-        properties: ["query_length_bucket", "result_count_bucket"],
-        reason: "Records query and result buckets without query text.",
-    },
     "search": {
         kind: "properties",
         properties: [

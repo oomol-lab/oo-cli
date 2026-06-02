@@ -15,8 +15,8 @@ import type {
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { parsePackageSpecifier } from "../package/shared.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
+import { parsePackageSpecifier } from "../shared/package-info.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { writeManagedSkillInstallSummary } from "./install-output.ts";

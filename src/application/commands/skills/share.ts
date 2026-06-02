@@ -4,7 +4,7 @@ import type {
 } from "../../contracts/cli.ts";
 import type { Translator } from "../../contracts/translator.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
-import type { PackageInfoResponse } from "../package/shared.ts";
+import type { PackageInfoResponse } from "../shared/package-info.ts";
 
 import { readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
@@ -12,9 +12,9 @@ import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
-import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
+import { loadPackageInfo, parsePackageSpecifier } from "../shared/package-info.ts";
 import { requestText } from "../shared/request.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";

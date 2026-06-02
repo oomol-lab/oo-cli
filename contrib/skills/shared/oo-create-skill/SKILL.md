@@ -204,7 +204,7 @@ data-routing, or output-contract differences require a user decision.
 
 Use `oo connector search "<goal>" --json` only to narrow a shortlisted connector
 path, not to restart broad discovery. If the task looks like an OOMOL-hosted
-managed API capability but the mixed result set has no `fusion-api` connector
+managed API capability but the result set has no `fusion-api` connector
 candidate, run one connector narrowing pass before reporting that no Fusion API
 action is available.
 

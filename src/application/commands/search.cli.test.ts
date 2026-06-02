@@ -14,11 +14,9 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../telemetry/outbox.ts";
-import { createTerminalColors } from "../terminal-colors.ts";
-import { mixedSearchKindColor } from "./search.ts";
 
-describe("mixedSearchCommand CLI", () => {
-    test("supports mixed search with text output and groups results by source", async () => {
+describe("searchCommand CLI", () => {
+    test("searches connector actions with text output", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -33,30 +31,7 @@ describe("mixedSearchCommand CLI", () => {
 
                         requests.push(request);
 
-                        if (
-                            request.url.startsWith("https://search.")
-                            && request.url.includes("/v1/packages/-/intent-search")
-                        ) {
-                            return new Response(JSON.stringify({
-                                packages: [
-                                    {
-                                        blocks: [
-                                            {
-                                                description: "Send templated emails.",
-                                                name: "send-email",
-                                                title: "Send Email",
-                                            },
-                                        ],
-                                        description: "Email automation package.",
-                                        displayName: "Mail Tools",
-                                        name: "@oomol/mail-tools",
-                                        version: "1.2.3",
-                                    },
-                                ],
-                            }));
-                        }
-
-                        if (request.url.startsWith("https://search.")) {
+                        if (request.url.includes("/v1/connector-actions")) {
                             return new Response(JSON.stringify({
                                 data: [
                                     {
@@ -91,9 +66,8 @@ describe("mixedSearchCommand CLI", () => {
             expect(requests.map(request => request.url).sort()).toEqual([
                 "https://connector.oomol.com/v1/apps/authenticated?service=gmail",
                 "https://search.oomol.com/v1/connector-actions?q=send+mail&keywords=gmail%2Cemail",
-                "https://search.oomol.com/v1/packages/-/intent-search?q=send+mail&lang=en&excludeScopes=connector&excludePackages=llm",
             ]);
-            expect(logContent).toContain(`"path":"/v1/packages/-/intent-search"`);
+            expect(logContent).not.toContain("/v1/packages/-/intent-search");
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "search",
@@ -110,7 +84,7 @@ describe("mixedSearchCommand CLI", () => {
         }
     });
 
-    test("supports mixed search with json output", async () => {
+    test("supports connector search with json output", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -122,28 +96,7 @@ describe("mixedSearchCommand CLI", () => {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
 
-                        if (
-                            request.url.startsWith("https://search.")
-                            && request.url.includes("/v1/packages/-/intent-search")
-                        ) {
-                            return new Response(JSON.stringify({
-                                packages: [
-                                    {
-                                        blocks: [
-                                            {
-                                                title: "Send Email",
-                                            },
-                                        ],
-                                        description: "Email automation package.",
-                                        displayName: "Mail Tools",
-                                        name: "@oomol/mail-tools",
-                                        version: "1.2.3",
-                                    },
-                                ],
-                            }));
-                        }
-
-                        if (request.url.startsWith("https://search.")) {
+                        if (request.url.includes("/v1/connector-actions")) {
                             return new Response(JSON.stringify({
                                 data: [
                                     {
@@ -171,22 +124,8 @@ describe("mixedSearchCommand CLI", () => {
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(JSON.parse(result.stdout)).toEqual([
                 {
-                    blocks: [
-                        {
-                            description: "",
-                            name: "",
-                            title: "Send Email",
-                        },
-                    ],
-                    description: "Email automation package.",
-                    displayName: "Mail Tools",
-                    kind: "package",
-                    packageId: "@oomol/mail-tools@1.2.3",
-                },
-                {
                     authenticated: false,
                     description: "Send a Gmail message.",
-                    kind: "connector",
                     name: "send_mail",
                     service: "gmail",
                 },
@@ -197,87 +136,7 @@ describe("mixedSearchCommand CLI", () => {
         }
     });
 
-    test("renders kind lines after descriptions with field-specific colors", async () => {
-        const sandbox = await createCliSandbox();
-        const colors = createTerminalColors(true);
-
-        try {
-            await writeAuthFile(sandbox);
-
-            const result = await sandbox.run(
-                ["search", "send mail"],
-                {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
-
-                        if (
-                            request.url.startsWith("https://search.")
-                            && request.url.includes("/v1/packages/-/intent-search")
-                        ) {
-                            return new Response(JSON.stringify({
-                                packages: [
-                                    {
-                                        description: "Email automation package.",
-                                        displayName: "Mail Tools",
-                                        name: "@oomol/mail-tools",
-                                        version: "1.2.3",
-                                    },
-                                ],
-                            }));
-                        }
-
-                        if (request.url.startsWith("https://search.")) {
-                            return new Response(JSON.stringify({
-                                data: [
-                                    {
-                                        description: "Send a Gmail message.",
-                                        inputSchema: {
-                                            type: "object",
-                                        },
-                                        name: "send_mail",
-                                        outputSchema: {
-                                            type: "object",
-                                        },
-                                        service: "gmail",
-                                    },
-                                ],
-                            }));
-                        }
-
-                        return new Response(JSON.stringify({
-                            data: [],
-                        }));
-                    },
-                    stdout: {
-                        hasColors: true,
-                    },
-                },
-            );
-            const strippedSnapshot = createCliSnapshot(result, {
-                sandbox,
-                stripAnsi: true,
-            });
-
-            expect(strippedSnapshot).toMatchSnapshot();
-            expect(result.stdout).toContain(
-                `Kind: ${colors.hex(mixedSearchKindColor)("package")}`,
-            );
-            expect(result.stdout).toContain(
-                `Kind: ${colors.hex(mixedSearchKindColor)("connector")}`,
-            );
-            expect(strippedSnapshot.stdout).toContain(
-                "Mail Tools (@oomol/mail-tools@1.2.3)\nEmail automation package.\nKind: package",
-            );
-            expect(strippedSnapshot.stdout).toContain(
-                "gmail.send_mail\nSend a Gmail message.\nKind: connector",
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("renders mixed search no-results output when both providers are empty", async () => {
+    test("renders no-results output when there are no connector actions", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -286,22 +145,9 @@ describe("mixedSearchCommand CLI", () => {
             const result = await sandbox.run(
                 ["search", "send mail"],
                 {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
-
-                        if (
-                            request.url.startsWith("https://search.")
-                            && request.url.includes("/v1/packages/-/intent-search")
-                        ) {
-                            return new Response(JSON.stringify({
-                                packages: [],
-                            }));
-                        }
-
-                        return new Response(JSON.stringify({
-                            data: [],
-                        }));
-                    },
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: [],
+                    })),
                 },
             );
 
@@ -312,7 +158,7 @@ describe("mixedSearchCommand CLI", () => {
         }
     });
 
-    test("renders mixed search help when text argument is omitted", async () => {
+    test("renders search help when text argument is omitted", async () => {
         const sandbox = await createCliSandbox();
 
         try {

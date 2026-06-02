@@ -123,19 +123,9 @@ export const enMessages = {
         "Remove the current account from persisted auth data. Alias for auth logout.",
     "commands.logout.summary":
         "Log out the current account (alias for auth logout)",
-    "commands.package.description":
-        "Inspect package registry metadata and related resources.",
-    "commands.package.info.description":
-        "Show transformed package metadata for an explicit package specifier.",
-    "commands.package.info.summary": "Show package metadata",
-    "commands.package.summary": "Package utilities",
-    "commands.mixedSearch.description":
-        "Search packages and connector actions with one free-form query.",
-    "commands.mixedSearch.summary":
-        "Search packages and connector actions",
     "commands.search.description":
-        "Search packages with free-form text against the intent search API.",
-    "commands.search.summary": "Search packages by intent",
+        "Search connector actions with one free-form query.",
+    "commands.search.summary": "Search connector actions",
     "commands.skills.description":
         "Manage local AI agent skills.",
     "commands.skills.summary": "Manage AI agent skills",
@@ -503,12 +493,6 @@ export const enMessages = {
         "The file at {path} is {size} bytes, which exceeds the 500 MiB limit of {max} bytes.",
     "errors.lang.invalidFlag":
         "Invalid value for --lang: {value}. Use en or zh.",
-    "errors.search.invalidResponse":
-        "The search service returned an unsupported response body.",
-    "errors.search.requestError":
-        "The search request failed: {message}",
-    "errors.search.requestFailed":
-        "The search request returned HTTP {status}.",
     "errors.skillsSearch.invalidResponse":
         "The skills search service returned an unsupported response body.",
     "errors.skillsSearch.requestError":
@@ -761,7 +745,6 @@ export const enMessages = {
         "Set package visibility (private or public)",
     "options.skill":
         "Specify skill names to install (use * for all skills)",
-    "options.onlyPackageId": "Return only package ids",
     "options.all":
         "Install all published skills without prompting for skill selection",
     "options.agent": "Check one supported skill host",
@@ -857,7 +840,6 @@ export const enMessages = {
     "skills.info.host.controlState.unknown": "unknown",
     "skills.info.package.internal": "<internal>",
     "skills.info.package.local": "<local>",
-    "labels.blocks": "Blocks:",
     "labels.status": "Status",
     "labels.version": "Version",
     "skills.init.success": "Initialized skill {name} at {path}.",
@@ -975,7 +957,6 @@ export const enMessages = {
     "arguments.key": "Configuration key",
     "arguments.outDir": "Output directory",
     "arguments.packageName": "Package name",
-    "arguments.packageSpecifier": "Package specifier",
     "arguments.serviceName": "Service name",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
@@ -988,11 +969,6 @@ export const enMessages = {
     "connector.search.text.authenticated.yes": "yes",
     "connector.search.text.noResults":
         "No matching connector actions were found.",
-    "mixedSearch.text.kind": "Kind",
-    "mixedSearch.text.kind.connector": "connector",
-    "mixedSearch.text.kind.package": "package",
-    "mixedSearch.text.noResults":
-        "No matching packages or connector actions were found.",
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.run.text.executionId": "Execution ID",
     "connector.run.text.resultData": "Result data",
@@ -1018,16 +994,9 @@ export const enMessages = {
     "file.text.id": "ID",
     "file.text.uploadedAt": "Uploaded at",
     "file.upload.success": "Uploaded {fileName}.",
-    "search.text.noResults": "No matching packages were found.",
-    "search.text.unnamedBlock": "unnamed-block",
-    "search.text.unnamedPackage": "unnamed-package",
     "skills.search.text.noResults": "No matching skills were found.",
     "skills.search.text.package": "Package",
     "skills.search.text.unnamedSkill": "unnamed-skill",
-    "packageInfo.text.inputHandle": "Input:",
-    "packageInfo.text.outputHandle": "Output:",
-    "packageInfo.text.optional": "[optional]",
-    "packageInfo.text.required": "[required]",
     "arguments.variableName": "Variable name",
     "arguments.variableValue": "Variable value (string)",
     "commands.variables.summary": "Manage cloud-stored variables",
@@ -1169,16 +1138,9 @@ export const zhMessages = {
     "commands.login.summary": "登录 OOMOL 账号（auth login 的别名）",
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
     "commands.logout.summary": "登出当前账号（auth logout 的别名）",
-    "commands.package.description": "查看包注册表元数据及相关资源。",
-    "commands.package.info.description": "按显式包标识显示转换后的包元数据。",
-    "commands.package.info.summary": "显示包元数据",
-    "commands.package.summary": "包相关工具",
-    "commands.mixedSearch.description":
-        "使用一个自由文本查询同时搜索 package 与 connector action。",
-    "commands.mixedSearch.summary":
-        "搜索 package 与 connector action",
-    "commands.search.description": "使用自由文本通过意图搜索 API 搜索包。",
-    "commands.search.summary": "按意图搜索包",
+    "commands.search.description":
+        "使用一个自由文本查询搜索 connector action。",
+    "commands.search.summary": "搜索 connector action",
     "commands.skills.description": "管理本地 AI Agent skill。",
     "commands.skills.summary": "管理 AI Agent skill",
     "commands.skills.search.description":
@@ -1533,12 +1495,6 @@ export const zhMessages = {
         "文件 {path} 的大小为 {size} 字节，超出了 500 MiB 上限 {max} 字节。",
     "errors.lang.invalidFlag":
         "--lang 的值无效：{value}。请使用 en 或 zh。",
-    "errors.search.invalidResponse":
-        "搜索服务返回了不受支持的响应内容。",
-    "errors.search.requestError":
-        "搜索请求失败：{message}",
-    "errors.search.requestFailed":
-        "搜索请求返回了 HTTP {status}。",
     "errors.skillsSearch.invalidResponse":
         "skills 搜索服务返回了不受支持的响应内容。",
     "errors.skillsSearch.requestError":
@@ -1784,7 +1740,6 @@ export const zhMessages = {
         "设置包可见性（private 或 public）",
     "options.skill":
         "指定要安装的 skill 名称（使用 * 表示全部）",
-    "options.onlyPackageId": "仅返回 package id",
     "options.all":
         "安装全部已发布 skill，并跳过 skill 选择提示",
     "options.agent": "检查一个受支持的 Agent",
@@ -1879,7 +1834,6 @@ export const zhMessages = {
     "skills.info.host.controlState.unknown": "unknown",
     "skills.info.package.internal": "<internal>",
     "skills.info.package.local": "<local>",
-    "labels.blocks": "功能块：",
     "labels.status": "状态",
     "labels.version": "版本",
     "skills.init.success": "已在 {path} 初始化 skill {name}。",
@@ -1997,7 +1951,6 @@ export const zhMessages = {
     "arguments.key": "配置键",
     "arguments.outDir": "输出目录",
     "arguments.packageName": "包名",
-    "arguments.packageSpecifier": "包标识",
     "arguments.serviceName": "服务名",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",
@@ -2009,10 +1962,6 @@ export const zhMessages = {
     "connector.search.text.authenticated.no": "否",
     "connector.search.text.authenticated.yes": "是",
     "connector.search.text.noResults": "未找到匹配的 connector action。",
-    "mixedSearch.text.kind": "类型",
-    "mixedSearch.text.kind.connector": "connector",
-    "mixedSearch.text.kind.package": "包",
-    "mixedSearch.text.noResults": "未找到匹配的包或 connector action。",
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.run.text.executionId": "执行 ID",
     "connector.run.text.resultData": "结果数据",
@@ -2036,16 +1985,9 @@ export const zhMessages = {
     "file.text.id": "ID",
     "file.text.uploadedAt": "上传时间",
     "file.upload.success": "已上传 {fileName}。",
-    "search.text.noResults": "未找到匹配的包。",
-    "search.text.unnamedBlock": "未命名功能块",
-    "search.text.unnamedPackage": "未命名包",
     "skills.search.text.noResults": "未找到匹配的 skill。",
     "skills.search.text.package": "包",
     "skills.search.text.unnamedSkill": "未命名 skill",
-    "packageInfo.text.inputHandle": "输入：",
-    "packageInfo.text.outputHandle": "输出：",
-    "packageInfo.text.optional": "[可选]",
-    "packageInfo.text.required": "[必填]",
     "arguments.variableName": "变量 name",
     "arguments.variableValue": "变量值（字符串）",
     "commands.variables.summary": "管理云端变量",
