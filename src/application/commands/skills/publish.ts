@@ -1,6 +1,6 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
-import type { PackageInfoResponse } from "../package/shared.ts";
+import type { PackageInfoResponse } from "../shared/package-info.ts";
 import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
 
 import type { SkillPublishVisibility } from "./package-conversion.ts";
@@ -11,10 +11,10 @@ import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver, isSemver } from "../../semver.ts";
-import { loadPackageInfo, parsePackageSpecifier } from "../package/shared.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
+import { loadPackageInfo, parsePackageSpecifier } from "../shared/package-info.ts";
 import {
     isNodeNotFoundError,
     removePath,

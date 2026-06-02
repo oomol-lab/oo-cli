@@ -5,8 +5,7 @@ connector capability to execute.
 
 This page inherits the constitution from `SKILL.md`: search results are
 evidence for candidates, not permission to execute. Execution requires a
-capability contract. This CLI executes connector actions; package and block
-entries are catalog signals only and cannot be run here.
+capability contract. This CLI executes connector actions.
 
 ## Goal
 
@@ -85,7 +84,7 @@ Examples:
 - Missing format constraint: `translate contract PDF`
   Better: `translate a scanned German contract PDF into English and return a DOCX`
 
-## Mixed discovery command
+## Discovery command
 
 Canonical form:
 
@@ -101,15 +100,10 @@ oo skills search "<text>" --keywords "<comma-separated keywords>" --json
 
 Facts:
 
-- `oo search` performs one mixed discovery pass over package intent search and
-  connector action search.
+- `oo search` performs one discovery pass over connector action search.
 - `<text>` is one free-form query string, not multiple positional keywords.
 - `--json` returns a raw array, not an object wrapper.
-- The array mixes `package` and `connector` entries and uses `kind` as the
-  discriminator.
-- Package entries include stable fields such as `packageId`, `displayName`,
-  `description`, and `blocks`. They are catalog signals only; this CLI cannot
-  execute a package or block.
+- The array contains `connector` entries.
 - Connector entries include stable fields such as `service`, `name`,
   `description`, and `authenticated`.
 - `--keywords` is required on every call: always pass `1` to `3` keywords. The
@@ -123,22 +117,8 @@ Representative JSON example:
 ```json
 [
   {
-    "blocks": [
-      {
-        "description": "",
-        "name": "main",
-        "title": "Generate QR Code"
-      }
-    ],
-    "description": "Generate a QR code image.",
-    "displayName": "QR Tools",
-    "kind": "package",
-    "packageId": "@oomol/qr-tools@1.2.3"
-  },
-  {
     "authenticated": true,
     "description": "Send an email through Gmail.",
-    "kind": "connector",
     "name": "send_mail",
     "service": "gmail"
   }
@@ -156,28 +136,23 @@ output semantics, or adds unsafe or missing required inputs.
 Treat the fallback as a reserved path for a named blocker, not as another option
 to inspect by default.
 
-Scan all package and connector entries before choosing; do not let array order
-decide. Rank mixed results in this order:
+Scan all connector entries before choosing; do not let array order
+decide. Rank results in this order:
 
-1. Directness of the action or block relative to the user's goal
+1. Directness of the action relative to the user's goal
 2. Whether the target service, destination, or output is explicitly named or
    strongly implied
-3. Capability class, when domain fit is comparable: prefer a connector action
-   that directly fits. Package and block entries are not executable candidates.
-4. Whether the candidate is ready to run. Treat an already authenticated
+3. Whether the candidate is ready to run. Treat an already authenticated
    connector as out-of-box.
-5. How many required inputs and follow-up questions it adds
-6. How closely the documented output matches the user's desired outcome
-7. If the user did not name a model or product, prefer more capable, modern,
+4. How many required inputs and follow-up questions it adds
+5. How closely the documented output matches the user's desired outcome
+6. If the user did not name a model or product, prefer more capable, modern,
    reputable candidates over older or obscure equivalents.
 
 Tie-breakers:
 
 - Use an authenticated connector when the user named a connected service or the
   connector directly matches the requested external account workflow.
-- If only a package or block matches, report that this CLI cannot execute it and
-  point the user to OOMOL Studio; do not build an execution contract from
-  package metadata.
 - If the returned array is empty or no candidate clearly fits, stop the current
   `oo` path and report that the catalog does not expose a good match.
 
@@ -202,12 +177,8 @@ agreement to install that exact skill. If they choose install, use the
 
 After selecting a candidate, do not execute yet.
 
-- Connector-backed candidate: read
-  [connector-execution.md](connector-execution.md), then run
-  `oo connector schema "<service>" --action "<name>"`.
-- Package or block candidate: there is no executable path in this CLI. Report
-  that the capability exists in the catalog but cannot be run here, and point the
-  user to OOMOL Studio instead of inspecting it as an execution contract.
+Read [connector-execution.md](connector-execution.md), then run
+`oo connector schema "<service>" --action "<name>"`.
 
 Use the inspected metadata or schema to complete the minimum viable contract:
 exact callable id, required input names, payload shape, output meaning, and
@@ -222,7 +193,7 @@ complete.
   destination constraint, adjust or add keywords (still `1` to `3`) and search
   again.
 - Do not pass keywords as extra positional arguments.
-- If the task looks like a managed API capability but the mixed result set has
+- If the task looks like a managed API capability but the result set has
   no suitable connector candidate, run one connector refinement before reporting
   that no executable capability is available.
 - If connector signal is still ambiguous after shortlisting, refine with:

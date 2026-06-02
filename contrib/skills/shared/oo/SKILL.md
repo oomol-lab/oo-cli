@@ -132,9 +132,7 @@ proves its output.
    Read [references/connector-execution.md](references/connector-execution.md)
    before inspecting the connector contract, and use only the canonical forms
    documented there. File-like inputs or artifact downloads may require
-   [references/file-transfer.md](references/file-transfer.md). Package and block
-   search results are catalog signals only; this CLI cannot execute them, so do
-   not build an execution contract from package metadata.
+   [references/file-transfer.md](references/file-transfer.md).
 6. Build payload
    Use only fields exposed by the selected contract. Prefer user-provided values
    over defaults, samples, and placeholders. Ask one focused follow-up only when
@@ -193,8 +191,7 @@ unsupported input shape, or a blocker-specific fallback.
 User wants a managed transform such as OCR, translation, transcription, image
 generation, or document conversion. Search the outcome, pick a connector action
 that fits, read its schema, build the payload from required fields, then run the
-action. If only a package or block matches, report that this CLI cannot execute
-it and point the user to OOMOL Studio instead of trying to run it.
+action.
 
 ### Single connector
 

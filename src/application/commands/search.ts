@@ -1,10 +1,4 @@
-import type { CliCommandDefinition, CliExecutionContext } from "../contracts/cli.ts";
-import type { TerminalColors } from "../terminal-colors.ts";
-import type { ConnectorSearchResult } from "./connector/search-provider.ts";
-import type {
-    PackageSearchBlock,
-    PackageSearchPackage,
-} from "./package/search-provider.ts";
+import type { CliCommandDefinition } from "../contracts/cli.ts";
 
 import { z } from "zod";
 
@@ -12,58 +6,28 @@ import {
     bucketTelemetryCount,
     bucketTelemetryStringLength,
 } from "../telemetry/buckets.ts";
-import { createWriterColors } from "../terminal-colors.ts";
 import {
-    formatConnectorSearchResultAsText,
+    formatConnectorSearchResultsAsText,
     loadConnectorSearchResults,
 } from "./connector/search-provider.ts";
 import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
-import {
-    formatPackageSearchPackageAsText,
-    loadPackageSearchResponse,
-    readPackageSearchId,
-} from "./package/search-provider.ts";
 import { requireCurrentAccount } from "./shared/auth-utils.ts";
 import { createFormatInputError } from "./shared/input-parsing.ts";
 import { parseCommaSeparatedKeywords } from "./shared/keywords.ts";
 
 const searchFormatValues = ["json"] as const;
-export const mixedSearchKindColor = "#7FDBFF";
 
-interface MixedSearchInput {
+interface SearchInput {
     format?: (typeof searchFormatValues)[number];
     keywords?: string;
     showSchemaVersion?: boolean;
     text: string;
 }
 
-interface MixedPackageSearchItem {
-    blocks: {
-        description: string;
-        name: string;
-        title: string;
-    }[];
-    description: string;
-    displayName: string;
-    kind: "package";
-    packageId: string;
-}
-
-interface MixedConnectorSearchItem {
-    authenticated: boolean;
-    description: string;
-    kind: "connector";
-    name: string;
-    service: string;
-}
-
-type MixedSearchItem = MixedPackageSearchItem | MixedConnectorSearchItem;
-type MixedSearchTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
-
-export const mixedSearchCommand: CliCommandDefinition<MixedSearchInput> = {
+export const searchCommand: CliCommandDefinition<SearchInput> = {
     name: "search",
-    summaryKey: "commands.mixedSearch.summary",
-    descriptionKey: "commands.mixedSearch.description",
+    summaryKey: "commands.search.summary",
+    descriptionKey: "commands.search.description",
     missingArgumentBehavior: "showHelp",
     arguments: [
         {
@@ -97,132 +61,35 @@ export const mixedSearchCommand: CliCommandDefinition<MixedSearchInput> = {
         });
 
         const account = await requireCurrentAccount(context);
-        const [packageResponse, connectorResults] = await Promise.all([
-            loadPackageSearchResponse(
-                {
-                    account,
-                    locale: context.translator.locale,
-                    text: input.text,
-                },
-                context,
-            ),
-            loadConnectorSearchResults(
-                {
-                    account,
-                    keywords,
-                    text: input.text,
-                },
-                context,
-            ),
-        ]);
+        const results = await loadConnectorSearchResults(
+            {
+                account,
+                keywords,
+                text: input.text,
+            },
+            context,
+        );
+
         context.telemetry?.recordProperties({
-            result_count_bucket: bucketTelemetryCount(
-                packageResponse.packages.length + connectorResults.length,
-            ),
+            result_count_bucket: bucketTelemetryCount(results.length),
         });
 
         if (input.format === "json") {
-            writeJsonOutput(
-                context.stdout,
-                createMixedSearchItems(
-                    packageResponse.packages,
-                    connectorResults,
-                ),
-                { showSchemaVersion: input.showSchemaVersion },
+            writeJsonOutput(context.stdout, results, {
+                showSchemaVersion: input.showSchemaVersion,
+            });
+            return;
+        }
+
+        if (results.length === 0) {
+            context.stdout.write(
+                `${context.translator.t("connector.search.text.noResults")}\n`,
             );
             return;
         }
 
-        const output = formatMixedSearchResultsAsText(
-            packageResponse.packages,
-            connectorResults,
-            context,
-        );
-
         context.stdout.write(
-            output === ""
-                ? `${context.translator.t("mixedSearch.text.noResults")}\n`
-                : `${output}\n`,
+            `${formatConnectorSearchResultsAsText(results, context)}\n`,
         );
     },
 };
-
-function createMixedSearchItems(
-    packages: readonly PackageSearchPackage[],
-    connectorResults: readonly ConnectorSearchResult[],
-): MixedSearchItem[] {
-    return [
-        ...packages.map(createMixedPackageSearchItem),
-        ...connectorResults.map(createMixedConnectorSearchItem),
-    ];
-}
-
-function createMixedPackageSearchItem(
-    pkg: PackageSearchPackage,
-): MixedPackageSearchItem {
-    return {
-        blocks: pkg.blocks.map(createMixedPackageSearchBlock),
-        description: pkg.description,
-        displayName: pkg.displayName,
-        kind: "package",
-        packageId: readPackageSearchId(pkg),
-    };
-}
-
-function createMixedPackageSearchBlock(
-    block: PackageSearchBlock,
-): MixedPackageSearchItem["blocks"][number] {
-    return {
-        description: block.description,
-        name: block.name,
-        title: block.title,
-    };
-}
-
-function createMixedConnectorSearchItem(
-    result: ConnectorSearchResult,
-): MixedConnectorSearchItem {
-    return {
-        authenticated: result.authenticated,
-        description: result.description,
-        kind: "connector",
-        name: result.name,
-        service: result.service,
-    };
-}
-
-function formatMixedSearchResultsAsText(
-    packages: readonly PackageSearchPackage[],
-    connectorResults: readonly ConnectorSearchResult[],
-    context: MixedSearchTextContext,
-): string {
-    const colors = createWriterColors(context.stdout);
-    const packageKindLine = readMixedSearchKindLine("package", context, colors);
-    const connectorKindLine = readMixedSearchKindLine("connector", context, colors);
-
-    return [
-        ...packages.map(pkg => formatPackageSearchPackageAsText(pkg, context, {
-            colors,
-            extraLinesAfterDescription: [packageKindLine],
-        })),
-        ...connectorResults.map(result => formatConnectorSearchResultAsText(result, context, {
-            colors,
-            extraLinesAfterDescription: [connectorKindLine],
-        })),
-    ].join("\n\n");
-}
-
-function readMixedSearchKindLine(
-    kind: MixedSearchItem["kind"],
-    context: MixedSearchTextContext,
-    colors: TerminalColors,
-): string {
-    const kindLabelKey = kind === "package"
-        ? "mixedSearch.text.kind.package"
-        : "mixedSearch.text.kind.connector";
-    const kindValue = colors.hex(mixedSearchKindColor)(
-        context.translator.t(kindLabelKey),
-    );
-
-    return `${context.translator.t("mixedSearch.text.kind")}: ${kindValue}`;
-}

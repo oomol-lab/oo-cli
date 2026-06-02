@@ -13,7 +13,6 @@ becomes relevant.
 ## Remote commands that depend on the current account
 
 - `oo search`
-- `oo packages info`
 - `oo connector search`
 - `oo connector run`
 - `oo file upload`
