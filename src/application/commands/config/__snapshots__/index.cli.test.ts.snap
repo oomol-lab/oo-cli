@@ -43,6 +43,7 @@ Commands:
   telemetry                 Manage CLI telemetry
   uninstall [options]       Uninstall the CLI
   update|upgrade [options]  Update the CLI
+  variables|variable        Manage cloud-stored variables
   version [options]         Print the CLI version
   help [command]            Show help for a command
 "
@@ -78,6 +79,7 @@ Commands:
   telemetry                 管理 CLI telemetry
   uninstall [options]       卸载 CLI
   update|upgrade [options]  更新 CLI
+  variables|variable        管理云端变量
   version [options]         输出 CLI 版本
   help [command]            显示命令帮助
 "

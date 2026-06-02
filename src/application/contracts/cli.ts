@@ -26,8 +26,8 @@ export interface InteractiveInput {
     setRawMode?: (value: boolean) => void;
     resume?: () => void;
     pause?: () => void;
-    on: (event: "data", listener: (chunk: string | Uint8Array) => void) => void;
-    off: (event: "data", listener: (chunk: string | Uint8Array) => void) => void;
+    on: (event: "data" | "end", listener: (chunk: string | Uint8Array) => void) => void;
+    off: (event: "data" | "end", listener: (chunk: string | Uint8Array) => void) => void;
 }
 
 export type Fetcher = (
