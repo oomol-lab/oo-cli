@@ -35,6 +35,7 @@ import { createTranslator } from "../../i18n/translator.ts";
 import { createCliCatalog } from "../commands/catalog.ts";
 import { synchronizeManagedSkillsForAvailableHosts } from "../commands/skills/auto-sync.ts";
 import { removeLegacyCodexManagedSkills } from "../commands/skills/legacy-codex-cleanup.ts";
+import { removeLegacyGptImage2ManagedSkills } from "../commands/skills/legacy-gpt-image-2-cleanup.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import {
     formatCliVersionText,
@@ -278,6 +279,12 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         // and `legacy-codex-cleanup.ts` once enough releases have shipped that no
         // user still has oo-managed skills under the legacy Codex home.
         await removeLegacyCodexManagedSkills(context);
+        // TODO(gpt-image-2-removal): Temporary compatibility cleanup. Remove this
+        // call and `legacy-gpt-image-2-cleanup.ts` once enough releases have
+        // shipped that no user still has the oo-managed `@alwaysmavs/gpt-image-2`
+        // skills materialized in an AI agent. Must run before the sync below so
+        // the canonical sources are gone before re-publishing could re-create them.
+        await removeLegacyGptImage2ManagedSkills(context);
         await synchronizeManagedSkillsForAvailableHosts(context);
 
         exitCode = await adapter.run({

@@ -8,7 +8,6 @@ import process from "node:process";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { resolveManagedSkillMetadataFilePath } from "../commands/skills/managed-skill-paths.ts";
-import { presetSkillPackageNames } from "../commands/skills/preset-packages.ts";
 import {
     createBundledSkillMetadata,
     createLocalSkillMetadata,
@@ -23,8 +22,6 @@ import {
     performSelfUninstall,
     shouldRemoveManagedSkill,
 } from "./uninstall.ts";
-
-const PRESET_PACKAGE = presetSkillPackageNames[0];
 
 const noopLogger = {
     warn: () => {},
@@ -66,13 +63,7 @@ describe("shouldRemoveManagedSkill", () => {
         expect(shouldRemoveManagedSkill(createBundledSkillMetadata("1.0.0"), { purge: true })).toBe(true);
     });
 
-    test("preset registry is removed by default", () => {
-        const metadata = createRegistrySkillMetadata({ packageName: PRESET_PACKAGE, version: "0.1.0" });
-
-        expect(shouldRemoveManagedSkill(metadata, { purge: false })).toBe(true);
-    });
-
-    test("non-preset registry is kept by default and removed under purge", () => {
+    test("registry is kept by default and removed under purge", () => {
         const metadata = createRegistrySkillMetadata({ packageName: "@alice/demo", version: "0.1.0" });
 
         expect(shouldRemoveManagedSkill(metadata, { purge: false })).toBe(false);
@@ -242,17 +233,13 @@ describe("buildSelfUninstallPlan", () => {
         expect(plan.deferred.every(item => item.category !== "user-data")).toBe(true);
     });
 
-    test("classifies skills by metadata: bundled+preset removed, registry kept, local/unmanaged retained", async () => {
+    test("classifies skills by metadata: bundled removed, registry kept, local/unmanaged retained", async () => {
         const universalSkillsDir = join(tempHome, ".agents", "skills");
 
         await mkdir(join(tempHome, ".agents"), { recursive: true });
         await writeSkill(
             join(universalSkillsDir, "oo"),
             renderSkillMetadataJson(createBundledSkillMetadata("1.2.3")),
-        );
-        await writeSkill(
-            join(universalSkillsDir, "gpt-image-2"),
-            renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: PRESET_PACKAGE, version: "0.1.0" })),
         );
         await writeSkill(
             join(universalSkillsDir, "demo"),
@@ -272,7 +259,6 @@ describe("buildSelfUninstallPlan", () => {
         ));
 
         expect(removedPaths.some(path => path.endsWith(join(".agents", "skills", "oo")))).toBe(true);
-        expect(removedPaths.some(path => path.endsWith(join(".agents", "skills", "gpt-image-2")))).toBe(true);
         expect(removedPaths.some(path => path.endsWith(join(".agents", "skills", "demo")))).toBe(false);
         expect(removedPaths.some(path => path.endsWith(join(".agents", "skills", "mine")))).toBe(false);
         // unmanaged dir never appears in any removal set

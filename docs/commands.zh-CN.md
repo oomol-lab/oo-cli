@@ -301,8 +301,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
   决定是否手动补全未配置的 profile。
 - 说明：install 成功后，CLI 会使用托管的可执行文件静默执行一次
-  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。该命令也会把
-  安装成功的预设 registry skills 合并进同一份 skill 摘要。
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
@@ -342,8 +341,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
   决定是否手动补全未配置的 profile。
 - 说明：update 成功后，CLI 会使用托管的可执行文件静默执行一次
-  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。该命令也会把
-  安装成功的预设 registry skills 合并进同一份 skill 摘要。
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
@@ -361,13 +359,12 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`--purge` 额外删除用户数据（auth、settings、cache、logs、telemetry）
   以及**全部**由 oo 管理的 registry skills。
 - 默认删除：受管可执行文件（`~/.local/bin/oo`）、所有已安装版本、self-update
-  staging 与 locks、bundled skills，以及 preset registry skill 包
-  `@alwaysmavs/gpt-image-2`（host 安装与 canonical source）。
-- 默认保留：不动 PATH 配置；非 preset 的 registry skills、local skills、以及
-  任何不受 oo 管理的同名目录都保留；用户数据仅在 `--purge` 时删除。
+  staging 与 locks，以及 bundled skills。
+- 默认保留：不动 PATH 配置；registry skills、local skills、以及任何不受 oo
+  管理的同名目录都保留；用户数据仅在 `--purge` 时删除。
 - skill 安全规则：仅当 `.oo-metadata.json` 能证明 oo 所有权（`kind: "bundled"`，
-  或 `kind: "registry"` 且匹配 preset 列表 / `--purge`）时才删除。metadata 缺失、
-  损坏、local 或不匹配的目录一律不删，因此用户手写的同名 skill 是安全的。
+  或 `kind: "registry"` 且在 `--purge` 下）时才删除。metadata 缺失、损坏、local
+  或不匹配的目录一律不删，因此用户手写的同名 skill 是安全的。
 - 安装方式：当 `oo` 是通过包管理器（npm/bun/pnpm/yarn）安装时，命令会删除
   oo 管理的 skills，打印对应的 `npm uninstall -g @oomol-lab/oo-cli`（或等价）命令，
   并以非零状态退出，提示调用方二进制仍需手动删除。当可执行文件位于未知位置时，
@@ -832,8 +829,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 别名：`oo skills add [packageName]`。
 - 参数：`[packageName]` 可选。
-- 参数：未提供时，该命令会安装全部内置 skill，然后尽力安装预设 registry
-  skill packages 里的全部 skill。
+- 参数：未提供时，该命令会安装全部内置 skill。
 - 参数：当 `[packageName]` 为 `oo`、`oo-find-skills`、`oo-create-skill` 或
   `oo-publish-skill` 时，命令安装对应的内置 skill。
 - 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
@@ -858,11 +854,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `--all -y` 使用）。
 - 输出：非交互安装成功时，会按已安装 skill 和目标 AI Agent 聚合输出精简摘要；
   当实际只写入一个目标时，摘要会包含该目标路径。
-- 输出：未提供 `[packageName]` 且有预设 registry skills 安装成功时，这些
-  skill 名称会合并到同一份 `Installed ...` 摘要和 `Skills:` 列表里。
 - 说明：如果 package 只发布了一个 skill，且未提供 `--skill`，命令会自动
   安装这个唯一的 skill。
-- 说明：预设 registry skill package 安装失败会被忽略，不改变命令结果。
 - 说明：如果 package 发布了多个 skill，且未提供 `--skill`、`--all` 或
   `-y`，命令会在 TTY 中打开交互选择页面。
 - 说明：在交互选择页面中，同一 package 下已安装的 skill 会默认保持勾选；
