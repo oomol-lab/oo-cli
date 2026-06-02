@@ -734,6 +734,9 @@ describe("embedded skill assets", () => {
             expect(content).toContain("Discover");
             expect(content).toContain("the capability");
             expect(content).toContain("run the smallest safe test");
+            expect(content).toContain("cheap, non-sensitive artifact transforms");
+            expect(content).toContain("tiny synthetic inputs");
+            expect(content).toContain("representative invocation before finalizing");
             expect(content).toContain("observed");
             expect(content).toContain("facts");
             expect(content).toContain("Choose the most direct executable connector action");
@@ -790,6 +793,11 @@ describe("embedded skill assets", () => {
             expect(content).toContain("minimal representative invocation");
             expect(content).toContain("status/result poll");
             expect(content).toContain("safe and proportionate");
+            expect(content).toContain("full `oo connector run --json` response paths");
+            expect(content).toContain("not only the connector payload's inner field names");
+            expect(content).toContain("response.data.sessionId");
+            expect(content).toContain("response.data.state");
+            expect(content).toContain("response.data.data.image.url");
             expect(content).toContain("Do not spend");
             expect(content).toContain("meaningful user money");
             expect(content).toContain("mutate external state");
@@ -871,6 +879,14 @@ describe("embedded skill assets", () => {
             );
             expect(content).toContain("A successful");
             expect(content).toContain("file path alone is not enough");
+            expect(content).toContain("Resolve user-provided files into readable runtime sources");
+            expect(content).toContain("environment-exposed attachment paths");
+            expect(content).toContain("chat-visible media that the CLI cannot read directly");
+            expect(content).toContain("recent-file fallback");
+            expect(content).toContain("candidate hashes match");
+            expect(content).toContain("default to the input file's directory");
+            expect(content).toContain("such as Downloads");
+            expect(content).toContain("Do not default generated artifacts into the current repository workspace");
             expect(content).toContain(
                 "local/remote connector file boundary",
             );
@@ -911,12 +927,17 @@ describe("embedded skill assets", () => {
             expect(content).toContain("be inferred or defaulted");
             expect(content).toContain("optional inputs to omit when absent");
             expect(content).toContain("missing runtime values");
+            expect(content).toContain("Source resolution for file-like inputs");
+            expect(content).toContain("chat-visible media with no");
+            expect(content).toContain("multiple candidate files");
             expect(content).toContain("Invocation");
             expect(content).toContain("small payload skeleton");
             expect(content).toContain("`--data @payload.json`");
             expect(content).toContain("Payload rules");
             expect(content).toContain("Result handling");
             expect(content).toContain("JSON field paths");
+            expect(content).toContain("full CLI response paths");
+            expect(content).toContain("schema-only paths as untested");
             expect(content).toContain("what not to treat as the final result");
             expect(content).toContain("files, images, documents");
             expect(content).toContain("preview them or deliver them to the user");
@@ -925,6 +946,12 @@ describe("embedded skill assets", () => {
             expect(content).toContain("save and preview the artifact");
             expect(content).toContain("printing the full");
             expect(content).toContain("encoded payload");
+            expect(content).toContain("Async handling");
+            expect(content).toContain("early-exit");
+            expect(content).toContain("stops polling immediately");
+            expect(content).toContain("Artifact destination and verification");
+            expect(content).toContain("avoids polluting an unrelated repository");
+            expect(content).toContain("PNG alpha/RGBA check");
             expect(content).toContain("Failure handling");
             expect(content).toContain("action-specific stop conditions");
             expect(content).toContain("schema rejection");
@@ -936,6 +963,11 @@ describe("embedded skill assets", () => {
             expect(content).toContain("future agent can reach the selected capability");
             expect(content).toContain("without rediscovery");
             expect(content).toContain("stop on common failures");
+            expect(content).toContain("exposed attachment path");
+            expect(content).toContain("full CLI JSON response path");
+            expect(content).toContain("bounded timeout");
+            expect(content).toContain("unrelated git workspace");
+            expect(content).toContain("verified after download");
             expect(content).not.toContain("Use whatever structure fits the domain");
             expect(content).not.toContain("async polling/idempotency when needed");
             expect(content).not.toContain("future agent can ask less");

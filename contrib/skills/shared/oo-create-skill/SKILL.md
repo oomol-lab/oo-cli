@@ -52,7 +52,10 @@ separate checklist.
    the capability, inspect metadata, run the smallest safe test when command,
    result, status, file, or envelope shape matters, and write from observed
    facts. Do not spend meaningful user money, mutate external state, disclose
-   sensitive data, or trigger large jobs only to learn a response shape.
+   sensitive data, or trigger large jobs only to learn a response shape. For
+   cheap, non-sensitive artifact transforms with tiny synthetic inputs, run one
+   representative invocation before finalizing unless the user or connector
+   context makes that unsafe.
 5. Choose the most direct executable connector action for the user's outcome.
    Use only connector entries as authoring candidates; treat non-connector
    entries as non-authoring catalog noise. During selection, classify service
@@ -81,7 +84,17 @@ separate checklist.
    not hand-roll transfer logic, and do not pass local filesystem paths or
    `file://` URLs to remote connector actions unless the schema explicitly
    supports local paths.
-7. Generated skills are execution runbooks. Write a compact execution runbook,
+7. Resolve user-provided files into readable runtime sources. For file, image,
+   audio, video, or document workflows, generated skills must distinguish
+   explicit local paths, remote URLs, environment-exposed attachment paths, and
+   chat-visible media that the CLI cannot read directly. If a pasted or
+   displayed attachment has no readable path or URL, say so and ask for a path
+   or use a clearly labeled recent-file fallback only when practical. If
+   multiple candidate files are present, compare concrete evidence such as
+   path, timestamp, size, type, hash, or preview. If candidates differ and the
+   intended source remains ambiguous, ask the user. If candidate hashes match,
+   treat them as the same source and explain the chosen file briefly.
+8. Generated skills are execution runbooks. Write a compact execution runbook,
    not API documentation. Keep generated skills concise and domain-focused.
    Include concrete connector service/action identifiers plus the minimum
    payload, result, file-transfer, artifact handoff, and failure guidance needed
@@ -92,12 +105,16 @@ separate checklist.
    future agents to preview the artifact when practical, or otherwise deliver
    it with a clear path, attachment, link, or user-appropriate handoff. A
    successful file path alone is not enough if the user cannot see or access the
-   result.
-8. Native skill commands are mandatory. Run the dedicated preflight, initialize
+   result. For local artifact downloads, default to the input file's directory
+   when the input was a local file; otherwise choose a user-accessible output
+   directory such as Downloads or an explicit requested directory. Do not
+   default generated artifacts into the current repository workspace unless the
+   user asked for that destination.
+9. Native skill commands are mandatory. Run the dedicated preflight, initialize
    with `oo skills init --agent <!-- agentic:var agent -->`, and validate with
    `oo skills validate`. Do not substitute manual file creation for native skill
    initialization.
-9. Write generated skills in English regardless of the user's language,
+10. Write generated skills in English regardless of the user's language,
    including `--description`, `--title`, frontmatter, headings, examples, and
    reference files. Preserve non-English only for literal runtime values,
    product names, language-pair requirements, or necessary sample I/O.
@@ -213,6 +230,13 @@ only to learn a response shape; ask the user or use documented dry-run or
 read-only paths when those risks are material. If a field path is inferred from
 schema rather than observed, label it as untested.
 
+Record the full `oo connector run --json` response paths that future agents must
+read, not only the connector payload's inner field names. If the CLI wraps the
+connector payload under `data` and adds `meta`, make that envelope explicit, for
+example `response.data.sessionId`, `response.data.state`, or
+`response.data.data.image.url`. When useful, also state the inner connector
+payload path separately.
+
 ### 5. Initialize the local skill
 
 Run `oo skills init <name> --agent <!-- agentic:var agent -->` with a required `--description`.
@@ -261,6 +285,9 @@ include these execution facts when metadata provides them:
 - Runtime input policy: when to use the skill, required inputs, inputs that can
   be inferred or defaulted, optional inputs to omit when absent, and the exact
   missing runtime values that justify asking the user.
+- Source resolution for file-like inputs: how to handle explicit local paths,
+  remote URLs, environment-exposed attachment paths, chat-visible media with no
+  readable CLI path, recent-file fallback, and multiple candidate files.
 - Invocation: the exact `service.action` and minimal
   `oo connector run "<service>" --action "<action>" --data ... --json` command
   shape. Include a small payload skeleton with schema-derived field names. For
@@ -269,13 +296,23 @@ include these execution facts when metadata provides them:
 - Payload rules: required fields, defaultable fields, accepted file or URL
   forms, and schema constraints that affect user-visible behavior.
 - Result handling: JSON field paths that contain the useful result,
-  downloadable artifact URL, status, id, or human-readable output. State what
-  to report on success and what not to treat as the final result. For generated
+  downloadable artifact URL, status, id, or human-readable output. Include full
+  CLI response paths when `--json` adds an envelope, and label schema-only paths
+  as untested. State what to report on success and what not to treat as the
+  final result. For generated
   files, images, documents, archives, media, or other artifacts, state how
   future agents should preview them or deliver them to the user instead of only
   reporting a local path. For inline base64 or `data:` URI artifacts, tell
   future agents to save and preview the artifact rather than printing the full
   encoded payload.
+- Async handling: for submit/poll/result workflows, include the status values,
+  bounded retry policy, not-found or timeout stop conditions, and an early-exit
+  rule that stops polling immediately when the terminal success state appears.
+- Artifact destination and verification: choose a default output directory that
+  avoids polluting an unrelated repository, use a non-conflicting name such as
+  an original stem plus a suffix, report the actual saved path, and verify the
+  artifact type after download. For transparent image outputs, require a PNG
+  alpha/RGBA check and dimensions check when practical.
 - Failure handling: action-specific stop conditions from schema or metadata,
   plus common auth, permission, billing, schema rejection, inaccessible file,
   timeout, and not-found branches.
@@ -311,7 +348,23 @@ observed metadata, output shape, or documented oo workflow exposes.
 
 Before finishing, check that a future agent can reach the selected capability
 without rediscovery, build a valid payload, read the useful result, and stop on
-common failures. If not, add only the missing execution guidance.
+common failures. For file or artifact connector skills, also check that the
+runbook answers:
+
+- How does the runtime agent obtain a readable source from an explicit path,
+  URL, exposed attachment path, or chat-visible media?
+- What exact command uploads local files, invokes the connector, polls async
+  status when needed, fetches results, and downloads artifacts?
+- What full CLI JSON response path contains the job id, status, result text, or
+  artifact URL?
+- What condition stops polling immediately, and what conditions stop with a
+  failure or bounded timeout?
+- Where is the artifact downloaded by default, and does that avoid polluting an
+  unrelated git workspace?
+- How is the artifact verified after download, and what should be shown or
+  reported to the user?
+
+If any answer is missing, add only the missing execution guidance.
 
 Keep `SKILL.md` concise. Use `references/workflow.md` only when the workflow
 has several steps, decision rules, or examples.
