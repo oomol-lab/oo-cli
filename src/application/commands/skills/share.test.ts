@@ -117,8 +117,8 @@ describe("skills share command", () => {
     test("uses share-scoped error for ambiguous local skill ids", async () => {
         const sandbox = await createCliSandbox();
         const skillId = "shared-skill";
-        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
+        const universalSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal"),
             skillId,
         );
         const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
@@ -129,7 +129,7 @@ describe("skills share command", () => {
         try {
             await writeAuthFile(sandbox);
             await Promise.all([
-                writePublishedSkillFile(codexSkillDirectoryPath, {
+                writePublishedSkillFile(universalSkillDirectoryPath, {
                     packageName: "@alice/shared-skill",
                     skillId,
                     version: "0.0.1",
@@ -150,7 +150,7 @@ describe("skills share command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `Local skill ${skillId} exists in multiple local sources (codebuddy, codex). Pass --agent to choose which agent-native skill to share.\n`,
+                `Local skill ${skillId} exists in multiple local sources (codebuddy, universal). Pass --agent to choose which agent-native skill to share.\n`,
             );
         }
         finally {
@@ -844,7 +844,7 @@ function resolveLocalSkillDirectoryPath(
     skillId: string,
 ): string {
     return resolveManagedSkillDirectoryPath(
-        resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
+        resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal"),
         skillId,
     );
 }

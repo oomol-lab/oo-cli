@@ -20,7 +20,7 @@ describe("skills locate command", () => {
     test("prints the selected agent skill path", async () => {
         const sandbox = await createCliSandbox();
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal"),
             "agent-skill",
         );
 
@@ -32,7 +32,7 @@ describe("skills locate command", () => {
                 "locate",
                 "agent-skill",
                 "--agent",
-                "codex",
+                "universal",
             ]);
 
             expect(result.exitCode).toBe(0);
@@ -89,8 +89,8 @@ describe("skills locate command", () => {
 
     test("reports ambiguous matches without an agent", async () => {
         const sandbox = await createCliSandbox();
-        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
+        const universalSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal"),
             "shared-skill",
         );
         const storePaths = resolveStorePaths({
@@ -105,7 +105,7 @@ describe("skills locate command", () => {
 
         try {
             await Promise.all([
-                writeSkillFile(codexSkillDirectoryPath),
+                writeSkillFile(universalSkillDirectoryPath),
                 writeSkillFile(canonicalSkillDirectoryPath),
             ]);
 
@@ -120,7 +120,7 @@ describe("skills locate command", () => {
             expect(result.stderr).toContain(
                 "Skill shared-skill matches multiple local paths.",
             );
-            expect(result.stderr).toContain(`- codex: ${codexSkillDirectoryPath}`);
+            expect(result.stderr).toContain(`- universal: ${universalSkillDirectoryPath}`);
             expect(result.stderr).toContain(`- registry: ${canonicalSkillDirectoryPath}`);
         }
         finally {
@@ -163,7 +163,7 @@ describe("skills locate command", () => {
 
             expect(result.exitCode).toBe(2);
             expect(result.stderr).toBe(
-                "Unsupported skill agent: unknown. Use universal, codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
+                "Unsupported skill agent: unknown. Use universal, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
             );
         }
         finally {

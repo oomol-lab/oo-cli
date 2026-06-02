@@ -62,12 +62,12 @@ describe("skills CLI", () => {
 
     test("auto-installs bundled skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(universalHomeDirectory, "skills", "oo-find-skills");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["--help"], {
                 version: "9.9.9",
@@ -98,21 +98,19 @@ describe("skills CLI", () => {
 
     test("auto-refreshes installed bundled skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
-        const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
         const skillFilePath = join(skillDirectoryPath, "SKILL.md");
 
         try {
-            await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
+            await mkdir(skillDirectoryPath, { recursive: true });
             await Bun.write(
                 metadataFilePath,
                 renderSkillMetadataJson({
                     version: "0.0.1",
                 }),
             );
-            await Bun.write(ownershipFilePath, "# OOMOL\n");
             await Bun.write(skillFilePath, "stale\n");
 
             const result = await sandbox.run(["--help"], {
@@ -140,9 +138,9 @@ describe("skills CLI", () => {
 
     test("does not auto-refresh installed bundled skills during development-version cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillTargets = availableBundledSkillNames.map(skillName => ({
-            directoryPath: join(codexHomeDirectory, "skills", skillName),
+            directoryPath: join(universalHomeDirectory, "skills", skillName),
             name: skillName,
         }));
         const installedVersion = "9.9.9";
@@ -199,9 +197,9 @@ describe("skills CLI", () => {
 
     test("does not auto-refresh development-version bundled skills during release-version cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillTargets = availableBundledSkillNames.map(skillName => ({
-            directoryPath: join(codexHomeDirectory, "skills", skillName),
+            directoryPath: join(universalHomeDirectory, "skills", skillName),
             name: skillName,
         }));
 
@@ -309,6 +307,9 @@ describe("skills CLI", () => {
 
     test("leaves synchronized registry symlink targets unchanged during cli startup", async () => {
         const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const universalSkillsDirectory = join(universalHomeDirectory, "skills");
+        const universalSkillDirectoryPath = join(universalSkillsDirectory, "chatgpt");
         const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
         const codeBuddySkillsDirectory = join(codeBuddyHomeDirectory, "skills");
         const codeBuddySkillDirectoryPath = join(codeBuddySkillsDirectory, "chatgpt");
@@ -323,6 +324,7 @@ describe("skills CLI", () => {
         );
 
         try {
+            await mkdir(universalSkillsDirectory, { recursive: true });
             await mkdir(codeBuddySkillsDirectory, { recursive: true });
             await mkdir(canonicalSkillDirectoryPath, { recursive: true });
             await Bun.write(
@@ -335,6 +337,13 @@ describe("skills CLI", () => {
                     packageName: "openai",
                     version: "0.0.3",
                 }),
+            );
+            // The universal host is always provisioned, so it must already hold a
+            // correct symlink for the registry skill to stay unchanged at startup.
+            await symlink(
+                canonicalSkillDirectoryPath,
+                universalSkillDirectoryPath,
+                process.platform === "win32" ? "junction" : "dir",
             );
             await symlink(
                 canonicalSkillDirectoryPath,
@@ -352,6 +361,10 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toContain("Options:");
+            expect(await realpath(universalSkillDirectoryPath)).toBe(
+                await realpath(canonicalSkillDirectoryPath),
+            );
+            expect((await lstat(universalSkillDirectoryPath)).isSymbolicLink()).toBeTrue();
             expect(await realpath(codeBuddySkillDirectoryPath)).toBe(
                 await realpath(canonicalSkillDirectoryPath),
             );
@@ -370,21 +383,21 @@ describe("skills CLI", () => {
 
     test("does not synchronize agent-native local skills during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const universalSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            universalHomeDirectory,
             "campaign-writer",
         );
-        const skillFilePath = join(codexSkillDirectoryPath, "SKILL.md");
+        const skillFilePath = join(universalSkillDirectoryPath, "SKILL.md");
 
         try {
-            await mkdir(codexSkillDirectoryPath, { recursive: true });
+            await mkdir(universalSkillDirectoryPath, { recursive: true });
             await Bun.write(
                 skillFilePath,
                 "# Campaign Writer\n",
             );
             await Bun.write(
-                resolveManagedSkillMetadataFilePath(codexSkillDirectoryPath),
+                resolveManagedSkillMetadataFilePath(universalSkillDirectoryPath),
                 renderSkillMetadataJson(createLocalSkillMetadata()),
             );
 
@@ -412,10 +425,10 @@ describe("skills CLI", () => {
 
     test("does not overwrite synchronized registry targets with same-name local skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
-        const codexSkillsDirectory = join(codexHomeDirectory, "skills");
-        const codexSkillDirectoryPath = join(codexSkillsDirectory, "chatgpt");
+        const universalSkillsDirectory = join(universalHomeDirectory, "skills");
+        const universalSkillDirectoryPath = join(universalSkillsDirectory, "chatgpt");
         const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
             codeBuddyHomeDirectory,
             "chatgpt",
@@ -431,7 +444,7 @@ describe("skills CLI", () => {
         );
 
         try {
-            await mkdir(codexSkillsDirectory, { recursive: true });
+            await mkdir(universalSkillsDirectory, { recursive: true });
             await mkdir(registryCanonicalSkillDirectoryPath, { recursive: true });
             await mkdir(codeBuddySkillDirectoryPath, { recursive: true });
             await Bun.write(
@@ -463,11 +476,11 @@ describe("skills CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(await readFile(join(codexSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+            expect(await readFile(join(universalSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 "# Registry ChatGPT\n",
             );
             expect(await readFile(
-                resolveManagedSkillMetadataFilePath(codexSkillDirectoryPath),
+                resolveManagedSkillMetadataFilePath(universalSkillDirectoryPath),
                 "utf8",
             )).toBe(renderSkillMetadataJson({
                 packageName: "openai",
@@ -487,8 +500,8 @@ describe("skills CLI", () => {
 
     test("does not overwrite unmanaged bundled skill targets during cli startup", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const skillFilePath = join(skillDirectoryPath, "SKILL.md");
 
         try {
@@ -515,14 +528,14 @@ describe("skills CLI", () => {
 
     test("supports skills remove as an alias for uninstall", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
-        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
-        const publishSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(universalHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo-create-skill");
+        const publishSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo-publish-skill");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install"], {
                 version: "9.9.9",
             });
@@ -548,10 +561,10 @@ describe("skills CLI", () => {
 
     test("supports skills add as an alias for install", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "add"], {
                 version: "9.9.9",
@@ -560,7 +573,7 @@ describe("skills CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    "Installed 4 skills to Codex.",
+                    "Installed 4 skills to Universal.",
                     "Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill",
                     "",
                 ].join("\n"),
@@ -574,16 +587,16 @@ describe("skills CLI", () => {
 
     test("writes explicit skills install and uninstall logs", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
-        const publishSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(universalHomeDirectory, "skills", "oo-find-skills");
+        const publishSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo-publish-skill");
         const serializedOoSkillDirectoryPath = JSON.stringify(ooSkillDirectoryPath);
         const serializedFindSkillsDirectoryPath = JSON.stringify(findSkillsDirectoryPath);
         const serializedPublishSkillDirectoryPath = JSON.stringify(publishSkillDirectoryPath);
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const installResult = await sandbox.run(["skills", "install"], {
                 version: "9.9.9",

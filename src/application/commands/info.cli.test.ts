@@ -76,11 +76,11 @@ describe("info CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(
+            const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(
                 sandbox.env,
-                "codex",
+                "universal",
             );
-            await mkdir(resolveManagedSkillsDirectoryPath(codexHomeDirectory), {
+            await mkdir(resolveManagedSkillsDirectoryPath(universalHomeDirectory), {
                 recursive: true,
             });
 
@@ -96,10 +96,10 @@ describe("info CLI", () => {
             const agentIds = agents.map(agent => agent.id);
             expect(agentIds).toEqual([...availableBundledSkillAgentNames]);
 
-            const codexAgent = agents.find(agent => agent.id === "codex");
-            expect(codexAgent).toEqual({
-                id: "codex",
-                skillDir: resolveManagedSkillsDirectoryPath(codexHomeDirectory),
+            const universalAgent = agents.find(agent => agent.id === "universal");
+            expect(universalAgent).toEqual({
+                id: "universal",
+                skillDir: resolveManagedSkillsDirectoryPath(universalHomeDirectory),
                 status: "available",
             });
 

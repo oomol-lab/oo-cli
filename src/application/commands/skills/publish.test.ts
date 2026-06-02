@@ -53,12 +53,12 @@ describe("skills publish command", () => {
     test("publishes a local skill directory path through the CLI", async () => {
         const sandbox = await createCliSandbox();
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal"),
             "demo-skill",
         );
 
         try {
-            await mkdir(resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"), { recursive: true });
+            await mkdir(resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal"), { recursive: true });
             await writeAuthFile(sandbox);
             await writeLocalSkillFile(skillDirectoryPath, createSkillMarkdown(
                 "demo-skill",
@@ -157,10 +157,10 @@ describe("skills publish command", () => {
 
     test("publishes a registry skill path and syncs canonical storage to agents", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "registry-skill",
         );
         const storePaths = resolveStorePaths({
@@ -179,7 +179,7 @@ describe("skills publish command", () => {
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
             ]);
             await writeAuthFile(sandbox);
@@ -245,10 +245,10 @@ describe("skills publish command", () => {
 
     test("rejects a registry publish before PUT when another agent target is unmanaged", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "conflict-skill",
         );
         const claudeSkillDirectoryPath = resolveManagedSkillDirectoryPath(
@@ -259,7 +259,7 @@ describe("skills publish command", () => {
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
             ]);
             await writeAuthFile(sandbox);
@@ -391,7 +391,6 @@ function createPublishContext(
         fetcher: () => Promise.reject(new Error("Unexpected fetch.")),
         cwd: process.cwd(),
         env: {
-            CODEX_HOME: join(configRootDirectoryPath, ".codex"),
             HOME: configRootDirectoryPath,
             USERPROFILE: configRootDirectoryPath,
         },

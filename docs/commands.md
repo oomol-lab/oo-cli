@@ -510,7 +510,7 @@ agents.
     persisted configuration file path.
   - `agents`: an array of `{ id, skillDir, status }` entries, one per
     supported skill agent. `id` is the stable agent identifier (for example
-    `codex`, `claude`, `hermes`). `skillDir` is the agent's resolved skill
+    `universal`, `claude`, `hermes`). `skillDir` is the agent's resolved skill
     directory. `status` is one of `available`, `no_skills`, or
     `not_installed`. `available` means both the agent home directory and
     its skill directory exist locally. `no_skills` means the agent home
@@ -619,11 +619,12 @@ Search packages and connector actions with one free-form query.
 ## AI Agent Skills
 
 Before running a command, `oo` silently synchronizes bundled and registry skills
-for every supported host directory that already exists.
+for the universal `~/.agents` host, which is always provisioned (created when
+missing), and for every other supported host directory that already exists.
 
 - Bundled skills: `oo` ensures `oo`, `oo-find-skills`, `oo-create-skill`, and
-  `oo-publish-skill` are installed for each detected Universal, Codex,
-  Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw,
+  `oo-publish-skill` are installed for the universal `~/.agents` host and each
+  detected Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw,
   QoderWork, and DeepSeek TUI host.
   Existing oo-managed bundled skill targets are refreshed to the current `oo`
   version, except that `0.0.0-development` startup runs do not refresh
@@ -650,18 +651,18 @@ requested. `oo skills list` is accepted as an alias for backwards compatibility.
 - Options: `--source <source>`, `-s <source>` filters the list to one source:
   `bundled`, `registry`, or `local`.
 - Options: `--agent <agent>` narrows the scan to one supported agent:
-  `universal`, `codex`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`,
+  `universal`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`,
   `trae-cn`, `openclaw`, `qoderwork`, or `deepseek-tui`.
 - Options: `--json` / `--format json` emits a structured JSON payload (see JSON
   output below). `--show-schema-version` (only meaningful with JSON output)
   adds a top-level `schemaVersion` field; without it, the payload starts at
   `summary`.
 - Managed ownership rule: the command scans each existing supported local skill root:
-  `~/.agents/skills`, `${CODEX_HOME:-~/.codex}/skills`,
-  `~/.claude/skills`, `${HERMES_HOME:-~/.hermes}/skills`,
-  `~/.codebuddy/skills`, `~/.workbuddy/skills`, `~/.trae/skills`,
-  `~/.trae-cn/skills`, `${OPENCLAW_HOME:-~/.openclaw}/skills`,
-  `~/.qoderwork/skills`, and `~/.deepseek/skills`. It keeps only child
+  `~/.agents/skills`, `~/.claude/skills`,
+  `${HERMES_HOME:-~/.hermes}/skills`, `~/.codebuddy/skills`,
+  `~/.workbuddy/skills`, `~/.trae/skills`, `~/.trae-cn/skills`,
+  `${OPENCLAW_HOME:-~/.openclaw}/skills`, `~/.qoderwork/skills`, and
+  `~/.deepseek/skills`. It keeps only child
   directories whose `.oo-metadata.json` identifies an oo-managed bundled,
   registry, or local skill. A child directory with the same name but without
   `.oo-metadata.json` is surfaced as a `non-managed` host of the matching
@@ -675,7 +676,7 @@ requested. `oo skills list` is accepted as an alias for backwards compatibility.
 - Ordering: bundled skills are listed first when present, with `oo` before
   `oo-find-skills` before `oo-create-skill` before `oo-publish-skill`; the
   remaining skills are ordered by skill name. Host entries within a skill
-  follow `Universal`, `Codex`, `Claude Code`, `Hermes`, `CodeBuddy`,
+  follow `Universal`, `Claude Code`, `Hermes`, `CodeBuddy`,
   `WorkBuddy`, `Trae`, `Trae CN`, `OpenClaw`, `QoderWork`, `DeepSeek TUI`
   order.
 - Text output: text output prints a summary line and one block per visible
@@ -716,10 +717,10 @@ prefixed with `"schemaVersion": "1.0.0"`.
       "description": "Use OOMOL hosted capabilities",
       "hosts": [
         {
-          "agentId": "codex",
+          "agentId": "universal",
           "status": "installed",
-          "path": "/Users/name/.codex/skills/oo",
-          "sourcePath": "/Users/name/Library/Application Support/oo/skills/bundled/codex/oo",
+          "path": "/Users/name/.agents/skills/oo",
+          "sourcePath": "/Users/name/Library/Application Support/oo/skills/bundled/universal/oo",
           "version": "1.2.3",
           "controlState": "controlled"
         }
@@ -758,7 +759,7 @@ Print the local path for an installed skill.
   skill roots. Path-shaped values are rejected; pass paths directly to
   `oo skills publish`.
 - Options: `--agent <agent>` narrows the scan to one supported agent:
-  `universal`, `codex`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`,
+  `universal`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`,
   `trae-cn`, `openclaw`, `qoderwork`, or `deepseek-tui`.
 - Resolution: with `--agent`, the command checks only that agent's
   `<agent-home>/skills/<skill-id>` path. Without `--agent`, it checks all
@@ -778,7 +779,7 @@ Check whether this environment has permission to author local skills for one
 agent.
 
 - Options: `--agent <agent>` is required and selects one supported agent:
-  `universal`, `codex`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`,
+  `universal`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`,
   `trae-cn`, `openclaw`, `qoderwork`, or `deepseek-tui`.
 - Host check: the selected agent home directory must already exist.
 - Storage check: the command creates the selected agent's skills root, such as
@@ -795,7 +796,7 @@ Initialize one local skill in the selected agent's own skill directory.
 - Arguments: `<name>` is normalized to lowercase hyphen-case and used as the
   skill id, target directory name, and frontmatter `name`.
 - Options: `--agent <agent>` is required and selects the agent skill directory
-  to write. Accepted values are `universal`, `codex`, `claude`, `hermes`,
+  to write. Accepted values are `universal`, `claude`, `hermes`,
   `codebuddy`, `workbuddy`, `trae`, `trae-cn`, `openclaw`, `qoderwork`, and
   `deepseek-tui`.
 - Options: `--description <text>` is required and writes the generated
@@ -1018,20 +1019,20 @@ Install bundled or published skills into supported local skill directories.
 - Canonical directory: bundled skills are materialized under
   `<config-dir>/skills/bundled/<agent>/<skill-id>`, where `<config-dir>` is the
   directory that contains `settings.toml` and `<agent>` is `universal`,
-  `codex`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `trae-cn`,
+  `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`, `trae-cn`,
   `openclaw`, `qoderwork`, or `deepseek-tui`.
 - Canonical directory: published skills are materialized to
   `<config-dir>/skills/registry/<skill-id>`.
 - Migration: on first run after upgrading, `oo skills install` removes legacy
   canonical directories left over from earlier releases (`claude-skills/`,
-  `openclaw-skills/`, and any Codex-bundled or registry skill directory that
+  `openclaw-skills/`, and any bundled or registry skill directory that
   lived directly under `skills/`). Bundled skills are rebuilt automatically in
   the new layout; previously-installed published skills must be reinstalled
   with `oo skills install <packageName>`.
-- Target directory: bundled and published skills are published to each existing
-  supported host directory, currently
+- Target directory: bundled and published skills are published to the universal
+  `~/.agents` host (created when missing) and each other existing supported host
+  directory, currently
   `~/.agents/skills/<skill-id>`,
-  `${CODEX_HOME:-~/.codex}/skills/<skill-id>`,
   `~/.claude/skills/<skill-id>`,
   `${HERMES_HOME:-~/.hermes}/skills/<skill-id>`,
   `~/.codebuddy/skills/<skill-id>`,
@@ -1065,9 +1066,8 @@ Install bundled or published skills into supported local skill directories.
   non-OOMOL skills and are not overwritten.
 - Notes: in the interactive picker, conflicting skills are marked in the list;
   selecting one means it will be overwritten.
-- Notes: the command exits with an error when none of the supported Universal,
-  Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw,
-  QoderWork, or DeepSeek TUI home directories exist.
+- Notes: the universal `~/.agents` host is always available (created when
+  missing), so the command always has at least one install target.
 - Notes: an existing bundled or registry skill installation is considered
   managed by `oo` only when its `.oo-metadata.json` identifies that source.
   Otherwise `oo` treats it as a different skill and will not overwrite it.
@@ -1276,9 +1276,9 @@ directory.
       "status": "<per-command enum>",
       "targets": [
         {
-          "agentId": "codex",
+          "agentId": "universal",
           "status": "<per-command enum>",
-          "path": "/Users/.../.codex/skills/demo",
+          "path": "/Users/.../.agents/skills/demo",
           "sourcePath": "/Users/.../oo/skills/managed/demo",
           "version": "0.2.0",
           "previousVersion": "0.1.0",
@@ -1336,7 +1336,7 @@ Remove oo-managed skills from supported local skill directories.
   Published skills remove `<config-dir>/skills/registry/<skill>`.
 - Target directory removed: bundled and published skills are removed from every
   existing supported host directory, currently
-  `~/.agents/skills/<skill>`, `${CODEX_HOME:-~/.codex}/skills/<skill>`,
+  `~/.agents/skills/<skill>`,
   `~/.claude/skills/<skill>`, `${HERMES_HOME:-~/.hermes}/skills/<skill>`,
   `~/.codebuddy/skills/<skill>`, `~/.workbuddy/skills/<skill>`,
   `~/.trae/skills/<skill>`,
@@ -1434,10 +1434,10 @@ copy from the trusted local source.
     {
       "skill": "oo",
       "kind": "bundled",
-      "agentId": "codex",
+      "agentId": "universal",
       "status": "repaired",
-      "path": "/Users/name/.codex/skills/oo",
-      "sourcePath": "/Users/name/Library/Application Support/oo/skills/bundled/codex/oo",
+      "path": "/Users/name/.agents/skills/oo",
+      "sourcePath": "/Users/name/Library/Application Support/oo/skills/bundled/universal/oo",
       "version": "1.2.3"
     },
     {

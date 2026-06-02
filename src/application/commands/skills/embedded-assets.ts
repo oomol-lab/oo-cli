@@ -1,14 +1,10 @@
 import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 import { render } from "agentic-markdown";
 
-import ooCreateSkillOpenAIAgentPath from "../../../../contrib/skills/shared/oo-create-skill/agents/openai.yaml" with { type: "file" };
 import ooCreateSkillPath from "../../../../contrib/skills/shared/oo-create-skill/SKILL.md" with { type: "file" };
-import ooFindSkillsOpenAIAgentPath from "../../../../contrib/skills/shared/oo-find-skills/agents/openai.yaml" with { type: "file" };
 import ooFindSkillsCliContractPath from "../../../../contrib/skills/shared/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsSkillPath from "../../../../contrib/skills/shared/oo-find-skills/SKILL.md" with { type: "file" };
-import ooPublishSkillOpenAIAgentPath from "../../../../contrib/skills/shared/oo-publish-skill/agents/openai.yaml" with { type: "file" };
 import ooPublishSkillPath from "../../../../contrib/skills/shared/oo-publish-skill/SKILL.md" with { type: "file" };
-import ooOpenAIAgentPath from "../../../../contrib/skills/shared/oo/agents/openai.yaml" with { type: "file" };
 import ooAuthAndBillingReferencePath from "../../../../contrib/skills/shared/oo/references/auth-and-billing.md" with { type: "file" };
 import ooConnectorExecutionReferencePath from "../../../../contrib/skills/shared/oo/references/connector-execution.md" with { type: "file" };
 import ooFileTransferReferencePath from "../../../../contrib/skills/shared/oo/references/file-transfer.md" with { type: "file" };
@@ -27,10 +23,7 @@ export type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill", "oo-publish-skill"] as const;
 export type BundledSkillName = (typeof availableBundledSkillNames)[number];
 
-type BundledSkillFileContentKind = "agenticMarkdown" | "static";
-
 interface BundledSkillSourceFile {
-    readonly contentKind: BundledSkillFileContentKind;
     readonly relativePath: string;
     readonly sourcePath: string;
 }
@@ -47,7 +40,6 @@ export interface BundledSkillFile extends BundledSkillSourceFile {
 const bundledSkillRegistry = {
     "oo": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooSkillPath),
-        createStaticFile("agents/openai.yaml", ooOpenAIAgentPath),
         ...createOoReferenceFiles({
             authAndBilling: ooAuthAndBillingReferencePath,
             connectorExecution: ooConnectorExecutionReferencePath,
@@ -58,16 +50,13 @@ const bundledSkillRegistry = {
     ]),
     "oo-create-skill": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooCreateSkillPath),
-        createStaticFile("agents/openai.yaml", ooCreateSkillOpenAIAgentPath),
     ]),
     "oo-find-skills": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooFindSkillsSkillPath),
-        createStaticFile("agents/openai.yaml", ooFindSkillsOpenAIAgentPath),
         createAgenticMarkdownFile("references/oo-cli-contract.md", ooFindSkillsCliContractPath),
     ]),
     "oo-publish-skill": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooPublishSkillPath),
-        createStaticFile("agents/openai.yaml", ooPublishSkillOpenAIAgentPath),
     ]),
 } as const satisfies Record<
     BundledSkillName,
@@ -76,7 +65,7 @@ const bundledSkillRegistry = {
 
 export function getBundledSkillFiles(
     skillName: BundledSkillName,
-    agentName: BundledSkillAgentName = "codex",
+    agentName: BundledSkillAgentName = "universal",
 ): readonly BundledSkillFile[] {
     const skillDefinition = bundledSkillRegistry[skillName][agentName];
 
@@ -91,11 +80,6 @@ export async function readBundledSkillFileContent(
     file: BundledSkillFile,
 ): Promise<string> {
     const content = await Bun.file(file.sourcePath).text();
-
-    if (file.contentKind === "static") {
-        return content;
-    }
-
     const agent = readManagedSkillAgent(file.agentName);
     const variables: Record<string, string> = {
         agent: file.agentName,
@@ -115,11 +99,7 @@ function createAgentDefinitions(
     return Object.fromEntries(
         availableBundledSkillAgentNames.map(agentName => [
             agentName,
-            {
-                files: agentName === "codex"
-                    ? files
-                    : files.filter(file => file.relativePath !== "agents/openai.yaml"),
-            } satisfies BundledSkillDefinition,
+            { files } satisfies BundledSkillDefinition,
         ]),
     ) as Record<BundledSkillAgentName, BundledSkillDefinition>;
 }
@@ -145,18 +125,6 @@ function createAgenticMarkdownFile(
     sourcePath: string,
 ): BundledSkillSourceFile {
     return {
-        contentKind: "agenticMarkdown",
-        relativePath,
-        sourcePath,
-    };
-}
-
-function createStaticFile(
-    relativePath: string,
-    sourcePath: string,
-): BundledSkillSourceFile {
-    return {
-        contentKind: "static",
         relativePath,
         sourcePath,
     };

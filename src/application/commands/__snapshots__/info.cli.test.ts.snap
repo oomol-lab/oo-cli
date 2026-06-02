@@ -15,10 +15,8 @@ exports[`info CLI prints a human-readable view when --json is not set 1`] = `
   Settings file: <XDG_CONFIG_HOME>/oo/settings.toml
 
 Agents
-  universal (not installed)
+  universal (available)
     Skill directory: <HOME>/.agents/skills
-  codex (not installed)
-    Skill directory: <HOME>/.codex/skills
   claude (not installed)
     Skill directory: <HOME>/.claude/skills
   hermes (not installed)

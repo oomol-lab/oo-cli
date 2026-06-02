@@ -129,20 +129,15 @@ describe("bundled skill observation", () => {
     });
 
     test("resolves configured agent home environment overrides", () => {
-        const codexHomeDirectory = join(tmpdir(), "custom-codex-home");
         const hermesHomeDirectory = join(tmpdir(), "custom-hermes-home");
         const openClawHomeDirectory = join(tmpdir(), "custom-openclaw-home");
         const userHomeDirectory = join(tmpdir(), "user-home");
         const env = {
-            CODEX_HOME: codexHomeDirectory,
             HERMES_HOME: hermesHomeDirectory,
             HOME: userHomeDirectory,
             OPENCLAW_HOME: openClawHomeDirectory,
         };
 
-        expect(resolveManagedSkillAgentHomeDirectory(env, "codex")).toBe(
-            codexHomeDirectory,
-        );
         expect(resolveManagedSkillAgentHomeDirectory(env, "hermes")).toBe(
             hermesHomeDirectory,
         );

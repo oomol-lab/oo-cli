@@ -4,9 +4,16 @@ import { join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
 import { resolveHomeDirectory } from "../../path/home-directory.ts";
 
-type SkillSelectionPromptTool = "AskUserQuestion" | "request_user_input";
+type SkillSelectionPromptTool = "AskUserQuestion";
 
 export interface SupportedSkillAgent {
+    /**
+     * When true, this agent is always treated as an available skill host even
+     * if its home directory does not exist yet; the directory is created on
+     * demand when skills are materialized. Used for the universal `~/.agents`
+     * host so bundled skills are always provisioned there.
+     */
+    readonly alwaysProvision?: boolean;
     readonly homeDirectoryName: string;
     readonly homeEnvVar?: string;
     readonly name: BundledSkillAgentName;
@@ -16,16 +23,10 @@ export interface SupportedSkillAgent {
 
 export const supportedSkillAgents = [
     {
+        alwaysProvision: true,
         homeDirectoryName: ".agents",
         name: "universal",
         title: "Universal",
-    },
-    {
-        homeDirectoryName: ".codex",
-        homeEnvVar: "CODEX_HOME",
-        name: "codex",
-        skillSelectionPromptTool: "request_user_input",
-        title: "Codex",
     },
     {
         homeDirectoryName: ".claude",

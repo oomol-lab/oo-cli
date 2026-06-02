@@ -24,7 +24,7 @@ describe("bundled skill publication", () => {
             expect(await readFile(join(fixture.installedSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 "skill\n",
             );
-            expect(await readFile(join(fixture.installedSkillDirectoryPath, "agents", "openai.yaml"), "utf8")).toBe(
+            expect(await readFile(join(fixture.installedSkillDirectoryPath, "references", "contract.md"), "utf8")).toBe(
                 "OOMOL\n",
             );
             expect(await realpath(fixture.installedSkillDirectoryPath)).not.toBe(
@@ -103,17 +103,17 @@ async function createBundledSkillPublicationFixture(): Promise<{
     );
     const installedSkillDirectoryPath = join(
         rootDirectory,
-        ".codex",
+        ".agents",
         "skills",
         "oo",
     );
 
-    await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
+    await mkdir(join(canonicalSkillDirectoryPath, "references"), {
         recursive: true,
     });
     await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "skill\n");
     await Bun.write(
-        join(canonicalSkillDirectoryPath, "agents", "openai.yaml"),
+        join(canonicalSkillDirectoryPath, "references", "contract.md"),
         "OOMOL\n",
     );
 

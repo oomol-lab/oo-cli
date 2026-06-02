@@ -174,7 +174,7 @@ describe("skills sync upload --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -197,12 +197,15 @@ describe("skills sync upload --json", () => {
         }
     });
 
-    test("no supported hosts returns command-level error", async () => {
+    test("universal host is always available so upload succeeds with no records", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
 
+            // The universal `~/.agents` host is always available even when its
+            // home directory does not exist yet, so there is no "no supported
+            // hosts" error. With nothing installed, the upload is a noop.
             const result = await sandbox.run(
                 ["skills", "sync", "upload", "--json"],
                 {
@@ -211,12 +214,12 @@ describe("skills sync upload --json", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(1);
+            expect(result.exitCode).toBe(0);
             const payload = JSON.parse(result.stdout) as Record<string, unknown>;
-            const errors = payload.errors as Array<Record<string, unknown>>;
 
-            expect(errors).toHaveLength(1);
-            expect(errors[0]).toMatchObject({ code: "no_supported_hosts" });
+            expect(payload.command).toBe("skills.sync.upload");
+            expect(payload.status).toBe("noop");
+            expect(payload.errors).toEqual([]);
             expect(payload.records).toEqual([]);
         }
         finally {
@@ -229,7 +232,7 @@ describe("skills sync upload --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
             // Make <home>/skills be a regular file rather than a directory.
@@ -274,7 +277,7 @@ describe("skills sync apply --json", () => {
         try {
             await writeAuthFile(sandbox);
 
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -311,7 +314,7 @@ describe("skills sync apply --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -339,7 +342,7 @@ describe("skills sync apply --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -362,22 +365,36 @@ describe("skills sync apply --json", () => {
         }
     });
 
-    test("no supported hosts returns command-level error", async () => {
+    test("universal host is always available so apply proceeds without a host error", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
 
+            // The universal `~/.agents` host is always available even when its
+            // home directory does not exist yet, so there is no "no supported
+            // hosts" error. With an empty download, apply is a noop.
             const result = await sandbox.run(
                 ["skills", "sync", "apply", "--json"],
-                { version: TEST_CLI_VERSION },
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async (input, init) => {
+                        const req = toRequest(input, init);
+
+                        if (req.method === "GET" && req.url.includes("/v1/skills")) {
+                            return new Response("[]");
+                        }
+                        throw new Error(`Unexpected request: ${req.method} ${req.url}`);
+                    },
+                },
             );
 
-            expect(result.exitCode).toBe(1);
+            expect(result.exitCode).toBe(0);
             const payload = JSON.parse(result.stdout) as Record<string, unknown>;
-            const errors = payload.errors as Array<Record<string, unknown>>;
 
-            expect(errors[0]).toMatchObject({ code: "no_supported_hosts" });
+            expect(payload.command).toBe("skills.sync.apply");
+            expect(payload.status).toBe("noop");
+            expect(payload.errors).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -389,7 +406,7 @@ describe("skills sync apply --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -448,7 +465,7 @@ async function seedRegistrySkill(options: {
     packageName: string;
     version: string;
 }): Promise<void> {
-    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, "codex");
+    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, "universal");
     const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
     const storePaths = resolveStorePaths({
         appName: APP_NAME,

@@ -29,7 +29,6 @@ import {
     resolveBundledSkillMetadataFilePath,
 } from "./bundled-skill-paths.ts";
 import {
-    availableBundledSkillAgentNames,
     getBundledSkillFiles,
     readBundledSkillFileContent,
 } from "./embedded-assets.ts";
@@ -51,11 +50,11 @@ import {
 describe("skills commands", () => {
     test("installs all bundled skills when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
-        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
-        const publishSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(universalHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo-create-skill");
+        const publishSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo-publish-skill");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -90,7 +89,7 @@ describe("skills commands", () => {
         const resultVersion = "9.9.9";
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "install"], {
                 version: resultVersion,
@@ -99,7 +98,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    "Installed 4 skills to Codex.",
+                    "Installed 4 skills to Universal.",
                     "Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill",
                     "",
                 ].join("\n"),
@@ -179,13 +178,13 @@ describe("skills commands", () => {
 
     test("includes successful preset package skills in the bundled install summary", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const firstPresetSkillDirectoryPath = join(codexHomeDirectory, "skills", "gpt-image-2");
-        const secondPresetSkillDirectoryPath = join(codexHomeDirectory, "skills", "gpt-image-2-edit");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const firstPresetSkillDirectoryPath = join(universalHomeDirectory, "skills", "gpt-image-2");
+        const secondPresetSkillDirectoryPath = join(universalHomeDirectory, "skills", "gpt-image-2-edit");
         const requests: Request[] = [];
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(["skills", "add"], {
@@ -232,7 +231,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    "Installed 6 skills to Codex.",
+                    "Installed 6 skills to Universal.",
                     "Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill, gpt-image-2, gpt-image-2-edit",
                     "",
                 ].join("\n"),
@@ -254,10 +253,10 @@ describe("skills commands", () => {
 
     test("leaves agent-native local skills untouched during bundled install", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillName = "local-helper";
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             skillName,
         );
         const skillMarkdown = createLocalSkillMarkdown(
@@ -267,7 +266,7 @@ describe("skills commands", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(skillDirectoryPath, { recursive: true });
             await Bun.write(join(skillDirectoryPath, "SKILL.md"), skillMarkdown);
             await Bun.write(
@@ -283,7 +282,7 @@ describe("skills commands", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    "Installed 4 skills to Codex.",
+                    "Installed 4 skills to Universal.",
                     "Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill",
                     "",
                 ].join("\n"),
@@ -302,10 +301,10 @@ describe("skills commands", () => {
 
     test("ignores legacy canonical local storage during bundled install", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillName = "legacy-local-helper";
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             skillName,
         );
         const storePaths = resolveStorePaths({
@@ -326,7 +325,7 @@ describe("skills commands", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(canonicalSkillDirectoryPath, { recursive: true });
             await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), skillMarkdown);
             await Bun.write(
@@ -355,10 +354,10 @@ describe("skills commands", () => {
 
     test("colors compact bundled install summaries when stdout supports colors", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "install"], {
                 stdout: {
@@ -369,10 +368,10 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(stripVTControlCharacters(result.stdout)).toBe(
-                "Installed 4 skills to Codex.\nSkills: oo, oo-find-skills, oo-create-skill, oo-publish-skill\n",
+                "Installed 4 skills to Universal.\nSkills: oo, oo-find-skills, oo-create-skill, oo-publish-skill\n",
             );
             expect(result.stdout).toContain("\u001B[32mInstalled\u001B[39m");
-            expect(result.stdout).toContain("\u001B[36mCodex\u001B[39m");
+            expect(result.stdout).toContain("\u001B[36mUniversal\u001B[39m");
             expect(result.stdout).toContain("\u001B[36moo\u001B[39m");
         }
         finally {
@@ -382,8 +381,8 @@ describe("skills commands", () => {
 
     test("installs a bundled skill by explicit name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -397,7 +396,7 @@ describe("skills commands", () => {
         const resultVersion = "9.9.9";
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "install", "oo"], {
                 version: resultVersion,
@@ -423,12 +422,12 @@ describe("skills commands", () => {
 
     test("installs a registry package when a bundled skill name has an explicit version", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "runtime");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "runtime");
         const requests: Request[] = [];
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
@@ -486,8 +485,8 @@ describe("skills commands", () => {
 
     test("explicit bundled skill install overwrites a managed development-version installation", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -540,8 +539,8 @@ describe("skills commands", () => {
 
     test("installs the oo-find-skills bundled skill by explicit name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo-find-skills");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -555,7 +554,7 @@ describe("skills commands", () => {
         const resultVersion = "9.9.9";
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "install", "oo-find-skills"], {
                 version: resultVersion,
@@ -581,8 +580,8 @@ describe("skills commands", () => {
 
     test("installs the oo-publish-skill bundled skill by explicit name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo-publish-skill");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -596,7 +595,7 @@ describe("skills commands", () => {
         const resultVersion = "9.9.9";
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "install", "oo-publish-skill"], {
                 version: resultVersion,
@@ -620,41 +619,49 @@ describe("skills commands", () => {
         }
     });
 
-    test("fails when no supported bundled skill host is installed", async () => {
+    test("provisions the universal host on install when no agent home exists yet", async () => {
         const sandbox = await createCliSandbox();
-        const expectedHomeDirectories = availableBundledSkillAgentNames
-            .map(agentName => resolveManagedSkillAgentHomeDirectory(sandbox.env, agentName))
-            .join(", ");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
 
         try {
-            const result = await sandbox.run(["skills", "install"]);
+            const result = await sandbox.run(["skills", "install"], {
+                version: "9.9.9",
+            });
 
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toBe(
-                `No supported skill host is installed. Expected one of: ${expectedHomeDirectories}.\n`,
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    "Installed 4 skills to Universal.",
+                    "Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill",
+                    "",
+                ].join("\n"),
             );
+            await expect(stat(ooSkillDirectoryPath)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("installs bundled skills into both Codex and Claude Code when both homes exist", async () => {
+    test("installs bundled skills into both Universal and Claude Code when both homes exist", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
-        const codexOoSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalOoSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const claudeOoSkillDirectoryPath = join(claudeHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const codexCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
+        const universalCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "oo",
-            "codex",
+            "universal",
         );
         const claudeCanonicalSkillDirectoryPath = resolveBundledSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
@@ -664,7 +671,7 @@ describe("skills commands", () => {
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
             ]);
 
@@ -674,21 +681,21 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                "Installed skill oo to 2 agents: Codex, Claude Code.\n",
+                "Installed skill oo to 2 agents: Universal, Claude Code.\n",
             );
             await expectCopiedSkillDirectory(
-                codexOoSkillDirectoryPath,
-                codexCanonicalSkillDirectoryPath,
+                universalOoSkillDirectoryPath,
+                universalCanonicalSkillDirectoryPath,
             );
             await expectCopiedSkillDirectory(
                 claudeOoSkillDirectoryPath,
                 claudeCanonicalSkillDirectoryPath,
             );
 
-            for (const file of getBundledSkillFiles("oo", "codex")) {
+            for (const file of getBundledSkillFiles("oo", "universal")) {
                 expect(
                     await readFile(
-                        join(codexOoSkillDirectoryPath, file.relativePath),
+                        join(universalOoSkillDirectoryPath, file.relativePath),
                         "utf8",
                     ),
                 ).toBe(await readBundledSkillFileContent(file));
@@ -732,8 +739,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so Claude Code is
+            // installed alongside it.
             expect(result.stdout).toBe(
-                `Installed skill oo to ${skillDirectoryPath}.\n`,
+                "Installed skill oo to 2 agents: Universal, Claude Code.\n",
             );
             await expectCopiedSkillDirectory(
                 skillDirectoryPath,
@@ -784,8 +793,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so Hermes is installed
+            // alongside it.
             expect(result.stdout).toBe(
-                `Installed skill oo to ${skillDirectoryPath}.\n`,
+                "Installed skill oo to 2 agents: Universal, Hermes.\n",
             );
             expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
@@ -834,8 +845,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so OpenClaw is installed
+            // alongside it.
             expect(result.stdout).toBe(
-                `Installed skill oo to ${skillDirectoryPath}.\n`,
+                "Installed skill oo to 2 agents: Universal, OpenClaw.\n",
             );
             expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
@@ -890,8 +903,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so QoderWork is
+            // installed alongside it.
             expect(result.stdout).toBe(
-                `Installed skill oo to ${skillDirectoryPath}.\n`,
+                "Installed skill oo to 2 agents: Universal, QoderWork.\n",
             );
             expect((await stat(qoderWorkSkillsDirectoryPath)).isDirectory()).toBeTrue();
             await expectCopiedSkillDirectory(
@@ -949,8 +964,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so CodeBuddy is
+            // installed alongside it.
             expect(result.stdout).toBe(
-                `Installed skill oo to ${skillDirectoryPath}.\n`,
+                "Installed skill oo to 2 agents: Universal, CodeBuddy.\n",
             );
             expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
@@ -1008,8 +1025,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so DeepSeek TUI is
+            // installed alongside it.
             expect(result.stdout).toBe(
-                `Installed skill oo to ${skillDirectoryPath}.\n`,
+                "Installed skill oo to 2 agents: Universal, DeepSeek TUI.\n",
             );
             expect((await stat(deepSeekTuiSkillsDirectoryPath)).isDirectory()).toBeTrue();
             expect(await realpath(skillDirectoryPath)).not.toBe(
@@ -1064,8 +1083,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so WorkBuddy is
+            // installed alongside it.
             expect(result.stdout).toBe(
-                `Installed skill oo to ${skillDirectoryPath}.\n`,
+                "Installed skill oo to 2 agents: Universal, WorkBuddy.\n",
             );
             expect(await realpath(skillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
@@ -1123,8 +1144,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so Trae is installed
+            // alongside it.
             expect(result.stdout).toBe(
-                `Installed skill oo to ${skillDirectoryPath}.\n`,
+                "Installed skill oo to 2 agents: Universal, Trae.\n",
             );
             expect((await stat(traeSkillsDirectoryPath)).isDirectory()).toBeTrue();
             expect(await realpath(skillDirectoryPath)).not.toBe(
@@ -1183,8 +1206,10 @@ describe("skills commands", () => {
             });
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so Trae CN is installed
+            // alongside it.
             expect(result.stdout).toBe(
-                `Installed skill oo to ${skillDirectoryPath}.\n`,
+                "Installed skill oo to 2 agents: Universal, Trae CN.\n",
             );
             expect((await stat(traeCnSkillsDirectoryPath)).isDirectory()).toBeTrue();
             expect(await realpath(skillDirectoryPath)).not.toBe(
@@ -1210,8 +1235,8 @@ describe("skills commands", () => {
 
     test("refuses to overwrite an existing non-OOMOL skill with the same name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
 
         try {
@@ -1242,7 +1267,7 @@ describe("skills commands", () => {
 
     test("refuses to install when the canonical bundled skill storage is occupied by unmanaged content", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -1259,7 +1284,7 @@ describe("skills commands", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
                 recursive: true,
             });
@@ -1289,8 +1314,8 @@ describe("skills commands", () => {
 
     test("`--force` overwrites an unmanaged same-name bundled host directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -1339,8 +1364,8 @@ describe("skills commands", () => {
 
     test("`-f` short flag matches `--force` for unmanaged bundled host overwrites", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
 
         try {
             await mkdir(skillDirectoryPath, { recursive: true });
@@ -1361,7 +1386,7 @@ describe("skills commands", () => {
 
     test("`--force` overwrites unmanaged content in the bundled canonical storage", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -1378,7 +1403,7 @@ describe("skills commands", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
                 recursive: true,
             });
@@ -1406,13 +1431,13 @@ describe("skills commands", () => {
         }
     });
 
-    test("uninstalls all bundled skills from the Codex skills directory when no skill name is provided", async () => {
+    test("uninstalls all bundled skills from the Universal skills directory when no skill name is provided", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
-        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
-        const publishSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(universalHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo-create-skill");
+        const publishSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo-publish-skill");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -1436,7 +1461,7 @@ describe("skills commands", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const installResult = await sandbox.run(["skills", "install"]);
             expect(installResult.exitCode).toBe(0);
@@ -1486,7 +1511,7 @@ describe("skills commands", () => {
 
     test("uninstalls a published skill from every existing supported host", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
         const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
@@ -1496,7 +1521,7 @@ describe("skills commands", () => {
         const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
         const qoderWorkHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "qoderwork");
         const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
-        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const hermesSkillDirectoryPath = join(hermesHomeDirectory, "skills", "chatgpt");
         const codeBuddySkillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "chatgpt");
@@ -1518,7 +1543,7 @@ describe("skills commands", () => {
 
         try {
             for (const skillDirectoryPath of [
-                codexSkillDirectoryPath,
+                universalSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 hermesSkillDirectoryPath,
                 codeBuddySkillDirectoryPath,
@@ -1533,7 +1558,7 @@ describe("skills commands", () => {
                 recursive: true,
             });
             for (const skillDirectoryPath of [
-                codexSkillDirectoryPath,
+                universalSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 hermesSkillDirectoryPath,
                 codeBuddySkillDirectoryPath,
@@ -1557,7 +1582,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    `Removed skill chatgpt from ${codexSkillDirectoryPath}.`,
+                    `Removed skill chatgpt from ${universalSkillDirectoryPath}.`,
                     `Removed skill chatgpt from ${claudeSkillDirectoryPath}.`,
                     `Removed skill chatgpt from ${hermesSkillDirectoryPath}.`,
                     `Removed skill chatgpt from ${codeBuddySkillDirectoryPath}.`,
@@ -1572,7 +1597,7 @@ describe("skills commands", () => {
             );
             expect(result.stderr).toBe("");
             for (const skillDirectoryPath of [
-                codexSkillDirectoryPath,
+                universalSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 hermesSkillDirectoryPath,
                 codeBuddySkillDirectoryPath,
@@ -1675,10 +1700,10 @@ describe("skills commands", () => {
     test("fails and keeps multiple local matches without an agent", async () => {
         const sandbox = await createCliSandbox();
         const skillName = "ambiguous-local";
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
-        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+        const universalSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            universalHomeDirectory,
             skillName,
         );
         const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
@@ -1697,14 +1722,14 @@ describe("skills commands", () => {
 
         try {
             await Promise.all([
-                mkdir(codexSkillDirectoryPath, { recursive: true }),
+                mkdir(universalSkillDirectoryPath, { recursive: true }),
                 mkdir(codeBuddySkillDirectoryPath, { recursive: true }),
             ]);
             await Promise.all([
-                Bun.write(join(codexSkillDirectoryPath, "SKILL.md"), skillContent),
+                Bun.write(join(universalSkillDirectoryPath, "SKILL.md"), skillContent),
                 Bun.write(join(codeBuddySkillDirectoryPath, "SKILL.md"), skillContent),
                 Bun.write(
-                    resolveManagedSkillMetadataFilePath(codexSkillDirectoryPath),
+                    resolveManagedSkillMetadataFilePath(universalSkillDirectoryPath),
                     renderSkillMetadataJson(createLocalSkillMetadata()),
                 ),
                 Bun.write(
@@ -1718,9 +1743,9 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `Warning: Local skill ${skillName} exists in multiple local sources (codebuddy, codex). Nothing was removed; pass --agent to choose one.\n`,
+                `Warning: Local skill ${skillName} exists in multiple local sources (codebuddy, universal). Nothing was removed; pass --agent to choose one.\n`,
             );
-            await expect(stat(codexSkillDirectoryPath)).resolves.toMatchObject({
+            await expect(stat(universalSkillDirectoryPath)).resolves.toMatchObject({
                 isDirectory: expect.any(Function),
             });
             await expect(stat(codeBuddySkillDirectoryPath)).resolves.toMatchObject({
@@ -1735,8 +1760,8 @@ describe("skills commands", () => {
     test("uninstalls one local match when an agent is provided", async () => {
         const sandbox = await createCliSandbox();
         const skillName = "agent-local";
-        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex"),
+        const universalSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal"),
             skillName,
         );
         const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
@@ -1751,7 +1776,7 @@ describe("skills commands", () => {
 
         try {
             await Promise.all([
-                writeLocalSkillDirectory(codexSkillDirectoryPath, skillContent),
+                writeLocalSkillDirectory(universalSkillDirectoryPath, skillContent),
                 writeLocalSkillDirectory(codeBuddySkillDirectoryPath, skillContent),
             ]);
 
@@ -1760,15 +1785,15 @@ describe("skills commands", () => {
                 "remove",
                 skillName,
                 "--agent",
-                "codex",
+                "universal",
             ]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
-                `Removed skill ${skillName} from ${codexSkillDirectoryPath}.\n`,
+                `Removed skill ${skillName} from ${universalSkillDirectoryPath}.\n`,
             );
             expect(result.stderr).toBe("");
-            await expect(stat(codexSkillDirectoryPath)).rejects.toMatchObject({
+            await expect(stat(universalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
             await expect(stat(codeBuddySkillDirectoryPath)).resolves.toMatchObject({
@@ -1811,14 +1836,14 @@ describe("skills commands", () => {
 
     test("rejects uninstall when the skill path escapes the local skills directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
         const escapedSkillDirectoryPath = join(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "skills",
             "../../outside",
         );
@@ -1835,7 +1860,7 @@ describe("skills commands", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(escapedSkillDirectoryPath, { recursive: true });
             await mkdir(escapedCanonicalSkillDirectoryPath, { recursive: true });
             await Bun.write(
@@ -1866,14 +1891,14 @@ describe("skills commands", () => {
 
     test("supports skills remove as an alias for uninstall", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
-        const findSkillsDirectoryPath = join(codexHomeDirectory, "skills", "oo-find-skills");
-        const createSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-create-skill");
-        const publishSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo-publish-skill");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
+        const findSkillsDirectoryPath = join(universalHomeDirectory, "skills", "oo-find-skills");
+        const createSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo-create-skill");
+        const publishSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo-publish-skill");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install"], {
                 version: "9.9.9",
             });
@@ -1911,8 +1936,8 @@ describe("skills commands", () => {
 
     test("does not uninstall a same-name skill without oo metadata", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
 
         try {
@@ -1943,16 +1968,16 @@ describe("skills commands", () => {
         }
     });
 
-    test("uninstalls bundled skills from both Codex and Claude Code when both homes exist", async () => {
+    test("uninstalls bundled skills from both Universal and Claude Code when both homes exist", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
-        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "oo");
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
             ]);
             await sandbox.run(["skills", "install", "oo"], {
@@ -1964,12 +1989,12 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe(
                 [
-                    `Removed skill oo from ${codexSkillDirectoryPath}.`,
+                    `Removed skill oo from ${universalSkillDirectoryPath}.`,
                     `Removed skill oo from ${claudeSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
             );
-            await expect(stat(codexSkillDirectoryPath)).rejects.toMatchObject({
+            await expect(stat(universalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
             await expect(stat(claudeSkillDirectoryPath)).rejects.toMatchObject({
@@ -1983,7 +2008,9 @@ describe("skills commands", () => {
 
     test("uninstalls bundled skills from OpenClaw when only OpenClaw exists", async () => {
         const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
+        const universalSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const skillDirectoryPath = join(openClawHomeDirectory, "skills", "oo");
 
         try {
@@ -1995,9 +2022,18 @@ describe("skills commands", () => {
             const result = await sandbox.run(["skills", "uninstall", "oo"]);
 
             expect(result.exitCode).toBe(0);
+            // The universal host is always provisioned, so its copy is removed
+            // alongside the OpenClaw copy.
             expect(result.stdout).toBe(
-                `Removed skill oo from ${skillDirectoryPath}.\n`,
+                [
+                    `Removed skill oo from ${universalSkillDirectoryPath}.`,
+                    `Removed skill oo from ${skillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
             );
+            await expect(stat(universalSkillDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
@@ -2009,8 +2045,8 @@ describe("skills commands", () => {
 
     test("does not uninstall a published skill without oo metadata", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
 
         try {
             await mkdir(skillDirectoryPath, { recursive: true });
@@ -2034,8 +2070,8 @@ describe("skills commands", () => {
 
     test("reports an unmanaged existing skill directory clearly", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", ".system");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", ".system");
 
         try {
             await mkdir(skillDirectoryPath, { recursive: true });
@@ -2055,8 +2091,8 @@ describe("skills commands", () => {
 
     test("uninstall removes canonical bundled skill storage even when it contains unmanaged content", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const metadataFilePath = resolveBundledSkillMetadataFilePath(skillDirectoryPath);
         const ownershipFilePath = join(skillDirectoryPath, "agents", "openai.yaml");
         const storePaths = resolveStorePaths({
@@ -2115,8 +2151,8 @@ describe("skills commands", () => {
 
     test("installs a published registry skill by explicit --skill name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -2130,7 +2166,7 @@ describe("skills commands", () => {
         const requests: Request[] = [];
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
@@ -2247,13 +2283,13 @@ describe("skills commands", () => {
 
     test("installs a scoped registry skill by explicit package version", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
         const requests: Request[] = [];
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
@@ -2314,13 +2350,13 @@ describe("skills commands", () => {
 
     test("installs a shared registry package by package share id", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const metadataFilePath = resolveManagedSkillMetadataFilePath(skillDirectoryPath);
         const requests: Request[] = [];
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
@@ -2384,16 +2420,16 @@ describe("skills commands", () => {
 
     test("uploads installed registry skills while excluding bundled and local skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const registrySkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
-        const bundledSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const registrySkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const bundledSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
         const localSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "local-helper",
         );
         const registryCanonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
@@ -2492,9 +2528,9 @@ describe("skills commands", () => {
 
     test("uploads registry skills with ignore patterns and explicit source", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const chatSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
-        const captionSkillDirectoryPath = join(codexHomeDirectory, "skills", "caption");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const chatSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const captionSkillDirectoryPath = join(universalHomeDirectory, "skills", "caption");
         const requests: Array<{
             body: unknown;
         }> = [];
@@ -2578,12 +2614,12 @@ describe("skills commands", () => {
 
     test("applies uploaded registry skills using exact package versions", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const skillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const requests: Request[] = [];
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(["skills", "sync", "apply"], {
@@ -2648,10 +2684,10 @@ describe("skills commands", () => {
 
     test("supports download and install aliases for applying exact uploaded registry versions", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             for (const [alias, version] of [
@@ -2727,7 +2763,6 @@ describe("skills commands", () => {
     test("installs a published registry skill into every existing supported host", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
         const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
@@ -2738,7 +2773,6 @@ describe("skills commands", () => {
         const qoderWorkHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "qoderwork");
         const deepSeekTuiHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "deepseek-tui");
         const universalSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
-        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const hermesSkillDirectoryPath = join(hermesHomeDirectory, "skills", "chatgpt");
         const codeBuddySkillDirectoryPath = join(codeBuddyHomeDirectory, "skills", "chatgpt");
@@ -2761,7 +2795,6 @@ describe("skills commands", () => {
         try {
             await Promise.all([
                 mkdir(universalHomeDirectory, { recursive: true }),
-                mkdir(codexHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
                 mkdir(hermesHomeDirectory, { recursive: true }),
                 mkdir(codeBuddyHomeDirectory, { recursive: true }),
@@ -2812,13 +2845,12 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                "Installed skill chatgpt to 11 agents: Universal, Codex, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork, DeepSeek TUI.\n",
+                "Installed skill chatgpt to 10 agents: Universal, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork, DeepSeek TUI.\n",
             );
             const canonicalSkillRealPath = await realpath(canonicalSkillDirectoryPath);
 
             for (const copiedSkillDirectoryPath of [
                 universalSkillDirectoryPath,
-                codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 qoderWorkSkillDirectoryPath,
                 deepSeekTuiSkillDirectoryPath,
@@ -2845,7 +2877,6 @@ describe("skills commands", () => {
             }
             for (const skillDirectoryPath of [
                 universalSkillDirectoryPath,
-                codexSkillDirectoryPath,
                 claudeSkillDirectoryPath,
                 hermesSkillDirectoryPath,
                 codeBuddySkillDirectoryPath,
@@ -2874,7 +2905,9 @@ describe("skills commands", () => {
 
     test("installs a published registry skill when only Claude Code is installed", async () => {
         const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const universalSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const skillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -2927,11 +2960,17 @@ describe("skills commands", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
+            // The universal host is always provisioned, so Claude Code is
+            // installed alongside it.
             expect(result.stdout).toBe(
-                `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
+                "Installed skill chatgpt to 2 agents: Universal, Claude Code.\n",
             );
             await expectCopiedSkillDirectory(
                 skillDirectoryPath,
+                canonicalSkillDirectoryPath,
+            );
+            await expectCopiedSkillDirectory(
+                universalSkillDirectoryPath,
                 canonicalSkillDirectoryPath,
             );
         }
@@ -2942,14 +2981,14 @@ describe("skills commands", () => {
 
     test("does not install a published registry skill over an unmanaged host target", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
-        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(claudeSkillDirectoryPath, { recursive: true }),
             ]);
             await Bun.write(join(claudeSkillDirectoryPath, "SKILL.md"), "# Existing\n");
@@ -2992,7 +3031,7 @@ describe("skills commands", () => {
             expect(await readFile(join(claudeSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
                 "# Existing\n",
             );
-            await expect(stat(codexSkillDirectoryPath)).rejects.toMatchObject({
+            await expect(stat(universalSkillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }
@@ -3003,14 +3042,14 @@ describe("skills commands", () => {
 
     test("`--force` installs a published registry skill over an unmanaged host target", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
-        const codexSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const claudeSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(claudeSkillDirectoryPath, { recursive: true }),
             ]);
             await Bun.write(join(claudeSkillDirectoryPath, "SKILL.md"), "# Existing\n");
@@ -3070,9 +3109,9 @@ describe("skills commands", () => {
                     createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" }),
                 ),
             );
-            // Codex target also receives the registry install through the same run.
+            // Universal target also receives the registry install through the same run.
             expect(
-                await readFile(join(codexSkillDirectoryPath, "SKILL.md"), "utf8"),
+                await readFile(join(universalSkillDirectoryPath, "SKILL.md"), "utf8"),
             ).toContain("# ChatGPT");
         }
         finally {
@@ -3082,11 +3121,11 @@ describe("skills commands", () => {
 
     test("rejects published registry skills that escape the local skills directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const requests: Request[] = [];
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
@@ -3134,9 +3173,9 @@ describe("skills commands", () => {
 
     test("installs selected published skills through the interactive picker", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const selectedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
-        const unselectedSkillDirectoryPath = join(codexHomeDirectory, "skills", "vision");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const selectedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const unselectedSkillDirectoryPath = join(universalHomeDirectory, "skills", "vision");
         const stdin = createInteractiveInput();
         const stdout = createTextBuffer({
             isTTY: true,
@@ -3144,7 +3183,7 @@ describe("skills commands", () => {
         const stderr = createTextBuffer();
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
             const execution = executeCli({
                 argv: ["skills", "install", "openai"],
@@ -3234,8 +3273,8 @@ describe("skills commands", () => {
 
     test("uninstalls deselected published skills through the interactive picker", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const stdin = createInteractiveInput();
         const stdout = createTextBuffer({
             isTTY: true,
@@ -3252,7 +3291,7 @@ describe("skills commands", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
             await mkdir(join(installedSkillDirectoryPath, "agents"), { recursive: true });
             await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
@@ -3343,7 +3382,7 @@ describe("skills commands", () => {
 
     test("skips overwriting an existing published skill when confirmation is declined", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -3356,7 +3395,7 @@ describe("skills commands", () => {
         const stdin = createInteractiveInput();
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
             await mkdir(canonicalSkillDirectoryPath, { recursive: true });
             await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "stale\n");
@@ -3418,12 +3457,12 @@ describe("skills commands", () => {
 
     test("installs all published skills when --yes is passed without --skill", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const chatgptSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
-        const visionSkillDirectoryPath = join(codexHomeDirectory, "skills", "vision");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const chatgptSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const visionSkillDirectoryPath = join(universalHomeDirectory, "skills", "vision");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
@@ -3484,10 +3523,10 @@ describe("skills commands", () => {
 
     test("fails outside a TTY when multiple skills require selection", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
@@ -3537,15 +3576,15 @@ describe("skills commands", () => {
 
     test("migrates legacy canonical skill layout on install", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
         const configDirectoryPath = join(storePaths.settingsFilePath, "..");
-        const legacyCodexBundledPath = join(configDirectoryPath, "skills", "oo");
+        const legacyBundledPath = join(configDirectoryPath, "skills", "oo");
         const legacyRegistryPath = join(configDirectoryPath, "skills", "chatgpt");
         const legacyClaudeRoot = join(configDirectoryPath, "claude-skills");
         const legacyOpenClawRoot = join(configDirectoryPath, "openclaw-skills");
@@ -3555,10 +3594,10 @@ describe("skills commands", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
-            await mkdir(legacyCodexBundledPath, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await mkdir(legacyBundledPath, { recursive: true });
             await Bun.write(
-                resolveBundledSkillMetadataFilePath(legacyCodexBundledPath),
+                resolveBundledSkillMetadataFilePath(legacyBundledPath),
                 renderSkillMetadataJson({ version: "0.0.1" }),
             );
             await mkdir(legacyRegistryPath, { recursive: true });

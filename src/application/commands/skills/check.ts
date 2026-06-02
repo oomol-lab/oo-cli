@@ -9,7 +9,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import {
-    codexSkillsDirectoryName,
+    managedSkillsDirectoryName,
 } from "./bundled-skill-paths.ts";
 import {
     createManagedSkillAgentNotInstalledError,
@@ -105,7 +105,7 @@ export async function resolveRequestedManagedSkillHost(
 }
 
 function resolveManagedSkillHostPublishRoot(host: ManagedSkillHost): string {
-    return join(host.homeDirectory, codexSkillsDirectoryName);
+    return join(host.homeDirectory, managedSkillsDirectoryName);
 }
 
 function parseRequiredSkillsCheckAgent(

@@ -4,6 +4,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import {
     availableBundledSkillAgentNames,
+    readManagedSkillAgent,
     resolveManagedSkillAgentHomeDirectory,
 } from "./managed-skill-agents.ts";
 import { resolveManagedSkillDirectoryPath } from "./managed-skill-paths.ts";
@@ -24,7 +25,14 @@ export async function resolveAvailableManagedSkillHosts(
         availableBundledSkillAgentNames.map(async (agentName) => {
             const homeDirectory = resolveManagedSkillAgentHomeDirectory(env, agentName);
 
-            if (!(await directoryExists(homeDirectory))) {
+            // Always-provision hosts (the universal `~/.agents` host) are treated
+            // as available even when their home directory does not exist yet; the
+            // directory is created when skills are materialized. Every other host
+            // is only available once its home directory is present on disk.
+            if (
+                !readManagedSkillAgent(agentName).alwaysProvision
+                && !(await directoryExists(homeDirectory))
+            ) {
                 return undefined;
             }
 

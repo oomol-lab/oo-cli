@@ -42,13 +42,13 @@ async function seedRegistrySkill(options: {
     skillName: string;
     packageName: string;
     version: string;
-    agent?: "codex" | "claude";
+    agent?: "universal" | "claude";
     hostSkillMd?: string;
 }): Promise<{
     hostDirectory: string;
     canonicalDirectory: string;
 }> {
-    const agent = options.agent ?? "codex";
+    const agent = options.agent ?? "universal";
     const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, agent);
     const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
     const storePaths = resolveStorePaths({
@@ -248,7 +248,7 @@ describe("skills check-update CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             await mkdir(homeDirectory, { recursive: true });
 
             const result = await sandbox.run(
@@ -271,7 +271,7 @@ describe("skills check-update CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             const skillDirectory = resolveManagedSkillDirectoryPath(homeDirectory, "ghost");
 
             // Same-name host directory exists but has no .oo-metadata.json.
@@ -356,7 +356,7 @@ describe("skills check-update CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             await mkdir(homeDirectory, { recursive: true });
 
             const result = await sandbox.run(
@@ -386,7 +386,7 @@ describe("skills check-update CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             await mkdir(homeDirectory, { recursive: true });
 
             const result = await sandbox.run(
@@ -409,7 +409,7 @@ describe("skills check-update CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             const skillDirectory = resolveManagedSkillDirectoryPath(homeDirectory, "local-skill");
 
             await mkdir(skillDirectory, { recursive: true });
@@ -513,7 +513,7 @@ describe("skills check-update CLI", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             await mkdir(homeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "check-update", "--format", "xml"]);
@@ -538,8 +538,8 @@ describe("skills check-update CLI", () => {
                 version: "0.2.0",
             });
             // Seed a bundled skill — should be ignored by check-update default scan
-            const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-            const ooSkillDirectory = resolveManagedSkillDirectoryPath(codexHomeDirectory, "oo");
+            const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+            const ooSkillDirectory = resolveManagedSkillDirectoryPath(universalHomeDirectory, "oo");
             await mkdir(ooSkillDirectory, { recursive: true });
             await writeFile(join(ooSkillDirectory, "SKILL.md"), "# oo\n");
             await writeFile(

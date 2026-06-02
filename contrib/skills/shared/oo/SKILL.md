@@ -24,7 +24,6 @@ API key, or model name for OOMOL's LLM API, read
 [references/llm-client.md](references/llm-client.md). Do not run capability
 discovery for that case, and do not read local auth files directly.
 
-<!-- agentic:if agent=codex -->
 ## Runtime note
 
 - The substantive `oo` commands used by this skill rely on outbound network
@@ -33,7 +32,6 @@ discovery for that case, and do not read local auth files directly.
   outbound network connections in a sandboxed environment, request elevated
   permissions and retry the same `oo` command before changing strategy.
 
-<!-- agentic:endif -->
 ## Shell command safety
 
 - When generating shell commands for macOS or zsh, quote arguments that contain

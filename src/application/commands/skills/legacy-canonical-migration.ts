@@ -8,7 +8,7 @@ import {
     canonicalBundledSkillsDirectoryName,
     canonicalLocalSkillsDirectoryName,
     canonicalRegistrySkillsDirectoryName,
-    codexSkillsDirectoryName,
+    managedSkillsDirectoryName,
 } from "./bundled-skill-paths.ts";
 
 type LegacyCanonicalKind
@@ -93,7 +93,7 @@ async function collectLegacyCanonicalCandidates(
     for (const entryName of legacySkillsChildren) {
         candidates.push({
             kind: "legacySkillsChild",
-            path: join(configDirectoryPath, codexSkillsDirectoryName, entryName),
+            path: join(configDirectoryPath, managedSkillsDirectoryName, entryName),
         });
     }
 
@@ -104,7 +104,7 @@ async function readLegacySkillsChildren(
     configDirectoryPath: string,
     logger: Pick<Logger, "warn">,
 ): Promise<string[]> {
-    const skillsDirectoryPath = join(configDirectoryPath, codexSkillsDirectoryName);
+    const skillsDirectoryPath = join(configDirectoryPath, managedSkillsDirectoryName);
 
     try {
         const entries = await readdir(skillsDirectoryPath, { withFileTypes: true });

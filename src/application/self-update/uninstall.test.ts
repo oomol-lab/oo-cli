@@ -243,38 +243,38 @@ describe("buildSelfUninstallPlan", () => {
     });
 
     test("classifies skills by metadata: bundled+preset removed, registry kept, local/unmanaged retained", async () => {
-        const codexSkillsDir = join(tempHome, ".codex", "skills");
+        const universalSkillsDir = join(tempHome, ".agents", "skills");
 
-        await mkdir(join(tempHome, ".codex"), { recursive: true });
+        await mkdir(join(tempHome, ".agents"), { recursive: true });
         await writeSkill(
-            join(codexSkillsDir, "oo"),
+            join(universalSkillsDir, "oo"),
             renderSkillMetadataJson(createBundledSkillMetadata("1.2.3")),
         );
         await writeSkill(
-            join(codexSkillsDir, "gpt-image-2"),
+            join(universalSkillsDir, "gpt-image-2"),
             renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: PRESET_PACKAGE, version: "0.1.0" })),
         );
         await writeSkill(
-            join(codexSkillsDir, "demo"),
+            join(universalSkillsDir, "demo"),
             renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "@alice/demo", version: "0.2.0" })),
         );
         await writeSkill(
-            join(codexSkillsDir, "mine"),
+            join(universalSkillsDir, "mine"),
             renderSkillMetadataJson(createLocalSkillMetadata()),
         );
         // unmanaged same-name dir: no metadata file
-        await mkdir(join(codexSkillsDir, "handwritten"), { recursive: true });
-        await writeFile(join(codexSkillsDir, "handwritten", "SKILL.md"), "# user\n");
+        await mkdir(join(universalSkillsDir, "handwritten"), { recursive: true });
+        await writeFile(join(universalSkillsDir, "handwritten", "SKILL.md"), "# user\n");
 
         const plan = await buildSelfUninstallPlan(nativeOptions());
         const removedPaths = paths(plan.immediate.filter(
             item => item.category === "bundled-skill" || item.category === "registry-skill",
         ));
 
-        expect(removedPaths.some(path => path.endsWith(join(".codex", "skills", "oo")))).toBe(true);
-        expect(removedPaths.some(path => path.endsWith(join(".codex", "skills", "gpt-image-2")))).toBe(true);
-        expect(removedPaths.some(path => path.endsWith(join(".codex", "skills", "demo")))).toBe(false);
-        expect(removedPaths.some(path => path.endsWith(join(".codex", "skills", "mine")))).toBe(false);
+        expect(removedPaths.some(path => path.endsWith(join(".agents", "skills", "oo")))).toBe(true);
+        expect(removedPaths.some(path => path.endsWith(join(".agents", "skills", "gpt-image-2")))).toBe(true);
+        expect(removedPaths.some(path => path.endsWith(join(".agents", "skills", "demo")))).toBe(false);
+        expect(removedPaths.some(path => path.endsWith(join(".agents", "skills", "mine")))).toBe(false);
         // unmanaged dir never appears in any removal set
         expect(paths(plan.immediate).some(path => path.endsWith("handwritten"))).toBe(false);
 
@@ -285,18 +285,18 @@ describe("buildSelfUninstallPlan", () => {
     });
 
     test("--purge removes all registry skills", async () => {
-        const codexSkillsDir = join(tempHome, ".codex", "skills");
+        const universalSkillsDir = join(tempHome, ".agents", "skills");
 
-        await mkdir(join(tempHome, ".codex"), { recursive: true });
+        await mkdir(join(tempHome, ".agents"), { recursive: true });
         await writeSkill(
-            join(codexSkillsDir, "demo"),
+            join(universalSkillsDir, "demo"),
             renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "@alice/demo", version: "0.2.0" })),
         );
 
         const plan = await buildSelfUninstallPlan(nativeOptions({ purge: true }));
         const removedPaths = paths(plan.immediate.filter(item => item.category === "registry-skill"));
 
-        expect(removedPaths.some(path => path.endsWith(join(".codex", "skills", "demo")))).toBe(true);
+        expect(removedPaths.some(path => path.endsWith(join(".agents", "skills", "demo")))).toBe(true);
     });
 
     test("npm install: no runtime items, skills still classified", async () => {

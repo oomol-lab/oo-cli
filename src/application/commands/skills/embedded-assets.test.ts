@@ -15,9 +15,8 @@ describe("embedded skill assets", () => {
             "oo-create-skill",
             "oo-publish-skill",
         ]);
-        expect(getBundledSkillFiles("oo", "codex").map(file => file.relativePath)).toEqual([
+        expect(getBundledSkillFiles("oo", "universal").map(file => file.relativePath)).toEqual([
             "SKILL.md",
-            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -97,12 +96,11 @@ describe("embedded skill assets", () => {
             "references/file-transfer.md",
         ]);
         expect(
-            getBundledSkillFiles("oo-find-skills", "codex").map(
+            getBundledSkillFiles("oo-find-skills", "universal").map(
                 file => file.relativePath,
             ),
         ).toEqual([
             "SKILL.md",
-            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -178,12 +176,11 @@ describe("embedded skill assets", () => {
             "references/oo-cli-contract.md",
         ]);
         expect(
-            getBundledSkillFiles("oo-create-skill", "codex").map(
+            getBundledSkillFiles("oo-create-skill", "universal").map(
                 file => file.relativePath,
             ),
         ).toEqual([
             "SKILL.md",
-            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-create-skill", "claude").map(
@@ -249,12 +246,11 @@ describe("embedded skill assets", () => {
             "SKILL.md",
         ]);
         expect(
-            getBundledSkillFiles("oo-publish-skill", "codex").map(
+            getBundledSkillFiles("oo-publish-skill", "universal").map(
                 file => file.relativePath,
             ),
         ).toEqual([
             "SKILL.md",
-            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "claude").map(
@@ -324,7 +320,6 @@ describe("embedded skill assets", () => {
     test("maps bundled skills to the shared source directory", () => {
         expect([...availableBundledSkillAgentNames]).toEqual([
             "universal",
-            "codex",
             "claude",
             "hermes",
             "codebuddy",
@@ -617,7 +612,7 @@ describe("embedded skill assets", () => {
 
             expect(content).toContain("Author, generate, or scaffold a new local AI agent skill");
             expect(content).toContain("create a skill, write a skill, or make a");
-            expect(content).toContain("Codex/Claude/agent skill");
+            expect(content).toContain("Claude/agent skill");
             expect(content).toContain("connector action");
             expect(content).toContain("capability discovery is needed first");
             expect(content).toContain("oo skills preflight --agent");
@@ -632,26 +627,6 @@ describe("embedded skill assets", () => {
             expect(content).not.toContain("--visibility private");
             expect(content).not.toContain("already knows which oo package or block");
         }
-
-        const openAiAgentFile = getBundledSkillFiles("oo-create-skill", "codex").find(
-            file => file.relativePath === "agents/openai.yaml",
-        );
-
-        if (openAiAgentFile === undefined) {
-            throw new Error("Missing codex oo-create-skill agents/openai.yaml");
-        }
-
-        const openAiAgentContent = await readBundledSkillFileContent(openAiAgentFile);
-
-        expect(openAiAgentContent).toContain("$oo-create-skill");
-        expect(openAiAgentContent).toContain("author, scaffold, or generate a new local");
-        expect(openAiAgentContent).toContain("concrete oo connector action");
-        expect(openAiAgentContent).toContain("OOMOL-hosted Fusion API actions");
-        expect(openAiAgentContent).toContain("capability discovery is needed before authoring");
-        expect(openAiAgentContent).not.toContain("generate, or update");
-        expect(openAiAgentContent).toContain(
-            "finding/installing existing skills or distributing finished skills",
-        );
     });
 
     test("guides oo-create-skill generated descriptions toward user outcomes", async () => {
@@ -1035,7 +1010,7 @@ describe("embedded skill assets", () => {
             );
         }
 
-        for (const agentName of ["universal", "codex", "deepseek-tui", "qoderwork", "trae", "trae-cn", "workbuddy"] as const) {
+        for (const agentName of ["universal", "deepseek-tui", "qoderwork", "trae", "trae-cn", "workbuddy"] as const) {
             for (const skillName of availableBundledSkillNames) {
                 const skillFile = getBundledSkillFiles(skillName, agentName)
                     .find(file => file.relativePath === "SKILL.md");
@@ -1052,9 +1027,9 @@ describe("embedded skill assets", () => {
     });
 
     test("renders bundled skill markdown for host-specific instructions", async () => {
-        const codexOoSkillFile = getRequiredBundledSkillFile("oo", "codex", "SKILL.md");
+        const universalOoSkillFile = getRequiredBundledSkillFile("oo", "universal", "SKILL.md");
         const claudeOoSkillFile = getRequiredBundledSkillFile("oo", "claude", "SKILL.md");
-        const codexFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "codex", "SKILL.md");
+        const universalFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "universal", "SKILL.md");
         const claudeFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "claude", "SKILL.md");
         const openClawFindSkillFile = getRequiredBundledSkillFile("oo-find-skills", "openclaw", "SKILL.md");
         const openClawFindContractFile = getRequiredBundledSkillFile(
@@ -1062,26 +1037,27 @@ describe("embedded skill assets", () => {
             "openclaw",
             "references/oo-cli-contract.md",
         );
-        const codexCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "codex", "SKILL.md");
         const universalCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "universal", "SKILL.md");
         const qoderWorkCreateSkillFile = getRequiredBundledSkillFile("oo-create-skill", "qoderwork", "SKILL.md");
         const qoderWorkPublishSkillFile = getRequiredBundledSkillFile("oo-publish-skill", "qoderwork", "SKILL.md");
 
-        const codexOoContent = await readBundledSkillFileContent(codexOoSkillFile);
+        const universalOoContent = await readBundledSkillFileContent(universalOoSkillFile);
         const claudeOoContent = await readBundledSkillFileContent(claudeOoSkillFile);
-        const codexFindContent = await readBundledSkillFileContent(codexFindSkillFile);
+        const universalFindContent = await readBundledSkillFileContent(universalFindSkillFile);
         const claudeFindContent = await readBundledSkillFileContent(claudeFindSkillFile);
         const openClawFindContent = await readBundledSkillFileContent(openClawFindSkillFile);
         const openClawFindContractContent = await readBundledSkillFileContent(openClawFindContractFile);
-        const codexCreateContent = await readBundledSkillFileContent(codexCreateSkillFile);
         const universalCreateContent = await readBundledSkillFileContent(universalCreateSkillFile);
         const qoderWorkCreateContent = await readBundledSkillFileContent(qoderWorkCreateSkillFile);
         const qoderWorkPublishContent = await readBundledSkillFileContent(qoderWorkPublishSkillFile);
 
-        expect(codexOoContent).toContain("## Runtime note");
-        expect(claudeOoContent).not.toContain("## Runtime note");
-        expect(codexFindContent).toContain("request_user_input");
-        expect(codexFindContent).not.toContain("AskUserQuestion");
+        // The runtime note is unconditional, so it renders for every host.
+        expect(universalOoContent).toContain("## Runtime note");
+        expect(claudeOoContent).toContain("## Runtime note");
+        // The universal host has no skill-selection prompt tool, so it renders
+        // neither the AskUserQuestion guidance nor the openclaw chat prompt.
+        expect(universalFindContent).not.toContain("request_user_input");
+        expect(universalFindContent).not.toContain("AskUserQuestion");
         expect(claudeFindContent).toContain("AskUserQuestion");
         expect(claudeFindContent).not.toContain("request_user_input");
         expect(openClawFindContent).toContain("Prefer asking the user with a short multiple-choice prompt");
@@ -1089,7 +1065,6 @@ describe("embedded skill assets", () => {
         expect(openClawFindContractContent).not.toContain("skillSelectionPromptTool");
         expect(openClawFindContractContent).not.toContain("request_user_input");
         expect(openClawFindContractContent).not.toContain("AskUserQuestion");
-        expect(codexCreateContent).toContain("oo skills preflight --agent codex");
         expect(universalCreateContent).toContain("oo skills preflight --agent universal");
         expect(universalCreateContent).toContain("Check Universal execution permissions");
         expect(qoderWorkCreateContent).toContain("oo skills preflight --agent qoderwork");

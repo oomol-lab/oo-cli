@@ -25,7 +25,7 @@ const TEST_CLI_VERSION = "9.9.9";
 async function seedBundledSkill(
     sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
     skillName: string,
-    agent: "codex" | "claude" = "codex",
+    agent: "universal" | "claude" = "universal",
 ): Promise<{ hostDirectory: string; canonicalDirectory: string }> {
     const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, agent);
     const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, skillName);
@@ -61,9 +61,9 @@ async function seedRegistrySkill(options: {
     skillName: string;
     packageName: string;
     version: string;
-    agent?: "codex" | "claude";
+    agent?: "universal" | "claude";
 }): Promise<{ hostDirectory: string; canonicalDirectory: string }> {
-    const agent = options.agent ?? "codex";
+    const agent = options.agent ?? "universal";
     const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, agent);
     const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
     const storePaths = resolveStorePaths({
@@ -102,7 +102,7 @@ async function seedRegistrySkill(options: {
 async function seedLocalSkill(options: {
     sandbox: Awaited<ReturnType<typeof createCliSandbox>>;
     skillName: string;
-    agent: "codex" | "claude";
+    agent: "universal" | "claude";
 }): Promise<{ path: string }> {
     const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, options.agent);
     const path = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
@@ -154,7 +154,7 @@ describe("skills uninstall --json", () => {
 
             expect(targets).toHaveLength(1);
             expect(targets[0]).toMatchObject({
-                agentId: "codex",
+                agentId: "universal",
                 status: "removed",
                 previousVersion: "0.2.0",
                 previousState: "managed",
@@ -196,7 +196,7 @@ describe("skills uninstall --json", () => {
 
         try {
             // Create an agent home so we don't trigger no_supported_hosts
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -222,10 +222,14 @@ describe("skills uninstall --json", () => {
         }
     });
 
-    test("no supported hosts returns command-level error", async () => {
+    test("universal host is always available without a home directory", async () => {
         const sandbox = await createCliSandbox();
 
         try {
+            // The universal host is always provisioned, so even with no agent
+            // home directory on disk the command never reports
+            // no_supported_hosts; an uninstalled skill is reported as
+            // not_installed instead.
             const result = await sandbox.run(
                 ["skills", "uninstall", "demo", "--json"],
                 { version: TEST_CLI_VERSION },
@@ -237,8 +241,14 @@ describe("skills uninstall --json", () => {
             expect(payload.status).toBe("failed");
             const errors = payload.errors as Array<Record<string, unknown>>;
 
-            expect(errors).toHaveLength(1);
-            expect(errors[0]).toMatchObject({ code: "no_supported_hosts" });
+            expect(errors).toHaveLength(0);
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills[0]).toMatchObject({
+                skillId: "demo",
+                status: "failed",
+                error: { code: "not_installed" },
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -249,7 +259,7 @@ describe("skills uninstall --json", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             const skillDir = resolveManagedSkillDirectoryPath(homeDirectory, "demo");
 
             await mkdir(skillDir, { recursive: true });
@@ -278,7 +288,7 @@ describe("skills uninstall --json", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await seedLocalSkill({ sandbox, skillName: "local-demo", agent: "codex" });
+            await seedLocalSkill({ sandbox, skillName: "local-demo", agent: "universal" });
             await seedLocalSkill({ sandbox, skillName: "local-demo", agent: "claude" });
 
             const result = await sandbox.run(
@@ -305,10 +315,10 @@ describe("skills uninstall --json", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await seedLocalSkill({ sandbox, skillName: "local-demo", agent: "codex" });
+            await seedLocalSkill({ sandbox, skillName: "local-demo", agent: "universal" });
 
             const result = await sandbox.run(
-                ["skills", "uninstall", "local-demo", "--agent", "codex", "--json"],
+                ["skills", "uninstall", "local-demo", "--agent", "universal", "--json"],
                 { version: TEST_CLI_VERSION },
             );
 
