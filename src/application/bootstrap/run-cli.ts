@@ -105,7 +105,7 @@ interface CreateCliExecutionContextOptions {
 }
 
 const redactedCliArgumentValue = "<redacted>";
-const sensitiveCliOptionLongFlags = ["--session-token"] as const;
+const sensitiveCliOptionLongFlags = ["--api-key", "--session-token"] as const;
 
 export async function runCli(argv: string[]): Promise<number> {
     return executeCli({

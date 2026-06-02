@@ -46,6 +46,11 @@ const fastLoginProfileResponseSchema = z.object({
     name: z.string().min(1),
 }).passthrough();
 
+const apiKeyProfileResponseSchema = z.object({
+    uid: z.string().min(1),
+    username: z.string().min(1),
+}).passthrough();
+
 type DeviceLoginCodeResponse = z.output<typeof deviceLoginCodeResponseSchema>;
 type DeviceLoginResultResponse = z.output<typeof deviceLoginResultResponseSchema>;
 
@@ -78,6 +83,11 @@ interface StartAuthLoginSessionOptions extends AuthLoginRequestOptions {
 interface RequestAuthAccountWithSessionTokenOptions extends AuthLoginRequestOptions {
     endpoint: string;
     sessionToken: string;
+}
+
+interface RequestAuthAccountWithApiKeyOptions extends AuthLoginRequestOptions {
+    apiKey: string;
+    endpoint: string;
 }
 
 export async function startAuthLoginSession(
@@ -148,6 +158,43 @@ export async function requestAuthAccountWithSessionToken(
     );
 
     return createAuthAccount(profile);
+}
+
+export async function requestAuthAccountWithApiKey(
+    options: RequestAuthAccountWithApiKeyOptions,
+): Promise<AuthAccount> {
+    const requestUrl = createUsersProfileUrl(options.endpoint);
+    const rawResponse = await requestAuthLogin(
+        requestUrl,
+        options,
+        {
+            authorization: options.apiKey,
+            kind: "profile_with_api_key",
+            method: "GET",
+            redactedValues: [options.apiKey],
+            requestDescription: "api key login",
+            unauthorizedErrorKey: "errors.auth.apiKeyInvalid",
+        },
+    );
+    const profile = parseAuthLoginResponse(
+        rawResponse,
+        apiKeyProfileResponseSchema,
+    );
+
+    options.logger.info(
+        {
+            ...withAccountIdentity(profile.uid, options.endpoint),
+            name: profile.username,
+        },
+        "Auth api key login completed successfully.",
+    );
+
+    return {
+        apiKey: options.apiKey,
+        endpoint: options.endpoint,
+        id: profile.uid,
+        name: profile.username,
+    };
 }
 
 async function waitForVerifiedAccount(
@@ -258,12 +305,14 @@ async function requestAuthLogin(
     requestUrl: URL,
     options: AuthLoginRequestOptions,
     requestOptions: {
+        authorization?: string;
         body?: string;
-        kind: "code" | "profile_with_session_token" | "result";
+        kind: "code" | "profile_with_api_key" | "profile_with_session_token" | "result";
         method: "GET" | "POST";
         redactedValues?: readonly string[];
-        requestDescription: "device login" | "fast login";
+        requestDescription: "api key login" | "device login" | "fast login";
         timeoutMs?: number;
+        unauthorizedErrorKey?: string;
     },
 ): Promise<string> {
     const redactedValues = requestOptions.redactedValues ?? [];
@@ -303,11 +352,7 @@ async function requestAuthLogin(
     try {
         const response = await withTimeout(options.fetcher(requestUrl, {
             body: requestOptions.body,
-            headers: requestOptions.body === undefined
-                ? undefined
-                : {
-                        "Content-Type": "application/json",
-                    },
+            headers: buildAuthLoginHeaders(requestOptions),
             method: requestOptions.method,
             signal: abortController?.signal,
         }));
@@ -324,9 +369,14 @@ async function requestAuthLogin(
                 },
                 `Auth ${requestOptions.requestDescription} request returned a non-success status.`,
             );
-            throw new CliUserError("errors.auth.loginRequestFailed", 1, {
-                status: response.status,
-            });
+            const isUnauthorized = response.status === 401
+                || response.status === 403;
+            throw requestOptions.unauthorizedErrorKey !== undefined
+                && isUnauthorized
+                ? new CliUserError(requestOptions.unauthorizedErrorKey, 1)
+                : new CliUserError("errors.auth.loginRequestFailed", 1, {
+                        status: response.status,
+                    });
         }
 
         options.logger.debug(
@@ -387,6 +437,23 @@ async function requestAuthLogin(
     }
 }
 
+function buildAuthLoginHeaders(requestOptions: {
+    authorization?: string;
+    body?: string;
+}): Record<string, string> | undefined {
+    const headers: Record<string, string> = {};
+
+    if (requestOptions.body !== undefined) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    if (requestOptions.authorization !== undefined) {
+        headers.Authorization = requestOptions.authorization;
+    }
+
+    return Object.keys(headers).length === 0 ? undefined : headers;
+}
+
 function parseAuthLoginResponse<TValue>(
     rawResponse: string,
     schema: z.ZodType<TValue>,
@@ -435,6 +502,10 @@ function createDeviceLoginVerificationUrl(
 
     url.searchParams.set("user_code", userCode);
     return url.toString();
+}
+
+function createUsersProfileUrl(endpoint: string): URL {
+    return new URL(`https://api.${endpoint}/v1/users/profile`);
 }
 
 function createFastLoginProfileWithSessionTokenUrl(

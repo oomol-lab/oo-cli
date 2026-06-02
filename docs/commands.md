@@ -48,17 +48,22 @@ conventions:
 
 ### `oo auth login`
 
-Start a device login flow or authenticate with a session token, then save the
-authenticated account.
+Start a device login flow, authenticate with a session token, or authenticate
+with an existing API key, then save the authenticated account.
 
 - Notes: the CLI prints the verification URL with the user code in the
   `user_code` query parameter, then waits up to 10 minutes for the device login
-  to be verified when `--session-token` is not provided. It exits with a
-  timeout error if verification does not complete within that window.
+  to be verified when neither `--session-token` nor `--api-key` is provided. It
+  exits with a timeout error if verification does not complete within that
+  window.
 - Options:
   - `--session-token <session-token>`: Authenticate with an existing session
     token. The CLI does not print a device-login URL or poll for verification
     when this option is provided.
+  - `--api-key <api-key>`: Authenticate with an existing API key. The CLI
+    validates the key against the account profile and saves the account without
+    a device-login URL or polling. Exits with an error if the key is invalid or
+    expired. `--api-key` and `--session-token` cannot be combined.
 
 ### `oo auth logout`
 
@@ -141,7 +146,7 @@ Switch the active auth account.
 ### `oo login`
 
 Alias for `oo auth login`. Supports the same `--session-token <session-token>`
-option.
+and `--api-key <api-key>` options.
 
 ### `oo logout`
 
