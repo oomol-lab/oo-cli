@@ -1,6 +1,6 @@
 ---
 name: oo-create-skill
-description: Author, generate, or scaffold a new local AI agent skill that turns a concrete oo connector action, including OOMOL-hosted Fusion API actions, into reusable instructions. Use when the user asks to create a skill, write a skill, or make a Codex/Claude/agent skill for an oo-powered workflow, even if capability discovery is needed first.
+description: Author, generate, or scaffold a new local AI agent skill that turns a concrete oo connector action, including OOMOL-hosted Fusion API actions, into reusable instructions. Use when the user asks to create a skill, write a skill, or make an agent skill for an oo-powered workflow, even if capability discovery is needed first.
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
 <!-- agentic:endif -->

@@ -19,7 +19,7 @@ describe("skills install output", () => {
         expect(stdout.read()).toBe(
             [
                 "Installed 2 skills to 2 agents.",
-                "Agents: Codex, Claude Code",
+                "Agents: Universal, Claude Code",
                 "Skills: chatgpt, vision",
                 "",
             ].join("\n"),
@@ -50,8 +50,8 @@ function createMultiSkillMultiAgentSummaries() {
             name: "chatgpt",
             publications: [
                 {
-                    agentName: "codex",
-                    path: "/tmp/codex/skills/chatgpt",
+                    agentName: "universal",
+                    path: "/tmp/universal/skills/chatgpt",
                 },
                 {
                     agentName: "claude",
@@ -63,8 +63,8 @@ function createMultiSkillMultiAgentSummaries() {
             name: "vision",
             publications: [
                 {
-                    agentName: "codex",
-                    path: "/tmp/codex/skills/vision",
+                    agentName: "universal",
+                    path: "/tmp/universal/skills/vision",
                 },
                 {
                     agentName: "claude",

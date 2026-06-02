@@ -37,7 +37,7 @@ async function seedRegistrySkill(options: {
     packageName: string;
     version: string;
 }): Promise<void> {
-    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, "codex");
+    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, "universal");
     const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
     const storePaths = resolveStorePaths({
         appName: APP_NAME,
@@ -69,7 +69,7 @@ describe("skills update --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -141,7 +141,7 @@ describe("skills update --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -170,7 +170,7 @@ describe("skills update --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -231,10 +231,13 @@ describe("skills update --json", () => {
         }
     });
 
-    test("no supported hosts returns command-level error", async () => {
+    test("universal host is always available so empty update returns noop", async () => {
         const sandbox = await createCliSandbox();
 
         try {
+            // No agent home directory is created on disk. The universal host is
+            // always provisioned, so there is at least one available host and the
+            // command no longer fails with a no-supported-hosts error.
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
@@ -242,11 +245,12 @@ describe("skills update --json", () => {
                 { version: TEST_CLI_VERSION },
             );
 
-            expect(result.exitCode).toBe(1);
+            expect(result.exitCode).toBe(0);
             const payload = JSON.parse(result.stdout) as Record<string, unknown>;
-            const errors = payload.errors as Array<Record<string, unknown>>;
 
-            expect(errors[0]).toMatchObject({ code: "no_supported_hosts" });
+            expect(payload.command).toBe("skills.update");
+            expect(payload.status).toBe("noop");
+            expect(payload.skills).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -349,7 +353,7 @@ describe("skills update --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 

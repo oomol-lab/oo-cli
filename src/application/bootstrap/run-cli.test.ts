@@ -60,11 +60,11 @@ describe("runCli bootstrap", () => {
             isTTY: true,
         });
         const stderr = createTextBuffer();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
             await writeAuthFile(sandbox);
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             process.cwd = () => sandbox.cwd;
             process.env = sandbox.env;
 
@@ -182,6 +182,61 @@ describe("runCli bootstrap", () => {
             await Promise.all(legacyFilePaths.map(async (path) => {
                 await expect(Bun.file(path).exists()).resolves.toBeFalse();
             }));
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("removes oo-managed skills from the legacy Codex home during cli startup", async () => {
+        const sandbox = await createCliSandbox();
+        const seedSkill = async (
+            skillDirectoryPath: string,
+            metadata: object | undefined,
+        ): Promise<void> => {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await writeFile(join(skillDirectoryPath, "SKILL.md"), "skill\n");
+
+            if (metadata !== undefined) {
+                await writeFile(
+                    join(skillDirectoryPath, ".oo-metadata.json"),
+                    JSON.stringify(metadata),
+                );
+            }
+        };
+
+        try {
+            const codexSkillsDirectoryPath = join(sandbox.env.HOME!, ".codex", "skills");
+            const managedBundledPath = join(codexSkillsDirectoryPath, "oo");
+            const managedRegistryPath = join(codexSkillsDirectoryPath, "chatgpt");
+            const localPath = join(codexSkillsDirectoryPath, "mine");
+            const unmanagedPath = join(codexSkillsDirectoryPath, "custom");
+
+            await seedSkill(managedBundledPath, {
+                kind: "bundled",
+                schemaVersion: 1,
+                version: "1.2.3",
+            });
+            await seedSkill(managedRegistryPath, {
+                kind: "registry",
+                packageName: "@scope/demo",
+                schemaVersion: 1,
+                version: "1.0.0",
+            });
+            await seedSkill(localPath, { kind: "local", schemaVersion: 1 });
+            await seedSkill(unmanagedPath, undefined);
+
+            const result = await sandbox.run(["--help"]);
+
+            expect(result.exitCode).toBe(0);
+            await expect(stat(managedBundledPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(managedRegistryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            expect((await stat(localPath)).isDirectory()).toBe(true);
+            expect((await stat(unmanagedPath)).isDirectory()).toBe(true);
         }
         finally {
             await sandbox.cleanup();

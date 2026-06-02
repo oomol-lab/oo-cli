@@ -21,7 +21,7 @@ describe("skills preflight command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Missing required --agent. Choose universal, codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
+                "Missing required --agent. Choose universal, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
             );
         }
         finally {
@@ -59,7 +59,7 @@ describe("skills preflight command", () => {
     test("requires the requested agent home directory", async () => {
         const sandbox = await createCliSandbox();
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
 
         try {
             await mkdir(claudeHomeDirectory, { recursive: true });
@@ -68,13 +68,13 @@ describe("skills preflight command", () => {
                 "skills",
                 "preflight",
                 "--agent",
-                "codex",
+                "openclaw",
             ]);
 
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                `Codex is not installed. Expected the Codex home directory at ${codexHomeDirectory}.\n`,
+                `OpenClaw is not installed. Expected the OpenClaw home directory at ${openClawHomeDirectory}.\n`,
             );
         }
         finally {
@@ -275,18 +275,18 @@ describe("skills preflight command", () => {
 
     test("requires the requested agent publish root to be writable", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const publishRootPath = join(codexHomeDirectory, "skills");
+        const openClawHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "openclaw");
+        const publishRootPath = join(openClawHomeDirectory, "skills");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(openClawHomeDirectory, { recursive: true });
             await Bun.write(publishRootPath, "not a directory");
 
             const result = await sandbox.run([
                 "skills",
                 "preflight",
                 "--agent",
-                "codex",
+                "openclaw",
             ]);
 
             expect(result.exitCode).toBe(1);

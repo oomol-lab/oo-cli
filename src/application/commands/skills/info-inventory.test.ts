@@ -106,7 +106,7 @@ describe("compareSkillDirectoryContent", () => {
 
 describe("resolveHostControlState", () => {
     const baseScan = {
-        agentId: "codex" as const,
+        agentId: "universal" as const,
         skillName: "test-skill",
         path: "/tmp/host/path",
     };

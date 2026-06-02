@@ -3,7 +3,7 @@ import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 
 import { dirname, join } from "node:path";
 
-export const codexSkillsDirectoryName = "skills";
+export const managedSkillsDirectoryName = "skills";
 export const canonicalBundledSkillsDirectoryName = "bundled";
 export const canonicalLocalSkillsDirectoryName = "local";
 export const canonicalRegistrySkillsDirectoryName = "registry";
@@ -14,16 +14,16 @@ export function resolveBundledSkillDirectoryPath(
     homeDirectory: string,
     skillName: string,
 ): string {
-    return join(homeDirectory, codexSkillsDirectoryName, skillName);
+    return join(homeDirectory, managedSkillsDirectoryName, skillName);
 }
 
 export function resolveBundledSkillCanonicalRootDirectoryPath(
     settingsFilePath: string,
-    agentName: BundledSkillAgentName = "codex",
+    agentName: BundledSkillAgentName = "universal",
 ): string {
     return join(
         dirname(settingsFilePath),
-        codexSkillsDirectoryName,
+        managedSkillsDirectoryName,
         canonicalBundledSkillsDirectoryName,
         agentName,
     );
@@ -32,7 +32,7 @@ export function resolveBundledSkillCanonicalRootDirectoryPath(
 export function resolveBundledSkillCanonicalDirectoryPath(
     settingsFilePath: string,
     skillName: BundledSkillName,
-    agentName: BundledSkillAgentName = "codex",
+    agentName: BundledSkillAgentName = "universal",
 ): string {
     return join(
         resolveBundledSkillCanonicalRootDirectoryPath(settingsFilePath, agentName),

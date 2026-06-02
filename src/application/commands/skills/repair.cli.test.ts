@@ -24,10 +24,10 @@ const TEST_CLI_VERSION = "9.9.9";
 describe("skills repair CLI", () => {
     test("rejects when --skill is not provided", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             const result = await sandbox.run(["skills", "repair"]);
 
             expect(result.exitCode).toBe(2);
@@ -38,13 +38,13 @@ describe("skills repair CLI", () => {
         }
     });
 
-    test("repair --skill oo --agent codex overwrites a modified bundled host directory", async () => {
+    test("repair --skill oo --agent universal overwrites a modified bundled host directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectory = resolveManagedSkillDirectoryPath(codexHomeDirectory, "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectory = resolveManagedSkillDirectoryPath(universalHomeDirectory, "oo");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install", "oo"], { version: TEST_CLI_VERSION });
             await writeFile(join(ooSkillDirectory, "SKILL.md"), "tampered content\n");
 
@@ -54,7 +54,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "oo",
                 "--agent",
-                "codex",
+                "universal",
             ], { version: TEST_CLI_VERSION });
 
             expect(result.exitCode).toBe(0);
@@ -71,8 +71,8 @@ describe("skills repair CLI", () => {
 
     test("repair overwrites an unmanaged same-name host directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectory = resolveManagedSkillDirectoryPath(codexHomeDirectory, "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectory = resolveManagedSkillDirectoryPath(universalHomeDirectory, "oo");
 
         try {
             await mkdir(ooSkillDirectory, { recursive: true });
@@ -84,7 +84,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "oo",
                 "--agent",
-                "codex",
+                "universal",
             ], { version: TEST_CLI_VERSION });
 
             expect(result.exitCode).toBe(0);
@@ -101,7 +101,7 @@ describe("skills repair CLI", () => {
 
     test("repair re-materializes a poisoned bundled canonical source", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -110,12 +110,12 @@ describe("skills repair CLI", () => {
         const canonicalDirectory = resolveBundledSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "oo",
-            "codex",
+            "universal",
         );
-        const hostDirectory = resolveManagedSkillDirectoryPath(codexHomeDirectory, "oo");
+        const hostDirectory = resolveManagedSkillDirectoryPath(universalHomeDirectory, "oo");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install", "oo"], { version: TEST_CLI_VERSION });
             await rm(canonicalDirectory, { recursive: true, force: true });
             await mkdir(canonicalDirectory, { recursive: true });
@@ -127,7 +127,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "oo",
                 "--agent",
-                "codex",
+                "universal",
             ], { version: TEST_CLI_VERSION });
 
             expect(result.exitCode).toBe(0);
@@ -145,16 +145,16 @@ describe("skills repair CLI", () => {
 
     test("repair defaults to all available supported agents when --agent is omitted", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
-        const codexSkillDirectory = resolveManagedSkillDirectoryPath(codexHomeDirectory, "oo");
+        const universalSkillDirectory = resolveManagedSkillDirectoryPath(universalHomeDirectory, "oo");
         const claudeSkillDirectory = resolveManagedSkillDirectoryPath(claudeHomeDirectory, "oo");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(claudeHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install"], { version: TEST_CLI_VERSION });
-            await writeFile(join(codexSkillDirectory, "SKILL.md"), "tampered codex\n");
+            await writeFile(join(universalSkillDirectory, "SKILL.md"), "tampered universal\n");
             await writeFile(join(claudeSkillDirectory, "SKILL.md"), "tampered claude\n");
 
             const result = await sandbox.run([
@@ -165,10 +165,10 @@ describe("skills repair CLI", () => {
             ], { version: TEST_CLI_VERSION });
 
             expect(result.exitCode).toBe(0);
-            const codexContent = await readFile(join(codexSkillDirectory, "SKILL.md"), "utf8");
+            const universalContent = await readFile(join(universalSkillDirectory, "SKILL.md"), "utf8");
             const claudeContent = await readFile(join(claudeSkillDirectory, "SKILL.md"), "utf8");
 
-            expect(codexContent).not.toBe("tampered codex\n");
+            expect(universalContent).not.toBe("tampered universal\n");
             expect(claudeContent).not.toBe("tampered claude\n");
         }
         finally {
@@ -178,11 +178,11 @@ describe("skills repair CLI", () => {
 
     test("repair runs the cartesian product of multiple --agent and --skill, de-duplicated", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(claudeHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install"], { version: TEST_CLI_VERSION });
 
@@ -197,11 +197,11 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "oo-find-skills",
                 "--agent",
-                "codex",
+                "universal",
                 "--agent",
                 "claude",
                 "--agent",
-                "codex",
+                "universal",
             ], { version: TEST_CLI_VERSION });
 
             expect(result.exitCode).toBe(0);
@@ -220,9 +220,9 @@ describe("skills repair CLI", () => {
 
             expect(pairKeys).toEqual([
                 "oo-find-skills|claude",
-                "oo-find-skills|codex",
+                "oo-find-skills|universal",
                 "oo|claude",
-                "oo|codex",
+                "oo|universal",
             ]);
         }
         finally {
@@ -232,10 +232,10 @@ describe("skills repair CLI", () => {
 
     test("repair surfaces missing source as per-pair failure (--json includes failed result)", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             const result = await sandbox.run([
                 "skills",
                 "repair",
@@ -243,7 +243,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "nonexistent-skill",
                 "--agent",
-                "codex",
+                "universal",
             ]);
 
             expect(result.exitCode).toBe(1);
@@ -271,11 +271,11 @@ describe("skills repair CLI", () => {
 
     test("repair valid + missing skill: valid is repaired and missing surfaces as failed entry", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectory = resolveManagedSkillDirectoryPath(codexHomeDirectory, "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectory = resolveManagedSkillDirectoryPath(universalHomeDirectory, "oo");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install", "oo"], { version: TEST_CLI_VERSION });
             await writeFile(join(ooSkillDirectory, "SKILL.md"), "tampered\n");
 
@@ -288,7 +288,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "nonexistent",
                 "--agent",
-                "codex",
+                "universal",
             ], { version: TEST_CLI_VERSION });
 
             expect(result.exitCode).toBe(1);
@@ -311,7 +311,7 @@ describe("skills repair CLI", () => {
 
     test("repair surfaces invalid registry canonical metadata as source_invalid", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -323,7 +323,7 @@ describe("skills repair CLI", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(canonicalDirectory, { recursive: true });
             await writeFile(join(canonicalDirectory, "SKILL.md"), "# Broken\n");
             await writeFile(
@@ -338,7 +338,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "broken-skill",
                 "--agent",
-                "codex",
+                "universal",
             ]);
 
             expect(result.exitCode).toBe(1);
@@ -355,9 +355,9 @@ describe("skills repair CLI", () => {
 
     test("repair fails with localUnsupported when skill only exists as a local skill", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const localSkillDirectory = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "campaign-writer",
         );
 
@@ -378,7 +378,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "campaign-writer",
                 "--agent",
-                "codex",
+                "universal",
             ]);
 
             expect(result.exitCode).toBe(1);
@@ -394,17 +394,20 @@ describe("skills repair CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
+            // The universal host is always provisioned, so it can never be
+            // "not installed". Use hermes, which only becomes available once its
+            // home directory exists on disk, to exercise the missing-home path.
             const result = await sandbox.run([
                 "skills",
                 "repair",
                 "--skill",
                 "oo",
                 "--agent",
-                "codex",
+                "hermes",
             ]);
 
             expect(result.exitCode).toBe(1);
-            expect(result.stderr.toLowerCase()).toContain("codex");
+            expect(result.stderr.toLowerCase()).toContain("hermes");
         }
         finally {
             await sandbox.cleanup();
@@ -413,7 +416,7 @@ describe("skills repair CLI", () => {
 
     test("repair --skill registry-skill from canonical never invokes HTTP", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -424,12 +427,12 @@ describe("skills repair CLI", () => {
             "alpha-skill",
         );
         const hostDirectory = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "alpha-skill",
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(canonicalDirectory, { recursive: true });
             await writeFile(join(canonicalDirectory, "SKILL.md"), "# Alpha Canonical\n");
             await writeFile(
@@ -455,7 +458,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "alpha-skill",
                 "--agent",
-                "codex",
+                "universal",
             ], {
                 fetcher: async () => {
                     throw new Error("repair must not perform HTTP calls");
@@ -481,10 +484,10 @@ describe("skills repair CLI", () => {
 
     test("--json default omits schemaVersion, --show-schema-version prepends it", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install", "oo"], { version: TEST_CLI_VERSION });
 
             const resultDefault = await sandbox.run([
@@ -494,7 +497,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "oo",
                 "--agent",
-                "codex",
+                "universal",
             ], { version: TEST_CLI_VERSION });
             const resultWithSchema = await sandbox.run([
                 "skills",
@@ -504,7 +507,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "oo",
                 "--agent",
-                "codex",
+                "universal",
             ], { version: TEST_CLI_VERSION });
 
             expect(resultDefault.exitCode).toBe(0);
@@ -528,10 +531,10 @@ describe("skills repair CLI", () => {
 
     test("JSON success result includes skill, kind, agentId, status, path, sourcePath, version", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install", "oo"], { version: TEST_CLI_VERSION });
 
             const result = await sandbox.run([
@@ -541,7 +544,7 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "oo",
                 "--agent",
-                "codex",
+                "universal",
             ], { version: TEST_CLI_VERSION });
 
             expect(result.exitCode).toBe(0);
@@ -554,7 +557,7 @@ describe("skills repair CLI", () => {
             expect(entry).toMatchObject({
                 skill: "oo",
                 kind: "bundled",
-                agentId: "codex",
+                agentId: "universal",
                 status: "repaired",
                 version: TEST_CLI_VERSION,
             });
@@ -569,11 +572,11 @@ describe("skills repair CLI", () => {
 
     test("text output never includes filesystem paths or sourcePath", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooSkillDirectory = resolveManagedSkillDirectoryPath(codexHomeDirectory, "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectory = resolveManagedSkillDirectoryPath(universalHomeDirectory, "oo");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await sandbox.run(["skills", "install", "oo"], { version: TEST_CLI_VERSION });
 
             const result = await sandbox.run([
@@ -582,11 +585,11 @@ describe("skills repair CLI", () => {
                 "--skill",
                 "oo",
                 "--agent",
-                "codex",
+                "universal",
             ], { version: TEST_CLI_VERSION });
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).not.toContain(codexHomeDirectory);
+            expect(result.stdout).not.toContain(universalHomeDirectory);
             expect(result.stdout).not.toContain(ooSkillDirectory);
             expect(result.stdout).not.toMatch(/sourcePath/i);
             expect(result.stdout).not.toMatch(/^\s*Path:/m);
@@ -599,11 +602,11 @@ describe("skills repair CLI", () => {
     test("repair omits success summary when every pair fails", async () => {
         const sandbox = await createCliSandbox();
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
             await mkdir(claudeHomeDirectory, { recursive: true });
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run([
                 "skills",
@@ -613,7 +616,7 @@ describe("skills repair CLI", () => {
                 "--agent",
                 "claude",
                 "--agent",
-                "codex",
+                "universal",
             ]);
 
             expect(result.exitCode).toBe(1);
@@ -637,18 +640,18 @@ describe("skills repair CLI", () => {
         async () => {
             const sandbox = await createCliSandbox();
             const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
-            const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             const claudeOoDirectory = resolveManagedSkillDirectoryPath(claudeHomeDirectory, "oo");
-            const codexSkillsDirectory = join(codexHomeDirectory, "skills");
+            const universalSkillsDirectory = join(universalHomeDirectory, "skills");
 
             try {
                 await mkdir(claudeHomeDirectory, { recursive: true });
-                await mkdir(codexHomeDirectory, { recursive: true });
+                await mkdir(universalHomeDirectory, { recursive: true });
                 await sandbox.run(["skills", "install", "oo"], { version: TEST_CLI_VERSION });
                 await writeFile(join(claudeOoDirectory, "SKILL.md"), "tampered\n");
-                // Block writes into codex's skills root so that (oo, codex)
+                // Block writes into universal's skills root so that (oo, universal)
                 // fails while (oo, claude) still succeeds.
-                await chmod(codexSkillsDirectory, 0o555);
+                await chmod(universalSkillsDirectory, 0o555);
 
                 const result = await sandbox.run([
                     "skills",
@@ -658,7 +661,7 @@ describe("skills repair CLI", () => {
                     "--agent",
                     "claude",
                     "--agent",
-                    "codex",
+                    "universal",
                 ], { version: TEST_CLI_VERSION });
 
                 expect(result.exitCode).toBe(1);
@@ -667,7 +670,7 @@ describe("skills repair CLI", () => {
                 expect(result.stdout).toMatch(/^Failed to repair 1 /m);
             }
             finally {
-                await chmod(codexSkillsDirectory, 0o755).catch(() => undefined);
+                await chmod(universalSkillsDirectory, 0o755).catch(() => undefined);
                 await sandbox.cleanup();
             }
         },

@@ -33,8 +33,8 @@ import {
 describe("skills update command", () => {
     test("skips bundled oo when no explicit skill names are provided", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const ooInstalledDirectoryPath = join(codexHomeDirectory, "skills", "oo");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooInstalledDirectoryPath = join(universalHomeDirectory, "skills", "oo");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -46,7 +46,7 @@ describe("skills update command", () => {
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await mkdir(ooCanonicalDirectoryPath, { recursive: true });
             await mkdir(ooInstalledDirectoryPath, { recursive: true });
             await Bun.write(join(ooCanonicalDirectoryPath, "SKILL.md"), "# oo\n");
@@ -73,10 +73,10 @@ describe("skills update command", () => {
 
     test("rejects the bundled oo skill as an explicit update target", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "update", "oo"]);
 
@@ -93,10 +93,10 @@ describe("skills update command", () => {
 
     test("rejects the bundled oo-find-skills skill as an explicit update target", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run(["skills", "update", "oo-find-skills"]);
 
@@ -113,11 +113,11 @@ describe("skills update command", () => {
 
     test("ignores installed skills with unparseable metadata when updating all skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeUnparseableManagedSkillInstallation(installedSkillDirectoryPath);
 
             const result = await sandbox.run(["skills", "update"]);
@@ -133,12 +133,12 @@ describe("skills update command", () => {
 
     test("reports a generic not-installed error when the target is absent from every host", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
             ]);
 
@@ -149,7 +149,7 @@ describe("skills update command", () => {
             expect(result.stderr).toBe(
                 "Skill aaa is not installed as an oo-managed skill in any supported agent.\n",
             );
-            expect(result.stderr).not.toContain(codexHomeDirectory);
+            expect(result.stderr).not.toContain(universalHomeDirectory);
             expect(result.stderr).not.toContain(claudeHomeDirectory);
         }
         finally {
@@ -159,11 +159,11 @@ describe("skills update command", () => {
 
     test("rejects an explicit update target with unparseable metadata as unmanaged", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
-        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeUnparseableManagedSkillInstallation(installedSkillDirectoryPath);
 
             const result = await sandbox.run(["skills", "update", "chatgpt"]);
@@ -171,7 +171,7 @@ describe("skills update command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Skill chatgpt in host codex is not managed by oo and cannot be updated.\n",
+                "Skill chatgpt in host universal is not managed by oo and cannot be updated.\n",
             );
         }
         finally {
@@ -181,14 +181,14 @@ describe("skills update command", () => {
 
     test("updates a published managed skill to the latest version", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const codexInstalledSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const universalInstalledSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const claudeInstalledSkillDirectoryPath = join(claudeHomeDirectory, "skills", "chatgpt");
         const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
@@ -197,13 +197,13 @@ describe("skills update command", () => {
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
             ]);
             await writeAuthFile(sandbox);
             await writeManagedRegistrySkillInstallation({
                 canonicalSkillDirectoryPath,
-                installedSkillDirectoryPath: codexInstalledSkillDirectoryPath,
+                installedSkillDirectoryPath: universalInstalledSkillDirectoryPath,
                 packageName: "openai",
                 skillMarkdown: "# ChatGPT stale\n",
                 version: "0.0.3",
@@ -257,7 +257,7 @@ describe("skills update command", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
                 [
-                    `Updated skill chatgpt to ${codexInstalledSkillDirectoryPath}.`,
+                    `Updated skill chatgpt to ${universalInstalledSkillDirectoryPath}.`,
                     `Updated skill chatgpt to ${claudeInstalledSkillDirectoryPath}.`,
                     "",
                 ].join("\n"),
@@ -278,10 +278,10 @@ describe("skills update command", () => {
                 },
             });
             expect(await readFile(
-                resolveManagedSkillMetadataFilePath(codexInstalledSkillDirectoryPath),
+                resolveManagedSkillMetadataFilePath(universalInstalledSkillDirectoryPath),
                 "utf8",
             )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.4" })));
-            expect(await readFile(join(codexInstalledSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
+            expect(await readFile(join(universalInstalledSkillDirectoryPath, "SKILL.md"), "utf8")).toContain(
                 "# ChatGPT fresh",
             );
             expect(await readFile(
@@ -299,12 +299,14 @@ describe("skills update command", () => {
 
     test("updates a published managed skill by copying to the host target", async () => {
         const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const hermesHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "hermes");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
+        const universalInstalledSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const installedSkillDirectoryPath = join(hermesHomeDirectory, "skills", "chatgpt");
         const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
@@ -359,8 +361,14 @@ describe("skills update command", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
+            // The universal host is always provisioned, so the skill is also
+            // copied into ~/.agents in addition to the hermes host target.
             expect(result.stdout).toBe(
-                `Updated skill chatgpt to ${installedSkillDirectoryPath}.\n`,
+                [
+                    `Updated skill chatgpt to ${universalInstalledSkillDirectoryPath}.`,
+                    `Updated skill chatgpt to ${installedSkillDirectoryPath}.`,
+                    "",
+                ].join("\n"),
             );
             expect(await realpath(installedSkillDirectoryPath)).not.toBe(
                 await realpath(canonicalSkillDirectoryPath),
@@ -381,20 +389,20 @@ describe("skills update command", () => {
 
     test("updates a host target when canonical metadata is already current", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "chatgpt",
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
             await writeManagedRegistrySkillInstallation({
                 canonicalSkillDirectoryPath,
@@ -463,7 +471,7 @@ describe("skills update command", () => {
 
     test("updates published skills in parallel", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -477,8 +485,8 @@ describe("skills update command", () => {
             storePaths.settingsFilePath,
             "claude",
         );
-        const chatgptInstalledDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
-        const claudeInstalledDirectoryPath = join(codexHomeDirectory, "skills", "claude");
+        const chatgptInstalledDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const claudeInstalledDirectoryPath = join(universalHomeDirectory, "skills", "claude");
         let tarballRequestCount = 0;
         let releaseTarballs: (() => void) | undefined;
         const tarballGate = new Promise<void>((resolve) => {
@@ -486,7 +494,7 @@ describe("skills update command", () => {
         });
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
             await writeManagedRegistrySkillInstallation({
                 canonicalSkillDirectoryPath: chatgptCanonicalDirectoryPath,
@@ -594,7 +602,7 @@ describe("skills update command", () => {
 
     test("updates only the selected skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
@@ -608,11 +616,11 @@ describe("skills update command", () => {
             storePaths.settingsFilePath,
             "vision",
         );
-        const chatgptInstalledDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
-        const visionInstalledDirectoryPath = join(codexHomeDirectory, "skills", "vision");
+        const chatgptInstalledDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const visionInstalledDirectoryPath = join(universalHomeDirectory, "skills", "vision");
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
             await writeManagedRegistrySkillInstallation({
                 canonicalSkillDirectoryPath: chatgptCanonicalDirectoryPath,
@@ -688,13 +696,13 @@ describe("skills update command", () => {
 
     test("renders interactive progress while updating skills", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "chatgpt");
+        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
         const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
             "chatgpt",
@@ -713,7 +721,7 @@ describe("skills update command", () => {
         });
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
             await writeAuthFile(sandbox);
             await writeManagedRegistrySkillInstallation({
                 canonicalSkillDirectoryPath,
@@ -792,14 +800,14 @@ describe("skills update command", () => {
 
     test("does not consume legacy bundled metadata as a registry update target", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
         });
-        const installedSkillDirectoryPath = join(codexHomeDirectory, "skills", "custom");
+        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "custom");
         const claudeInstalledSkillDirectoryPath = join(claudeHomeDirectory, "skills", "custom");
         const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
             storePaths.settingsFilePath,
@@ -808,7 +816,7 @@ describe("skills update command", () => {
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(claudeHomeDirectory, { recursive: true }),
             ]);
             await mkdir(canonicalSkillDirectoryPath, { recursive: true });
@@ -844,7 +852,7 @@ describe("skills update command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Skill custom in host codex is not managed by oo and cannot be updated.\n",
+                "Skill custom in host universal is not managed by oo and cannot be updated.\n",
             );
         }
         finally {

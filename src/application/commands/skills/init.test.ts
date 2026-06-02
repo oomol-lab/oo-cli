@@ -17,21 +17,21 @@ import {
 describe("skills init command", () => {
     test("initializes a local skill in the requested agent skill directory", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "campaign-writer",
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run([
                 "skills",
                 "init",
                 "Campaign Writer",
                 "--agent",
-                "codex",
+                "universal",
                 "--description",
                 "Write campaign briefs using a known package workflow.",
                 "--icon",
@@ -93,21 +93,21 @@ describe("skills init command", () => {
 
     test("omits metadata title when no title is provided", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "minimal-skill",
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run([
                 "skills",
                 "init",
                 "minimal-skill",
                 "--agent",
-                "codex",
+                "universal",
                 "--description",
                 "Use a known package workflow.",
             ]);
@@ -282,14 +282,14 @@ describe("skills init command", () => {
 
     test("requires an agent before writing", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "missing-agent",
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run([
                 "skills",
@@ -302,7 +302,7 @@ describe("skills init command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Missing required --agent. Choose universal, codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
+                "Missing required --agent. Choose universal, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui.\n",
             );
             await expect(stat(skillDirectoryPath)).rejects.toMatchObject({
                 code: "ENOENT",
@@ -315,21 +315,21 @@ describe("skills init command", () => {
 
     test("requires a description before writing", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "missing-description",
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run([
                 "skills",
                 "init",
                 "missing-description",
                 "--agent",
-                "codex",
+                "universal",
             ]);
 
             expect(result.exitCode).toBe(1);
@@ -348,9 +348,9 @@ describe("skills init command", () => {
 
     test("fails before writing when the agent skill directory already exists", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             "existing-skill",
         );
 
@@ -362,7 +362,7 @@ describe("skills init command", () => {
                 "init",
                 "existing-skill",
                 "--agent",
-                "codex",
+                "universal",
                 "--description",
                 "Use an existing package workflow.",
             ]);
@@ -384,10 +384,10 @@ describe("skills init command", () => {
 
     test("does not copy a new local skill to other agents", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const codeBuddyHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codebuddy");
-        const codexSkillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+        const universalSkillDirectoryPath = resolveManagedSkillDirectoryPath(
+            universalHomeDirectory,
             "single-agent-skill",
         );
         const codeBuddySkillDirectoryPath = resolveManagedSkillDirectoryPath(
@@ -397,7 +397,7 @@ describe("skills init command", () => {
 
         try {
             await Promise.all([
-                mkdir(codexHomeDirectory, { recursive: true }),
+                mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(codeBuddyHomeDirectory, { recursive: true }),
             ]);
 
@@ -406,13 +406,13 @@ describe("skills init command", () => {
                 "init",
                 "single-agent-skill",
                 "--agent",
-                "codex",
+                "universal",
                 "--description",
                 "Use a known package workflow.",
             ]);
 
             expect(result.exitCode).toBe(0);
-            expect(await readFile(join(codexSkillDirectoryPath, ".oo-metadata.json"), "utf8")).toBe(
+            expect(await readFile(join(universalSkillDirectoryPath, ".oo-metadata.json"), "utf8")).toBe(
                 renderSkillMetadataJson(createLocalSkillMetadata()),
             );
             await expect(stat(codeBuddySkillDirectoryPath)).rejects.toMatchObject({
@@ -426,23 +426,23 @@ describe("skills init command", () => {
 
     test("does not leave a trailing hyphen after truncating the normalized name", async () => {
         const sandbox = await createCliSandbox();
-        const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const normalizedSkillName = "a".repeat(63);
         const inputName = `${"A".repeat(63)} B`;
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
-            codexHomeDirectory,
+            universalHomeDirectory,
             normalizedSkillName,
         );
 
         try {
-            await mkdir(codexHomeDirectory, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
 
             const result = await sandbox.run([
                 "skills",
                 "init",
                 inputName,
                 "--agent",
-                "codex",
+                "universal",
                 "--description",
                 "Use a known package workflow.",
             ]);

@@ -76,15 +76,15 @@ describe("info CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const codexHomeDirectory = resolveManagedSkillAgentHomeDirectory(
+            const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(
                 sandbox.env,
-                "codex",
+                "universal",
             );
-            await mkdir(resolveManagedSkillsDirectoryPath(codexHomeDirectory), {
-                recursive: true,
-            });
 
-            const result = await sandbox.run(["info", "--json"]);
+            // The universal host is always provisioned: a full CLI run materializes
+            // ~/.agents/skills during startup sync, so it is reported "available"
+            // without the test creating the directory first.
+            const result = await sandbox.run(["info", "--json"], { version: "1.2.3" });
 
             expect(result.exitCode).toBe(0);
             const payload = JSON.parse(result.stdout);
@@ -96,10 +96,10 @@ describe("info CLI", () => {
             const agentIds = agents.map(agent => agent.id);
             expect(agentIds).toEqual([...availableBundledSkillAgentNames]);
 
-            const codexAgent = agents.find(agent => agent.id === "codex");
-            expect(codexAgent).toEqual({
-                id: "codex",
-                skillDir: resolveManagedSkillsDirectoryPath(codexHomeDirectory),
+            const universalAgent = agents.find(agent => agent.id === "universal");
+            expect(universalAgent).toEqual({
+                id: "universal",
+                skillDir: resolveManagedSkillsDirectoryPath(universalHomeDirectory),
                 status: "available",
             });
 

@@ -56,8 +56,8 @@ async function seedHostSkill(options: {
     skillName: string;
     metadataJson?: string;
 }): Promise<string> {
-    const codexHome = join(options.sandbox.env.HOME!, ".codex");
-    const skillDirectory = join(codexHome, "skills", options.skillName);
+    const universalHome = join(options.sandbox.env.HOME!, ".agents");
+    const skillDirectory = join(universalHome, "skills", options.skillName);
 
     await mkdir(skillDirectory, { recursive: true });
     await writeFile(join(skillDirectory, "SKILL.md"), "# x\n");
@@ -297,7 +297,7 @@ describe("oo uninstall", () => {
             // package-manager install must still surface binary guidance + exit 1.
             const homeDirectory = sandbox.env.HOME!;
 
-            await mkdir(join(homeDirectory, ".codex"), { recursive: true });
+            await mkdir(join(homeDirectory, ".agents"), { recursive: true });
             const npmExecPath = join(
                 homeDirectory,
                 "node_modules",

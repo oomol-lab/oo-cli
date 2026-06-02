@@ -2,7 +2,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
     bundledSkillMetadataFileName,
     canonicalRegistrySkillsDirectoryName,
-    codexSkillsDirectoryName,
+    managedSkillsDirectoryName,
 } from "./bundled-skill-paths.ts";
 
 export { bundledSkillMetadataFileName as managedSkillMetadataFileName } from "./bundled-skill-paths.ts";
@@ -22,16 +22,16 @@ const defaultPathOperations: PathOperations = {
 };
 
 export function resolveManagedSkillsDirectoryPath(
-    codexHomeDirectory: string,
+    homeDirectory: string,
 ): string {
-    return join(codexHomeDirectory, codexSkillsDirectoryName);
+    return join(homeDirectory, managedSkillsDirectoryName);
 }
 
 export function resolveManagedSkillDirectoryPath(
-    codexHomeDirectory: string,
+    homeDirectory: string,
     skillName: string,
 ): string {
-    return join(resolveManagedSkillsDirectoryPath(codexHomeDirectory), skillName);
+    return join(resolveManagedSkillsDirectoryPath(homeDirectory), skillName);
 }
 
 export function resolveManagedSkillCanonicalRootDirectoryPath(
@@ -39,7 +39,7 @@ export function resolveManagedSkillCanonicalRootDirectoryPath(
 ): string {
     return join(
         dirname(settingsFilePath),
-        codexSkillsDirectoryName,
+        managedSkillsDirectoryName,
         canonicalRegistrySkillsDirectoryName,
     );
 }
@@ -72,13 +72,13 @@ export function isPathWithinDirectory(
 }
 
 export function isManagedSkillPathContained(
-    codexHomeDirectory: string,
+    homeDirectory: string,
     settingsFilePath: string,
     skillName: string,
 ): boolean {
     return isPathWithinDirectory(
-        resolveManagedSkillsDirectoryPath(codexHomeDirectory),
-        resolveManagedSkillDirectoryPath(codexHomeDirectory, skillName),
+        resolveManagedSkillsDirectoryPath(homeDirectory),
+        resolveManagedSkillDirectoryPath(homeDirectory, skillName),
     ) && isPathWithinDirectory(
         resolveManagedSkillCanonicalRootDirectoryPath(settingsFilePath),
         resolveManagedSkillCanonicalDirectoryPath(settingsFilePath, skillName),

@@ -17,7 +17,6 @@ describe("managed skill agents", () => {
     test("exposes supported agents in display order", () => {
         expect([...availableBundledSkillAgentNames]).toEqual([
             "universal",
-            "codex",
             "claude",
             "hermes",
             "codebuddy",
@@ -29,27 +28,22 @@ describe("managed skill agents", () => {
             "deepseek-tui",
         ]);
         expect(formatSupportedSkillAgentNames()).toBe(
-            "universal, codex, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui",
+            "universal, claude, hermes, codebuddy, workbuddy, trae, trae-cn, openclaw, qoderwork, deepseek-tui",
         );
-        expect(compareManagedSkillAgentNames("universal", "codex")).toBeLessThan(0);
-        expect(compareManagedSkillAgentNames("codex", "claude")).toBeLessThan(0);
+        expect(compareManagedSkillAgentNames("universal", "claude")).toBeLessThan(0);
+        expect(compareManagedSkillAgentNames("claude", "hermes")).toBeLessThan(0);
         expect(compareManagedSkillAgentNames("deepseek-tui", "qoderwork")).toBeGreaterThan(0);
     });
 
     test("resolves default and explicit home directories", () => {
-        const codexHomeDirectory = join(tmpdir(), "codex-home");
         const openClawHomeDirectory = join(tmpdir(), "openclaw-home");
         const userHomeDirectory = join(tmpdir(), "user-home");
         const env = {
-            CODEX_HOME: codexHomeDirectory,
             HERMES_HOME: " ",
             HOME: userHomeDirectory,
             OPENCLAW_HOME: openClawHomeDirectory,
         };
 
-        expect(resolveManagedSkillAgentHomeDirectory(env, "codex")).toBe(
-            codexHomeDirectory,
-        );
         expect(resolveManagedSkillAgentHomeDirectory(env, "universal")).toBe(
             join(userHomeDirectory, ".agents"),
         );

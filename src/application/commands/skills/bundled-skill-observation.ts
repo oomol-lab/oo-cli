@@ -34,12 +34,6 @@ export async function requireBundledSkillHomeDirectory(
     return homeDirectory;
 }
 
-export async function requireCodexHomeDirectory(
-    context: Pick<{ env: Record<string, string | undefined> }, "env">,
-): Promise<string> {
-    return requireBundledSkillHomeDirectory(context, "codex");
-}
-
 export async function directoryExists(path: string): Promise<boolean> {
     try {
         return (await stat(path)).isDirectory();

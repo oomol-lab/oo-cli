@@ -107,17 +107,17 @@ describe("legacy canonical skill migration", () => {
         const configDirectoryPath = join(rootDirectory, "config");
         const settingsFilePath = join(configDirectoryPath, "settings.toml");
         const skillsDirectoryPath = join(configDirectoryPath, "skills");
-        const legacyCodexBundledPath = join(skillsDirectoryPath, "oo");
+        const legacyUniversalBundledPath = join(skillsDirectoryPath, "oo");
         const legacyRegistryPath = join(skillsDirectoryPath, "chatgpt");
-        const newBundledPath = join(skillsDirectoryPath, "bundled", "codex", "oo");
+        const newBundledPath = join(skillsDirectoryPath, "bundled", "universal", "oo");
         const newLocalPath = join(skillsDirectoryPath, "local", "local-skill");
         const newRegistryPath = join(skillsDirectoryPath, "registry", "chatgpt");
         const logCapture = createLogCapture();
 
         try {
-            await mkdir(legacyCodexBundledPath, { recursive: true });
+            await mkdir(legacyUniversalBundledPath, { recursive: true });
             await Bun.write(
-                join(legacyCodexBundledPath, ".oo-metadata.json"),
+                join(legacyUniversalBundledPath, ".oo-metadata.json"),
                 JSON.stringify({ version: "0.0.1" }),
             );
             await mkdir(legacyRegistryPath, { recursive: true });
@@ -139,7 +139,7 @@ describe("legacy canonical skill migration", () => {
                 } as never,
             });
 
-            await expect(stat(legacyCodexBundledPath)).rejects.toMatchObject({
+            await expect(stat(legacyUniversalBundledPath)).rejects.toMatchObject({
                 code: "ENOENT",
             });
             await expect(stat(legacyRegistryPath)).rejects.toMatchObject({
@@ -159,7 +159,7 @@ describe("legacy canonical skill migration", () => {
             const logOutput = logCapture.read();
 
             expect(logOutput).toContain("legacySkillsChild");
-            expect(logOutput).toContain(serializeJsonPath(legacyCodexBundledPath));
+            expect(logOutput).toContain(serializeJsonPath(legacyUniversalBundledPath));
             expect(logOutput).toContain(serializeJsonPath(legacyRegistryPath));
         }
         finally {

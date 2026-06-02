@@ -14,15 +14,15 @@ import {
 } from "./managed-skill-paths.ts";
 
 describe("managed skill paths", () => {
-    test("resolves the Codex installation directory for any skill name", () => {
-        expect(resolveManagedSkillDirectoryPath("/tmp/.codex", "chatgpt")).toBe(
-            join("/tmp/.codex", "skills", "chatgpt"),
+    test("resolves the Universal installation directory for any skill name", () => {
+        expect(resolveManagedSkillDirectoryPath("/tmp/.agents", "chatgpt")).toBe(
+            join("/tmp/.agents", "skills", "chatgpt"),
         );
     });
 
-    test("resolves the Codex skills root directory", () => {
-        expect(resolveManagedSkillsDirectoryPath("/tmp/.codex")).toBe(
-            join("/tmp/.codex", "skills"),
+    test("resolves the Universal skills root directory", () => {
+        expect(resolveManagedSkillsDirectoryPath("/tmp/.agents")).toBe(
+            join("/tmp/.agents", "skills"),
         );
     });
 
@@ -46,35 +46,35 @@ describe("managed skill paths", () => {
     test("keeps contained managed skill paths and rejects escaping ones", () => {
         expect(
             isManagedSkillPathContained(
-                "/tmp/.codex",
+                "/tmp/.agents",
                 "/tmp/config/settings.toml",
                 "chatgpt",
             ),
         ).toBeTrue();
         expect(
             isManagedSkillPathContained(
-                "/tmp/.codex",
+                "/tmp/.agents",
                 "/tmp/config/settings.toml",
                 ".hidden",
             ),
         ).toBeTrue();
         expect(
             isManagedSkillPathContained(
-                "/tmp/.codex",
+                "/tmp/.agents",
                 "/tmp/config/settings.toml",
                 "..foo",
             ),
         ).toBeTrue();
         expect(
             isManagedSkillPathContained(
-                "/tmp/.codex",
+                "/tmp/.agents",
                 "/tmp/config/settings.toml",
                 "../..",
             ),
         ).toBeFalse();
         expect(
             isManagedSkillPathContained(
-                "/tmp/.codex",
+                "/tmp/.agents",
                 "/tmp/config/settings.toml",
                 "../../outside",
             ),
@@ -84,28 +84,28 @@ describe("managed skill paths", () => {
     test("detects escaping paths in posix and win32 mode", () => {
         expect(
             isPathWithinDirectory(
-                "/tmp/.codex/skills",
-                "/tmp/.codex/skills/.hidden",
+                "/tmp/.agents/skills",
+                "/tmp/.agents/skills/.hidden",
                 posix,
             ),
         ).toBeTrue();
         expect(
             isPathWithinDirectory(
-                "/tmp/.codex/skills",
-                "/tmp/.codex",
+                "/tmp/.agents/skills",
+                "/tmp/.agents",
                 posix,
             ),
         ).toBeFalse();
         expect(
             isPathWithinDirectory(
-                "C:\\codex\\skills",
-                "C:\\codex\\skills\\..foo",
+                "C:\\agents\\skills",
+                "C:\\agents\\skills\\..foo",
                 win32,
             ),
         ).toBeTrue();
         expect(
             isPathWithinDirectory(
-                "C:\\codex\\skills",
+                "C:\\agents\\skills",
                 "D:\\elsewhere",
                 win32,
             ),

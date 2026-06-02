@@ -14,7 +14,7 @@ export type SymbolicLinkKindForTest = "directory" | "file";
 export function getBundledSkillSourcePath(
     skillName: BundledSkillName,
     relativePath: string,
-    agentName: BundledSkillAgentName = "codex",
+    agentName: BundledSkillAgentName = "universal",
 ): string {
     const file = getBundledSkillFiles(skillName, agentName).find(file =>
         file.relativePath === relativePath,
@@ -32,7 +32,7 @@ export function getBundledSkillSourcePath(
 export async function readBundledSkillSourceContent(
     skillName: BundledSkillName,
     relativePath: string,
-    agentName: BundledSkillAgentName = "codex",
+    agentName: BundledSkillAgentName = "universal",
 ): Promise<string> {
     const file = getBundledSkillFiles(skillName, agentName).find(file =>
         file.relativePath === relativePath,

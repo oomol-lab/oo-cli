@@ -28,7 +28,7 @@ exports[`skills CLI writes explicit skills install and uninstall logs 1`] = `
     "exitCode": 0,
     "stderr": "",
     "stdout": 
-"Installed 4 skills to Codex.
+"Installed 4 skills to Universal.
 Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill
 "
 ,
@@ -37,10 +37,10 @@ Skills: oo, oo-find-skills, oo-create-skill, oo-publish-skill
     "exitCode": 0,
     "stderr": "",
     "stdout": 
-"Removed skill oo from <HOME>/.codex/skills/oo.
-Removed skill oo-find-skills from <HOME>/.codex/skills/oo-find-skills.
-Removed skill oo-create-skill from <HOME>/.codex/skills/oo-create-skill.
-Removed skill oo-publish-skill from <HOME>/.codex/skills/oo-publish-skill.
+"Removed skill oo from <HOME>/.agents/skills/oo.
+Removed skill oo-find-skills from <HOME>/.agents/skills/oo-find-skills.
+Removed skill oo-create-skill from <HOME>/.agents/skills/oo-create-skill.
+Removed skill oo-publish-skill from <HOME>/.agents/skills/oo-publish-skill.
 "
 ,
   },

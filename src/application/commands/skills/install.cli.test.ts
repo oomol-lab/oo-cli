@@ -24,7 +24,7 @@ describe("skills install --json", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -52,8 +52,9 @@ describe("skills install --json", () => {
             const targets = ooSkill!.targets as Array<Record<string, unknown>>;
 
             expect(targets.length).toBeGreaterThanOrEqual(1);
-            expect(targets[0]).toMatchObject({
-                agentId: "codex",
+            const universalTarget = targets.find(target => target.agentId === "universal");
+            expect(universalTarget).toMatchObject({
+                agentId: "universal",
                 status: "installed",
             });
             // Note: auto-sync runs on CLI startup, so previousState may be
@@ -68,7 +69,7 @@ describe("skills install --json", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             const ooDir = resolveManagedSkillDirectoryPath(homeDirectory, "oo");
 
             await mkdir(ooDir, { recursive: true });
@@ -90,9 +91,9 @@ describe("skills install --json", () => {
 
             expect(ooSkill).toBeDefined();
             const targets = ooSkill!.targets as Array<Record<string, unknown>>;
-            const codexTarget = targets.find(t => t.agentId === "codex");
+            const universalTarget = targets.find(t => t.agentId === "universal");
 
-            expect(codexTarget).toMatchObject({
+            expect(universalTarget).toMatchObject({
                 status: "installed",
                 previousState: "managed",
             });
@@ -106,7 +107,7 @@ describe("skills install --json", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             const ooDir = resolveManagedSkillDirectoryPath(homeDirectory, "oo");
 
             await mkdir(ooDir, { recursive: true });
@@ -124,9 +125,9 @@ describe("skills install --json", () => {
 
             expect(ooSkill).toBeDefined();
             const targets = ooSkill!.targets as Array<Record<string, unknown>>;
-            const codexTarget = targets.find(t => t.agentId === "codex");
+            const universalTarget = targets.find(t => t.agentId === "universal");
 
-            expect(codexTarget).toMatchObject({
+            expect(universalTarget).toMatchObject({
                 status: "installed",
                 previousState: "unmanaged",
             });
@@ -141,7 +142,7 @@ describe("skills install --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -166,7 +167,7 @@ describe("skills install --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -215,7 +216,7 @@ describe("skills install --json", () => {
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 
@@ -246,7 +247,7 @@ describe("skills install --json", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "codex");
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
 

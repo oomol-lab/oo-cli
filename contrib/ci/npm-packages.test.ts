@@ -475,7 +475,6 @@ describe("npm-packages", () => {
                 temporaryDirectoryPath,
                 currentTarget.executableFileName,
             );
-            const codexHomeDirectoryPath = join(temporaryDirectoryPath, "codex-home");
             const configHomeDirectoryPath = join(temporaryDirectoryPath, "config-home");
             const homeDirectoryPath = join(temporaryDirectoryPath, "home");
 
@@ -511,7 +510,6 @@ describe("npm-packages", () => {
                 }
 
                 await Promise.all([
-                    mkdir(codexHomeDirectoryPath, { recursive: true }),
                     mkdir(configHomeDirectoryPath, { recursive: true }),
                     mkdir(homeDirectoryPath, { recursive: true }),
                 ]);
@@ -522,7 +520,6 @@ describe("npm-packages", () => {
                         cwd: rootDirectoryPath,
                         env: {
                             ...process.env,
-                            CODEX_HOME: codexHomeDirectoryPath,
                             HOME: homeDirectoryPath,
                             XDG_CONFIG_HOME: configHomeDirectoryPath,
                         },
@@ -537,12 +534,13 @@ describe("npm-packages", () => {
                 }
 
                 const installedSkillDirectoryPath = join(
-                    codexHomeDirectoryPath,
+                    homeDirectoryPath,
+                    ".agents",
                     "skills",
                     "oo-find-skills",
                 );
 
-                for (const file of getBundledSkillFiles("oo-find-skills", "codex")) {
+                for (const file of getBundledSkillFiles("oo-find-skills", "universal")) {
                     expect(
                         await readFile(
                             join(installedSkillDirectoryPath, file.relativePath),

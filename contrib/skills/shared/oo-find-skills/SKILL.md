@@ -41,8 +41,8 @@ Rules:
   product onto a different global product.
 - The sentence should describe only the user's need itself.
 - Prefer a short sentence built from task + capability + domain or constraint.
-- Do not add meta words such as `skill`, `skills`, `search`, `install`, or
-  `Codex` unless the user's actual need depends on those words.
+- Do not add meta words such as `skill`, `skills`, `search`, or `install`
+  unless the user's actual need depends on those words.
 - Avoid filler words.
 - Do not exceed `3` keywords.
 

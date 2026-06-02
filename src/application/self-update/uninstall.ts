@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import {
     canonicalBundledSkillsDirectoryName,
-    codexSkillsDirectoryName,
+    managedSkillsDirectoryName,
 } from "../commands/skills/bundled-skill-paths.ts";
 import { resolveAvailableManagedSkillHosts } from "../commands/skills/managed-skill-hosts.ts";
 import {
@@ -216,7 +216,7 @@ async function addSkillItems(args: {
     // oo-managed bundled canonical sources, so it is always removed wholesale.
     const bundledCanonicalRoot = join(
         configDirectory,
-        codexSkillsDirectoryName,
+        managedSkillsDirectoryName,
         canonicalBundledSkillsDirectoryName,
     );
 
