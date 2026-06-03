@@ -162,7 +162,7 @@ describe("skills install --json", () => {
         }
     });
 
-    test("registry install package_lookup_failed surfaces as skill-level failure when --skill is set", async () => {
+    test("registry install package_lookup_failed surfaces as a command-level error", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -172,7 +172,7 @@ describe("skills install --json", () => {
             await mkdir(homeDirectory, { recursive: true });
 
             const result = await sandbox.run(
-                ["skills", "install", "@alice/demo", "--skill", "demo", "--json"],
+                ["skills", "install", "@alice/demo", "--json"],
                 {
                     version: TEST_CLI_VERSION,
                     fetcher: async () => new Response("err", { status: 500 }),
@@ -182,13 +182,10 @@ describe("skills install --json", () => {
             expect(result.exitCode).toBe(1);
             const payload = JSON.parse(result.stdout) as Record<string, unknown>;
             const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
 
-            expect(skills[0]).toMatchObject({
-                skillId: "demo",
-                packageName: "@alice/demo",
-                status: "failed",
-                error: { code: "package_lookup_failed" },
-            });
+            expect(skills).toHaveLength(0);
+            expect(errors[0]).toMatchObject({ code: "package_lookup_failed" });
         }
         finally {
             await sandbox.cleanup();
@@ -221,7 +218,7 @@ describe("skills install --json", () => {
             await mkdir(homeDirectory, { recursive: true });
 
             const result = await sandbox.run(
-                ["skills", "install", "@alice/demo", "--skill", "demo", "--json"],
+                ["skills", "install", "@alice/demo", "--json"],
                 {
                     version: TEST_CLI_VERSION,
                     fetcher: async () => {
@@ -233,8 +230,8 @@ describe("skills install --json", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).not.toContain("secret-token");
             const payload = JSON.parse(result.stdout) as Record<string, unknown>;
-            const skills = payload.skills as Array<Record<string, unknown>>;
-            const errMsg = (skills[0]!.error as Record<string, unknown>).message as string;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+            const errMsg = errors[0]!.message as string;
 
             expect(errMsg).not.toContain("secret-token");
         }

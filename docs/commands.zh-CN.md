@@ -800,11 +800,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   skill id，并引用
   `https://static.oomol.com/oo-cli/skill-install-guide/install.md` 这份通用安装准备说明，
   然后给出最终安装命令。
-  提示词会要求对方先按通用说明检查 OO CLI 和登录状态，再执行安装命令。对于 skill
-  目标，公开包会给出
-  `oo skills install <packageName> --skill <skill-id> -y`，私有包会给出
-  `oo skills install <packageName>#<shareID> --skill <skill-id> -y`。对于
-  package 目标，公开包会给出 `oo skills install <packageName> -y`，私有包会给出
+  提示词会要求对方先按通用说明检查 OO CLI 和登录状态，再执行安装命令。skill 目标
+  和 package 目标都会给出相同形式的安装命令：公开包为
+  `oo skills install <packageName> -y`，私有包为
   `oo skills install <packageName>#<shareID> -y`。私有包提示词会突出展示必须精确
   使用的临时安装标识 `<packageName>#<shareID>`，不会把分享目标描述为已公开发布。
 
@@ -823,43 +821,36 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   在可用时显示来源包标识。
 - 说明：每次调用最多请求 `5` 条结果。
 
-### `oo skills install [packageName]`
+### `oo skills install [packageName...]`
 
 将内置或已发布 skill 安装到受支持的本地 skill 目录。
 
-- 别名：`oo skills add [packageName]`。
-- 参数：`[packageName]` 可选。
+- 别名：`oo skills add [packageName...]`。
+- 参数：`[packageName...]` 接受零个或多个 package 名称。
 - 参数：未提供时，该命令会安装全部内置 skill。
-- 参数：当 `[packageName]` 为 `oo`、`oo-find-skills`、`oo-create-skill` 或
+- 参数：传入多个 package 名称时，会按顺序逐个安装；若后面的 package 失败，
+  之前已完成的安装会保留。
+- 参数：当某个 package 名称为 `oo`、`oo-find-skills`、`oo-create-skill` 或
   `oo-publish-skill` 时，命令安装对应的内置 skill。
-- 参数：当 `[packageName]` 为已发布 package 名称时，命令从该 package 中
-  安装 skill。`[packageName]` 可以包含显式版本，格式为
+- 参数：当某个 package 名称为已发布 package 名称时，命令从该 package 中
+  安装 skill。package 名称可以包含显式版本，格式为
   `<packageName>@<version>`，也支持 `@scope/name@1.2.3` 这类 scoped package
   形式。
-- 参数：`[packageName]` 也可以使用 `<packageName>#<shareID>`。这种形式会从
+- 参数：package 名称也可以使用 `<packageName>#<shareID>`。这种形式会从
   `<packageName>` 读取 package 的 skill 列表，并通过 `<shareID>` 对应的 share
   下载 package 归档。
-- 选项：`-s, --skill <skills...>` 用于安装 package 中一个或多个指定的
-  skill。
-- 选项：`-s, --skill '*'` 用于安装该 package 中全部已发布 skill。
-- 选项：`--all` 是安装全部已发布 skill 的快捷方式，并跳过 skill 选择提示。
-- 选项：`-y, --yes` 用于跳过确认提示。当 package 下有多个 skill 且未显式
-  提供 `--skill` 时，`-y` 会安装全部 skill。
+- 行为：命令会安装每个 package 中的**全部**已发布 skill，不弹选择、也没有
+  按 skill 选择或「安装全部」的选项。
 - 选项：`-f, --force` 在目标目录存在同名 skill 但**不受 oo 管理**（缺少可读
   `.oo-metadata.json`）时，允许覆盖安装。覆盖会先移除原目录内容再写入新
   skill，并以 `warn` 日志记录此事件。`--force` **不会**绕过路径校验、
   package 校验、auth 或下载校验；**不影响**启动自动同步、`oo skills update`、
-  `oo skills sync`、`oo skills uninstall`、`oo skills publish`；多 skill
-  package 下也**不**会因此隐式选中全部 skill（如需可配合 `--skill` 或
-  `--all -y` 使用）。
+  `oo skills sync`、`oo skills uninstall`、`oo skills publish`。
 - 输出：非交互安装成功时，会按已安装 skill 和目标 AI Agent 聚合输出精简摘要；
-  当实际只写入一个目标时，摘要会包含该目标路径。
-- 说明：如果 package 只发布了一个 skill，且未提供 `--skill`，命令会自动
-  安装这个唯一的 skill。
-- 说明：如果 package 发布了多个 skill，且未提供 `--skill`、`--all` 或
-  `-y`，命令会在 TTY 中打开交互选择页面。
-- 说明：在交互选择页面中，同一 package 下已安装的 skill 会默认保持勾选；
-  如果用户取消这些勾选，命令完成时会移除对应已安装 skill。
+  当实际只写入一个目标时，摘要会包含该目标路径。传入多个 package 时，每个
+  package 会按顺序各自输出摘要。
+- 说明：如果 package 发布了多个 skill，命令会全部安装；如果只发布了一个
+  skill，则安装那一个。
 - canonical 目录：内置 skill 会先释放到
   `<config-dir>/skills/bundled/<agent>/<skill-id>`，其中 `<config-dir>` 是
   `settings.toml` 所在目录，`<agent>` 为 `universal`、`claude`、
@@ -893,14 +884,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   legacy bundled 和 registry metadata 仍可读取。
 - 说明：安装已发布 skill 时，所有 registry 请求都会携带当前激活账号的
   `Authorization` header。
-- 说明：如果 package 下有多个 skill，且当前不是交互终端，则必须提供
-  `--skill <name>` 或 `--all -y`。
-- 说明：如果显式安装的已发布 skill 与现有同名 skill 冲突，命令会在交互终
-  端中要求用户输入 `yes` 或 `no` 决定是否覆盖。
-- 说明：如果目标目录已存在但没有有效的 `oo` 元数据，会被视为非 OOMOL
-  skill，命令不会覆盖它。
-- 说明：在交互选择页面中，存在重名冲突的 skill 会在列表中显示状态标记；
-  只要用户仍然选择该项，就会执行覆盖。
+- 说明：如果同名目标目录没有有效的 `oo` 元数据，会被视为非 OOMOL skill；该
+  skill 的安装会以 `name_conflict` 失败，除非使用 `--force`（会覆盖它）。如果同名
+  skill 已由 `oo` 管理，则会被覆盖，即使它来自另一个 package。
 - 说明：通用 `~/.agents` host 始终可用（缺失时自动创建），因此命令始终至少有一个安装目标。
 - 说明：只有当 bundled 或 registry skill 的 `.oo-metadata.json` 能识别对应来源
   时，`oo` 才会认为这是自己管理的安装；否则会视为其他 skill，并拒绝覆盖。
@@ -910,10 +896,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   / `invalid_path` / `invalid_package_specifier` / `package_lookup_failed`
   / `package_download_failed` / `invalid_package_archive`
   / `skill_not_found_in_package` / `name_conflict` / `storage_conflict`
-  / `confirmation_required` / `publication_failed` / `unknown`。
-- 当指定 `--json` 时，命令自动进入非交互模式：若多 skill package 未提供
-  `--skill` / `--all` / `--yes`，会返回顶层 `confirmation_required` 错误并以
-  exit 1 退出。
+  / `publication_failed` / `unknown`。
 - `targets[].previousState` 取值为 `absent | managed | unmanaged | unknown`。
   当 `--force` 覆盖一个非受管目录时，target 仍报告为 `installed`，但
   `previousState` 为 `"unmanaged"`。

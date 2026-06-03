@@ -7,15 +7,11 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
-    createInteractiveInput,
     createRegistrySkillArchiveBytes,
-    createTextBuffer,
     toRequest,
-    waitForOutputText,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
-import { executeCli } from "../../bootstrap/run-cli.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
@@ -355,7 +351,7 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
-                ["skills", "install", "oo@0.0.2", "--skill", "runtime"],
+                ["skills", "install", "oo@0.0.2"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -394,7 +390,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Installed skill runtime to ${skillDirectoryPath}.\n`,
+                `Skill: runtime\nInstalled skill runtime to ${skillDirectoryPath}.\n`,
             );
             expect(requests.map(request => request.url)).toEqual([
                 "https://registry.oomol.com/-/oomol/package-info/oo/0.0.2",
@@ -2073,7 +2069,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("installs a published registry skill by explicit --skill name", async () => {
+    test("installs a published registry skill from a single-skill package", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
@@ -2094,7 +2090,7 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
-                ["skills", "install", "openai", "--skill", "chatgpt"],
+                ["skills", "install", "openai"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -2146,7 +2142,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
+                `Skill: chatgpt\nInstalled skill chatgpt to ${skillDirectoryPath}.\n`,
             );
             await expectCopiedSkillDirectory(
                 skillDirectoryPath,
@@ -2217,7 +2213,7 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
-                ["skills", "install", "@alice/openai@0.0.2", "--skill", "chatgpt"],
+                ["skills", "install", "@alice/openai@0.0.2"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -2256,7 +2252,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
+                `Skill: chatgpt\nInstalled skill chatgpt to ${skillDirectoryPath}.\n`,
             );
             expect(requests.map(request => request.url)).toEqual([
                 "https://registry.oomol.com/-/oomol/package-info/%40alice%2Fopenai/0.0.2",
@@ -2284,7 +2280,7 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
-                ["skills", "add", "openai#share-1", "--skill", "chatgpt"],
+                ["skills", "add", "openai#share-1"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -2323,7 +2319,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                `Installed skill chatgpt to ${skillDirectoryPath}.\n`,
+                `Skill: chatgpt\nInstalled skill chatgpt to ${skillDirectoryPath}.\n`,
             );
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
@@ -2336,6 +2332,207 @@ describe("skills commands", () => {
             expect(requests.every(request =>
                 request.headers.get("Authorization") === "secret-1",
             )).toBeTrue();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs multiple registry packages in one invocation", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const chatgptSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const claudeSkillDirectoryPath = join(universalHomeDirectory, "skills", "claude");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "anthropic"],
+                {
+                    fetcher: createMultiPackageRegistryFetcher(),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Skill: chatgpt\nInstalled skill chatgpt to ${chatgptSkillDirectoryPath}.\n`
+                + `Skill: claude\nInstalled skill claude to ${claudeSkillDirectoryPath}.\n`,
+            );
+            expect(await readFile(join(chatgptSkillDirectoryPath, "SKILL.md"), "utf8"))
+                .toContain("# ChatGPT");
+            expect(await readFile(join(claudeSkillDirectoryPath, "SKILL.md"), "utf8"))
+                .toContain("# Claude");
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "skills.install",
+                    package_kind: "registry",
+                    package_names_sample: ["openai", "anthropic"],
+                    package_names_count_bucket: "1-5",
+                    package_names_truncated: false,
+                    skill_ids_sample: ["chatgpt", "claude"],
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs a bundled skill and a registry package in one invocation", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const ooSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
+        const chatgptSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "oo", "openai"],
+                {
+                    fetcher: createMultiPackageRegistryFetcher(),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain(`Installed skill oo to ${ooSkillDirectoryPath}.`);
+            expect(result.stdout).toContain("Skill: chatgpt");
+            expect(result.stdout).toContain(
+                `Installed skill chatgpt to ${chatgptSkillDirectoryPath}.`,
+            );
+            expect(await readFile(join(ooSkillDirectoryPath, "SKILL.md"), "utf8"))
+                .toContain("oo");
+            expect(await readFile(join(chatgptSkillDirectoryPath, "SKILL.md"), "utf8"))
+                .toContain("# ChatGPT");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("aggregates a JSON install report across multiple packages", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "anthropic", "--json"],
+                {
+                    fetcher: createMultiPackageRegistryFetcher(),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.command).toBe("skills.install");
+            expect(payload.status).toBe("completed");
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills.map(skill => skill.skillId).sort()).toEqual(["chatgpt", "claude"]);
+            expect(skills.every(skill => skill.status === "installed")).toBeTrue();
+            const summary = payload.summary as Record<string, unknown>;
+
+            expect(summary.installed).toBe(2);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports partial failure when one of several packages fails in JSON mode", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const chatgptSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "ghost", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/ghost/")) {
+                            return new Response("err", { status: 500 });
+                        }
+
+                        return createMultiPackageRegistryFetcher()(input, init);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.status).toBe("partial-failure");
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills).toMatchObject([
+                { skillId: "chatgpt", status: "installed" },
+            ]);
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(errors[0]).toMatchObject({ code: "package_lookup_failed" });
+            expect(await readFile(join(chatgptSkillDirectoryPath, "SKILL.md"), "utf8"))
+                .toContain("# ChatGPT");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps earlier installs and fails fast when a later package fails in text mode", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const chatgptSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "ghost"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/ghost/")) {
+                            return new Response("err", { status: 500 });
+                        }
+
+                        return createMultiPackageRegistryFetcher()(input, init);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).not.toBe("");
+            // The first package finished installing before the second package failed.
+            expect(result.stdout).toContain(
+                `Installed skill chatgpt to ${chatgptSkillDirectoryPath}.`,
+            );
+            expect(await readFile(join(chatgptSkillDirectoryPath, "SKILL.md"), "utf8"))
+                .toContain("# ChatGPT");
         }
         finally {
             await sandbox.cleanup();
@@ -2732,7 +2929,7 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
-                ["skills", "install", "openai", "--skill", "chatgpt"],
+                ["skills", "install", "openai"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -2769,7 +2966,7 @@ describe("skills commands", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toBe(
-                "Installed skill chatgpt to 10 agents: Universal, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork, DeepSeek TUI.\n",
+                "Skill: chatgpt\nInstalled skill chatgpt to 10 agents: Universal, Claude Code, Hermes, CodeBuddy, WorkBuddy, Trae, Trae CN, OpenClaw, QoderWork, DeepSeek TUI.\n",
             );
             const canonicalSkillRealPath = await realpath(canonicalSkillDirectoryPath);
 
@@ -2848,7 +3045,7 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
-                ["skills", "install", "openai", "--skill", "chatgpt"],
+                ["skills", "install", "openai"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -2887,7 +3084,7 @@ describe("skills commands", () => {
             // The universal host is always provisioned, so Claude Code is
             // installed alongside it.
             expect(result.stdout).toBe(
-                "Installed skill chatgpt to 2 agents: Universal, Claude Code.\n",
+                "Skill: chatgpt\nInstalled skill chatgpt to 2 agents: Universal, Claude Code.\n",
             );
             await expectCopiedSkillDirectory(
                 skillDirectoryPath,
@@ -2980,7 +3177,7 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
-                ["skills", "install", "openai", "--skill", "chatgpt", "--force"],
+                ["skills", "install", "openai", "--force"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -3095,291 +3292,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("installs selected published skills through the interactive picker", async () => {
-        const sandbox = await createCliSandbox();
-        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
-        const selectedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
-        const unselectedSkillDirectoryPath = join(universalHomeDirectory, "skills", "vision");
-        const stdin = createInteractiveInput();
-        const stdout = createTextBuffer({
-            isTTY: true,
-        });
-        const stderr = createTextBuffer();
-
-        try {
-            await mkdir(universalHomeDirectory, { recursive: true });
-            await writeAuthFile(sandbox);
-            const execution = executeCli({
-                argv: ["skills", "install", "openai"],
-                cwd: sandbox.cwd,
-                env: sandbox.env,
-                fetcher: async (input, init) => {
-                    const request = toRequest(input, init);
-
-                    if (request.url.includes("/package-info/")) {
-                        return new Response(JSON.stringify({
-                            packageName: "openai",
-                            version: "0.0.3",
-                            skills: [
-                                {
-                                    description: "Chat with a model",
-                                    name: "chatgpt",
-                                    title: "ChatGPT",
-                                },
-                                {
-                                    description: "See images",
-                                    name: "vision",
-                                    title: "Vision",
-                                },
-                            ],
-                        }));
-                    }
-
-                    if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
-                        return new Response(await createRegistrySkillArchiveBytes({
-                            "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
-                            "package/package/skills/vision/SKILL.md": "# Vision\n",
-                        }));
-                    }
-
-                    if (isRegistryPackageDownloadCountRequest(request)) {
-                        return new Response(null, { status: 204 });
-                    }
-
-                    throw new Error(`Unexpected request: ${request.url}`);
-                },
-                stdin,
-                stderr: stderr.writer,
-                stdout: stdout.writer,
-                systemLocale: "en-US",
-            });
-
-            await waitForOutputText(
-                stdout,
-                "Select skills to install or keep installed",
-            );
-            stdin.feed(" ");
-            stdin.feed("\r");
-
-            const exitCode = await execution;
-            const plainOutput = stripVTControlCharacters(stdout.read()).replaceAll(
-                "\u200B",
-                "",
-            );
-
-            expect(exitCode).toBe(0);
-            expect(stderr.read()).toBe("");
-            expect(plainOutput).toContain(
-                "Select skills to install or keep installed",
-            );
-            expect(plainOutput).toContain(
-                "◆ Select skills to install or keep installed",
-            );
-            expect(plainOutput).toContain("chatgpt");
-            expect(plainOutput).toContain("vision");
-            expect(plainOutput).toContain("Installing selected skills...");
-            expect(plainOutput).toContain("◆ Installed");
-            expect(plainOutput).toContain("  chatgpt");
-            expect(plainOutput).not.toContain(
-                `Installed skill chatgpt to ${selectedSkillDirectoryPath}.`,
-            );
-            await expect(stat(join(selectedSkillDirectoryPath, "SKILL.md"))).resolves.toMatchObject({
-                isFile: expect.any(Function),
-            });
-            await expect(stat(unselectedSkillDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
-            });
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("uninstalls deselected published skills through the interactive picker", async () => {
-        const sandbox = await createCliSandbox();
-        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
-        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
-        const stdin = createInteractiveInput();
-        const stdout = createTextBuffer({
-            isTTY: true,
-        });
-        const stderr = createTextBuffer();
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            "chatgpt",
-        );
-
-        try {
-            await mkdir(universalHomeDirectory, { recursive: true });
-            await writeAuthFile(sandbox);
-            await mkdir(join(installedSkillDirectoryPath, "agents"), { recursive: true });
-            await mkdir(join(canonicalSkillDirectoryPath, "agents"), {
-                recursive: true,
-            });
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(installedSkillDirectoryPath),
-                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
-            );
-            await Bun.write(
-                resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
-                renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })),
-            );
-            await Bun.write(join(installedSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
-            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
-
-            const execution = executeCli({
-                argv: ["skills", "install", "openai"],
-                cwd: sandbox.cwd,
-                env: sandbox.env,
-                fetcher: async (input, init) => {
-                    const request = toRequest(input, init);
-
-                    if (request.url.includes("/package-info/")) {
-                        return new Response(JSON.stringify({
-                            packageName: "openai",
-                            version: "0.0.3",
-                            skills: [
-                                {
-                                    description: "Chat with a model",
-                                    name: "chatgpt",
-                                    title: "ChatGPT",
-                                },
-                                {
-                                    description: "See images",
-                                    name: "vision",
-                                    title: "Vision",
-                                },
-                            ],
-                        }));
-                    }
-
-                    if (isRegistryPackageDownloadCountRequest(request)) {
-                        return new Response(null, { status: 204 });
-                    }
-
-                    throw new Error(`Unexpected request: ${request.url}`);
-                },
-                stdin,
-                stderr: stderr.writer,
-                stdout: stdout.writer,
-                systemLocale: "en-US",
-            });
-
-            await waitForOutputText(
-                stdout,
-                "Select skills to install or keep installed",
-            );
-            stdin.feed(" ");
-            stdin.feed("\r");
-
-            const exitCode = await execution;
-            const plainOutput = stripVTControlCharacters(stdout.read()).replaceAll(
-                "\u200B",
-                "",
-            );
-
-            expect(exitCode).toBe(0);
-            expect(stderr.read()).toBe("");
-            expect(plainOutput).toContain("\n ◼ chatgpt");
-            expect(plainOutput).toContain("Removing deselected skills...");
-            expect(plainOutput).toContain("◆ Removed");
-            expect(plainOutput).toContain("  chatgpt");
-            expect(plainOutput).not.toContain(
-                `Removed skill chatgpt from ${installedSkillDirectoryPath}.`,
-            );
-            await expect(stat(installedSkillDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
-            });
-            await expect(stat(canonicalSkillDirectoryPath)).rejects.toMatchObject({
-                code: "ENOENT",
-            });
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("skips overwriting an existing published skill when confirmation is declined", async () => {
-        const sandbox = await createCliSandbox();
-        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: sandbox.env,
-            platform: process.platform,
-        });
-        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
-            storePaths.settingsFilePath,
-            "chatgpt",
-        );
-        const stdin = createInteractiveInput();
-
-        try {
-            await mkdir(universalHomeDirectory, { recursive: true });
-            await writeAuthFile(sandbox);
-            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
-            await Bun.write(join(canonicalSkillDirectoryPath, "SKILL.md"), "stale\n");
-            stdin.feed("n\n");
-
-            const result = await sandbox.run(
-                ["skills", "install", "openai", "--skill", "chatgpt"],
-                {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
-
-                        if (request.url.includes("/package-info/")) {
-                            return new Response(JSON.stringify({
-                                packageName: "openai",
-                                version: "0.0.3",
-                                skills: [
-                                    {
-                                        description: "Chat with a model",
-                                        name: "chatgpt",
-                                        title: "ChatGPT",
-                                    },
-                                ],
-                            }));
-                        }
-
-                        if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
-                            return new Response(await createRegistrySkillArchiveBytes({
-                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
-                            }));
-                        }
-
-                        if (isRegistryPackageDownloadCountRequest(request)) {
-                            return new Response(null, { status: 204 });
-                        }
-
-                        throw new Error(`Unexpected request: ${request.url}`);
-                    },
-                    stdin,
-                    stdout: {
-                        isTTY: true,
-                    },
-                },
-            );
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).toBe("");
-            expect(result.stdout).toContain(
-                "Skill chatgpt already exists. Overwrite? [y/N] ",
-            );
-            expect(result.stdout).toContain("Skipped skill chatgpt.");
-            expect(await readFile(join(canonicalSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
-                "stale\n",
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("installs all published skills when --yes is passed without --skill", async () => {
+    test("installs all published skills of a multi-skill package by default", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const chatgptSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
@@ -3390,7 +3303,7 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
-                ["skills", "install", "openai", "--yes"],
+                ["skills", "install", "openai"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -3445,7 +3358,7 @@ describe("skills commands", () => {
         }
     });
 
-    test("fails outside a TTY when multiple skills require selection", async () => {
+    test("installs all published skills of a multi-skill package in --json", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
@@ -3454,7 +3367,7 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
 
             const result = await sandbox.run(
-                ["skills", "install", "openai"],
+                ["skills", "install", "openai", "--json"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -3478,6 +3391,13 @@ describe("skills commands", () => {
                             }));
                         }
 
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+                                "package/package/skills/vision/SKILL.md": "# Vision\n",
+                            }));
+                        }
+
                         if (isRegistryPackageDownloadCountRequest(request)) {
                             return new Response(null, { status: 204 });
                         }
@@ -3487,11 +3407,14 @@ describe("skills commands", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toBe(
-                "Package openai has multiple skills. Use --skill <name>, --all -y, or run in an interactive terminal.\n",
-            );
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.status).toBe("completed");
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills.map(skill => skill.skillId).sort()).toEqual(["chatgpt", "vision"]);
+            expect(skills.every(skill => skill.status === "installed")).toBeTrue();
         }
         finally {
             await sandbox.cleanup();
@@ -3600,4 +3523,59 @@ function isRegistryPackageDownloadCountRequest(request: Request): boolean {
     return request.method === "POST"
         && request.url.includes("/-/oomol/packages/")
         && request.url.endsWith("/download-count");
+}
+
+function createMultiPackageRegistryFetcher(): (
+    input: string | URL | Request,
+    init?: RequestInit,
+) => Promise<Response> {
+    return async (input, init) => {
+        const request = toRequest(input, init);
+
+        if (request.url.includes("/package-info/openai/")) {
+            return new Response(JSON.stringify({
+                packageName: "openai",
+                version: "0.0.3",
+                skills: [
+                    {
+                        description: "Chat with a model",
+                        name: "chatgpt",
+                        title: "ChatGPT",
+                    },
+                ],
+            }));
+        }
+
+        if (request.url.includes("/package-info/anthropic/")) {
+            return new Response(JSON.stringify({
+                packageName: "anthropic",
+                version: "0.0.1",
+                skills: [
+                    {
+                        description: "Talk to Claude",
+                        name: "claude",
+                        title: "Claude",
+                    },
+                ],
+            }));
+        }
+
+        if (request.url.endsWith("/openai/-/meta/openai-0.0.3.tgz")) {
+            return new Response(await createRegistrySkillArchiveBytes({
+                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT\n",
+            }));
+        }
+
+        if (request.url.endsWith("/anthropic/-/meta/anthropic-0.0.1.tgz")) {
+            return new Response(await createRegistrySkillArchiveBytes({
+                "package/package/skills/claude/SKILL.md": "# Claude\n",
+            }));
+        }
+
+        if (isRegistryPackageDownloadCountRequest(request)) {
+            return new Response(null, { status: 204 });
+        }
+
+        throw new Error(`Unexpected request: ${request.url}`);
+    };
 }

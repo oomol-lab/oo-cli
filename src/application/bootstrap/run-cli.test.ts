@@ -52,7 +52,7 @@ describe("runCli bootstrap", () => {
         }
     });
 
-    test("executes published skill installation with explicit --skill", async () => {
+    test("executes published skill installation", async () => {
         const sandbox = await createCliSandbox();
         const originalCwd = process.cwd;
         const originalEnv = process.env;
@@ -73,8 +73,6 @@ describe("runCli bootstrap", () => {
                     "skills",
                     "install",
                     "document-tools",
-                    "--skill",
-                    "writer",
                 ],
                 cwd: sandbox.cwd,
                 env: sandbox.env,
