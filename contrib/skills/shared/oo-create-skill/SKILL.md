@@ -8,120 +8,97 @@ allowed-tools: [Bash(oo *)]
 
 # oo Create Skill
 
-Use this skill to create a new local skill around a concrete oo connector
-action. This includes turning a known or newly discovered connector capability
-into reusable agent instructions.
+Use this skill to create a new local skill around a concrete `oo` connector
+action. The authoring agent turns a known or newly discovered connector
+capability into reusable runtime instructions for future agents.
 
-This skill only authors local skills. If the user wants to find or install an
+This workflow only authors local skills. If the user wants to find or install an
 existing skill, or distribute a finished skill, use the dedicated workflow for
 that task instead.
 
-This document has two roles:
-
-- Authoring agent: the current agent creating the skill.
-- Runtime agent: a future agent using the generated skill.
-
 ## Constitution
 
-Use these rules to decide confidently. These governing principles define the
-decision model. The workflow below is an application of this constitution, not a
-separate checklist.
+Use these rules to decide confidently. They define the governing model; the
+workflow below is an application of this constitution, not a separate checklist.
+When rules appear to compete, use this priority order: safety, local authoring
+scope, proven connector contract, reusable user intent, compact runtime runbook,
+then convenience.
 
-1. Scope is local skill authoring. Create local skills around concrete oo
-   connector actions, including OOMOL-hosted Fusion API actions. Do not use this
-   workflow to find, install, update, publish, or distribute existing skills.
-2. User intent defines the reusable contract. Ask the user when a business
-   decision would change the skill's repeated-use behavior: skill name or
+1. Local authoring only. Create new local skills around concrete `oo` connector
+   actions, including OOMOL-hosted Fusion API actions. Do not use this workflow
+   to find, install, update, publish, or distribute existing skills, or bypass
+   native skill commands with manual skeleton creation.
+2. Ask for reusable intent; prove execution facts. Ask the user only when a
+   business decision would change repeated runtime behavior: skill name or
    scope, workflow ordering, required user inputs, expected outputs, target
    service, account, cost, compliance, data routing, output destination, or a
    metadata ambiguity with multiple user-visible outcomes. Prefer a short
-   choice prompt with a recommended option when asking; add a free-form input
-   option only when the decision cannot be covered by concrete choices.
-3. `oo` metadata and command output define execution facts. Do not ask the user
-   to resolve facts that metadata, schemas, or command output can answer:
+   choice prompt with a recommended option; add free-form input only when
+   concrete choices cannot cover the decision. Do not ask the user to resolve
+   facts that `oo` metadata, schemas, or command output can answer, including
    connector service/action identifiers, payload field names, result field
-   paths, command shape, authentication state, defaults, or schema constraints.
-   Use `oo connector schema "<service>" --action "<action>"` to prove the
-   selected action contract. Current command output or a safe invocation must
-   confirm action availability; observed result paths are preferred when a safe
-   invocation is proportionate, but result paths may also come from schema; if a
-   field path is inferred from schema rather than observed, label it as
-   untested.
-4. Resolve and test before writing the runbook. Do not predesign the whole
-   execution process and then look for metadata that seems to fit it. Discover
-   the capability, inspect metadata, run the smallest safe test when command,
-   result, status, file, or envelope shape matters, and write from observed
-   facts. Do not spend meaningful user money, mutate external state, disclose
-   sensitive data, or trigger large jobs only to learn a response shape. For
-   cheap, non-sensitive artifact transforms with tiny synthetic inputs, run one
-   representative invocation before finalizing unless the user or connector
-   context makes that unsafe.
-5. Choose the most direct executable connector action for the user's outcome.
-   Use only connector entries as authoring candidates; treat non-connector
-   entries as non-authoring catalog noise. During selection, classify service
-   `fusion-api` as OOMOL-hosted Fusion API, which does not require the user to
-   provide their own provider API key. After discovery, prefer a matching
-   `fusion-api` action by default for generic managed transforms such as
-   background removal, OCR, translation, transcription, TTS, image generation,
-   and document conversion. Choose a non-Fusion connector action when the user
-   explicitly names an external service, account, or provider; when Fusion API
-   is unavailable or does not fit the required output; or when provider,
-   account, cost, compliance, data-routing, or output-contract differences are
-   material enough to require a user decision.
-6. Preserve the local/remote connector file boundary. For connector or Fusion
-   API execution, local files are not remotely addressable. Generated skills
-   must tell future agents to upload a local file by default when the selected
-   action input needs file content and its schema accepts a URI/URL-compatible
-   value; run `oo file upload "<filePath>" --json` and pass the returned
-   `downloadUrl`. Skip upload only when the user already provided a remote URL
-   or when the schema explicitly requires a different supported input shape,
-   such as an inline value or connector-specific file identifier. Save remote
-   artifacts with `oo file download "<url>" [outDir] [--name "<name>"] [--ext
-   "<ext>"]` only when the action schema or description identifies the output
-   field as a downloadable artifact URL and the task needs a local file result.
-   `oo file download` prints `Saved to: <path>` and does not support `--json`.
-   Do not treat these file-transfer commands as capabilities to rediscover, do
-   not hand-roll transfer logic, and do not pass local filesystem paths or
-   `file://` URLs to remote connector actions unless the schema explicitly
-   supports local paths.
-7. Resolve user-provided files into readable runtime sources. For file, image,
-   audio, video, or document workflows, generated skills must distinguish
-   explicit local paths, remote URLs, environment-exposed attachment paths, and
-   chat-visible media that the CLI cannot read directly. If a pasted or
-   displayed attachment has no readable path or URL, say so and ask for a path
-   or use a clearly labeled recent-file fallback only when practical. If
-   multiple candidate files are present, compare concrete evidence such as
-   path, timestamp, size, type, hash, or preview. If candidates differ and the
-   intended source remains ambiguous, ask the user. If candidate hashes match,
-   treat them as the same source and explain the chosen file briefly.
-8. Generated skills are execution runbooks. Write a compact execution runbook,
-   not API documentation. Keep generated skills concise and domain-focused.
-   Include concrete connector service/action identifiers plus the minimum
-   payload, result, file-transfer, artifact handoff, and failure guidance needed
-   so future agents do not run discovery again. Omit broad oo mechanics, full
-   schema dumps, and implementation details that the managed OO notice already
-   covers. Make file artifacts visible to the user: when a generated skill can
-   produce images, documents, archives, media, or other files, it must tell
-   future agents to preview the artifact when practical, or otherwise deliver
-   it with a clear path, attachment, link, or user-appropriate handoff. A
-   successful file path alone is not enough if the user cannot see or access the
-   result. For local artifact downloads, default to the input file's directory
-   when the input was a local file; otherwise choose a user-accessible output
-   directory such as Downloads or an explicit requested directory. Do not
-   default generated artifacts into the current repository workspace unless the
-   user asked for that destination.
-9. Native skill commands are mandatory. Run the dedicated preflight, initialize
-   with `oo skills init --agent <!-- agentic:var agent -->`, and validate with
-   `oo skills validate`. Do not substitute manual file creation for native skill
-   initialization.
+   paths, command shape, authentication state, defaults, and schema constraints.
+3. Evidence outranks memory. A callable contract exists only when current
+   command output and `oo connector schema "<service>" --action "<action>"`
+   prove the selected service/action, required inputs, and output semantics. Do
+   not invent connector facts from prior knowledge, examples, old runs, or
+   catalog guesses.
+4. Resolve before designing. Do not predesign the whole execution process and
+   then look for metadata that seems to fit it. Discover the capability, inspect
+   metadata, and write from current evidence.
+5. Test only when the test is safer than the uncertainty. Run the smallest
+   representative invocation when command shape, result shape, status
+   transitions, file return format, or envelope structure affects the generated
+   skill and the test is cheap, non-sensitive, non-destructive, and
+   proportionate. Do not spend meaningful user money, mutate external state,
+   disclose sensitive data, or trigger large jobs only to learn a response
+   shape. If a result field path is inferred from schema rather than observed,
+   label it as untested.
+6. Select the most direct executable action. Use only connector entries as
+   authoring candidates and treat non-connector entries as non-authoring catalog
+   noise. Prefer the connector action that most directly produces the user's
+   outcome. For generic managed transforms such as background removal, OCR,
+   translation, transcription, TTS, image generation, and document conversion,
+   prefer a matching `fusion-api` action by default unless the user, schema,
+   required output, provider, account, cost, compliance, data-routing, or
+   output-contract constraints require another connector.
+7. Secondary search is repair, not exploration. Inspect the first result set
+   before narrowing. Use `oo connector search "<goal>" --json` only to repair a
+   known discovery gap in a shortlisted connector path, not to restart broad
+   discovery.
+8. Preserve file and artifact boundaries. Local files are not remote connector
+   inputs unless the schema explicitly supports local paths. Use `oo file upload "<filePath>"
+   --json` only as a temporary source adapter when the selected connector action
+   needs a remote URI/URL-compatible input and the user has only a local file;
+   pass the returned `downloadUrl` into the connector action. Use
+   connector-native upload/import/attach/create-file actions for user-visible
+   upload, import, attach, save, or materialize outcomes. Save remote artifacts
+   with `oo file download "<url>" [outDir] [--name "<name>"] [--ext "<ext>"]`
+   only when the action schema or description identifies a downloadable artifact
+   URL and the task needs a local file result; `oo file download` prints
+   `Saved to: <path>` and does not support `--json`. A file-producing skill is
+   not complete until future agents can preview, attach, link, save, or
+   otherwise hand off the artifact in a way the user can access. Do not default
+   generated artifacts into the current repository workspace unless the user
+   asked for that destination.
+9. Generated skills are execution runbooks. Write a compact execution runbook,
+    not API documentation. Include the minimum service/action identity, input,
+    payload, result, file-transfer, artifact handoff, async, idempotency, and
+    failure guidance needed for future agents to execute without rediscovery.
+    Include a section only when it changes runtime behavior. Omit broad `oo`
+    mechanics, full schema dumps, and implementation details already covered by
+    the managed OO notice.
 10. Write generated skills in English regardless of the user's language,
-   including `--description`, `--title`, frontmatter, headings, examples, and
-   reference files. Preserve non-English only for literal runtime values,
-   product names, language-pair requirements, or necessary sample I/O.
+    including `--description`, `--title`, frontmatter, headings, examples, and
+    reference files. Preserve non-English only for literal runtime values,
+    product names, language-pair requirements, or necessary sample I/O.
 
-## Workflow
+## Authoring State Machine
 
-### 1. Check <!-- agentic:var agentTitle --> execution permissions
+Move through these states. Skip a state only when current evidence already
+proves its exit condition.
+
+### 1. Permission Probe
 
 Run the dedicated preflight once before creating a skill:
 
@@ -129,11 +106,11 @@ Run the dedicated preflight once before creating a skill:
 oo skills preflight --agent <!-- agentic:var agent -->
 ```
 
-Treat this as the <!-- agentic:var agentTitle --> permission and storage probe for <!-- agentic:var agentTitle -->'s native skills
-directory. If it passes, proceed without extra permission discussion. If it or a
-later required command is blocked by sandbox, write, or network limits, request
-the smallest sufficient permission and name the blocked command. Common commands
-are:
+Treat this as the <!-- agentic:var agentTitle --> permission and storage probe
+for <!-- agentic:var agentTitle -->'s native skills directory. If it passes,
+proceed without extra permission discussion. If it or a later required command
+is blocked by sandbox, write, or network limits, request the smallest sufficient
+permission and name the blocked command. Common commands are:
 
 ```bash
 oo skills init <name> --agent <!-- agentic:var agent --> --description "..."
@@ -141,18 +118,23 @@ oo search "<query>" --keywords "<keywords>" --json
 oo connector schema "<service>" --action "<action>"
 ```
 
-If <!-- agentic:var agentTitle --> cannot request the needed permission, or the user denies it, stop and
-ask the user to open the required access. Do not continue in the restricted
-sandbox and do not guess service names, action names, inputs, or outputs.
+If <!-- agentic:var agentTitle --> cannot request the needed permission, or the
+user denies it, stop and ask the user to open the required access. Do not
+continue in the restricted sandbox and do not guess service names, action names,
+inputs, or outputs.
 
-Never work around a blocked `oo skills init --agent <!-- agentic:var agent -->` by manually creating
-a skill directory elsewhere. Manual skeleton creation bypasses the agent-native
-target directory, metadata writing, and OO notice insertion.
+Never work around a blocked `oo skills init --agent <!-- agentic:var agent -->`
+by manually creating a skill directory elsewhere. Manual skeleton creation
+bypasses the agent-native target directory, metadata writing, and OO notice
+insertion.
 
-### 2. Capture reusable contract decisions
+Exit condition: required native skill commands can run, or the blocked command
+and required access have been reported.
 
-Collect these inputs from the user or infer them from existing context and `oo`
-metadata:
+### 2. Intent Contract
+
+Capture the reusable skill contract from the user, current context, or proven
+`oo` evidence:
 
 - skill name
 - workflow purpose
@@ -162,12 +144,15 @@ metadata:
 - likely user requests that should trigger the generated skill
 - optional display title and icon preference
 
-Follow the Constitution for when to ask. Ask when business intent would change
-the reusable workflow; do not ask only for cosmetic details or facts that `oo`
-metadata can resolve. Use a concise title and fitting icon reference: an emoji,
-an image URL, or `:collection:icon:` from https://icones.js.org/.
+Ask only under the Constitution's reusable-intent rule. Do not ask only for
+cosmetic details or facts that `oo` metadata can resolve. Use a concise title
+and fitting icon reference: an emoji, an image URL, or `:collection:icon:` from
+https://icones.js.org/.
 
-### 3. Resolve the concrete connector action
+Exit condition: the repeated-use behavior is clear enough to search or inspect a
+connector action without guessing business intent.
+
+### 3. Capability Discovery
 
 Capability discovery may return multiple catalog result types. If the user has
 not provided a complete connector action contract, use discovery before
@@ -193,14 +178,17 @@ Use only connector entries as authoring candidates. Treat non-connector entries
 as non-authoring catalog noise during this workflow: do not inspect them, do not
 select them, and do not put non-connector references in the generated skill.
 
-During selection, classify service `fusion-api` as OOMOL-hosted Fusion API,
-which does not require the user to provide their own provider API key. When a
-`fusion-api` action and a non-Fusion connector action can both satisfy the same
-generic managed transform, prefer the `fusion-api` action by default. Choose a
-non-Fusion connector only when the user explicitly requested that service,
-account, or provider; when Fusion API is unavailable or does not fit the
-required output; or when material provider, account, cost, compliance,
-data-routing, or output-contract differences require a user decision.
+For file workflows, search and select by the user-visible destination action,
+not by the transfer mechanism. Use search results and `oo connector schema` to
+prove whether the target connector exposes the needed upload, import, attach,
+create-file, or materialize action.
+
+Apply the Constitution's Fusion tie-breaker during selection: classify
+`fusion-api` as OOMOL-hosted Fusion API, prefer it for generic managed
+transforms, and use non-Fusion connectors only when user intent or contract
+constraints require them. Fusion API actions are connector actions in this
+workflow; prove them with the same schema command, using `fusion-api` as the
+service.
 
 Use `oo connector search "<goal>" --json` only to narrow a shortlisted connector
 path, not to restart broad discovery. If the task looks like an OOMOL-hosted
@@ -216,7 +204,10 @@ call.
 
 Keep the chosen connector action concrete in the generated skill.
 
-### 4. Prove the selected action contract
+Exit condition: one exposed connector action is selected, with at most one
+fallback reserved for a named blocker.
+
+### 4. Capability Contract
 
 For the selected action, capture the exact `service`, action `name`,
 description, authentication state, and schema-derived input/output concepts.
@@ -241,13 +232,16 @@ example `response.data.sessionId`, `response.data.state`, or
 `response.data.data.image.url`. When useful, also state the inner connector
 payload path separately.
 
-### 5. Initialize the local skill
+Exit condition: the selected action has a proven contract, and any schema-only
+runtime path that matters is explicitly marked untested.
 
-Run `oo skills init <name> --agent <!-- agentic:var agent -->` with a required `--description`.
-Include `--title` and `--icon` when you have suitable values. Derive title and
-icon from the workflow purpose and resolved metadata unless the user provided
-them. If the selected <!-- agentic:var agentTitle --> skill directory already exists, ask for a different
-skill name instead of overwriting.
+### 5. Initialize Skill
+
+Run `oo skills init <name> --agent <!-- agentic:var agent -->` with a required
+`--description`. Include `--title` and `--icon` when you have suitable values.
+Derive title and icon from the workflow purpose and resolved metadata unless
+the user provided them. If the selected <!-- agentic:var agentTitle --> skill
+directory already exists, ask for a different skill name instead of overwriting.
 
 Make `--description` a user-facing trigger summary: it becomes the frontmatter
 description and the main signal future agents see before loading the skill.
@@ -273,7 +267,14 @@ Do not substitute manual file creation for this step. The initialized skill
 directory must come from a successful `oo skills init --agent <!-- agentic:var agent -->`
 invocation before you fill in its workflow instructions or run validation.
 
-### 6. Author the generated skill runbook
+Write all generated skill prose in English, including frontmatter, headings,
+examples, and reference files. Preserve non-English only for literal runtime
+values, product names, language-pair requirements, or necessary sample I/O.
+
+Exit condition: the native skill directory exists, includes the managed OO
+notice, and has a user-facing trigger description.
+
+### 6. Author Runtime Runbook
 
 Write the generated skill as a compact execution runbook, not API
 documentation: enough for future agents to call the selected capability without
@@ -283,15 +284,17 @@ Keep the generated skill centered on runtime execution. Include authoring-time
 evidence only when it affects runtime behavior, such as an untested schema-only
 result path or an observed async polling requirement.
 
-For selected connector action workflows, use domain-appropriate headings but
-include these execution facts when metadata provides them:
+For selected connector action workflows, use domain-appropriate headings.
+Include only execution facts that change runtime behavior:
 
 - Runtime input policy: when to use the skill, required inputs, inputs that can
   be inferred or defaulted, optional inputs to omit when absent, and the exact
   missing runtime values that justify asking the user.
 - Source resolution for file-like inputs: how to handle explicit local paths,
   remote URLs, environment-exposed attachment paths, chat-visible media with no
-  readable CLI path, recent-file fallback, and multiple candidate files.
+  readable CLI path, recent-file fallback, and multiple candidate files. If
+  candidate hashes match, treat them as the same source and explain the chosen
+  file briefly.
 - Invocation: the exact `service.action` and minimal
   `oo connector run "<service>" --action "<action>" --data ... --json` command
   shape. Include a small payload skeleton with schema-derived field names. For
@@ -303,12 +306,11 @@ include these execution facts when metadata provides them:
   downloadable artifact URL, status, id, or human-readable output. Include full
   CLI response paths when `--json` adds an envelope, and label schema-only paths
   as untested. State what to report on success and what not to treat as the
-  final result. For generated
-  files, images, documents, archives, media, or other artifacts, state how
-  future agents should preview them or deliver them to the user instead of only
-  reporting a local path. For inline base64 or `data:` URI artifacts, tell
-  future agents to save and preview the artifact rather than printing the full
-  encoded payload.
+  final result. For generated files, images, documents, archives, media, or
+  other artifacts, state how future agents should preview them or deliver them
+  to the user instead of only reporting a local path. For inline base64 or
+  `data:` URI artifacts, tell future agents to save and preview the artifact
+  rather than printing the full encoded payload.
 - Async handling: for submit/poll/result workflows, include the status values,
   bounded retry policy, not-found or timeout stop conditions, and an early-exit
   rule that stops polling immediately when the terminal success state appears.
@@ -321,28 +323,27 @@ include these execution facts when metadata provides them:
   plus common auth, permission, billing, schema rejection, inaccessible file,
   timeout, and not-found branches.
 
-Distill schema metadata into required/defaultable inputs and output field
-paths; do not present any local cache path as a stable contract for future
-agents.
+Distill schema metadata into required/defaultable inputs and output field paths;
+do not present any local cache path as a stable contract for future agents.
 
-When the workflow crosses the local/remote connector file boundary, include the
-schema-driven `oo file upload` and `oo file download` guidance from the
-Constitution in the generated skill.
+When the workflow crosses the local/remote connector file boundary, document the
+actual file route. If `oo file upload` is needed, describe it only as a
+temporary OO transfer URL used to feed the selected connector action. Also
+document the connector-native action that performs the final upload, import,
+attachment, or target-service write. If the connector schema accepts a remote
+URL, inline content, connector file id, or another supported file input shape
+directly, use that schema-driven input shape and do not add an unnecessary
+`oo file upload` step.
 
 When generated skill code needs an OOMOL-hosted LLM client, instruct future
 agents to run `oo llm config --json` at runtime and use the returned `apiKey`,
 `baseUrl`, and `model`. Do not hardcode, persist, log, or print the API key,
 and do not tell future agents to read local auth files directly.
 
-Review the frontmatter `description` before finishing: user-visible outcome
-first, common request language, relevant artifacts, and user-visible services,
-models, products, or workflow names when useful. Keep caveats, execution
-details, negative guidance, and boundary cases in the workflow body unless they
-prevent direct sibling-skill routing conflicts.
-
-Preserve `metadata.title` when it exists. If you change the displayed title or
-first heading, keep `metadata.title` aligned. If `metadata.title` or
-`metadata.icon` is absent, add a suitable value.
+Before validation, re-check the trigger description and presentation metadata
+against the Initialize Skill contract. Preserve `metadata.title` when it exists;
+if you change the displayed title or first heading, keep `metadata.title`
+aligned. If `metadata.title` or `metadata.icon` is absent, add a suitable value.
 
 The final skill must not instruct future agents to run `oo search`, `oo
 connector search`, or discover capabilities at execution time. Include only the
@@ -350,30 +351,30 @@ selected connector service/action identity, command shape, payload rules, result
 extraction, common stop conditions, and async or idempotency guidance that
 observed metadata, output shape, or documented oo workflow exposes.
 
-Before finishing, check that a future agent can reach the selected capability
-without rediscovery, build a valid payload, read the useful result, and stop on
-common failures. For file or artifact connector skills, also check that the
-runbook answers:
+Exit condition: a future agent can reach the selected capability without
+rediscovery, build a valid payload, read the useful result, and stop on common
+failures.
 
-- How does the runtime agent obtain a readable source from an explicit path,
-  URL, exposed attachment path, or chat-visible media?
-- What exact command uploads local files, invokes the connector, polls async
-  status when needed, fetches results, and downloads artifacts?
-- What full CLI JSON response path contains the job id, status, result text, or
-  artifact URL?
-- What condition stops polling immediately, and what conditions stop with a
-  failure or bounded timeout?
-- Where is the artifact downloaded by default, and does that avoid polluting an
-  unrelated git workspace?
-- How is the artifact verified after download, and what should be shown or
-  reported to the user?
+## Final Acceptance Check
+
+Before finishing, verify the generated skill against the Constitution and answer
+only the runtime questions that apply:
+
+- Source: how required runtime inputs are obtained, or when to ask.
+- Invoke: the exact selected service/action and payload shape.
+- Result: the full CLI JSON path for useful output, status, id, or artifact URL.
+- Async: terminal success, failure, timeout, and polling rules when applicable.
+- Artifact: destination, preview/handoff, and verification when files are
+  produced.
+- Failure: auth, billing, permission, schema, inaccessible input, not-found, and
+  action-specific stop conditions.
 
 If any answer is missing, add only the missing execution guidance.
 
 Keep `SKILL.md` concise. Use `references/workflow.md` only when the workflow
 has several steps, decision rules, or examples.
 
-### 7. Validate before finishing
+### 7. Validate Before Finishing
 
 After authoring the skill, run `oo skills validate "<skill-directory>"`. If
 validation fails, fix the generic skill contract before reporting completion.

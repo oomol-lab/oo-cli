@@ -18,7 +18,10 @@ transfer workflows.
   artifact URL.
 - Reuse a suitable user-provided remote URL instead of uploading the same
   content again.
-- Use `oo file upload` and `oo file download` for transfers inside this skill.
+- Treat `oo file upload` as a temporary transfer URL provider, not as the final
+  upload/import/attachment inside a target connector service.
+- Use `oo file upload` and `oo file download` for OO transfer steps inside this
+  skill.
 - Do not use `curl`, `wget`, Python, browser automation, ad hoc HTTP calls, or
   third-party SDKs as replacement transfer paths.
 
@@ -45,10 +48,15 @@ Use this command when:
 
 - The selected connector input can safely accept a URI string
 - The user currently has only a local file path
+- The selected connector action remains the user-visible target operation; the
+  temporary upload only gives that action a remote source URL
 
 Rules:
 
 - Submit the returned `downloadUrl` in the remote payload.
+- Do not report `oo file upload` success as the final outcome when the user
+  asked to upload, import, attach, save, or materialize a file inside another
+  connector service. Continue with the connector-native action.
 - Do not submit local absolute paths or local `file://...` URIs in remote
   payloads unless the selected schema explicitly supports local paths; they may
   pass URI validation but fail when the remote action tries to fetch or upload
