@@ -808,7 +808,7 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("guides oo-create-skill generated workflows to use oo file transfer commands", async () => {
+    test("guides oo-create-skill generated workflows to route file transfers through connector-native actions", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
                 file => file.relativePath === "SKILL.md",
@@ -829,14 +829,22 @@ describe("embedded skill assets", () => {
             expect(content).toContain(
                 "local files are not remotely addressable",
             );
-            expect(content).toContain("upload a local file by default");
+            expect(content).toContain(
+                "`oo file upload` is only a temporary source adapter",
+            );
+            expect(content).toContain(
+                "choose a connector-native upload/import/attach/create-file action",
+            );
             expect(content).toContain("`oo file upload \"<filePath>\" --json`");
             expect(content).toContain("the returned `downloadUrl`");
             expect(content).toContain(
-                "Skip upload only when the user already provided a remote URL",
+                "Skip `oo file upload` when the user already provided a remote URL",
             );
             expect(content).toContain(
-                "schema explicitly requires a different supported input shape",
+                "another supported file input shape",
+            );
+            expect(content).toContain(
+                "do not present a temporary OO transfer upload as the user-visible connector upload result",
             );
             expect(content).toContain("`oo file download \"<url>\" [outDir]");
             expect(content).toContain(

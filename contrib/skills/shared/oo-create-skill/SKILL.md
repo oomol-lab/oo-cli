@@ -68,22 +68,30 @@ separate checklist.
    is unavailable or does not fit the required output; or when provider,
    account, cost, compliance, data-routing, or output-contract differences are
    material enough to require a user decision.
-6. Preserve the local/remote connector file boundary. For connector or Fusion
-   API execution, local files are not remotely addressable. Generated skills
-   must tell future agents to upload a local file by default when the selected
-   action input needs file content and its schema accepts a URI/URL-compatible
-   value; run `oo file upload "<filePath>" --json` and pass the returned
-   `downloadUrl`. Skip upload only when the user already provided a remote URL
-   or when the schema explicitly requires a different supported input shape,
-   such as an inline value or connector-specific file identifier. Save remote
-   artifacts with `oo file download "<url>" [outDir] [--name "<name>"] [--ext
-   "<ext>"]` only when the action schema or description identifies the output
-   field as a downloadable artifact URL and the task needs a local file result.
-   `oo file download` prints `Saved to: <path>` and does not support `--json`.
-   Do not treat these file-transfer commands as capabilities to rediscover, do
-   not hand-roll transfer logic, and do not pass local filesystem paths or
-   `file://` URLs to remote connector actions unless the schema explicitly
-   supports local paths.
+6. Preserve the local/remote connector file boundary without replacing
+   connector-native file workflows. For connector or Fusion API execution,
+   local files are not remotely addressable, but `oo file upload` is only a
+   temporary source adapter, not the target service's upload/import operation.
+   When the user's outcome is to upload, import, attach, save, or materialize a
+   file inside a named connector service, choose a connector-native
+   upload/import/attach/create-file action when current discovery and schema
+   expose one. Use `oo file upload "<filePath>" --json` only after selecting the
+   connector action, when that action needs a remote URI/URL-compatible input
+   and the user currently has only a local file; pass the returned `downloadUrl`
+   into the connector action and continue the target-service workflow. Skip
+   `oo file upload` when the user already provided a remote URL, when the schema
+   explicitly accepts inline content, a connector-specific file identifier, or
+   another supported file input shape, or when the schema explicitly supports
+   local paths. Save remote artifacts with `oo file download "<url>" [outDir]
+   [--name "<name>"] [--ext "<ext>"]` only when the action schema or
+   description identifies the output field as a downloadable artifact URL and
+   the task needs a local file result. `oo file download` prints
+   `Saved to: <path>` and does not support `--json`. Do not treat these
+   file-transfer commands as capabilities to rediscover, do not hand-roll
+   transfer logic, do not pass local filesystem paths or `file://` URLs to
+   remote connector actions unless the schema explicitly supports local paths,
+   and do not present a temporary OO transfer upload as the user-visible
+   connector upload result.
 7. Resolve user-provided files into readable runtime sources. For file, image,
    audio, video, or document workflows, generated skills must distinguish
    explicit local paths, remote URLs, environment-exposed attachment paths, and
@@ -192,6 +200,16 @@ user before discovery. Inspect the first result set before narrowing the query.
 Use only connector entries as authoring candidates. Treat non-connector entries
 as non-authoring catalog noise during this workflow: do not inspect them, do not
 select them, and do not put non-connector references in the generated skill.
+
+For file workflows, search and select by the user-visible destination action,
+not by the transfer mechanism. When the user names a target service and asks to
+upload, import, attach, save, or materialize a file there, prefer connector
+actions from that service whose description or schema performs that
+target-service file operation. If the selected action needs a remote source URL
+and the user has a local file, use `oo file upload` only after selecting that
+connector action, as a temporary source adapter. Do not ask the user whether the
+connector supports upload; use search results and `oo connector schema` to
+resolve that fact.
 
 During selection, classify service `fusion-api` as OOMOL-hosted Fusion API,
 which does not require the user to provide their own provider API key. When a
@@ -325,9 +343,14 @@ Distill schema metadata into required/defaultable inputs and output field
 paths; do not present any local cache path as a stable contract for future
 agents.
 
-When the workflow crosses the local/remote connector file boundary, include the
-schema-driven `oo file upload` and `oo file download` guidance from the
-Constitution in the generated skill.
+When the workflow crosses the local/remote connector file boundary, document
+the actual file route. If `oo file upload` is needed, describe it only as a
+temporary OO transfer URL used to feed the selected connector action. Also
+document the connector-native action that performs the final upload, import,
+attachment, or target-service write. If the connector schema accepts a remote
+URL, inline content, connector file id, or another supported file input shape
+directly, use that schema-driven input shape and do not add an unnecessary
+`oo file upload` step.
 
 When generated skill code needs an OOMOL-hosted LLM client, instruct future
 agents to run `oo llm config --json` at runtime and use the returned `apiKey`,
@@ -357,8 +380,10 @@ runbook answers:
 
 - How does the runtime agent obtain a readable source from an explicit path,
   URL, exposed attachment path, or chat-visible media?
-- What exact command uploads local files, invokes the connector, polls async
-  status when needed, fetches results, and downloads artifacts?
+- What exact command, if any, creates a temporary OO transfer URL for local
+  files, what connector-native command performs the target-service
+  upload/import/action, and what commands poll async status, fetch results, or
+  download artifacts?
 - What full CLI JSON response path contains the job id, status, result text, or
   artifact URL?
 - What condition stops polling immediately, and what conditions stop with a
