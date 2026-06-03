@@ -1114,16 +1114,24 @@ directories.
   `package_download_failed` / `invalid_package_archive` / `publication_failed`
   / `sync_download_failed` / `sync_invalid_response` / `unknown`.
 
-### `oo skills update [skills...]`
+### `oo skills update [packageName...]`
 
 Update installed oo-managed published skills.
 
-- Arguments: when omitted, the command checks every installed oo-managed
-  published skill.
-- Arguments: when one or more skill names are provided, only those named skills
-  are checked and updated.
+- Arguments: `[packageName...]` accepts zero or more package names. **Breaking
+  change**: in earlier releases these positional arguments were skill ids; they
+  are now package names.
+- Arguments: when omitted, the command updates every installed oo-managed
+  registry skill.
+- Arguments: when one or more package names are given, the command updates every
+  installed skill that belongs to each named package. All installed skills of a
+  package are updated together.
+- Unknown package: a package name that has no installed oo-managed skill fails
+  with `package_not_installed`. In text mode the command aborts with an error;
+  with `--json` the failure is reported per entry and the command exits `1`.
 - Bundled skills: bundled skills such as `oo`, `oo-find-skills`,
   `oo-create-skill`, and `oo-publish-skill` are excluded from this command.
+  Passing a bundled name as a package argument fails with `bundled_unsupported`.
   Refresh them with `oo skills add`, or let a
   successful `oo install` or `oo update` refresh them automatically.
 - Ownership rule: a skill is considered managed for update only when its
@@ -1147,26 +1155,32 @@ Update installed oo-managed published skills.
     rewritten (legacy symlink, metadata drift, etc.).
   - `current`: no host needed any write.
 - `error.code` enum (update JSON): `not_authenticated` / `no_supported_hosts`
-  / `invalid_path` / `not_installed` / `not_managed` / `bundled_unsupported`
+  / `invalid_path` / `bundled_unsupported` / `package_not_installed`
   / `package_lookup_failed` / `package_download_failed` /
   `invalid_package_archive` / `publication_failed` / `unknown`.
 
-### `oo skills check-update`
+### `oo skills check-update [packageName...]`
 
 Check whether installed oo-managed registry skills have a newer published
 version, or have drifted from their canonical content. Read-only: the
 command **never** downloads a package archive or writes to any skill
 directory.
 
-- Options: `--skill <name>` limits the check to one or more skill ids;
-  the option may be repeated. Duplicate values are de-duplicated; the
-  original input order is preserved in the output.
+- Arguments: `[packageName...]` accepts zero or more package names. **Breaking
+  change**: the removed `--skill` option (and its skill-id values) is replaced
+  by these positional package-name arguments.
+- Arguments: when omitted, the command checks every installed oo-managed
+  registry skill.
+- Arguments: when one or more package names are given, the command checks every
+  installed skill that belongs to each named package. Duplicate package names
+  are de-duplicated; the original input order is preserved in the output.
 - Options: `--format=json` and `--json` switch to a structured payload.
   `--show-schema-version` (only meaningful with JSON) prepends
   `schemaVersion`.
-- Scope: only `registry` kind skills are checked. Bundled skills,
-  uninstalled skill names, and skill directories without registry metadata
-  are reported as `failed` entries (each carries a stable `error.code`).
+- Scope: only `registry` kind skills are checked. A bundled name, or a package
+  name with no installed oo-managed skill, is reported as a `failed` entry whose
+  `skillId` echoes the requested package name (each carries a stable
+  `error.code`).
 - Network: requires the current OOMOL account because the latest package
   version is fetched from the registry's package-info endpoint. The
   command does **not** download package tarballs.
@@ -1226,8 +1240,8 @@ directory.
 - Exit code: the command exits `0` even when individual entries are
   `failed`, because failure is encoded in the payload. Argument errors
   (for example `--format xml`) still exit `2`.
-- `error.code` enum: `not_installed` / `not_managed` / `invalid_path` /
-  `bundled_unsupported` / `package_lookup_failed` / `unknown`.
+- `error.code` enum: `bundled_unsupported` / `package_not_installed` /
+  `package_lookup_failed` / `unknown`.
 
 #### JSON output for mutation commands
 

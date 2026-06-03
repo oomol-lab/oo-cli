@@ -131,7 +131,7 @@ describe("skills update command", () => {
         }
     });
 
-    test("reports a generic not-installed error when the target is absent from every host", async () => {
+    test("reports package-not-installed when no installed skill belongs to the package", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
@@ -147,7 +147,7 @@ describe("skills update command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Skill aaa is not installed as an oo-managed skill in any supported agent.\n",
+                "No installed oo-managed skill belongs to package aaa.\n",
             );
             expect(result.stderr).not.toContain(universalHomeDirectory);
             expect(result.stderr).not.toContain(claudeHomeDirectory);
@@ -157,7 +157,7 @@ describe("skills update command", () => {
         }
     });
 
-    test("rejects an explicit update target with unparseable metadata as unmanaged", async () => {
+    test("reports package-not-installed when the only same-name directory has unparseable metadata", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
@@ -166,12 +166,14 @@ describe("skills update command", () => {
             await mkdir(universalHomeDirectory, { recursive: true });
             await writeUnparseableManagedSkillInstallation(installedSkillDirectoryPath);
 
+            // A directory with unparseable metadata is not a managed registry
+            // skill, so no package resolves to it.
             const result = await sandbox.run(["skills", "update", "chatgpt"]);
 
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Skill chatgpt in host universal is not managed by oo and cannot be updated.\n",
+                "No installed oo-managed skill belongs to package chatgpt.\n",
             );
         }
         finally {
@@ -219,7 +221,7 @@ describe("skills update command", () => {
             );
 
             const result = await sandbox.run(
-                ["skills", "update", "chatgpt"],
+                ["skills", "update", "openai"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -325,7 +327,7 @@ describe("skills update command", () => {
             });
 
             const result = await sandbox.run(
-                ["skills", "update", "chatgpt"],
+                ["skills", "update", "openai"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -417,7 +419,7 @@ describe("skills update command", () => {
             );
 
             const result = await sandbox.run(
-                ["skills", "update", "chatgpt"],
+                ["skills", "update", "openai"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -512,7 +514,7 @@ describe("skills update command", () => {
             });
 
             const resultPromise = sandbox.run(
-                ["skills", "update", "chatgpt", "claude"],
+                ["skills", "update", "openai", "anthropic"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -600,7 +602,7 @@ describe("skills update command", () => {
         }
     });
 
-    test("updates only the selected skills", async () => {
+    test("updates every installed skill that belongs to the selected package", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const storePaths = resolveStorePaths({
@@ -638,7 +640,7 @@ describe("skills update command", () => {
             });
 
             const result = await sandbox.run(
-                ["skills", "update", "chatgpt"],
+                ["skills", "update", "openai"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
@@ -680,6 +682,8 @@ describe("skills update command", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
+            // Both skills of package openai are updated together to the latest
+            // version, not just one.
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(chatgptInstalledDirectoryPath),
                 "utf8",
@@ -687,7 +691,121 @@ describe("skills update command", () => {
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(visionInstalledDirectoryPath),
                 "utf8",
-            )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.3" })));
+            )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({ packageName: "openai", version: "0.0.4" })));
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("de-duplicates a repeated package argument in text mode", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+            await writeManagedRegistrySkillInstallation({
+                canonicalSkillDirectoryPath,
+                installedSkillDirectoryPath,
+                packageName: "openai",
+                skillMarkdown: "# ChatGPT stale\n",
+                version: "0.0.3",
+            });
+
+            const result = await sandbox.run(
+                ["skills", "update", "openai", "openai"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "openai",
+                                version: "0.0.4",
+                                skills: [
+                                    {
+                                        description: "Chat with a model",
+                                        name: "chatgpt",
+                                        title: "ChatGPT",
+                                    },
+                                ],
+                            }));
+                        }
+
+                        if (request.url.endsWith("/openai/-/meta/openai-0.0.4.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/chatgpt/SKILL.md": "# ChatGPT fresh\n",
+                            }));
+                        }
+
+                        if (isRegistryPackageDownloadCountRequest(request)) {
+                            return new Response(null, { status: 204 });
+                        }
+
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            // The repeated "openai" is processed once: exactly one update line.
+            expect(result.stdout).toBe(
+                `Updated skill chatgpt to ${installedSkillDirectoryPath}.\n`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports a per-skill failure line and exits non-zero when package info fails in text mode", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+            await writeManagedRegistrySkillInstallation({
+                canonicalSkillDirectoryPath,
+                installedSkillDirectoryPath,
+                packageName: "openai",
+                skillMarkdown: "# ChatGPT stale\n",
+                version: "0.0.3",
+            });
+
+            const result = await sandbox.run(
+                ["skills", "update", "openai"],
+                {
+                    // The package-info lookup is the first network call; failing
+                    // it drives the group-level failure fan-out.
+                    fetcher: async () => new Response("err", { status: 500 }),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toContain("Failed to update skill chatgpt:");
         }
         finally {
             await sandbox.cleanup();
@@ -732,7 +850,7 @@ describe("skills update command", () => {
             });
 
             execution = executeCli({
-                argv: ["skills", "update", "chatgpt"],
+                argv: ["skills", "update", "openai"],
                 cwd: sandbox.cwd,
                 env: sandbox.env,
                 fetcher: async (input, init) => {
@@ -852,7 +970,7 @@ describe("skills update command", () => {
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
-                "Skill custom in host universal is not managed by oo and cannot be updated.\n",
+                "No installed oo-managed skill belongs to package custom.\n",
             );
         }
         finally {

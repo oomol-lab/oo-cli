@@ -243,30 +243,7 @@ describe("skills check-update CLI", () => {
         }
     });
 
-    test("--json reports invalid_path when --skill escapes the managed root", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
-            await mkdir(homeDirectory, { recursive: true });
-
-            const result = await sandbox.run(
-                ["skills", "check-update", "--skill", "../bad", "--json"],
-            );
-
-            expect(result.exitCode).toBe(0);
-            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
-            const skills = payload.skills as Array<Record<string, unknown>>;
-
-            expect((skills[0]?.error as Record<string, unknown>)?.code).toBe("invalid_path");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("--json reports not_managed when same-name host directory has no metadata", async () => {
+    test("--json reports package_not_installed and ignores same-name unmanaged directories", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -274,26 +251,32 @@ describe("skills check-update CLI", () => {
             const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
             const skillDirectory = resolveManagedSkillDirectoryPath(homeDirectory, "ghost");
 
-            // Same-name host directory exists but has no .oo-metadata.json.
+            // A same-name host directory without .oo-metadata.json is not a
+            // managed registry skill, so no package resolves to it.
             await mkdir(skillDirectory, { recursive: true });
             await writeFile(join(skillDirectory, "SKILL.md"), "# user content\n");
 
             const result = await sandbox.run(
-                ["skills", "check-update", "--skill", "ghost", "--json"],
+                ["skills", "check-update", "@nobody/ghost", "--json"],
             );
 
             expect(result.exitCode).toBe(0);
             const payload = JSON.parse(result.stdout) as Record<string, unknown>;
             const skills = payload.skills as Array<Record<string, unknown>>;
 
-            expect((skills[0]?.error as Record<string, unknown>)?.code).toBe("not_managed");
+            expect(skills[0]).toMatchObject({
+                skillId: "@nobody/ghost",
+                packageName: "@nobody/ghost",
+                status: "failed",
+            });
+            expect((skills[0]?.error as Record<string, unknown>)?.code).toBe("package_not_installed");
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("--json multi --skill returns entries in input order with de-duplication", async () => {
+    test("--json multiple package args return entries in input order with de-duplication", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -315,12 +298,9 @@ describe("skills check-update CLI", () => {
                 [
                     "skills",
                     "check-update",
-                    "--skill",
-                    "bar",
-                    "--skill",
-                    "foo",
-                    "--skill",
-                    "bar",
+                    "@alice/bar",
+                    "@alice/foo",
+                    "@alice/bar",
                     "--json",
                 ],
                 {
@@ -351,30 +331,52 @@ describe("skills check-update CLI", () => {
         }
     });
 
-    test("--json reports failed for unknown skill name", async () => {
+    test("a package checks all of its installed skills together", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
-            await mkdir(homeDirectory, { recursive: true });
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "one",
+                packageName: "@alice/multi",
+                version: "0.1.0",
+            });
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "two",
+                packageName: "@alice/multi",
+                version: "0.1.0",
+            });
 
             const result = await sandbox.run(
-                ["skills", "check-update", "--skill", "nonexistent", "--json"],
+                ["skills", "check-update", "@alice/multi", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "@alice/multi",
+                                version: "0.2.0",
+                                skills: [
+                                    { description: "demo", name: "one", title: "one" },
+                                    { description: "demo", name: "two", title: "two" },
+                                ],
+                            }));
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
             );
 
             expect(result.exitCode).toBe(0);
             const payload = JSON.parse(result.stdout) as Record<string, unknown>;
             const skills = payload.skills as Array<Record<string, unknown>>;
 
-            expect(skills[0]).toMatchObject({
-                skillId: "nonexistent",
-                packageName: null,
-                currentVersion: null,
-                latestVersion: null,
-                status: "failed",
-            });
-            expect((skills[0]?.error as Record<string, unknown>)?.code).toBe("not_installed");
+            // Both installed skills of the requested package are checked.
+            expect(skills.map(skill => skill.skillId).sort()).toEqual(["one", "two"]);
+            expect(skills.every(skill => skill.status === "update-available")).toBe(true);
         }
         finally {
             await sandbox.cleanup();
@@ -390,7 +392,7 @@ describe("skills check-update CLI", () => {
             await mkdir(homeDirectory, { recursive: true });
 
             const result = await sandbox.run(
-                ["skills", "check-update", "--skill", "oo", "--json"],
+                ["skills", "check-update", "oo", "--json"],
             );
 
             expect(result.exitCode).toBe(0);
@@ -404,7 +406,7 @@ describe("skills check-update CLI", () => {
         }
     });
 
-    test("--json reports failed not_managed for local-only skill", async () => {
+    test("--json reports package_not_installed for a local-only skill name", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -422,15 +424,16 @@ describe("skills check-update CLI", () => {
                 renderSkillMetadataJson(createLocalSkillMetadata()),
             );
 
+            // Local skills are not registry-managed, so no package matches them.
             const result = await sandbox.run(
-                ["skills", "check-update", "--skill", "local-skill", "--json"],
+                ["skills", "check-update", "local-skill", "--json"],
             );
 
             expect(result.exitCode).toBe(0);
             const payload = JSON.parse(result.stdout) as Record<string, unknown>;
             const skills = payload.skills as Array<Record<string, unknown>>;
 
-            expect((skills[0]?.error as Record<string, unknown>)?.code).toBe("not_managed");
+            expect((skills[0]?.error as Record<string, unknown>)?.code).toBe("package_not_installed");
         }
         finally {
             await sandbox.cleanup();
@@ -526,7 +529,7 @@ describe("skills check-update CLI", () => {
         }
     });
 
-    test("no --skill: checks all installed registry skills and excludes bundled", async () => {
+    test("no package args: checks all installed registry skills and excludes bundled", async () => {
         const sandbox = await createCliSandbox();
 
         try {

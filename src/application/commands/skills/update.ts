@@ -31,7 +31,6 @@ import {
 } from "./managed-skill-listings.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
-    isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
@@ -65,7 +64,7 @@ import {
 import { SkillsUpdateProgressReporter } from "./update-progress.ts";
 
 interface SkillsUpdateInput {
-    skill?: string[];
+    packageNames?: string[];
     format?: "json";
     showSchemaVersion?: boolean;
 }
@@ -74,8 +73,7 @@ const updateErrorMessages: Record<string, string> = {
     not_authenticated: "Authentication is required.",
     no_supported_hosts: "No supported skill host is installed.",
     invalid_path: "Skill name resolves outside the managed skills directory.",
-    not_installed: "The skill is not installed.",
-    not_managed: "The skill directory exists but is not managed by oo.",
+    package_not_installed: "No installed oo-managed skill belongs to the requested package.",
     bundled_unsupported: "Bundled skills cannot be updated with skills update.",
     package_lookup_failed: "Failed to fetch the latest package version.",
     package_download_failed: "Failed to download the package archive.",
@@ -122,8 +120,8 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
     descriptionKey: "commands.skills.update.description",
     arguments: [
         {
-            name: "skill",
-            descriptionKey: "arguments.skill",
+            name: "packageNames",
+            descriptionKey: "arguments.skills.update.packageName",
             required: false,
             variadic: true,
         },
@@ -132,7 +130,7 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
         ...skillOperationOutputOptions,
     ],
     inputSchema: z.object({
-        skill: z.array(z.string()).optional(),
+        packageNames: z.array(z.string()).optional(),
         format: z.enum(["json"]).optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
@@ -140,7 +138,7 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
     handler: async (input, context) => {
         if (input.format === "json") {
             const report = await runUpdateJsonReport(
-                { skillNames: input.skill ?? [] },
+                { packageNames: input.packageNames ?? [] },
                 context,
             );
 
@@ -159,7 +157,7 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
 
         await updateManagedSkills(
             {
-                skillNames: input.skill ?? [],
+                packageNames: input.packageNames ?? [],
             },
             context,
         );
@@ -168,7 +166,7 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
 
 export async function updateManagedSkills(
     request: {
-        skillNames: readonly string[];
+        packageNames: readonly string[];
     },
     context: CliExecutionContext,
 ): Promise<void> {
@@ -183,11 +181,9 @@ export async function updateManagedSkills(
         availableHosts,
         settingsFilePath,
     );
-    const selectedSkills = await resolveSelectedManagedSkills(
-        request.skillNames,
+    const selectedSkills = resolveSelectedManagedSkillsByPackage(
+        request.packageNames,
         installedSkills,
-        availableHosts,
-        settingsFilePath,
     );
 
     if (selectedSkills.length === 0) {
@@ -203,9 +199,6 @@ export async function updateManagedSkills(
             )
         : undefined;
     const registrySkillGroups = groupRegistrySkills(selectedSkills);
-    const unresolvedSkills = selectedSkills.filter(skill =>
-        !isBundledSkillName(skill.name) && skill.metadata?.kind !== "registry",
-    );
     const packageNames = registrySkillGroups.map(group => group.packageName);
     context.telemetry?.recordProperties({
         package_kind: registrySkillGroups.length > 0 ? "registry" : "unknown",
@@ -227,24 +220,7 @@ export async function updateManagedSkills(
         const account = registrySkillGroups.length > 0
             ? await requireCurrentAccount(context)
             : undefined;
-        const unresolvedSkillFailures: SkillPreparationResult[] = unresolvedSkills.map(skill => ({
-            events: [
-                {
-                    error: new CliUserError(
-                        "errors.skills.update.packageNameMissing",
-                        1,
-                        {
-                            hostNames: formatManagedSkillUpdateHostNames(skill.hostNames),
-                            name: skill.name,
-                        },
-                    ),
-                    kind: "failed" as const,
-                    skillName: skill.name,
-                },
-            ],
-            publications: [],
-        }));
-        const registryResults = await Promise.all(
+        const phaseOneResults = await Promise.all(
             registrySkillGroups.map(group =>
                 prepareRegistrySkillGroupUpdate(
                     group,
@@ -258,7 +234,6 @@ export async function updateManagedSkills(
                 ),
             ),
         );
-        const phaseOneResults = [...unresolvedSkillFailures, ...registryResults];
         const publications = phaseOneResults.flatMap(result => result.publications);
 
         for (const event of phaseOneResults.flatMap(result => result.events)) {
@@ -417,111 +392,80 @@ function mergeManagedSkillHostNames(
     return Array.from(hostNames);
 }
 
-function formatManagedSkillUpdateHostNames(
-    hostNames: readonly BundledSkillAgentName[],
-): string {
-    if (hostNames.length === 0) {
-        return "canonical";
-    }
-
-    return hostNames.join(", ");
-}
-
-async function resolveSelectedManagedSkills(
-    requestedSkillNames: readonly string[],
+// Resolve the requested package names to their installed registry skills.
+// The positional arguments are package names: each package contributes every
+// installed skill that carries that package identity. When no package name is
+// given, every installed managed registry skill is selected. Bundled skill
+// names and packages with no installed skill fail fast in text mode.
+function resolveSelectedManagedSkillsByPackage(
+    requestedPackageNames: readonly string[],
     installedSkills: readonly ManagedSkillUpdateItem[],
-    availableHosts: readonly ManagedSkillHost[],
-    settingsFilePath: string,
-): Promise<ManagedSkillUpdateItem[]> {
-    if (requestedSkillNames.length === 0) {
+): ManagedSkillUpdateItem[] {
+    if (requestedPackageNames.length === 0) {
         return installedSkills.filter(
             skill => !isBundledSkillName(skill.name),
         );
     }
 
+    const skillsByPackageName = groupSkillsByPackageName(installedSkills);
     const selectedSkills: ManagedSkillUpdateItem[] = [];
-    const installedSkillIndex = new Map(
-        installedSkills.map(skill => [skill.name, skill] as const),
-    );
-    const seenSkillNames = new Set<string>();
+    const seenPackageNames = new Set<string>();
 
-    for (const requestedSkillName of requestedSkillNames) {
-        if (seenSkillNames.has(requestedSkillName)) {
+    for (const requestedPackageName of requestedPackageNames) {
+        if (seenPackageNames.has(requestedPackageName)) {
             continue;
         }
 
-        seenSkillNames.add(requestedSkillName);
+        seenPackageNames.add(requestedPackageName);
 
-        if (isBundledSkillName(requestedSkillName)) {
+        if (isBundledSkillName(requestedPackageName)) {
             throw new CliUserError(
                 "errors.skills.update.bundledUnsupported",
                 1,
                 {
-                    name: requestedSkillName,
+                    name: requestedPackageName,
                 },
             );
         }
 
-        const hostInstallations = resolveManagedSkillHostInstallations(
-            availableHosts,
-            requestedSkillName,
-        );
+        const packageSkills = skillsByPackageName.get(requestedPackageName);
 
-        if (hostInstallations.some(installation =>
-            !isManagedSkillPathContained(
-                installation.homeDirectory,
-                settingsFilePath,
-                requestedSkillName,
-            ),
-        )) {
-            throw new CliUserError("errors.skills.invalidPath", 1, {
-                name: requestedSkillName,
+        if (packageSkills === undefined || packageSkills.length === 0) {
+            throw new CliUserError("errors.skills.update.packageNotInstalled", 1, {
+                packageName: requestedPackageName,
             });
         }
 
-        const installedSkill = installedSkillIndex.get(requestedSkillName);
-
-        if (installedSkill !== undefined) {
-            selectedSkills.push(installedSkill);
-            continue;
-        }
-
-        const targetStates = await Promise.all(
-            hostInstallations.map(async (installation) => {
-                const installedDirectoryExists = await directoryExists(
-                    installation.installedSkillDirectoryPath,
-                );
-                const metadata = installedDirectoryExists
-                    ? await readManagedSkillMetadata(
-                            installation.installedSkillDirectoryPath,
-                        )
-                    : undefined;
-
-                return {
-                    ...installation,
-                    hasDirectoryWithoutMetadata: installedDirectoryExists
-                        && metadata === undefined,
-                };
-            }),
-        );
-        const unmanagedTarget = targetStates.find(
-            target => target.hasDirectoryWithoutMetadata,
-        );
-
-        if (unmanagedTarget !== undefined) {
-            throw new CliUserError("errors.skills.update.notManaged", 1, {
-                hostName: unmanagedTarget.agentName,
-                name: requestedSkillName,
-                path: unmanagedTarget.installedSkillDirectoryPath,
-            });
-        }
-
-        throw new CliUserError("errors.skills.update.notInstalled", 1, {
-            name: requestedSkillName,
-        });
+        selectedSkills.push(...packageSkills);
     }
 
     return selectedSkills;
+}
+
+// Index installed registry skills by their package name, preserving the input
+// order within each package so output ordering stays deterministic.
+function groupSkillsByPackageName(
+    skills: readonly ManagedSkillUpdateItem[],
+): Map<string, ManagedSkillUpdateItem[]> {
+    const skillsByPackageName = new Map<string, ManagedSkillUpdateItem[]>();
+
+    for (const skill of skills) {
+        if (skill.metadata?.kind !== "registry") {
+            continue;
+        }
+
+        const packageName = skill.metadata.packageName;
+        const existing = skillsByPackageName.get(packageName);
+
+        if (existing === undefined) {
+            skillsByPackageName.set(packageName, [skill]);
+            continue;
+        }
+
+        existing.push(skill);
+    }
+
+    return skillsByPackageName;
 }
 
 function groupRegistrySkills(
@@ -780,7 +724,7 @@ interface HostVersionState {
 }
 
 async function runUpdateJsonReport(
-    request: { skillNames: readonly string[] },
+    request: { packageNames: readonly string[] },
     context: CliExecutionContext,
 ): Promise<UpdateReport> {
     const errors: SkillOperationError[] = [];
@@ -791,7 +735,7 @@ async function runUpdateJsonReport(
             code: "no_supported_hosts",
             message: updateErrorMessages.no_supported_hosts!,
         });
-        return buildUpdateReport([], 0, errors);
+        return buildUpdateReport([], errors);
     }
 
     const settingsFilePath = context.settingsStore.getFilePath();
@@ -809,39 +753,36 @@ async function runUpdateJsonReport(
             code: "unknown",
             message: updateErrorMessages.unknown!,
         });
-        return buildUpdateReport([], 0, errors);
+        return buildUpdateReport([], errors);
     }
 
-    const requestedSkillNames = request.skillNames;
+    const requestedPackageNames = request.packageNames;
     const skills: SkillResult[] = [];
 
-    if (requestedSkillNames.length === 0) {
+    if (requestedPackageNames.length === 0) {
         const selected = installedSkills.filter(skill => !isBundledSkillName(skill.name));
 
         if (selected.length === 0) {
-            return buildUpdateReport([], 0, errors);
+            return buildUpdateReport([], errors);
         }
         const results = await runUpdateForSkills(selected, availableHosts, context);
 
         skills.push(...results);
-        return buildUpdateReport(skills, selected.length, errors);
+        return buildUpdateReport(skills, errors);
     }
 
-    const installedIndex = new Map(
-        installedSkills.map(skill => [skill.name, skill] as const),
-    );
-    const seen = new Set<string>();
-    const requested: ManagedSkillUpdateItem[] = [];
+    const skillsByPackageName = groupSkillsByPackageName(installedSkills);
+    const seenPackageNames = new Set<string>();
 
-    for (const skillName of requestedSkillNames) {
-        if (seen.has(skillName)) {
+    for (const packageName of requestedPackageNames) {
+        if (seenPackageNames.has(packageName)) {
             continue;
         }
-        seen.add(skillName);
+        seenPackageNames.add(packageName);
 
-        if (isBundledSkillName(skillName)) {
+        if (isBundledSkillName(packageName)) {
             skills.push({
-                skillId: skillName,
+                skillId: packageName,
                 kind: "bundled",
                 packageName: null,
                 previousVersion: null,
@@ -856,78 +797,32 @@ async function runUpdateJsonReport(
             continue;
         }
 
-        const hostInstallations = resolveManagedSkillHostInstallations(
-            availableHosts,
-            skillName,
-        );
+        const packageSkills = skillsByPackageName.get(packageName) ?? [];
 
-        if (hostInstallations.some(installation =>
-            !isManagedSkillPathContained(
-                installation.homeDirectory,
-                settingsFilePath,
-                skillName,
-            ),
-        )) {
+        if (packageSkills.length === 0) {
             skills.push({
-                skillId: skillName,
-                kind: "registry",
-                packageName: null,
+                skillId: packageName,
+                kind: "unknown",
+                packageName,
                 previousVersion: null,
                 version: null,
                 status: "failed",
                 targets: [],
                 error: {
-                    code: "invalid_path",
-                    message: updateErrorMessages.invalid_path!,
+                    code: "package_not_installed",
+                    message: updateErrorMessages.package_not_installed!,
                 },
             });
             continue;
         }
 
-        const installed = installedIndex.get(skillName);
+        // Each requested package updates all of its installed skills together.
+        const results = await runUpdateForSkills(packageSkills, availableHosts, context);
 
-        if (installed !== undefined) {
-            requested.push(installed);
-            continue;
-        }
-
-        const statesPerHost = await Promise.all(
-            hostInstallations.map(async (installation) => {
-                const exists = await directoryExists(installation.installedSkillDirectoryPath);
-                const metadata = exists
-                    ? await readManagedSkillMetadata(installation.installedSkillDirectoryPath)
-                    : undefined;
-
-                return { exists, hasMetadata: metadata !== undefined };
-            }),
-        );
-        const unmanaged = statesPerHost.find(state => state.exists && !state.hasMetadata);
-
-        skills.push({
-            skillId: skillName,
-            kind: "registry",
-            packageName: null,
-            previousVersion: null,
-            version: null,
-            status: "failed",
-            targets: [],
-            error: {
-                code: unmanaged !== undefined ? "not_managed" : "not_installed",
-                message: unmanaged !== undefined
-                    ? updateErrorMessages.not_managed!
-                    : updateErrorMessages.not_installed!,
-            },
-        });
+        skills.push(...results);
     }
 
-    if (requested.length === 0) {
-        return buildUpdateReport(skills, requestedSkillNames.length, errors);
-    }
-
-    const results = await runUpdateForSkills(requested, availableHosts, context);
-
-    skills.push(...results);
-    return buildUpdateReport(skills, requestedSkillNames.length, errors);
+    return buildUpdateReport(skills, errors);
 }
 
 async function runUpdateForSkills(
@@ -936,10 +831,10 @@ async function runUpdateForSkills(
     context: CliExecutionContext,
 ): Promise<SkillResult[]> {
     const settingsFilePath = context.settingsStore.getFilePath();
+    // selectedSkills are always registry-kind: callers feed either the
+    // registry-filtered installed list or per-package groups, so grouping
+    // covers every skill and no unresolved remainder is possible.
     const groups = groupRegistrySkills(selectedSkills);
-    const unresolvedSkills = selectedSkills.filter(skill =>
-        !isBundledSkillName(skill.name) && skill.metadata?.kind !== "registry",
-    );
 
     let account: AuthAccount | undefined;
 
@@ -967,22 +862,6 @@ async function runUpdateForSkills(
     }
 
     const results: SkillResult[] = [];
-
-    for (const skill of unresolvedSkills) {
-        results.push({
-            skillId: skill.name,
-            kind: "unknown",
-            packageName: null,
-            previousVersion: null,
-            version: null,
-            status: "failed",
-            targets: [],
-            error: {
-                code: "unknown",
-                message: `Managed skill ${skill.name} cannot be updated: package metadata is missing.`,
-            },
-        });
-    }
 
     for (const group of groups) {
         const groupResults = await runGroupUpdateJson(
@@ -1302,10 +1181,8 @@ function mapUpdateErrorCode(error: unknown): string {
         case "errors.auth.required":
         case "auth.account.activeAccountMissing":
             return "not_authenticated";
-        case "errors.skills.update.notManaged":
-            return "not_managed";
-        case "errors.skills.update.notInstalled":
-            return "not_installed";
+        case "errors.skills.update.packageNotInstalled":
+            return "package_not_installed";
         case "errors.skills.update.bundledUnsupported":
             return "bundled_unsupported";
         case "errors.skills.nameConflict":
@@ -1318,7 +1195,6 @@ function mapUpdateErrorCode(error: unknown): string {
 
 function buildUpdateReport(
     skills: SkillResult[],
-    requestedCount: number,
     commandErrors: SkillOperationError[],
 ): UpdateReport {
     const updated = skills.filter(skill => skill.status === "updated").length;
@@ -1336,7 +1212,9 @@ function buildUpdateReport(
         command: "skills.update",
         status,
         summary: {
-            requestedSkills: requestedCount,
+            // Every reported entry corresponds to one requested/resolved skill,
+            // including per-skill failures, so the count tracks skills[] length.
+            requestedSkills: skills.length,
             updated,
             repaired,
             current,

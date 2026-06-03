@@ -549,12 +549,8 @@ export const enMessages = {
         "Skill {name} was not found in package {packageName}.",
     "errors.skills.update.bundledUnsupported":
         "Bundled skill {name} is managed by oo and cannot be updated with skills update. Use oo skills add {name} instead.",
-    "errors.skills.update.packageNameMissing":
-        "Managed skill {name} cannot be updated in {hostNames} because its package metadata is missing.",
-    "errors.skills.update.notManaged":
-        "Skill {name} in host {hostName} is not managed by oo and cannot be updated.",
-    "errors.skills.update.notInstalled":
-        "Skill {name} is not installed as an oo-managed skill in any supported agent.",
+    "errors.skills.update.packageNotInstalled":
+        "No installed oo-managed skill belongs to package {packageName}.",
     "errors.skills.nameConflict":
         "Skill name {name} is already used by a non-OOMOL skill at {path}.",
     "errors.skills.storageConflict":
@@ -668,8 +664,6 @@ export const enMessages = {
         "Check for available updates for installed registry skills without downloading or modifying them.",
     "commands.skills.checkUpdate.summary":
         "Check registry skills for updates",
-    "options.skills.checkUpdate.skill":
-        "Limit the check to one or more skill ids (may be repeated)",
     "skills.checkUpdate.allCurrent":
         "All checked registry skills are up to date.",
     "skills.checkUpdate.summary":
@@ -945,6 +939,8 @@ export const enMessages = {
     "arguments.key": "Configuration key",
     "arguments.outDir": "Output directory",
     "arguments.packageName": "Package name(s) to install",
+    "arguments.skills.update.packageName": "Package name(s) to update; updates every installed skill of each package",
+    "arguments.skills.checkUpdate.packageName": "Package name(s) to check; checks every installed skill of each package",
     "arguments.serviceName": "Service name",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
@@ -1536,12 +1532,8 @@ export const zhMessages = {
         "在包 {packageName} 中未找到 skill {name}。",
     "errors.skills.update.bundledUnsupported":
         "内置 skill {name} 由 oo 管理，不能通过 skills update 更新。请改用 oo skills add {name}。",
-    "errors.skills.update.packageNameMissing":
-        "无法在 {hostNames} 中更新由 oo 管理的 skill {name}，因为缺少 package 元数据。",
-    "errors.skills.update.notManaged":
-        "Agent {hostName} 中的 skill {name} 不是由 oo 管理的 skill，无法更新。",
-    "errors.skills.update.notInstalled":
-        "Skill {name} 未作为 oo 管理的 skill 安装到任何受支持的 agent 中。",
+    "errors.skills.update.packageNotInstalled":
+        "没有任何已安装的 oo 管理 skill 属于包 {packageName}。",
     "errors.skills.nameConflict":
         "Skill 名称 {name} 已被 {path} 中的非 OOMOL skill 占用。",
     "errors.skills.storageConflict":
@@ -1650,8 +1642,6 @@ export const zhMessages = {
         "检查已安装的 registry skill 是否有可用更新，仅查询不下载也不写入。",
     "commands.skills.checkUpdate.summary":
         "检查 registry skill 是否有更新",
-    "options.skills.checkUpdate.skill":
-        "仅检查指定的 skill id（可重复传入）",
     "skills.checkUpdate.allCurrent":
         "已检查的 registry skill 均为最新。",
     "skills.checkUpdate.summary":
@@ -1924,6 +1914,8 @@ export const zhMessages = {
     "arguments.key": "配置键",
     "arguments.outDir": "输出目录",
     "arguments.packageName": "要安装的包名（可指定多个）",
+    "arguments.skills.update.packageName": "要更新的包名（可指定多个）；会更新每个包已安装的全部 skill",
+    "arguments.skills.checkUpdate.packageName": "要检查的包名（可指定多个）；会检查每个包已安装的全部 skill",
     "arguments.serviceName": "服务名",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",

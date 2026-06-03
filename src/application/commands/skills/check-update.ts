@@ -23,12 +23,12 @@ import {
 } from "./managed-skill-listings.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
-    isManagedSkillPathContained,
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { isManagedSkillPublicationCurrent } from "./managed-skill-publication.ts";
 import { loadRegistryPackageSkillInfo } from "./registry-skill-source.ts";
 import { isBundledSkillName } from "./shared.ts";
+import { createPackageNamesTelemetryProperties } from "./telemetry.ts";
 
 type CheckUpdateStatus
     = | "update-available"
@@ -37,10 +37,8 @@ type CheckUpdateStatus
         | "failed";
 
 type CheckUpdateErrorCode
-    = | "not_installed"
-        | "not_managed"
-        | "invalid_path"
-        | "bundled_unsupported"
+    = | "bundled_unsupported"
+        | "package_not_installed"
         | "package_lookup_failed"
         | "unknown";
 
@@ -72,7 +70,7 @@ const checkUpdateFormatValues = ["json"] as const;
 interface SkillsCheckUpdateInput {
     format?: (typeof checkUpdateFormatValues)[number];
     showSchemaVersion?: boolean;
-    skill?: string[];
+    packageNames?: string[];
 }
 
 interface RegistrySkillTarget {
@@ -87,10 +85,8 @@ interface CheckUpdateError {
 }
 
 const checkUpdateErrorMessages: Record<CheckUpdateErrorCode, string> = {
-    not_installed: "The skill is not installed.",
-    not_managed: "The skill directory exists but is not managed by oo.",
-    invalid_path: "Skill name resolves outside the managed skills directory.",
     bundled_unsupported: "Bundled skills are not checked by oo skills check-update.",
+    package_not_installed: "No installed oo-managed skill belongs to the requested package.",
     package_lookup_failed: "Failed to fetch the latest package version.",
     unknown: "Unknown error.",
 };
@@ -99,19 +95,21 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
     name: "check-update",
     summaryKey: "commands.skills.checkUpdate.summary",
     descriptionKey: "commands.skills.checkUpdate.description",
-    options: [
+    arguments: [
         {
-            name: "skill",
-            longFlag: "--skill",
-            valueName: "skills...",
-            descriptionKey: "options.skills.checkUpdate.skill",
+            name: "packageNames",
+            descriptionKey: "arguments.skills.checkUpdate.packageName",
+            required: false,
+            variadic: true,
         },
+    ],
+    options: [
         ...jsonOutputOptions,
     ],
     inputSchema: z.object({
         format: z.enum(checkUpdateFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),
-        skill: z.array(z.string()).optional(),
+        packageNames: z.array(z.string()).optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
@@ -126,13 +124,8 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
             availableHosts,
             settingsFilePath,
         );
-        const skillNames = dedupePreserveOrder(input.skill ?? []);
-        const plan = await resolveCheckUpdatePlan(
-            skillNames,
-            installedSkills,
-            availableHosts,
-            settingsFilePath,
-        );
+        const packageNames = dedupePreserveOrder(input.packageNames ?? []);
+        const plan = resolveCheckUpdatePlan(packageNames, installedSkills);
 
         const hasRegistryEntry = plan.some(entry => entry.kind === "registry");
         const account = hasRegistryEntry
@@ -162,8 +155,8 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
         };
 
         recordTelemetry(context, outcome, {
-            hasSkillFilter: skillNames.length > 0,
-            requestedCount: skillNames.length === 0 ? results.length : skillNames.length,
+            hasPackageFilter: packageNames.length > 0,
+            packageNames,
         });
 
         if (input.format === "json") {
@@ -192,148 +185,103 @@ interface CheckUpdatePlanEntryRegistry {
 
 type CheckUpdatePlanEntry = CheckUpdatePlanEntryFailed | CheckUpdatePlanEntryRegistry;
 
-async function resolveCheckUpdatePlan(
-    requestedSkillNames: readonly string[],
+// Build the check plan from package names. The positional arguments are
+// package names: each package contributes every installed skill that carries
+// that package identity. When no package name is given, every installed
+// managed registry skill is checked. Package names are assumed de-duplicated
+// (the handler preserves the original input order). Bundled skill names and
+// packages with no installed skill become failed entries.
+function resolveCheckUpdatePlan(
+    requestedPackageNames: readonly string[],
     installedSkills: readonly ManagedSkillListItem[],
-    availableHosts: readonly ManagedSkillHost[],
-    settingsFilePath: string,
-): Promise<CheckUpdatePlanEntry[]> {
-    if (requestedSkillNames.length === 0) {
-        return installedSkills
-            .filter(skill => skill.metadata?.kind === "registry")
-            .map(skill => makeRegistryPlanEntryOrFail(skill));
+): CheckUpdatePlanEntry[] {
+    if (requestedPackageNames.length === 0) {
+        const entries: CheckUpdatePlanEntry[] = [];
+
+        for (const skill of installedSkills) {
+            const target = toRegistrySkillTarget(skill);
+
+            if (target !== undefined) {
+                entries.push({ kind: "registry", target });
+            }
+        }
+
+        return entries;
     }
 
-    const installedIndex = new Map(
-        installedSkills.map(skill => [skill.name, skill] as const),
-    );
+    const targetsByPackageName = groupRegistrySkillTargetsByPackageName(installedSkills);
+    const entries: CheckUpdatePlanEntry[] = [];
 
-    return Promise.all(
-        requestedSkillNames.map(skillId => resolveRequestedSkillEntry({
-            skillId,
-            installedIndex,
-            availableHosts,
-            settingsFilePath,
-        })),
-    );
+    for (const packageName of requestedPackageNames) {
+        if (isBundledSkillName(packageName)) {
+            entries.push(makeFailedPlanEntry(packageName, "bundled_unsupported"));
+            continue;
+        }
+
+        const targets = targetsByPackageName.get(packageName) ?? [];
+
+        if (targets.length === 0) {
+            entries.push(makeFailedPlanEntry(packageName, "package_not_installed"));
+            continue;
+        }
+
+        for (const target of targets) {
+            entries.push({ kind: "registry", target });
+        }
+    }
+
+    return entries;
 }
 
-async function resolveRequestedSkillEntry(options: {
-    skillId: string;
-    installedIndex: ReadonlyMap<string, ManagedSkillListItem>;
-    availableHosts: readonly ManagedSkillHost[];
-    settingsFilePath: string;
-}): Promise<CheckUpdatePlanEntry> {
-    const { skillId, installedIndex, availableHosts, settingsFilePath } = options;
+function groupRegistrySkillTargetsByPackageName(
+    installedSkills: readonly ManagedSkillListItem[],
+): Map<string, RegistrySkillTarget[]> {
+    const targetsByPackageName = new Map<string, RegistrySkillTarget[]>();
 
-    if (isBundledSkillName(skillId)) {
-        return {
-            kind: "failed",
-            skillId,
-            packageName: null,
-            currentVersion: null,
-            error: makeError("bundled_unsupported"),
-        };
-    }
+    for (const skill of installedSkills) {
+        const target = toRegistrySkillTarget(skill);
 
-    const hostInstallations = resolveManagedSkillHostInstallations(availableHosts, skillId);
-
-    // Path containment is the highest-priority gate: a name that escapes the
-    // managed skills directory must never resolve to a real host scan.
-    if (hostInstallations.some(installation =>
-        !isManagedSkillPathContained(
-            installation.homeDirectory,
-            settingsFilePath,
-            skillId,
-        ),
-    )) {
-        return {
-            kind: "failed",
-            skillId,
-            packageName: null,
-            currentVersion: null,
-            error: makeError("invalid_path"),
-        };
-    }
-
-    const installed = installedIndex.get(skillId);
-
-    if (installed !== undefined) {
-        if (installed.metadata?.kind !== "registry") {
-            return {
-                kind: "failed",
-                skillId,
-                packageName: null,
-                currentVersion: null,
-                error: makeError("not_managed"),
-            };
+        if (target === undefined) {
+            continue;
         }
-        return makeRegistryPlanEntryOrFail(installed);
+
+        const existing = targetsByPackageName.get(target.packageName);
+
+        if (existing === undefined) {
+            targetsByPackageName.set(target.packageName, [target]);
+            continue;
+        }
+
+        existing.push(target);
     }
 
-    // Not in installedSkills (no host or canonical entry recorded a managed
-    // metadata file). Distinguish "directory exists but oo doesn't manage it"
-    // from "skill name simply isn't installed anywhere".
-    const targetHasUnmanagedDirectory = await someHostHasUnmanagedDirectory(
-        hostInstallations,
-    );
+    return targetsByPackageName;
+}
 
-    if (targetHasUnmanagedDirectory) {
-        return {
-            kind: "failed",
-            skillId,
-            packageName: null,
-            currentVersion: null,
-            error: makeError("not_managed"),
-        };
+function toRegistrySkillTarget(
+    skill: ManagedSkillListItem,
+): RegistrySkillTarget | undefined {
+    if (skill.metadata?.kind !== "registry") {
+        return undefined;
     }
 
     return {
-        kind: "failed",
-        skillId,
-        packageName: null,
-        currentVersion: null,
-        error: makeError("not_installed"),
+        skillId: skill.name,
+        packageName: skill.metadata.packageName,
+        currentVersion: skill.metadata.version,
     };
 }
 
-async function someHostHasUnmanagedDirectory(
-    hostInstallations: readonly { installedSkillDirectoryPath: string }[],
-): Promise<boolean> {
-    const checks = await Promise.all(
-        hostInstallations.map(async (installation) => {
-            if (!(await directoryExists(installation.installedSkillDirectoryPath))) {
-                return false;
-            }
-            const metadata = await readManagedSkillMetadata(
-                installation.installedSkillDirectoryPath,
-            );
-            return metadata === undefined;
-        }),
-    );
-    return checks.some(Boolean);
-}
-
-function makeRegistryPlanEntryOrFail(
-    skill: ManagedSkillListItem,
-): CheckUpdatePlanEntry {
-    if (skill.metadata?.kind !== "registry") {
-        return {
-            kind: "failed",
-            skillId: skill.name,
-            packageName: null,
-            currentVersion: null,
-            error: makeError("not_managed"),
-        };
-    }
-
+function makeFailedPlanEntry(
+    packageName: string,
+    code: CheckUpdateErrorCode,
+): CheckUpdatePlanEntryFailed {
     return {
-        kind: "registry",
-        target: {
-            skillId: skill.name,
-            packageName: skill.metadata.packageName,
-            currentVersion: skill.metadata.version,
-        },
+        kind: "failed",
+        skillId: packageName,
+        packageName,
+        currentVersion: null,
+        error: makeError(code),
     };
 }
 
@@ -581,14 +529,15 @@ function writeReportSection(
 function recordTelemetry(
     context: CliExecutionContext,
     outcome: CheckUpdateOutcome,
-    options: { hasSkillFilter: boolean; requestedCount: number },
+    options: { hasPackageFilter: boolean; packageNames: readonly string[] },
 ): void {
     context.telemetry?.recordProperties({
-        has_skill_filter: options.hasSkillFilter,
-        skill_count_bucket: bucketTelemetryCount(options.requestedCount),
+        has_package_filter: options.hasPackageFilter,
+        package_count_bucket: bucketTelemetryCount(options.packageNames.length),
         checked_count_bucket: bucketTelemetryCount(outcome.skills.length),
         update_available_count_bucket: bucketTelemetryCount(outcome.summary.registrySkillUpdates),
         repair_required_count_bucket: bucketTelemetryCount(outcome.summary.registrySkillRepairs),
         failed_count_bucket: bucketTelemetryCount(outcome.summary.registrySkillFailures),
+        ...createPackageNamesTelemetryProperties(options.packageNames),
     });
 }
