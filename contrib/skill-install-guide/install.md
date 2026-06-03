@@ -49,7 +49,7 @@ oo login
 Run the exact install command provided by the user, for example:
 
 ```bash
-oo skills install <package> -y
+oo skills install <package>
 ```
 
 Do not guess the package name. Use the exact install command from the user. If the user did not provide a clear package or install command, ask for it first.

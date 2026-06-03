@@ -740,9 +740,9 @@ function resolveSkillSharePackageLineVariant(
 function createSkillShareInstallCommand(
     installPackageSpecifier: string,
 ): string {
-    // `--skill` was removed from `oo skills install`; the recipient installs the
-    // whole package and the install command resolves the published skills.
-    return `oo skills install ${installPackageSpecifier} -y`;
+    // `oo skills install` installs every published skill of the package and no
+    // longer exposes a `--skill` selector or a `-y` confirmation flag.
+    return `oo skills install ${installPackageSpecifier}`;
 }
 
 function resolveSkillIdFromPackageName(packageName: string): string {

@@ -941,8 +941,8 @@ registry share id.
   prints the final install command.
   The prompt tells the recipient to follow that guide to check OO CLI and login
   state before running the install command. Both skill-target and package-target
-  prompts continue through `oo skills install <packageName> -y` for public
-  packages, or `oo skills install <packageName>#<shareID> -y` for private
+  prompts continue through `oo skills install <packageName>` for public
+  packages, or `oo skills install <packageName>#<shareID>` for private
   packages.
   Private-package prompts identify the exact temporary install specifier
   `<packageName>#<shareID>` and do not present the target as already public.

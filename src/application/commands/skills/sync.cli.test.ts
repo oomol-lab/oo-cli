@@ -502,6 +502,9 @@ describe("skills sync apply --json", () => {
 
             expect(result.exitCode).toBe(1);
             const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            // Per-record failure must stay in skills[], never a duplicate top-level error.
+            expect(payload.errors).toEqual([]);
             const skills = payload.skills as Array<Record<string, unknown>>;
 
             expect(skills).toHaveLength(1);

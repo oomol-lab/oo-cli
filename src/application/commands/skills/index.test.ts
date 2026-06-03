@@ -2384,6 +2384,12 @@ describe("skills commands", () => {
                     skill_ids_sample: ["chatgpt", "claude"],
                 },
             });
+            // Lock in the safe payload shape: the singular package_name is only
+            // recorded for a single registry package, and no raw/private values
+            // (paths, cwd) leak into telemetry.
+            expect(telemetryPayload?.properties).not.toHaveProperty("package_name");
+            expect(telemetryPayload?.properties).not.toHaveProperty("cwd");
+            expect(telemetryPayload?.properties).not.toHaveProperty("path");
         }
         finally {
             await sandbox.cleanup();

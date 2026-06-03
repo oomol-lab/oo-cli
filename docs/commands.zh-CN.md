@@ -802,8 +802,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   然后给出最终安装命令。
   提示词会要求对方先按通用说明检查 OO CLI 和登录状态，再执行安装命令。skill 目标
   和 package 目标都会给出相同形式的安装命令：公开包为
-  `oo skills install <packageName> -y`，私有包为
-  `oo skills install <packageName>#<shareID> -y`。私有包提示词会突出展示必须精确
+  `oo skills install <packageName>`，私有包为
+  `oo skills install <packageName>#<shareID>`。私有包提示词会突出展示必须精确
   使用的临时安装标识 `<packageName>#<shareID>`，不会把分享目标描述为已公开发布。
 
 ### `oo skills search <text>`
