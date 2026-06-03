@@ -348,7 +348,7 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("guides oo search selection toward ready and high-quality candidates", async () => {
+    test("guides oo search selection toward low-friction and high-quality candidates", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const searchGuide = getBundledSkillFiles("oo", agentName).find(
                 file => file.relativePath === "references/search-and-selection.md",
@@ -365,9 +365,17 @@ describe("embedded skill assets", () => {
             expect(content).toContain("Scan all connector entries");
             expect(content).toContain("do not let array order");
             expect(content).toContain("out-of-box");
-            expect(content).not.toContain("Fusion API");
-            expect(content).not.toContain("fusion-api");
-            expect(content).toContain("Use an authenticated connector when the user named a connected service");
+            expect(content).toContain("Setup cost");
+            expect(content).toContain("Treat `fusion-api` as OOMOL-hosted Fusion API");
+            expect(content).toContain("already authenticated non-Fusion connector");
+            expect(content).toContain("generic managed transforms");
+            expect(content).toContain("prefer a matching `fusion-api` action by default");
+            expect(content).toContain("unauthenticated non-Fusion connector as higher setup cost");
+            expect(content).toContain("Do not ask the user to connect it");
+            expect(content).toContain("can complete the core task");
+            expect(content).toContain("Use an authenticated non-Fusion connector when the user named a connected service");
+            expect(content).toContain("external side effect");
+            expect(content).toContain("Ask the user only when the choice changes");
             expect(content).toContain("run one connector refinement");
             expect(content).toContain("before reporting that no executable capability is available");
             expect(content).not.toContain("catalog signals only");

@@ -142,8 +142,8 @@ decide. Rank results in this order:
 1. Directness of the action relative to the user's goal
 2. Whether the target service, destination, or output is explicitly named or
    strongly implied
-3. Whether the candidate is ready to run. Treat an already authenticated
-   connector as out-of-box.
+3. Setup cost. Treat `fusion-api` as OOMOL-hosted Fusion API and treat an
+   already authenticated non-Fusion connector as out-of-box.
 4. How many required inputs and follow-up questions it adds
 5. How closely the documented output matches the user's desired outcome
 6. If the user did not name a model or product, prefer more capable, modern,
@@ -151,8 +151,27 @@ decide. Rank results in this order:
 
 Tie-breakers:
 
-- Use an authenticated connector when the user named a connected service or the
-  connector directly matches the requested external account workflow.
+- `fusion-api` actions are connector actions in `oo`. Prove them with
+  `oo connector schema "fusion-api" --action "<name>"` before execution, but
+  classify them as OOMOL-hosted Fusion API for selection.
+- For generic managed transforms such as OCR, translation, transcription, TTS,
+  image generation, background removal, subtitling, document conversion, and
+  long-document understanding, prefer a matching `fusion-api` action by default
+  when its schema satisfies the required input and output.
+- Use an authenticated non-Fusion connector when the user named a connected
+  service, destination, account, workspace, channel, folder, repository, or
+  external side effect, or when that connector directly matches the requested
+  external account workflow.
+- Treat an unauthenticated non-Fusion connector as higher setup cost. Do not ask
+  the user to connect it when a matching `fusion-api` action can complete the
+  core task with the requested output. Use the unauthenticated connector only
+  when the user explicitly requested that service or Fusion API cannot satisfy
+  the schema, output, provider, account, compliance, data-routing, or side-effect
+  requirements.
+- If both `fusion-api` and an authenticated non-Fusion connector are suitable,
+  choose the one whose output contract best matches the user's requested result.
+  Ask the user only when the choice changes provider, account, cost, compliance,
+  data routing, output format, or externally visible side effects.
 - If the returned array is empty or no candidate clearly fits, stop the current
   `oo` path and report that the catalog does not expose a good match.
 

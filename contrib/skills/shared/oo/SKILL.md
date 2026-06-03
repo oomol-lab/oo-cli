@@ -189,9 +189,9 @@ unsupported input shape, or a blocker-specific fallback.
 ### Managed AI pipeline
 
 User wants a managed transform such as OCR, translation, transcription, image
-generation, or document conversion. Search the outcome, pick a connector action
-that fits, read its schema, build the payload from required fields, then run the
-action.
+generation, or document conversion. Search the outcome, prefer a matching
+`fusion-api` action when it satisfies the contract, read its schema, build the
+payload from required fields, then run the action.
 
 ### Single connector
 
