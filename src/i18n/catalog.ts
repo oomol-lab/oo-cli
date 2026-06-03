@@ -527,8 +527,6 @@ export const enMessages = {
         "Invalid skills package specifier: {value}.",
     "errors.skills.install.noPublishedSkills":
         "Package {packageName} does not publish any skills.",
-    "errors.skills.install.nonInteractiveSelection":
-        "Package {packageName} has multiple skills. Use --skill <name>, --all -y, or run in an interactive terminal.",
     "errors.skills.list.invalidSource":
         "Invalid source: {value}. Use bundled, registry, or local.",
     "errors.skills.sync.invalidResponse":
@@ -749,10 +747,6 @@ export const enMessages = {
     "options.title": "Set the generated skill display title",
     "options.visibility":
         "Set package visibility (private or public)",
-    "options.skill":
-        "Specify skill names to install (use * for all skills)",
-    "options.all":
-        "Install all published skills without prompting for skill selection",
     "options.agent": "Check one supported skill host",
     "options.nextToken": "Specify the pagination token for the next page",
     "options.packageId": "Filter by package id",
@@ -918,20 +912,7 @@ export const enMessages = {
         "Invalid choice. Enter y/yes or n/no.",
     "skills.install.overwrite.prompt":
         "Skill {name} already exists. Overwrite? [y/N] ",
-    "skills.install.selection.prompt":
-        "Select skills to install or keep installed (space to toggle)",
-    "skills.install.progress.installing.start": "Installing selected skills...",
-    "skills.install.progress.installing.complete":
-        "Installed",
-    "skills.install.progress.installing.failed":
-        "Installing selected skills failed",
-    "skills.install.progress.removing.start": "Removing deselected skills...",
-    "skills.install.progress.removing.complete":
-        "Removed",
-    "skills.install.progress.removing.failed":
-        "Removing deselected skills failed",
     "skills.install.skipped": "Skipped skill {name}.",
-    "skills.install.status.conflict": "conflict",
     "skills.install.singleSelected":
         "Skill: {name}",
     "skills.update.noResults":
@@ -963,7 +944,7 @@ export const enMessages = {
     "arguments.index": "Log index",
     "arguments.key": "Configuration key",
     "arguments.outDir": "Output directory",
-    "arguments.packageName": "Package name",
+    "arguments.packageName": "Package name(s) to install",
     "arguments.serviceName": "Service name",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
@@ -1533,8 +1514,6 @@ export const zhMessages = {
         "无效的 skills 包标识：{value}。",
     "errors.skills.install.noPublishedSkills":
         "包 {packageName} 没有发布任何 skill。",
-    "errors.skills.install.nonInteractiveSelection":
-        "包 {packageName} 包含多个 skill。请使用 --skill <name>、--all -y，或在交互终端中运行。",
     "errors.skills.list.invalidSource":
         "无效的 source：{value}。请使用 bundled、registry 或 local。",
     "errors.skills.sync.invalidResponse":
@@ -1748,10 +1727,6 @@ export const zhMessages = {
     "options.title": "设置生成的 skill 显示标题",
     "options.visibility":
         "设置包可见性（private 或 public）",
-    "options.skill":
-        "指定要安装的 skill 名称（使用 * 表示全部）",
-    "options.all":
-        "安装全部已发布 skill，并跳过 skill 选择提示",
     "options.agent": "检查一个受支持的 Agent",
     "options.nextToken": "指定下一页分页令牌",
     "options.packageId": "按 package id 过滤",
@@ -1916,20 +1891,7 @@ export const zhMessages = {
         "输入无效。请输入 y/yes 或 n/no。",
     "skills.install.overwrite.prompt":
         "Skill {name} 已存在，是否覆盖？[y/N] ",
-    "skills.install.selection.prompt":
-        "选择要安装或保留的 skill（空格切换）",
-    "skills.install.progress.installing.start": "正在安装所选 skill...",
-    "skills.install.progress.installing.complete":
-        "已安装",
-    "skills.install.progress.installing.failed":
-        "安装所选 skill 失败",
-    "skills.install.progress.removing.start": "正在移除未选择的 skill...",
-    "skills.install.progress.removing.complete":
-        "已移除",
-    "skills.install.progress.removing.failed":
-        "移除未选择的 skill 失败",
     "skills.install.skipped": "已跳过 skill {name}。",
-    "skills.install.status.conflict": "冲突",
     "skills.install.singleSelected":
         "Skill：{name}",
     "skills.update.noResults":
@@ -1961,7 +1923,7 @@ export const zhMessages = {
     "arguments.index": "日志序号",
     "arguments.key": "配置键",
     "arguments.outDir": "输出目录",
-    "arguments.packageName": "包名",
+    "arguments.packageName": "要安装的包名（可指定多个）",
     "arguments.serviceName": "服务名",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",

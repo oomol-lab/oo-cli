@@ -1,6 +1,6 @@
 # OO Skill Install Preparation
 
-Use this guide before running an `oo skills install ...` command shared by a user. Keep the exact package, skill, and options from that shared command.
+Use this guide before running an `oo skills install ...` command shared by a user. Keep the exact package and options from that shared command.
 
 ## 1. Ensure OO CLI Is Available
 
@@ -49,7 +49,7 @@ oo login
 Run the exact install command provided by the user, for example:
 
 ```bash
-oo skills install <package> --skill <skill> -y
+oo skills install <package>
 ```
 
-Do not guess the package or skill name. Use the exact install command from the user. If the user did not provide a clear package, skill, or install command, ask for it first.
+Do not guess the package name. Use the exact install command from the user. If the user did not provide a clear package or install command, ask for it first.

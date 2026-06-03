@@ -235,11 +235,7 @@ async function shareSkill(
         context.stdout,
         renderSkillSharePrompt({
             hubUrl: createSkillPackageHubUrl(account.endpoint, packageInfo.packageName),
-            installCommand: createSkillShareInstallCommand(
-                installPackageSpecifier,
-                shareKind,
-                target.skillId,
-            ),
+            installCommand: createSkillShareInstallCommand(installPackageSpecifier),
             installPackageSpecifier,
             packageName: packageInfo.packageName,
             shareKind,
@@ -743,14 +739,10 @@ function resolveSkillSharePackageLineVariant(
 
 function createSkillShareInstallCommand(
     installPackageSpecifier: string,
-    shareKind: SkillShareKind,
-    skillId: string,
 ): string {
-    if (shareKind === "package") {
-        return `oo skills install ${installPackageSpecifier} -y`;
-    }
-
-    return `oo skills install ${installPackageSpecifier} --skill ${skillId} -y`;
+    // `oo skills install` installs every published skill of the package and no
+    // longer exposes a `--skill` selector or a `-y` confirmation flag.
+    return `oo skills install ${installPackageSpecifier}`;
 }
 
 function resolveSkillIdFromPackageName(packageName: string): string {

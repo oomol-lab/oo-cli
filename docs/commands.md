@@ -940,13 +940,10 @@ registry share id.
   `https://static.oomol.com/oo-cli/skill-install-guide/install.md`, and then
   prints the final install command.
   The prompt tells the recipient to follow that guide to check OO CLI and login
-  state before running the install command. Skill-target prompts continue
-  through `oo skills install <packageName> --skill <skill-id> -y` for public
-  packages, or
-  `oo skills install <packageName>#<shareID> --skill <skill-id> -y` for private
-  packages. Package-target prompts continue through
-  `oo skills install <packageName> -y` for public packages, or
-  `oo skills install <packageName>#<shareID> -y` for private packages.
+  state before running the install command. Both skill-target and package-target
+  prompts continue through `oo skills install <packageName>` for public
+  packages, or `oo skills install <packageName>#<shareID>` for private
+  packages.
   Private-package prompts identify the exact temporary install specifier
   `<packageName>#<shareID>` and do not present the target as already public.
 
@@ -966,50 +963,40 @@ Search published skills with free-form text.
   optional description, and source package reference when available.
 - Notes: every invocation requests at most `5` results.
 
-### `oo skills install [packageName]`
+### `oo skills install [packageName...]`
 
 Install bundled or published skills into supported local skill directories.
 
-- Alias: `oo skills add [packageName]`.
-- Arguments: `[packageName]` is optional.
+- Alias: `oo skills add [packageName...]`.
+- Arguments: `[packageName...]` accepts zero or more package names.
 - Arguments: when omitted, the command installs all bundled skills.
-- Arguments: when `[packageName]` is `oo`, `oo-find-skills`,
+- Arguments: when several package names are given, each is installed in order.
+  Installs that already completed are kept even if a later package fails.
+- Arguments: when a package name is `oo`, `oo-find-skills`,
   `oo-create-skill`, or `oo-publish-skill`, the command installs the
   corresponding bundled skill.
-- Arguments: when `[packageName]` is a published package name, the command
-  installs skills from that package. `[packageName]` may include an explicit
+- Arguments: when a package name is a published package name, the command
+  installs skills from that package. A package name may include an explicit
   version as `<packageName>@<version>`, including scoped package forms such as
   `@scope/name@1.2.3`.
-- Arguments: `[packageName]` may also use `<packageName>#<shareID>`. In that
+- Arguments: a package name may also use `<packageName>#<shareID>`. In that
   form, the command reads the package skill list from `<packageName>` and
   downloads the package archive through the share identified by `<shareID>`.
-- Options: `-s, --skill <skills...>` installs one or more named published
-  skills from the package.
-- Options: `-s, --skill '*'` installs all published skills from the package.
-- Options: `--all` is shorthand for installing all published skills from the
-  package without a skill-selection prompt.
-- Options: `-y, --yes` skips confirmation prompts. When a package publishes
-  multiple skills and no explicit `--skill` is provided, `-y` installs all of
-  them.
+- Behavior: the command installs every published skill in each package. There is
+  no skill-selection prompt and no per-skill or "install all" option.
 - Options: `-f, --force` overrides install when the target directory exists
   with the same skill name but is **not** managed by oo (no readable
   `.oo-metadata.json`). The previous directory contents are removed before the
   new skill is written; a `warn` log records the overwrite. `--force` does
   **not** bypass path containment, package validation, auth, or download
-  validation; it does **not** affect startup auto-sync, `oo skills update`,
-  `oo skills sync`, `oo skills uninstall`, or `oo skills publish`; and it does
-  **not** implicitly select all skills inside a multi-skill package (use
-  `--skill` or `--all -y` together with `--force`).
+  validation; and it does **not** affect startup auto-sync, `oo skills update`,
+  `oo skills sync`, `oo skills uninstall`, or `oo skills publish`.
 - Output: successful non-interactive installs print a compact summary grouped by
   installed skills and target AI agents. When exactly one target is written, the
-  summary includes that target path.
-- Notes: when a package publishes exactly one skill and no `--skill` is
-  provided, the command installs that skill automatically.
-- Notes: when a package publishes multiple skills and no `--skill`, `--all`, or
-  `-y` is provided, the command opens an interactive picker in a TTY.
-- Notes: in the interactive picker, skills already installed from the same
-  package start selected. Clearing such a selection removes that installed
-  skill when the command completes.
+  summary includes that target path. With several package names, each package
+  prints its own summary in order.
+- Notes: when a package publishes multiple skills, the command installs all of
+  them; when it publishes exactly one skill, that single skill is installed.
 - Canonical directory: bundled skills are materialized under
   `<config-dir>/skills/bundled/<agent>/<skill-id>`, where `<config-dir>` is the
   directory that contains `settings.toml` and `<agent>` is `universal`,
@@ -1051,15 +1038,10 @@ Install bundled or published skills into supported local skill directories.
   metadata remains readable.
 - Notes: all registry requests for published skills send the active account's
   `Authorization` header.
-- Notes: when a package publishes multiple skills and the command runs outside
-  an interactive terminal, you must provide `--skill <name>` or `--all -y`.
-- Notes: when an explicitly requested published skill conflicts with an
-  existing same-name skill, the command asks for `yes` or `no` before
-  overwriting it in an interactive terminal.
-- Notes: existing target directories without valid `oo` metadata are treated as
-  non-OOMOL skills and are not overwritten.
-- Notes: in the interactive picker, conflicting skills are marked in the list;
-  selecting one means it will be overwritten.
+- Notes: a same-name target directory without valid `oo` metadata is treated as a
+  non-OOMOL skill; the install fails with `name_conflict` for that skill unless
+  `--force` is used (which overwrites it). A same-name skill already managed by
+  `oo` is overwritten, including when it was installed from a different package.
 - Notes: the universal `~/.agents` host is always available (created when
   missing), so the command always has at least one install target.
 - Notes: an existing bundled or registry skill installation is considered
@@ -1071,10 +1053,7 @@ Install bundled or published skills into supported local skill directories.
   `invalid_path` / `invalid_package_specifier` / `package_lookup_failed` /
   `package_download_failed` / `invalid_package_archive` /
   `skill_not_found_in_package` / `name_conflict` / `storage_conflict` /
-  `confirmation_required` / `publication_failed` / `unknown`.
-- `--json` is implicitly non-interactive: when a multi-skill package is given
-  without `--skill`, `--all`, or `--yes`, the command emits a top-level
-  `confirmation_required` error and exits `1`.
+  `publication_failed` / `unknown`.
 - `targets[].previousState` is one of `absent | managed | unmanaged | unknown`.
   With `--force`, an overwritten unmanaged target is reported as `installed`
   with `previousState: "unmanaged"`.

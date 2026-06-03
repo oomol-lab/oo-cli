@@ -12,10 +12,8 @@ import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import { writeManagedSkillInstallSummary } from "./install-output.ts";
-import { SkillsInstallProgressReporter } from "./install-progress.ts";
 import {
     confirmInteractiveValue,
-    selectInteractiveSkills,
 } from "./interactive-prompts.ts";
 import {
     createMissingManagedSkillHostError,
@@ -29,10 +27,6 @@ import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
-import {
-    createManagedSkillUninstallResultError,
-    uninstallRegistrySkill,
-} from "./managed-skill-uninstall.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
     prepareRegistrySkillPublication,
@@ -52,32 +46,15 @@ interface ManagedSkillPathState {
 }
 
 export interface RegistrySkillInstallRequest {
-    all: boolean;
     force?: boolean;
     packageName: string;
     packageShareId?: string;
     packageVersion?: string;
     recordTelemetry?: boolean;
+    // When non-empty, install exactly these skills (used by `oo skills sync`).
+    // When empty, the install command installs all published skills.
     skillNames: string[];
     writeOutput?: boolean;
-    yes: boolean;
-}
-
-interface RegistrySkillSelectionResolution {
-    actions: RegistrySkillSelectionAction[];
-    isInteractive: boolean;
-}
-
-interface RegistrySkillSelectionAction {
-    skillName: string;
-    type: "install" | "uninstall";
-}
-
-interface RegistrySkillState {
-    description: string;
-    name: string;
-    status: RegistrySkillInstallStatus;
-    title: string;
 }
 
 type RegistrySkillInstallStatus = "conflict" | "installed" | "new";
@@ -115,28 +92,26 @@ export async function installRegistrySkills(
         });
     }
 
-    const selectionActions = await resolveSelectionActions(
+    const installSkillNames = await resolveInstallSkillNames(
         request,
         packageInfo,
         availableHosts,
         context,
     );
 
-    if (selectionActions.actions.length === 0) {
+    if (installSkillNames.length === 0) {
         return [];
     }
 
     if (shouldRecordTelemetry) {
-        context.telemetry?.recordProperties(createSkillIdsTelemetryProperties(
-            selectionActions.actions
-                .filter(action => action.type === "install")
-                .map(action => action.skillName),
-        ));
+        context.telemetry?.recordProperties(
+            createSkillIdsTelemetryProperties(installSkillNames),
+        );
     }
 
     const settingsFilePath = context.settingsStore.getFilePath();
 
-    for (const { skillName } of selectionActions.actions) {
+    for (const skillName of installSkillNames) {
         const hostInstallations = resolveManagedSkillHostInstallations(
             availableHosts,
             skillName,
@@ -155,85 +130,26 @@ export async function installRegistrySkills(
         }
     }
 
-    const installActions = selectionActions.actions.filter(
-        action => action.type === "install",
+    const summaries = await executeInstallActions(
+        installSkillNames,
+        packageInfo,
+        request.packageShareId,
+        account,
+        availableHosts,
+        settingsFilePath,
+        context,
+        request.force === true,
     );
-    const uninstallActions = selectionActions.actions.filter(
-        action => action.type === "uninstall",
-    );
-    const progressReporter = selectionActions.isInteractive
-        ? new SkillsInstallProgressReporter(context.stdout, context.translator)
-        : undefined;
-    const installedSummaries: ManagedSkillInstallSummary[] = [];
 
-    try {
-        if (installActions.length > 0) {
-            const installSkillNames = installActions.map(action => action.skillName);
-            progressReporter?.startInstalling(installSkillNames);
-
-            try {
-                const summaries = await executeInstallActions(
-                    installActions,
-                    packageInfo,
-                    request.packageShareId,
-                    account,
-                    availableHosts,
-                    settingsFilePath,
-                    context,
-                    request.force === true,
-                );
-                installedSummaries.push(...summaries);
-
-                if (shouldWriteOutput && !selectionActions.isInteractive) {
-                    writeManagedSkillInstallSummary(context, summaries);
-                }
-            }
-            catch (error) {
-                progressReporter?.failInstalling();
-                throw error;
-            }
-
-            progressReporter?.completeInstalling(installSkillNames);
-        }
-
-        if (uninstallActions.length > 0) {
-            const uninstallSkillNames = uninstallActions.map(action => action.skillName);
-            progressReporter?.startRemoving(uninstallSkillNames);
-
-            try {
-                for (const { skillName } of uninstallActions) {
-                    const result = await uninstallRegistrySkill(skillName, context, {
-                        silent: selectionActions.isInteractive,
-                    });
-
-                    if (!result.removed) {
-                        throw createManagedSkillUninstallResultError({
-                            context,
-                            logMessage:
-                                "Managed registry skill uninstall skipped because no OOMOL metadata was found.",
-                            result,
-                            skillName,
-                        });
-                    }
-                }
-            }
-            catch (error) {
-                progressReporter?.failRemoving();
-                throw error;
-            }
-
-            progressReporter?.completeRemoving(uninstallSkillNames);
-        }
-    }
-    finally {
-        progressReporter?.stop();
+    if (shouldWriteOutput) {
+        writeManagedSkillInstallSummary(context, summaries);
     }
 
-    return installedSummaries;
+    return summaries;
 }
 
 async function executeInstallActions(
-    installActions: readonly RegistrySkillSelectionAction[],
+    skillNames: readonly string[],
     packageInfo: RegistryPackageSkillInfo,
     packageShareId: string | undefined,
     account: AuthAccount,
@@ -242,7 +158,7 @@ async function executeInstallActions(
     context: CliExecutionContext,
     force: boolean,
 ): Promise<ManagedSkillInstallSummary[]> {
-    for (const { skillName } of installActions) {
+    for (const skillName of skillNames) {
         await validateRegistrySkillPublicationTargets({
             context,
             force,
@@ -272,7 +188,7 @@ async function executeInstallActions(
     try {
         const summaries: ManagedSkillInstallSummary[] = [];
 
-        for (const { skillName } of installActions) {
+        for (const skillName of skillNames) {
             const skill = findPackageSkillOrThrow(packageInfo.skills, skillName, packageInfo.packageName);
             const hostInstallations = resolveManagedSkillHostInstallations(
                 availableHosts,
@@ -321,7 +237,7 @@ async function executeInstallActions(
     }
 }
 
-async function resolveSelectionActions(
+async function resolveInstallSkillNames(
     request: RegistrySkillInstallRequest,
     packageInfo: RegistryPackageSkillInfo,
     availableHosts: readonly ManagedSkillHost[],
@@ -329,38 +245,24 @@ async function resolveSelectionActions(
         CliExecutionContext,
         "settingsStore" | "stdin" | "stdout" | "translator"
     >,
-): Promise<RegistrySkillSelectionResolution> {
+): Promise<string[]> {
     const shouldWriteOutput = request.writeOutput !== false;
 
-    if (request.all || request.skillNames.includes("*")) {
-        writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.allSelected", {
-            count: packageInfo.skills.length,
-        });
-
-        return {
-            actions: createInstallActions(packageInfo.skills.map(skill => skill.name)),
-            isInteractive: false,
-        };
-    }
-
+    // Explicit skill selection is used internally by `oo skills sync` to
+    // reinstall a specific managed skill from a package.
     if (request.skillNames.length > 0) {
         for (const skillName of request.skillNames) {
             findPackageSkillOrThrow(packageInfo.skills, skillName, packageInfo.packageName);
         }
 
-        return {
-            actions: createInstallActions(
-                await filterConfirmedSkillNames(
-                    packageInfo.packageName,
-                    request.skillNames,
-                    availableHosts,
-                    context,
-                    shouldWriteOutput,
-                    request.force === true,
-                ),
-            ),
-            isInteractive: false,
-        };
+        return filterConfirmedSkillNames(
+            packageInfo.packageName,
+            request.skillNames,
+            availableHosts,
+            context,
+            shouldWriteOutput,
+            request.force === true,
+        );
     }
 
     if (packageInfo.skills.length === 1) {
@@ -370,71 +272,15 @@ async function resolveSelectionActions(
             name: firstSkill.name,
         });
 
-        return {
-            actions: createInstallActions([firstSkill.name]),
-            isInteractive: false,
-        };
+        return [firstSkill.name];
     }
 
-    if (request.yes) {
-        writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.allSelected", {
-            count: packageInfo.skills.length,
-        });
+    // Default behavior: install every published skill in the package.
+    writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.allSelected", {
+        count: packageInfo.skills.length,
+    });
 
-        return {
-            actions: createInstallActions(packageInfo.skills.map(skill => skill.name)),
-            isInteractive: false,
-        };
-    }
-
-    if (context.stdin.isTTY !== true || context.stdout.isTTY !== true) {
-        throw new CliUserError("errors.skills.install.nonInteractiveSelection", 1, {
-            packageName: packageInfo.packageName,
-        });
-    }
-
-    const skillStates = await readRegistrySkillStates(
-        packageInfo,
-        availableHosts,
-        context.settingsStore.getFilePath(),
-    );
-    const selectedSkillNames = await selectInteractiveSkills(
-        context,
-        {
-            items: skillStates.map(skill => ({
-                description: skill.description,
-                name: skill.name,
-                selected: skill.status === "installed",
-                statusLabel: readRegistrySkillStatusLabel(
-                    skill.status,
-                    context.translator,
-                ),
-                title: skill.title,
-            })),
-            prompt: context.translator.t("skills.install.selection.prompt"),
-        },
-    );
-
-    return {
-        actions: skillStates.flatMap((skill) => {
-            if (selectedSkillNames.includes(skill.name)) {
-                return {
-                    skillName: skill.name,
-                    type: "install",
-                } satisfies RegistrySkillSelectionAction;
-            }
-
-            if (skill.status === "installed") {
-                return {
-                    skillName: skill.name,
-                    type: "uninstall",
-                } satisfies RegistrySkillSelectionAction;
-            }
-
-            return [];
-        }),
-        isInteractive: true,
-    };
+    return packageInfo.skills.map(skill => skill.name);
 }
 
 async function filterConfirmedSkillNames(
@@ -538,26 +384,6 @@ export function findPackageSkillOrThrow(
     return skill;
 }
 
-async function readRegistrySkillStates(
-    packageInfo: RegistryPackageSkillInfo,
-    availableHosts: readonly ManagedSkillHost[],
-    settingsFilePath: string,
-): Promise<RegistrySkillState[]> {
-    return await Promise.all(
-        packageInfo.skills.map(async skill => ({
-            description: skill.description,
-            name: skill.name,
-            status: await readRegistrySkillInstallStatus(
-                packageInfo.packageName,
-                skill.name,
-                availableHosts,
-                settingsFilePath,
-            ),
-            title: skill.title,
-        })),
-    );
-}
-
 async function readRegistrySkillInstallStatus(
     packageName: string,
     skillName: string,
@@ -620,25 +446,4 @@ function hasManagedSkillPathConflict(
     packageName: string,
 ): boolean {
     return state.exists && state.metadataPackageName !== packageName;
-}
-function readRegistrySkillStatusLabel(
-    status: RegistrySkillInstallStatus,
-    translator: Pick<CliExecutionContext["translator"], "t">,
-): string | undefined {
-    switch (status) {
-        case "conflict":
-            return translator.t("skills.install.status.conflict");
-        case "installed":
-        case "new":
-            return undefined;
-    }
-}
-
-function createInstallActions(
-    skillNames: readonly string[],
-): RegistrySkillSelectionAction[] {
-    return skillNames.map(skillName => ({
-        skillName,
-        type: "install",
-    }));
 }

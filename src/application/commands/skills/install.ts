@@ -22,10 +22,6 @@ import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { writeManagedSkillInstallSummary } from "./install-output.ts";
 import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
 import { readSkillMetadataFileState } from "./local-skill-ownership.ts";
-import {
-    resolveAvailableManagedSkillHosts,
-    resolveManagedSkillHostInstallations,
-} from "./managed-skill-hosts.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
@@ -41,16 +37,23 @@ import {
     isBundledSkillName,
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
-import { createSkillIdsTelemetryProperties } from "./telemetry.ts";
+import {
+    createPackageNamesTelemetryProperties,
+    createSkillIdsTelemetryProperties,
+} from "./telemetry.ts";
 
 interface SkillsInstallInput {
-    all?: boolean;
     force?: boolean;
-    packageName?: string;
-    skill?: string[];
-    yes?: boolean;
+    packageNames?: string[];
     format?: "json";
     showSchemaVersion?: boolean;
+}
+
+type SkillsInstallPackageKind = "bundled" | "registry";
+
+interface ClassifiedSkillsInstallTarget {
+    kind: SkillsInstallPackageKind;
+    specifier: SkillsInstallPackageSpecifier;
 }
 
 interface SkillsInstallPackageSpecifier {
@@ -71,7 +74,6 @@ const installErrorMessages: Record<string, string> = {
     skill_not_found_in_package: "The skill was not found in the requested package.",
     name_conflict: "Skill name is already used by a non-OOMOL skill.",
     storage_conflict: "Bundled skill storage is already occupied by non-OOMOL content.",
-    confirmation_required: "Interactive confirmation is required; pass --skill, --all, or --yes.",
     publication_failed: "Failed to publish the skill to one or more hosts.",
     unknown: "Unknown error.",
 };
@@ -83,30 +85,13 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
     descriptionKey: "commands.skills.install.description",
     arguments: [
         {
-            name: "packageName",
+            name: "packageNames",
             descriptionKey: "arguments.packageName",
             required: false,
+            variadic: true,
         },
     ],
     options: [
-        {
-            name: "skill",
-            longFlag: "--skill",
-            shortFlag: "-s",
-            valueName: "skills...",
-            descriptionKey: "options.skill",
-        },
-        {
-            name: "yes",
-            longFlag: "--yes",
-            shortFlag: "-y",
-            descriptionKey: "options.yes",
-        },
-        {
-            name: "all",
-            longFlag: "--all",
-            descriptionKey: "options.all",
-        },
         {
             name: "force",
             longFlag: "--force",
@@ -116,11 +101,8 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         ...skillOperationOutputOptions,
     ],
     inputSchema: z.object({
-        all: z.boolean().optional(),
         force: z.boolean().optional(),
-        packageName: z.string().optional(),
-        skill: z.array(z.string()).optional(),
-        yes: z.boolean().optional(),
+        packageNames: z.array(z.string()).optional(),
         format: z.enum(["json"]).optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
@@ -146,15 +128,17 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             return;
         }
 
-        context.telemetry?.recordProperties({
-            has_force: force,
-        });
+        const packageNames = input.packageNames ?? [];
 
-        if (input.packageName === undefined) {
+        if (packageNames.length === 0) {
             context.telemetry?.recordProperties({
                 bundled_skill: "__all__",
+                has_bundled_skill: true,
+                has_force: force,
+                has_registry_skill: false,
                 package_kind: "bundled",
                 ...createSkillIdsTelemetryProperties(availableBundledSkillNames),
+                ...createPackageNamesTelemetryProperties([]),
             });
 
             const summaries: ManagedSkillInstallSummary[] = [];
@@ -167,43 +151,130 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             return;
         }
 
-        const packageSpecifier = parseSkillsInstallPackageSpecifier(input.packageName);
+        // Parse every specifier up front so a malformed package name fails the
+        // whole command before any install side effects are written.
+        const targets = packageNames.map(classifySkillsInstallTarget);
 
-        if (
-            packageSpecifier.packageShareId === undefined
-            && !packageSpecifier.hasExplicitPackageVersion
-            && isBundledSkillName(packageSpecifier.packageName)
-        ) {
-            context.telemetry?.recordProperties({
-                bundled_skill: packageSpecifier.packageName,
-                package_kind: "bundled",
-                ...createSkillIdsTelemetryProperties([packageSpecifier.packageName]),
-            });
+        recordInstallBaseTelemetry(context, targets, force);
 
-            const summary = await installBundledSkill(
-                packageSpecifier.packageName as BundledSkillName,
-                context,
-                { force },
+        const installedSkillIds: string[] = [];
+
+        for (const target of targets) {
+            if (target.kind === "bundled") {
+                const summary = await installBundledSkill(
+                    target.specifier.packageName as BundledSkillName,
+                    context,
+                    { force },
+                );
+
+                writeManagedSkillInstallSummary(context, [summary]);
+                installedSkillIds.push(target.specifier.packageName);
+            }
+            else {
+                const summaries = await installRegistrySkills(
+                    {
+                        force,
+                        packageName: target.specifier.packageName,
+                        packageShareId: target.specifier.packageShareId,
+                        packageVersion: target.specifier.packageVersion,
+                        recordTelemetry: false,
+                        // Empty selection installs all published skills; the
+                        // command no longer exposes per-skill selection.
+                        skillNames: [],
+                    },
+                    context,
+                );
+
+                installedSkillIds.push(...summaries.map(summary => summary.name));
+            }
+
+            // Re-record cumulatively so installed skill ids survive even when a
+            // later package in the list throws.
+            context.telemetry?.recordProperties(
+                createSkillIdsTelemetryProperties(installedSkillIds),
             );
-
-            writeManagedSkillInstallSummary(context, [summary]);
-            return;
         }
-
-        await installRegistrySkills(
-            {
-                all: input.all === true,
-                force,
-                packageName: packageSpecifier.packageName,
-                packageShareId: packageSpecifier.packageShareId,
-                packageVersion: packageSpecifier.packageVersion,
-                skillNames: input.skill ?? [],
-                yes: input.yes === true,
-            },
-            context,
-        );
     },
 };
+
+function classifySkillsInstallTarget(
+    rawPackageName: string,
+): ClassifiedSkillsInstallTarget {
+    const specifier = parseSkillsInstallPackageSpecifier(rawPackageName);
+
+    return {
+        kind: resolveSkillsInstallPackageKind(specifier),
+        specifier,
+    };
+}
+
+function resolveSkillsInstallPackageKind(
+    specifier: SkillsInstallPackageSpecifier,
+): SkillsInstallPackageKind {
+    if (
+        specifier.packageShareId === undefined
+        && !specifier.hasExplicitPackageVersion
+        && isBundledSkillName(specifier.packageName)
+    ) {
+        return "bundled";
+    }
+
+    return "registry";
+}
+
+function recordInstallBaseTelemetry(
+    context: CliExecutionContext,
+    targets: readonly ClassifiedSkillsInstallTarget[],
+    force: boolean,
+): void {
+    const bundledSkillNames = [
+        ...new Set(
+            targets
+                .filter(target => target.kind === "bundled")
+                .map(target => target.specifier.packageName),
+        ),
+    ];
+    const registryPackageNames = [
+        ...new Set(
+            targets
+                .filter(target => target.kind === "registry")
+                .map(target => target.specifier.packageName),
+        ),
+    ];
+    const hasBundled = bundledSkillNames.length > 0;
+    const hasRegistry = registryPackageNames.length > 0;
+
+    context.telemetry?.recordProperties({
+        has_bundled_skill: hasBundled,
+        has_force: force,
+        has_registry_skill: hasRegistry,
+        package_kind: resolveInstallPackageKindLabel(hasBundled, hasRegistry),
+        ...createPackageNamesTelemetryProperties(registryPackageNames),
+    });
+
+    if (registryPackageNames.length === 1) {
+        context.telemetry?.recordProperties({
+            package_name: registryPackageNames[0]!,
+        });
+    }
+
+    if (hasBundled && !hasRegistry && bundledSkillNames.length === 1) {
+        context.telemetry?.recordProperties({
+            bundled_skill: bundledSkillNames[0]!,
+        });
+    }
+}
+
+function resolveInstallPackageKindLabel(
+    hasBundled: boolean,
+    hasRegistry: boolean,
+): string {
+    if (hasBundled && hasRegistry) {
+        return "mixed";
+    }
+
+    return hasRegistry ? "registry" : "bundled";
+}
 
 async function runInstallJsonReport(
     input: SkillsInstallInput,
@@ -213,7 +284,9 @@ async function runInstallJsonReport(
     const skills: SkillResult[] = [];
     const errors: SkillOperationError[] = [];
 
-    if (input.packageName === undefined) {
+    const packageNames = input.packageNames ?? [];
+
+    if (packageNames.length === 0) {
         for (const bundledName of availableBundledSkillNames) {
             const result = await installBundledSkillForJson(
                 bundledName,
@@ -227,131 +300,95 @@ async function runInstallJsonReport(
         return buildReport(skills, errors, skills.length);
     }
 
-    let packageSpecifier: SkillsInstallPackageSpecifier;
+    let requested = 0;
 
-    try {
-        packageSpecifier = parseSkillsInstallPackageSpecifier(input.packageName);
-    }
-    catch (error) {
-        errors.push({
-            code: "invalid_package_specifier",
-            message: installErrorMessages.invalid_package_specifier!,
-        });
-        context.logger.warn({ err: error }, "Install --json invalid package specifier.");
-        return buildReport(skills, errors, 0);
-    }
+    for (const rawPackageName of packageNames) {
+        let packageSpecifier: SkillsInstallPackageSpecifier;
 
-    if (
-        packageSpecifier.packageShareId === undefined
-        && !packageSpecifier.hasExplicitPackageVersion
-        && isBundledSkillName(packageSpecifier.packageName)
-    ) {
-        const result = await installBundledSkillForJson(
-            packageSpecifier.packageName as BundledSkillName,
+        try {
+            packageSpecifier = parseSkillsInstallPackageSpecifier(rawPackageName);
+        }
+        catch (error) {
+            errors.push({
+                code: "invalid_package_specifier",
+                message: installErrorMessages.invalid_package_specifier!,
+            });
+            context.logger.warn({ err: error }, "Install --json invalid package specifier.");
+            continue;
+        }
+
+        if (
+            packageSpecifier.packageShareId === undefined
+            && !packageSpecifier.hasExplicitPackageVersion
+            && isBundledSkillName(packageSpecifier.packageName)
+        ) {
+            skills.push(await installBundledSkillForJson(
+                packageSpecifier.packageName as BundledSkillName,
+                context,
+                { force: options.force },
+            ));
+            requested += 1;
+            continue;
+        }
+
+        requested += await appendRegistryInstallJsonResults(
+            packageSpecifier,
             context,
-            { force: options.force },
+            options,
+            skills,
+            errors,
         );
-
-        skills.push(result);
-        return buildReport(skills, errors, 1);
     }
 
+    return buildReport(skills, errors, requested);
+}
+
+async function appendRegistryInstallJsonResults(
+    packageSpecifier: SkillsInstallPackageSpecifier,
+    context: CliExecutionContext,
+    options: { force: boolean },
+    skills: SkillResult[],
+    errors: SkillOperationError[],
+): Promise<number> {
     try {
-        const previousHostStateBySkill = await capturePreInstallHostState(
-            (input.skill ?? []),
-            await resolveAvailableManagedSkillHosts(context.env),
-        );
         const summaries = await installRegistrySkills(
             {
-                all: input.all === true,
                 force: options.force,
                 packageName: packageSpecifier.packageName,
                 packageShareId: packageSpecifier.packageShareId,
                 packageVersion: packageSpecifier.packageVersion,
                 recordTelemetry: false,
-                skillNames: input.skill ?? [],
+                skillNames: [],
                 writeOutput: false,
-                yes: input.yes === true,
             },
             context,
         );
-
         const settingsFilePath = context.settingsStore.getFilePath();
 
         for (const summary of summaries) {
-            const previousState = previousHostStateBySkill.get(summary.name);
-
             skills.push(await buildRegistrySkillResult(
                 summary,
                 packageSpecifier.packageName,
-                previousState,
+                undefined,
                 settingsFilePath,
             ));
         }
-        return buildReport(
-            skills,
-            errors,
-            Math.max(1, summaries.length),
-        );
+
+        return Math.max(1, summaries.length);
     }
     catch (error) {
         const errorCode = mapInstallErrorCode(error);
 
-        if (
-            error instanceof CliUserError
-            && error.key === "errors.skills.install.nonInteractiveSelection"
-        ) {
-            errors.push({
-                code: "confirmation_required",
-                message: installErrorMessages.confirmation_required!,
-            });
-            return buildReport(skills, errors, 0);
-        }
-
-        if (
-            errorCode === "not_authenticated"
-            || errorCode === "no_supported_hosts"
-            || errorCode === "invalid_package_specifier"
-        ) {
-            errors.push({
-                code: errorCode,
-                message: installErrorMessages[errorCode] ?? installErrorMessages.unknown!,
-            });
-            return buildReport(skills, errors, 0);
-        }
-
-        const requestedSkillNames = input.skill ?? [];
-        const message = installErrorMessages[errorCode] ?? installErrorMessages.unknown!;
-
+        errors.push({
+            code: errorCode,
+            message: installErrorMessages[errorCode] ?? installErrorMessages.unknown!,
+        });
         context.logger.warn(
             { err: error, packageName: packageSpecifier.packageName },
             "Install --json registry install failed.",
         );
 
-        if (requestedSkillNames.length === 0) {
-            errors.push({
-                code: errorCode,
-                message,
-            });
-            return buildReport(skills, errors, 0);
-        }
-
-        for (const skillName of requestedSkillNames) {
-            skills.push({
-                skillId: skillName,
-                kind: "registry",
-                packageName: packageSpecifier.packageName,
-                previousVersion: null,
-                version: packageSpecifier.hasExplicitPackageVersion
-                    ? packageSpecifier.packageVersion
-                    : null,
-                status: "failed",
-                targets: [],
-                error: { code: errorCode, message },
-            });
-        }
-
-        return buildReport(skills, errors, requestedSkillNames.length);
+        return 0;
     }
 }
 
@@ -447,29 +484,6 @@ async function buildRegistrySkillResult(
     };
 }
 
-async function capturePreInstallHostState(
-    requestedSkillNames: readonly string[],
-    availableHosts: Awaited<ReturnType<typeof resolveAvailableManagedSkillHosts>>,
-): Promise<Map<string, PreviousState>> {
-    const result = new Map<string, PreviousState>();
-
-    for (const skillName of requestedSkillNames) {
-        const installations = resolveManagedSkillHostInstallations(availableHosts, skillName);
-        const states = await Promise.all(
-            installations.map(installation =>
-                resolvePreviousState(installation.installedSkillDirectoryPath),
-            ),
-        );
-        const previousState
-            = states.find(state => state === "unmanaged") ?? states.find(state =>
-                state === "managed") ?? "absent";
-
-        result.set(skillName, previousState);
-    }
-
-    return result;
-}
-
 async function resolvePreviousState(installedDirectoryPath: string): Promise<PreviousState> {
     if (!(await directoryExists(installedDirectoryPath))) {
         return "absent";
@@ -510,9 +524,6 @@ function mapInstallErrorCode(error: unknown): string {
             return "name_conflict";
         case "errors.skills.storageConflict":
             return "storage_conflict";
-        case "errors.skills.install.confirmationRequired":
-        case "errors.skills.install.nonInteractiveSelection":
-            return "confirmation_required";
         case "errors.skills.install.invalidPackageSpecifier":
             return "invalid_package_specifier";
         default:
@@ -556,6 +567,13 @@ function recordInstallTelemetry(
 ): void {
     const hasBundled = report.skills.some(skill => skill.kind === "bundled");
     const hasRegistry = report.skills.some(skill => skill.kind === "registry");
+    const registryPackageNames = [
+        ...new Set(
+            report.skills
+                .filter(skill => skill.kind === "registry" && skill.packageName !== null)
+                .map(skill => skill.packageName as string),
+        ),
+    ];
 
     context.telemetry?.recordProperties({
         format: "json",
@@ -565,6 +583,10 @@ function recordInstallTelemetry(
         failed_count_bucket: bucketTelemetryCount(report.summary.failed),
         has_bundled_skill: hasBundled,
         has_registry_skill: hasRegistry,
+        ...(hasBundled || hasRegistry
+            ? { package_kind: resolveInstallPackageKindLabel(hasBundled, hasRegistry) }
+            : {}),
+        ...createPackageNamesTelemetryProperties(registryPackageNames),
     });
 }
 

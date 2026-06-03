@@ -239,11 +239,9 @@ export async function applyRegistrySkills(context: CliExecutionContext): Promise
     for (const record of records) {
         await installRegistrySkills(
             {
-                all: false,
                 packageName: record.packageName,
                 packageVersion: record.version,
                 skillNames: [record.skillName],
-                yes: true,
             },
             context,
         );
@@ -481,11 +479,9 @@ async function applySingleSyncRecord(
     try {
         const summaries = await installRegistrySkills(
             {
-                all: false,
                 packageName: record.packageName,
                 packageVersion: record.version,
                 skillNames: [record.skillName],
-                yes: true,
                 recordTelemetry: false,
                 writeOutput: false,
             },
@@ -574,6 +570,7 @@ function mapApplyInstallErrorCode(error: unknown): string {
                 return "not_authenticated";
             case "errors.skills.nameConflict":
             case "errors.skills.storageConflict":
+            case "errors.skills.install.confirmationRequired":
                 return "publication_failed";
             default:
                 return "unknown";

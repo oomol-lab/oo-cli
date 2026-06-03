@@ -457,6 +457,67 @@ describe("skills sync apply --json", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("apply surfaces a cross-package skill conflict as a failed record", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "demo",
+                packageName: "@bob/other",
+                version: "0.1.0",
+            });
+
+            const result = await sandbox.run(
+                ["skills", "sync", "apply", "--json"],
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async (input, init) => {
+                        const req = toRequest(input, init);
+
+                        if (req.method === "GET" && req.url.includes("/v1/skills") && !req.url.includes("package-info")) {
+                            return new Response(JSON.stringify([
+                                {
+                                    packageName: "@alice/demo",
+                                    skillName: "demo",
+                                    version: "0.2.0",
+                                },
+                            ]));
+                        }
+                        if (req.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "@alice/demo",
+                                version: "0.2.0",
+                                skills: [
+                                    { description: "Demo", name: "demo", title: "Demo" },
+                                ],
+                            }));
+                        }
+                        throw new Error(`Unexpected request: ${req.method} ${req.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            // Per-record failure must stay in skills[], never a duplicate top-level error.
+            expect(payload.errors).toEqual([]);
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills).toHaveLength(1);
+            expect(skills[0]).toMatchObject({
+                skillId: "demo",
+                status: "failed",
+            });
+            expect((skills[0]!.error as Record<string, unknown>).code).toBe("publication_failed");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
 
 async function seedRegistrySkill(options: {

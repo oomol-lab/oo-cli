@@ -102,7 +102,7 @@ describe("skills share command", () => {
                 "Windows PowerShell",
             );
             expect(result.stdout).toContain(
-                "oo skills install @alice/demo-skill --skill demo-skill -y",
+                "oo skills install @alice/demo-skill",
             );
             expect(result.stdout).toEndWith("```\n");
             expect(requests.map(request => request.url)).toEqual([
@@ -237,7 +237,7 @@ describe("skills share command", () => {
                 "Windows PowerShell",
             );
             expect(result.stdout).toContain(
-                "oo skills install @alice/demo-package -y",
+                "oo skills install @alice/demo-package",
             );
             expect(result.stdout).toEndWith("```\n");
             expect(requests.map(request => request.url)).toEqual([
@@ -336,7 +336,7 @@ describe("skills share command", () => {
             expect(result.stderr).toBe("");
             expect(result.stdout).not.toContain("[y/N]");
             expect(result.stdout).toContain(
-                "oo skills install @alice/registry-skill --skill registry-skill -y",
+                "oo skills install @alice/registry-skill",
             );
         }
         finally {
@@ -385,7 +385,7 @@ describe("skills share command", () => {
                 "The skill is already published and public:",
             );
             expect(result.stdout).toContain(
-                "oo skills install @alice/legacy-public-skill --skill legacy-public-skill -y",
+                "oo skills install @alice/legacy-public-skill",
             );
             expect(requests.map(request => `${request.method} ${request.url}`)).toEqual([
                 "GET https://registry.oomol.com/-/oomol/package-info/%40alice%2Flegacy-public-skill/latest?lang=en",
@@ -454,7 +454,7 @@ describe("skills share command", () => {
                 "Please help me install this OO package.",
             );
             expect(result.stdout).toContain(
-                "oo skills install fallback-registry-skill -y",
+                "oo skills install fallback-registry-skill",
             );
             expect(result.stdout).not.toContain(
                 "--skill fallback-registry-skill",
@@ -547,7 +547,7 @@ describe("skills share command", () => {
                 "Install package specifier: @alice/private-skill#share-1",
             );
             expect(result.stdout).toContain(
-                "oo skills install @alice/private-skill#share-1 --skill private-skill -y",
+                "oo skills install @alice/private-skill#share-1",
             );
             expect(result.stdout).toContain(
                 skillInstallGuideUrl,
@@ -634,7 +634,7 @@ describe("skills share command", () => {
                 "Please help me install this OO package.",
             );
             expect(result.stdout).toContain(
-                "oo skills install @alice/private-package#share-package-1 -y",
+                "oo skills install @alice/private-package#share-package-1",
             );
             expect(result.stdout).not.toContain("--skill private-package");
             expect(result.stdout).not.toContain("Skill: private-package");
@@ -695,7 +695,7 @@ describe("skills share command", () => {
                 "Share prompt for public package fallback-skill:",
             );
             expect(result.stdout).toContain(
-                "oo skills install fallback-skill -y",
+                "oo skills install fallback-skill",
             );
             expect(result.stdout).not.toContain(
                 "--skill fallback-skill",

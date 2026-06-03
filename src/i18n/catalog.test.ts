@@ -48,6 +48,17 @@ describe("message catalog", () => {
 
     test("does not keep removed duplicate keys", () => {
         const removedKeys = [
+            "options.skill",
+            "options.all",
+            "errors.skills.install.nonInteractiveSelection",
+            "skills.install.selection.prompt",
+            "skills.install.status.conflict",
+            "skills.install.progress.installing.start",
+            "skills.install.progress.installing.complete",
+            "skills.install.progress.installing.failed",
+            "skills.install.progress.removing.start",
+            "skills.install.progress.removing.complete",
+            "skills.install.progress.removing.failed",
             "auth.login.success",
             "auth.status.loggedIn",
             "auth.status.missing",
