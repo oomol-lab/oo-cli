@@ -951,14 +951,21 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `publication_failed` / `sync_download_failed` / `sync_invalid_response` /
   `unknown`。
 
-### `oo skills update [skills...]`
+### `oo skills update [packageName...]`
 
 更新已安装且由 oo 管理的已发布 skill。
 
-- 参数：省略时，会检查所有已安装且由 oo 管理的已发布 skill。
-- 参数：提供一个或多个 skill 名称时，只会检查并更新这些指定 skill。
+- 参数：`[packageName...]` 接受零个或多个包名。**破坏性变更**：早期版本中这些
+  位置参数是 skill id，现在改为包名。
+- 参数：省略时，会更新所有已安装且由 oo 管理的 registry skill。
+- 参数：提供一个或多个包名时，会更新每个指定包下已安装的全部 skill；同一个包
+  的所有已安装 skill 会被一起更新。
+- 未安装的包：若某个包名下没有任何已安装且由 oo 管理的 skill，则以
+  `package_not_installed` 失败。文本模式下命令会报错中止；`--json` 模式下按 entry
+  上报该失败并以 `1` 退出。
 - 内置 skill：bundled `oo`、`oo-find-skills`、`oo-create-skill`、
-  `oo-publish-skill` 等内置 skill 不在此命令处理范围内。请使用
+  `oo-publish-skill` 等内置 skill 不在此命令处理范围内。将内置名作为包名参数传入
+  会以 `bundled_unsupported` 失败。请使用
   `oo skills add` 刷新，或让成功的 `oo install` / `oo update` 自动刷新它们。
 - 所有权规则：只有当 skill 的 `.oo-metadata.json` 能识别 registry 所有权和包身份
   时，update 才会认为它由 oo 管理；bundled 和 local metadata 会被该命令忽略。
@@ -977,22 +984,25 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
     metadata 漂移等）。
   - `current`：所有 host 无需写入。
 - `error.code` 枚举（update JSON）：`not_authenticated` / `no_supported_hosts`
-  / `invalid_path` / `not_installed` / `not_managed` / `bundled_unsupported`
+  / `invalid_path` / `bundled_unsupported` / `package_not_installed`
   / `package_lookup_failed` / `package_download_failed` /
   `invalid_package_archive` / `publication_failed` / `unknown`。
 
-### `oo skills check-update`
+### `oo skills check-update [packageName...]`
 
 检查由 oo 管理的 registry skill 是否有新版本，或本地内容是否已偏离 canonical。
 **只查询，不下载 package archive，不写入任何 skill 目录**。
 
-- 选项：`--skill <name>` 限定要检查的 skill id，可重复传入。重复值会去重，
-  输出按原始输入顺序。
+- 参数：`[packageName...]` 接受零个或多个包名。**破坏性变更**：已移除的 `--skill`
+  选项（及其 skill id 值）由这些位置包名参数取代。
+- 参数：省略时，会检查所有已安装且由 oo 管理的 registry skill。
+- 参数：提供一个或多个包名时，会检查每个指定包下已安装的全部 skill。重复包名
+  会去重，输出按原始输入顺序。
 - 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出。
   `--show-schema-version`（仅在 JSON 模式下生效）会向 payload 顶层添加
   `schemaVersion`。
-- 范围：只检查 `kind=registry` 的 skill。bundled skill、未安装的 skill 名、
-  或非 registry metadata 的 skill 目录都会作为 `failed` entry 上报，并带
+- 范围：只检查 `kind=registry` 的 skill。内置名，或没有任何已安装且由 oo 管理
+  skill 的包名，会作为 `failed` entry 上报，其 `skillId` 回显所请求的包名，并带
   稳定的 `error.code`。
 - 网络：需要登录 OOMOL 账号，因为命令会请求 registry 的 package-info 接口
   获取最新版本号；**不会**下载 package tarball。
@@ -1048,8 +1058,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
     与 `error.message`（英文模板）。
 - 退出码：即使 entry 含 `failed`，命令仍以 0 退出（失败由 payload 字段表达）。
   参数错误（如 `--format xml`）仍以 2 退出。
-- `error.code` 枚举：`not_installed` / `not_managed` / `invalid_path` /
-  `bundled_unsupported` / `package_lookup_failed` / `unknown`。
+- `error.code` 枚举：`bundled_unsupported` / `package_not_installed` /
+  `package_lookup_failed` / `unknown`。
 
 #### mutation 命令的 JSON 输出
 

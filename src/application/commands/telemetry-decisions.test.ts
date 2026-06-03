@@ -348,14 +348,17 @@ const commandTelemetryDecisions = {
     "skills.check-update": {
         kind: "properties",
         properties: [
-            "has_skill_filter",
-            "skill_count_bucket",
+            "has_package_filter",
+            "package_count_bucket",
             "checked_count_bucket",
             "update_available_count_bucket",
             "repair_required_count_bucket",
             "failed_count_bucket",
+            "package_names_count_bucket",
+            "package_names_sample",
+            "package_names_truncated",
         ],
-        reason: "Records bucketed counts only; never records skill names, package names, versions, or paths.",
+        reason: "Records bucketed counts and bounded package-name samples; never records skill names, versions, or paths.",
     },
     "skills.uninstall": {
         kind: "properties",

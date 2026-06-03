@@ -103,7 +103,7 @@ describe("skills update --json", () => {
             });
 
             const result = await sandbox.run(
-                ["skills", "update", "demo", "--json"],
+                ["skills", "update", "@alice/demo", "--json"],
                 {
                     version: TEST_CLI_VERSION,
                     fetcher: async (input, init) => {
@@ -136,7 +136,120 @@ describe("skills update --json", () => {
         }
     });
 
-    test("not installed returns failed with not_installed code", async () => {
+    test("a package updates all of its installed skills together", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "one",
+                packageName: "@alice/multi",
+                version: "0.2.0",
+            });
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "two",
+                packageName: "@alice/multi",
+                version: "0.2.0",
+            });
+
+            const result = await sandbox.run(
+                ["skills", "update", "@alice/multi", "--json"],
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async (input, init) => {
+                        const req = toRequest(input, init);
+
+                        if (req.url.includes("/package-info/")) {
+                            return new Response(JSON.stringify({
+                                packageName: "@alice/multi",
+                                version: "0.2.0",
+                                skills: [
+                                    { description: "demo", name: "one", title: "one" },
+                                    { description: "demo", name: "two", title: "two" },
+                                ],
+                            }));
+                        }
+                        throw new Error(`Unexpected request: ${req.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            // Both skills of the requested package are resolved and reported.
+            expect(skills.map(skill => skill.skillId).sort()).toEqual(["one", "two"]);
+            expect(skills.every(skill => skill.status === "current")).toBe(true);
+            expect(skills.every(skill => skill.packageName === "@alice/multi")).toBe(true);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("processes multiple package args in input order, de-duplicating and interleaving a bundled failure", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "bar",
+                packageName: "@alice/bar",
+                version: "1.0.0",
+            });
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "foo",
+                packageName: "@alice/foo",
+                version: "0.2.0",
+            });
+
+            const result = await sandbox.run(
+                ["skills", "update", "@alice/bar", "@alice/foo", "@alice/bar", "oo", "--json"],
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async (input, init) => {
+                        const req = toRequest(input, init);
+
+                        if (req.url.includes("package-info/%40alice%2Fbar")
+                            || req.url.includes("package-info/@alice/bar")) {
+                            return packageInfoResponse("@alice/bar", "1.0.0", "bar");
+                        }
+                        if (req.url.includes("package-info/%40alice%2Ffoo")
+                            || req.url.includes("package-info/@alice/foo")) {
+                            return packageInfoResponse("@alice/foo", "0.2.0", "foo");
+                        }
+                        throw new Error(`Unexpected request: ${req.url}`);
+                    },
+                },
+            );
+
+            // The bundled "oo" produces a failed entry, so the command exits 1.
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            // Input order preserved, the duplicate @alice/bar collapsed, bundled
+            // "oo" interleaved as a failed entry in its requested position.
+            expect(skills.map(skill => skill.skillId)).toEqual(["bar", "foo", "oo"]);
+            expect(skills[0]).toMatchObject({ skillId: "bar", status: "current" });
+            expect(skills[1]).toMatchObject({ skillId: "foo", status: "current" });
+            expect(skills[2]).toMatchObject({
+                kind: "bundled",
+                status: "failed",
+                error: { code: "bundled_unsupported" },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("unknown package returns failed with package_not_installed code", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -146,7 +259,7 @@ describe("skills update --json", () => {
             await mkdir(homeDirectory, { recursive: true });
 
             const result = await sandbox.run(
-                ["skills", "update", "ghost", "--json"],
+                ["skills", "update", "@ghost/missing", "--json"],
                 { version: TEST_CLI_VERSION },
             );
 
@@ -155,9 +268,10 @@ describe("skills update --json", () => {
             const skills = payload.skills as Array<Record<string, unknown>>;
 
             expect(skills[0]).toMatchObject({
-                skillId: "ghost",
+                skillId: "@ghost/missing",
+                packageName: "@ghost/missing",
                 status: "failed",
-                error: { code: "not_installed" },
+                error: { code: "package_not_installed" },
             });
         }
         finally {
@@ -207,7 +321,7 @@ describe("skills update --json", () => {
             });
 
             const result = await sandbox.run(
-                ["skills", "update", "demo", "--json"],
+                ["skills", "update", "@alice/demo", "--json"],
                 {
                     version: TEST_CLI_VERSION,
                     fetcher: async () => new Response("err", { status: 500 }),
@@ -270,7 +384,7 @@ describe("skills update --json", () => {
             });
 
             const result = await sandbox.run(
-                ["skills", "update", "demo", "--json"],
+                ["skills", "update", "@alice/demo", "--json"],
                 {
                     version: TEST_CLI_VERSION,
                     fetcher: async (input, init) => {
@@ -315,7 +429,7 @@ describe("skills update --json", () => {
             });
 
             const result = await sandbox.run(
-                ["skills", "update", "demo", "--json"],
+                ["skills", "update", "@alice/demo", "--json"],
                 {
                     version: TEST_CLI_VERSION,
                     fetcher: async () => {
