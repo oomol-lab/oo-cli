@@ -155,6 +155,9 @@ export const enMessages = {
     "commands.skills.init.description":
         "Initialize a local skill in the selected agent's skill directory.",
     "commands.skills.init.summary": "Initialize a local skill",
+    "commands.skills.adopt.description":
+        "Turn an existing local workflow directory into an oo-managed local skill.",
+    "commands.skills.adopt.summary": "Adopt an existing skill workflow",
     "commands.skills.validate.description":
         "Validate a local skill directory against the generic skill contract.",
     "commands.skills.validate.summary": "Validate a skill directory",
@@ -399,6 +402,20 @@ export const enMessages = {
         "Missing required --description. Provide a concise trigger description for the generated skill.",
     "errors.skills.init.invalidName":
         "Invalid skill name: {value}. Use a name that can be normalized to lowercase hyphen-case.",
+    "errors.skills.init.nameConflict":
+        "Skill name {name} is already used at {path}. To turn that directory into an oo-managed local skill, use oo skills adopt.",
+    "errors.skills.adopt.foreignMetadata":
+        "Cannot adopt skill at {path} because its .oo-metadata.json belongs to another oo-managed skill or is invalid.",
+    "errors.skills.adopt.invalidAgent":
+        "Unsupported skill agent: {value}. Use {agents}.",
+    "errors.skills.adopt.invalidName":
+        "Invalid skill name: {value}. Use --name with a value that can be normalized to lowercase hyphen-case.",
+    "errors.skills.adopt.invalidSkillMarkdown":
+        "Cannot adopt the existing SKILL.md because its frontmatter is invalid YAML.",
+    "errors.skills.adopt.pathMissing":
+        "Cannot adopt missing directory {path}.",
+    "errors.skills.adopt.pathNotDirectory":
+        "Cannot adopt {path} because it is not a directory.",
     "errors.skills.check.agentRequired":
         "Missing required --agent. Choose {agents}.",
     "errors.skills.check.invalidAgent":
@@ -737,6 +754,8 @@ export const enMessages = {
         "Select the skill sync source (registry; default registry)",
     "options.skillSyncIgnore":
         "Ignore registry skills by package or skill name pattern",
+    "options.skills.adopt.name":
+        "Set the adopted skill id; defaults to existing frontmatter name or directory name",
     "options.icon": "Set the generated skill icon reference",
     "options.title": "Set the generated skill display title",
     "options.visibility":
@@ -838,6 +857,7 @@ export const enMessages = {
     "labels.status": "Status",
     "labels.version": "Version",
     "skills.init.success": "Initialized skill {name} at {path}.",
+    "skills.adopt.success": "Adopted skill {name} at {path}.",
     "skills.publish.success":
         "Published skill {name} as {visibility} package {packageName}@{version}. View it at {hubUrl}.",
     "skills.publish.confirm.invalid":
@@ -1153,6 +1173,9 @@ export const zhMessages = {
     "commands.skills.init.description":
         "在指定 Agent 的 skill 目录中初始化本地 skill。",
     "commands.skills.init.summary": "初始化本地 skill",
+    "commands.skills.adopt.description":
+        "将已有本地工作流目录转换为由 oo 管理的本地 skill。",
+    "commands.skills.adopt.summary": "接管已有 skill 工作流",
     "commands.skills.validate.description":
         "按照通用 skill 契约校验本地 skill 目录。",
     "commands.skills.validate.summary": "校验 skill 目录",
@@ -1382,6 +1405,20 @@ export const zhMessages = {
         "缺少必填的 --description。请为生成的 skill 提供简洁的触发描述。",
     "errors.skills.init.invalidName":
         "无效的 skill 名称：{value}。请使用可规范化为小写短横线格式的名称。",
+    "errors.skills.init.nameConflict":
+        "skill 名称 {name} 已被 {path} 使用。如需将该目录转换为由 oo 管理的本地 skill，请使用 oo skills adopt。",
+    "errors.skills.adopt.foreignMetadata":
+        "无法接管 {path} 中的 skill，因为其 .oo-metadata.json 属于其他由 oo 管理的 skill 或无效。",
+    "errors.skills.adopt.invalidAgent":
+        "不支持的 skill Agent：{value}。请使用 {agents}。",
+    "errors.skills.adopt.invalidName":
+        "无效 skill 名称：{value}。请使用 --name 并提供可规范化为小写短横线格式的值。",
+    "errors.skills.adopt.invalidSkillMarkdown":
+        "无法接管已有 SKILL.md，因为其 frontmatter 不是有效 YAML。",
+    "errors.skills.adopt.pathMissing":
+        "无法接管不存在的目录 {path}。",
+    "errors.skills.adopt.pathNotDirectory":
+        "无法接管 {path}，因为它不是目录。",
     "errors.skills.check.agentRequired":
         "缺少必填的 --agent。请使用 {agents}。",
     "errors.skills.check.invalidAgent":
@@ -1713,6 +1750,8 @@ export const zhMessages = {
         "选择 skill 同步来源（registry；默认 registry）",
     "options.skillSyncIgnore":
         "按 package 或 skill 名称模式忽略 registry skill",
+    "options.skills.adopt.name":
+        "设置接管后的 skill id；默认使用已有 frontmatter name 或目录名",
     "options.icon": "设置生成的 skill icon 引用",
     "options.title": "设置生成的 skill 显示标题",
     "options.visibility":
@@ -1813,6 +1852,7 @@ export const zhMessages = {
     "labels.status": "状态",
     "labels.version": "版本",
     "skills.init.success": "已在 {path} 初始化 skill {name}。",
+    "skills.adopt.success": "已在 {path} 接管 skill {name}。",
     "skills.publish.success":
         "已将 skill {name} 以{visibility}发布为 {packageName}@{version}。可在 {hubUrl} 查看。",
     "skills.publish.confirm.invalid":

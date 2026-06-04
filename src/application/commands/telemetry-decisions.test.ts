@@ -246,6 +246,10 @@ const commandTelemetryDecisions = {
         kind: "generic",
         reason: "Command group; child commands record skill dimensions where safe.",
     },
+    "skills.adopt": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; local skill paths and content are not recorded.",
+    },
     "skills.init": {
         kind: "generic",
         reason: "Generic command telemetry is enough; local skill content is not recorded.",

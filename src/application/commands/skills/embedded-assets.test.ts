@@ -614,15 +614,18 @@ describe("embedded skill assets", () => {
                 await readBundledSkillFileContent(skillFile),
             );
 
-            expect(content).toContain("Author, generate, or scaffold a new local AI agent skill");
-            expect(content).toContain("create a skill, write a skill, or make an agent skill");
+            expect(content).toContain("Author, generate, adopt, or document a local AI agent skill");
+            expect(content).toContain("create a skill, write a skill, adopt an existing workflow");
+            expect(content).toContain("existing local workflow directory");
             expect(content).toContain("connector action");
-            expect(content).toContain("capability discovery is needed first");
+            expect(content).toContain("Use the local workflow path");
             expect(content).toContain("oo skills preflight --agent");
+            expect(content).toContain("oo skills adopt \"<path>\" --agent");
             expect(content).toContain("oo skills init <name> --agent");
             expect(content).toContain("find or install an");
             expect(content).toContain("existing skill");
             expect(content).toContain("distribute a finished skill");
+            expect(content).not.toContain("Author, generate, or scaffold a new local AI agent skill");
             expect(content).not.toContain("Author, generate, scaffold, or update");
             expect(content).not.toContain("create or update a local skill");
             expect(content).not.toContain("default private");

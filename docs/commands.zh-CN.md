@@ -692,20 +692,54 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`--description <text>` 为必填项，并写入生成的 `SKILL.md`
   frontmatter description。
 - 生成的 `SKILL.md` frontmatter 包含 `compatibility: "Requires the oo CLI."`。
-- 生成的 `SKILL.md` 正文包含受管理的 oo 执行说明，以及用于描述适用场景、输入、
-  执行、结果处理和失败处理的可编辑占位章节。
+- 生成的 `SKILL.md` frontmatter 包含嵌套的 `metadata.title` 和
+  `metadata.icon`。未提供 `--title` 时，标题会从 skill id 生成。未提供
+  `--icon` 时，会使用通用本地工作流 icon。
+- 生成的 `SKILL.md` 正文包含受管理的 oo 执行说明，以及用于描述本地工作流适用场景、
+  输入、执行、结果处理和失败处理的可编辑占位章节。
 - 元数据：创建出的 skill 目录会包含 `.oo-metadata.json`，用于标记该 skill 是由
   `oo` 管理的 local skill。
 - 选项：`--icon <icon>` 将非空 icon 引用写入生成的 `SKILL.md` frontmatter
   `metadata.icon`。值可以是 emoji、图片 URL，或 `:collection:icon:` 格式，
   其中 `collection` 和 `icon` 是 <https://icones.js.org/> 上的名称。
 - 选项：`--title <title>` 将 `metadata.title` 写入生成的 `SKILL.md`
-  frontmatter。未提供时不会生成 `metadata.title`。
+  frontmatter。
 - 目标目录：skill 会创建在所选 Agent 的 `<agent-home>/skills/<skill-id>`。
 - 发布方式：命令不会把新的 local skill 复制到其他 Agent。
 - 失败行为：如果所选 Agent home 不存在，或目标目录已经存在，命令会在写入 skill
-  前以非零状态退出。
+  前以非零状态退出，并提示已有工作流目录可以使用 `oo skills adopt`。
 - 输出：文本输出会打印已初始化的 skill id 和目标路径。
+
+### `oo skills adopt <path>`
+
+将已有本地工作流目录转换为由 oo 管理的本地 skill，并且不覆盖工作流实现。
+
+- 参数：`<path>` 必须是已存在的目录。相对路径从当前工作目录解析。
+- Skill id：提供 `--name <name>` 时，该值会规范化为小写 hyphen-case，并用作
+  skill id 和 frontmatter `name`。未提供时，命令优先使用已有 `SKILL.md`
+  frontmatter `name`，否则使用源目录名。
+- 选项：`--agent <agent>` 选择 Agent skill 目录。可选值为 `universal`、
+  `claude`、`hermes`、`codebuddy`、`workbuddy`、`trae`、`trae-cn`、
+  `openclaw`、`qoderwork` 和 `deepseek-tui`。
+- 目标行为：不带 `--agent` 时，命令在 `<path>` 原地接管。带 `--agent` 时，如果
+  `<path>` 已经是所选 Agent 的 `<agent-home>/skills/<skill-id>` 目录，命令原地
+  接管；否则先将已有目录复制到该目标路径，再接管。源目录不会被删除。
+- 内容行为：已有工作流文件会被保留。已有 `SKILL.md` 正文会被保留；命令只 patch
+  skill 契约需要的 frontmatter 字段。如果缺少 `SKILL.md`，命令会创建包含本地工作流
+  占位章节的文件。
+- 描述：`--description <text>` 写入 frontmatter `description`。只有当已有
+  `SKILL.md` 没有非空 frontmatter `description` 时才必填。
+- 展示元数据：`--title <title>` 写入 `metadata.title`，`--icon <icon>` 写入
+  `metadata.icon`。未提供时会保留已有嵌套 metadata；如果存在顶层 `title` 或
+  `icon`，会复制到嵌套 `metadata`；否则使用默认展示元数据。
+- 元数据：接管后的 skill 目录包含 `.oo-metadata.json`，用于标识该 skill 是由
+  oo 管理的 local skill。
+- 安全规则：如果目录的 `.oo-metadata.json` 标识 bundled 或 registry skill，或
+  oo metadata 无效，命令会拒绝接管。带 `--agent` 时，如果不同的目标目录已存在，
+  命令会拒绝覆盖。
+- 校验：写入 skill 契约和 local metadata 后，命令会校验接管后的 skill 目录，并将
+  warning 打印到 stderr。
+- 输出：文本输出会打印已接管的 skill id 和目标路径。
 
 ### `oo skills validate <path>`
 
@@ -717,6 +751,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 校验：嵌套的 `metadata` 可以省略；如果提供，则必须是字典。嵌套的
   `metadata.icon` 和 `metadata.title` 可以省略；如果提供，则必须是非空字符串。
 - 警告：缺少 `metadata.icon` 或 `metadata.title` 会打印 warning，但不会导致校验失败。
+  如果存在顶层 `icon` 或 `title`，但缺少嵌套的 `metadata.icon` 或
+  `metadata.title`，warning 会说明顶层字段不等同于展示元数据。
 - 输出：成功时命令会打印简短成功消息。失败时打印校验错误并以非零状态退出。
 
 ### `oo skills publish <path>`
