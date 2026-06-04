@@ -906,7 +906,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   / `invalid_path` / `invalid_package_specifier` / `package_lookup_failed`
   / `package_download_failed` / `invalid_package_archive`
   / `skill_not_found_in_package` / `name_conflict` / `storage_conflict`
-  / `publication_failed` / `unknown`。
+  / `publication_failed` / `skill_filter_no_match` / `unknown`。
 - `targets[].previousState` 取值为 `absent | managed | unmanaged | unknown`。
   当 `--force` 覆盖一个非受管目录时，target 仍报告为 `installed`，但
   `previousState` 为 `"unmanaged"`。

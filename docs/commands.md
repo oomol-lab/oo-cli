@@ -1067,7 +1067,7 @@ Install bundled or published skills into supported local skill directories.
   `invalid_path` / `invalid_package_specifier` / `package_lookup_failed` /
   `package_download_failed` / `invalid_package_archive` /
   `skill_not_found_in_package` / `name_conflict` / `storage_conflict` /
-  `publication_failed` / `unknown`.
+  `publication_failed` / `skill_filter_no_match` / `unknown`.
 - `targets[].previousState` is one of `absent | managed | unmanaged | unknown`.
   With `--force`, an overwritten unmanaged target is reported as `installed`
   with `previousState: "unmanaged"`.

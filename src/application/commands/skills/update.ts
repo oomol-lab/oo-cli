@@ -84,7 +84,7 @@ const updateErrorMessages: Record<string, string> = {
     package_download_failed: "Failed to download the package archive.",
     invalid_package_archive: "Downloaded package archive is invalid.",
     publication_failed: "Failed to publish the skill to one or more hosts.",
-    skill_filter_no_match: "None of the requested skills are installed for the selected packages.",
+    skill_filter_no_match: "None of the requested skills are installed.",
     unknown: "Unknown error.",
 };
 
@@ -153,8 +153,10 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
         // Record the skill-filter dimension up front so it is present on every
         // path, including the text no-results early return and the no-match
         // throw, which both happen before the detailed telemetry is recorded.
+        // Derive it from the normalized tokens so blank values are not reported
+        // as an active filter.
         context.telemetry?.recordProperties({
-            has_skill_filter: (input.skill?.length ?? 0) > 0,
+            has_skill_filter: normalizeSkillFilterTokens(input.skill) !== undefined,
         });
 
         if (input.format === "json") {

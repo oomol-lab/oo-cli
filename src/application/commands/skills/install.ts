@@ -125,11 +125,14 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         await migrateLegacyCanonicalSkillLayout(context);
 
         const force = input.force === true;
+        // Derive the filter flag from the normalized tokens so blank/whitespace
+        // values (which collapse away) are not reported as an active filter.
+        const skillFilterActive = normalizeSkillFilterTokens(input.skill) !== undefined;
         // Record the skill-filter dimension up front so it is present on every
         // path, including when a no-match check throws before the detailed
         // telemetry is recorded.
         context.telemetry?.recordProperties({
-            has_skill_filter: (input.skill?.length ?? 0) > 0,
+            has_skill_filter: skillFilterActive,
         });
 
         if (input.format === "json") {
@@ -182,7 +185,6 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         recordInstallBaseTelemetry(context, targets, force);
 
         const installedSkillIds: string[] = [];
-        const skillFilterActive = (input.skill?.length ?? 0) > 0;
         const registryFilterMatch = new RegistrySkillFilterMatchTracker();
 
         for (const target of targets) {
@@ -232,10 +234,15 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             );
         }
 
-        // With a `--skill` filter and one or more registry packages, fail only
-        // when no package published any requested skill; per-package misses are
-        // silently skipped.
-        if (skillFilterActive && registryFilterMatch.isGlobalMiss()) {
+        // With a `--skill` filter, fail only when nothing was installed at all:
+        // per-package registry misses are silently skipped, and an explicitly
+        // named bundled skill (which `--skill` never narrows) keeps the command
+        // successful even when no registry package matched.
+        if (
+            skillFilterActive
+            && registryFilterMatch.isGlobalMiss()
+            && installedSkillIds.length === 0
+        ) {
             throw new CliUserError("errors.skills.skillFilterNoMatch", 1, {
                 skills: registryFilterMatch.availableSkillsList(),
             });
@@ -417,7 +424,7 @@ async function runInstallJsonReport(
     }
 
     let requested = 0;
-    const skillFilterActive = (input.skill?.length ?? 0) > 0;
+    const skillFilterActive = normalizeSkillFilterTokens(input.skill) !== undefined;
     const registryFilterMatch = new RegistrySkillFilterMatchTracker();
 
     for (const rawPackageName of packageNames) {
@@ -459,10 +466,15 @@ async function runInstallJsonReport(
         );
     }
 
-    // With a `--skill` filter and one or more registry packages, fail only when
-    // no package published any requested skill; per-package misses are silently
-    // skipped.
-    if (skillFilterActive && registryFilterMatch.isGlobalMiss()) {
+    // With a `--skill` filter, fail only when nothing was installed at all:
+    // per-package registry misses are silently skipped, and an explicitly named
+    // bundled skill (which `--skill` never narrows) keeps the command successful
+    // even when no registry package matched.
+    if (
+        skillFilterActive
+        && registryFilterMatch.isGlobalMiss()
+        && !skills.some(skill => skill.status === "installed")
+    ) {
         errors.push({
             code: "skill_filter_no_match",
             message: installErrorMessages.skill_filter_no_match!,

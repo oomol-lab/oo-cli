@@ -141,8 +141,10 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
         const packageNames = dedupePreserveOrder(input.packageNames ?? []);
         // Record the skill-filter dimension before the no-match check can throw,
         // so the telemetry is present even when --skill excludes every entry.
+        // Derive it from the normalized tokens so blank values are not reported
+        // as an active filter.
         context.telemetry?.recordProperties({
-            has_skill_filter: (input.skill?.length ?? 0) > 0,
+            has_skill_filter: normalizeSkillFilterTokens(input.skill) !== undefined,
         });
         // The `--skill` filter narrows the resolved registry entries before any
         // network lookup; unmatched names are ignored, and an error listing the

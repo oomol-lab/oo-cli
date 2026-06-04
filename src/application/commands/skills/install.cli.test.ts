@@ -416,6 +416,49 @@ describe("skills install --json", () => {
         }
     });
 
+    test("an explicitly named bundled target keeps the install successful when --skill misses the registry package", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+
+            await mkdir(homeDirectory, { recursive: true });
+
+            // `oo` is an explicit bundled target (never narrowed by --skill) and
+            // installs; @alice/demo is a registry package whose only skill does
+            // not match "nope". Because the bundled skill installed, the run does
+            // NOT fail with skill_filter_no_match.
+            const result = await sandbox.run(
+                ["skills", "install", "oo", "@alice/demo", "--skill", "nope", "--json"],
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return packageInfoResponse("@alice/demo", "0.1.0", "demo");
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(payload.status).toBe("completed");
+            expect(skills.map(skill => skill.skillId)).toEqual(["oo"]);
+            expect(skills[0]).toMatchObject({ kind: "bundled", status: "installed" });
+            expect(errors).toHaveLength(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("text mode: --skill with no matching bundled skill exits 1 and lists available skills", async () => {
         const sandbox = await createCliSandbox();
 
