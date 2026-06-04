@@ -803,9 +803,12 @@ Initialize one local skill in the selected agent's own skill directory.
   `SKILL.md` frontmatter description.
 - Generated `SKILL.md` frontmatter includes `compatibility: "Requires the oo
   CLI."`.
-- Generated `SKILL.md` body includes the managed oo execution notice and
-  editable placeholder sections for when to use the skill, inputs, execution,
-  result handling, and failure handling.
+- Generated `SKILL.md` frontmatter includes nested `metadata.title` and
+  `metadata.icon`. When `--title` is omitted, the title is generated from the
+  skill id. When `--icon` is omitted, a generic local workflow icon is used.
+- Generated `SKILL.md` body includes editable local workflow placeholder
+  sections for when to use the skill, inputs, execution, result handling, and
+  failure handling.
 - Metadata: the created skill directory includes `.oo-metadata.json`
   identifying the skill as a local skill managed by `oo`.
 - Options: `--icon <icon>` writes a non-empty icon reference to `metadata.icon`
@@ -813,14 +816,56 @@ Initialize one local skill in the selected agent's own skill directory.
   URL, or `:collection:icon:` where `collection` and `icon` are names from
   <https://icones.js.org/>.
 - Options: `--title <title>` writes `metadata.title` to the generated
-  `SKILL.md` frontmatter. When omitted, `metadata.title` is not generated.
+  `SKILL.md` frontmatter.
 - Target directory: the skill is created at the selected agent's
   `<agent-home>/skills/<skill-id>`.
 - Publication mode: the command does not copy the new local skill to other
   agents.
 - Failure behavior: if the selected agent home does not exist, or if the target
-  directory already exists, the command exits non-zero before writing the skill.
+  directory already exists, the command exits non-zero before writing the skill
+  and suggests `oo skills adopt` for existing workflow directories.
 - Output: text output prints the initialized skill id and target path.
+
+### `oo skills adopt <path>`
+
+Turn an existing local workflow directory into an oo-managed local skill without
+overwriting the workflow implementation.
+
+- Arguments: `<path>` must be an existing directory. Relative paths resolve from
+  the current working directory.
+- Skill id: when `--name <name>` is provided, it is normalized to lowercase
+  hyphen-case and used as the skill id and frontmatter `name`. Otherwise the
+  command uses an existing `SKILL.md` frontmatter `name` when present, falling
+  back to the source directory name.
+- Options: `--agent <agent>` selects an agent skill directory. Accepted values
+  are `universal`, `claude`, `hermes`, `codebuddy`, `workbuddy`, `trae`,
+  `trae-cn`, `openclaw`, `qoderwork`, and `deepseek-tui`.
+- Target behavior: without `--agent`, the command adopts `<path>` in place.
+  With `--agent`, if `<path>` is already the selected agent's
+  `<agent-home>/skills/<skill-id>` directory, the command adopts it in place.
+  Otherwise it copies the existing directory to that target path before
+  adopting it. The source directory is not removed.
+- Content behavior: existing workflow files are preserved. Existing `SKILL.md`
+  body content is preserved; the command only patches frontmatter fields needed
+  for the skill contract. If `SKILL.md` is missing, the command creates one with
+  local workflow placeholder sections.
+- Description: `--description <text>` writes frontmatter `description`. It is
+  required only when the existing `SKILL.md` does not already contain a
+  non-empty frontmatter `description`.
+- Presentation metadata: `--title <title>` writes `metadata.title`, and
+  `--icon <icon>` writes `metadata.icon`. When omitted, existing nested
+  metadata values are preserved; top-level `title` or `icon` are copied into
+  nested `metadata` when present; otherwise default display metadata is used.
+- Metadata: the adopted skill directory includes `.oo-metadata.json`
+  identifying the skill as a local skill managed by `oo`.
+- Safety: the command refuses to adopt a directory whose `.oo-metadata.json`
+  identifies a bundled or registry skill, or whose oo metadata is invalid.
+  With `--agent`, the command refuses to copy over an existing different target
+  directory.
+- Validation: after writing the skill contract and local metadata, the command
+  validates the adopted skill directory and prints validation warnings to
+  stderr.
+- Output: text output prints the adopted skill id and target path.
 
 ### `oo skills validate <path>`
 
@@ -833,7 +878,9 @@ Validate a local skill directory against the generic skill contract.
   dictionary. Nested `metadata.icon` and `metadata.title` are optional, but when
   present they must be non-empty strings.
 - Warnings: missing `metadata.icon` or `metadata.title` prints a warning, but
-  does not make validation fail.
+  does not make validation fail. If top-level `icon` or `title` exists while
+  nested `metadata.icon` or `metadata.title` is missing, the warning explains
+  that top-level fields do not satisfy display metadata.
 - Output: on success, the command prints a concise success message. On failure,
   it prints the validation error and exits non-zero.
 

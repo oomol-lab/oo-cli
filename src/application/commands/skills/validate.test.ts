@@ -93,6 +93,37 @@ describe("skills validate command", () => {
         }
     });
 
+    test("explains that top-level icon and title do not satisfy display metadata", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
+        const skillDirectoryPath = join(rootDirectory, "top-level-display-skill");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(skillDirectoryPath, "SKILL.md"),
+                [
+                    "---",
+                    "name: top-level-display-skill",
+                    "description: Use this skill for a workflow.",
+                    "icon: ':lucide:wand:'",
+                    "title: Top Level Display Skill",
+                    "---",
+                    "",
+                ].join("\n"),
+            );
+
+            await expect(validateSkillDirectory(skillDirectoryPath)).resolves.toEqual({
+                warnings: [
+                    "Warning: Frontmatter metadata.icon is missing. Top-level icon is not used as skill display metadata; move it to metadata.icon.",
+                    "Warning: Frontmatter metadata.title is missing. Top-level title is not used as skill display metadata; move it to metadata.title.",
+                ],
+            });
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
     test("warns about missing metadata icon only", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-skills-validate");
         const skillDirectoryPath = join(rootDirectory, "missing-icon-skill");

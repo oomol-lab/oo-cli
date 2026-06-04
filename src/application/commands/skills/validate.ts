@@ -32,6 +32,8 @@ interface ParsedFrontmatter {
     metadataIcon: unknown;
     metadataTitle: unknown;
     name: unknown;
+    topLevelIcon: unknown;
+    topLevelTitle: unknown;
 }
 
 export const skillsValidateCommand: CliCommandDefinition<SkillsValidateInput> = {
@@ -132,6 +134,8 @@ function parseSkillFrontmatter(content: string): ParsedFrontmatter | string {
         metadataIcon: metadata?.icon,
         metadataTitle: metadata?.title,
         name: parsedMatter.data.name,
+        topLevelIcon: parsedMatter.data.icon,
+        topLevelTitle: parsedMatter.data.title,
     };
 }
 
@@ -164,13 +168,17 @@ function readSkillFrontmatterWarnings(
 
     if (!isNonEmptyString(frontmatter.metadataIcon)) {
         (warnings ??= []).push(
-            "Warning: Frontmatter metadata.icon is missing.",
+            isNonEmptyString(frontmatter.topLevelIcon)
+                ? "Warning: Frontmatter metadata.icon is missing. Top-level icon is not used as skill display metadata; move it to metadata.icon."
+                : "Warning: Frontmatter metadata.icon is missing.",
         );
     }
 
     if (!isNonEmptyString(frontmatter.metadataTitle)) {
         (warnings ??= []).push(
-            "Warning: Frontmatter metadata.title is missing.",
+            isNonEmptyString(frontmatter.topLevelTitle)
+                ? "Warning: Frontmatter metadata.title is missing. Top-level title is not used as skill display metadata; move it to metadata.title."
+                : "Warning: Frontmatter metadata.title is missing.",
         );
     }
 

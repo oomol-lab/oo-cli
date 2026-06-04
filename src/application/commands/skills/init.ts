@@ -21,27 +21,14 @@ import {
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
-import { installedRegistrySkillCompatibility } from "./registry-skill-markdown.ts";
-import { stringifySkillMarkdownMatter } from "./skill-frontmatter.ts";
-import { renderSkillTitle } from "./skill-title.ts";
+import { renderInitializedSkillMarkdown } from "./skill-authoring.ts";
+import { normalizeSkillName } from "./skill-id.ts";
 
 interface SkillsInitInput {
     agent?: string;
     description?: string;
     icon?: string;
     name: string;
-    title?: string;
-}
-
-interface OOSkillFrontmatter {
-    compatibility: string;
-    description: string;
-    metadata?: OOSkillFrontmatterMetadata;
-    name: string;
-}
-
-interface OOSkillFrontmatterMetadata {
-    icon?: string;
     title?: string;
 }
 
@@ -152,7 +139,12 @@ async function initializeLocalSkill(
         createdDirectory = true;
         await Bun.write(
             join(skillDirectoryPath, "SKILL.md"),
-            renderInitializedSkillMarkdown(skillName, description, icon, title),
+            renderInitializedSkillMarkdown({
+                description,
+                icon,
+                name: skillName,
+                title,
+            }),
         );
         await writeLocalSkillMetadata(skillDirectoryPath);
 
@@ -209,7 +201,7 @@ function createLocalSkillInitTargetError(
     skillName: string,
     skillDirectoryPath: string,
 ): CliUserError {
-    return new CliUserError("errors.skills.nameConflict", 1, {
+    return new CliUserError("errors.skills.init.nameConflict", 1, {
         name: skillName,
         path: skillDirectoryPath,
     });
@@ -223,96 +215,4 @@ function isPathWithinAgentSkillsDirectory(
         resolveManagedSkillsDirectoryPath(homeDirectory),
         skillDirectoryPath,
     );
-}
-
-function renderInitializedSkillMarkdown(
-    skillName: string,
-    description: string,
-    icon: string | undefined,
-    title: string | undefined,
-): string {
-    const frontmatter: OOSkillFrontmatter = {
-        name: skillName,
-        description,
-        compatibility: installedRegistrySkillCompatibility,
-    };
-
-    if (icon !== undefined || title !== undefined) {
-        frontmatter.metadata = {};
-
-        if (icon !== undefined) {
-            frontmatter.metadata.icon = icon;
-        }
-
-        if (title !== undefined) {
-            frontmatter.metadata.title = title;
-        }
-    }
-
-    const body = [
-        "",
-        `# ${title ?? renderSkillTitle(skillName)}`,
-        "",
-        "## When to Use",
-        "",
-        "TODO: Describe the user requests and outcomes that should trigger this skill.",
-        "",
-        "## Inputs",
-        "",
-        "- TODO: List required user inputs.",
-        "- TODO: List optional inputs or safe defaults.",
-        "",
-        "## Execution",
-        "",
-        "TODO: Describe the exact oo connector command path, for example an authenticated connector action.",
-        "",
-        "## Result Handling",
-        "",
-        "TODO: Describe useful output fields, artifacts, previews, or saved files.",
-        "",
-        "## Failure Handling",
-        "",
-        "TODO: Describe auth, billing, missing input, unsupported shape, timeout, or action failure blockers.",
-        "",
-    ].join("\n");
-
-    return stringifySkillMarkdownMatter(body, frontmatter);
-}
-
-function normalizeSkillName(value: string): string {
-    const normalizedCharacters: string[] = [];
-    let previousWasHyphen = false;
-
-    for (const char of value.trim().toLowerCase()) {
-        if (isLowercaseAsciiLetter(char) || isAsciiDigit(char)) {
-            normalizedCharacters.push(char);
-            previousWasHyphen = false;
-            continue;
-        }
-
-        if (!previousWasHyphen && normalizedCharacters.length > 0) {
-            normalizedCharacters.push("-");
-            previousWasHyphen = true;
-        }
-    }
-
-    if (normalizedCharacters.at(-1) === "-") {
-        normalizedCharacters.pop();
-    }
-
-    let result = normalizedCharacters.join("").slice(0, 64);
-
-    while (result.endsWith("-")) {
-        result = result.slice(0, -1);
-    }
-
-    return result;
-}
-
-function isLowercaseAsciiLetter(char: string): boolean {
-    return char >= "a" && char <= "z";
-}
-
-function isAsciiDigit(char: string): boolean {
-    return char >= "0" && char <= "9";
 }

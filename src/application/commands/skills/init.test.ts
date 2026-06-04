@@ -69,20 +69,20 @@ describe("skills init command", () => {
                 "",
                 "## Inputs",
                 "",
-                "- TODO: List required user inputs.",
-                "- TODO: List optional inputs or safe defaults.",
+                "- TODO: List required files, config values, credentials, or user decisions.",
+                "- TODO: List optional inputs and defaults.",
                 "",
                 "## Execution",
                 "",
-                "TODO: Describe the exact oo connector command path, for example an authenticated connector action.",
+                "TODO: Describe the local scripts, commands, working directory, environment variables, and generated files.",
                 "",
                 "## Result Handling",
                 "",
-                "TODO: Describe useful output fields, artifacts, previews, or saved files.",
+                "TODO: Describe output files, validation checks, previews, and what to report to the user.",
                 "",
                 "## Failure Handling",
                 "",
-                "TODO: Describe auth, billing, missing input, unsupported shape, timeout, or action failure blockers.",
+                "TODO: Describe missing files, invalid config, dependency, permission, timeout, and validation failures.",
                 "",
             ].join("\n"));
         }
@@ -91,7 +91,7 @@ describe("skills init command", () => {
         }
     });
 
-    test("omits metadata title when no title is provided", async () => {
+    test("uses default display metadata when no title or icon is provided", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
         const skillDirectoryPath = resolveManagedSkillDirectoryPath(
@@ -120,6 +120,9 @@ describe("skills init command", () => {
                 "name: minimal-skill",
                 "description: Use a known package workflow.",
                 `compatibility: ${installedRegistrySkillCompatibility}`,
+                "metadata:",
+                "  icon: ':lucide:wrench:'",
+                "  title: Minimal Skill",
                 "---",
                 "",
                 "# Minimal Skill",
@@ -130,20 +133,20 @@ describe("skills init command", () => {
                 "",
                 "## Inputs",
                 "",
-                "- TODO: List required user inputs.",
-                "- TODO: List optional inputs or safe defaults.",
+                "- TODO: List required files, config values, credentials, or user decisions.",
+                "- TODO: List optional inputs and defaults.",
                 "",
                 "## Execution",
                 "",
-                "TODO: Describe the exact oo connector command path, for example an authenticated connector action.",
+                "TODO: Describe the local scripts, commands, working directory, environment variables, and generated files.",
                 "",
                 "## Result Handling",
                 "",
-                "TODO: Describe useful output fields, artifacts, previews, or saved files.",
+                "TODO: Describe output files, validation checks, previews, and what to report to the user.",
                 "",
                 "## Failure Handling",
                 "",
-                "TODO: Describe auth, billing, missing input, unsupported shape, timeout, or action failure blockers.",
+                "TODO: Describe missing files, invalid config, dependency, permission, timeout, and validation failures.",
                 "",
             ].join("\n"));
         }
@@ -369,7 +372,7 @@ describe("skills init command", () => {
 
             expect(result.exitCode).toBe(1);
             expect(result.stderr).toBe(
-                `Skill name existing-skill is already used by a non-OOMOL skill at ${skillDirectoryPath}.\n`,
+                `Skill name existing-skill is already used at ${skillDirectoryPath}. To turn that directory into an oo-managed local skill, use oo skills adopt.\n`,
             );
             await expect(
                 stat(join(skillDirectoryPath, "SKILL.md")),

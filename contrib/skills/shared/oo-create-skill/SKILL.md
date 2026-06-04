@@ -1,6 +1,6 @@
 ---
 name: oo-create-skill
-description: Author, generate, or scaffold a new local AI agent skill that turns a concrete oo connector action, including OOMOL-hosted Fusion API actions, into reusable instructions. Use when the user asks to create a skill, write a skill, or make an agent skill for an oo-powered workflow, even if capability discovery is needed first.
+description: Author, generate, adopt, or document a local AI agent skill from either an existing local workflow directory or a concrete oo connector action. Use when the user asks to create a skill, write a skill, adopt an existing workflow, document a local script as a skill, or make an agent skill for an oo-powered workflow.
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
 <!-- agentic:endif -->
@@ -8,9 +8,10 @@ allowed-tools: [Bash(oo *)]
 
 # oo Create Skill
 
-Use this skill to create a new local skill around a concrete `oo` connector
-action. The authoring agent turns a known or newly discovered connector
-capability into reusable runtime instructions for future agents.
+Use this skill to create or adopt a local skill. The authoring agent either
+turns an existing local workflow directory into a reusable runtime runbook, or
+turns a known or newly discovered `oo` connector action into reusable runtime
+instructions for future agents.
 
 This workflow only authors local skills. If the user wants to find or install an
 existing skill, or distribute a finished skill, use the dedicated workflow for
@@ -21,13 +22,17 @@ that task instead.
 Use these rules to decide confidently. They define the governing model; the
 workflow below is an application of this constitution, not a separate checklist.
 When rules appear to compete, use this priority order: safety, local authoring
-scope, proven connector contract, reusable user intent, compact runtime runbook,
-then convenience.
+scope, existing workflow evidence, proven connector contract when applicable,
+reusable user intent, compact runtime runbook, then convenience.
 
-1. Local authoring only. Create new local skills around concrete `oo` connector
-   actions, including OOMOL-hosted Fusion API actions. Do not use this workflow
-   to find, install, update, publish, or distribute existing skills, or bypass
-   native skill commands with manual skeleton creation.
+1. Local authoring only. Create new local skills or adopt existing local
+   workflow directories. For existing scripts, configs, tests, docs, and output
+   conventions, treat the existing directory as the source of truth and use
+   native `oo skills adopt` to add the skill contract. For connector workflows,
+   create skills around concrete `oo` connector actions, including OOMOL-hosted
+   Fusion API actions. Do not use this workflow to find, install, update,
+   publish, or distribute existing skills, or bypass native skill commands with
+   manual skeleton creation.
 2. Ask for reusable intent; prove execution facts. Ask the user only when a
    business decision would change repeated runtime behavior: skill name or
    scope, workflow ordering, required user inputs, expected outputs, target
@@ -38,11 +43,12 @@ then convenience.
    facts that `oo` metadata, schemas, or command output can answer, including
    connector service/action identifiers, payload field names, result field
    paths, command shape, authentication state, defaults, and schema constraints.
-3. Evidence outranks memory. A callable contract exists only when current
-   command output and `oo connector schema "<service>" --action "<action>"`
-   prove the selected service/action, required inputs, and output semantics. Do
-   not invent connector facts from prior knowledge, examples, old runs, or
-   catalog guesses.
+3. Evidence outranks memory. For existing local workflows, inspect current files
+   and use safe local command output or tests when they are proportionate. For
+   connector workflows, a callable contract exists only when current command
+   output and `oo connector schema "<service>" --action "<action>"` prove the
+   selected service/action, required inputs, and output semantics. Do not invent
+   connector facts from prior knowledge, examples, old runs, or catalog guesses.
 4. Resolve before designing. Do not predesign the whole execution process and
    then look for metadata that seems to fit it. Discover the capability, inspect
    metadata, and write from current evidence.
@@ -95,8 +101,12 @@ then convenience.
 
 ## Authoring State Machine
 
-Move through these states. Skip a state only when current evidence already
-proves its exit condition.
+Move through these states. First classify the workflow. Use the local workflow
+path when the user points to an existing directory, says a script/config already
+runs, asks to solidify or document existing work, or asks to adopt an existing
+workflow. Use the connector path only when the reusable behavior depends on an
+OOMOL connector, Fusion API action, or another hosted `oo connector` action.
+Skip a state only when current evidence already proves its exit condition.
 
 ### 1. Permission Probe
 
@@ -154,6 +164,12 @@ connector action without guessing business intent.
 
 ### 3. Capability Discovery
 
+Skip this state for existing local workflow adoption. Do not run `oo search`,
+`oo connector search`, or `oo connector schema` merely to document a local
+script or configuration workflow. Instead inspect the local directory, identify
+entrypoint commands, required files, generated outputs, validation steps, and
+failure modes from current files and safe command output.
+
 Capability discovery may return multiple catalog result types. If the user has
 not provided a complete connector action contract, use discovery before
 authoring:
@@ -209,6 +225,13 @@ fallback reserved for a named blocker.
 
 ### 4. Capability Contract
 
+For existing local workflow adoption, capture the local contract instead of a
+connector contract: source directory, entrypoint scripts or commands, working
+directory, required input files/configuration, environment variables or
+credentials, generated outputs, validation commands, and failure conditions. Run
+only safe local checks that are proportionate and do not mutate user data unless
+the user asked for that behavior.
+
 For the selected action, capture the exact `service`, action `name`,
 description, authentication state, and schema-derived input/output concepts.
 Use the schema command before authoring the runbook:
@@ -237,11 +260,19 @@ runtime path that matters is explicitly marked untested.
 
 ### 5. Initialize Skill
 
-Run `oo skills init <name> --agent <!-- agentic:var agent -->` with a required
-`--description`. Include `--title` and `--icon` when you have suitable values.
-Derive title and icon from the workflow purpose and resolved metadata unless
-the user provided them. If the selected <!-- agentic:var agentTitle --> skill
-directory already exists, ask for a different skill name instead of overwriting.
+For an existing local workflow directory, run `oo skills adopt "<path>" --agent <!-- agentic:var agent -->`
+with a required `--description` unless the existing `SKILL.md` already has one.
+Include `--name`, `--title`, and `--icon` when you have suitable values. Existing
+workflow files are the source of truth; do not overwrite scripts, configs,
+docs, references, tests, or user artifacts.
+
+For a new connector workflow, run `oo skills init <name> --agent <!-- agentic:var agent -->`
+with a required `--description`. Include `--title` and `--icon` when you have
+suitable values. Derive title and icon from the workflow purpose and resolved
+metadata unless the user provided them. If the selected <!-- agentic:var agentTitle -->
+skill directory already exists, use `oo skills adopt` only when it is the
+existing workflow the user wants to solidify; otherwise ask for a different
+skill name instead of overwriting.
 
 Make `--description` a user-facing trigger summary: it becomes the frontmatter
 description and the main signal future agents see before loading the skill.
@@ -260,12 +291,14 @@ Use this description shape when helpful:
 phrases> for <domain objects or input artifacts>, especially when they need
 <expected output/result>.`
 
-Use the path printed by `oo skills init` as the skill directory for authoring
-and validation.
+Use the path printed by `oo skills init` or `oo skills adopt` as the skill
+directory for authoring and validation.
 
-Do not substitute manual file creation for this step. The initialized skill
-directory must come from a successful `oo skills init --agent <!-- agentic:var agent -->`
-invocation before you fill in its workflow instructions or run validation.
+Do not substitute manual file creation for this step. New connector skills must
+come from a successful `oo skills init --agent <!-- agentic:var agent -->`
+invocation. Existing local workflows must come from a successful
+`oo skills adopt "<path>" --agent <!-- agentic:var agent -->` invocation before
+you fill in or patch workflow instructions or run validation.
 
 Write all generated skill prose in English, including frontmatter, headings,
 examples, and reference files. Preserve non-English only for literal runtime
@@ -283,6 +316,11 @@ rediscovery, but not a full schema dump.
 Keep the generated skill centered on runtime execution. Include authoring-time
 evidence only when it affects runtime behavior, such as an untested schema-only
 result path or an observed async polling requirement.
+
+For existing local workflows, use domain-appropriate headings and describe only
+runtime facts future agents need: when to use the skill, required files/configs,
+entrypoint commands, working directory, environment variables, outputs,
+validation, artifact handoff, and failure handling.
 
 For selected connector action workflows, use domain-appropriate headings.
 Include only execution facts that change runtime behavior:
