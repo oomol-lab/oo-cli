@@ -575,4 +575,123 @@ describe("skills check-update CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("--skill narrows the checked skills case-insensitively and ignores unknown names", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "foo",
+                packageName: "@alice/foo",
+                version: "0.1.0",
+            });
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "bar",
+                packageName: "@alice/bar",
+                version: "1.0.0",
+            });
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["skills", "check-update", "--skill", "FOO", "missing", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+                        if (request.url.includes("/package-info/")) {
+                            return packageInfoResponse("@alice/foo", "0.2.0", "foo");
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            // Only "foo" is checked: the mixed-case token matches it and the
+            // unknown "missing" token is silently ignored; "bar" is excluded.
+            expect(skills.map(entry => entry.skillId)).toEqual(["foo"]);
+            expect(skills[0]?.status).toBe("update-available");
+            expect(requests.every(request => request.url.includes("foo"))).toBe(true);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--skill with no matching installed skill exits 1 and lists available skills", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "foo",
+                packageName: "@alice/foo",
+                version: "0.1.0",
+            });
+
+            // The filter excludes every resolved skill before any network call,
+            // so no fetcher is needed.
+            const result = await sandbox.run(
+                ["skills", "check-update", "--skill", "nope"],
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("foo");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--skill alongside package args narrows registry entries but keeps a bundled failed entry", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "foo",
+                packageName: "@alice/foo",
+                version: "0.1.0",
+            });
+
+            // Package names BEFORE --skill so the variadic option does not consume
+            // them. `oo` is bundled and becomes a failed entry that survives the
+            // skill filter; the registry entry `foo` is narrowed and checked.
+            const result = await sandbox.run(
+                ["skills", "check-update", "@alice/foo", "oo", "--skill", "foo", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return packageInfoResponse("@alice/foo", "0.2.0", "foo");
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            const fooEntry = skills.find(entry => entry.skillId === "foo");
+            const ooEntry = skills.find(entry => entry.skillId === "oo");
+
+            expect(fooEntry?.status).toBe("update-available");
+            expect((ooEntry?.error as Record<string, unknown>)?.code).toBe("bundled_unsupported");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });

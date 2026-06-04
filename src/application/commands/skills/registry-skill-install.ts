@@ -38,6 +38,10 @@ import {
     loadRegistryPackageSkillInfo,
     tryReportRegistryPackageDownload,
 } from "./registry-skill-source.ts";
+import {
+    normalizeSkillFilterTokens,
+    selectSkillsByFilter,
+} from "./skill-filter.ts";
 import { createSkillIdsTelemetryProperties } from "./telemetry.ts";
 
 interface ManagedSkillPathState {
@@ -51,6 +55,17 @@ export interface RegistrySkillInstallRequest {
     packageShareId?: string;
     packageVersion?: string;
     recordTelemetry?: boolean;
+    // The `--skill` narrowing for the install command. When provided, only the
+    // package's published skills whose name (or directory basename) matches one
+    // of these values are installed; unmatched values are ignored. Ignored when
+    // `skillNames` is non-empty.
+    skillFilter?: readonly string[];
+    // Invoked with this package's published skill names when `skillFilter`
+    // matched none of them. A no-match always installs nothing for the package;
+    // whether an empty result across all packages is an error is decided by the
+    // caller (the install command's cross-package match tracker), which uses
+    // these names to list what was available.
+    reportSkillFilterMiss?: (availableSkillNames: readonly string[]) => void;
     // When non-empty, install exactly these skills (used by `oo skills sync`).
     // When empty, the install command installs all published skills.
     skillNames: string[];
@@ -265,22 +280,70 @@ async function resolveInstallSkillNames(
         );
     }
 
-    if (packageInfo.skills.length === 1) {
-        const firstSkill = packageInfo.skills[0]!;
+    // Default behavior: install every published skill in the package, narrowed
+    // by the optional `--skill` filter.
+    const selectedSkills = applyInstallSkillFilter(
+        packageInfo,
+        request.skillFilter,
+        request.reportSkillFilterMiss,
+    );
 
-        writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.singleSelected", {
-            name: firstSkill.name,
-        });
-
-        return [firstSkill.name];
+    if (selectedSkills.length === 0) {
+        // `--skill` matched nothing in this package; the miss was reported to the
+        // caller, which decides whether this is a global no-match error. Install
+        // nothing here and emit no selection line.
+        return [];
     }
 
-    // Default behavior: install every published skill in the package.
-    writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.allSelected", {
-        count: packageInfo.skills.length,
-    });
+    if (selectedSkills.length === 1) {
+        writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.singleSelected", {
+            name: selectedSkills[0]!.name,
+        });
 
-    return packageInfo.skills.map(skill => skill.name);
+        return [selectedSkills[0]!.name];
+    }
+
+    if (selectedSkills.length < packageInfo.skills.length) {
+        // `--skill` narrowed the package to a strict subset of more than one
+        // skill; avoid the misleading "all" wording.
+        writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.filteredSelected", {
+            count: selectedSkills.length,
+            total: packageInfo.skills.length,
+        });
+    }
+    else {
+        writeInstallSelectionLine(context, shouldWriteOutput, "skills.install.allSelected", {
+            count: selectedSkills.length,
+        });
+    }
+
+    return selectedSkills.map(skill => skill.name);
+}
+
+// Narrow the package's published skills by the `--skill` filter. Returns every
+// skill when no filter is active. When the filter matches nothing, installs
+// nothing and reports the package's published skill names through `reportMiss`;
+// the caller decides whether an empty result across all packages is an error.
+function applyInstallSkillFilter(
+    packageInfo: RegistryPackageSkillInfo,
+    skillFilter: readonly string[] | undefined,
+    reportMiss: ((availableSkillNames: readonly string[]) => void) | undefined,
+): RegistrySkillSummary[] {
+    const tokens = normalizeSkillFilterTokens(skillFilter);
+
+    if (tokens === undefined) {
+        return packageInfo.skills;
+    }
+
+    const selected = selectSkillsByFilter(packageInfo.skills, tokens);
+
+    if (selected.length === 0) {
+        reportMiss?.(packageInfo.skills.map(skill => skill.name));
+
+        return [];
+    }
+
+    return selected;
 }
 
 async function filterConfirmedSkillNames(

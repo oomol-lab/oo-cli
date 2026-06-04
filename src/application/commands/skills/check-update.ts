@@ -5,6 +5,7 @@ import type { ManagedSkillListItem } from "./managed-skill-listings.ts";
 import type { RegistryPackageSkillInfo } from "./registry-skill-source.ts";
 
 import { z } from "zod";
+import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver } from "../../semver.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
@@ -28,6 +29,10 @@ import {
 import { isManagedSkillPublicationCurrent } from "./managed-skill-publication.ts";
 import { loadRegistryPackageSkillInfo } from "./registry-skill-source.ts";
 import { isBundledSkillName } from "./shared.ts";
+import {
+    normalizeSkillFilterTokens,
+    skillMatchesFilterTokens,
+} from "./skill-filter.ts";
 import { createPackageNamesTelemetryProperties } from "./telemetry.ts";
 
 type CheckUpdateStatus
@@ -71,6 +76,7 @@ interface SkillsCheckUpdateInput {
     format?: (typeof checkUpdateFormatValues)[number];
     showSchemaVersion?: boolean;
     packageNames?: string[];
+    skill?: string[];
 }
 
 interface RegistrySkillTarget {
@@ -104,12 +110,20 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
         },
     ],
     options: [
+        {
+            name: "skill",
+            longFlag: "--skill",
+            shortFlag: "-s",
+            valueName: "skills...",
+            descriptionKey: "options.skills.skill",
+        },
         ...jsonOutputOptions,
     ],
     inputSchema: z.object({
         format: z.enum(checkUpdateFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),
         packageNames: z.array(z.string()).optional(),
+        skill: z.array(z.string()).optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
@@ -125,7 +139,20 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
             settingsFilePath,
         );
         const packageNames = dedupePreserveOrder(input.packageNames ?? []);
-        const plan = resolveCheckUpdatePlan(packageNames, installedSkills);
+        // Record the skill-filter dimension before the no-match check can throw,
+        // so the telemetry is present even when --skill excludes every entry.
+        // Derive it from the normalized tokens so blank values are not reported
+        // as an active filter.
+        context.telemetry?.recordProperties({
+            has_skill_filter: normalizeSkillFilterTokens(input.skill) !== undefined,
+        });
+        // The `--skill` filter narrows the resolved registry entries before any
+        // network lookup; unmatched names are ignored, and an error listing the
+        // resolved skills is raised when nothing matches.
+        const plan = applyCheckUpdateSkillFilter(
+            resolveCheckUpdatePlan(packageNames, installedSkills),
+            input.skill,
+        );
 
         const hasRegistryEntry = plan.some(entry => entry.kind === "registry");
         const account = hasRegistryEntry
@@ -231,6 +258,41 @@ function resolveCheckUpdatePlan(
     }
 
     return entries;
+}
+
+// Narrow the resolved registry entries by the optional `--skill` filter,
+// keeping any failed entries (bundled/not-installed package arguments) intact.
+// Returns the plan unchanged when no filter is active, and throws a listing
+// error when the filter excludes every registry entry.
+function applyCheckUpdateSkillFilter(
+    plan: readonly CheckUpdatePlanEntry[],
+    skillFilter: readonly string[] | undefined,
+): CheckUpdatePlanEntry[] {
+    const tokens = normalizeSkillFilterTokens(skillFilter);
+
+    if (tokens === undefined) {
+        return [...plan];
+    }
+
+    const registryEntries = plan.filter(entry => entry.kind === "registry");
+
+    if (registryEntries.length === 0) {
+        return [...plan];
+    }
+
+    const matched = new Set(
+        registryEntries.filter(entry =>
+            skillMatchesFilterTokens({ name: entry.target.skillId }, tokens),
+        ),
+    );
+
+    if (matched.size === 0) {
+        throw new CliUserError("errors.skills.skillFilterNoMatch", 1, {
+            skills: registryEntries.map(entry => entry.target.skillId).join(", "),
+        });
+    }
+
+    return plan.filter(entry => entry.kind !== "registry" || matched.has(entry));
 }
 
 function groupRegistrySkillTargetsByPackageName(
@@ -529,7 +591,10 @@ function writeReportSection(
 function recordTelemetry(
     context: CliExecutionContext,
     outcome: CheckUpdateOutcome,
-    options: { hasPackageFilter: boolean; packageNames: readonly string[] },
+    options: {
+        hasPackageFilter: boolean;
+        packageNames: readonly string[];
+    },
 ): void {
     context.telemetry?.recordProperties({
         has_package_filter: options.hasPackageFilter,

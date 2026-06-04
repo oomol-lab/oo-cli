@@ -58,6 +58,10 @@ import {
 } from "./registry-skill-source.ts";
 import { isBundledSkillName } from "./shared.ts";
 import {
+    normalizeSkillFilterTokens,
+    selectSkillsByFilter,
+} from "./skill-filter.ts";
+import {
     createPackageNamesTelemetryProperties,
     createSkillIdsTelemetryProperties,
 } from "./telemetry.ts";
@@ -65,6 +69,7 @@ import { SkillsUpdateProgressReporter } from "./update-progress.ts";
 
 interface SkillsUpdateInput {
     packageNames?: string[];
+    skill?: string[];
     format?: "json";
     showSchemaVersion?: boolean;
 }
@@ -79,6 +84,7 @@ const updateErrorMessages: Record<string, string> = {
     package_download_failed: "Failed to download the package archive.",
     invalid_package_archive: "Downloaded package archive is invalid.",
     publication_failed: "Failed to publish the skill to one or more hosts.",
+    skill_filter_no_match: "None of the requested skills are installed.",
     unknown: "Unknown error.",
 };
 
@@ -127,18 +133,35 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
         },
     ],
     options: [
+        {
+            name: "skill",
+            longFlag: "--skill",
+            shortFlag: "-s",
+            valueName: "skills...",
+            descriptionKey: "options.skills.skill",
+        },
         ...skillOperationOutputOptions,
     ],
     inputSchema: z.object({
         packageNames: z.array(z.string()).optional(),
+        skill: z.array(z.string()).optional(),
         format: z.enum(["json"]).optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
+        // Record the skill-filter dimension up front so it is present on every
+        // path, including the text no-results early return and the no-match
+        // throw, which both happen before the detailed telemetry is recorded.
+        // Derive it from the normalized tokens so blank values are not reported
+        // as an active filter.
+        context.telemetry?.recordProperties({
+            has_skill_filter: normalizeSkillFilterTokens(input.skill) !== undefined,
+        });
+
         if (input.format === "json") {
             const report = await runUpdateJsonReport(
-                { packageNames: input.packageNames ?? [] },
+                { packageNames: input.packageNames ?? [], skillFilter: input.skill },
                 context,
             );
 
@@ -158,6 +181,7 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
         await updateManagedSkills(
             {
                 packageNames: input.packageNames ?? [],
+                skillFilter: input.skill,
             },
             context,
         );
@@ -167,6 +191,7 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
 export async function updateManagedSkills(
     request: {
         packageNames: readonly string[];
+        skillFilter?: readonly string[];
     },
     context: CliExecutionContext,
 ): Promise<void> {
@@ -181,15 +206,23 @@ export async function updateManagedSkills(
         availableHosts,
         settingsFilePath,
     );
-    const selectedSkills = resolveSelectedManagedSkillsByPackage(
+    const selectedByPackage = resolveSelectedManagedSkillsByPackage(
         request.packageNames,
         installedSkills,
     );
 
-    if (selectedSkills.length === 0) {
+    if (selectedByPackage.length === 0) {
         writeLine(context.stdout, context.translator.t("skills.update.noResults"));
         return;
     }
+
+    // The `--skill` filter narrows the resolved skills; unmatched names are
+    // ignored, and an error listing the resolved skills is raised when nothing
+    // matches.
+    const selectedSkills = filterManagedSkillsOrThrow(
+        selectedByPackage,
+        request.skillFilter,
+    );
 
     const progressReporter = context.stdout.isTTY === true
         ? new SkillsUpdateProgressReporter(
@@ -440,6 +473,30 @@ function resolveSelectedManagedSkillsByPackage(
     }
 
     return selectedSkills;
+}
+
+// Narrow resolved managed skills by the optional `--skill` filter. Returns
+// every skill when no filter is active, and throws a listing error when the
+// filter matches nothing.
+function filterManagedSkillsOrThrow(
+    skills: readonly ManagedSkillUpdateItem[],
+    skillFilter: readonly string[] | undefined,
+): ManagedSkillUpdateItem[] {
+    const tokens = normalizeSkillFilterTokens(skillFilter);
+
+    if (tokens === undefined) {
+        return [...skills];
+    }
+
+    const matched = selectSkillsByFilter(skills, tokens);
+
+    if (matched.length === 0) {
+        throw new CliUserError("errors.skills.skillFilterNoMatch", 1, {
+            skills: skills.map(skill => skill.name).join(", "),
+        });
+    }
+
+    return matched;
 }
 
 // Index installed registry skills by their package name, preserving the input
@@ -724,10 +781,11 @@ interface HostVersionState {
 }
 
 async function runUpdateJsonReport(
-    request: { packageNames: readonly string[] },
+    request: { packageNames: readonly string[]; skillFilter?: readonly string[] },
     context: CliExecutionContext,
 ): Promise<UpdateReport> {
     const errors: SkillOperationError[] = [];
+    const skillFilterTokens = normalizeSkillFilterTokens(request.skillFilter);
     const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
 
     if (availableHosts.length === 0) {
@@ -765,7 +823,19 @@ async function runUpdateJsonReport(
         if (selected.length === 0) {
             return buildUpdateReport([], errors);
         }
-        const results = await runUpdateForSkills(selected, availableHosts, context);
+
+        const matched = skillFilterTokens === undefined
+            ? selected
+            : selectSkillsByFilter(selected, skillFilterTokens);
+
+        if (matched.length === 0) {
+            errors.push({
+                code: "skill_filter_no_match",
+                message: updateErrorMessages.skill_filter_no_match!,
+            });
+            return buildUpdateReport([], errors);
+        }
+        const results = await runUpdateForSkills(matched, availableHosts, context);
 
         skills.push(...results);
         return buildUpdateReport(skills, errors);
@@ -773,6 +843,8 @@ async function runUpdateJsonReport(
 
     const skillsByPackageName = groupSkillsByPackageName(installedSkills);
     const seenPackageNames = new Set<string>();
+    let anyCandidate = false;
+    let anyMatched = false;
 
     for (const packageName of requestedPackageNames) {
         if (seenPackageNames.has(packageName)) {
@@ -816,10 +888,33 @@ async function runUpdateJsonReport(
             continue;
         }
 
-        // Each requested package updates all of its installed skills together.
-        const results = await runUpdateForSkills(packageSkills, availableHosts, context);
+        anyCandidate = true;
+
+        // The `--skill` filter narrows each package's installed skills; packages
+        // with no matching skill contribute nothing and are silently skipped.
+        const matched = skillFilterTokens === undefined
+            ? packageSkills
+            : selectSkillsByFilter(packageSkills, skillFilterTokens);
+
+        if (matched.length === 0) {
+            continue;
+        }
+
+        anyMatched = true;
+
+        // Each requested package updates all of its matched installed skills together.
+        const results = await runUpdateForSkills(matched, availableHosts, context);
 
         skills.push(...results);
+    }
+
+    // Mirror the text path: when a filter was given and excluded every resolved
+    // skill, surface a command-level error so the run fails.
+    if (skillFilterTokens !== undefined && anyCandidate && !anyMatched) {
+        errors.push({
+            code: "skill_filter_no_match",
+            message: updateErrorMessages.skill_filter_no_match!,
+        });
     }
 
     return buildUpdateReport(skills, errors);

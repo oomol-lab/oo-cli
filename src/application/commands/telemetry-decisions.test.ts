@@ -259,6 +259,7 @@ const commandTelemetryDecisions = {
             "has_bundled_skill",
             "has_force",
             "has_registry_skill",
+            "has_skill_filter",
             "installed_count_bucket",
             "package_kind",
             "package_name",
@@ -270,7 +271,7 @@ const commandTelemetryDecisions = {
             "skill_ids_sample",
             "skill_ids_truncated",
         ],
-        reason: "Records install source, product-domain package dimensions, bounded skill/package samples, force-flag usage, and JSON-output result buckets.",
+        reason: "Records install source, product-domain package dimensions, bounded skill/package samples, force-flag and skill-filter usage, and JSON-output result buckets.",
     },
     "skills.info": {
         kind: "properties",
@@ -349,6 +350,7 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "has_package_filter",
+            "has_skill_filter",
             "package_count_bucket",
             "checked_count_bucket",
             "update_available_count_bucket",
@@ -358,7 +360,7 @@ const commandTelemetryDecisions = {
             "package_names_sample",
             "package_names_truncated",
         ],
-        reason: "Records bucketed counts and bounded package-name samples; never records skill names, versions, or paths.",
+        reason: "Records bucketed counts, package- and skill-filter usage, and bounded package-name samples; never records skill names, versions, or paths.",
     },
     "skills.uninstall": {
         kind: "properties",
@@ -379,6 +381,7 @@ const commandTelemetryDecisions = {
             "current_count_bucket",
             "failed_count_bucket",
             "format",
+            "has_skill_filter",
             "package_kind",
             "package_name",
             "package_names_count_bucket",
@@ -391,7 +394,7 @@ const commandTelemetryDecisions = {
             "skill_ids_truncated",
             "updated_count_bucket",
         ],
-        reason: "Records artifact identity, bounded skill/package samples, and JSON-output result buckets.",
+        reason: "Records artifact identity, skill-filter usage, bounded skill/package samples, and JSON-output result buckets.",
     },
     "skills.validate": {
         kind: "generic",

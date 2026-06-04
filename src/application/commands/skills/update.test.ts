@@ -71,6 +71,39 @@ describe("skills update command", () => {
         }
     });
 
+    test("records has_skill_filter on the text no-results path when --skill is given", async () => {
+        const sandbox = await createCliSandbox();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+
+        try {
+            // A supported host exists but no registry skills are installed, so the
+            // text path hits the no-results early return; has_skill_filter must
+            // still be recorded.
+            await mkdir(universalHomeDirectory, { recursive: true });
+
+            const result = await sandbox.run(["skills", "update", "--skill", "nope"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe("No updatable oo-managed skills were found.\n");
+            expect(parseTelemetryRowPayload(
+                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+            )).toMatchObject({
+                properties: {
+                    command_full: "skills.update",
+                    has_skill_filter: true,
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("rejects the bundled oo skill as an explicit update target", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
@@ -269,6 +302,7 @@ describe("skills update command", () => {
             )).toMatchObject({
                 properties: {
                     command_full: "skills.update",
+                    has_skill_filter: false,
                     package_kind: "registry",
                     package_name: "openai",
                     package_names_count_bucket: "1-5",

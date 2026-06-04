@@ -38,6 +38,10 @@ import {
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
 import {
+    normalizeSkillFilterTokens,
+    skillMatchesFilterTokens,
+} from "./skill-filter.ts";
+import {
     createPackageNamesTelemetryProperties,
     createSkillIdsTelemetryProperties,
 } from "./telemetry.ts";
@@ -45,6 +49,7 @@ import {
 interface SkillsInstallInput {
     force?: boolean;
     packageNames?: string[];
+    skill?: string[];
     format?: "json";
     showSchemaVersion?: boolean;
 }
@@ -75,6 +80,7 @@ const installErrorMessages: Record<string, string> = {
     name_conflict: "Skill name is already used by a non-OOMOL skill.",
     storage_conflict: "Bundled skill storage is already occupied by non-OOMOL content.",
     publication_failed: "Failed to publish the skill to one or more hosts.",
+    skill_filter_no_match: "None of the requested skills exist in the requested packages.",
     unknown: "Unknown error.",
 };
 
@@ -98,11 +104,19 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             shortFlag: "-f",
             descriptionKey: "options.skills.install.force",
         },
+        {
+            name: "skill",
+            longFlag: "--skill",
+            shortFlag: "-s",
+            valueName: "skills...",
+            descriptionKey: "options.skills.skill",
+        },
         ...skillOperationOutputOptions,
     ],
     inputSchema: z.object({
         force: z.boolean().optional(),
         packageNames: z.array(z.string()).optional(),
+        skill: z.array(z.string()).optional(),
         format: z.enum(["json"]).optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
@@ -111,6 +125,15 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         await migrateLegacyCanonicalSkillLayout(context);
 
         const force = input.force === true;
+        // Derive the filter flag from the normalized tokens so blank/whitespace
+        // values (which collapse away) are not reported as an active filter.
+        const skillFilterActive = normalizeSkillFilterTokens(input.skill) !== undefined;
+        // Record the skill-filter dimension up front so it is present on every
+        // path, including when a no-match check throws before the detailed
+        // telemetry is recorded.
+        context.telemetry?.recordProperties({
+            has_skill_filter: skillFilterActive,
+        });
 
         if (input.format === "json") {
             const report = await runInstallJsonReport(input, context, { force });
@@ -131,19 +154,23 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         const packageNames = input.packageNames ?? [];
 
         if (packageNames.length === 0) {
+            // No package argument installs the bundled skills, narrowed by the
+            // optional `--skill` filter.
+            const selectedBundled = selectBundledSkillNamesOrThrow(input.skill);
+
             context.telemetry?.recordProperties({
                 bundled_skill: "__all__",
                 has_bundled_skill: true,
                 has_force: force,
                 has_registry_skill: false,
                 package_kind: "bundled",
-                ...createSkillIdsTelemetryProperties(availableBundledSkillNames),
+                ...createSkillIdsTelemetryProperties(selectedBundled),
                 ...createPackageNamesTelemetryProperties([]),
             });
 
             const summaries: ManagedSkillInstallSummary[] = [];
 
-            for (const skillName of availableBundledSkillNames) {
+            for (const skillName of selectedBundled) {
                 summaries.push(await installBundledSkill(skillName, context, { force }));
             }
 
@@ -158,9 +185,12 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
         recordInstallBaseTelemetry(context, targets, force);
 
         const installedSkillIds: string[] = [];
+        const registryFilterMatch = new RegistrySkillFilterMatchTracker();
 
         for (const target of targets) {
             if (target.kind === "bundled") {
+                // An explicitly named bundled skill is already a single-skill
+                // selection, so `--skill` does not further narrow it.
                 const summary = await installBundledSkill(
                     target.specifier.packageName as BundledSkillName,
                     context,
@@ -178,13 +208,22 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
                         packageShareId: target.specifier.packageShareId,
                         packageVersion: target.specifier.packageVersion,
                         recordTelemetry: false,
-                        // Empty selection installs all published skills; the
-                        // command no longer exposes per-skill selection.
+                        skillFilter: input.skill,
+                        // Across several packages the filter must not fail a
+                        // package that simply does not publish a requested skill;
+                        // record the miss and decide globally after the loop.
+                        reportSkillFilterMiss: names => registryFilterMatch.recordMiss(names),
+                        // The command installs all published skills unless the
+                        // `--skill` filter narrows them; `skillNames` is reserved
+                        // for the explicit `oo skills sync` selection.
                         skillNames: [],
                     },
                     context,
                 );
 
+                if (summaries.length > 0) {
+                    registryFilterMatch.recordMatch();
+                }
                 installedSkillIds.push(...summaries.map(summary => summary.name));
             }
 
@@ -194,8 +233,51 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
                 createSkillIdsTelemetryProperties(installedSkillIds),
             );
         }
+
+        // With a `--skill` filter, fail only when nothing was installed at all:
+        // per-package registry misses are silently skipped, and an explicitly
+        // named bundled skill (which `--skill` never narrows) keeps the command
+        // successful even when no registry package matched.
+        if (
+            skillFilterActive
+            && registryFilterMatch.isGlobalMiss()
+            && installedSkillIds.length === 0
+        ) {
+            throw new CliUserError("errors.skills.skillFilterNoMatch", 1, {
+                skills: registryFilterMatch.availableSkillsList(),
+            });
+        }
     },
 };
+
+// Tracks, across the registry packages of a single install run, whether the
+// `--skill` filter matched at least one published skill and which skills were
+// available in the packages that matched nothing. A global miss is when the
+// filter was applied to at least one package (so some skills were available) yet
+// nothing matched; packages that failed to load contribute neither and are
+// reported through their own errors.
+class RegistrySkillFilterMatchTracker {
+    private matched = false;
+    private readonly missedAvailableSkills = new Set<string>();
+
+    recordMatch(): void {
+        this.matched = true;
+    }
+
+    recordMiss(availableSkillNames: readonly string[]): void {
+        for (const name of availableSkillNames) {
+            this.missedAvailableSkills.add(name);
+        }
+    }
+
+    isGlobalMiss(): boolean {
+        return !this.matched && this.missedAvailableSkills.size > 0;
+    }
+
+    availableSkillsList(): string {
+        return [...this.missedAvailableSkills].join(", ");
+    }
+}
 
 function classifySkillsInstallTarget(
     rawPackageName: string,
@@ -276,6 +358,31 @@ function resolveInstallPackageKindLabel(
     return hasRegistry ? "registry" : "bundled";
 }
 
+// Narrow the bundled skill set installed by the no-argument form using the
+// optional `--skill` filter. Returns every bundled skill when no filter is
+// active, and throws a listing error when the filter matches nothing.
+function selectBundledSkillNamesOrThrow(
+    skillFilter: readonly string[] | undefined,
+): readonly BundledSkillName[] {
+    const tokens = normalizeSkillFilterTokens(skillFilter);
+
+    if (tokens === undefined) {
+        return availableBundledSkillNames;
+    }
+
+    const selected = availableBundledSkillNames.filter(name =>
+        skillMatchesFilterTokens({ name }, tokens),
+    );
+
+    if (selected.length === 0) {
+        throw new CliUserError("errors.skills.skillFilterNoMatch", 1, {
+            skills: availableBundledSkillNames.join(", "),
+        });
+    }
+
+    return selected;
+}
+
 async function runInstallJsonReport(
     input: SkillsInstallInput,
     context: CliExecutionContext,
@@ -287,7 +394,23 @@ async function runInstallJsonReport(
     const packageNames = input.packageNames ?? [];
 
     if (packageNames.length === 0) {
-        for (const bundledName of availableBundledSkillNames) {
+        const skillFilterTokens = normalizeSkillFilterTokens(input.skill);
+        const selectedBundled = skillFilterTokens === undefined
+            ? availableBundledSkillNames
+            : availableBundledSkillNames.filter(name =>
+                    skillMatchesFilterTokens({ name }, skillFilterTokens),
+                );
+
+        if (skillFilterTokens !== undefined && selectedBundled.length === 0) {
+            errors.push({
+                code: "skill_filter_no_match",
+                message: installErrorMessages.skill_filter_no_match!,
+            });
+
+            return buildReport(skills, errors, 0);
+        }
+
+        for (const bundledName of selectedBundled) {
             const result = await installBundledSkillForJson(
                 bundledName,
                 context,
@@ -301,6 +424,8 @@ async function runInstallJsonReport(
     }
 
     let requested = 0;
+    const skillFilterActive = normalizeSkillFilterTokens(input.skill) !== undefined;
+    const registryFilterMatch = new RegistrySkillFilterMatchTracker();
 
     for (const rawPackageName of packageNames) {
         let packageSpecifier: SkillsInstallPackageSpecifier;
@@ -334,10 +459,26 @@ async function runInstallJsonReport(
         requested += await appendRegistryInstallJsonResults(
             packageSpecifier,
             context,
-            options,
+            { force: options.force, skillFilter: input.skill },
             skills,
             errors,
+            registryFilterMatch,
         );
+    }
+
+    // With a `--skill` filter, fail only when nothing was installed at all:
+    // per-package registry misses are silently skipped, and an explicitly named
+    // bundled skill (which `--skill` never narrows) keeps the command successful
+    // even when no registry package matched.
+    if (
+        skillFilterActive
+        && registryFilterMatch.isGlobalMiss()
+        && !skills.some(skill => skill.status === "installed")
+    ) {
+        errors.push({
+            code: "skill_filter_no_match",
+            message: installErrorMessages.skill_filter_no_match!,
+        });
     }
 
     return buildReport(skills, errors, requested);
@@ -346,9 +487,10 @@ async function runInstallJsonReport(
 async function appendRegistryInstallJsonResults(
     packageSpecifier: SkillsInstallPackageSpecifier,
     context: CliExecutionContext,
-    options: { force: boolean },
+    options: { force: boolean; skillFilter?: readonly string[] },
     skills: SkillResult[],
     errors: SkillOperationError[],
+    filterMatch: RegistrySkillFilterMatchTracker,
 ): Promise<number> {
     try {
         const summaries = await installRegistrySkills(
@@ -358,6 +500,8 @@ async function appendRegistryInstallJsonResults(
                 packageShareId: packageSpecifier.packageShareId,
                 packageVersion: packageSpecifier.packageVersion,
                 recordTelemetry: false,
+                skillFilter: options.skillFilter,
+                reportSkillFilterMiss: names => filterMatch.recordMiss(names),
                 skillNames: [],
                 writeOutput: false,
             },
@@ -374,7 +518,11 @@ async function appendRegistryInstallJsonResults(
             ));
         }
 
-        return Math.max(1, summaries.length);
+        if (summaries.length > 0) {
+            filterMatch.recordMatch();
+        }
+
+        return summaries.length;
     }
     catch (error) {
         const errorCode = mapInstallErrorCode(error);
@@ -526,6 +674,8 @@ function mapInstallErrorCode(error: unknown): string {
             return "storage_conflict";
         case "errors.skills.install.invalidPackageSpecifier":
             return "invalid_package_specifier";
+        case "errors.skills.skillFilterNoMatch":
+            return "skill_filter_no_match";
         default:
             return "unknown";
     }

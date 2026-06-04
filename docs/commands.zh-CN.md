@@ -839,8 +839,18 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 参数：package 名称也可以使用 `<packageName>#<shareID>`。这种形式会从
   `<packageName>` 读取 package 的 skill 列表，并通过 `<shareID>` 对应的 share
   下载 package 归档。
-- 行为：命令会安装每个 package 中的**全部**已发布 skill，不弹选择、也没有
-  按 skill 选择或「安装全部」的选项。
+- 行为：命令默认安装每个 package 中的**全部**已发布 skill；可选的
+  `-s, --skill` 过滤会收窄实际安装的 skill。
+- 选项：`-s, --skill <skills...>` 将安装限定为指定的 skill。该选项可选，可传多个
+  值（例如 `-s foo bar`）。匹配大小写不敏感，可用 skill 名称或其目录名。未匹配到
+  任何 skill 的名称会被忽略。传入多个 package 时，过滤会跨所有 package 生效：某个
+  package 没有任何被请求的 skill 时会被**静默跳过**；只有当**所有** package
+  （对于无参的内置安装，则是任一内置 skill）都不匹配任何请求名称时，命令才会失败
+  并列出可用的 skill。显式命名的内置 skill 本身已是单 skill 选择，不会再被
+  `--skill` 收窄。
+- 选项：由于 `-s, --skill` 接受多个值，请把所有 package 名称放在它**之前**
+  （例如 `oo skills install @scope/pkg -s foo bar`）。`--skill` 之后、直到下一个
+  选项（如 `--json`）之前的 token 都会被当作 skill 名称，而非 package 名称。
 - 选项：`-f, --force` 在目标目录存在同名 skill 但**不受 oo 管理**（缺少可读
   `.oo-metadata.json`）时，允许覆盖安装。覆盖会先移除原目录内容再写入新
   skill，并以 `warn` 日志记录此事件。`--force` **不会**绕过路径校验、
@@ -896,7 +906,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   / `invalid_path` / `invalid_package_specifier` / `package_lookup_failed`
   / `package_download_failed` / `invalid_package_archive`
   / `skill_not_found_in_package` / `name_conflict` / `storage_conflict`
-  / `publication_failed` / `unknown`。
+  / `publication_failed` / `skill_filter_no_match` / `unknown`。
 - `targets[].previousState` 取值为 `absent | managed | unmanaged | unknown`。
   当 `--force` 覆盖一个非受管目录时，target 仍报告为 `installed`，但
   `previousState` 为 `"unmanaged"`。
@@ -976,6 +986,14 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 交互式终端：会显示实时进度。
 - 非交互式终端：对每个已是最新或失败的 skill 输出一行状态信息；对每个已更新
   的 Agent 目标路径输出一行成功信息。
+- 选项：`-s, --skill <skills...>` 将更新限定为指定的 skill。该选项可选，可传多个
+  值（例如 `-s foo bar`）。匹配大小写不敏感，可用 skill 名称或其目录名。未匹配到
+  任何已安装 skill 的名称会被忽略。当所请求的名称都不匹配解析出的 skill 时，
+  命令会失败（文本模式报错并列出解析出的 skill；`--json` 上报
+  `skill_filter_no_match` 并以 `1` 退出）。
+- 选项：由于 `-s, --skill` 接受多个值，请把所有 package 名称放在它**之前**
+  （例如 `oo skills update @scope/pkg -s foo`）。`--skill` 之后、直到下一个选项
+  （如 `--json`）之前的 token 都会被当作 skill 名称，而非 package 名称。
 - 选项：`--json` / `--format json` 输出结构化 payload（见下方"mutation 命令的
   JSON 输出"）。
 - `skills[].status`（update JSON）：`updated | repaired | current | failed`。
@@ -986,18 +1004,28 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - `error.code` 枚举（update JSON）：`not_authenticated` / `no_supported_hosts`
   / `invalid_path` / `bundled_unsupported` / `package_not_installed`
   / `package_lookup_failed` / `package_download_failed` /
-  `invalid_package_archive` / `publication_failed` / `unknown`。
+  `invalid_package_archive` / `publication_failed` / `skill_filter_no_match` /
+  `unknown`。
 
 ### `oo skills check-update [packageName...]`
 
 检查由 oo 管理的 registry skill 是否有新版本，或本地内容是否已偏离 canonical。
 **只查询，不下载 package archive，不写入任何 skill 目录**。
 
-- 参数：`[packageName...]` 接受零个或多个包名。**破坏性变更**：已移除的 `--skill`
-  选项（及其 skill id 值）由这些位置包名参数取代。
+- 参数：`[packageName...]` 接受零个或多个包名。**破坏性变更**：早期版本中
+  `--skill` 接受 skill id 并作为主选择器；该职责现由这些位置包名参数承担。
+  （`--skill` 仍作为可选过滤器存在 —— 见选项。）
 - 参数：省略时，会检查所有已安装且由 oo 管理的 registry skill。
 - 参数：提供一个或多个包名时，会检查每个指定包下已安装的全部 skill。重复包名
   会去重，输出按原始输入顺序。
+- 选项：`-s, --skill <skills...>` 将检查限定为指定的 skill。该选项可选，可传多个
+  值（例如 `-s foo bar`）。匹配大小写不敏感，可用 skill 名称或其目录名。未匹配到
+  任何解析出 skill 的名称会被忽略。当所请求的名称都不匹配解析出的 registry skill
+  时，命令会失败并以 `1` 退出，错误信息会列出可用的 skill（此时不输出 JSON
+  payload）。
+- 选项：由于 `-s, --skill` 接受多个值，请把所有 package 名称放在它**之前**
+  （例如 `oo skills check-update @scope/pkg -s foo`）。`--skill` 之后、直到下一个
+  选项（如 `--json`）之前的 token 都会被当作 skill 名称，而非 package 名称。
 - 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出。
   `--show-schema-version`（仅在 JSON 模式下生效）会向 payload 顶层添加
   `schemaVersion`。
