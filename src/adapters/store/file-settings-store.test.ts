@@ -168,8 +168,12 @@ describe("FileSettingsStore", () => {
             "utf8",
         );
 
+        // `skills` is a known section (it carries skills.recommend), so its
+        // unknown per-skill subkeys are stripped while the section itself is
+        // recognized; `updateNotifier` remains an unknown top-level key.
         await expect(store.read()).resolves.toEqual({
             lang: "zh",
+            skills: {},
         });
 
         const logs = logCapture.read();
@@ -178,9 +182,9 @@ describe("FileSettingsStore", () => {
         expect(logs).toContain(
             `"msg":"Settings store file contained unknown keys that were ignored."`,
         );
-        expect(logs).toContain(`"unknownKeyCount":2`);
+        expect(logs).toContain(`"unknownKeyCount":3`);
         expect(logs).toContain(
-            `"unknownKeyPaths":["skills","updateNotifier"]`,
+            `"unknownKeyPaths":["skills.oo","skills.oo-find-skills","updateNotifier"]`,
         );
 
         logCapture.close();

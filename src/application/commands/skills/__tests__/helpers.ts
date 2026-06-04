@@ -1,13 +1,27 @@
+import type { CliSandbox } from "../../../../../__tests__/helpers.ts";
 import type {
     BundledSkillAgentName,
     BundledSkillName,
 } from "../embedded-assets.ts";
-import { mkdir, symlink } from "node:fs/promises";
+import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import process from "node:process";
+import { resolveStorePaths } from "../../../../adapters/store/store-path.ts";
+import { APP_NAME } from "../../../config/app-config.ts";
 import {
     getBundledSkillFiles,
     readBundledSkillFileContent,
 } from "../embedded-assets.ts";
+import { resolveManagedSkillAgentHomeDirectory } from "../managed-skill-agents.ts";
+import {
+    resolveManagedSkillCanonicalDirectoryPath,
+    resolveManagedSkillDirectoryPath,
+    resolveManagedSkillMetadataFilePath,
+} from "../managed-skill-paths.ts";
+import {
+    createRegistrySkillMetadata,
+    renderSkillMetadataJson,
+} from "../skill-metadata.ts";
 
 export type SymbolicLinkKindForTest = "directory" | "file";
 
@@ -68,4 +82,75 @@ export async function createSymbolicLinkForTest(
         linkPath,
         process.platform === "win32" ? "junction" : "dir",
     );
+}
+
+// Builds a registry package-info HTTP response body for fetcher mocks.
+export function packageInfoResponse(
+    packageName: string,
+    version: string,
+    skillName: string,
+): Response {
+    return new Response(JSON.stringify({
+        packageName,
+        version,
+        skills: [
+            {
+                description: "demo",
+                name: skillName,
+                title: skillName,
+            },
+        ],
+    }));
+}
+
+// Seeds an oo-managed registry skill (canonical copy plus one host install) so
+// install/inventory/update/recommend flows observe it as installed.
+export async function seedRegistrySkill(options: {
+    sandbox: CliSandbox;
+    skillName: string;
+    packageName: string;
+    version: string;
+    agent?: "universal" | "claude";
+    hostSkillMd?: string;
+}): Promise<{
+    hostDirectory: string;
+    canonicalDirectory: string;
+}> {
+    const agent = options.agent ?? "universal";
+    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, agent);
+    const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
+    const storePaths = resolveStorePaths({
+        appName: APP_NAME,
+        env: options.sandbox.env,
+        platform: process.platform,
+    });
+    const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
+        storePaths.settingsFilePath,
+        options.skillName,
+    );
+
+    await mkdir(homeDirectory, { recursive: true });
+    await mkdir(canonicalDirectory, { recursive: true });
+    await mkdir(hostDirectory, { recursive: true });
+
+    const skillMd = options.hostSkillMd ?? "# Demo\n";
+
+    await writeFile(join(canonicalDirectory, "SKILL.md"), "# Demo\n");
+    await writeFile(join(hostDirectory, "SKILL.md"), skillMd);
+    await writeFile(
+        resolveManagedSkillMetadataFilePath(canonicalDirectory),
+        renderSkillMetadataJson(createRegistrySkillMetadata({
+            packageName: options.packageName,
+            version: options.version,
+        })),
+    );
+    await writeFile(
+        resolveManagedSkillMetadataFilePath(hostDirectory),
+        renderSkillMetadataJson(createRegistrySkillMetadata({
+            packageName: options.packageName,
+            version: options.version,
+        })),
+    );
+
+    return { hostDirectory, canonicalDirectory };
 }

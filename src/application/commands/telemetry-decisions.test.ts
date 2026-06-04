@@ -362,6 +362,43 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records bucketed counts, package- and skill-filter usage, and bounded package-name samples; never records skill names, versions, or paths.",
     },
+    "skills.recommend": {
+        kind: "generic",
+        reason: "Command group; child commands record safe suggestion dimensions.",
+    },
+    "skills.recommend.plan": {
+        kind: "properties",
+        properties: [
+            "muted",
+            "install_count_bucket",
+            "update_count_bucket",
+            "skipped_count_bucket",
+            "package_names_count_bucket",
+            "package_names_sample",
+            "package_names_truncated",
+        ],
+        reason: "Records the global mute flag, bucketed install/update/skip counts, and bounded package-name samples; never records versions or paths.",
+    },
+    "skills.recommend.mute": {
+        kind: "properties",
+        properties: [
+            "target_scope",
+            "package_names_count_bucket",
+            "package_names_sample",
+            "package_names_truncated",
+        ],
+        reason: "Records whether the global or per-package scope was used and bounded package-name samples.",
+    },
+    "skills.recommend.unmute": {
+        kind: "properties",
+        properties: [
+            "target_scope",
+            "package_names_count_bucket",
+            "package_names_sample",
+            "package_names_truncated",
+        ],
+        reason: "Records whether the global or per-package scope was used and bounded package-name samples.",
+    },
     "skills.uninstall": {
         kind: "properties",
         properties: [

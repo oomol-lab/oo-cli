@@ -1143,6 +1143,75 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - JSON 输出永远不会包含 `apiKey`、原始 HTTP 请求 / 响应体、stack trace 或未
   脱敏的 endpoint secret。
 
+### `oo skills recommend`
+
+为内置 `oo` skill 提供收尾阶段的 skill 推荐，并提供静音控制。内置 `oo` skill 会
+调用这些命令，也可直接运行。这是一个命令组，包含三个子命令。
+
+#### `oo skills recommend plan [connectorService...]`
+
+根据本次会话用到的 connector service，判断哪些 skill 应推荐安装或更新，哪些应跳过。
+
+- 参数：`[connectorService...]` 接受零个或多个 connector service 标识（`oo search`
+  结果中的 `service` 字段）。每个通过"加 `oo-` 前缀并把下划线换成连字符"映射到一个
+  skill 包（`github` → `oo-github`，`aliyun_oss` → `oo-aliyun-oss`）。空白项被忽略；
+  推导出的包会去重，输出保留输入顺序。不传参数时计划为空。
+- 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出。`--show-schema-version`
+  （仅在 JSON 下有意义）会在顶层添加 `schemaVersion`。
+- 行为：每个推导出的 `oo-<service>` 包都会向 registry 确认。包已发布但本地未安装时推荐
+  `install`；已安装且有更新的已发布版本时推荐 `update`；当包已是最新、未发布、此前被忽略
+  或被全局静音时跳过。当推荐被全局静音时，计划返回 `muted: true` 且无推荐项。
+- 网络：每个未被忽略、未被静音的包都会发一次公开的 registry package-info 请求（确认存在性
+  与最新版本）。该端点无需登录，因此不需要账号或 API key——有账号时用其 endpoint，否则用默认
+  endpoint；请求以较小的并发上限执行。被忽略、被静音的包不需要网络。`404` 视为"未发布"
+  （静默跳过）；其它查询失败则跳过该包，而不会让命令失败。
+- JSON 结构：
+
+  ```json
+  {
+    "muted": false,
+    "recommendations": [
+      { "packageName": "oo-gmail", "action": "install" },
+      {
+        "packageName": "oo-notion",
+        "action": "update",
+        "currentVersion": "1.0.0",
+        "latestVersion": "1.2.0"
+      }
+    ],
+    "skipped": [
+      { "packageName": "oo-drive", "reason": "up-to-date" },
+      { "packageName": "oo-slack", "reason": "dismissed" }
+    ]
+  }
+  ```
+
+- `action` 取值：`install` / `update`。
+- `reason` 取值：`up-to-date` / `not-published` / `dismissed` / `muted` /
+  `lookup-failed`。
+- 退出码：即使查询失败或包未发布也返回 `0`（二者都编码为跳过项）。参数错误（如
+  `--format xml`）以 exit 2 退出。
+
+#### `oo skills recommend mute [packageName...]`
+
+停止推荐指定的包，使后续会话不再提示它们。
+
+- 参数：`[packageName...]` 要停止推荐的包名，会加入持久化的忽略列表，并去重、排序。
+- 选项：`--all` 静音所有后续推荐，而非指定的包。`--format=json` / `--json` /
+  `--show-schema-version` 控制输出。
+- 校验：传包名**或** `--all`，不能同时传也不能都不传；任一误用以 exit 2 退出。
+- 持久化：该选择存储在 CLI 设置文件的 `[skills.recommend]` 段中，跨会话保留。
+- JSON 结构：`{ "muted": <bool>, "dismissed": ["oo-gmail", ...] }`——持久化后的状态。
+
+#### `oo skills recommend unmute [packageName...]`
+
+恢复推荐指定的包。
+
+- 参数：`[packageName...]` 要从忽略列表移除的包名。
+- 选项：`--all` 清除全局静音，而非指定的包。输出选项与 `mute` 一致。
+- 校验：传包名**或** `--all`，不能同时传也不能都不传；任一误用以 exit 2 退出。
+- JSON 结构：`{ "muted": <bool>, "dismissed": [...] }`——持久化后的状态。
+
 ### `oo skills uninstall [skill]`
 
 从受支持的本地 skill 目录移除由 oo 管理的 skill。

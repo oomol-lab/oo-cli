@@ -116,11 +116,11 @@ proves its output.
    unless a complete capability contract is already known from current evidence.
    A complete contract means connector schema already proves the callable id,
    required inputs, and output semantics; a user-named service is not enough.
-   When running capability discovery, also run at most one
-   `oo skills search "<goal>" --keywords "<keywords>" --json` sidecar query.
-   Record credible installable skill matches as possible future enhancements;
-   do not install or ask about installation before the selected connector
-   capability succeeds.
+   Record the `service` of each connector capability you actually use, building
+   one deduplicated wrap-up list of connector services for this session. You do
+   not need `oo skills search` for this; the wrap-up command derives and
+   verifies the matching `oo-<service>` skill packages. Do not install or ask
+   about installation before the selected connector capability succeeds.
 4. Select
    Inspect the first result set before refining. Keep one primary candidate and
    at most one materially different fallback. Prefer directness, named target
@@ -148,13 +148,16 @@ proves its output.
    Lead with the useful result. For blockers, name the exact blocker and the
    next useful move. If you group or summarize by an attribute, make sure the
    payload or result actually used that attribute.
-   After the first successful result, if a recorded skill match would clearly
-   improve repeated use of the same capability, ask whether the user wants to
-   install that specific skill using numbered choices: `1. Install
-   <skillName> (<packageName>)` and `2. Do not install`. Tell the user to
-   reply with `1` to install or `2` to skip. Treat a `1` response as explicit
-   agreement to install that exact skill. Do not install unless the user
-   explicitly agrees.
+   After the final useful result, run the wrap-up skill recommendation once.
+   Pass the deduplicated wrap-up list of connector services to
+   `oo skills recommend plan <connectorService>... --json`. That single command
+   derives each `oo-<service>` package, confirms it is published, and skips
+   packages that are already installed and current, not published, dismissed, or
+   globally muted. Present its result and persist any "never remind" choice
+   exactly as
+   [references/search-and-selection.md](references/search-and-selection.md)
+   describes. If the plan reports `muted` or returns no `recommendations`, say
+   nothing about skills and finish.
 
 ## Capability contract
 
