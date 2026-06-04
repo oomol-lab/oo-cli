@@ -194,24 +194,40 @@ If the same connector offers several find-style actions, prefer the one whose
 filters match the user's locator by name, id, folder, type, or time range so
 the result is as narrow as possible.
 
-## Re-authorization branches
+## Authorization blocker fast exit
 
-Inspect `errorCode` before broader troubleshooting:
+Inspect `errorCode` before broader troubleshooting. These error codes are
+terminal for the current connector workflow:
 
-- `scope_missing`: explain that the connector authorization is missing the
-  required scope and must be re-authorized
-- `credential_expired`: explain that the connector authorization has expired
-  and must be re-authorized
-- `app_not_ready` / `app_not_found`: explain that the connector has not been
-  authorized yet and must be authorized before retrying
+- `connection_required`
+- `app_not_found`
+- `app_not_ready`
+- `credential_expired`
+- `scope_missing`
 
-For those cases, guide the user to:
+When one appears, stop immediately. Do not inspect additional schemas, run
+adjacent actions, enumerate capabilities, produce usage examples, or browse
+third-party docs unless the user explicitly asks for offline docs.
+
+Return only:
+
+- one short blocker sentence
+- the connection or re-authorization URL
+- one concise next step
+
+Use this URL:
 
 ```text
 https://console.oomol.com/app-connections?provider=${serviceName}
 ```
 
 Replace `${serviceName}` with the selected connector service.
+
+For `connection_required`, `app_not_found`, or `app_not_ready`, explain that
+the connector has not been connected or authorized yet. For
+`credential_expired`, explain that the connector authorization has expired. For
+`scope_missing`, explain that the connector authorization is missing the
+required permission scope.
 
 ## Known connector caveats
 

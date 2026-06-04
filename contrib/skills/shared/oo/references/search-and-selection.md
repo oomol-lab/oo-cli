@@ -134,8 +134,10 @@ decide. Rank results in this order:
 1. Directness of the action relative to the user's goal
 2. Whether the target service, destination, or output is explicitly named or
    strongly implied
-3. Setup cost. Treat `fusion-api` as OOMOL-hosted Fusion API and treat an
-   already authenticated non-Fusion connector as out-of-box.
+3. Setup cost and prior user readiness. Treat `fusion-api` as OOMOL-hosted
+   Fusion API and treat an already authenticated non-Fusion connector as
+   out-of-box. Authentication is strong evidence that the user has registered,
+   connected, and likely used that provider before.
 4. How many required inputs and follow-up questions it adds
 5. How closely the documented output matches the user's desired outcome
 6. If the user did not name a model or product, prefer more capable, modern,
@@ -154,12 +156,28 @@ Tie-breakers:
   service, destination, account, workspace, channel, folder, repository, or
   external side effect, or when that connector directly matches the requested
   external account workflow.
+- When the user did not name a provider and several connectors can satisfy the
+  same external account workflow, prefer authenticated non-Fusion connectors
+  over unauthenticated providers. Among authenticated candidates, choose the one
+  whose action and schema most directly satisfy the requested outcome with the
+  fewest missing inputs. If two or more authenticated candidates are materially
+  equivalent and the provider choice changes the account, sender identity,
+  workspace, compliance, data routing, or externally visible side effect, ask
+  one focused provider-selection question before schema inspection or execution.
 - Treat an unauthenticated non-Fusion connector as higher setup cost. Do not ask
   the user to connect it when a matching `fusion-api` action can complete the
   core task with the requested output. Use the unauthenticated connector only
   when the user explicitly requested that service or Fusion API cannot satisfy
   the schema, output, provider, account, compliance, data-routing, or side-effect
   requirements.
+- If the selected non-Fusion connector has `authenticated: false` and the user
+  explicitly requested that service, or no authenticated fallback can satisfy
+  the same outcome, stop before schema inspection. Report that the connector is
+  not connected, provide
+  `https://console.oomol.com/app-connections?provider=<service>`, and ask the
+  user to connect it first. Do not run `oo connector schema`, inspect adjacent
+  actions, or provide usage examples until the user confirms the service is
+  connected.
 - If both `fusion-api` and an authenticated non-Fusion connector are suitable,
   choose the one whose output contract best matches the user's requested result.
   Ask the user only when the choice changes provider, account, cost, compliance,
