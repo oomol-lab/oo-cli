@@ -32,15 +32,33 @@ const telemetrySettingsShape = {
 const telemetrySettingsReadSchema = z.object(telemetrySettingsShape);
 const telemetrySettingsSchema = z.object(telemetrySettingsShape).strict();
 
+const skillsRecommendSettingsShape = {
+    muted: z.boolean().optional(),
+    dismissed: z.array(z.string()).optional(),
+};
+
+const skillsRecommendSettingsReadSchema = z.object(skillsRecommendSettingsShape);
+const skillsRecommendSettingsSchema = z.object(skillsRecommendSettingsShape).strict();
+
+const skillsSettingsReadSchema = z.object({
+    recommend: skillsRecommendSettingsReadSchema.optional(),
+});
+
+const skillsSettingsSchema = z.object({
+    recommend: skillsRecommendSettingsSchema.optional(),
+}).strict();
+
 export const settingsFileReadSchema = z.object({
     file: fileSettingsReadSchema.optional(),
     lang: localeSchema.optional(),
+    skills: skillsSettingsReadSchema.optional(),
     telemetry: telemetrySettingsReadSchema.optional(),
 });
 
 export const settingsFileSchema = z.object({
     file: fileSettingsSchema.optional(),
     lang: localeSchema.optional(),
+    skills: skillsSettingsSchema.optional(),
     telemetry: telemetrySettingsSchema.optional(),
 }).strict();
 
@@ -72,6 +90,15 @@ const defaultSettingsCommentBlocks = [
         "# [telemetry]",
         "# enabled = true",
     ],
+    [
+        "# skills.recommend controls the end-of-session skill suggestions surfaced by the bundled `oo` skill.",
+        "# muted: when true, oo never suggests installing or updating skills. Default: false.",
+        "# dismissed: package names oo must never suggest again. Default: none.",
+        "# Manage these with `oo skills recommend mute` and `oo skills recommend unmute`.",
+        "# [skills.recommend]",
+        "# muted = false",
+        "# dismissed = [\"oo-gmail\"]",
+    ],
 ] as const;
 
 export function renderSettingsFile(settings: AppSettings): string {
@@ -96,6 +123,23 @@ export function renderSettingsFile(settings: AppSettings): string {
         persistedSettings.telemetry = {
             enabled: parsedSettings.telemetry.enabled,
         };
+    }
+
+    const recommend = parsedSettings.skills?.recommend;
+    const persistedRecommend: Record<string, unknown> = {};
+
+    // Only persist the global mute when it is on; `false` is the implicit
+    // default and is left out to keep the file at its default shape.
+    if (recommend?.muted === true) {
+        persistedRecommend.muted = true;
+    }
+
+    if (recommend?.dismissed !== undefined && recommend.dismissed.length > 0) {
+        persistedRecommend.dismissed = recommend.dismissed;
+    }
+
+    if (Object.keys(persistedRecommend).length > 0) {
+        persistedSettings.skills = { recommend: persistedRecommend };
     }
 
     const serializedSettings = stringifyToml(persistedSettings).trimEnd();
@@ -173,6 +217,100 @@ export function unsetTelemetryEnabled(
     }
 
     return deleteNestedProperty(settings, ["telemetry", "enabled"]);
+}
+
+export function isSkillRecommendationsMuted(settings: AppSettings): boolean {
+    return settings.skills?.recommend?.muted ?? false;
+}
+
+export function getDismissedSkillRecommendations(
+    settings: AppSettings,
+): readonly string[] {
+    return settings.skills?.recommend?.dismissed ?? [];
+}
+
+// Persists the global mute flag. A `false` value clears the key so the file
+// stays at its default shape instead of recording the implicit default.
+export function setSkillRecommendationsMuted(
+    settings: AppSettings,
+    muted: boolean,
+): AppSettings {
+    if (!muted) {
+        if (settings.skills?.recommend?.muted === undefined) {
+            return settings;
+        }
+
+        return deleteNestedProperty(settings, ["skills", "recommend", "muted"]);
+    }
+
+    return {
+        ...settings,
+        skills: {
+            ...settings.skills,
+            recommend: {
+                ...settings.skills?.recommend,
+                muted: true,
+            },
+        },
+    };
+}
+
+// Adds package names to the per-package dismissal list, keeping the result
+// de-duplicated and sorted for a stable settings file.
+export function addDismissedSkillRecommendations(
+    settings: AppSettings,
+    packageNames: readonly string[],
+): AppSettings {
+    const next = sortUnique([
+        ...getDismissedSkillRecommendations(settings),
+        ...packageNames,
+    ]);
+
+    return {
+        ...settings,
+        skills: {
+            ...settings.skills,
+            recommend: {
+                ...settings.skills?.recommend,
+                dismissed: next,
+            },
+        },
+    };
+}
+
+// Removes package names from the dismissal list, pruning the key entirely when
+// nothing remains.
+export function removeDismissedSkillRecommendations(
+    settings: AppSettings,
+    packageNames: readonly string[],
+): AppSettings {
+    const removal = new Set(packageNames);
+    const next = getDismissedSkillRecommendations(settings).filter(
+        name => !removal.has(name),
+    );
+
+    if (next.length === getDismissedSkillRecommendations(settings).length) {
+        return settings;
+    }
+
+    if (next.length === 0) {
+        return deleteNestedProperty(settings, ["skills", "recommend", "dismissed"]);
+    }
+
+    return {
+        ...settings,
+        skills: {
+            ...settings.skills,
+            recommend: {
+                ...settings.skills?.recommend,
+                dismissed: next,
+            },
+        },
+    };
+}
+
+function sortUnique(values: readonly string[]): string[] {
+    return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
 // Shallow-clones each level of a nested object along the given path,

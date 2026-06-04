@@ -679,6 +679,48 @@ export const enMessages = {
     "skills.checkUpdate.failuresHeader": "Failures:",
     "skills.checkUpdate.failuresLine":
         "  {skillId}: {message}",
+    "commands.skills.recommend.description":
+        "Plan end-of-session skill suggestions for the bundled oo skill and manage which packages are never suggested.",
+    "commands.skills.recommend.summary": "Manage skill suggestions",
+    "commands.skills.recommend.plan.description":
+        "Given the connector services used this session, derive each oo-<service> skill package, confirm it is published, and report which to install or update — skipping packages that are already current, unpublished, dismissed, or globally muted.",
+    "commands.skills.recommend.plan.summary": "Plan skill suggestions",
+    "commands.skills.recommend.mute.description":
+        "Stop suggesting the given packages, or use --all to stop every skill suggestion.",
+    "commands.skills.recommend.mute.summary": "Mute skill suggestions",
+    "commands.skills.recommend.unmute.description":
+        "Resume suggesting the given packages, or use --all to clear the global mute.",
+    "commands.skills.recommend.unmute.summary": "Unmute skill suggestions",
+    "arguments.skills.recommend.connectorService":
+        "Connector service(s) used this session (the `service` field from oo search); each maps to one oo-<service> skill package",
+    "arguments.skills.recommend.mute.packageName":
+        "Package name(s) to stop suggesting",
+    "arguments.skills.recommend.unmute.packageName":
+        "Package name(s) to resume suggesting",
+    "options.skills.recommend.mute.all":
+        "Mute every skill suggestion instead of specific packages",
+    "options.skills.recommend.unmute.all":
+        "Clear the global mute instead of specific packages",
+    "errors.skills.recommend.conflictingScope":
+        "Pass package names or --all, not both.",
+    "errors.skills.recommend.missingScope":
+        "Pass at least one package name, or --all.",
+    "skills.recommend.plan.muted":
+        "Skill suggestions are muted.",
+    "skills.recommend.plan.none":
+        "No skill suggestions.",
+    "skills.recommend.plan.header": "Suggested skills:",
+    "skills.recommend.plan.installLine": "  install {packageName}",
+    "skills.recommend.plan.updateLine":
+        "  update {packageName}  {currentVersion} -> {latestVersion}",
+    "skills.recommend.mute.success.all":
+        "Muted every skill suggestion.",
+    "skills.recommend.mute.success.packages":
+        "Will no longer suggest {count} package(s): {packages}",
+    "skills.recommend.unmute.success.all":
+        "Cleared the global skill suggestion mute.",
+    "skills.recommend.unmute.success.packages":
+        "Will suggest {count} package(s) again: {packages}",
     "commands.version.description":
         "Print the CLI version. Use --json for a stable machine-readable payload.",
     "commands.version.summary": "Print the CLI version",
@@ -1663,6 +1705,48 @@ export const zhMessages = {
     "skills.checkUpdate.failuresHeader": "失败：",
     "skills.checkUpdate.failuresLine":
         "  {skillId}：{message}",
+    "commands.skills.recommend.description":
+        "为内置 oo skill 规划收尾阶段的 skill 推荐，并管理哪些包永不推荐。",
+    "commands.skills.recommend.summary": "管理 skill 推荐",
+    "commands.skills.recommend.plan.description":
+        "根据本次会话用到的 connector service，推导各自的 oo-<service> skill 包并确认其已发布，给出应安装或更新的 skill；跳过已是最新、未发布、已忽略或已全局静音的包。",
+    "commands.skills.recommend.plan.summary": "规划 skill 推荐",
+    "commands.skills.recommend.mute.description":
+        "停止推荐指定的包；使用 --all 停止所有 skill 推荐。",
+    "commands.skills.recommend.mute.summary": "静音 skill 推荐",
+    "commands.skills.recommend.unmute.description":
+        "恢复推荐指定的包；使用 --all 清除全局静音。",
+    "commands.skills.recommend.unmute.summary": "取消静音 skill 推荐",
+    "arguments.skills.recommend.connectorService":
+        "本次会话用到的 connector service（oo search 结果中的 service 字段，可指定多个）；每个对应一个 oo-<service> skill 包",
+    "arguments.skills.recommend.mute.packageName":
+        "要停止推荐的包名（可指定多个）",
+    "arguments.skills.recommend.unmute.packageName":
+        "要恢复推荐的包名（可指定多个）",
+    "options.skills.recommend.mute.all":
+        "静音所有 skill 推荐，而非指定的包",
+    "options.skills.recommend.unmute.all":
+        "清除全局静音，而非指定的包",
+    "errors.skills.recommend.conflictingScope":
+        "请传入包名或 --all，二者不能同时使用。",
+    "errors.skills.recommend.missingScope":
+        "请至少传入一个包名，或使用 --all。",
+    "skills.recommend.plan.muted":
+        "skill 推荐已静音。",
+    "skills.recommend.plan.none":
+        "没有可推荐的 skill。",
+    "skills.recommend.plan.header": "推荐的 skill：",
+    "skills.recommend.plan.installLine": "  安装 {packageName}",
+    "skills.recommend.plan.updateLine":
+        "  更新 {packageName}  {currentVersion} -> {latestVersion}",
+    "skills.recommend.mute.success.all":
+        "已静音所有 skill 推荐。",
+    "skills.recommend.mute.success.packages":
+        "将不再推荐 {count} 个包：{packages}",
+    "skills.recommend.unmute.success.all":
+        "已清除全局 skill 推荐静音。",
+    "skills.recommend.unmute.success.packages":
+        "将重新推荐 {count} 个包：{packages}",
     "commands.version.description":
         "输出 CLI 版本。使用 --json 输出稳定的机器可读 payload。",
     "commands.version.summary": "输出 CLI 版本",
