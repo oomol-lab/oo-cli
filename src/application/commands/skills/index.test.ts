@@ -2463,6 +2463,138 @@ describe("skills commands", () => {
         }
     });
 
+    test("--skill across packages installs matches and silently skips packages with no match", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            // openai publishes "chatgpt"; anthropic publishes "claude".
+            // --skill chatgpt matches openai only. The global rule: a package with
+            // no match (anthropic) is silently skipped because another package
+            // matched, so the run succeeds and installs only chatgpt.
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "anthropic", "--skill", "chatgpt", "--json"],
+                {
+                    fetcher: createMultiPackageRegistryFetcher(),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.status).toBe("completed");
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills.map(skill => skill.skillId)).toEqual(["chatgpt"]);
+            expect(skills.every(skill => skill.status === "installed")).toBeTrue();
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(errors).toHaveLength(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--skill across packages fails once when no package publishes any requested skill", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            // Neither openai ("chatgpt") nor anthropic ("claude") publishes
+            // "nonexistent": the filter spans both packages and matches nothing, so
+            // the command fails ONCE with a global skill_filter_no_match. No tarball
+            // is fetched because both packages miss before any download.
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "anthropic", "--skill", "nonexistent", "--json"],
+                {
+                    fetcher: createMultiPackageRegistryFetcher(),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(skills).toHaveLength(0);
+            expect(errors.map(error => error.code)).toEqual(["skill_filter_no_match"]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("text mode: --skill across packages installs matches and silently skips the rest", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const chatgptSkillDirectoryPath = join(universalHomeDirectory, "skills", "chatgpt");
+        const claudeSkillDirectoryPath = join(universalHomeDirectory, "skills", "claude");
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            // openai matches "chatgpt"; anthropic has no "chatgpt" and is silently
+            // skipped because openai matched. Default (non-json) output path.
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "anthropic", "--skill", "chatgpt"],
+                {
+                    fetcher: createMultiPackageRegistryFetcher(),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            // Only chatgpt is installed; anthropic produces no selection or
+            // install line at all.
+            expect(result.stdout).toBe(
+                `Skill: chatgpt\nInstalled skill chatgpt to ${chatgptSkillDirectoryPath}.\n`,
+            );
+            expect(await readFile(join(chatgptSkillDirectoryPath, "SKILL.md"), "utf8"))
+                .toContain("# ChatGPT");
+            await expect(readFile(join(claudeSkillDirectoryPath, "SKILL.md"), "utf8"))
+                .rejects
+                .toThrow();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("text mode: --skill matching no package fails once and lists the available skills", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+
+        try {
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "openai", "anthropic", "--skill", "nonexistent"],
+                {
+                    fetcher: createMultiPackageRegistryFetcher(),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            // Nothing installed; a single global error is rendered to stderr and
+            // lists the available skills aggregated across the packages.
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("chatgpt");
+            expect(result.stderr).toContain("claude");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("reports partial failure when one of several packages fails in JSON mode", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");

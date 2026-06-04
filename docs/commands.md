@@ -982,8 +982,22 @@ Install bundled or published skills into supported local skill directories.
 - Arguments: a package name may also use `<packageName>#<shareID>`. In that
   form, the command reads the package skill list from `<packageName>` and
   downloads the package archive through the share identified by `<shareID>`.
-- Behavior: the command installs every published skill in each package. There is
-  no skill-selection prompt and no per-skill or "install all" option.
+- Behavior: the command installs every published skill in each package by
+  default; the optional `-s, --skill` filter narrows which skills are installed.
+- Options: `-s, --skill <skills...>` limits the install to the named skills. The
+  option is optional and accepts multiple values (for example `-s foo bar`).
+  Matching is case-insensitive and accepts either the skill name or its
+  directory name. Names that match no skill are ignored. With several packages
+  the filter spans all of them: a package that publishes none of the requested
+  skills is silently skipped, and the command fails only when **no** package
+  (or, for the no-argument bundled install, no bundled skill) matches any
+  requested name — listing the available skills. An explicitly named bundled
+  skill is already a single-skill selection and is not further narrowed by
+  `--skill`.
+- Options: because `-s, --skill` accepts multiple values, put any package names
+  **before** it (for example `oo skills install @scope/pkg -s foo bar`). Tokens
+  that follow `--skill` are read as skill names, not package names, until the
+  next option such as `--json`.
 - Options: `-f, --force` overrides install when the target directory exists
   with the same skill name but is **not** managed by oo (no readable
   `.oo-metadata.json`). The previous directory contents are removed before the
@@ -1147,6 +1161,17 @@ Update installed oo-managed published skills.
   skills.
 - Non-interactive terminals: prints one status line for each current or failed
   skill, and one success line for each updated host target path.
+- Options: `-s, --skill <skills...>` limits the update to the named skills. The
+  option is optional and accepts multiple values (for example `-s foo bar`).
+  Matching is case-insensitive and accepts either the skill name or its
+  directory name. Names that match no installed skill are ignored. When none of
+  the requested names match the resolved skills, the command fails (text mode
+  aborts with an error listing the resolved skills; `--json` reports
+  `skill_filter_no_match` and exits `1`).
+- Options: because `-s, --skill` accepts multiple values, put any package names
+  **before** it (for example `oo skills update @scope/pkg -s foo`). Tokens that
+  follow `--skill` are read as skill names, not package names, until the next
+  option such as `--json`.
 - Options: `--json` / `--format json` emits a structured payload (see "JSON
   output for mutation commands" above).
 - `skills[].status` (update JSON): `updated | repaired | current | failed`.
@@ -1157,7 +1182,8 @@ Update installed oo-managed published skills.
 - `error.code` enum (update JSON): `not_authenticated` / `no_supported_hosts`
   / `invalid_path` / `bundled_unsupported` / `package_not_installed`
   / `package_lookup_failed` / `package_download_failed` /
-  `invalid_package_archive` / `publication_failed` / `unknown`.
+  `invalid_package_archive` / `publication_failed` / `skill_filter_no_match` /
+  `unknown`.
 
 ### `oo skills check-update [packageName...]`
 
@@ -1167,13 +1193,25 @@ command **never** downloads a package archive or writes to any skill
 directory.
 
 - Arguments: `[packageName...]` accepts zero or more package names. **Breaking
-  change**: the removed `--skill` option (and its skill-id values) is replaced
-  by these positional package-name arguments.
+  change**: in earlier releases `--skill` took skill ids and was the primary
+  selector; that role is now filled by these positional package-name arguments.
+  (`--skill` still exists as an optional filter — see Options.)
 - Arguments: when omitted, the command checks every installed oo-managed
   registry skill.
 - Arguments: when one or more package names are given, the command checks every
   installed skill that belongs to each named package. Duplicate package names
   are de-duplicated; the original input order is preserved in the output.
+- Options: `-s, --skill <skills...>` limits the check to the named skills. The
+  option is optional and accepts multiple values (for example `-s foo bar`).
+  Matching is case-insensitive and accepts either the skill name or its
+  directory name. Names that match no resolved skill are ignored. When none of
+  the requested names match the resolved registry skills, the command fails and
+  exits `1` with an error listing the available skills (no JSON payload is
+  emitted in that case).
+- Options: because `-s, --skill` accepts multiple values, put any package names
+  **before** it (for example `oo skills check-update @scope/pkg -s foo`). Tokens
+  that follow `--skill` are read as skill names, not package names, until the
+  next option such as `--json`.
 - Options: `--format=json` and `--json` switch to a structured payload.
   `--show-schema-version` (only meaningful with JSON) prepends
   `schemaVersion`.

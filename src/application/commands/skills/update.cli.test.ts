@@ -486,4 +486,201 @@ describe("skills update --json", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("--skill narrows the updated skills case-insensitively and ignores unknown names", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "foo",
+                packageName: "@alice/foo",
+                version: "0.2.0",
+            });
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "bar",
+                packageName: "@alice/bar",
+                version: "0.2.0",
+            });
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["skills", "update", "--skill", "FOO", "missing", "--json"],
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+                        if (request.url.includes("/package-info/")) {
+                            return packageInfoResponse("@alice/foo", "0.2.0", "foo");
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            // Only "foo" is updated; "bar" is excluded, so only its package is
+            // queried.
+            expect(skills.map(skill => skill.skillId)).toEqual(["foo"]);
+            expect(skills[0]?.status).toBe("current");
+            expect(requests.every(request => request.url.includes("foo"))).toBe(true);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--skill with no matching installed skill reports skill_filter_no_match and exits 1", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "foo",
+                packageName: "@alice/foo",
+                version: "0.2.0",
+            });
+
+            // The filter excludes every resolved skill before any network call.
+            const result = await sandbox.run(
+                ["skills", "update", "--skill", "nope", "--json"],
+                { version: TEST_CLI_VERSION },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills).toHaveLength(0);
+            expect(errors[0]).toMatchObject({ code: "skill_filter_no_match" });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("text mode: --skill with no matching installed skill exits 1 and lists the resolved skills", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "foo",
+                packageName: "@alice/foo",
+                version: "0.2.0",
+            });
+
+            // No --json: the text path throws a CliUserError listing the resolved
+            // skills and exits 1, before any network call.
+            const result = await sandbox.run(
+                ["skills", "update", "--skill", "nope"],
+                { version: TEST_CLI_VERSION },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("foo");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json with package args + --skill updates the matched package and silently skips the rest", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "foo",
+                packageName: "@alice/foo",
+                version: "0.2.0",
+            });
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "bar",
+                packageName: "@alice/bar",
+                version: "0.2.0",
+            });
+
+            const requests: Request[] = [];
+            // Package names BEFORE --skill so the variadic option does not consume
+            // them; this routes through the per-package update branch.
+            const result = await sandbox.run(
+                ["skills", "update", "@alice/foo", "@alice/bar", "--skill", "foo", "--json"],
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+                        if (request.url.includes("/package-info/")) {
+                            return packageInfoResponse("@alice/foo", "0.2.0", "foo");
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            // @alice/bar contributes nothing (no skill named foo) and is never
+            // queried; only @alice/foo's "foo" is reported.
+            expect(skills.map(skill => skill.skillId)).toEqual(["foo"]);
+            expect(requests.every(request => request.url.includes("foo"))).toBe(true);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json with package args + --skill matching none of their skills reports skill_filter_no_match", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "foo",
+                packageName: "@alice/foo",
+                version: "0.2.0",
+            });
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "bar",
+                packageName: "@alice/bar",
+                version: "0.2.0",
+            });
+
+            // The filter matches no skill in either requested package, so the
+            // per-package gate (anyCandidate && !anyMatched) fires before network.
+            const result = await sandbox.run(
+                ["skills", "update", "@alice/foo", "@alice/bar", "--skill", "missing", "--json"],
+                { version: TEST_CLI_VERSION },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(skills).toHaveLength(0);
+            expect(errors[0]).toMatchObject({ code: "skill_filter_no_match" });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });

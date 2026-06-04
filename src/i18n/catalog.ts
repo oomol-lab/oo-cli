@@ -547,6 +547,8 @@ export const enMessages = {
         "The skills install package info request returned HTTP {status}.",
     "errors.skills.install.skillNotFound":
         "Skill {name} was not found in package {packageName}.",
+    "errors.skills.skillFilterNoMatch":
+        "None of the requested skills exist. Available skills: {skills}.",
     "errors.skills.update.bundledUnsupported":
         "Bundled skill {name} is managed by oo and cannot be updated with skills update. Use oo skills add {name} instead.",
     "errors.skills.update.packageNotInstalled":
@@ -758,6 +760,8 @@ export const enMessages = {
     "options.yes": "Skip confirmation prompts",
     "options.skills.install.force":
         "Force install even when a same-name skill directory exists and is not managed by oo",
+    "options.skills.skill":
+        "Skill name(s) to limit the operation to (case-insensitive; non-matching names are ignored)",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
     "selfUpdate.install.success": "Installed oo {version}.",
@@ -800,6 +804,8 @@ export const enMessages = {
         "Updated oo from {currentVersion} to {version}.",
     "skills.install.allSelected":
         "Installing all {count} skills.",
+    "skills.install.filteredSelected":
+        "Installing {count} of {total} skills.",
     "skills.check.success":
         "Local skill editing is ready. Writable storage: {path}. Supported hosts: {count}.",
     "skills.list.noResults":
@@ -1530,6 +1536,8 @@ export const zhMessages = {
         "skills install 的包信息请求返回了 HTTP {status}。",
     "errors.skills.install.skillNotFound":
         "在包 {packageName} 中未找到 skill {name}。",
+    "errors.skills.skillFilterNoMatch":
+        "指定的 skill 都不存在。可用的 skill：{skills}。",
     "errors.skills.update.bundledUnsupported":
         "内置 skill {name} 由 oo 管理，不能通过 skills update 更新。请改用 oo skills add {name}。",
     "errors.skills.update.packageNotInstalled":
@@ -1733,6 +1741,8 @@ export const zhMessages = {
     "options.yes": "跳过确认提示",
     "options.skills.install.force":
         "强制安装，即使同名 skill 目录已存在且不受 oo 管理",
+    "options.skills.skill":
+        "限定操作的 skill 名称（可指定多个；大小写不敏感；不匹配的名称会被忽略）",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
     "selfUpdate.install.success": "已安装 oo {version}。",
@@ -1775,6 +1785,8 @@ export const zhMessages = {
         "已将 oo 从 {currentVersion} 更新到 {version}。",
     "skills.install.allSelected":
         "将安装全部 {count} 个 skill。",
+    "skills.install.filteredSelected":
+        "将安装 {total} 个 skill 中的 {count} 个。",
     "skills.check.success":
         "本地 skill 编辑环境可用。可写存储：{path}。受支持 Agents：{count}。",
     "skills.list.noResults":
