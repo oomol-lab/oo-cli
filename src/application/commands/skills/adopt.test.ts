@@ -14,10 +14,9 @@ import {
 
 describe("skills adopt command", () => {
     test("adopts an existing workflow directory in place", async () => {
-        const sandbox = await createCliSandbox();
-        const skillDirectoryPath = join(sandbox.cwd, "vpn-profile-compiler");
+        await withCliSandbox(async (sandbox) => {
+            const skillDirectoryPath = join(sandbox.cwd, "vpn-profile-compiler");
 
-        try {
             await mkdir(skillDirectoryPath, { recursive: true });
             await Bun.write(
                 join(skillDirectoryPath, "SKILL.md"),
@@ -55,22 +54,18 @@ describe("skills adopt command", () => {
             expect(skillMarkdown).toContain("compatibility: Requires the oo CLI.\n");
             expect(skillMarkdown).toContain("metadata:\n  icon: ':lucide:network:'\n  title: VPN Profile Compiler\n");
             expect(skillMarkdown).toContain("Run the local compiler script.");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
+        });
     });
 
     test("copies an existing workflow into the requested agent skill directory", async () => {
-        const sandbox = await createCliSandbox();
-        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
-        const sourceDirectoryPath = join(sandbox.cwd, "Existing Workflow");
-        const targetDirectoryPath = resolveManagedSkillDirectoryPath(
-            universalHomeDirectory,
-            "vpn-profile-compiler",
-        );
+        await withCliSandbox(async (sandbox) => {
+            const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+            const sourceDirectoryPath = join(sandbox.cwd, "Existing Workflow");
+            const targetDirectoryPath = resolveManagedSkillDirectoryPath(
+                universalHomeDirectory,
+                "vpn-profile-compiler",
+            );
 
-        try {
             await Promise.all([
                 mkdir(universalHomeDirectory, { recursive: true }),
                 mkdir(sourceDirectoryPath, { recursive: true }),
@@ -105,17 +100,13 @@ describe("skills adopt command", () => {
                 "name: vpn-profile-compiler\n",
             );
             await expect(stat(join(sourceDirectoryPath, "compile.ts"))).resolves.toBeDefined();
-        }
-        finally {
-            await sandbox.cleanup();
-        }
+        });
     });
 
     test("rejects directories that already belong to registry skills", async () => {
-        const sandbox = await createCliSandbox();
-        const skillDirectoryPath = join(sandbox.cwd, "registry-skill");
+        await withCliSandbox(async (sandbox) => {
+            const skillDirectoryPath = join(sandbox.cwd, "registry-skill");
 
-        try {
             await mkdir(skillDirectoryPath, { recursive: true });
             await Bun.write(
                 join(skillDirectoryPath, ".oo-metadata.json"),
@@ -141,22 +132,61 @@ describe("skills adopt command", () => {
             await expect(stat(join(skillDirectoryPath, "SKILL.md"))).rejects.toMatchObject({
                 code: "ENOENT",
             });
-        }
-        finally {
-            await sandbox.cleanup();
-        }
+        });
+    });
+
+    test("rejects foreign source metadata before copying to an agent target", async () => {
+        await withCliSandbox(async (sandbox) => {
+            const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+            const sourceDirectoryPath = join(sandbox.cwd, "registry-skill");
+            const targetDirectoryPath = resolveManagedSkillDirectoryPath(
+                universalHomeDirectory,
+                "registry-skill",
+            );
+
+            await Promise.all([
+                mkdir(universalHomeDirectory, { recursive: true }),
+                mkdir(sourceDirectoryPath, { recursive: true }),
+            ]);
+            await Bun.write(join(sourceDirectoryPath, "source.ts"), "export {};\n");
+            await Bun.write(
+                join(sourceDirectoryPath, ".oo-metadata.json"),
+                renderSkillMetadataJson(createRegistrySkillMetadata({
+                    packageName: "@owner/registry-skill",
+                    version: "1.0.0",
+                })),
+            );
+
+            const result = await sandbox.run([
+                "skills",
+                "adopt",
+                sourceDirectoryPath,
+                "--agent",
+                "universal",
+                "--description",
+                "Use this existing workflow.",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                `Cannot adopt skill at ${sourceDirectoryPath} because its .oo-metadata.json belongs to another oo-managed skill or is invalid.\n`,
+            );
+            await expect(stat(targetDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        });
     });
 
     test("does not overwrite an existing agent target directory", async () => {
-        const sandbox = await createCliSandbox();
-        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
-        const sourceDirectoryPath = join(sandbox.cwd, "source-workflow");
-        const targetDirectoryPath = resolveManagedSkillDirectoryPath(
-            universalHomeDirectory,
-            "target-skill",
-        );
+        await withCliSandbox(async (sandbox) => {
+            const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+            const sourceDirectoryPath = join(sandbox.cwd, "source-workflow");
+            const targetDirectoryPath = resolveManagedSkillDirectoryPath(
+                universalHomeDirectory,
+                "target-skill",
+            );
 
-        try {
             await Promise.all([
                 mkdir(sourceDirectoryPath, { recursive: true }),
                 mkdir(targetDirectoryPath, { recursive: true }),
@@ -185,17 +215,13 @@ describe("skills adopt command", () => {
             await expect(stat(join(targetDirectoryPath, "source.ts"))).rejects.toMatchObject({
                 code: "ENOENT",
             });
-        }
-        finally {
-            await sandbox.cleanup();
-        }
+        });
     });
 
     test("requires a description when no existing SKILL.md description is available", async () => {
-        const sandbox = await createCliSandbox();
-        const skillDirectoryPath = join(sandbox.cwd, "missing-description");
+        await withCliSandbox(async (sandbox) => {
+            const skillDirectoryPath = join(sandbox.cwd, "missing-description");
 
-        try {
             await mkdir(skillDirectoryPath, { recursive: true });
 
             const result = await sandbox.run(["skills", "adopt", skillDirectoryPath]);
@@ -208,9 +234,46 @@ describe("skills adopt command", () => {
             await expect(stat(join(skillDirectoryPath, "SKILL.md"))).rejects.toMatchObject({
                 code: "ENOENT",
             });
-        }
-        finally {
-            await sandbox.cleanup();
-        }
+        });
+    });
+
+    test("rejects an empty override description", async () => {
+        await withCliSandbox(async (sandbox) => {
+            const skillDirectoryPath = join(sandbox.cwd, "empty-description");
+
+            await mkdir(skillDirectoryPath, { recursive: true });
+
+            const result = await sandbox.run([
+                "skills",
+                "adopt",
+                skillDirectoryPath,
+                "--description",
+                " ",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "Invalid value for --description. Use a non-empty trigger description for the adopted skill.\n",
+            );
+            await expect(stat(join(skillDirectoryPath, "SKILL.md"))).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        });
     });
 });
+
+type CliSandbox = Awaited<ReturnType<typeof createCliSandbox>>;
+
+async function withCliSandbox(
+    callback: (sandbox: CliSandbox) => Promise<void>,
+): Promise<void> {
+    const sandbox = await createCliSandbox();
+
+    try {
+        await callback(sandbox);
+    }
+    finally {
+        await sandbox.cleanup();
+    }
+}

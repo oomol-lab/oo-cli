@@ -695,8 +695,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 生成的 `SKILL.md` frontmatter 包含嵌套的 `metadata.title` 和
   `metadata.icon`。未提供 `--title` 时，标题会从 skill id 生成。未提供
   `--icon` 时，会使用通用本地工作流 icon。
-- 生成的 `SKILL.md` 正文包含受管理的 oo 执行说明，以及用于描述本地工作流适用场景、
-  输入、执行、结果处理和失败处理的可编辑占位章节。
+- 生成的 `SKILL.md` 正文包含用于描述本地工作流适用场景、输入、执行、结果处理和失败处理的可编辑占位章节。
 - 元数据：创建出的 skill 目录会包含 `.oo-metadata.json`，用于标记该 skill 是由
   `oo` 管理的 local skill。
 - 选项：`--icon <icon>` 将非空 icon 引用写入生成的 `SKILL.md` frontmatter

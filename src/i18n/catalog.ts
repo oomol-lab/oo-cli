@@ -408,6 +408,8 @@ export const enMessages = {
         "Cannot adopt skill at {path} because its .oo-metadata.json belongs to another oo-managed skill or is invalid.",
     "errors.skills.adopt.invalidAgent":
         "Unsupported skill agent: {value}. Use {agents}.",
+    "errors.skills.adopt.invalidDescription":
+        "Invalid value for --description. Use a non-empty trigger description for the adopted skill.",
     "errors.skills.adopt.invalidName":
         "Invalid skill name: {value}. Use --name with a value that can be normalized to lowercase hyphen-case.",
     "errors.skills.adopt.invalidSkillMarkdown":
@@ -1411,6 +1413,8 @@ export const zhMessages = {
         "无法接管 {path} 中的 skill，因为其 .oo-metadata.json 属于其他由 oo 管理的 skill 或无效。",
     "errors.skills.adopt.invalidAgent":
         "不支持的 skill Agent：{value}。请使用 {agents}。",
+    "errors.skills.adopt.invalidDescription":
+        "--description 的值无效。请为接管的 skill 提供非空触发描述。",
     "errors.skills.adopt.invalidName":
         "无效 skill 名称：{value}。请使用 --name 并提供可规范化为小写短横线格式的值。",
     "errors.skills.adopt.invalidSkillMarkdown":

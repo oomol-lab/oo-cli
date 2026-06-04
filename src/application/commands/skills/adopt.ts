@@ -117,7 +117,7 @@ async function adoptLocalSkill(
     const title = input.title?.trim();
 
     if (description !== undefined && description === "") {
-        throw new CliUserError("errors.skills.init.descriptionRequired", 1);
+        throw new CliUserError("errors.skills.adopt.invalidDescription", 1);
     }
 
     if (input.icon !== undefined && icon === "") {
@@ -128,6 +128,8 @@ async function adoptLocalSkill(
         throw new CliUserError("errors.skills.init.invalidTitle", 1);
     }
 
+    await validateAdoptMetadata(sourceDirectoryPath);
+
     const targetDirectoryPath = await prepareAdoptTargetDirectory({
         agent: input.agent,
         context,
@@ -135,7 +137,6 @@ async function adoptLocalSkill(
         sourceDirectoryPath,
     });
 
-    await validateAdoptMetadata(targetDirectoryPath);
     await writeAdoptedSkillContract(targetDirectoryPath, {
         description,
         icon,

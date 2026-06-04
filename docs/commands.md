@@ -806,9 +806,9 @@ Initialize one local skill in the selected agent's own skill directory.
 - Generated `SKILL.md` frontmatter includes nested `metadata.title` and
   `metadata.icon`. When `--title` is omitted, the title is generated from the
   skill id. When `--icon` is omitted, a generic local workflow icon is used.
-- Generated `SKILL.md` body includes the managed oo execution notice and
-  editable local workflow placeholder sections for when to use the skill,
-  inputs, execution, result handling, and failure handling.
+- Generated `SKILL.md` body includes editable local workflow placeholder
+  sections for when to use the skill, inputs, execution, result handling, and
+  failure handling.
 - Metadata: the created skill directory includes `.oo-metadata.json`
   identifying the skill as a local skill managed by `oo`.
 - Options: `--icon <icon>` writes a non-empty icon reference to `metadata.icon`
