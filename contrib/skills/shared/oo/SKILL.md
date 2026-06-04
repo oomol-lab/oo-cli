@@ -80,10 +80,18 @@ These rules override every local heuristic.
    destination, or timing choices.
 9. Stop at real blockers. Stop and report clearly on auth, billing, catalog
    miss, unsupported input shape, missing required values, terminal task
-   failure, or an unsafe side effect. If a shortlisted fallback directly avoids
-   the named blocker without changing the user's intent, try that fallback once.
-   Otherwise do not retry blindly, and do not replace a remote `oo` capability
-   with local code or direct third-party APIs.
+   failure, or an unsafe side effect. Connector authorization blockers are
+   terminal for the current turn: when evidence shows the selected connector is
+   not connected, not authorized, missing scopes, expired, or otherwise blocked
+   by connector authentication, return only a short blocker summary, the direct
+   connection or re-authorization URL, and one concise next step. Do not inspect
+   more schemas, enumerate actions, browse provider docs, provide usage
+   examples, or run more connector commands until the user confirms the service
+   is connected, unless the user explicitly asks for offline docs or setup
+   details. If a shortlisted fallback directly avoids a non-auth blocker without
+   changing the user's intent, try that fallback once. Otherwise do not retry
+   blindly, and do not replace a remote `oo` capability with local code or
+   direct third-party APIs.
 10. Reference reads are non-negotiable. Before invoking the first command in
     an `oo` command domain during a turn, read the corresponding file under
     `references/` unless it was already read in this turn. References are the

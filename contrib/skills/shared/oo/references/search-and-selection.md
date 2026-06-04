@@ -168,6 +168,14 @@ Tie-breakers:
   when the user explicitly requested that service or Fusion API cannot satisfy
   the schema, output, provider, account, compliance, data-routing, or side-effect
   requirements.
+- If the selected non-Fusion connector has `authenticated: false` and the user
+  explicitly requested that service, or no authenticated fallback can satisfy
+  the same outcome, stop before schema inspection. Report that the connector is
+  not connected, provide
+  `https://console.oomol.com/app-connections?provider=<service>`, and ask the
+  user to connect it first. Do not run `oo connector schema`, inspect adjacent
+  actions, or provide usage examples until the user confirms the service is
+  connected.
 - If both `fusion-api` and an authenticated non-Fusion connector are suitable,
   choose the one whose output contract best matches the user's requested result.
   Ask the user only when the choice changes provider, account, cost, compliance,
