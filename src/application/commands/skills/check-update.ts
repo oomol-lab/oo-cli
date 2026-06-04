@@ -13,19 +13,13 @@ import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
+import { readKnownManagedSkillInstallations } from "./installed-managed-skills.ts";
 import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
-import {
-    listManagedSkillInstallations,
-    listManagedSkillInstallationsForHosts,
-} from "./managed-skill-listings.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
-import {
-    resolveManagedSkillCanonicalRootDirectoryPath,
-} from "./managed-skill-paths.ts";
 import { isManagedSkillPublicationCurrent } from "./managed-skill-publication.ts";
 import { loadRegistryPackageSkillInfo } from "./registry-skill-source.ts";
 import { isBundledSkillName } from "./shared.ts";
@@ -480,32 +474,6 @@ function computeSummary(results: readonly CheckUpdateResultEntry[]): CheckUpdate
         registrySkillsCurrent: results.filter(entry => entry.status === "up-to-date").length,
         registrySkillFailures: results.filter(entry => entry.status === "failed").length,
     };
-}
-
-async function readKnownManagedSkillInstallations(
-    availableHosts: readonly ManagedSkillHost[],
-    settingsFilePath: string,
-): Promise<ManagedSkillListItem[]> {
-    const [canonicalSkills, hostSkills] = await Promise.all([
-        listManagedSkillInstallations(
-            resolveManagedSkillCanonicalRootDirectoryPath(settingsFilePath),
-        ),
-        listManagedSkillInstallationsForHosts(availableHosts),
-    ]);
-    // Host listings take precedence over canonical when a name collides.
-    const byName = new Map<string, ManagedSkillListItem>();
-
-    for (const skill of [...hostSkills, ...canonicalSkills]) {
-        if (skill.metadata !== undefined && !byName.has(skill.name)) {
-            byName.set(skill.name, {
-                metadata: skill.metadata,
-                name: skill.name,
-                path: skill.path,
-            });
-        }
-    }
-
-    return Array.from(byName.values());
 }
 
 function dedupePreserveOrder<T>(values: readonly T[]): T[] {

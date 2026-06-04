@@ -1335,6 +1335,92 @@ Common rules:
 - The JSON payload never includes `apiKey`, raw HTTP request/response bodies,
   stack traces, or unredacted endpoint secrets.
 
+### `oo skills recommend`
+
+End-of-session skill suggestions for the bundled `oo` skill, plus controls to
+silence them. The bundled `oo` skill calls these commands, but they can also be
+run directly. This is a command group with three subcommands.
+
+#### `oo skills recommend plan [connectorService...]`
+
+Given the connector services used during a session, decide which skills to
+suggest installing or updating and which to skip.
+
+- Arguments: `[connectorService...]` accepts zero or more connector service
+  identifiers (the `service` field from `oo search`). Each is mapped to one
+  skill package by prepending `oo-` and replacing underscores with hyphens
+  (`github` → `oo-github`, `aliyun_oss` → `oo-aliyun-oss`). Blank entries are
+  ignored; the derived packages are de-duplicated and their input order is
+  preserved in the output. With no arguments the plan is empty.
+- Options: `--format=json` and `--json` switch to a structured payload.
+  `--show-schema-version` (only meaningful with JSON) prepends `schemaVersion`.
+- Behavior: each derived `oo-<service>` package is confirmed against the
+  registry. It is suggested for `install` when it is published but not installed
+  locally; for `update` when an installed package has a newer published version;
+  and skipped when it is already current, not published, previously dismissed,
+  or globally muted. When suggestions are globally muted, the plan returns
+  `muted: true` with no recommendations.
+- Network: every non-dismissed, non-muted package is verified with a public
+  registry package-info request (existence + latest version). This endpoint
+  needs no login, so no account or API key is required — the active account's
+  endpoint is used when present, otherwise the default. Requests run with a
+  small bounded concurrency. Dismissed and muted packages need no network. A
+  `404` is treated as "not published" (silently skipped); any other failed
+  lookup skips that package instead of failing the command.
+- JSON shape:
+
+  ```json
+  {
+    "muted": false,
+    "recommendations": [
+      { "packageName": "oo-gmail", "action": "install" },
+      {
+        "packageName": "oo-notion",
+        "action": "update",
+        "currentVersion": "1.0.0",
+        "latestVersion": "1.2.0"
+      }
+    ],
+    "skipped": [
+      { "packageName": "oo-drive", "reason": "up-to-date" },
+      { "packageName": "oo-slack", "reason": "dismissed" }
+    ]
+  }
+  ```
+
+- `action` values: `install` / `update`.
+- `reason` values: `up-to-date` / `not-published` / `dismissed` / `muted` /
+  `lookup-failed`.
+- Exit code: `0` even when a lookup fails or a package is unpublished (both are
+  encoded as skips). Argument errors (for example `--format xml`) exit `2`.
+
+#### `oo skills recommend mute [packageName...]`
+
+Stop suggesting packages so later sessions no longer surface them.
+
+- Arguments: `[packageName...]` package names to stop suggesting; they are added
+  to a persisted dismissal list, de-duplicated and sorted.
+- Options: `--all` mutes every future suggestion instead of specific packages.
+  `--format=json` / `--json` / `--show-schema-version` control output.
+- Validation: pass package names **or** `--all`, not both and not neither;
+  either misuse exits `2`.
+- Persistence: the choice is stored in the CLI settings file under
+  `[skills.recommend]` and survives across sessions.
+- JSON shape: `{ "muted": <bool>, "dismissed": ["oo-gmail", ...] }` — the
+  resulting persisted state.
+
+#### `oo skills recommend unmute [packageName...]`
+
+Resume suggesting packages.
+
+- Arguments: `[packageName...]` package names to remove from the dismissal list.
+- Options: `--all` clears the global mute instead of specific packages. Output
+  options match `mute`.
+- Validation: pass package names **or** `--all`, not both and not neither;
+  either misuse exits `2`.
+- JSON shape: `{ "muted": <bool>, "dismissed": [...] }` — the resulting
+  persisted state.
+
 ### `oo skills uninstall [skill]`
 
 Remove oo-managed skills from supported local skill directories.

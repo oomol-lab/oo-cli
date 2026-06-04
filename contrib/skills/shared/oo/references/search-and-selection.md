@@ -44,8 +44,8 @@ Examples:
 
 ## Search keywords
 
-Always pass `1` to `3` keywords through `--keywords` on every `oo search` and
-`oo skills search` call. Never search without keywords.
+Always pass `1` to `3` keywords through `--keywords` on every `oo search` call.
+Never search without keywords.
 
 - Keywords may use the user's original language; the English sentence stays in
   English.
@@ -92,12 +92,6 @@ Canonical form:
 oo search "<text>" --keywords "<comma-separated keywords>" --json
 ```
 
-Skill sidecar:
-
-```bash
-oo skills search "<text>" --keywords "<comma-separated keywords>" --json
-```
-
 Facts:
 
 - `oo search` performs one discovery pass over connector action search.
@@ -105,12 +99,10 @@ Facts:
 - `--json` returns a raw array, not an object wrapper.
 - The array contains `connector` entries.
 - Connector entries include stable fields such as `service`, `name`,
-  `description`, and `authenticated`.
+  `description`, and `authenticated`. Record the `service` of every connector
+  you actually use; the wrap-up recommendation is keyed on it.
 - `--keywords` is required on every call: always pass `1` to `3` keywords. The
   backend tokenizes them while keeping the same free-form text query.
-- `oo skills search` is a sidecar discovery branch, not a callable capability
-  contract. It returns installable workflow helpers that may improve repeated
-  use, but skill installation is a separate user-visible action.
 
 Representative JSON example:
 
@@ -175,22 +167,87 @@ Tie-breakers:
 - If the returned array is empty or no candidate clearly fits, stop the current
   `oo` path and report that the catalog does not expose a good match.
 
-## Skill sidecar policy
+## Record connectors for the wrap-up
 
-During the same discovery step, run at most one `oo skills search "<text>"
---keywords "<comma-separated keywords>" --json` query using the same goal
-sentence and keywords. Keep only the best credible
-installable skill match, identified by both `packageName` and `name`.
+You do not need `oo skills search` for recommendations. Each connector service
+maps to exactly one published skill package by a fixed rule: prepend `oo-` and
+replace underscores with hyphens (service `github` -> `oo-github`, `aliyun_oss`
+-> `oo-aliyun-oss`). The wrap-up command applies that rule and confirms the
+package is published, so you only collect the connector `service` values — never
+assemble or guess package names yourself.
 
-Do not install a skill, do not select it instead of a connector capability, and
-do not ask about installation before the selected connector path has produced
-its first successful useful result. After success,
-if the recorded skill would clearly make repeated use easier or stronger, ask
-whether the user wants to install that specific skill using numbered choices:
-`1. Install <skillName> (<packageName>)` and `2. Do not install`. Tell the user
-to reply with `1` to install or `2` to skip. Treat a `1` response as explicit
-agreement to install that exact skill. If they choose install, use the
-`oo-find-skills` installation flow. If they decline, continue without installing.
+Across the whole session, build one deduplicated list of the connector `service`
+values you actually use. Do not install or ask about installation before the
+selected connector path has produced a successful useful result.
+
+## Wrap-up skill recommendation
+
+After the final useful result, run the recommendation exactly once over the
+deduplicated list of connector services you used:
+
+```bash
+oo skills recommend plan <connectorService>... --json
+```
+
+Pass connector `service` values (for example `github gmail`), not package names.
+The command derives each `oo-<service>` package, confirms it is published, and
+returns:
+
+- `muted`: when `true`, the user globally silenced suggestions. Say nothing
+  about skills and finish.
+- `recommendations`: each entry has a `packageName` and an `action`. `install`
+  means the package is published but not installed locally; `update` means an
+  installed package has a newer version, and the entry also carries
+  `currentVersion` and `latestVersion`.
+- `skipped`: packages excluded because they are already current, not published,
+  dismissed, or muted. Never mention skipped packages.
+
+If `recommendations` is empty, say nothing about skills and finish. Otherwise
+present one short batched prompt that lists the install and update actions and
+offers, at minimum:
+
+1. Apply the suggestions
+2. Not now
+3. Never remind me about these
+
+<!-- agentic:if skillSelectionPromptTool -->
+- Prefer the `<!-- agentic:var skillSelectionPromptTool -->` tool with one short
+  multiple-choice question that includes only the actions that are actually
+  available.
+- If that tool is unavailable in the current mode or its call fails, fall back
+  to plain numbered text.
+- Treat a `None of the above` response the same as `Not now`.
+<!-- agentic:endif -->
+
+Act on the choice with these commands, using the exact `packageName` values from
+the plan output:
+
+- Apply the suggestions: install the `install` packages and update the `update`
+  packages. Run only the command for actions that exist; omit `oo skills add`
+  when there is nothing to install, and omit `oo skills update` when there is
+  nothing to update.
+
+  ```bash
+  oo skills add <installPackageName>...
+  oo skills update <updatePackageName>...
+  ```
+
+- Not now: install and update nothing. Acknowledge briefly and finish.
+- Never remind me about these: persist the choice so later sessions stop
+  suggesting them. Pass specific package names to silence just those packages,
+  or `--all` to silence every future suggestion.
+
+  ```bash
+  oo skills recommend mute <packageName>...
+  oo skills recommend mute --all
+  ```
+
+Only run an `oo skills add`, `oo skills update`, or `oo skills recommend mute`
+command after the user explicitly chooses that action. Never invent package
+names; use only the `packageName` values returned by `oo skills recommend
+plan`. If a wrap-up command fails for any reason other than the explicit HTTP
+`402` billing case, stop and report the exact failure instead of retrying
+blindly or inventing a result.
 
 ## Build the next contract step
 

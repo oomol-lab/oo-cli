@@ -8,84 +8,17 @@ import {
     toRequest,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
-import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
-import { APP_NAME } from "../../config/app-config.ts";
+import { packageInfoResponse, seedRegistrySkill } from "./__tests__/helpers.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
-    resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
 import {
     createBundledSkillMetadata,
     createLocalSkillMetadata,
-    createRegistrySkillMetadata,
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
-
-function packageInfoResponse(packageName: string, version: string, skillName: string) {
-    return new Response(JSON.stringify({
-        packageName,
-        version,
-        skills: [
-            {
-                description: "demo",
-                name: skillName,
-                title: skillName,
-            },
-        ],
-    }));
-}
-
-async function seedRegistrySkill(options: {
-    sandbox: Awaited<ReturnType<typeof createCliSandbox>>;
-    skillName: string;
-    packageName: string;
-    version: string;
-    agent?: "universal" | "claude";
-    hostSkillMd?: string;
-}): Promise<{
-    hostDirectory: string;
-    canonicalDirectory: string;
-}> {
-    const agent = options.agent ?? "universal";
-    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, agent);
-    const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
-    const storePaths = resolveStorePaths({
-        appName: APP_NAME,
-        env: options.sandbox.env,
-        platform: process.platform,
-    });
-    const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
-        storePaths.settingsFilePath,
-        options.skillName,
-    );
-
-    await mkdir(homeDirectory, { recursive: true });
-    await mkdir(canonicalDirectory, { recursive: true });
-    await mkdir(hostDirectory, { recursive: true });
-
-    const skillMd = options.hostSkillMd ?? "# Demo\n";
-
-    await writeFile(join(canonicalDirectory, "SKILL.md"), "# Demo\n");
-    await writeFile(join(hostDirectory, "SKILL.md"), skillMd);
-    await writeFile(
-        resolveManagedSkillMetadataFilePath(canonicalDirectory),
-        renderSkillMetadataJson(createRegistrySkillMetadata({
-            packageName: options.packageName,
-            version: options.version,
-        })),
-    );
-    await writeFile(
-        resolveManagedSkillMetadataFilePath(hostDirectory),
-        renderSkillMetadataJson(createRegistrySkillMetadata({
-            packageName: options.packageName,
-            version: options.version,
-        })),
-    );
-
-    return { hostDirectory, canonicalDirectory };
-}
 
 describe("skills check-update CLI", () => {
     test("--json reports update-available when remote latest is newer", async () => {

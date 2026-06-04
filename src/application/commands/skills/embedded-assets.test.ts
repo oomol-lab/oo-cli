@@ -382,21 +382,32 @@ describe("embedded skill assets", () => {
             expect(content).not.toContain("package-execution.md");
             expect(content).not.toContain("packageId");
             expect(content).not.toContain("uses `kind` as the");
-            expect(content).toContain("Skill sidecar");
-            expect(content).toContain("oo skills search");
-            expect(content).toContain("sidecar discovery branch");
-            expect(content).toContain("not a callable capability contract");
-            expect(content).toContain("Skill sidecar policy");
-            expect(content).toContain("best credible installable skill match");
-            expect(content).toContain("Do not install a skill");
-            expect(content).toContain("do not ask about installation before");
-            expect(content).toContain("first successful useful result");
-            expect(content).toContain("numbered choices");
-            expect(content).toContain("`1. Install <skillName> (<packageName>)`");
-            expect(content).toContain("`2. Do not install`");
-            expect(content).toContain("reply with `1` to install or `2` to skip");
-            expect(content).toContain("Treat a `1` response as explicit agreement");
-            expect(content).toContain("use the `oo-find-skills` installation flow");
+            // Connector services are recorded for the wrap-up; the oo skill no
+            // longer runs an `oo skills search` sidecar.
+            expect(content).toContain("Record connectors for the wrap-up");
+            expect(content).toContain("do not need `oo skills search`");
+            expect(content).toContain("connector `service` values");
+            expect(content).toContain("service `github` -> `oo-github`");
+            expect(content).toContain("never assemble or guess package names yourself");
+            expect(content).toContain("has produced a successful useful result");
+            // Wrap-up batched recommendation flow.
+            expect(content).toContain("Wrap-up skill recommendation");
+            expect(content).toContain("oo skills recommend plan <connectorService>... --json");
+            expect(content).toContain("oo skills add <installPackageName>...");
+            expect(content).toContain("oo skills update <updatePackageName>...");
+            expect(content).toContain("oo skills recommend mute <packageName>...");
+            expect(content).toContain("oo skills recommend mute --all");
+            expect(content).toContain("not published");
+            expect(content).toContain("Never mention skipped packages");
+            expect(content).toContain("Never invent package names");
+            // The sidecar search and the legacy single-skill prompt are gone.
+            expect(content).not.toContain("sidecar discovery branch");
+            expect(content).not.toContain("Skill sidecar policy");
+            expect(content).not.toContain("best credible installable skill match");
+            expect(content).not.toContain("`1. Install <skillName> (<packageName>)`");
+            expect(content).not.toContain("`2. Do not install`");
+            expect(content).not.toContain("reply with `1` to install or `2` to skip");
+            expect(content).not.toContain("use the `oo-find-skills` installation flow");
             expect(content).toContain("If the user did not name a model or product");
             expect(content).toContain("prefer more capable, modern, reputable candidates");
             expect(content).toContain("older or obscure equivalents");
@@ -404,7 +415,7 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("guides oo runtime to defer sidecar skill installation", async () => {
+    test("guides oo runtime to record packages and recommend skills at wrap-up", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const skillFile = getBundledSkillFiles("oo", agentName).find(
                 file => file.relativePath === "SKILL.md",
@@ -418,22 +429,21 @@ describe("embedded skill assets", () => {
                 await readBundledSkillFileContent(skillFile),
             );
 
-            expect(content).toContain("When running capability discovery");
-            expect(content).toContain("also run at most one");
-            expect(content).toContain("sidecar query");
-            expect(content).toContain("Record credible installable skill matches");
-            expect(content).toContain("possible future enhancements");
-            expect(content).toContain("do not install or ask about installation before");
-            expect(content).toContain("capability succeeds");
-            expect(content).toContain("After the first successful result");
-            expect(content).toContain("ask whether the user wants to");
-            expect(content).toContain("install that specific skill");
-            expect(content).toContain("numbered choices");
-            expect(content).toContain("`1. Install <skillName> (<packageName>)`");
-            expect(content).toContain("`2. Do not install`");
-            expect(content).toContain("reply with `1` to install or `2` to skip");
-            expect(content).toContain("Treat a `1` response as explicit agreement");
-            expect(content).toContain("Do not install unless the user explicitly agrees");
+            expect(content).toContain("Record the `service` of each connector capability");
+            expect(content).toContain("do not need `oo skills search`");
+            expect(content).toContain("deduplicated wrap-up list of connector services");
+            expect(content).toContain(
+                "Do not install or ask about installation before the selected connector capability",
+            );
+            expect(content).toContain("After the final useful result");
+            expect(content).toContain("oo skills recommend plan <connectorService>... --json");
+            expect(content).toContain("say nothing about skills and finish");
+            // The legacy single-skill numbered prompt is gone from SKILL.md.
+            expect(content).not.toContain("After the first successful result");
+            expect(content).not.toContain("Record credible installable skill matches");
+            expect(content).not.toContain("`1. Install <skillName> (<packageName>)`");
+            expect(content).not.toContain("`2. Do not install`");
+            expect(content).not.toContain("Do not install unless the user explicitly agrees");
         }
     });
 

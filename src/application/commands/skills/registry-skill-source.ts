@@ -6,6 +6,8 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
 import { performLoggedRequest, requestText } from "../shared/request.ts";
 
+const registryPackageNotFoundStatus = 404;
+
 const registrySkillSchema = z.object({
     description: z.string().optional().default(""),
     name: z.string().min(1),
@@ -115,6 +117,53 @@ export async function loadRegistryPackageSkillInfo(
     });
 
     return parseRegistryPackageSkillInfo(rawResponse);
+}
+
+// Like loadRegistryPackageSkillInfo, but unauthenticated and 404-aware: the
+// package-info endpoint is public, so no Authorization header is sent, and a
+// 404 is treated as a definitive "the package does not exist" signal instead of
+// an error. Used to confirm a derived `oo-<service>` package is published before
+// recommending it. Other non-success statuses and network errors still throw.
+export async function loadRegistryPackageSkillInfoAllowingMissing(
+    packageName: string,
+    endpoint: string,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+    packageVersion = "latest",
+): Promise<RegistryPackageSkillInfo | "not-found"> {
+    const requestUrl = createRegistryPackageInfoRequestUrl(
+        endpoint,
+        packageName,
+        packageVersion,
+    );
+    const response = await performLoggedRequest({
+        allowedStatuses: [registryPackageNotFoundStatus],
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.skills.install.packageInfoRequestFailed",
+            1,
+            {
+                status,
+            },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.skills.install.packageInfoRequestError",
+            1,
+            {
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ),
+        fields: {
+            common: withPackageIdentity(packageName, packageVersion),
+        },
+        requestLabel: "Skills recommend package info",
+        requestUrl,
+    });
+
+    if (response.status === registryPackageNotFoundStatus) {
+        return "not-found";
+    }
+
+    return parseRegistryPackageSkillInfo(await response.text());
 }
 
 export async function downloadRegistryPackageTarball(
