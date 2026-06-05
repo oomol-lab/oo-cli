@@ -1854,6 +1854,113 @@ describe("skills commands", () => {
         }
     });
 
+    test("removes every installed skill of a package when given a package name", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const first = await seedRegistrySkillInstallation({
+                env: sandbox.env,
+                packageName: "@scope/bundle",
+                skillName: "alpha",
+                version: "1.0.0",
+            });
+            const second = await seedRegistrySkillInstallation({
+                env: sandbox.env,
+                packageName: "@scope/bundle",
+                skillName: "beta",
+                version: "1.0.0",
+            });
+
+            const result = await sandbox.run(["skills", "remove", "@scope/bundle"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    `Removed skill alpha from ${first.hostDirectory}.`,
+                    `Removed skill beta from ${second.hostDirectory}.`,
+                    "",
+                ].join("\n"),
+            );
+            await expect(stat(first.hostDirectory)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(second.hostDirectory)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not remove a skill owned by a different package", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const seeded = await seedRegistrySkillInstallation({
+                env: sandbox.env,
+                packageName: "@owner/pkg-one",
+                skillName: "foo",
+                version: "1.0.0",
+            });
+
+            const result = await sandbox.run(["skills", "remove", "pkg-two"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "No installed oo-managed skill belongs to pkg-two.\n",
+            );
+            await expect(stat(seeded.hostDirectory)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("removes mixed skill and package names in one invocation", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const inner = await seedRegistrySkillInstallation({
+                env: sandbox.env,
+                packageName: "@scope/bundle",
+                skillName: "inner",
+                version: "1.0.0",
+            });
+            const bar = await seedRegistrySkillInstallation({
+                env: sandbox.env,
+                packageName: "@scope/bar",
+                skillName: "bar",
+                version: "1.0.0",
+            });
+
+            const result = await sandbox.run(["skills", "remove", "@scope/bundle", "bar"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                [
+                    `Removed skill inner from ${inner.hostDirectory}.`,
+                    `Removed skill bar from ${bar.hostDirectory}.`,
+                    "",
+                ].join("\n"),
+            );
+            await expect(stat(inner.hostDirectory)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(bar.hostDirectory)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("does not uninstall a same-name skill without oo metadata", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
@@ -3655,6 +3762,40 @@ async function writeLocalSkillDirectory(
         resolveManagedSkillMetadataFilePath(skillDirectoryPath),
         renderSkillMetadataJson(createLocalSkillMetadata()),
     );
+}
+
+async function seedRegistrySkillInstallation(options: {
+    env: Record<string, string | undefined>;
+    packageName: string;
+    skillName: string;
+    version: string;
+    agent?: "universal" | "claude";
+}): Promise<{ canonicalDirectory: string; hostDirectory: string }> {
+    const agent = options.agent ?? "universal";
+    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.env, agent);
+    const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
+    const storePaths = resolveStorePaths({
+        appName: APP_NAME,
+        env: options.env,
+        platform: process.platform,
+    });
+    const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
+        storePaths.settingsFilePath,
+        options.skillName,
+    );
+    const metadata = renderSkillMetadataJson(createRegistrySkillMetadata({
+        packageName: options.packageName,
+        version: options.version,
+    }));
+
+    await mkdir(hostDirectory, { recursive: true });
+    await mkdir(canonicalDirectory, { recursive: true });
+    await Bun.write(join(hostDirectory, "SKILL.md"), "# Registry\n");
+    await Bun.write(join(canonicalDirectory, "SKILL.md"), "# Registry\n");
+    await Bun.write(resolveManagedSkillMetadataFilePath(hostDirectory), metadata);
+    await Bun.write(resolveManagedSkillMetadataFilePath(canonicalDirectory), metadata);
+
+    return { canonicalDirectory, hostDirectory };
 }
 
 function isRegistryPackageDownloadCountRequest(request: Request): boolean {

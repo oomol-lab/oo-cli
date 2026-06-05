@@ -1247,17 +1247,26 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 校验：传包名**或** `--all`，不能同时传也不能都不传；任一误用以 exit 2 退出。
 - JSON 结构：`{ "muted": <bool>, "dismissed": [...] }`——持久化后的状态。
 
-### `oo skills uninstall [skill]`
+### `oo skills uninstall [skills...]`
 
 从受支持的本地 skill 目录移除由 oo 管理的 skill。
 
-- 别名：`oo skills remove [skill]`。
-- 参数：省略 `[skill]` 时，命令会移除全部内置 skill。
+- 别名：`oo skills remove [skills...]`。
+- 参数：未提供任何名称时，命令会移除全部内置 skill。
+- 参数：可提供一个或多个名称，并且可以混用 skill 名与包名，例如
+  `oo skills remove @scope/pkg other-skill`。
 - 选项：`--agent <agent>` 将 local skill 删除限制到一个受支持 Agent，用于消除
   多个 Agent 中存在同名 local skill 时的歧义。
-- 参数：提供 `[skill]` 时，命令会同时检查已发布的 registry 安装和 agent-native
-  local skill；如果两者都匹配同一个名称，会同时移除。registry 安装会先于本地安装
-  移除。
+- 名称解析：每个名称会先按 skill 名处理，命令会检查内置 skill、agent-native
+  local skill 以及已发布的 registry 安装；当 registry 与 local 同名时会同时移除，
+  且 registry 安装先于本地安装移除。
+- 包名回退：当某个名称匹配不到任何已安装的 skill 时，会将其当作包名处理，并移除
+  属于该包的全部已安装 registry skill。以 `@` 开头且包含 `/` 的名称（即带 scope
+  的包标识，如 `@scope/pkg`）始终被当作包名处理，不会再尝试作为 skill 名。
+- 包归属：包匹配依据每个已安装 skill 记录的包标识。即使另一个包发布了同名 skill，
+  来自其他包的 skill 也不会被移除。
+- 多名称：使用 `--json` 时会尝试每个名称，并将各名称的结果汇总进报告；文本输出
+  会按顺序处理名称，遇到第一个失败即停止。
 - 所有权规则：对内置 skill 来说，只有当某个受支持 Agent 中的安装目录包含能识别
   bundled 所有权的 `.oo-metadata.json` 时，才允许从该 Agent 移除。
 - 所有权规则：local skill 目录包含能识别 local 所有权的 `.oo-metadata.json` 时，

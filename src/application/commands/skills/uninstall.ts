@@ -7,6 +7,7 @@ import type {
     BundledSkillName,
 } from "./embedded-assets.ts";
 
+import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import type {
     SkillKind,
     SkillOperationError,
@@ -25,6 +26,7 @@ import {
     readInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { findInstalledRegistrySkillNamesForPackage } from "./installed-managed-skills.ts";
 import { readLocalSkillMetadata } from "./local-skill-ownership.ts";
 import { findLocalSkillSources } from "./local-skill-source.ts";
 import { parseManagedSkillAgentOption } from "./managed-skill-agents.ts";
@@ -37,7 +39,7 @@ import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
-import { uninstallRequestedSkill } from "./managed-skill-uninstall.ts";
+import { uninstallRequestedSkills } from "./managed-skill-uninstall.ts";
 import {
     computeCommandStatus,
     skillOperationOutputOptions,
@@ -45,12 +47,13 @@ import {
 } from "./operation-result.ts";
 import {
     isBundledSkillName,
+    isScopedPackageName,
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
 
 interface SkillsUninstallInput {
     agent?: string;
-    skill?: string;
+    skills?: string[];
     format?: "json";
     showSchemaVersion?: boolean;
 }
@@ -81,9 +84,10 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
     descriptionKey: "commands.skills.uninstall.description",
     arguments: [
         {
-            name: "skill",
-            descriptionKey: "arguments.skill",
+            name: "skills",
+            descriptionKey: "arguments.skills.uninstall.name",
             required: false,
+            variadic: true,
         },
     ],
     options: [
@@ -97,21 +101,25 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
     ],
     inputSchema: z.object({
         agent: z.string().optional(),
-        skill: z.string().optional(),
+        skills: z.array(z.string()).optional(),
         format: z.enum(["json"]).optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const agentName = parseSkillsUninstallAgent(input.agent);
+        const skillNames = input.skills ?? [];
 
         if (input.format === "json") {
-            const report = await runUninstallJsonReport(
-                { skillName: input.skill, agentName },
+            const { report, hasPackageTarget } = await runUninstallJsonReport(
+                { skillNames, agentName },
                 context,
             );
 
-            recordUninstallTelemetry(context, report, { format: "json" });
+            recordUninstallTelemetry(context, report, {
+                format: "json",
+                hasPackageTarget,
+            });
             writeSkillOperationJson(context.stdout, report, {
                 showSchemaVersion: input.showSchemaVersion,
             });
@@ -124,7 +132,7 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
             return;
         }
 
-        await uninstallRequestedSkill(input.skill, context, {
+        await uninstallRequestedSkills(skillNames, context, {
             agentName,
         });
     },
@@ -138,24 +146,27 @@ function parseSkillsUninstallAgent(
 
 async function runUninstallJsonReport(
     request: {
-        skillName: string | undefined;
+        skillNames: readonly string[];
         agentName: BundledSkillAgentName | undefined;
     },
     context: CliExecutionContext,
-): Promise<UninstallReport> {
+): Promise<{ report: UninstallReport; hasPackageTarget: boolean }> {
     const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
 
     if (availableHosts.length === 0) {
-        return buildReport([], [{
-            code: "no_supported_hosts",
-            message: uninstallErrorMessages.no_supported_hosts,
-        }], 0);
+        return {
+            report: buildReport([], [{
+                code: "no_supported_hosts",
+                message: uninstallErrorMessages.no_supported_hosts,
+            }], 0),
+            hasPackageTarget: false,
+        };
     }
 
-    const skills: SkillResult[] = [];
-    let requested = 0;
+    if (request.skillNames.length === 0) {
+        const skills: SkillResult[] = [];
+        let requested = 0;
 
-    if (request.skillName === undefined) {
         for (const bundledName of availableBundledSkillNames) {
             requested += 1;
             const entry = await uninstallBundledSkillForJson(bundledName, context, {
@@ -166,44 +177,113 @@ async function runUninstallJsonReport(
                 skills.push(entry);
             }
         }
-        return buildReport(skills, [], requested);
+        return { report: buildReport(skills, [], requested), hasPackageTarget: false };
     }
 
-    requested = 1;
+    const settingsFilePath = context.settingsStore.getFilePath();
+    const skills: SkillResult[] = [];
+    let hasPackageTarget = false;
 
-    if (isBundledSkillName(request.skillName)) {
-        const entry = await uninstallBundledSkillForJson(request.skillName, context, {
+    for (const name of request.skillNames) {
+        const resolution = await uninstallNameForJson(name, request.agentName, context, {
+            availableHosts,
+            settingsFilePath,
+        });
+
+        skills.push(...resolution.skills);
+
+        if (resolution.usedPackage) {
+            hasPackageTarget = true;
+        }
+    }
+
+    // Each positional argument counts as one requested target regardless of how
+    // many installed skills a package name expands to.
+    return {
+        report: buildReport(skills, [], request.skillNames.length),
+        hasPackageTarget,
+    };
+}
+
+interface UninstallNameResolution {
+    skills: SkillResult[];
+    usedPackage: boolean;
+}
+
+// Resolve a single positional argument. A scoped `@scope/name` value is always
+// treated as a package; any other value is tried as a skill name first
+// (bundled, local, then registry) and only falls back to a package lookup when
+// no skill is installed under that name.
+async function uninstallNameForJson(
+    name: string,
+    agentName: BundledSkillAgentName | undefined,
+    context: CliExecutionContext,
+    options: { availableHosts: readonly ManagedSkillHost[]; settingsFilePath: string },
+): Promise<UninstallNameResolution> {
+    if (isScopedPackageName(name)) {
+        return {
+            skills: await uninstallPackageForJson(name, context, options),
+            usedPackage: true,
+        };
+    }
+
+    if (isBundledSkillName(name)) {
+        const entry = await uninstallBundledSkillForJson(name, context, {
             includeNotInstalledAsFailure: true,
         });
-        if (entry !== undefined) {
-            skills.push(entry);
-        }
-        return buildReport(skills, [], requested);
+
+        return { skills: entry === undefined ? [] : [entry], usedPackage: false };
     }
 
     // Try local first so a local skill at <host>/skills/<name> is not
     // misclassified as an "unmanaged registry directory" by the registry
     // path (which only matches kind=registry metadata).
-    const localEntry = await uninstallLocalSkillForJson(
-        request.skillName,
-        request.agentName,
-        context,
-    );
+    const localEntry = await uninstallLocalSkillForJson(name, agentName, context);
 
     if (localEntry !== undefined) {
-        skills.push(localEntry);
-        return buildReport(skills, [], requested);
+        return { skills: [localEntry], usedPackage: false };
     }
 
-    const registryEntry = await uninstallRegistrySkillForJson(request.skillName, context);
+    const registryEntry = await uninstallRegistrySkillForJson(name, context);
 
     if (registryEntry.outcome === "removed" || registryEntry.outcome === "failed") {
-        skills.push(registryEntry.entry);
-        return buildReport(skills, [], requested);
+        return { skills: [registryEntry.entry], usedPackage: false };
     }
 
-    skills.push(buildNotInstalledSkillResult(request.skillName));
-    return buildReport(skills, [], requested);
+    // The name matches no installed skill; treat it as a package and remove
+    // every installed skill that belongs to it.
+    return {
+        skills: await uninstallPackageForJson(name, context, options),
+        usedPackage: true,
+    };
+}
+
+async function uninstallPackageForJson(
+    packageName: string,
+    context: CliExecutionContext,
+    options: { availableHosts: readonly ManagedSkillHost[]; settingsFilePath: string },
+): Promise<SkillResult[]> {
+    const skillNames = await findInstalledRegistrySkillNamesForPackage({
+        availableHosts: options.availableHosts,
+        packageName,
+        settingsFilePath: options.settingsFilePath,
+    });
+
+    if (skillNames.length === 0) {
+        return [buildNotInstalledSkillResult(packageName)];
+    }
+
+    const results: SkillResult[] = [];
+
+    for (const skillName of skillNames) {
+        const outcome = await uninstallRegistrySkillForJson(skillName, context);
+
+        results.push(outcome.outcome === "not-applicable"
+            ? buildNotInstalledSkillResult(skillName, "registry")
+            : outcome.entry);
+    }
+
+    return results;
 }
 
 function buildReport(
@@ -720,7 +800,7 @@ function buildNotInstalledSkillResult(
 function recordUninstallTelemetry(
     context: CliExecutionContext,
     report: UninstallReport,
-    options: { format: "json" | "text" },
+    options: { format: "json" | "text"; hasPackageTarget: boolean },
 ): void {
     const hasBundled = report.skills.some(skill => skill.kind === "bundled");
     const hasRegistry = report.skills.some(skill => skill.kind === "registry");
@@ -734,5 +814,6 @@ function recordUninstallTelemetry(
         has_bundled_skill: hasBundled,
         has_registry_skill: hasRegistry,
         has_local_skill: hasLocal,
+        has_package_target: options.hasPackageTarget,
     });
 }

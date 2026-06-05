@@ -19,6 +19,7 @@ import {
     readInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { findInstalledRegistrySkillNamesForPackage } from "./installed-managed-skills.ts";
 import { readLocalSkillMetadata } from "./local-skill-ownership.ts";
 import {
     findLocalSkillSources,
@@ -35,6 +36,7 @@ import {
 } from "./managed-skill-paths.ts";
 import {
     isBundledSkillName,
+    isScopedPackageName,
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
 
@@ -52,17 +54,37 @@ export interface ManagedSkillUninstallResult {
     unmanagedInstallations: readonly ManagedSkillHostInstallation[];
 }
 
-export async function uninstallRequestedSkill(
-    skillName: string | undefined,
+export async function uninstallRequestedSkills(
+    skillNames: readonly string[],
     context: CliExecutionContext,
     options: {
         agentName?: BundledSkillAgentName;
     } = {},
 ): Promise<void> {
-    if (skillName === undefined) {
+    if (skillNames.length === 0) {
         for (const bundledSkillName of availableBundledSkillNames) {
             await uninstallBundledSkill(bundledSkillName, context);
         }
+        return;
+    }
+
+    // Names are processed in order; the first failure propagates and stops the
+    // run, mirroring `oo skills install`. The `--json` path is best-effort and
+    // aggregates per-name outcomes instead.
+    for (const skillName of skillNames) {
+        await uninstallRequestedSkillName(skillName, context, options);
+    }
+}
+
+async function uninstallRequestedSkillName(
+    skillName: string,
+    context: CliExecutionContext,
+    options: {
+        agentName?: BundledSkillAgentName;
+    },
+): Promise<void> {
+    if (isScopedPackageName(skillName)) {
+        await uninstallPackageSkills(skillName, context);
         return;
     }
 
@@ -97,17 +119,48 @@ export async function uninstallRequestedSkill(
         });
     }
 
-    const result = registryResult.unmanagedInstallations.length > 0
-        ? registryResult
-        : localResult;
+    // An existing same-name directory that oo does not manage is a conflict to
+    // surface, not a reason to reinterpret the argument as a package.
+    if (registryResult.unmanagedInstallations.length > 0) {
+        throw createManagedSkillUninstallResultError({
+            context,
+            logMessage:
+                "Managed registry skill uninstall skipped because no OOMOL metadata was found.",
+            result: registryResult,
+            skillName,
+        });
+    }
 
-    throw createManagedSkillUninstallResultError({
-        context,
-        logMessage:
-            "Managed registry skill uninstall skipped because no OOMOL metadata was found.",
-        result,
-        skillName,
+    // No skill is installed under this name; treat it as a package and remove
+    // every installed skill that belongs to it.
+    await uninstallPackageSkills(skillName, context);
+}
+
+async function uninstallPackageSkills(
+    packageName: string,
+    context: CliExecutionContext,
+): Promise<void> {
+    const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
+
+    if (availableHosts.length === 0) {
+        throw createMissingManagedSkillHostError(context.env);
+    }
+
+    const skillNames = await findInstalledRegistrySkillNamesForPackage({
+        availableHosts,
+        packageName,
+        settingsFilePath: context.settingsStore.getFilePath(),
     });
+
+    if (skillNames.length === 0) {
+        throw new CliUserError("errors.skills.uninstall.packageNotInstalled", 1, {
+            name: packageName,
+        });
+    }
+
+    for (const skillName of skillNames) {
+        await uninstallRegistrySkill(skillName, context);
+    }
 }
 
 export async function uninstallBundledSkill(
