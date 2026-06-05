@@ -37,7 +37,7 @@ Match the user's language when generating the prompt: use
 meant for recipients to follow a language-specific general install preparation
 guide before running the final install command. It should include the package
 name, skill name when applicable, Hub URL, the general install preparation URL,
-and the exact `oo skills install ... -y` command. In the final response, put the
+and the exact `oo skills install ...` command. In the final response, put the
 complete recipient-facing share prompt in one copyable `text` code block. Do not
 use nested fenced code blocks inside it. Do not split the hub URL, guide URL, or
 install command outside the block.
