@@ -410,11 +410,12 @@ const commandTelemetryDecisions = {
             "format",
             "has_bundled_skill",
             "has_local_skill",
+            "has_package_target",
             "has_registry_skill",
             "removed_count_bucket",
             "skill_count_bucket",
         ],
-        reason: "Records JSON-output buckets and skill-kind flags; never records skill names or paths.",
+        reason: "Records JSON-output buckets, skill-kind flags, and whether any argument was resolved as a package; never records skill names, package names, or paths.",
     },
     "skills.update": {
         kind: "properties",

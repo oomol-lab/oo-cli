@@ -174,7 +174,7 @@ export const enMessages = {
         "Update installed oo-managed published skills to the latest available version.",
     "commands.skills.update.summary": "Update oo-managed skills",
     "commands.skills.uninstall.description":
-        "Remove oo-managed skills from supported local skill directories.",
+        "Remove oo-managed skills from supported local skill directories. A package name removes every installed skill that belongs to it.",
     "commands.skills.uninstall.summary": "Remove a managed skill",
     "commands.skills.repair.description":
         "Force re-deploy one or more oo-managed skills from their trusted source into one or more agent skill directories.",
@@ -572,6 +572,8 @@ export const enMessages = {
         "Bundled skill {name} is managed by oo and cannot be updated with skills update. Use oo skills add {name} instead.",
     "errors.skills.update.packageNotInstalled":
         "No installed oo-managed skill belongs to package {packageName}.",
+    "errors.skills.uninstall.packageNotInstalled":
+        "No installed oo-managed skill belongs to {name}.",
     "errors.skills.nameConflict":
         "Skill name {name} is already used by a non-OOMOL skill at {path}.",
     "errors.skills.storageConflict":
@@ -1011,6 +1013,7 @@ export const enMessages = {
     "arguments.packageName": "Package name(s) to install",
     "arguments.skills.update.packageName": "Package name(s) to update; updates every installed skill of each package",
     "arguments.skills.checkUpdate.packageName": "Package name(s) to check; checks every installed skill of each package",
+    "arguments.skills.uninstall.name": "Skill or package name(s) to remove; a package name removes every installed skill that belongs to it",
     "arguments.serviceName": "Service name",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
@@ -1241,7 +1244,7 @@ export const zhMessages = {
     "commands.skills.update.description":
         "将已安装且由 oo 管理的已发布 skill 更新到最新可用版本。",
     "commands.skills.update.summary": "更新由 oo 管理的 skill",
-    "commands.skills.uninstall.description": "从受支持的本地 skill 目录移除由 oo 管理的 skill。",
+    "commands.skills.uninstall.description": "从受支持的本地 skill 目录移除由 oo 管理的 skill。传入包名会移除该包已安装的全部 skill。",
     "commands.skills.uninstall.summary": "移除一个受管理的 skill",
     "commands.skills.repair.description":
         "从可信 source 强制将一个或多个由 oo 管理的 skill 重新部署到一个或多个 Agent 的 skill 目录。",
@@ -1625,6 +1628,8 @@ export const zhMessages = {
         "内置 skill {name} 由 oo 管理，不能通过 skills update 更新。请改用 oo skills add {name}。",
     "errors.skills.update.packageNotInstalled":
         "没有任何已安装的 oo 管理 skill 属于包 {packageName}。",
+    "errors.skills.uninstall.packageNotInstalled":
+        "没有任何已安装的 oo 管理 skill 属于 {name}。",
     "errors.skills.nameConflict":
         "Skill 名称 {name} 已被 {path} 中的非 OOMOL skill 占用。",
     "errors.skills.storageConflict":
@@ -2056,6 +2061,7 @@ export const zhMessages = {
     "arguments.packageName": "要安装的包名（可指定多个）",
     "arguments.skills.update.packageName": "要更新的包名（可指定多个）；会更新每个包已安装的全部 skill",
     "arguments.skills.checkUpdate.packageName": "要检查的包名（可指定多个）；会检查每个包已安装的全部 skill",
+    "arguments.skills.uninstall.name": "要移除的 skill 或包名（可指定多个）；传入包名会移除该包已安装的全部 skill",
     "arguments.serviceName": "服务名",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",

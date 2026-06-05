@@ -133,6 +133,14 @@ export function isBundledSkillName(value: string): value is BundledSkillName {
     return availableBundledSkillNames.includes(value as BundledSkillName);
 }
 
+// A bare argument is treated directly as a registry package specifier (rather
+// than a skill name) when it is a scoped package identity: it starts with "@"
+// and contains a "/" separator. Skill names never contain a path separator, so
+// this disambiguation never collides with a real skill name.
+export function isScopedPackageName(value: string): boolean {
+    return value.startsWith("@") && value.includes("/");
+}
+
 async function writeBundledSkillCanonicalInstallation(options: {
     agentName: BundledSkillAgentName;
     homeDirectory: string;

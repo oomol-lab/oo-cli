@@ -1468,18 +1468,32 @@ Resume suggesting packages.
 - JSON shape: `{ "muted": <bool>, "dismissed": [...] }` — the resulting
   persisted state.
 
-### `oo skills uninstall [skill]`
+### `oo skills uninstall [skills...]`
 
 Remove oo-managed skills from supported local skill directories.
 
-- Alias: `oo skills remove [skill]`.
-- Arguments: when `[skill]` is omitted, the command removes all bundled skills.
+- Alias: `oo skills remove [skills...]`.
+- Arguments: when no name is provided, the command removes all bundled skills.
+- Arguments: one or more names may be provided and may mix skill names and
+  package names, e.g. `oo skills remove @scope/pkg other-skill`.
 - Options: `--agent <agent>` narrows local skill removal to one supported
   agent. It is used to disambiguate same-name local skills across agents.
-- Arguments: when `[skill]` is provided, the command checks published registry
-  installations and agent-native local skills for that skill name. If both
-  match, both are removed. Registry installations are removed before local
+- Name resolution: each name is first treated as a skill name. The command
+  checks bundled skills, agent-native local skills, and published registry
+  installations for that name. When a registry and a local skill share the
+  name, both are removed, and registry installations are removed before local
   installations.
+- Package fallback: when a name matches no installed skill, it is treated as a
+  package name and every installed registry skill that belongs to that package
+  is removed. A name that starts with `@` and contains `/` (a scoped package
+  identity, e.g. `@scope/pkg`) is always treated as a package and is never
+  tried as a skill name.
+- Package ownership: package matching uses each installed skill's recorded
+  package identity. A skill installed from a different package is never removed,
+  even when another package publishes a skill with the same name.
+- Multiple names: with `--json` every name is attempted and per-name outcomes
+  are aggregated into the report. In text output the names are processed in
+  order and the first failure stops the run.
 - Ownership rule: a bundled skill is removable from a supported host only when
   that host's installed directory has a `.oo-metadata.json` file that
   identifies bundled ownership.

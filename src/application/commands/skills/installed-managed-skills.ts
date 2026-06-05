@@ -37,3 +37,25 @@ export async function readKnownManagedSkillInstallations(
 
     return Array.from(byName.values());
 }
+
+// Resolve the names of installed registry skills that belong to a package.
+// Ownership is read from each skill's recorded `.oo-metadata.json` package
+// identity, so a same-name skill installed from a different package is never
+// matched. Bundled and local skills carry no package identity and are excluded.
+export async function findInstalledRegistrySkillNamesForPackage(options: {
+    availableHosts: readonly ManagedSkillHost[];
+    packageName: string;
+    settingsFilePath: string;
+}): Promise<string[]> {
+    const installations = await readKnownManagedSkillInstallations(
+        options.availableHosts,
+        options.settingsFilePath,
+    );
+
+    return installations
+        .filter(installation =>
+            installation.metadata?.kind === "registry"
+            && installation.metadata.packageName === options.packageName)
+        .map(installation => installation.name)
+        .sort((left, right) => left.localeCompare(right));
+}
