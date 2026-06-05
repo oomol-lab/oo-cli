@@ -180,20 +180,20 @@ Install examples:
 - Single skill install:
 
 ```bash
-oo skills install "<packageName>" -s "<skillName>" -y
+oo skills install "<packageName>" -s "<skillName>"
 ```
 
 - Two skills from the same package:
 
 ```bash
-oo skills install "<packageName>" -s "<skillName1>" -s "<skillName2>" -y
+oo skills install "<packageName>" -s "<skillName1>" -s "<skillName2>"
 ```
 
 - Two skills from different packages:
 
 ```bash
-oo skills install "<packageName1>" -s "<skillName1>" -y
-oo skills install "<packageName2>" -s "<skillName2>" -y
+oo skills install "<packageName1>" -s "<skillName1>"
+oo skills install "<packageName2>" -s "<skillName2>"
 ```
 
 11. Use each search result's `name` field as the `-s` value. Use

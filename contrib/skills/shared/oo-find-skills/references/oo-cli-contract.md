@@ -34,11 +34,11 @@ Facts:
 Canonical forms:
 
 ```bash
-oo skills install <packageName> -s "<skillName>" -y
+oo skills install <packageName> -s "<skillName>"
 ```
 
 ```bash
-oo skills install <packageName> -s "<skillName1>" -s "<skillName2>" -y
+oo skills install <packageName> -s "<skillName1>" -s "<skillName2>"
 ```
 
 Facts:

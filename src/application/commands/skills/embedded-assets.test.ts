@@ -976,7 +976,7 @@ describe("embedded skill assets", () => {
             expect(content).toContain("general install preparation");
             expect(content).toContain("guide before running the final install command");
             expect(content).toContain("general install preparation URL");
-            expect(content).toContain("exact `oo skills install ... -y` command");
+            expect(content).toContain("exact `oo skills install ...` command");
             expect(content).toContain("existing AI agent skill");
             expect(content).toContain("it does not need to be an oo-specific skill");
             expect(content).toContain("oo skills publish");
@@ -994,6 +994,37 @@ describe("embedded skill assets", () => {
             expect(content).not.toContain("oo skills preflight");
             expect(content).not.toContain("oo skills publish <skill-id> --agent");
             expect(content).not.toContain("Use `--agent` only as a source hint");
+        }
+    });
+
+    test("keeps removed oo skills install confirmation flags out of bundled skill docs", async () => {
+        // `oo skills install` never exposes `-y`/`--yes`. Guard every rendered
+        // bundled skill asset so agent-facing docs cannot drift back to the dead
+        // syntax that makes agents confidently run a command that errors with
+        // `Unknown option: -y`. The check is position-aware so prose that warns
+        // against the flag (e.g. "Never append `-y` ... to `oo skills install`")
+        // is not mistaken for a command that appends it.
+        const forbiddenInstallFlags = [" -y", " --yes"];
+        for (const skillName of availableBundledSkillNames) {
+            for (const agentName of availableBundledSkillAgentNames) {
+                for (const file of getBundledSkillFiles(skillName, agentName)) {
+                    const content = normalizeLineEndingsForAssertion(
+                        await readBundledSkillFileContent(file),
+                    );
+                    for (const line of content.split("\n")) {
+                        const installIndex = line.indexOf("oo skills install");
+                        if (installIndex === -1) {
+                            continue;
+                        }
+                        for (const flag of forbiddenInstallFlags) {
+                            expect(
+                                line.indexOf(flag, installIndex),
+                                `${skillName}/${agentName}/${file.relativePath} appends '${flag.trim()}' to 'oo skills install': ${line.trim()}`,
+                            ).toBe(-1);
+                        }
+                    }
+                }
+            }
         }
     });
 
