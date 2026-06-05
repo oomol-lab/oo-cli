@@ -6,17 +6,16 @@ import { describe, expect, test } from "bun:test";
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import { seedRegistrySkill } from "./__tests__/helpers.ts";
 import { resolveBundledSkillCanonicalDirectoryPath } from "./bundled-skill-paths.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
-    resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
 import {
     createBundledSkillMetadata,
     createLocalSkillMetadata,
-    createRegistrySkillMetadata,
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
 
@@ -51,49 +50,6 @@ async function seedBundledSkill(
     await writeFile(
         resolveManagedSkillMetadataFilePath(canonicalDirectory),
         renderSkillMetadataJson(createBundledSkillMetadata(TEST_CLI_VERSION)),
-    );
-
-    return { hostDirectory, canonicalDirectory };
-}
-
-async function seedRegistrySkill(options: {
-    sandbox: Awaited<ReturnType<typeof createCliSandbox>>;
-    skillName: string;
-    packageName: string;
-    version: string;
-    agent?: "universal" | "claude";
-}): Promise<{ hostDirectory: string; canonicalDirectory: string }> {
-    const agent = options.agent ?? "universal";
-    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.sandbox.env, agent);
-    const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
-    const storePaths = resolveStorePaths({
-        appName: APP_NAME,
-        env: options.sandbox.env,
-        platform: process.platform,
-    });
-    const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
-        storePaths.settingsFilePath,
-        options.skillName,
-    );
-
-    await mkdir(homeDirectory, { recursive: true });
-    await mkdir(canonicalDirectory, { recursive: true });
-    await mkdir(hostDirectory, { recursive: true });
-    await writeFile(join(canonicalDirectory, "SKILL.md"), "# r\n");
-    await writeFile(join(hostDirectory, "SKILL.md"), "# r\n");
-    await writeFile(
-        resolveManagedSkillMetadataFilePath(canonicalDirectory),
-        renderSkillMetadataJson(createRegistrySkillMetadata({
-            packageName: options.packageName,
-            version: options.version,
-        })),
-    );
-    await writeFile(
-        resolveManagedSkillMetadataFilePath(hostDirectory),
-        renderSkillMetadataJson(createRegistrySkillMetadata({
-            packageName: options.packageName,
-            version: options.version,
-        })),
     );
 
     return { hostDirectory, canonicalDirectory };
@@ -498,6 +454,51 @@ describe("skills uninstall --json", () => {
                 code: "ENOENT",
             });
             await expect(stat(bar.hostDirectory)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("removes both a registry and a same-name local skill", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const registry = await seedRegistrySkill({
+                sandbox,
+                skillName: "dual",
+                packageName: "@scope/dual",
+                version: "1.0.0",
+                agent: "claude",
+            });
+            const local = await seedLocalSkill({
+                sandbox,
+                skillName: "dual",
+                agent: "universal",
+            });
+
+            const result = await sandbox.run(
+                ["skills", "uninstall", "dual", "--json"],
+                { version: TEST_CLI_VERSION },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.status).toBe("completed");
+            expect((payload.summary as Record<string, number>).removed).toBe(2);
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills.map(skill => skill.kind).sort()).toEqual(["local", "registry"]);
+            for (const skill of skills) {
+                expect(skill.status).toBe("removed");
+            }
+            await expect(stat(registry.hostDirectory)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(local.path)).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }

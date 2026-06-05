@@ -17,7 +17,7 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
-import { readBundledSkillSourceContent } from "./__tests__/helpers.ts";
+import { readBundledSkillSourceContent, seedRegistrySkill } from "./__tests__/helpers.ts";
 import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     canonicalLocalSkillsDirectoryName,
@@ -1858,14 +1858,14 @@ describe("skills commands", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const first = await seedRegistrySkillInstallation({
-                env: sandbox.env,
+            const first = await seedRegistrySkill({
+                sandbox,
                 packageName: "@scope/bundle",
                 skillName: "alpha",
                 version: "1.0.0",
             });
-            const second = await seedRegistrySkillInstallation({
-                env: sandbox.env,
+            const second = await seedRegistrySkill({
+                sandbox,
                 packageName: "@scope/bundle",
                 skillName: "beta",
                 version: "1.0.0",
@@ -1898,8 +1898,8 @@ describe("skills commands", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const seeded = await seedRegistrySkillInstallation({
-                env: sandbox.env,
+            const seeded = await seedRegistrySkill({
+                sandbox,
                 packageName: "@owner/pkg-one",
                 skillName: "foo",
                 version: "1.0.0",
@@ -1925,14 +1925,14 @@ describe("skills commands", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const inner = await seedRegistrySkillInstallation({
-                env: sandbox.env,
+            const inner = await seedRegistrySkill({
+                sandbox,
                 packageName: "@scope/bundle",
                 skillName: "inner",
                 version: "1.0.0",
             });
-            const bar = await seedRegistrySkillInstallation({
-                env: sandbox.env,
+            const bar = await seedRegistrySkill({
+                sandbox,
                 packageName: "@scope/bar",
                 skillName: "bar",
                 version: "1.0.0",
@@ -1954,6 +1954,53 @@ describe("skills commands", () => {
             });
             await expect(stat(bar.hostDirectory)).rejects.toMatchObject({
                 code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails the package uninstall when a member is unmanaged on a host", async () => {
+        const sandbox = await createCliSandbox();
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        // The package owns "orphan" per canonical metadata, but the host copy was
+        // replaced by unmanaged content, so it cannot be removed.
+        const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "orphan",
+        );
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const hostDirectory = resolveManagedSkillDirectoryPath(universalHomeDirectory, "orphan");
+
+        try {
+            await mkdir(canonicalDirectory, { recursive: true });
+            await Bun.write(join(canonicalDirectory, "SKILL.md"), "# Registry\n");
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(canonicalDirectory),
+                renderSkillMetadataJson(createRegistrySkillMetadata({
+                    packageName: "@scope/orphan",
+                    version: "1.0.0",
+                })),
+            );
+            await mkdir(hostDirectory, { recursive: true });
+            await Bun.write(join(hostDirectory, "SKILL.md"), "# Custom user content\n");
+
+            const result = await sandbox.run(["skills", "remove", "@scope/orphan"]);
+
+            // Without surfacing the per-member result the command would report
+            // success while leaving the unmanaged copy in place.
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "orphan is not managed by oo and cannot be removed.\n",
+            );
+            await expect(stat(hostDirectory)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
             });
         }
         finally {
@@ -3762,40 +3809,6 @@ async function writeLocalSkillDirectory(
         resolveManagedSkillMetadataFilePath(skillDirectoryPath),
         renderSkillMetadataJson(createLocalSkillMetadata()),
     );
-}
-
-async function seedRegistrySkillInstallation(options: {
-    env: Record<string, string | undefined>;
-    packageName: string;
-    skillName: string;
-    version: string;
-    agent?: "universal" | "claude";
-}): Promise<{ canonicalDirectory: string; hostDirectory: string }> {
-    const agent = options.agent ?? "universal";
-    const homeDirectory = resolveManagedSkillAgentHomeDirectory(options.env, agent);
-    const hostDirectory = resolveManagedSkillDirectoryPath(homeDirectory, options.skillName);
-    const storePaths = resolveStorePaths({
-        appName: APP_NAME,
-        env: options.env,
-        platform: process.platform,
-    });
-    const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
-        storePaths.settingsFilePath,
-        options.skillName,
-    );
-    const metadata = renderSkillMetadataJson(createRegistrySkillMetadata({
-        packageName: options.packageName,
-        version: options.version,
-    }));
-
-    await mkdir(hostDirectory, { recursive: true });
-    await mkdir(canonicalDirectory, { recursive: true });
-    await Bun.write(join(hostDirectory, "SKILL.md"), "# Registry\n");
-    await Bun.write(join(canonicalDirectory, "SKILL.md"), "# Registry\n");
-    await Bun.write(resolveManagedSkillMetadataFilePath(hostDirectory), metadata);
-    await Bun.write(resolveManagedSkillMetadataFilePath(canonicalDirectory), metadata);
-
-    return { canonicalDirectory, hostDirectory };
 }
 
 function isRegistryPackageDownloadCountRequest(request: Request): boolean {

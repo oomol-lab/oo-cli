@@ -235,19 +235,37 @@ async function uninstallNameForJson(
         return { skills: entry === undefined ? [] : [entry], usedPackage: false };
     }
 
-    // Try local first so a local skill at <host>/skills/<name> is not
-    // misclassified as an "unmanaged registry directory" by the registry
+    // Remove the local skill first so a local skill at <host>/skills/<name> is
+    // not misclassified as an "unmanaged registry directory" by the registry
     // path (which only matches kind=registry metadata).
     const localEntry = await uninstallLocalSkillForJson(name, agentName, context);
+    const localRemoved = localEntry?.status === "removed";
 
-    if (localEntry !== undefined) {
+    // A local skill that could not be removed (ambiguous or failed) is the
+    // terminal outcome for this name: surface it as-is and skip the registry
+    // path, which would otherwise flag the still-present local directory.
+    if (localEntry !== undefined && !localRemoved) {
         return { skills: [localEntry], usedPackage: false };
     }
 
+    // Mirror the text path: a registry and a local skill that share a name are
+    // both removed. After a local removal, a registry-side failure (e.g. an
+    // unmanaged same-name directory on another host) does not fail the command,
+    // so only a successful registry removal is reported alongside the local one.
     const registryEntry = await uninstallRegistrySkillForJson(name, context);
+    const directSkills: SkillResult[] = [];
 
-    if (registryEntry.outcome === "removed" || registryEntry.outcome === "failed") {
-        return { skills: [registryEntry.entry], usedPackage: false };
+    if (localEntry !== undefined) {
+        directSkills.push(localEntry);
+    }
+    if (
+        registryEntry.outcome === "removed"
+        || (registryEntry.outcome === "failed" && !localRemoved)
+    ) {
+        directSkills.push(registryEntry.entry);
+    }
+    if (directSkills.length > 0) {
+        return { skills: directSkills, usedPackage: false };
     }
 
     // The name matches no installed skill; treat it as a package and remove

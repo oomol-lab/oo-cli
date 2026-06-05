@@ -159,7 +159,21 @@ async function uninstallPackageSkills(
     }
 
     for (const skillName of skillNames) {
-        await uninstallRegistrySkill(skillName, context);
+        const result = await uninstallRegistrySkill(skillName, context);
+
+        // The skill name came from this package's recorded metadata, so a
+        // non-removal means the installation could not actually be cleaned up
+        // (e.g. a canonical-only or unmanaged remnant). Surface it instead of
+        // reporting success.
+        if (!result.removed) {
+            throw createManagedSkillUninstallResultError({
+                context,
+                logMessage:
+                    "Package skill uninstall skipped because the target could not be removed.",
+                result,
+                skillName,
+            });
+        }
     }
 }
 
