@@ -116,6 +116,13 @@ export async function loadConnectorActionSchema(
     }
 }
 
+/**
+ * Test-only bulk cache populator. Production fills the connector action schema
+ * cache lazily through `loadConnectorActionSchema`; this helper is only used by
+ * tests to seed cache state up front.
+ *
+ * @public
+ */
 export async function cacheConnectorActionSchemas(
     actions: readonly ConnectorActionDefinition[],
     account: Pick<AuthAccount, "endpoint" | "id">,

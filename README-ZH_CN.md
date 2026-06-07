@@ -58,7 +58,7 @@ Windows PowerShell：
 irm https://cli.oomol.com/install.ps1 | iex
 ```
 
-其他安装脚本（`wget`、Windows CMD 等）见 <https://oomol.com/cli/>。
+其他安装脚本（`wget`、Windows CMD 等）见 <https://cli.oomol.com/install-guide.md>。
 
 ## 快速开始
 

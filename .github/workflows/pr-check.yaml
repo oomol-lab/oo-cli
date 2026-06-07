@@ -33,6 +33,9 @@ jobs:
       - name: TypeScript Check
         run: bun run ts-check
 
+      - name: Dead Code (knip)
+        run: bun run knip
+
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

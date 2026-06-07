@@ -63,7 +63,7 @@ irm https://cli.oomol.com/install.ps1 | iex
 ```
 
 Other install scripts (`wget`, Windows CMD, etc.) are listed at
-<https://oomol.com/cli/>.
+<https://cli.oomol.com/install-guide.md>.
 
 ## Quick start
 
