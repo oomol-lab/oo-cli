@@ -32,7 +32,7 @@ function createValueErrorFactory(translationKey: string) {
     };
 }
 
-export const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
+const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
 export const telemetryEnabledConfigKey = "telemetry.enabled" as const;
 
 export const configDefinitions = {

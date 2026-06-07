@@ -445,6 +445,12 @@ export function releaseTelemetryRowsWithoutAttempt(
     }
 }
 
+/**
+ * Test-only accessor that reads persisted telemetry rows so tests can assert on
+ * the live telemetry write path. Not invoked by production code.
+ *
+ * @public
+ */
 export function readTelemetryRowsForTest(
     directoryPath: string,
 ): TelemetryEventRow[] {
