@@ -51,8 +51,8 @@ describe("install worker deployment", () => {
         const indexHtml = await readFile(indexHtmlPath, "utf8");
 
         expect(indexHtml).toContain("http-equiv=\"refresh\"");
-        expect(indexHtml).toContain("content=\"0; url=https://oomol.com/cli/\"");
-        expect(indexHtml).toContain("window.location.replace(\"https://oomol.com/cli/\")");
-        expect(indexHtml).toContain("<a href=\"https://oomol.com/cli/\">https://oomol.com/cli/</a>");
+        expect(indexHtml).toContain("content=\"0; url=https://oomol.com/\"");
+        expect(indexHtml).toContain("window.location.replace(\"https://oomol.com/\")");
+        expect(indexHtml).toContain("<a href=\"https://oomol.com/\">https://oomol.com/</a>");
     });
 });
