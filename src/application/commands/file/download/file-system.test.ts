@@ -17,33 +17,10 @@ import {
     deleteDownloadSessionArtifacts,
     finalizeDownloadedFile,
     openTemporaryDownloadFile,
-    resolveAvailableFileName,
     resolveTemporaryDownloadFileName,
     writeDownloadToTemporaryFile,
 } from "./file-system.ts";
 import { createDownloadProgressReporter } from "./progress.ts";
-
-describe("resolveAvailableFileName", () => {
-    test("appends a numeric suffix when the target name already exists", async () => {
-        const directoryPath = await createTemporaryDirectory("download-file-name");
-
-        try {
-            await Bun.write(join(directoryPath, "report.txt"), "existing");
-            await Bun.write(join(directoryPath, "report_1.txt"), "existing");
-
-            const fileName = await resolveAvailableFileName(
-                directoryPath,
-                "report",
-                "txt",
-            );
-
-            expect(fileName).toBe("report_2.txt");
-        }
-        finally {
-            await rm(directoryPath, { force: true, recursive: true });
-        }
-    });
-});
 
 describe("resolveTemporaryDownloadFileName", () => {
     test("skips reserved and existing temporary file names", async () => {

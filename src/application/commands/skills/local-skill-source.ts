@@ -35,20 +35,6 @@ export async function findLocalSkillSources(options: {
     return sources.filter(source => source.name === options.skillName);
 }
 
-export async function findLocalSkillSource(options: {
-    agentName?: BundledSkillAgentName;
-    context: LocalSkillSourceContext;
-    skillName: string;
-}): Promise<LocalSkillSource | undefined> {
-    const sources = await findLocalSkillSources(options);
-
-    if (sources.length === 1) {
-        return sources[0];
-    }
-
-    return undefined;
-}
-
 export async function listLocalSkillSources(
     context: LocalSkillSourceContext,
     options: {

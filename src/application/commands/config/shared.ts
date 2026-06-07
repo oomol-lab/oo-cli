@@ -22,7 +22,6 @@ interface ConfigDefinition {
     getValue: (settings: AppSettings) => string | undefined;
     parseRawValue: (rawValue: string) => ParsedConfigValue | undefined;
     unsetValue: (settings: AppSettings) => AppSettings;
-    valueChoices: readonly string[];
 }
 
 function createValueErrorFactory(translationKey: string) {
@@ -64,7 +63,6 @@ export const configDefinitions = {
 
             return nextSettings;
         },
-        valueChoices: localeSchema.options,
     } satisfies ConfigDefinition,
     [fileDownloadOutDirConfigKey]: {
         createInvalidValueError: createValueErrorFactory("errors.config.invalidFileDownloadOutDirValue"),
@@ -86,7 +84,6 @@ export const configDefinitions = {
         unsetValue(settings: AppSettings): AppSettings {
             return unsetFileDownloadOutDir(settings);
         },
-        valueChoices: [],
     } satisfies ConfigDefinition,
     [telemetryEnabledConfigKey]: {
         createInvalidValueError: createValueErrorFactory("errors.config.invalidTelemetryEnabledValue"),
@@ -114,7 +111,6 @@ export const configDefinitions = {
         unsetValue(settings: AppSettings): AppSettings {
             return unsetTelemetryEnabled(settings);
         },
-        valueChoices: ["true", "false"],
     } satisfies ConfigDefinition,
 } as const;
 

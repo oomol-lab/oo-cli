@@ -29,22 +29,6 @@ export async function deleteDownloadSessionArtifacts(
     }).catch(() => undefined);
 }
 
-export async function resolveAvailableFileName(
-    directoryPath: string,
-    baseName: string,
-    extension?: string,
-): Promise<string> {
-    for (let index = 0; ; index += 1) {
-        const candidateBaseName = appendNumericSuffix(baseName, index);
-        const candidateFileName = buildFileName(candidateBaseName, extension);
-        const candidatePath = join(directoryPath, candidateFileName);
-
-        if (!(await pathExists(candidatePath, lstat))) {
-            return candidateFileName;
-        }
-    }
-}
-
 export async function resolveTemporaryDownloadFileName(
     directoryPath: string,
     finalBaseName: string,

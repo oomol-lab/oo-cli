@@ -75,7 +75,6 @@ export function formatConnectorSearchResultAsText(
     context: ConnectorSearchTextContext,
     options: {
         colors?: TerminalColors;
-        extraLinesAfterDescription?: readonly string[];
     } = {},
 ): string {
     const colors = options.colors ?? createWriterColors(context.stdout);
@@ -85,10 +84,6 @@ export function formatConnectorSearchResultAsText(
 
     if (result.description !== "") {
         lines.push(result.description);
-    }
-
-    if (options.extraLinesAfterDescription !== undefined) {
-        lines.push(...options.extraLinesAfterDescription);
     }
 
     lines.push(

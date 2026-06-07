@@ -3,7 +3,6 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
-import { isPlainObject } from "./schema-utils.ts";
 
 interface JsonInputErrorKeys {
     dataFilePathRequired: string;
@@ -36,17 +35,6 @@ export async function readJsonInputValue(
             message: error instanceof Error ? error.message : String(error),
         });
     }
-}
-
-export function requireJsonObjectInput(
-    value: unknown,
-    errorKey: string,
-): Record<string, unknown> {
-    if (!isPlainObject(value)) {
-        throw new CliUserError(errorKey, 2);
-    }
-
-    return value;
 }
 
 async function readJsonInputFile(
