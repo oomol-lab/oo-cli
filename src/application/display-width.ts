@@ -1,15 +1,3 @@
-export function truncateDisplayWidth(value: string, maxWidth: number): string {
-    if (measureDisplayWidth(value) <= maxWidth) {
-        return value;
-    }
-
-    if (maxWidth <= 3) {
-        return sliceDisplayWidth(value, maxWidth);
-    }
-
-    return `${sliceDisplayWidth(value, maxWidth - 3)}...`;
-}
-
 export function measureDisplayWidth(value: string): number {
     let width = 0;
 
@@ -20,25 +8,6 @@ export function measureDisplayWidth(value: string): number {
     }
 
     return width;
-}
-
-function sliceDisplayWidth(value: string, maxWidth: number): string {
-    let result = "";
-    let width = 0;
-
-    for (const char of value) {
-        const codePoint = char.codePointAt(0)!;
-        const nextWidth = width + (isWideCodePoint(codePoint) ? 2 : 1);
-
-        if (nextWidth > maxWidth) {
-            break;
-        }
-
-        result += char;
-        width = nextWidth;
-    }
-
-    return result;
 }
 
 function isWideCodePoint(codePoint: number): boolean {

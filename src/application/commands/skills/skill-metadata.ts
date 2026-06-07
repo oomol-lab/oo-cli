@@ -26,11 +26,6 @@ export type SkillMetadata
         | LocalSkillMetadata
         | RegistrySkillMetadata;
 
-export interface ParsedSkillMetadataWithVersion {
-    fields: Readonly<Record<string, unknown>>;
-    version: string;
-}
-
 export function createBundledSkillMetadata(
     version: string,
 ): BundledSkillMetadata {
@@ -80,27 +75,6 @@ export function parseSkillMetadataContent(
     // TODO: Remove legacy untyped metadata parsing after existing installs have migrated.
     return parseRegistrySkillMetadataFields(fields)
         ?? parseLegacyBundledSkillMetadata(fields);
-}
-
-export function parseSkillMetadataWithVersion(
-    content: string,
-): ParsedSkillMetadataWithVersion | undefined {
-    const fields = parseSkillMetadataFields(content);
-
-    if (fields === undefined) {
-        return undefined;
-    }
-
-    const version = toNonBlankString(fields.version);
-
-    if (version === undefined) {
-        return undefined;
-    }
-
-    return {
-        fields,
-        version,
-    };
 }
 
 export function renderSkillMetadataJson(

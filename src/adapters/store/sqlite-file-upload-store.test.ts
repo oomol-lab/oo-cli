@@ -6,7 +6,6 @@ import { describe, expect, test } from "bun:test";
 import { createTemporaryDirectory } from "../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../application/config/app-config.ts";
 import {
-    readFileUploadStatus,
     SqliteFileUploadStore,
     uploadedFilesTableName,
 } from "./sqlite-file-upload-store.ts";
@@ -209,12 +208,5 @@ describe("SqliteFileUploadStore", () => {
         finally {
             store.close();
         }
-    });
-});
-
-describe("readFileUploadStatus", () => {
-    test("marks records as expired when the expiry time has passed", () => {
-        expect(readFileUploadStatus(1_000, 1_000)).toBe("expired");
-        expect(readFileUploadStatus(1_001, 1_000)).toBe("active");
     });
 });

@@ -10,13 +10,11 @@ import {
     fileExists,
     isManagedBundledSkillInstallation,
     readInstalledBundledSkillMetadata,
-    requireBundledSkillHomeDirectory,
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import {
     readManagedSkillAgent,
     resolveManagedSkillAgentHomeDirectory,
-    supportedSkillAgents,
 } from "./managed-skill-agents.ts";
 import {
     createBundledSkillMetadata,
@@ -93,38 +91,6 @@ describe("bundled skill observation", () => {
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });
-        }
-    });
-
-    test("requires resolved agent home directories to exist", async () => {
-        for (const agent of supportedSkillAgents) {
-            const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
-            const homeDirectory = join(rootDirectory, agent.homeDirectoryName);
-            const env = {
-                HOME: rootDirectory,
-            };
-
-            try {
-                await expect(
-                    requireBundledSkillHomeDirectory({ env }, agent.name),
-                ).rejects.toMatchObject({
-                    exitCode: 1,
-                    key: "errors.skills.agentNotInstalled",
-                    params: {
-                        agentName: agent.title,
-                        path: homeDirectory,
-                    },
-                });
-
-                await mkdir(homeDirectory, { recursive: true });
-
-                expect(await requireBundledSkillHomeDirectory({ env }, agent.name)).toBe(
-                    homeDirectory,
-                );
-            }
-            finally {
-                await rm(rootDirectory, { force: true, recursive: true });
-            }
         }
     });
 

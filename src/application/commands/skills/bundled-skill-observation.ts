@@ -1,4 +1,3 @@
-import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import type { BundledSkillMetadata } from "./skill-metadata.ts";
 
 import { readFile, stat } from "node:fs/promises";
@@ -9,30 +8,11 @@ import {
 import {
     resolveBundledSkillMetadataFilePath,
 } from "./bundled-skill-paths.ts";
-import {
-    createManagedSkillAgentNotInstalledError,
-    resolveManagedSkillAgentHomeDirectory,
-} from "./managed-skill-agents.ts";
+
 import {
     createBundledSkillMetadata,
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
-
-export async function requireBundledSkillHomeDirectory(
-    context: Pick<{ env: Record<string, string | undefined> }, "env">,
-    agentName: BundledSkillAgentName,
-): Promise<string> {
-    const homeDirectory = resolveManagedSkillAgentHomeDirectory(
-        context.env,
-        agentName,
-    );
-
-    if (!(await directoryExists(homeDirectory))) {
-        throw createManagedSkillAgentNotInstalledError(agentName, homeDirectory);
-    }
-
-    return homeDirectory;
-}
 
 export async function directoryExists(path: string): Promise<boolean> {
     try {

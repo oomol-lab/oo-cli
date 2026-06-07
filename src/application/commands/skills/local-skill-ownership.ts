@@ -3,7 +3,6 @@ import type {
     SkillMetadata,
 } from "./skill-metadata.ts";
 
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
@@ -29,34 +28,6 @@ export async function readSkillFileContent(
 
         throw error;
     }
-}
-
-export async function hasMatchingSkillFileContent(options: {
-    expectedContent: string;
-    skillDirectoryPath: string;
-}): Promise<boolean> {
-    return await readSkillFileContent(options.skillDirectoryPath)
-        === options.expectedContent;
-}
-
-export async function readSkillFileHash(
-    skillDirectoryPath: string,
-): Promise<string | undefined> {
-    const content = await readSkillFileContent(skillDirectoryPath);
-
-    if (content === undefined) {
-        return undefined;
-    }
-
-    return createHash("sha256").update(content).digest("hex");
-}
-
-export async function hasMatchingSkillFileHash(options: {
-    expectedHash: string;
-    skillDirectoryPath: string;
-}): Promise<boolean> {
-    return await readSkillFileHash(options.skillDirectoryPath)
-        === options.expectedHash;
 }
 
 export async function readSkillMetadataFileState(

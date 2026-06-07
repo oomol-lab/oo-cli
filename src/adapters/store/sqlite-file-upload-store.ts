@@ -5,7 +5,6 @@ import type {
     FileUploadListOptions,
     FileUploadRecord,
     FileUploadRecordStore,
-    FileUploadStatus,
 } from "../../application/contracts/file-upload-store.ts";
 import { withStorePath } from "../../application/logging/log-fields.ts";
 import { validateMillisecondTimestamp } from "../../application/shared/timestamps.ts";
@@ -190,13 +189,6 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
 
         return this.database;
     }
-}
-
-export function readFileUploadStatus(
-    expiresAtMs: number,
-    now: number,
-): FileUploadStatus {
-    return expiresAtMs <= now ? "expired" : "active";
 }
 
 function ensureUploadTable(database: Database): void {
