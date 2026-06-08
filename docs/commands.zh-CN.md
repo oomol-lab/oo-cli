@@ -763,7 +763,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `oo skills locate <skill-id>`。
 - 选项：`--visibility <visibility>` 设置 registry 包可见性。可选值为
   `private` 和 `public`。省略时，已有包会沿用当前 registry 可见性。如果无法读取
-  已有可见性，交互式终端会询问发布为 `private` 还是 `public`。
+  已有可见性，交互式终端会询问发布为 `private` 还是 `public`；非交互式首次发布
+  必须传入 `--visibility private` 或 `--visibility public`。
 - 选项：`-y, --yes` 会对发布过程中的确认提示自动回答 yes。
 - 选项：`--force` 为兼容旧流程保留。
 - 来源解析：`.oo-metadata.json` 决定该路径是 oo-managed local skill、

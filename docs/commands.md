@@ -895,7 +895,9 @@ Convert one skill into an OOMOL package and run the publish step.
 - Options: `--visibility <visibility>` sets the registry package visibility.
   Accepted values are `private` and `public`. When omitted, an existing package
   keeps its current registry visibility. If no existing visibility can be read,
-  an interactive terminal prompts for `private` or `public`.
+  an interactive terminal prompts for `private` or `public`; non-interactive
+  first-time publishes must pass `--visibility private` or
+  `--visibility public`.
 - Options: `-y, --yes` answers publish confirmation prompts with yes.
 - Options: `--force` is accepted for compatibility with older workflows.
 - Source resolution: `.oo-metadata.json` determines whether the path is an

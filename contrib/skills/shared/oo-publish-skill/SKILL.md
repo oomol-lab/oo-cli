@@ -61,8 +61,13 @@ extra locate step when the path is already clear from context.
 The publish command performs its own environment, authentication, and account
 checks, so run it directly.
 
-Let `oo skills publish` resolve visibility unless the user explicitly asks for
-`private` or `public`. Pass `--visibility` only for that explicit request.
+For first-time packages in non-interactive agent sessions, choose visibility
+before publishing and pass `--visibility private` or `--visibility public`.
+Use `--visibility public` when the user asks to publish to the public catalog or
+otherwise clearly wants a public package. Use `--visibility private` only when
+the user asks for a private package. If the user's intended visibility is
+unclear, ask before publishing. Existing packages can omit `--visibility` when
+the current registry visibility should be preserved.
 
 Do not ask whether to publish to the current account. `oo skills publish`
 resolves the account and asks any necessary ownership questions itself.
@@ -72,9 +77,9 @@ resolves the account and asks any necessary ownership questions itself.
 Run the publish command directly:
 
 ```bash
-oo skills publish ./my-skill
-oo skills publish /path/to/my-skill/SKILL.md
 oo skills publish ./my-skill --visibility public
+oo skills publish /path/to/my-skill/SKILL.md --visibility private
+oo skills publish ./already-published-skill
 ```
 
 <!-- agentic:if agent=openclaw|qoderwork -->
