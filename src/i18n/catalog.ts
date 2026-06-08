@@ -324,6 +324,10 @@ export const enMessages = {
         "The --wait option is only supported for connector actions with an async result lifecycle.",
     "errors.connectorRun.waitModeConflict":
         "Use either --wait or --wait-result, not both.",
+    "errors.connectorRun.identityConflict":
+        "Use either --organization or --personal, not both.",
+    "errors.connectorRun.organizationEmpty":
+        "The --organization value cannot be empty.",
     "errors.connectorRun.waitResultActionUnsupported":
         "The result action {action} configured for --wait-result must declare an async result lifecycle.",
     "errors.connectorRun.waitResultUnsupported":
@@ -386,6 +390,8 @@ export const enMessages = {
         "Invalid file.download.out_dir value: {value}. Use a non-empty path.",
     "errors.config.invalidTelemetryEnabledValue":
         "Invalid telemetry.enabled value: {value}. Use true or false.",
+    "errors.config.invalidIdentityOrganizationValue":
+        "Invalid identity.organization value: {value}. Use a non-empty organization name.",
     "errors.skills.invalidName":
         "Unsupported skill: {value}. Use {choices}.",
     "errors.skills.invalidPath":
@@ -769,6 +775,10 @@ export const enMessages = {
         "Poll until an async result action reaches a terminal state",
     "options.connectorRunWaitResult":
         "Submit an async action and wait for its result action",
+    "options.connectorRunOrganization":
+        "Run the action under the given organization identity (alias: --org)",
+    "options.connectorRunPersonal":
+        "Run the action under your personal identity, ignoring any configured default organization",
     "options.debug": "Print the current log file path when the CLI exits",
     "options.description": "Set the required generated skill description",
     "options.days":
@@ -1380,6 +1390,10 @@ export const zhMessages = {
         "--wait 选项仅支持带有异步结果 lifecycle 的 connector action。",
     "errors.connectorRun.waitModeConflict":
         "--wait 和 --wait-result 只能使用其中一个。",
+    "errors.connectorRun.identityConflict":
+        "--organization 和 --personal 只能使用其中一个。",
+    "errors.connectorRun.organizationEmpty":
+        "--organization 的值不能为空。",
     "errors.connectorRun.waitResultActionUnsupported":
         "--wait-result 配置的结果 action {action} 必须声明异步结果 lifecycle。",
     "errors.connectorRun.waitResultUnsupported":
@@ -1442,6 +1456,8 @@ export const zhMessages = {
         "无效的 file.download.out_dir 值：{value}。请使用非空路径。",
     "errors.config.invalidTelemetryEnabledValue":
         "无效的 telemetry.enabled 值：{value}。请使用 true 或 false。",
+    "errors.config.invalidIdentityOrganizationValue":
+        "无效的 identity.organization 值：{value}。请使用非空的组织名称。",
     "errors.skills.invalidName":
         "不支持的 skill：{value}。请使用 {choices}。",
     "errors.skills.invalidPath":
@@ -1820,6 +1836,10 @@ export const zhMessages = {
         "轮询异步结果 action，直到进入终态",
     "options.connectorRunWaitResult":
         "提交异步 action，并等待它的结果 action",
+    "options.connectorRunOrganization":
+        "以指定组织身份运行该 action（别名：--org）",
+    "options.connectorRunPersonal":
+        "以个人身份运行该 action，忽略已配置的默认组织",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
     "options.description": "设置必填的生成 skill 描述",
     "options.days": "设置私有包临时分享天数（默认 7，最长 7）",

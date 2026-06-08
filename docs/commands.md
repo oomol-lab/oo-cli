@@ -216,7 +216,7 @@ List persisted configuration values that are currently set.
 Read one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.organization`.
 
 ### `oo config path`
 
@@ -227,7 +227,7 @@ Print the path to the persisted configuration file.
 Persist one configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.organization`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
 - Value rules: for `file.download.out_dir`, use any non-empty path string. Relative
@@ -238,13 +238,16 @@ Persist one configuration value.
   are rejected. Setting `telemetry.enabled` to `false` also attempts to purge
   pending telemetry events immediately and the current `config set` invocation is
   not recorded as telemetry.
+- Value rules: for `identity.organization`, use any non-empty organization name.
+  It sets the default organization identity used by `oo connector run` when
+  neither `--organization` nor `--personal` is passed.
 
 ### `oo config unset <key>`
 
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.organization`.
 
 ## Telemetry
 
@@ -578,6 +581,14 @@ Validate input data and run one connector action.
 - Options: `--wait-result` submits an async submit action and then polls its
   configured result action. This option is only valid when the selected action
   schema declares an async submit lifecycle.
+- Options: `--organization <name>` runs the action under the given organization
+  identity instead of your personal identity. `--org <name>` is an alias for
+  `--organization <name>`. When omitted, the action runs under the
+  `identity.organization` config default if set, otherwise your personal
+  identity.
+- Options: `--personal` runs the action under your personal identity and
+  ignores any configured default organization. It cannot be combined with
+  `--organization`.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.

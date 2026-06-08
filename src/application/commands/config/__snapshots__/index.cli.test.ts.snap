@@ -345,3 +345,45 @@ exports[`config CLI ignores unknown persisted settings keys and logs a warning 1
 ,
 }
 `;
+
+exports[`config CLI supports the identity organization config key 1`] = `
+{
+  "get": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"acme
+"
+,
+  },
+  "getAfterUnset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "",
+  },
+  "list": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"identity.organization=acme
+"
+,
+  },
+  "set": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Set identity.organization to acme.
+"
+,
+  },
+  "unset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Removed identity.organization.
+"
+,
+  },
+}
+`;

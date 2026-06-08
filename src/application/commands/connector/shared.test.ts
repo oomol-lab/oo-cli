@@ -187,6 +187,114 @@ describe("connector shared requests", () => {
         });
     });
 
+    test("runConnectorAction sends the organization query and header for an organization identity", async () => {
+        const requests: Request[] = [];
+        await runConnectorAction(
+            {
+                actionName: "send_mail",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                identity: {
+                    organization: "acme",
+                },
+                inputData: {
+                    to: "foo@bar.com",
+                },
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: {
+                            messageId: "message-1",
+                        },
+                        meta: {
+                            executionId: "exec-1",
+                        },
+                    }));
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.url).toBe(
+            "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+        );
+        expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+    });
+
+    test("runConnectorAction omits the organization query and header for the personal identity", async () => {
+        const requests: Request[] = [];
+        await runConnectorAction(
+            {
+                actionName: "send_mail",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                inputData: {
+                    to: "foo@bar.com",
+                },
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: {
+                            messageId: "message-1",
+                        },
+                        meta: {
+                            executionId: "exec-1",
+                        },
+                    }));
+                },
+            }),
+        );
+
+        expect(requests[0]?.url).toBe(
+            "https://connector.oomol.com/v1/actions/gmail.send_mail",
+        );
+        expect(requests[0]?.headers.get("x-oo-organization")).toBeNull();
+    });
+
+    test("getConnectorActionMetadata never sends an organization query or header", async () => {
+        const requests: Request[] = [];
+        await getConnectorActionMetadata(
+            {
+                actionName: "get_message",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: {
+                            description: "Get one Gmail message.",
+                            inputSchema: {
+                                type: "object",
+                            },
+                            name: "get_message",
+                            outputSchema: {
+                                type: "object",
+                            },
+                            service: "gmail",
+                        },
+                    }));
+                },
+            }),
+        );
+
+        expect(requests[0]?.url).toBe(
+            "https://connector.oomol.com/v1/actions/gmail.get_message",
+        );
+        expect(requests[0]?.headers.get("x-oo-organization")).toBeNull();
+    });
+
     test("runConnectorAction surfaces errorCode when the failure response omits a message", async () => {
         const error = await expectCliUserError(runConnectorAction(
             {

@@ -192,7 +192,7 @@
 读取一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`telemetry.enabled`。
+  `lang`、`file.download.out_dir`、`telemetry.enabled`、`identity.organization`。
 
 ### `oo config path`
 
@@ -203,7 +203,7 @@
 写入一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`telemetry.enabled`。
+  `lang`、`file.download.out_dir`、`telemetry.enabled`、`identity.organization`。
 - 参数：`<value>` 为对应配置值。
 - 取值规则：当 `<key>` 为 `lang` 时，支持的值为 `en` 和 `zh`。
 - 取值规则：当 `<key>` 为 `file.download.out_dir` 时，支持任意非空路径字符串。
@@ -213,13 +213,15 @@
   `1`、`0`、`True`、`yes` 等其他 boolean-like 写法会被拒绝。设置为 `false` 时，
   CLI 还会立即尝试清空待发送 telemetry 事件，并且本次 `config set` 调用自身不会被记录为
   telemetry。
+- 取值规则：当 `<key>` 为 `identity.organization` 时，支持任意非空的组织名称。
+  它设置 `oo connector run` 在未传 `--organization` 或 `--personal` 时使用的默认组织身份。
 
 ### `oo config unset <key>`
 
 删除一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`telemetry.enabled`。
+  `lang`、`file.download.out_dir`、`telemetry.enabled`、`identity.organization`。
 
 ## Telemetry
 
@@ -499,6 +501,11 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   schema 声明了异步结果 lifecycle 时，这个选项才有效。
 - 选项：`--wait-result` 会提交异步 submit action，然后轮询它配置的结果
   action。只有选中 action 的 schema 声明了异步 submit lifecycle 时，这个选项才有效。
+- 选项：`--organization <name>` 以指定组织身份运行该 action，而非个人身份。
+  `--org <name>` 是 `--organization <name>` 的 alias。省略时，若配置了
+  `identity.organization` 默认值则使用该组织，否则使用个人身份。
+- 选项：`--personal` 以个人身份运行该 action，并忽略已配置的默认组织。
+  不能与 `--organization` 同时使用。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：非 dry-run 的 JSON 输出会保持稳定结构
   `{ data, meta: { executionId } }`。

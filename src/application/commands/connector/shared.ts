@@ -1,5 +1,6 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
+import type { ConnectorIdentity } from "./identity.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -9,6 +10,10 @@ import {
     isInsufficientCreditFailure,
 } from "../shared/billing.ts";
 import { getUnexpectedRequestErrorMessage, requestText } from "../shared/request.ts";
+import {
+    applyConnectorIdentityToUrl,
+    connectorIdentityHeaders,
+} from "./identity.ts";
 
 export const connectorActionDefinitionSchema = z.object({
     description: z.string().optional().default(""),
@@ -290,6 +295,7 @@ export async function runConnectorAction(
         actionName: string;
         apiKey: string;
         endpoint: string;
+        identity?: ConnectorIdentity;
         inputData: unknown;
         serviceName: string;
     },
@@ -299,6 +305,7 @@ export async function runConnectorAction(
         options.endpoint,
         options.serviceName,
         options.actionName,
+        options.identity,
     );
     const requestBody = JSON.stringify({
         input: options.inputData,
@@ -324,6 +331,7 @@ export async function runConnectorAction(
             headers: {
                 "Authorization": options.apiKey,
                 "Content-Type": "application/json",
+                ...connectorIdentityHeaders(options.identity),
             },
             method: "POST",
         });
@@ -412,13 +420,18 @@ function createConnectorActionRequestUrl(
     endpoint: string,
     serviceName: string,
     actionName: string,
+    identity?: ConnectorIdentity,
 ): URL {
     const qualifiedActionName
         = `${encodeURIComponent(serviceName)}.${encodeURIComponent(actionName)}`;
 
-    return new URL(
+    const requestUrl = new URL(
         `https://connector.${endpoint}/v1/actions/${qualifiedActionName}`,
     );
+
+    applyConnectorIdentityToUrl(requestUrl, identity);
+
+    return requestUrl;
 }
 
 function parseConnectorFailureResponse(

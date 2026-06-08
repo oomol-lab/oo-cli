@@ -95,6 +95,35 @@ Facts:
 - The schema returned by `oo connector schema` is the public contract used to
   build payloads and inspect the action result shape.
 
+## Choose the run identity
+
+A connector action runs under one identity. Pick it from what the user said:
+
+- If the user does not mention any organization, run under their personal
+  identity: add nothing extra. This is the default.
+- If the user asks to run as a specific organization (for example "run this as
+  Acme" or "use my Acme org"), add `--organization "<name>"` (the `--org`
+  alias is equivalent), using the organization name the user gave:
+
+```bash
+oo connector run "<serviceName>" \
+  --action "<actionName>" \
+  --data '<json object>' \
+  --organization "<organizationName>" \
+  --json
+```
+
+- If the user has a configured default organization but explicitly asks for this
+  one run to be personal, add `--personal`.
+
+Facts:
+
+- `--organization` and `--personal` cannot be combined.
+- Do not guess an organization name. If the user is vague about which
+  organization to use, ask before running.
+- The action schema itself is identity-independent, so `oo connector schema`
+  never needs an organization argument.
+
 Expected execution JSON:
 
 ```json
