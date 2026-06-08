@@ -70,8 +70,6 @@ oo login
 
 > /oo 总结我最近 5 封 Gmail 邮件。
 
-> /oo 为 https://oomol.com 生成一个二维码。
-
 `/oo` 是内置 skill 约定的触发前缀，Agent 会通过 `oo` 把请求路由到对应的能力。
 
 ## 受支持的 AI Agent

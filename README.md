@@ -75,8 +75,6 @@ Then talk to your AI agent in natural language — describe intent, not commands
 
 > /oo summarize my latest 5 Gmail messages.
 
-> /oo generate a QR code for https://oomol.com.
-
 `/oo` is the prompt convention picked up by the bundled skill; the agent will
 route the request through `oo` for you.
 
