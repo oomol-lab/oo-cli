@@ -4,11 +4,14 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
     getConfiguredFileDownloadOutDir,
+    getConfiguredIdentityOrganization,
     getConfiguredTelemetryEnabled,
     localeSchema,
     setFileDownloadOutDir,
+    setIdentityOrganization,
     setTelemetryEnabled,
     unsetFileDownloadOutDir,
+    unsetIdentityOrganization,
     unsetTelemetryEnabled,
 } from "../../schemas/settings.ts";
 
@@ -33,6 +36,7 @@ function createValueErrorFactory(translationKey: string) {
 }
 
 const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
+const identityOrganizationConfigKey = "identity.organization" as const;
 export const telemetryEnabledConfigKey = "telemetry.enabled" as const;
 
 export const configDefinitions = {
@@ -110,6 +114,27 @@ export const configDefinitions = {
         },
         unsetValue(settings: AppSettings): AppSettings {
             return unsetTelemetryEnabled(settings);
+        },
+    } satisfies ConfigDefinition,
+    [identityOrganizationConfigKey]: {
+        createInvalidValueError: createValueErrorFactory("errors.config.invalidIdentityOrganizationValue"),
+        getValue(settings: AppSettings): string | undefined {
+            return getConfiguredIdentityOrganization(settings);
+        },
+        parseRawValue(rawValue: string): ParsedConfigValue | undefined {
+            const value = rawValue.trim();
+
+            if (value === "") {
+                return undefined;
+            }
+
+            return {
+                apply: settings => setIdentityOrganization(settings, value),
+                renderedValue: value,
+            };
+        },
+        unsetValue(settings: AppSettings): AppSettings {
+            return unsetIdentityOrganization(settings);
         },
     } satisfies ConfigDefinition,
 } as const;

@@ -125,6 +125,69 @@ describe("config CLI", () => {
         }
     });
 
+    test("supports the identity organization config key", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const setResult = await sandbox.run([
+                "config",
+                "set",
+                "identity.organization",
+                "acme",
+            ]);
+            const listResult = await sandbox.run(["config", "list"]);
+            const getResult = await sandbox.run([
+                "config",
+                "get",
+                "identity.organization",
+            ]);
+            const unsetResult = await sandbox.run([
+                "config",
+                "unset",
+                "identity.organization",
+            ]);
+            const getAfterUnsetResult = await sandbox.run([
+                "config",
+                "get",
+                "identity.organization",
+            ]);
+
+            expect({
+                get: createCliSnapshot(getResult),
+                getAfterUnset: createCliSnapshot(getAfterUnsetResult),
+                list: createCliSnapshot(listResult),
+                set: createCliSnapshot(setResult),
+                unset: createCliSnapshot(unsetResult),
+            }).toMatchSnapshot();
+            expect(setResult.stdout).toContain("Set identity.organization to acme.");
+            expect(listResult.stdout).toContain("identity.organization=acme");
+            expect(getResult.stdout).toContain("acme");
+            expect(getAfterUnsetResult.stdout).not.toContain("acme");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects an empty identity organization config value", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "config",
+                "set",
+                "identity.organization",
+                "   ",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("Invalid identity.organization value");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("renders config list help with configured wording", async () => {
         const sandbox = await createCliSandbox();
 

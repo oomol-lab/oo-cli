@@ -1,4 +1,5 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type { ConnectorIdentity } from "./identity.ts";
 import type {
     ConnectorActionAsyncLifecycle,
     ConnectorActionRunResponse,
@@ -7,6 +8,7 @@ import type {
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { getConfiguredIdentityOrganization } from "../../schemas/settings.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
@@ -14,6 +16,7 @@ import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
+import { resolveConnectorIdentity } from "./identity.ts";
 import {
     deleteConnectorActionSchemaCache,
     isConnectorActionSchemaNotFoundError,
@@ -55,6 +58,8 @@ interface ConnectorRunInput {
     data?: string;
     dryRun?: boolean;
     format?: (typeof connectorFormatValues)[number];
+    organization?: string;
+    personal?: boolean;
     serviceName: string;
     showSchemaVersion?: boolean;
     wait?: boolean;
@@ -104,6 +109,18 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             longFlag: "--wait-result",
             descriptionKey: "options.connectorRunWaitResult",
         },
+        {
+            name: "organization",
+            longFlag: "--organization",
+            aliasFlags: ["--org"],
+            valueName: "organization",
+            descriptionKey: "options.connectorRunOrganization",
+        },
+        {
+            name: "personal",
+            longFlag: "--personal",
+            descriptionKey: "options.connectorRunPersonal",
+        },
         ...jsonOutputOptions,
     ],
     inputSchema: z.object({
@@ -111,6 +128,8 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         data: z.string().optional(),
         dryRun: z.boolean().optional(),
         format: z.enum(connectorFormatValues).optional(),
+        organization: z.string().optional(),
+        personal: z.boolean().optional(),
         serviceName: z.string(),
         showSchemaVersion: z.boolean().optional(),
         wait: z.boolean().optional(),
@@ -124,7 +143,22 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw new CliUserError("errors.connectorRun.waitModeConflict", 2);
         }
 
+        if (input.personal === true && input.organization !== undefined) {
+            throw new CliUserError("errors.connectorRun.identityConflict", 2);
+        }
+
+        const organizationFlag = input.organization?.trim();
+        if (input.organization !== undefined && organizationFlag === "") {
+            throw new CliUserError("errors.connectorRun.organizationEmpty", 2);
+        }
+
         const account = await requireCurrentAccount(context);
+        const settings = await context.settingsStore.read();
+        const { identity, source: identitySource } = resolveConnectorIdentity({
+            configOrganization: getConfiguredIdentityOrganization(settings),
+            organizationFlag,
+            personalFlag: input.personal === true,
+        });
         const inputData = await readJsonInputValue(
             input.data,
             context,
@@ -138,6 +172,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
                 Buffer.byteLength(JSON.stringify(inputData)),
             ),
             dry_run: input.dryRun === true,
+            identity_source: identitySource,
             service: input.serviceName,
             wait: input.wait === true,
             wait_result: input.waitResult === true,
@@ -223,6 +258,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
                     actionName,
                     apiKey: account.apiKey,
                     endpoint: account.endpoint,
+                    identity,
                     inputData,
                     progressReporter,
                     resultLifecycle,
@@ -270,6 +306,7 @@ async function runConnectorActionWithDefaultMode(
         actionName: string;
         apiKey: string;
         endpoint: string;
+        identity: ConnectorIdentity;
         inputData: unknown;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         resultLifecycle: ConnectorActionAsyncResultLifecycle | undefined;
@@ -285,6 +322,7 @@ async function runConnectorActionWithDefaultMode(
                 actionName: options.actionName,
                 apiKey: options.apiKey,
                 endpoint: options.endpoint,
+                identity: options.identity,
                 inputData: options.inputData,
                 progressReporter: options.progressReporter,
                 resultLifecycle: options.resultLifecycle,
@@ -302,6 +340,7 @@ async function runConnectorActionWithDefaultMode(
                 actionName: options.actionName,
                 apiKey: options.apiKey,
                 endpoint: options.endpoint,
+                identity: options.identity,
                 inputData: options.inputData,
                 lifecycle: options.resultLifecycle,
                 progressReporter: options.progressReporter,
@@ -322,6 +361,7 @@ async function runConnectorActionWithDefaultMode(
             actionName: options.actionName,
             apiKey: options.apiKey,
             endpoint: options.endpoint,
+            identity: options.identity,
             inputData: options.inputData,
             serviceName: options.serviceName,
         },
@@ -334,6 +374,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
         actionName: string;
         apiKey: string;
         endpoint: string;
+        identity: ConnectorIdentity;
         inputData: unknown;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         resultLifecycle: ConnectorActionAsyncResultLifecycle;
@@ -353,6 +394,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
             actionName: options.actionName,
             apiKey: options.apiKey,
             endpoint: options.endpoint,
+            identity: options.identity,
             inputData: options.inputData,
             serviceName: options.serviceName,
         },
@@ -374,6 +416,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
             actionName: options.submitLifecycle.resultAction,
             apiKey: options.apiKey,
             endpoint: options.endpoint,
+            identity: options.identity,
             inputData: {
                 [options.submitLifecycle.handle.inputField]: handle,
             },
@@ -400,6 +443,7 @@ async function waitForConnectorAsyncResult(
         actionName: string;
         apiKey: string;
         endpoint: string;
+        identity: ConnectorIdentity;
         inputData: unknown;
         lifecycle: ConnectorActionAsyncResultLifecycle;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
@@ -431,6 +475,7 @@ async function waitForConnectorAsyncResult(
                 actionName: options.actionName,
                 apiKey: options.apiKey,
                 endpoint: options.endpoint,
+                identity: options.identity,
                 inputData: options.inputData,
                 serviceName: options.serviceName,
             },

@@ -470,21 +470,30 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("renders connector run help with the wait option", async () => {
+    test("renders connector run help with the wait and identity options", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             const result = await sandbox.run(["connector", "run", "--help"]);
+            // Help descriptions wrap across lines, so compare against a
+            // whitespace-collapsed copy to stay independent of column widths.
+            const help = collapseWhitespace(result.stdout);
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(result.stdout).toContain("--wait");
-            expect(result.stdout).toContain(
-                "Poll until an async result action reaches a terminal",
+            expect(help).toContain(
+                "Poll until an async result action reaches a terminal state",
             );
             expect(result.stdout).toContain("--wait-result");
-            expect(result.stdout).toContain(
+            expect(help).toContain(
                 "Submit an async action and wait for its result action",
+            );
+            expect(result.stdout).toContain("--organization");
+            expect(result.stdout).toContain("--org ");
+            expect(result.stdout).toContain("--personal");
+            expect(help).toContain(
+                "Run the action under the given organization identity",
             );
         }
         finally {
@@ -587,6 +596,7 @@ describe("connectorCommand CLI", () => {
                     command_full: "connector.run",
                     data_size_bucket: "<1KB",
                     dry_run: false,
+                    identity_source: "personal",
                     service: "gmail",
                     wait: false,
                 },
@@ -2699,6 +2709,357 @@ describe("connectorCommand CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("runs a connector action under an organization identity from --organization", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--organization",
+                    "acme",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.method).toBe("POST");
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+            );
+            expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.run",
+                    identity_source: "flag",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("organization");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("accepts the --org alias and keeps the action schema request identity-free", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--org",
+                    "acme",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.method === "GET") {
+                            return new Response(JSON.stringify({
+                                data: {
+                                    description: "Send a Gmail message.",
+                                    id: "gmail.send_mail",
+                                    inputSchema: {
+                                        properties: {
+                                            to: {
+                                                type: "string",
+                                            },
+                                        },
+                                        required: ["to"],
+                                        type: "object",
+                                    },
+                                    name: "send_mail",
+                                    outputSchema: {
+                                        type: "object",
+                                    },
+                                    providerPermissions: [],
+                                    requiredScopes: [],
+                                    service: "gmail",
+                                },
+                            }));
+                        }
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(2);
+            // The schema metadata GET stays identity-free (shared schema cache).
+            expect(requests[0]?.method).toBe("GET");
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
+            );
+            expect(requests[0]?.headers.get("x-oo-organization")).toBeNull();
+            // The run POST carries the organization identity.
+            expect(requests[1]?.method).toBe("POST");
+            expect(requests[1]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+            );
+            expect(requests[1]?.headers.get("x-oo-organization")).toBe("acme");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uses the configured default organization when no identity flag is provided", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            await sandbox.run(["config", "set", "identity.organization", "acme"]);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+            const telemetryRows = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            );
+            const runTelemetryPayload = telemetryRows
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.run");
+
+            expect(result.exitCode).toBe(0);
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+            );
+            expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+            expect(runTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "config",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("forces the personal identity with --personal even when a default organization is configured", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            await sandbox.run(["config", "set", "identity.organization", "acme"]);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--personal",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+            const telemetryRows = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            );
+            const runTelemetryPayload = telemetryRows
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.run");
+
+            expect(result.exitCode).toBe(0);
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
+            );
+            expect(requests[0]?.headers.get("x-oo-organization")).toBeNull();
+            expect(runTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "personal",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects an empty --organization value before sending requests", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--organization",
+                    "   ",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            data: {},
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The --organization value cannot be empty.",
+            );
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects combining --organization and --personal before sending requests", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--organization",
+                    "acme",
+                    "--personal",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            data: {},
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "Use either --organization or --personal, not both.",
+            );
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
 
 type SeedConnectorAction = ConnectorActionDefinition & Partial<Pick<
@@ -2848,4 +3209,15 @@ function createSettingsStoreForSandbox(sandbox: {
             updater(emptySettings),
         write: async (value: AppSettings) => value,
     };
+}
+
+// Collapses every run of whitespace (including the line wraps commander inserts
+// into help output) into single spaces so assertions stay column-width agnostic.
+function collapseWhitespace(value: string): string {
+    return value
+        .split("\n")
+        .join(" ")
+        .split(" ")
+        .filter(Boolean)
+        .join(" ");
 }

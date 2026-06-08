@@ -139,11 +139,12 @@ const commandTelemetryDecisions = {
             "dry_run",
             "error_code",
             "http_status",
+            "identity_source",
             "service",
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, and stable error code.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, and identity source (personal/flag/config) without the organization name.",
     },
     "connector.search": {
         kind: "properties",
