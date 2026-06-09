@@ -294,7 +294,10 @@ function runPowerShellCommand(command: string) {
             command,
         ],
         {
-            env: process.env,
+            // Neutralize OO_INSTALL_PLATFORM so a value inherited from the caller's
+            // environment cannot short-circuit Resolve-Platform and make the
+            // architecture-detection tests nondeterministic.
+            env: { ...process.env, OO_INSTALL_PLATFORM: "" },
             stderr: "pipe",
             stdin: "ignore",
             stdout: "pipe",
