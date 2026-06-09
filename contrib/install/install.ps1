@@ -67,13 +67,31 @@ function Resolve-Platform {
 
     Assert-Windows
 
-    $architecture = (
-        [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-    ).ToString().ToLowerInvariant()
+    # Detect the host architecture from environment variables rather than the .NET
+    # RuntimeInformation architecture API. That API can be absent on the type
+    # PowerShell resolves in Windows PowerShell 5.1 (a shadowing assembly such as
+    # PSReadLine can define its own RuntimeInformation without it), which throws under
+    # Set-StrictMode; on .NET Framework it also reports the emulated process
+    # architecture rather than the host. PROCESSOR_ARCHITEW6432 is populated only
+    # inside a 32-bit (WOW64) process and holds the true host architecture, so the
+    # inbox 32-bit Windows PowerShell 5.1 on an ARM64 host still resolves to arm64.
+    # Reading $env: under StrictMode is provider access and safely yields $null when
+    # the variable is unset.
+    $architecture = $env:PROCESSOR_ARCHITEW6432
+    if ([string]::IsNullOrWhiteSpace($architecture)) {
+        $architecture = $env:PROCESSOR_ARCHITECTURE
+    }
 
-    switch ($architecture) {
+    if ([string]::IsNullOrWhiteSpace($architecture)) {
+        Fail "Could not determine the Windows processor architecture."
+    }
+
+    switch ($architecture.ToLowerInvariant()) {
         "arm64" {
             return "win32-arm64"
+        }
+        "amd64" {
+            return "win32-x64"
         }
         "x64" {
             return "win32-x64"

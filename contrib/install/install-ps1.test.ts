@@ -39,6 +39,24 @@ describe("install.ps1", () => {
         expect(scriptContent).toContain("win32-arm64");
     });
 
+    test("detects architecture from processor environment variables", () => {
+        expect(scriptContent).toContain("PROCESSOR_ARCHITEW6432");
+        expect(scriptContent).toContain("PROCESSOR_ARCHITECTURE");
+        // RuntimeInformation's OSArchitecture is missing on the shadowed type in
+        // Windows PowerShell 5.1 and throws under Set-StrictMode, so the script must
+        // not depend on it for architecture detection.
+        expect(scriptContent).not.toContain("OSArchitecture");
+    });
+
+    test("maps every shipped Windows architecture token to a platform id", () => {
+        expect(scriptContent).toContain("\"arm64\"");
+        // AMD64 is the only token PROCESSOR_ARCHITECTURE reports on x64 Windows, so
+        // the amd64 case is load-bearing; without it every x64 host would fall through
+        // to the default branch and fail.
+        expect(scriptContent).toContain("\"amd64\"");
+        expect(scriptContent).toContain("\"x64\"");
+    });
+
     windowsPowerShellTest(
         "uses %APPDATA%\\oo\\downloads as the default Windows download directory",
         () => {
@@ -182,6 +200,51 @@ describe("install.ps1", () => {
             expect(result.exitCode).toBe(7);
         },
     );
+
+    const resolvePlatformCases = [
+        { architew6432: "", processor: "AMD64", expected: "win32-x64" },
+        // Inbox Windows PowerShell 5.1 on an ARM64 host runs as a 32-bit (WOW64)
+        // process, so PROCESSOR_ARCHITECTURE is x86 but PROCESSOR_ARCHITEW6432 carries
+        // the true host architecture; the platform must still resolve to arm64.
+        { architew6432: "ARM64", processor: "x86", expected: "win32-arm64" },
+        { architew6432: "", processor: "ARM64", expected: "win32-arm64" },
+    ];
+
+    for (const { architew6432, processor, expected } of resolvePlatformCases) {
+        windowsPowerShellTest(
+            `Resolve-Platform maps ARCHITEW6432='${architew6432}' ARCHITECTURE='${processor}' to ${expected}`,
+            () => {
+                const result = runPowerShellCommand(
+                    [
+                        `$env:PROCESSOR_ARCHITEW6432 = '${escapePowerShellString(architew6432)}'`,
+                        `$env:PROCESSOR_ARCHITECTURE = '${escapePowerShellString(processor)}'`,
+                        `. '${escapePowerShellString(installScriptPath)}'`,
+                        "Resolve-Platform",
+                    ].join("; "),
+                );
+
+                expect(result.exitCode).toBe(0);
+                expect(decodeSpawnOutput(result.stdout).trim()).toBe(expected);
+            },
+        );
+    }
+
+    windowsPowerShellTest(
+        "Resolve-Platform fails on an unsupported architecture",
+        () => {
+            const result = runPowerShellCommand(
+                [
+                    "$env:PROCESSOR_ARCHITEW6432 = ''",
+                    "$env:PROCESSOR_ARCHITECTURE = 'x86'",
+                    `. '${escapePowerShellString(installScriptPath)}'`,
+                    "Resolve-Platform",
+                ].join("; "),
+            );
+
+            expect(result.exitCode).not.toBe(0);
+            expect(decodeSpawnOutput(result.stderr)).toContain("Unsupported Windows architecture");
+        },
+    );
 });
 
 function resolvePowerShellCommand(): string | undefined {
@@ -219,4 +282,25 @@ function resolvePowerShellCommand(): string | undefined {
 
 function escapePowerShellString(value: string): string {
     return value.replaceAll("'", "''");
+}
+
+function runPowerShellCommand(command: string) {
+    return Bun.spawnSync(
+        [
+            powerShellCommand!,
+            "-NoLogo",
+            "-NoProfile",
+            "-Command",
+            command,
+        ],
+        {
+            // Neutralize OO_INSTALL_PLATFORM so a value inherited from the caller's
+            // environment cannot short-circuit Resolve-Platform and make the
+            // architecture-detection tests nondeterministic.
+            env: { ...process.env, OO_INSTALL_PLATFORM: "" },
+            stderr: "pipe",
+            stdin: "ignore",
+            stdout: "pipe",
+        },
+    );
 }
