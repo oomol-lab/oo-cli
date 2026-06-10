@@ -371,6 +371,43 @@ describe("connector shared requests", () => {
         });
     });
 
+    test("runConnectorProxy accepts proxy responses without headers or data fields", async () => {
+        const response = await runConnectorProxy(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                proxyRequest: {
+                    endpoint: "/empty",
+                    method: "GET",
+                },
+                serviceName: "tavily",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    data: {
+                        status: 204,
+                    },
+                    meta: {
+                        executionId: "exec-1",
+                        service: "tavily",
+                    },
+                })),
+            }),
+        );
+
+        expect(response).toEqual({
+            data: {
+                data: null,
+                headers: {},
+                status: 204,
+            },
+            meta: {
+                executionId: "exec-1",
+                service: "tavily",
+            },
+        });
+    });
+
     test("runConnectorProxy maps insufficient credit responses to the billing error", async () => {
         const error = await expectCliUserError(runConnectorProxy(
             {
@@ -485,6 +522,85 @@ describe("connector shared requests", () => {
             errorCode: "invalid_input",
             service: "tavily",
             status: 400,
+        });
+    });
+
+    test("runConnectorProxy surfaces status when the failure response has no message or errorCode", async () => {
+        const error = await expectCliUserError(runConnectorProxy(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                proxyRequest: {
+                    endpoint: "/search",
+                    method: "GET",
+                },
+                serviceName: "tavily",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    success: false,
+                }), {
+                    status: 500,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorProxy.requestFailed");
+        expect(error.params).toEqual({
+            service: "tavily",
+            status: 500,
+        });
+    });
+
+    test("runConnectorProxy rejects unsupported success response envelopes", async () => {
+        const error = await expectCliUserError(runConnectorProxy(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                proxyRequest: {
+                    endpoint: "/search",
+                    method: "GET",
+                },
+                serviceName: "tavily",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    data: {
+                        headers: {},
+                    },
+                    meta: {
+                        executionId: "exec-1",
+                        service: "tavily",
+                    },
+                })),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorProxy.invalidResponse");
+    });
+
+    test("runConnectorProxy appends the sandbox hint when the fetcher cannot open a socket", async () => {
+        const error = await expectCliUserError(runConnectorProxy(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                proxyRequest: {
+                    endpoint: "/search",
+                    method: "GET",
+                },
+                serviceName: "tavily",
+            },
+            createRequestContext({
+                fetcher: async () => {
+                    throw createFailedToOpenSocketError("network down");
+                },
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorProxy.requestError");
+        expect(error.params).toEqual({
+            message:
+                "network down\nCurrent environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
         });
     });
 

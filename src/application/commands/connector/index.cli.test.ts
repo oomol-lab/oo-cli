@@ -522,6 +522,8 @@ describe("connectorCommand CLI", () => {
             expect(help).toContain(
                 "Proxy a provider API request through a connected connector app",
             );
+            expect(help).toContain("Run the proxy request under");
+            expect(help).not.toContain("Run the action under");
         }
         finally {
             await sandbox.cleanup();
@@ -625,6 +627,7 @@ describe("connectorCommand CLI", () => {
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "connector.proxy",
+                    data_size_bucket: "<1KB",
                     has_alias: true,
                     has_app_id: false,
                     has_body: true,
@@ -632,7 +635,262 @@ describe("connectorCommand CLI", () => {
                     method: "POST",
                 },
             });
+            expect(telemetryPayload?.properties).not.toHaveProperty("alias");
+            expect(telemetryPayload?.properties).not.toHaveProperty("app_id");
+            expect(telemetryPayload?.properties).not.toHaveProperty("body");
+            expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
+            expect(telemetryPayload?.properties).not.toHaveProperty("headers");
             expect(telemetryPayload?.properties).not.toHaveProperty("organization");
+            expect(telemetryPayload?.properties).not.toHaveProperty("service");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports connector proxy with data file input and text output", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(
+                join(sandbox.cwd, "proxy-request.json"),
+                JSON.stringify({
+                    endpoint: "/empty",
+                    method: "GET",
+                }),
+            );
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--data",
+                    "@proxy-request.json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                status: 204,
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Status: 204");
+            expect(result.stdout).toContain("Execution ID: exec-1");
+            expect(result.stdout).toContain("Result data:");
+            expect(result.stdout).toContain("null");
+            expect(requests).toHaveLength(1);
+            await expect(requests[0]?.json()).resolves.toEqual({
+                endpoint: "/empty",
+                method: "GET",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects invalid connector proxy method values before login", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "connector",
+                "proxy",
+                "tavily",
+                "--endpoint",
+                "/search",
+                "--method",
+                "get",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The connector proxy request payload is invalid:",
+            );
+            expect(result.stderr).toContain("method:");
+            expect(result.stderr).toContain("expected one of");
+            expect(result.stderr).not.toContain("You must log in");
+            expect(result.stderr).not.toContain("Invalid format");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects connector proxy request usage errors before login", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const cases = [
+                {
+                    argv: ["connector", "proxy", "tavily"],
+                    message: "The --endpoint option is required when --data is omitted.",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--endpoint", "/search"],
+                    message: "The --method option is required when --data is omitted.",
+                },
+                {
+                    argv: [
+                        "connector",
+                        "proxy",
+                        "tavily",
+                        "--data",
+                        "{}",
+                        "--endpoint",
+                        "/search",
+                        "--method",
+                        "GET",
+                    ],
+                    message:
+                        "Use either --data or the split proxy request options, not both.",
+                },
+                {
+                    argv: [
+                        "connector",
+                        "proxy",
+                        "tavily",
+                        "--endpoint",
+                        "/search",
+                        "--method",
+                        "GET",
+                        "--query",
+                        "{",
+                    ],
+                    message: "The --query value is not valid JSON:",
+                },
+                {
+                    argv: [
+                        "connector",
+                        "proxy",
+                        "tavily",
+                        "--endpoint",
+                        "/search",
+                        "--method",
+                        "GET",
+                        "--headers",
+                        "{",
+                    ],
+                    message: "The --headers value is not valid JSON:",
+                },
+                {
+                    argv: [
+                        "connector",
+                        "proxy",
+                        "tavily",
+                        "--endpoint",
+                        "/search",
+                        "--method",
+                        "GET",
+                        "--body",
+                        "{",
+                    ],
+                    message: "The --body value is not valid JSON:",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--data", "{"],
+                    message: "The --data value is not valid JSON:",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--data", "@"],
+                    message: "The @data file path cannot be empty.",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--data", "@missing.json"],
+                    exitCode: 1,
+                    message: "Failed to read proxy request data from",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--data", ""],
+                    message: "endpoint:",
+                },
+            ];
+
+            for (const testCase of cases) {
+                const result = await sandbox.run(testCase.argv);
+
+                expect(result.exitCode).toBe(testCase.exitCode ?? 2);
+                expect(result.stdout).toBe("");
+                expect(result.stderr).toContain(testCase.message);
+                expect(result.stderr).not.toContain("You must log in");
+            }
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records connector proxy failure telemetry without raw request values", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "GET",
+                    "--alias",
+                    "primary",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        errorCode: "invalid_input",
+                        message: "bad query",
+                        success: false,
+                    }), {
+                        status: 400,
+                    }),
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(
+                "Connector proxy service tavily returned HTTP 400",
+            );
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.proxy",
+                    data_size_bucket: "<1KB",
+                    error_code: "invalid_input",
+                    has_alias: true,
+                    has_app_id: false,
+                    has_body: false,
+                    http_status: 400,
+                    identity_source: "personal",
+                    method: "GET",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("alias");
+            expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
+            expect(telemetryPayload?.properties).not.toHaveProperty("service");
         }
         finally {
             await sandbox.cleanup();

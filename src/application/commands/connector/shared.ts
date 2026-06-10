@@ -85,8 +85,8 @@ const connectorActionRunResponseSchema = z.object({
 
 const connectorProxyResponseSchema = z.object({
     data: z.object({
-        data: z.unknown(),
-        headers: z.record(z.string(), z.string()),
+        data: z.unknown().optional().default(null),
+        headers: z.record(z.string(), z.unknown()).optional().default({}),
         status: z.number().int(),
     }),
     meta: z.object({

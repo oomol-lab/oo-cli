@@ -150,13 +150,15 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "data_size_bucket",
+            "error_code",
             "has_alias",
             "has_app_id",
             "has_body",
+            "http_status",
             "identity_source",
             "method",
         ],
-        reason: "Records connector proxy bucketed payload size, selector presence, method enum, and identity source without service name, endpoint, headers, body, organization name, app id, or alias.",
+        reason: "Records connector proxy bucketed payload size, selector presence, method enum, identity source, stable error code, and HTTP status without service name, endpoint, headers, body, organization name, app id, or alias.",
     },
     "connector.search": {
         kind: "properties",

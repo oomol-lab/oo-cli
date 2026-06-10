@@ -531,9 +531,11 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`-d, --data <data>` 接收完整 proxy request JSON object，或使用
   `@路径` 读取 JSON 文件。对象形状为
   `{ endpoint, method, query?, headers?, body? }`。
+- 选项：`--input <data>` 是 `--data <data>` 的 alias。
 - 选项：未传 `--data` 时，使用 `--endpoint <endpoint>` 和
   `--method <method>`，以及可选的 `--query <json>`、`--headers <json>`、
-  `--body <json>` 组装同样的 request object。
+  `--body <json>` 组装同样的 request object。`--data` 形式不能与这些拆分
+  request 选项同时使用。
 - 选项：`--endpoint` 是相对于 provider proxy base URL 的 provider endpoint
   path，或允许的绝对 HTTPS URL。
 - 选项：`--method` 必须是 `GET`、`POST`、`PUT`、`PATCH` 或 `DELETE`。
@@ -554,6 +556,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：JSON 输出保持稳定结构
   `{ data: { status, headers, data }, meta: { executionId, service, appId? } }`。
+- 错误：stderr 会打印 connector proxy HTTP 状态；如果失败响应提供了
+  `message` 和 `errorCode`，也会一并包含。
 - 说明：`oo connector proxy` 不使用 connector action schema 或 schema cache。
   当选中的 connector 支持 proxy execution 且没有专用 connector action 时使用。
 

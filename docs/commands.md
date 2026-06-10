@@ -617,9 +617,11 @@ Proxy a provider API request through a connected connector app.
 - Options: `-d, --data <data>` accepts a complete proxy request JSON object or
   `@path` to a JSON file. The object shape is
   `{ endpoint, method, query?, headers?, body? }`.
+- Options: `--input <data>` is an alias for `--data <data>`.
 - Options: without `--data`, use `--endpoint <endpoint>` and
   `--method <method>` plus optional `--query <json>`, `--headers <json>`, and
-  `--body <json>` to build the same request object.
+  `--body <json>` to build the same request object. The `--data` form cannot
+  be combined with these split request options.
 - Options: `--endpoint` is a provider endpoint path relative to the provider
   proxy base URL, or an allowed absolute HTTPS URL.
 - Options: `--method` must be one of `GET`, `POST`, `PUT`, `PATCH`, or
@@ -645,6 +647,8 @@ Proxy a provider API request through a connected connector app.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON output keeps the stable shape
   `{ data: { status, headers, data }, meta: { executionId, service, appId? } }`.
+- Errors: stderr prints the connector proxy HTTP status and includes the server
+  `message` and `errorCode` when the failure response provides them.
 - Notes: `oo connector proxy` does not use connector action schemas or schema
   cache. Use it when the selected connector supports proxy execution and no
   purpose-built connector action is available.

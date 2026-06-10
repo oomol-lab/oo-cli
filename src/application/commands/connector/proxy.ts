@@ -15,6 +15,7 @@ import {
     connectorFormatValues,
     runConnectorProxy,
 } from "./shared.ts";
+import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 
 const connectorProxyDataErrorKeys = {
     dataFilePathRequired: "errors.connectorProxy.dataFilePathRequired",
@@ -47,7 +48,7 @@ interface ConnectorProxyInput {
     endpoint?: string;
     format?: (typeof connectorFormatValues)[number];
     headers?: string;
-    method?: (typeof connectorProxyMethods)[number];
+    method?: string;
     organization?: string;
     personal?: boolean;
     query?: string;
@@ -123,12 +124,12 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             longFlag: "--organization",
             aliasFlags: ["--org"],
             valueName: "organization",
-            descriptionKey: "options.connectorRunOrganization",
+            descriptionKey: "options.connectorProxyOrganization",
         },
         {
             name: "personal",
             longFlag: "--personal",
-            descriptionKey: "options.connectorRunPersonal",
+            descriptionKey: "options.connectorProxyPersonal",
         },
         ...jsonOutputOptions,
     ],
@@ -140,7 +141,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         endpoint: z.string().optional(),
         format: z.enum(connectorFormatValues).optional(),
         headers: z.string().optional(),
-        method: z.enum(connectorProxyMethods).optional(),
+        method: z.string().optional(),
         organization: z.string().optional(),
         personal: z.boolean().optional(),
         query: z.string().optional(),
@@ -164,6 +165,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
 
         const appId = trimOptionalSelector(input.appId, "errors.connectorProxy.appIdEmpty");
         const alias = trimOptionalSelector(input.alias, "errors.connectorProxy.aliasEmpty");
+        const proxyRequest = await buildConnectorProxyRequest(input, context);
         const account = await requireCurrentAccount(context);
         const settings = await context.settingsStore.read();
         const { identity, source: identitySource } = resolveConnectorIdentity({
@@ -171,7 +173,6 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             organizationFlag,
             personalFlag: input.personal === true,
         });
-        const proxyRequest = await buildConnectorProxyRequest(input, context);
 
         context.telemetry?.recordProperties({
             data_size_bucket: bucketTelemetryBytes(
@@ -184,18 +185,25 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             method: readProxyMethod(proxyRequest),
         });
 
-        const response = await runConnectorProxy(
-            {
-                alias,
-                apiKey: account.apiKey,
-                appId,
-                endpoint: account.endpoint,
-                identity,
-                proxyRequest,
-                serviceName: input.serviceName,
-            },
-            context,
-        );
+        let response: ConnectorProxyResponse;
+        try {
+            response = await runConnectorProxy(
+                {
+                    alias,
+                    apiKey: account.apiKey,
+                    appId,
+                    endpoint: account.endpoint,
+                    identity,
+                    proxyRequest,
+                    serviceName: input.serviceName,
+                },
+                context,
+            );
+        }
+        catch (error) {
+            recordConnectorFailureTelemetry(error, context.telemetry);
+            throw error;
+        }
 
         if (input.format === "json") {
             writeJsonOutput(context.stdout, response, {
@@ -262,12 +270,23 @@ function parseProxyRequest(value: unknown): unknown {
     const parsed = proxyRequestSchema.safeParse(value);
 
     if (!parsed.success) {
+        const issue = parsed.error.issues[0];
         throw new CliUserError("errors.connectorProxy.invalidPayload", 2, {
-            message: parsed.error.issues[0]?.message ?? "Invalid proxy request.",
+            message: issue !== undefined
+                ? formatProxyRequestIssue(issue)
+                : "Invalid proxy request.",
         });
     }
 
     return parsed.data;
+}
+
+function formatProxyRequestIssue(issue: z.core.$ZodIssue): string {
+    if (issue.path.length === 0) {
+        return issue.message;
+    }
+
+    return `${issue.path.map(String).join(".")}: ${issue.message}`;
 }
 
 function parseJsonOption(value: string, errorKey: string): unknown {
@@ -322,6 +341,6 @@ function formatConnectorProxyResponseAsText(
         `${context.translator.t("connector.proxy.text.status")}: ${response.data.status}`,
         `${context.translator.t("connector.run.text.executionId")}: ${response.meta.executionId}`,
         `${context.translator.t("connector.run.text.resultData")}:`,
-        JSON.stringify(response.data.data, null, 2),
+        JSON.stringify(response.data.data, null, 2) ?? "null",
     ].join("\n");
 }

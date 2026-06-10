@@ -834,6 +834,10 @@ export const enMessages = {
         "Specify non-authentication upstream headers as a JSON object",
     "options.connectorProxyMethod":
         "Specify the upstream HTTP method",
+    "options.connectorProxyOrganization":
+        "Run the proxy request under the given organization identity (alias: --org)",
+    "options.connectorProxyPersonal":
+        "Run the proxy request under your personal identity, ignoring any configured default organization",
     "options.connectorProxyQuery":
         "Specify upstream query parameters as a JSON object",
     "options.debug": "Print the current log file path when the CLI exits",
@@ -1954,6 +1958,10 @@ export const zhMessages = {
         "以 JSON object 指定非认证上游请求头",
     "options.connectorProxyMethod":
         "指定上游 HTTP method",
+    "options.connectorProxyOrganization":
+        "以指定组织身份运行该 proxy 请求（别名：--org）",
+    "options.connectorProxyPersonal":
+        "以个人身份运行该 proxy 请求，忽略已配置的默认组织",
     "options.connectorProxyQuery":
         "以 JSON object 指定上游 query 参数",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
