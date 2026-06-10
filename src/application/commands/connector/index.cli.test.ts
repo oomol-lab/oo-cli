@@ -515,8 +515,6 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("--query");
             expect(result.stdout).toContain("--headers");
             expect(result.stdout).toContain("--body");
-            expect(result.stdout).toContain("--app-id");
-            expect(result.stdout).toContain("--alias");
             expect(result.stdout).toContain("--organization");
             expect(result.stdout).toContain("--personal");
             expect(help).toContain(
@@ -552,8 +550,6 @@ describe("connectorCommand CLI", () => {
                     "{\"accept\":\"application/json\"}",
                     "--body",
                     "{\"query\":\"hello\"}",
-                    "--alias",
-                    "primary",
                     "--organization",
                     "acme",
                     "--json",
@@ -573,7 +569,6 @@ describe("connectorCommand CLI", () => {
                                 status: 200,
                             },
                             meta: {
-                                appId: "app-1",
                                 executionId: "exec-1",
                                 service: "tavily",
                             },
@@ -600,7 +595,6 @@ describe("connectorCommand CLI", () => {
                     status: 200,
                 },
                 meta: {
-                    appId: "app-1",
                     executionId: "exec-1",
                     service: "tavily",
                 },
@@ -609,8 +603,6 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.method).toBe("POST");
             expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
             expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
-            expect(requests[0]?.headers.get("X-Oomol-Connector-Alias")).toBe("primary");
-            expect(requests[0]?.headers.get("X-Oomol-Connector-App-Id")).toBeNull();
             await expect(requests[0]?.json()).resolves.toEqual({
                 body: {
                     query: "hello",
@@ -628,15 +620,11 @@ describe("connectorCommand CLI", () => {
                 properties: {
                     command_full: "connector.proxy",
                     data_size_bucket: "<1KB",
-                    has_alias: true,
-                    has_app_id: false,
                     has_body: true,
                     identity_source: "flag",
                     method: "POST",
                 },
             });
-            expect(telemetryPayload?.properties).not.toHaveProperty("alias");
-            expect(telemetryPayload?.properties).not.toHaveProperty("app_id");
             expect(telemetryPayload?.properties).not.toHaveProperty("body");
             expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
             expect(telemetryPayload?.properties).not.toHaveProperty("headers");
@@ -901,8 +889,6 @@ describe("connectorCommand CLI", () => {
                     "/search",
                     "--method",
                     "GET",
-                    "--alias",
-                    "primary",
                     "--json",
                 ],
                 {
@@ -930,15 +916,12 @@ describe("connectorCommand CLI", () => {
                     command_full: "connector.proxy",
                     data_size_bucket: "<1KB",
                     error_code: "invalid_input",
-                    has_alias: true,
-                    has_app_id: false,
                     has_body: false,
                     http_status: 400,
                     identity_source: "personal",
                     method: "GET",
                 },
             });
-            expect(telemetryPayload?.properties).not.toHaveProperty("alias");
             expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
             expect(telemetryPayload?.properties).not.toHaveProperty("service");
         }

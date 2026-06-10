@@ -335,10 +335,6 @@ export const enMessages = {
         "The result action {action} configured for --wait-result must declare an async result lifecycle.",
     "errors.connectorRun.waitResultUnsupported":
         "The --wait-result option is only supported for connector actions with an async submit lifecycle.",
-    "errors.connectorProxy.aliasEmpty":
-        "The --alias value cannot be empty.",
-    "errors.connectorProxy.appIdEmpty":
-        "The --app-id value cannot be empty.",
     "errors.connectorProxy.dataConflict":
         "Use either --data or the split proxy request options, not both.",
     "errors.connectorProxy.dataFilePathRequired":
@@ -371,8 +367,6 @@ export const enMessages = {
         "Connector proxy service {service} returned HTTP {status}: {message}",
     "errors.connectorProxy.requestFailedWithMessageAndCode":
         "Connector proxy service {service} returned HTTP {status} (errorCode: {errorCode}): {message}",
-    "errors.connectorProxy.selectorConflict":
-        "Use either --app-id or --alias, not both.",
     "errors.connectorSchema.readFailed":
         "Failed to read the connector action schema cache at {path}: {message}",
     "errors.connectorSchema.writeFailed":
@@ -820,10 +814,6 @@ export const enMessages = {
         "Run the action under the given organization identity (alias: --org)",
     "options.connectorRunPersonal":
         "Run the action under your personal identity, ignoring any configured default organization",
-    "options.connectorProxyAlias":
-        "Run the proxy request with the connector app alias",
-    "options.connectorProxyAppId":
-        "Run the proxy request with the connector app id",
     "options.connectorProxyBody":
         "Specify the upstream request body as JSON",
     "options.connectorProxyData":
@@ -1464,10 +1454,6 @@ export const zhMessages = {
         "--wait-result 配置的结果 action {action} 必须声明异步结果 lifecycle。",
     "errors.connectorRun.waitResultUnsupported":
         "--wait-result 选项仅支持带有异步 submit lifecycle 的 connector action。",
-    "errors.connectorProxy.aliasEmpty":
-        "--alias 的值不能为空。",
-    "errors.connectorProxy.appIdEmpty":
-        "--app-id 的值不能为空。",
     "errors.connectorProxy.dataConflict":
         "--data 和拆分的 proxy request 选项只能使用其中一种。",
     "errors.connectorProxy.dataFilePathRequired":
@@ -1500,8 +1486,6 @@ export const zhMessages = {
         "Connector proxy service {service} 返回了 HTTP {status}：{message}",
     "errors.connectorProxy.requestFailedWithMessageAndCode":
         "Connector proxy service {service} 返回了 HTTP {status}（errorCode: {errorCode}）：{message}",
-    "errors.connectorProxy.selectorConflict":
-        "--app-id 和 --alias 只能使用其中一个。",
     "errors.connectorSchema.readFailed":
         "读取 {path} 的 connector action schema cache 失败：{message}",
     "errors.connectorSchema.writeFailed":
@@ -1944,10 +1928,6 @@ export const zhMessages = {
         "以指定组织身份运行该 action（别名：--org）",
     "options.connectorRunPersonal":
         "以个人身份运行该 action，忽略已配置的默认组织",
-    "options.connectorProxyAlias":
-        "使用 connector app alias 运行 proxy 请求",
-    "options.connectorProxyAppId":
-        "使用 connector app id 运行 proxy 请求",
     "options.connectorProxyBody":
         "以 JSON 指定上游请求体",
     "options.connectorProxyData":

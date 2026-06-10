@@ -432,9 +432,7 @@ export async function runConnectorAction(
 
 export async function runConnectorProxy(
     options: {
-        alias?: string;
         apiKey: string;
-        appId?: string;
         endpoint: string;
         identity?: ConnectorIdentity;
         proxyRequest: unknown;
@@ -468,7 +466,6 @@ export async function runConnectorProxy(
                 "Authorization": options.apiKey,
                 "Content-Type": "application/json",
                 ...connectorIdentityHeaders(options.identity),
-                ...connectorProxySelectorHeaders(options),
             },
             method: "POST",
         });
@@ -570,23 +567,6 @@ function createConnectorProxyRequestUrl(
     return new URL(
         `https://connector.${endpoint}/v1/proxy/${encodeURIComponent(serviceName)}`,
     );
-}
-
-function connectorProxySelectorHeaders(options: {
-    appId?: string;
-    alias?: string;
-}): Record<string, string> {
-    const headers: Record<string, string> = {};
-
-    if (options.appId !== undefined) {
-        headers["X-Oomol-Connector-App-Id"] = options.appId;
-    }
-
-    if (options.alias !== undefined) {
-        headers["X-Oomol-Connector-Alias"] = options.alias;
-    }
-
-    return headers;
 }
 
 function parseConnectorFailureResponse(

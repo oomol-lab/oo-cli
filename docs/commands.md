@@ -634,8 +634,6 @@ Proxy a provider API request through a connected connector app.
   options.
 - Options: `--body` is parsed as JSON. To send a text body, pass a JSON string
   such as `"hello"`.
-- Options: `--app-id <appId>` or `--alias <alias>` selects a specific connected
-  connector app. They cannot be combined.
 - Options: `--organization <name>` runs the proxy request under the given
   organization identity instead of your personal identity. `--org <name>` is an
   alias for `--organization <name>`. When omitted, the request runs under the
@@ -646,7 +644,7 @@ Proxy a provider API request through a connected connector app.
   `--organization`.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON output keeps the stable shape
-  `{ data: { status, headers, data }, meta: { executionId, service, appId? } }`.
+  `{ data: { status, headers, data }, meta: { executionId, service } }`.
 - Errors: stderr prints the connector proxy HTTP status and includes the server
   `message` and `errorCode` when the failure response provides them.
 - Notes: `oo connector proxy` does not use connector action schemas or schema

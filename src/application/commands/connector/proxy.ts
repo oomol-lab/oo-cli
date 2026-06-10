@@ -46,8 +46,6 @@ const proxyRequestSchema = z.object({
 }).strict();
 
 interface ConnectorProxyInput {
-    alias?: string;
-    appId?: string;
     body?: string;
     data?: string;
     endpoint?: string;
@@ -113,18 +111,6 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             descriptionKey: "options.connectorProxyBody",
         },
         {
-            name: "appId",
-            longFlag: "--app-id",
-            valueName: "appId",
-            descriptionKey: "options.connectorProxyAppId",
-        },
-        {
-            name: "alias",
-            longFlag: "--alias",
-            valueName: "alias",
-            descriptionKey: "options.connectorProxyAlias",
-        },
-        {
             name: "organization",
             longFlag: "--organization",
             aliasFlags: ["--org"],
@@ -139,8 +125,6 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         ...jsonOutputOptions,
     ],
     inputSchema: z.object({
-        alias: z.string().optional(),
-        appId: z.string().optional(),
         body: z.string().optional(),
         data: z.string().optional(),
         endpoint: z.string().optional(),
@@ -159,17 +143,11 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             throw new CliUserError("errors.connectorRun.identityConflict", 2);
         }
 
-        if (input.appId !== undefined && input.alias !== undefined) {
-            throw new CliUserError("errors.connectorProxy.selectorConflict", 2);
-        }
-
         const organizationFlag = input.organization?.trim();
         if (input.organization !== undefined && organizationFlag === "") {
             throw new CliUserError("errors.connectorRun.organizationEmpty", 2);
         }
 
-        const appId = trimOptionalSelector(input.appId, "errors.connectorProxy.appIdEmpty");
-        const alias = trimOptionalSelector(input.alias, "errors.connectorProxy.aliasEmpty");
         const proxyRequest = await buildConnectorProxyRequest(input, context);
         const account = await requireCurrentAccount(context);
         const settings = await context.settingsStore.read();
@@ -183,8 +161,6 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(proxyRequest)),
             ),
-            has_alias: alias !== undefined,
-            has_app_id: appId !== undefined,
             has_body: hasProxyBody(proxyRequest),
             identity_source: identitySource,
             method: readProxyMethod(proxyRequest),
@@ -194,9 +170,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         try {
             response = await runConnectorProxy(
                 {
-                    alias,
                     apiKey: account.apiKey,
-                    appId,
                     endpoint: account.endpoint,
                     identity,
                     proxyRequest,
@@ -303,20 +277,6 @@ function parseJsonOption(value: string, errorKey: string): unknown {
             message: error instanceof Error ? error.message : String(error),
         });
     }
-}
-
-function trimOptionalSelector(value: string | undefined, errorKey: string): string | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    const trimmed = value.trim();
-
-    if (trimmed === "") {
-        throw new CliUserError(errorKey, 2);
-    }
-
-    return trimmed;
 }
 
 function hasProxyBody(proxyRequest: unknown): boolean {

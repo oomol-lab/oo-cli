@@ -546,8 +546,6 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   credential。
 - 选项：`--body` 会按 JSON 解析。如需发送文本 body，请传 JSON string，例如
   `"hello"`。
-- 选项：`--app-id <appId>` 或 `--alias <alias>` 用于选择特定已连接的
-  connector app。两者不能同时使用。
 - 选项：`--organization <name>` 以指定组织身份运行该 proxy 请求，而非个人身份。
   `--org <name>` 是 `--organization <name>` 的 alias。省略时，若配置了
   `identity.organization` 默认值则使用该组织，否则使用个人身份。
@@ -555,7 +553,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   不能与 `--organization` 同时使用。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：JSON 输出保持稳定结构
-  `{ data: { status, headers, data }, meta: { executionId, service, appId? } }`。
+  `{ data: { status, headers, data }, meta: { executionId, service } }`。
 - 错误：stderr 会打印 connector proxy HTTP 状态；如果失败响应提供了
   `message` 和 `errorCode`，也会一并包含。
 - 说明：`oo connector proxy` 不使用 connector action schema 或 schema cache。

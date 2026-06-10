@@ -296,11 +296,10 @@ describe("connector shared requests", () => {
         expect(requests[0]?.headers.get("x-oo-organization")).toBeNull();
     });
 
-    test("runConnectorProxy sends proxy requests with identity and selector headers", async () => {
+    test("runConnectorProxy sends proxy requests with identity headers", async () => {
         const requests: Request[] = [];
         const response = await runConnectorProxy(
             {
-                alias: "primary",
                 apiKey: "secret-1",
                 endpoint: "oomol.com",
                 identity: {
@@ -331,7 +330,6 @@ describe("connector shared requests", () => {
                         },
                         message: "OK",
                         meta: {
-                            appId: "app-1",
                             executionId: "exec-1",
                             service: "tavily",
                         },
@@ -352,7 +350,6 @@ describe("connector shared requests", () => {
                 status: 200,
             },
             meta: {
-                appId: "app-1",
                 executionId: "exec-1",
                 service: "tavily",
             },
@@ -361,7 +358,6 @@ describe("connector shared requests", () => {
         expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
         expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
         expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
-        expect(requests[0]?.headers.get("X-Oomol-Connector-Alias")).toBe("primary");
         await expect(requests[0]?.json()).resolves.toEqual({
             endpoint: "/search",
             method: "GET",
