@@ -625,7 +625,7 @@ Proxy a provider API request through a connected connector app.
 - Options: `--endpoint` is a provider endpoint path relative to the provider
   proxy base URL, or an allowed absolute HTTPS URL.
 - Options: `--method` must be one of `GET`, `POST`, `PUT`, `PATCH`, or
-  `DELETE`.
+  `DELETE`. Values are case-insensitive.
 - Options: `--query` must be a JSON object whose values are strings, numbers,
   booleans, or `null`.
 - Options: `--headers` must be a JSON object with string values.

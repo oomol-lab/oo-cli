@@ -25,6 +25,11 @@ const connectorProxyDataErrorKeys = {
 
 const connectorProxyMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
+const connectorProxyMethodSchema = z.string()
+    .trim()
+    .transform(value => value.toUpperCase())
+    .pipe(z.enum(connectorProxyMethods));
+
 const proxyQueryValueSchema = z.union([
     z.string(),
     z.number(),
@@ -36,7 +41,7 @@ const proxyRequestSchema = z.object({
     body: z.unknown().optional(),
     endpoint: z.string().trim().min(1),
     headers: z.record(z.string(), z.string()).optional(),
-    method: z.enum(connectorProxyMethods),
+    method: connectorProxyMethodSchema,
     query: z.record(z.string(), proxyQueryValueSchema).optional(),
 }).strict();
 

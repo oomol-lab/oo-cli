@@ -704,6 +704,56 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("normalizes connector proxy method values case-insensitively", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "get",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                data: null,
+                                headers: {},
+                                status: 200,
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requests).toHaveLength(1);
+            await expect(requests[0]?.json()).resolves.toEqual({
+                endpoint: "/search",
+                method: "GET",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("rejects invalid connector proxy method values before login", async () => {
         const sandbox = await createCliSandbox();
 
@@ -715,7 +765,7 @@ describe("connectorCommand CLI", () => {
                 "--endpoint",
                 "/search",
                 "--method",
-                "get",
+                "TRACE",
             ]);
 
             expect(result.exitCode).toBe(2);

@@ -538,7 +538,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   request 选项同时使用。
 - 选项：`--endpoint` 是相对于 provider proxy base URL 的 provider endpoint
   path，或允许的绝对 HTTPS URL。
-- 选项：`--method` 必须是 `GET`、`POST`、`PUT`、`PATCH` 或 `DELETE`。
+- 选项：`--method` 必须是 `GET`、`POST`、`PUT`、`PATCH` 或 `DELETE`，大小写不敏感。
 - 选项：`--query` 必须是 JSON object，值只能是 string、number、boolean 或
   `null`。
 - 选项：`--headers` 必须是 string 值的 JSON object。认证 header 会由

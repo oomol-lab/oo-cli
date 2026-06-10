@@ -373,26 +373,21 @@ describe("connector shared requests", () => {
 
     test("runConnectorProxy accepts proxy responses without headers or data fields", async () => {
         const response = await runConnectorProxy(
-            {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+            createProxyRunInput({
                 proxyRequest: {
                     endpoint: "/empty",
                     method: "GET",
                 },
-                serviceName: "tavily",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    data: {
-                        status: 204,
-                    },
-                    meta: {
-                        executionId: "exec-1",
-                        service: "tavily",
-                    },
-                })),
             }),
+            createProxyRequestContext(async () => new Response(JSON.stringify({
+                data: {
+                    status: 204,
+                },
+                meta: {
+                    executionId: "exec-1",
+                    service: "tavily",
+                },
+            }))),
         );
 
         expect(response).toEqual({
@@ -410,24 +405,14 @@ describe("connector shared requests", () => {
 
     test("runConnectorProxy maps insufficient credit responses to the billing error", async () => {
         const error = await expectCliUserError(runConnectorProxy(
-            {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
-                proxyRequest: {
-                    endpoint: "/search",
-                    method: "GET",
-                },
-                serviceName: "tavily",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    errorCode: insufficientCreditErrorCode,
-                    message: "insufficient credit",
-                    success: false,
-                }), {
-                    status: 402,
-                }),
-            }),
+            createProxyRunInput(),
+            createProxyRequestContext(async () => new Response(JSON.stringify({
+                errorCode: insufficientCreditErrorCode,
+                message: "insufficient credit",
+                success: false,
+            }), {
+                status: 402,
+            })),
         ));
 
         expect(error.key).toBe("errors.billing.insufficientCredit");
@@ -438,24 +423,14 @@ describe("connector shared requests", () => {
 
     test("runConnectorProxy surfaces message and errorCode on failed proxy responses", async () => {
         const error = await expectCliUserError(runConnectorProxy(
-            {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
-                proxyRequest: {
-                    endpoint: "/search",
-                    method: "GET",
-                },
-                serviceName: "tavily",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    errorCode: "invalid_input",
-                    message: "bad query",
-                    success: false,
-                }), {
-                    status: 400,
-                }),
-            }),
+            createProxyRunInput(),
+            createProxyRequestContext(async () => new Response(JSON.stringify({
+                errorCode: "invalid_input",
+                message: "bad query",
+                success: false,
+            }), {
+                status: 400,
+            })),
         ));
 
         expect(error.key).toBe("errors.connectorProxy.requestFailedWithMessageAndCode");
@@ -469,23 +444,13 @@ describe("connector shared requests", () => {
 
     test("runConnectorProxy surfaces message when the failure response omits an errorCode", async () => {
         const error = await expectCliUserError(runConnectorProxy(
-            {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
-                proxyRequest: {
-                    endpoint: "/search",
-                    method: "GET",
-                },
-                serviceName: "tavily",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    message: "proxy disabled",
-                    success: false,
-                }), {
-                    status: 403,
-                }),
-            }),
+            createProxyRunInput(),
+            createProxyRequestContext(async () => new Response(JSON.stringify({
+                message: "proxy disabled",
+                success: false,
+            }), {
+                status: 403,
+            })),
         ));
 
         expect(error.key).toBe("errors.connectorProxy.requestFailedWithMessage");
@@ -498,23 +463,13 @@ describe("connector shared requests", () => {
 
     test("runConnectorProxy surfaces errorCode when the failure response omits a message", async () => {
         const error = await expectCliUserError(runConnectorProxy(
-            {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
-                proxyRequest: {
-                    endpoint: "/search",
-                    method: "GET",
-                },
-                serviceName: "tavily",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    errorCode: "invalid_input",
-                    success: false,
-                }), {
-                    status: 400,
-                }),
-            }),
+            createProxyRunInput(),
+            createProxyRequestContext(async () => new Response(JSON.stringify({
+                errorCode: "invalid_input",
+                success: false,
+            }), {
+                status: 400,
+            })),
         ));
 
         expect(error.key).toBe("errors.connectorProxy.requestFailedWithCode");
@@ -527,22 +482,12 @@ describe("connector shared requests", () => {
 
     test("runConnectorProxy surfaces status when the failure response has no message or errorCode", async () => {
         const error = await expectCliUserError(runConnectorProxy(
-            {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
-                proxyRequest: {
-                    endpoint: "/search",
-                    method: "GET",
-                },
-                serviceName: "tavily",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    success: false,
-                }), {
-                    status: 500,
-                }),
-            }),
+            createProxyRunInput(),
+            createProxyRequestContext(async () => new Response(JSON.stringify({
+                success: false,
+            }), {
+                status: 500,
+            })),
         ));
 
         expect(error.key).toBe("errors.connectorProxy.requestFailed");
@@ -554,26 +499,16 @@ describe("connector shared requests", () => {
 
     test("runConnectorProxy rejects unsupported success response envelopes", async () => {
         const error = await expectCliUserError(runConnectorProxy(
-            {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
-                proxyRequest: {
-                    endpoint: "/search",
-                    method: "GET",
+            createProxyRunInput(),
+            createProxyRequestContext(async () => new Response(JSON.stringify({
+                data: {
+                    headers: {},
                 },
-                serviceName: "tavily",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    data: {
-                        headers: {},
-                    },
-                    meta: {
-                        executionId: "exec-1",
-                        service: "tavily",
-                    },
-                })),
-            }),
+                meta: {
+                    executionId: "exec-1",
+                    service: "tavily",
+                },
+            }))),
         ));
 
         expect(error.key).toBe("errors.connectorProxy.invalidResponse");
@@ -581,19 +516,9 @@ describe("connector shared requests", () => {
 
     test("runConnectorProxy appends the sandbox hint when the fetcher cannot open a socket", async () => {
         const error = await expectCliUserError(runConnectorProxy(
-            {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
-                proxyRequest: {
-                    endpoint: "/search",
-                    method: "GET",
-                },
-                serviceName: "tavily",
-            },
-            createRequestContext({
-                fetcher: async () => {
-                    throw createFailedToOpenSocketError("network down");
-                },
+            createProxyRunInput(),
+            createProxyRequestContext(async () => {
+                throw createFailedToOpenSocketError("network down");
             }),
         ));
 
@@ -695,4 +620,23 @@ function createRequestContext(options: {
         }),
         translator: createTranslator("en"),
     };
+}
+
+function createProxyRunInput(
+    overrides: Partial<Parameters<typeof runConnectorProxy>[0]> = {},
+): Parameters<typeof runConnectorProxy>[0] {
+    return {
+        apiKey: "secret-1",
+        endpoint: "oomol.com",
+        proxyRequest: {
+            endpoint: "/search",
+            method: "GET",
+        },
+        serviceName: "tavily",
+        ...overrides,
+    };
+}
+
+function createProxyRequestContext(fetcher: Fetcher): ReturnType<typeof createRequestContext> {
+    return createRequestContext({ fetcher });
 }
