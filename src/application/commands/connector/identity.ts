@@ -4,9 +4,9 @@
 //   personal => {}               (no organization)
 //   org      => { organization }
 //
-// The identity is resolved once per `connector run` invocation and then applied
-// only to the action run requests (POST /v1/actions/...). The action schema /
-// metadata layer is identity-independent and is intentionally left untouched.
+// The identity is resolved once per connector invocation and then applied only
+// to execution requests. The action schema / metadata layer is
+// identity-independent and is intentionally left untouched.
 //
 // This struct is the extension point for additional identity dimensions: a new
 // field here plus a branch in the request helpers below is all a future
@@ -51,17 +51,6 @@ export function resolveConnectorIdentity(input: {
     }
 
     return { identity: {}, source: "personal" };
-}
-
-// Adds the identity query parameters to a connector action request URL. This is
-// the single place that maps identity fields to query parameters.
-export function applyConnectorIdentityToUrl(
-    url: URL,
-    identity: ConnectorIdentity | undefined,
-): void {
-    if (identity?.organization !== undefined) {
-        url.searchParams.set("organization", identity.organization);
-    }
 }
 
 // Builds the identity request headers (`x-oo-organization`). Returns an empty

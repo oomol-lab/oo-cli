@@ -95,9 +95,64 @@ Facts:
 - The schema returned by `oo connector schema` is the public contract used to
   build payloads and inspect the action result shape.
 
+## Proxy a provider API request
+
+Use `oo connector proxy` only when the selected connector service supports
+proxy execution and no purpose-built connector action is available for the
+user's requested provider endpoint. Do not use proxy as a first choice when a
+matching connector action exists.
+
+Canonical forms:
+
+```bash
+oo connector proxy "<serviceName>" \
+  --endpoint "<provider-endpoint-path>" \
+  --method GET \
+  --query '<json object>' \
+  --json
+```
+
+```bash
+oo connector proxy "<serviceName>" \
+  --data '{"endpoint":"/path","method":"POST","body":{}}' \
+  --json
+```
+
+Facts:
+
+- `serviceName` is the only positional argument.
+- `--data` accepts the full proxy request object:
+  `{ "endpoint": string, "method": "GET" | "POST" | "PUT" | "PATCH" | "DELETE", "query"?: object, "headers"?: object, "body"?: unknown }`.
+- Without `--data`, build the same object with `--endpoint`, `--method`, and
+  optional `--query`, `--headers`, and `--body`.
+- `--query`, `--headers`, and `--body` are parsed as JSON. To send text in
+  `body`, pass a JSON string such as `"hello"`.
+- Do not pass provider credentials, `Authorization`, cookies, or API keys in
+  proxy headers. The connector service injects authentication from the
+  connected app.
+- Use `--app-id "<id>"` or `--alias "<alias>"` only when the user identified a
+  specific connected app. They cannot be combined.
+- JSON output has this stable shape:
+
+```json
+{
+  "data": {
+    "status": 200,
+    "headers": {},
+    "data": {}
+  },
+  "meta": {
+    "executionId": "execution-id",
+    "service": "serviceName",
+    "appId": "optional-app-id"
+  }
+}
+```
+
 ## Choose the run identity
 
-A connector action runs under one identity. Pick it from what the user said:
+A connector action or proxy request runs under one identity. Pick it from what
+the user said:
 
 - If the user does not mention any organization, run under their personal
   identity: add nothing extra. This is the default.
@@ -109,6 +164,16 @@ A connector action runs under one identity. Pick it from what the user said:
 oo connector run "<serviceName>" \
   --action "<actionName>" \
   --data '<json object>' \
+  --organization "<organizationName>" \
+  --json
+```
+
+For proxy requests, use the same identity option:
+
+```bash
+oo connector proxy "<serviceName>" \
+  --endpoint "<provider-endpoint-path>" \
+  --method GET \
   --organization "<organizationName>" \
   --json
 ```

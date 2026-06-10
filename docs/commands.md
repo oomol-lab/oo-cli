@@ -239,8 +239,9 @@ Persist one configuration value.
   pending telemetry events immediately and the current `config set` invocation is
   not recorded as telemetry.
 - Value rules: for `identity.organization`, use any non-empty organization name.
-  It sets the default organization identity used by `oo connector run` when
-  neither `--organization` nor `--personal` is passed.
+  It sets the default organization identity used by `oo connector run` and
+  `oo connector proxy` when neither `--organization` nor `--personal` is
+  passed.
 
 ### `oo config unset <key>`
 
@@ -607,6 +608,48 @@ Validate input data and run one connector action.
   before executing.
 - Notes: while waiting for an async result action in text mode, interactive
   terminals show progress on stderr. JSON output does not include progress text.
+
+### `oo connector proxy <serviceName>`
+
+Proxy a provider API request through a connected connector app.
+
+- Arguments: `<serviceName>` is the service name.
+- Options: `-d, --data <data>` accepts a complete proxy request JSON object or
+  `@path` to a JSON file. The object shape is
+  `{ endpoint, method, query?, headers?, body? }`.
+- Options: `--input <data>` is an alias for `--data <data>`.
+- Options: without `--data`, use `--endpoint <endpoint>` and
+  `--method <method>` plus optional `--query <json>`, `--headers <json>`, and
+  `--body <json>` to build the same request object. The `--data` form cannot
+  be combined with these split request options.
+- Options: `--endpoint` is a provider endpoint path relative to the provider
+  proxy base URL, or an allowed absolute HTTPS URL.
+- Options: `--method` must be one of `GET`, `POST`, `PUT`, `PATCH`, or
+  `DELETE`. Values are case-insensitive.
+- Options: `--query` must be a JSON object whose values are strings, numbers,
+  booleans, or `null`.
+- Options: `--headers` must be a JSON object with string values.
+  Authentication headers are injected by the connector service from the
+  connected app; callers should not pass provider credentials through CLI
+  options.
+- Options: `--body` is parsed as JSON. To send a text body, pass a JSON string
+  such as `"hello"`.
+- Options: `--organization <name>` runs the proxy request under the given
+  organization identity instead of your personal identity. `--org <name>` is an
+  alias for `--organization <name>`. When omitted, the request runs under the
+  `identity.organization` config default if set, otherwise your personal
+  identity.
+- Options: `--personal` runs the proxy request under your personal identity and
+  ignores any configured default organization. It cannot be combined with
+  `--organization`.
+- Options: `--format=json` and `--json` print a JSON object.
+- Output: JSON output keeps the stable shape
+  `{ data: { status, headers, data }, meta: { executionId, service } }`.
+- Errors: stderr prints the connector proxy HTTP status and includes the server
+  `message` and `errorCode` when the failure response provides them.
+- Notes: `oo connector proxy` does not use connector action schemas or schema
+  cache. Use it when the selected connector supports proxy execution and no
+  purpose-built connector action is available.
 
 ## Search
 

@@ -27,6 +27,7 @@ import {
     requireConnectorActionName,
     runConnectorAction,
 } from "./shared.ts";
+import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 import { validateConnectorActionInput } from "./validation.ts";
 
 const connectorRunExecutionIdColor = "#59F78D";
@@ -273,7 +274,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         }
         catch (error) {
             progressReporter?.abort();
-            recordConnectorRunFailureTelemetry(error, context.telemetry);
+            recordConnectorFailureTelemetry(error, context.telemetry);
             if (isConnectorActionSchemaNotFoundError(error)) {
                 deleteConnectorActionSchemaCache(
                     {
@@ -661,29 +662,4 @@ function formatConnectorRunResultData(
     colors: ReturnType<typeof createWriterColors>,
 ): string {
     return colors.cyan(JSON.stringify(value, null, 2) ?? "null");
-}
-
-function recordConnectorRunFailureTelemetry(
-    error: unknown,
-    telemetry: CliExecutionContext["telemetry"],
-): void {
-    if (!(error instanceof CliUserError)) {
-        return;
-    }
-
-    const status = error.params?.status;
-    const errorCode = error.params?.errorCode;
-    const properties: { error_code?: string; http_status?: number } = {};
-
-    if (typeof status === "number") {
-        properties.http_status = status;
-    }
-
-    if (typeof errorCode === "string" && errorCode !== "") {
-        properties.error_code = errorCode;
-    }
-
-    if (Object.keys(properties).length > 0) {
-        telemetry?.recordProperties(properties);
-    }
 }

@@ -1,5 +1,6 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
+import { connectorProxyCommand } from "./proxy.ts";
 import { connectorRunCommand } from "./run.ts";
 import { connectorSchemaCommand } from "./schema.ts";
 import { connectorSearchCommand } from "./search.ts";
@@ -12,5 +13,6 @@ export const connectorCommand: CliCommandDefinition = {
         connectorSearchCommand,
         connectorSchemaCommand,
         connectorRunCommand,
+        connectorProxyCommand,
     ],
 };

@@ -501,6 +501,435 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("renders connector proxy help with request and identity options", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["connector", "proxy", "--help"]);
+            const help = collapseWhitespace(result.stdout);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("--endpoint");
+            expect(result.stdout).toContain("--method");
+            expect(result.stdout).toContain("--query");
+            expect(result.stdout).toContain("--headers");
+            expect(result.stdout).toContain("--body");
+            expect(result.stdout).toContain("--organization");
+            expect(result.stdout).toContain("--personal");
+            expect(help).toContain(
+                "Proxy a provider API request through a connected connector app",
+            );
+            expect(help).toContain("Run the proxy request under");
+            expect(help).not.toContain("Run the action under");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports connector proxy with split request options and organization identity", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "POST",
+                    "--query",
+                    "{\"limit\":1}",
+                    "--headers",
+                    "{\"accept\":\"application/json\"}",
+                    "--body",
+                    "{\"query\":\"hello\"}",
+                    "--organization",
+                    "acme",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                data: {
+                                    answer: "world",
+                                },
+                                headers: {
+                                    "content-type": "application/json",
+                                },
+                                status: 200,
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    data: {
+                        answer: "world",
+                    },
+                    headers: {
+                        "content-type": "application/json",
+                    },
+                    status: 200,
+                },
+                meta: {
+                    executionId: "exec-1",
+                    service: "tavily",
+                },
+            });
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.method).toBe("POST");
+            expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
+            expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+            await expect(requests[0]?.json()).resolves.toEqual({
+                body: {
+                    query: "hello",
+                },
+                endpoint: "/search",
+                headers: {
+                    accept: "application/json",
+                },
+                method: "POST",
+                query: {
+                    limit: 1,
+                },
+            });
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.proxy",
+                    data_size_bucket: "<1KB",
+                    has_body: true,
+                    identity_source: "flag",
+                    method: "POST",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("body");
+            expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
+            expect(telemetryPayload?.properties).not.toHaveProperty("headers");
+            expect(telemetryPayload?.properties).not.toHaveProperty("organization");
+            expect(telemetryPayload?.properties).not.toHaveProperty("service");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports connector proxy with data file input and text output", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(
+                join(sandbox.cwd, "proxy-request.json"),
+                JSON.stringify({
+                    endpoint: "/empty",
+                    method: "GET",
+                }),
+            );
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--data",
+                    "@proxy-request.json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                status: 204,
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Status: 204");
+            expect(result.stdout).toContain("Execution ID: exec-1");
+            expect(result.stdout).toContain("Result data:");
+            expect(result.stdout).toContain("null");
+            expect(requests).toHaveLength(1);
+            await expect(requests[0]?.json()).resolves.toEqual({
+                endpoint: "/empty",
+                method: "GET",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("normalizes connector proxy method values case-insensitively", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "get",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                data: null,
+                                headers: {},
+                                status: 200,
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requests).toHaveLength(1);
+            await expect(requests[0]?.json()).resolves.toEqual({
+                endpoint: "/search",
+                method: "GET",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects invalid connector proxy method values before login", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "connector",
+                "proxy",
+                "tavily",
+                "--endpoint",
+                "/search",
+                "--method",
+                "TRACE",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The connector proxy request payload is invalid:",
+            );
+            expect(result.stderr).toContain("method:");
+            expect(result.stderr).toContain("expected one of");
+            expect(result.stderr).not.toContain("You must log in");
+            expect(result.stderr).not.toContain("Invalid format");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects connector proxy request usage errors before login", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const cases = [
+                {
+                    argv: ["connector", "proxy", "tavily"],
+                    message: "The --endpoint option is required when --data is omitted.",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--endpoint", "/search"],
+                    message: "The --method option is required when --data is omitted.",
+                },
+                {
+                    argv: [
+                        "connector",
+                        "proxy",
+                        "tavily",
+                        "--data",
+                        "{}",
+                        "--endpoint",
+                        "/search",
+                        "--method",
+                        "GET",
+                    ],
+                    message:
+                        "Use either --data or the split proxy request options, not both.",
+                },
+                {
+                    argv: [
+                        "connector",
+                        "proxy",
+                        "tavily",
+                        "--endpoint",
+                        "/search",
+                        "--method",
+                        "GET",
+                        "--query",
+                        "{",
+                    ],
+                    message: "The --query value is not valid JSON:",
+                },
+                {
+                    argv: [
+                        "connector",
+                        "proxy",
+                        "tavily",
+                        "--endpoint",
+                        "/search",
+                        "--method",
+                        "GET",
+                        "--headers",
+                        "{",
+                    ],
+                    message: "The --headers value is not valid JSON:",
+                },
+                {
+                    argv: [
+                        "connector",
+                        "proxy",
+                        "tavily",
+                        "--endpoint",
+                        "/search",
+                        "--method",
+                        "GET",
+                        "--body",
+                        "{",
+                    ],
+                    message: "The --body value is not valid JSON:",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--data", "{"],
+                    message: "The --data value is not valid JSON:",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--data", "@"],
+                    message: "The @data file path cannot be empty.",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--data", "@missing.json"],
+                    exitCode: 1,
+                    message: "Failed to read proxy request data from",
+                },
+                {
+                    argv: ["connector", "proxy", "tavily", "--data", ""],
+                    message: "endpoint:",
+                },
+            ];
+
+            for (const testCase of cases) {
+                const result = await sandbox.run(testCase.argv);
+
+                expect(result.exitCode).toBe(testCase.exitCode ?? 2);
+                expect(result.stdout).toBe("");
+                expect(result.stderr).toContain(testCase.message);
+                expect(result.stderr).not.toContain("You must log in");
+            }
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records connector proxy failure telemetry without raw request values", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "GET",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        errorCode: "invalid_input",
+                        message: "bad query",
+                        success: false,
+                    }), {
+                        status: 400,
+                    }),
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(
+                "Connector proxy service tavily returned HTTP 400",
+            );
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.proxy",
+                    data_size_bucket: "<1KB",
+                    error_code: "invalid_input",
+                    has_body: false,
+                    http_status: 400,
+                    identity_source: "personal",
+                    method: "GET",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
+            expect(telemetryPayload?.properties).not.toHaveProperty("service");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports connector run with cached schema and json output", async () => {
         const sandbox = await createCliSandbox();
 
@@ -2756,7 +3185,7 @@ describe("connectorCommand CLI", () => {
             expect(requests).toHaveLength(1);
             expect(requests[0]?.method).toBe("POST");
             expect(requests[0]?.url).toBe(
-                "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
             expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
             expect(telemetryPayload).toMatchObject({
@@ -2846,7 +3275,7 @@ describe("connectorCommand CLI", () => {
             // The run POST carries the organization identity.
             expect(requests[1]?.method).toBe("POST");
             expect(requests[1]?.url).toBe(
-                "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
             expect(requests[1]?.headers.get("x-oo-organization")).toBe("acme");
         }
@@ -2899,7 +3328,7 @@ describe("connectorCommand CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(requests[0]?.url).toBe(
-                "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
             expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
             expect(runTelemetryPayload).toMatchObject({
