@@ -630,7 +630,6 @@ describe("connectorCommand CLI", () => {
                     has_body: true,
                     identity_source: "flag",
                     method: "POST",
-                    service: "tavily",
                 },
             });
             expect(telemetryPayload?.properties).not.toHaveProperty("organization");

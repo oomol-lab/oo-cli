@@ -182,7 +182,6 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             has_body: hasProxyBody(proxyRequest),
             identity_source: identitySource,
             method: readProxyMethod(proxyRequest),
-            service: input.serviceName,
         });
 
         const response = await runConnectorProxy(

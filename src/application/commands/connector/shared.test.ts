@@ -371,6 +371,123 @@ describe("connector shared requests", () => {
         });
     });
 
+    test("runConnectorProxy maps insufficient credit responses to the billing error", async () => {
+        const error = await expectCliUserError(runConnectorProxy(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                proxyRequest: {
+                    endpoint: "/search",
+                    method: "GET",
+                },
+                serviceName: "tavily",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    errorCode: insufficientCreditErrorCode,
+                    message: "insufficient credit",
+                    success: false,
+                }), {
+                    status: 402,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.billing.insufficientCredit");
+        expect(error.params).toEqual({
+            url: billingTokenRechargeUrl,
+        });
+    });
+
+    test("runConnectorProxy surfaces message and errorCode on failed proxy responses", async () => {
+        const error = await expectCliUserError(runConnectorProxy(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                proxyRequest: {
+                    endpoint: "/search",
+                    method: "GET",
+                },
+                serviceName: "tavily",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    errorCode: "invalid_input",
+                    message: "bad query",
+                    success: false,
+                }), {
+                    status: 400,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorProxy.requestFailedWithMessageAndCode");
+        expect(error.params).toEqual({
+            errorCode: "invalid_input",
+            message: "bad query",
+            service: "tavily",
+            status: 400,
+        });
+    });
+
+    test("runConnectorProxy surfaces message when the failure response omits an errorCode", async () => {
+        const error = await expectCliUserError(runConnectorProxy(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                proxyRequest: {
+                    endpoint: "/search",
+                    method: "GET",
+                },
+                serviceName: "tavily",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    message: "proxy disabled",
+                    success: false,
+                }), {
+                    status: 403,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorProxy.requestFailedWithMessage");
+        expect(error.params).toEqual({
+            message: "proxy disabled",
+            service: "tavily",
+            status: 403,
+        });
+    });
+
+    test("runConnectorProxy surfaces errorCode when the failure response omits a message", async () => {
+        const error = await expectCliUserError(runConnectorProxy(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                proxyRequest: {
+                    endpoint: "/search",
+                    method: "GET",
+                },
+                serviceName: "tavily",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    errorCode: "invalid_input",
+                    success: false,
+                }), {
+                    status: 400,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorProxy.requestFailedWithCode");
+        expect(error.params).toEqual({
+            errorCode: "invalid_input",
+            service: "tavily",
+            status: 400,
+        });
+    });
+
     test("runConnectorAction surfaces errorCode when the failure response omits a message", async () => {
         const error = await expectCliUserError(runConnectorAction(
             {
