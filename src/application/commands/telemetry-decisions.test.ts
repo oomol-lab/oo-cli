@@ -146,6 +146,19 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, and identity source (personal/flag/config) without the organization name.",
     },
+    "connector.proxy": {
+        kind: "properties",
+        properties: [
+            "data_size_bucket",
+            "has_alias",
+            "has_app_id",
+            "has_body",
+            "identity_source",
+            "method",
+            "service",
+        ],
+        reason: "Records connector proxy product dimensions, bucketed payload size, selector presence, method enum, and identity source without endpoint, headers, body, organization name, app id, or alias.",
+    },
     "connector.search": {
         kind: "properties",
         properties: [

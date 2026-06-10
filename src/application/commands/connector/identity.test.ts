@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-    applyConnectorIdentityToUrl,
     connectorIdentityHeaders,
     resolveConnectorIdentity,
 } from "./identity.ts";
@@ -60,28 +59,6 @@ describe("resolveConnectorIdentity", () => {
             identity: { organization: "config-org" },
             source: "config",
         });
-    });
-});
-
-describe("applyConnectorIdentityToUrl", () => {
-    test("adds the organization query parameter for an organization identity", () => {
-        const url = new URL("https://connector.oomol.com/v1/actions/gmail.send_mail");
-
-        applyConnectorIdentityToUrl(url, { organization: "acme" });
-
-        expect(url.toString()).toBe(
-            "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
-        );
-    });
-
-    test("leaves the URL untouched for the personal identity", () => {
-        const url = new URL("https://connector.oomol.com/v1/actions/gmail.send_mail");
-
-        applyConnectorIdentityToUrl(url, {});
-
-        expect(url.toString()).toBe(
-            "https://connector.oomol.com/v1/actions/gmail.send_mail",
-        );
     });
 });
 

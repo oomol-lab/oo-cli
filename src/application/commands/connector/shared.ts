@@ -10,10 +10,7 @@ import {
     isInsufficientCreditFailure,
 } from "../shared/billing.ts";
 import { getUnexpectedRequestErrorMessage, requestText } from "../shared/request.ts";
-import {
-    applyConnectorIdentityToUrl,
-    connectorIdentityHeaders,
-} from "./identity.ts";
+import { connectorIdentityHeaders } from "./identity.ts";
 
 export const connectorActionDefinitionSchema = z.object({
     description: z.string().optional().default(""),
@@ -86,6 +83,23 @@ const connectorActionRunResponseSchema = z.object({
     ...response
 }) => response);
 
+const connectorProxyResponseSchema = z.object({
+    data: z.object({
+        data: z.unknown(),
+        headers: z.record(z.string(), z.string()),
+        status: z.number().int(),
+    }),
+    meta: z.object({
+        appId: z.string().optional(),
+        executionId: z.string().min(1),
+        service: z.string().min(1),
+    }).passthrough(),
+}).passthrough().transform(({
+    message: _message,
+    success: _success,
+    ...response
+}) => response);
+
 const connectorActionFailureResponseSchema = z.object({
     errorCode: z.string().optional(),
     message: z.string().optional(),
@@ -111,6 +125,7 @@ export type ConnectorActionDefinition = z.output<typeof connectorActionDefinitio
 export type ConnectorActionAsyncLifecycle = z.output<typeof connectorActionAsyncLifecycleSchema>;
 export type ConnectorActionMetadata = z.output<typeof connectorActionMetadataSchema>;
 export type ConnectorActionRunResponse = z.output<typeof connectorActionRunResponseSchema>;
+export type ConnectorProxyResponse = z.output<typeof connectorProxyResponseSchema>;
 type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResponseSchema>;
 
 export async function searchConnectorActions(
@@ -305,7 +320,6 @@ export async function runConnectorAction(
         options.endpoint,
         options.serviceName,
         options.actionName,
-        options.identity,
     );
     const requestBody = JSON.stringify({
         input: options.inputData,
@@ -416,22 +430,163 @@ export async function runConnectorAction(
     }
 }
 
+export async function runConnectorProxy(
+    options: {
+        alias?: string;
+        apiKey: string;
+        appId?: string;
+        endpoint: string;
+        identity?: ConnectorIdentity;
+        proxyRequest: unknown;
+        serviceName: string;
+    },
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<ConnectorProxyResponse> {
+    const requestUrl = createConnectorProxyRequestUrl(
+        options.endpoint,
+        options.serviceName,
+    );
+    const requestBody = JSON.stringify(options.proxyRequest);
+    const requestStartedAt = Date.now();
+
+    context.logger.debug(
+        {
+            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+            bodyLength: requestBody.length,
+            method: "POST",
+            serviceName: options.serviceName,
+        },
+        "Connector proxy request started.",
+    );
+
+    let rawResponse: string;
+
+    try {
+        const response = await context.fetcher(requestUrl, {
+            body: requestBody,
+            headers: {
+                "Authorization": options.apiKey,
+                "Content-Type": "application/json",
+                ...connectorIdentityHeaders(options.identity),
+                ...connectorProxySelectorHeaders(options),
+            },
+            method: "POST",
+        });
+        const durationMs = Date.now() - requestStartedAt;
+
+        rawResponse = await response.text();
+
+        if (!response.ok) {
+            const failureResponse = parseConnectorFailureResponse(rawResponse);
+            const responseDiagnostics = collectSafeConnectorFailureDiagnostics(
+                response,
+                rawResponse,
+                failureResponse,
+            );
+
+            context.logger.warn(
+                {
+                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                    ...responseDiagnostics,
+                    durationMs,
+                    errorCode: failureResponse?.errorCode,
+                    executionId: failureResponse?.meta?.executionId,
+                    method: "POST",
+                    responseMessage: sanitizeConnectorFailureMessage(
+                        failureResponse?.message,
+                    ),
+                    serviceName: options.serviceName,
+                    status: response.status,
+                },
+                "Connector proxy request returned a non-success status.",
+            );
+
+            throw createConnectorProxyRequestFailedError({
+                failureResponse,
+                serviceName: options.serviceName,
+                status: response.status,
+            });
+        }
+
+        context.logger.debug(
+            {
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                durationMs,
+                method: "POST",
+                serviceName: options.serviceName,
+                status: response.status,
+            },
+            "Connector proxy request completed.",
+        );
+    }
+    catch (error) {
+        if (error instanceof CliUserError) {
+            throw error;
+        }
+
+        context.logger.warn(
+            {
+                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
+                durationMs: Date.now() - requestStartedAt,
+                err: error,
+                method: "POST",
+                serviceName: options.serviceName,
+            },
+            "Connector proxy request failed unexpectedly.",
+        );
+
+        throw new CliUserError("errors.connectorProxy.requestError", 1, {
+            message: getUnexpectedRequestErrorMessage(error, context.translator),
+        });
+    }
+
+    try {
+        return connectorProxyResponseSchema.parse(
+            JSON.parse(rawResponse) as unknown,
+        );
+    }
+    catch {
+        throw new CliUserError("errors.connectorProxy.invalidResponse", 1);
+    }
+}
+
 function createConnectorActionRequestUrl(
     endpoint: string,
     serviceName: string,
     actionName: string,
-    identity?: ConnectorIdentity,
 ): URL {
     const qualifiedActionName
         = `${encodeURIComponent(serviceName)}.${encodeURIComponent(actionName)}`;
 
-    const requestUrl = new URL(
+    return new URL(
         `https://connector.${endpoint}/v1/actions/${qualifiedActionName}`,
     );
+}
 
-    applyConnectorIdentityToUrl(requestUrl, identity);
+function createConnectorProxyRequestUrl(
+    endpoint: string,
+    serviceName: string,
+): URL {
+    return new URL(
+        `https://connector.${endpoint}/v1/proxy/${encodeURIComponent(serviceName)}`,
+    );
+}
 
-    return requestUrl;
+function connectorProxySelectorHeaders(options: {
+    appId?: string;
+    alias?: string;
+}): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    if (options.appId !== undefined) {
+        headers["X-Oomol-Connector-App-Id"] = options.appId;
+    }
+
+    if (options.alias !== undefined) {
+        headers["X-Oomol-Connector-Alias"] = options.alias;
+    }
+
+    return headers;
 }
 
 function parseConnectorFailureResponse(
@@ -558,6 +713,53 @@ function sanitizeConnectorFailureMessage(
     }
 
     return `${singleLineMessage.slice(0, maxLength)}...`;
+}
+
+function createConnectorProxyRequestFailedError(input: {
+    failureResponse: ConnectorActionFailureResponse | undefined;
+    serviceName: string;
+    status: number;
+}): CliUserError {
+    const responseMessage = input.failureResponse?.message;
+    const errorCode = input.failureResponse?.errorCode;
+
+    if (isInsufficientCreditFailure({
+        errorCode,
+        message: responseMessage,
+        status: input.status,
+    })) {
+        return createInsufficientCreditError();
+    }
+
+    if (responseMessage !== undefined && responseMessage !== "") {
+        if (errorCode !== undefined && errorCode !== "") {
+            return new CliUserError("errors.connectorProxy.requestFailedWithMessageAndCode", 1, {
+                errorCode,
+                message: responseMessage,
+                service: input.serviceName,
+                status: input.status,
+            });
+        }
+
+        return new CliUserError("errors.connectorProxy.requestFailedWithMessage", 1, {
+            message: responseMessage,
+            service: input.serviceName,
+            status: input.status,
+        });
+    }
+
+    if (errorCode !== undefined && errorCode !== "") {
+        return new CliUserError("errors.connectorProxy.requestFailedWithCode", 1, {
+            errorCode,
+            service: input.serviceName,
+            status: input.status,
+        });
+    }
+
+    return new CliUserError("errors.connectorProxy.requestFailed", 1, {
+        service: input.serviceName,
+        status: input.status,
+    });
 }
 
 function createConnectorRunRequestFailedError(options: {

@@ -51,6 +51,9 @@ export const enMessages = {
     "commands.connector.run.description":
         "Validate input data and run one connector action.",
     "commands.connector.run.summary": "Run a connector action",
+    "commands.connector.proxy.description":
+        "Proxy a provider API request through a connected connector app.",
+    "commands.connector.proxy.summary": "Proxy a connector API request",
     "commands.completion.description":
         "Output a shell completion script for a supported shell.",
     "commands.completion.summary": "Generate shell completion scripts",
@@ -332,6 +335,44 @@ export const enMessages = {
         "The result action {action} configured for --wait-result must declare an async result lifecycle.",
     "errors.connectorRun.waitResultUnsupported":
         "The --wait-result option is only supported for connector actions with an async submit lifecycle.",
+    "errors.connectorProxy.aliasEmpty":
+        "The --alias value cannot be empty.",
+    "errors.connectorProxy.appIdEmpty":
+        "The --app-id value cannot be empty.",
+    "errors.connectorProxy.dataConflict":
+        "Use either --data or the split proxy request options, not both.",
+    "errors.connectorProxy.dataFilePathRequired":
+        "The @data file path cannot be empty.",
+    "errors.connectorProxy.dataReadFailed":
+        "Failed to read proxy request data from {path}: {message}",
+    "errors.connectorProxy.endpointRequired":
+        "The --endpoint option is required when --data is omitted.",
+    "errors.connectorProxy.invalidBodyJson":
+        "The --body value is not valid JSON: {message}",
+    "errors.connectorProxy.invalidDataJson":
+        "The --data value is not valid JSON: {message}",
+    "errors.connectorProxy.invalidHeadersJson":
+        "The --headers value is not valid JSON: {message}",
+    "errors.connectorProxy.invalidPayload":
+        "The connector proxy request payload is invalid: {message}",
+    "errors.connectorProxy.invalidQueryJson":
+        "The --query value is not valid JSON: {message}",
+    "errors.connectorProxy.invalidResponse":
+        "The connector proxy response body is unsupported.",
+    "errors.connectorProxy.methodRequired":
+        "The --method option is required when --data is omitted.",
+    "errors.connectorProxy.requestError":
+        "The connector proxy request failed: {message}",
+    "errors.connectorProxy.requestFailed":
+        "Connector proxy service {service} returned HTTP {status}.",
+    "errors.connectorProxy.requestFailedWithCode":
+        "Connector proxy service {service} returned HTTP {status} (errorCode: {errorCode}).",
+    "errors.connectorProxy.requestFailedWithMessage":
+        "Connector proxy service {service} returned HTTP {status}: {message}",
+    "errors.connectorProxy.requestFailedWithMessageAndCode":
+        "Connector proxy service {service} returned HTTP {status} (errorCode: {errorCode}): {message}",
+    "errors.connectorProxy.selectorConflict":
+        "Use either --app-id or --alias, not both.",
     "errors.connectorSchema.readFailed":
         "Failed to read the connector action schema cache at {path}: {message}",
     "errors.connectorSchema.writeFailed":
@@ -779,6 +820,22 @@ export const enMessages = {
         "Run the action under the given organization identity (alias: --org)",
     "options.connectorRunPersonal":
         "Run the action under your personal identity, ignoring any configured default organization",
+    "options.connectorProxyAlias":
+        "Run the proxy request with the connector app alias",
+    "options.connectorProxyAppId":
+        "Run the proxy request with the connector app id",
+    "options.connectorProxyBody":
+        "Specify the upstream request body as JSON",
+    "options.connectorProxyData":
+        "Provide the full proxy request as JSON or @path to a JSON file",
+    "options.connectorProxyEndpoint":
+        "Specify the upstream endpoint path or allowed absolute HTTPS URL",
+    "options.connectorProxyHeaders":
+        "Specify non-authentication upstream headers as a JSON object",
+    "options.connectorProxyMethod":
+        "Specify the upstream HTTP method",
+    "options.connectorProxyQuery":
+        "Specify upstream query parameters as a JSON object",
     "options.debug": "Print the current log file path when the CLI exits",
     "options.description": "Set the required generated skill description",
     "options.days":
@@ -1039,6 +1096,7 @@ export const enMessages = {
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.run.text.executionId": "Execution ID",
     "connector.run.text.resultData": "Result data",
+    "connector.proxy.text.status": "Status",
     "connector.run.progress.completed":
         "Completed {action} (polls: {pollCount})",
     "connector.run.progress.polling":
@@ -1144,6 +1202,10 @@ export const zhMessages = {
         "校验输入数据，并运行一个 connector action。",
     "commands.connector.run.summary":
         "运行 connector action",
+    "commands.connector.proxy.description":
+        "通过已连接的 connector app 代理 provider API 请求。",
+    "commands.connector.proxy.summary":
+        "代理 connector API 请求",
     "commands.completion.description": "输出受支持 shell 的补全脚本。",
     "commands.completion.summary": "生成 shell 补全脚本",
     "commands.config.description": "读取并更新持久化的用户配置。",
@@ -1398,6 +1460,44 @@ export const zhMessages = {
         "--wait-result 配置的结果 action {action} 必须声明异步结果 lifecycle。",
     "errors.connectorRun.waitResultUnsupported":
         "--wait-result 选项仅支持带有异步 submit lifecycle 的 connector action。",
+    "errors.connectorProxy.aliasEmpty":
+        "--alias 的值不能为空。",
+    "errors.connectorProxy.appIdEmpty":
+        "--app-id 的值不能为空。",
+    "errors.connectorProxy.dataConflict":
+        "--data 和拆分的 proxy request 选项只能使用其中一种。",
+    "errors.connectorProxy.dataFilePathRequired":
+        "@data 文件路径不能为空。",
+    "errors.connectorProxy.dataReadFailed":
+        "读取 proxy request 数据 {path} 失败：{message}",
+    "errors.connectorProxy.endpointRequired":
+        "省略 --data 时必须传入 --endpoint。",
+    "errors.connectorProxy.invalidBodyJson":
+        "--body 的值不是有效 JSON：{message}",
+    "errors.connectorProxy.invalidDataJson":
+        "--data 的值不是有效 JSON：{message}",
+    "errors.connectorProxy.invalidHeadersJson":
+        "--headers 的值不是有效 JSON：{message}",
+    "errors.connectorProxy.invalidPayload":
+        "Connector proxy request payload 无效：{message}",
+    "errors.connectorProxy.invalidQueryJson":
+        "--query 的值不是有效 JSON：{message}",
+    "errors.connectorProxy.invalidResponse":
+        "Connector proxy 响应内容不受支持。",
+    "errors.connectorProxy.methodRequired":
+        "省略 --data 时必须传入 --method。",
+    "errors.connectorProxy.requestError":
+        "Connector proxy 请求失败：{message}",
+    "errors.connectorProxy.requestFailed":
+        "Connector proxy service {service} 返回了 HTTP {status}。",
+    "errors.connectorProxy.requestFailedWithCode":
+        "Connector proxy service {service} 返回了 HTTP {status}（errorCode: {errorCode}）。",
+    "errors.connectorProxy.requestFailedWithMessage":
+        "Connector proxy service {service} 返回了 HTTP {status}：{message}",
+    "errors.connectorProxy.requestFailedWithMessageAndCode":
+        "Connector proxy service {service} 返回了 HTTP {status}（errorCode: {errorCode}）：{message}",
+    "errors.connectorProxy.selectorConflict":
+        "--app-id 和 --alias 只能使用其中一个。",
     "errors.connectorSchema.readFailed":
         "读取 {path} 的 connector action schema cache 失败：{message}",
     "errors.connectorSchema.writeFailed":
@@ -1840,6 +1940,22 @@ export const zhMessages = {
         "以指定组织身份运行该 action（别名：--org）",
     "options.connectorRunPersonal":
         "以个人身份运行该 action，忽略已配置的默认组织",
+    "options.connectorProxyAlias":
+        "使用 connector app alias 运行 proxy 请求",
+    "options.connectorProxyAppId":
+        "使用 connector app id 运行 proxy 请求",
+    "options.connectorProxyBody":
+        "以 JSON 指定上游请求体",
+    "options.connectorProxyData":
+        "提供完整 proxy request JSON，或使用 @路径读取 JSON 文件",
+    "options.connectorProxyEndpoint":
+        "指定上游 endpoint path 或允许的绝对 HTTPS URL",
+    "options.connectorProxyHeaders":
+        "以 JSON object 指定非认证上游请求头",
+    "options.connectorProxyMethod":
+        "指定上游 HTTP method",
+    "options.connectorProxyQuery":
+        "以 JSON object 指定上游 query 参数",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
     "options.description": "设置必填的生成 skill 描述",
     "options.days": "设置私有包临时分享天数（默认 7，最长 7）",
@@ -2096,6 +2212,7 @@ export const zhMessages = {
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.run.text.executionId": "执行 ID",
     "connector.run.text.resultData": "结果数据",
+    "connector.proxy.text.status": "状态",
     "connector.run.progress.completed":
         "{action} 已完成（轮询次数：{pollCount}）",
     "connector.run.progress.polling":

@@ -501,6 +501,145 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("renders connector proxy help with request and identity options", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["connector", "proxy", "--help"]);
+            const help = collapseWhitespace(result.stdout);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("--endpoint");
+            expect(result.stdout).toContain("--method");
+            expect(result.stdout).toContain("--query");
+            expect(result.stdout).toContain("--headers");
+            expect(result.stdout).toContain("--body");
+            expect(result.stdout).toContain("--app-id");
+            expect(result.stdout).toContain("--alias");
+            expect(result.stdout).toContain("--organization");
+            expect(result.stdout).toContain("--personal");
+            expect(help).toContain(
+                "Proxy a provider API request through a connected connector app",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports connector proxy with split request options and organization identity", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "POST",
+                    "--query",
+                    "{\"limit\":1}",
+                    "--headers",
+                    "{\"accept\":\"application/json\"}",
+                    "--body",
+                    "{\"query\":\"hello\"}",
+                    "--alias",
+                    "primary",
+                    "--organization",
+                    "acme",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                data: {
+                                    answer: "world",
+                                },
+                                headers: {
+                                    "content-type": "application/json",
+                                },
+                                status: 200,
+                            },
+                            meta: {
+                                appId: "app-1",
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    data: {
+                        answer: "world",
+                    },
+                    headers: {
+                        "content-type": "application/json",
+                    },
+                    status: 200,
+                },
+                meta: {
+                    appId: "app-1",
+                    executionId: "exec-1",
+                    service: "tavily",
+                },
+            });
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.method).toBe("POST");
+            expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
+            expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+            expect(requests[0]?.headers.get("X-Oomol-Connector-Alias")).toBe("primary");
+            expect(requests[0]?.headers.get("X-Oomol-Connector-App-Id")).toBeNull();
+            await expect(requests[0]?.json()).resolves.toEqual({
+                body: {
+                    query: "hello",
+                },
+                endpoint: "/search",
+                headers: {
+                    accept: "application/json",
+                },
+                method: "POST",
+                query: {
+                    limit: 1,
+                },
+            });
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.proxy",
+                    has_alias: true,
+                    has_app_id: false,
+                    has_body: true,
+                    identity_source: "flag",
+                    method: "POST",
+                    service: "tavily",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("organization");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports connector run with cached schema and json output", async () => {
         const sandbox = await createCliSandbox();
 
@@ -2756,7 +2895,7 @@ describe("connectorCommand CLI", () => {
             expect(requests).toHaveLength(1);
             expect(requests[0]?.method).toBe("POST");
             expect(requests[0]?.url).toBe(
-                "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
             expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
             expect(telemetryPayload).toMatchObject({
@@ -2846,7 +2985,7 @@ describe("connectorCommand CLI", () => {
             // The run POST carries the organization identity.
             expect(requests[1]?.method).toBe("POST");
             expect(requests[1]?.url).toBe(
-                "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
             expect(requests[1]?.headers.get("x-oo-organization")).toBe("acme");
         }
@@ -2899,7 +3038,7 @@ describe("connectorCommand CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(requests[0]?.url).toBe(
-                "https://connector.oomol.com/v1/actions/gmail.send_mail?organization=acme",
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
             expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
             expect(runTelemetryPayload).toMatchObject({

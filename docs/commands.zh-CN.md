@@ -214,7 +214,8 @@
   CLI 还会立即尝试清空待发送 telemetry 事件，并且本次 `config set` 调用自身不会被记录为
   telemetry。
 - 取值规则：当 `<key>` 为 `identity.organization` 时，支持任意非空的组织名称。
-  它设置 `oo connector run` 在未传 `--organization` 或 `--personal` 时使用的默认组织身份。
+  它设置 `oo connector run` 和 `oo connector proxy` 在未传 `--organization` 或
+  `--personal` 时使用的默认组织身份。
 
 ### `oo config unset <key>`
 
@@ -521,6 +522,40 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：命令会在执行前根据选中 action 的 contract 校验输入。
 - 说明：text 模式下等待 async result action 时，交互式终端会在 stderr
   显示进度。JSON 输出不会混入进度文本。
+
+### `oo connector proxy <serviceName>`
+
+通过已连接的 connector app 代理 provider API 请求。
+
+- 参数：`<serviceName>` 为服务名。
+- 选项：`-d, --data <data>` 接收完整 proxy request JSON object，或使用
+  `@路径` 读取 JSON 文件。对象形状为
+  `{ endpoint, method, query?, headers?, body? }`。
+- 选项：未传 `--data` 时，使用 `--endpoint <endpoint>` 和
+  `--method <method>`，以及可选的 `--query <json>`、`--headers <json>`、
+  `--body <json>` 组装同样的 request object。
+- 选项：`--endpoint` 是相对于 provider proxy base URL 的 provider endpoint
+  path，或允许的绝对 HTTPS URL。
+- 选项：`--method` 必须是 `GET`、`POST`、`PUT`、`PATCH` 或 `DELETE`。
+- 选项：`--query` 必须是 JSON object，值只能是 string、number、boolean 或
+  `null`。
+- 选项：`--headers` 必须是 string 值的 JSON object。认证 header 会由
+  connector service 根据已连接 app 注入；调用方不应通过 CLI 选项传 provider
+  credential。
+- 选项：`--body` 会按 JSON 解析。如需发送文本 body，请传 JSON string，例如
+  `"hello"`。
+- 选项：`--app-id <appId>` 或 `--alias <alias>` 用于选择特定已连接的
+  connector app。两者不能同时使用。
+- 选项：`--organization <name>` 以指定组织身份运行该 proxy 请求，而非个人身份。
+  `--org <name>` 是 `--organization <name>` 的 alias。省略时，若配置了
+  `identity.organization` 默认值则使用该组织，否则使用个人身份。
+- 选项：`--personal` 以个人身份运行该 proxy 请求，并忽略已配置的默认组织。
+  不能与 `--organization` 同时使用。
+- 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
+- 输出：JSON 输出保持稳定结构
+  `{ data: { status, headers, data }, meta: { executionId, service, appId? } }`。
+- 说明：`oo connector proxy` 不使用 connector action schema 或 schema cache。
+  当选中的 connector 支持 proxy execution 且没有专用 connector action 时使用。
 
 ## Search
 
