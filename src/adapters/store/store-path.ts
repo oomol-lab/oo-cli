@@ -37,6 +37,13 @@ export function resolveStoreDirectory(
     const homeDirectory = resolveHomeDirectory(options.env, options.homeDirectory);
     const appName = options.appName;
 
+    // OO_CONFIG_DIR overrides the config root directly (no app-name segment
+    // appended) and takes precedence over XDG_CONFIG_HOME so embedded callers
+    // can pin the config root to a private directory.
+    if (options.env.OO_CONFIG_DIR) {
+        return options.env.OO_CONFIG_DIR;
+    }
+
     if (options.env.XDG_CONFIG_HOME) {
         return join(options.env.XDG_CONFIG_HOME, appName);
     }
@@ -62,6 +69,12 @@ function resolveLogDirectory(
     const homeDirectory = resolveHomeDirectory(options.env, options.homeDirectory);
     const appName = options.appName;
 
+    // OO_LOG_DIR overrides the log directory directly and takes precedence over
+    // every platform-specific default.
+    if (options.env.OO_LOG_DIR) {
+        return options.env.OO_LOG_DIR;
+    }
+
     if (options.platform === "darwin") {
         return join(homeDirectory, "Library", "Logs", appName);
     }
@@ -85,7 +98,9 @@ export function resolveStorePaths(
     options: FileStoreLocationOptions,
 ): StorePaths {
     const rootDirectory = resolveStoreDirectory(options);
-    const dataDirectory = join(rootDirectory, "data");
+    // OO_DATA_DIR overrides the data directory directly; otherwise it follows the
+    // config root, preserving the historical `<root>/data` layout.
+    const dataDirectory = options.env.OO_DATA_DIR || join(rootDirectory, "data");
 
     return {
         authFilePath: join(rootDirectory, defaultAuthFileName),

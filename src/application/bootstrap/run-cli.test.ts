@@ -241,6 +241,63 @@ describe("runCli bootstrap", () => {
         }
     });
 
+    test("skips managed skill synchronization when OO_SKILLS_SYNC_DISABLED is set", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+        try {
+            const universalHome = resolveManagedSkillAgentHomeDirectory(
+                sandbox.env,
+                "universal",
+            );
+
+            const result = await sandbox.run(["--help"]);
+
+            expect(result.exitCode).toBe(0);
+            // The always-provisioned universal host (~/.agents) must not be
+            // materialized when synchronization is disabled.
+            await expect(stat(universalHome)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("preserves legacy managed skills when OO_SKILLS_SYNC_DISABLED is set", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+        try {
+            const managedBundledPath = join(
+                sandbox.env.HOME!,
+                ".codex",
+                "skills",
+                "oo",
+            );
+
+            await mkdir(managedBundledPath, { recursive: true });
+            await writeFile(join(managedBundledPath, "SKILL.md"), "skill\n");
+            await writeFile(
+                join(managedBundledPath, ".oo-metadata.json"),
+                JSON.stringify({ kind: "bundled", schemaVersion: 1, version: "1.2.3" }),
+            );
+
+            const result = await sandbox.run(["--help"]);
+
+            expect(result.exitCode).toBe(0);
+            // Legacy cleanup is part of the guarded block, so the managed skill
+            // must remain untouched.
+            expect((await stat(managedBundledPath)).isDirectory()).toBe(true);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("writes debug logs to the log directory during cli startup", async () => {
         const sandbox = await createCliSandbox();
 

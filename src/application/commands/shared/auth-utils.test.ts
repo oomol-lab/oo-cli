@@ -1,3 +1,4 @@
+import type { AuthStore } from "../../contracts/auth-store.ts";
 import type {
     CliCatalog,
     CliExecutionContext,
@@ -74,20 +75,96 @@ describe("requireCurrentAccount", () => {
 
         await expect(requireCurrentAccount(context)).resolves.toEqual(account);
     });
+
+    test("resolves the OO_API_KEY override without reading auth.toml", async () => {
+        const context = createAuthContext(
+            { auth: [], id: "" },
+            {
+                authStore: createThrowingAuthStore(),
+                env: { OO_API_KEY: "env-key", OO_ENDPOINT: "oomol.dev" },
+            },
+        );
+
+        await expect(requireCurrentAccount(context)).resolves.toEqual({
+            apiKey: "env-key",
+            endpoint: "oomol.dev",
+            id: "oo-env-override",
+            name: "Environment (OO_API_KEY)",
+        });
+    });
+
+    test("prefers OO_API_KEY over a persisted active account", async () => {
+        const context = createAuthContext(
+            {
+                auth: [{
+                    id: "user-1",
+                    name: "Test User",
+                    apiKey: "persisted-key",
+                    endpoint: "oomol.com",
+                }],
+                id: "user-1",
+            },
+            { env: { OO_API_KEY: "env-key" } },
+        );
+
+        const resolved = await requireCurrentAccount(context);
+
+        expect(resolved.apiKey).toBe("env-key");
+        expect(resolved.id).toBe("oo-env-override");
+        // OO_ENDPOINT is unset, so the override falls back to the public default.
+        expect(resolved.endpoint).toBe("oomol.com");
+    });
+
+    test("redirects a persisted account endpoint with a bare OO_ENDPOINT", async () => {
+        const account = {
+            id: "user-1",
+            name: "Test User",
+            apiKey: "persisted-key",
+            endpoint: "oomol.com",
+        };
+        const context = createAuthContext(
+            { auth: [account], id: "user-1" },
+            { env: { OO_ENDPOINT: "oomol.dev" } },
+        );
+
+        await expect(requireCurrentAccount(context)).resolves.toEqual({
+            ...account,
+            endpoint: "oomol.dev",
+        });
+    });
 });
 
-function createAuthContext(authFile: AuthFile): CliExecutionContext {
+function createThrowingAuthStore(): AuthStore {
+    const fail = (): never => {
+        throw new Error("auth.toml must not be accessed when OO_API_KEY is set");
+    };
+
+    return {
+        getFilePath: () => "/should-not-be-read/auth.toml",
+        read: async () => fail(),
+        write: async () => fail(),
+        update: async () => fail(),
+    };
+}
+
+function createAuthContext(
+    authFile: AuthFile,
+    overrides: {
+        authStore?: AuthStore;
+        env?: Record<string, string | undefined>;
+    } = {},
+): CliExecutionContext {
     const stdout = createTextBuffer();
     const stderr = createTextBuffer();
 
     return {
-        authStore: createAuthStore(authFile),
+        authStore: overrides.authStore ?? createAuthStore(authFile),
         cacheStore: createCacheStore(),
         currentLogFilePath: "",
         execPath: process.execPath,
         fetcher: async () => new Response(null),
         cwd: process.cwd(),
-        env: {},
+        env: overrides.env ?? {},
         fileDownloadSessionStore: createNoopFileDownloadSessionStore(),
         fileUploadStore: createNoopFileUploadStore(),
         stdin,

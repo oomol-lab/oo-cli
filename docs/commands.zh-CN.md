@@ -11,6 +11,28 @@
 - `-h, --help`：显示当前命令的帮助信息。
 - `-V, --version`：显示当前 CLI 版本、构建时间和 commit hash。
 
+## 环境变量
+
+CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、`true`、`yes` 或 `on`
+（大小写不敏感）。
+
+- `OO_CONFIG_DIR`：覆盖配置根目录，其中包含 `auth.toml`、`settings.toml` 和
+  telemetry 数据（在未设置 `OO_DATA_DIR` 时也包含 `data` 子目录）。优先级高于
+  `XDG_CONFIG_HOME`。
+- `OO_DATA_DIR`：覆盖数据目录，其中包含本地缓存、上传和下载会话状态。默认值为
+  `<配置根目录>/data`。
+- `OO_LOG_DIR`：覆盖 debug 日志目录。优先级高于所有平台默认值。
+- `OO_API_KEY`：使用该 API key 执行命令，无需交互式登录。设置后 CLI 会构造一个
+  内存账号，不读取、不要求、也不写入 `auth.toml`，且优先级高于任何已保存的账号。
+- `OO_ENDPOINT`：基础域名（例如 `oomol.com` 或 `oomol.dev`），用于派生执行命令的
+  所有服务 URL。它与 `OO_API_KEY` 搭配使用，也会覆盖已保存账号的 endpoint。优先级
+  高于历史遗留的 `OOMOL_ENDPOINT`。
+- `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步与 legacy
+  清理副作用，使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill
+  文件。
+- `OO_NO_SELF_UPDATE`：设为真值会禁用 `oo update`、`oo install` 和
+  `oo check-update`，并强制关闭 self-update 的 PATH 改写。
+
 ## JSON 输出
 
 文档中带有 `--format=json` 和 `--json` 的命令遵循以下约定：

@@ -483,6 +483,8 @@ export const enMessages = {
         "Invalid skill publish visibility: {value}. Use private or public.",
     "errors.skills.publish.bundledSkill":
         "Bundled skill {name} cannot be published directly because it is managed by the oo CLI release. Create a local skill before publishing.",
+    "errors.skills.publish.envApiKeyPackageName":
+        "Publishing with OO_API_KEY requires an explicit scoped package name. Add a `packageName` (for example `@scope/name`) to the skill's frontmatter.",
     "errors.skills.publish.localSkillAmbiguous":
         "Local skill {name} exists in multiple local sources ({agents}). Pass --agent to choose which agent-native skill to publish.",
     "errors.skills.share.localSkillAmbiguous":
@@ -635,6 +637,8 @@ export const enMessages = {
         "Failed to read the settings file at {path}.",
     "errors.store.writeFailed":
         "Failed to write the settings file at {path}.",
+    "errors.selfUpdate.disabledByEnv":
+        "Self-update is disabled by the OO_NO_SELF_UPDATE environment variable.",
     "errors.selfUpdate.downloadError":
         "Failed to download the target CLI release: {message}",
     "errors.selfUpdate.downloadFailed":
@@ -1602,6 +1606,8 @@ export const zhMessages = {
         "无效的 skill 发布可见性：{value}。请使用 private 或 public。",
     "errors.skills.publish.bundledSkill":
         "不能直接发布内置 skill {name}，因为它由 oo CLI 版本管理。请先创建本地 skill 再发布。",
+    "errors.skills.publish.envApiKeyPackageName":
+        "使用 OO_API_KEY 发布时需要显式的带 scope 的包名。请在 skill 的 frontmatter 中添加 `packageName`（例如 `@scope/name`）。",
     "errors.skills.publish.localSkillAmbiguous":
         "本地 skill {name} 存在于多个本地来源（{agents}）。请传入 --agent 选择要发布的 Agent 本地 skill。",
     "errors.skills.share.localSkillAmbiguous":
@@ -1750,6 +1756,8 @@ export const zhMessages = {
     "errors.store.invalidSchema": "配置文件 {path} 的结构不受支持。",
     "errors.store.readFailed": "读取配置文件 {path} 失败。",
     "errors.store.writeFailed": "写入配置文件 {path} 失败。",
+    "errors.selfUpdate.disabledByEnv":
+        "self-update 已被环境变量 OO_NO_SELF_UPDATE 禁用。",
     "errors.selfUpdate.downloadError":
         "下载目标 CLI 版本失败：{message}",
     "errors.selfUpdate.downloadFailed":

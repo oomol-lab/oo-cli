@@ -12,6 +12,31 @@ Project overview: [README.md](../README.md)
 - `-h, --help`: Show help for the current command.
 - `-V, --version`: Show the current CLI version, build time, and commit hash.
 
+## Environment Variables
+
+The CLI reads these environment variables to support embedded and automated
+use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
+
+- `OO_CONFIG_DIR`: Override the configuration root directory that holds
+  `auth.toml`, `settings.toml`, and telemetry data (and, unless `OO_DATA_DIR`
+  is set, the `data` subdirectory). Takes precedence over `XDG_CONFIG_HOME`.
+- `OO_DATA_DIR`: Override the data directory that holds the local cache,
+  uploads, and download-session state. Defaults to `<config-root>/data`.
+- `OO_LOG_DIR`: Override the debug-log directory. Takes precedence over every
+  platform default.
+- `OO_API_KEY`: Run execution commands with this API key without an interactive
+  login. When set, the CLI builds an in-memory account and does not read,
+  require, or write `auth.toml`, and it takes precedence over any saved account.
+- `OO_ENDPOINT`: Base endpoint domain (for example `oomol.com` or `oomol.dev`)
+  used to derive every service URL for execution commands. It pairs with
+  `OO_API_KEY` and also overrides the endpoint of a saved account. Takes
+  precedence over the legacy `OOMOL_ENDPOINT`.
+- `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
+  synchronization and legacy-cleanup side effects, so the CLI writes no skill
+  files into agent home directories such as `~/.agents` or `~/.claude`.
+- `OO_NO_SELF_UPDATE`: A truthy value disables `oo update`, `oo install`, and
+  `oo check-update` and forces self-update PATH modification off.
+
 ## JSON Output
 
 Commands that document `--format=json` and `--json` share the following

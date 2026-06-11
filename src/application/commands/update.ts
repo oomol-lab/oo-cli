@@ -3,6 +3,7 @@ import type { CliCommandDefinition } from "../contracts/cli.ts";
 import type { SelfUpdateCommandResolutionResult, SelfUpdatePathConfigurationResult } from "../contracts/self-update.ts";
 import process from "node:process";
 import { z } from "zod";
+import { CliUserError } from "../contracts/cli.ts";
 import {
     attemptManagedSkillInstall,
     isManagedVersionExecutableInstalled,
@@ -18,6 +19,7 @@ import {
 import { detectInstallationMethodFromExecPath } from "../self-update/installation.ts";
 import { resolveSelfUpdateModifyPath } from "../self-update/modify-path-preference.ts";
 import { resolveSelfUpdateShowPathShadowingWarning } from "../self-update/path-shadowing-warning-preference.ts";
+import { isSelfUpdateDisabledByEnv } from "../self-update/self-update-disabled-preference.ts";
 import { writeSelfUpdatePathNoteIfNeeded } from "./self-update-output.ts";
 import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
 import {
@@ -46,6 +48,10 @@ export const updateCommand: CliCommandDefinition<
     ],
     inputSchema: updateCommandInputSchema,
     handler: async (input, context) => {
+        if (isSelfUpdateDisabledByEnv(context.env)) {
+            throw new CliUserError("errors.selfUpdate.disabledByEnv", 1);
+        }
+
         context.telemetry?.recordProperties({
             force: true,
             path_modified: false,

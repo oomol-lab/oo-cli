@@ -965,6 +965,50 @@ describe("self-update commands", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("update refuses to run when OO_NO_SELF_UPDATE is set", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_NO_SELF_UPDATE = "1";
+
+        try {
+            const result = await sandbox.run(["update"], {
+                fetcher: () => {
+                    throw new Error("self-update must not fetch when disabled");
+                },
+                version: "1.0.0",
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("OO_NO_SELF_UPDATE");
+            expect(result.stdout).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("install refuses to run when OO_NO_SELF_UPDATE is set", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_NO_SELF_UPDATE = "1";
+
+        try {
+            const result = await sandbox.run(["install", "2.0.0"], {
+                fetcher: () => {
+                    throw new Error("self-update must not fetch when disabled");
+                },
+                version: "1.0.0",
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("OO_NO_SELF_UPDATE");
+            expect(result.stdout).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
 
 async function withShadowedLegacyUpdateScenario(
