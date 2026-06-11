@@ -360,6 +360,43 @@ describe("skills publish command", () => {
             key: "errors.skills.publish.invalidOwnershipMetadata",
         });
     });
+
+    test("rejects publishing under the OO_API_KEY override when no scoped package name is available", async () => {
+        const configRootDirectoryPath = await createTemporaryDirectory("publish-env-api-key");
+        const settingsFilePath = join(configRootDirectoryPath, "settings.toml");
+        const context = createPublishContext(settingsFilePath);
+        const skillDirectoryPath = join(configRootDirectoryPath, "env-api-key-skill");
+
+        cleanup.track(configRootDirectoryPath);
+
+        await writeSkillFile(skillDirectoryPath, createSkillMarkdown(
+            "env-api-key-skill",
+            "Use an env api key workflow.",
+        ));
+
+        await expect(publishSkillPackage(
+            skillDirectoryPath,
+            context,
+            "private",
+            {},
+            {
+                // Simulate auth resolved from OO_API_KEY: a synthetic account
+                // with no real scope (id "oo-env-override").
+                requireCurrentAccount: async () => ({
+                    apiKey: "env-key",
+                    endpoint: "oomol.com",
+                    id: "oo-env-override",
+                    name: "Environment (OO_API_KEY)",
+                }),
+                convertSkillDirectoryToPackage: () => {
+                    throw new Error("Conversion should not run.");
+                },
+                publishConvertedSkillPackage: () => Promise.resolve(),
+            },
+        )).rejects.toMatchObject({
+            key: "errors.skills.publish.envApiKeyPackageName",
+        });
+    });
 });
 
 function createPublishContext(

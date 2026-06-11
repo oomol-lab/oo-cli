@@ -3489,6 +3489,88 @@ describe("connectorCommand CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("runs connector search via OO_API_KEY without login and routes through OO_ENDPOINT", async () => {
+        const sandbox = await createCliSandbox();
+
+        // Drive execution purely from env: no login, no auth.toml on disk.
+        sandbox.env.OO_API_KEY = "env-api-key";
+        sandbox.env.OO_ENDPOINT = "oomol.dev";
+
+        const authFilePath = join(
+            sandbox.env.XDG_CONFIG_HOME!,
+            APP_NAME,
+            "auth.toml",
+        );
+        const requests: Request[] = [];
+
+        try {
+            const result = await sandbox.run(
+                ["connector", "search", "send mail", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("[]");
+            expect(requests).toHaveLength(1);
+            // OO_ENDPOINT must drive the execution endpoint derivation.
+            expect(requests[0]!.url).toStartWith(
+                "https://search.oomol.dev/v1/connector-actions",
+            );
+            // OO_API_KEY must be used as the Authorization credential.
+            expect(requests[0]!.headers.get("Authorization")).toBe("env-api-key");
+            // The env override must never read or create auth.toml.
+            await expect(Bun.file(authFilePath).exists()).resolves.toBeFalse();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("redirects a logged-in account's execution endpoint with OO_ENDPOINT", async () => {
+        const sandbox = await createCliSandbox();
+
+        // A persisted account (endpoint oomol.com) plus a bare OO_ENDPOINT, no
+        // OO_API_KEY: the saved credential is kept but the endpoint is redirected.
+        await writeAuthFile(sandbox);
+        sandbox.env.OO_ENDPOINT = "oomol.dev";
+
+        const requests: Request[] = [];
+
+        try {
+            const result = await sandbox.run(
+                ["connector", "search", "send mail", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]!.url).toStartWith(
+                "https://search.oomol.dev/v1/connector-actions",
+            );
+            // The persisted API key is still used as the credential.
+            expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
 
 type SeedConnectorAction = ConnectorActionDefinition & Partial<Pick<

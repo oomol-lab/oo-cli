@@ -43,4 +43,11 @@ describe("resolveSelfUpdateModifyPath", () => {
             modifyPathFlag: false,
         })).toBeFalse();
     });
+
+    test("skips PATH modification when OO_NO_SELF_UPDATE is truthy", () => {
+        expect(resolveSelfUpdateModifyPath({
+            env: { OO_NO_SELF_UPDATE: "1" },
+            modifyPathFlag: true,
+        })).toBeFalse();
+    });
 });

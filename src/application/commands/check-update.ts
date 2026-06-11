@@ -3,6 +3,7 @@ import type { CliUpdateCheckResult } from "../update/update-notifier.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../contracts/cli.ts";
+import { isSelfUpdateDisabledByEnv } from "../self-update/self-update-disabled-preference.ts";
 import {
     checkForCliUpdate,
     cliUpdateCommand,
@@ -46,6 +47,12 @@ export const checkUpdateCommand: CliCommandDefinition<CheckUpdateInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
+        // OO_NO_SELF_UPDATE disables the update machinery, including the remote
+        // release check that hits the hardcoded static.oomol.com source.
+        if (isSelfUpdateDisabledByEnv(context.env)) {
+            throw new CliUserError("errors.selfUpdate.disabledByEnv", 1);
+        }
+
         context.telemetry?.recordProperties({
             version_kind: classifyTelemetryVersionKind(context.version),
         });

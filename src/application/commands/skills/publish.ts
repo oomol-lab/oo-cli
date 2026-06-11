@@ -11,6 +11,7 @@ import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver, isSemver } from "../../semver.ts";
+import { isEnvOverrideAccount } from "../shared/auth-env-override.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
@@ -427,11 +428,23 @@ async function areSamePath(leftPath: string, rightPath: string): Promise<boolean
 }
 
 async function resolveSkillPublishPackageName(
-    account: Pick<AuthAccount, "name">,
+    account: Pick<AuthAccount, "id" | "name">,
     source: SkillPublishSource,
 ): Promise<string> {
-    return await readSkillPublishSourceScopedPackageName(source)
-        ?? resolveCanonicalSkillPackageName(account.name, source.skillId);
+    const scopedPackageName = await readSkillPublishSourceScopedPackageName(source);
+
+    if (scopedPackageName !== undefined) {
+        return scopedPackageName;
+    }
+
+    // The OO_API_KEY env override has no account scope, so deriving a canonical
+    // package name from its synthetic account name would produce an invalid
+    // identifier. Require an explicit scoped packageName instead.
+    if (isEnvOverrideAccount(account)) {
+        throw new CliUserError("errors.skills.publish.envApiKeyPackageName", 1);
+    }
+
+    return resolveCanonicalSkillPackageName(account.name, source.skillId);
 }
 
 async function readSkillPublishSourceScopedPackageName(

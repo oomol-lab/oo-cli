@@ -11,6 +11,7 @@ import {
 } from "../self-update/core.ts";
 import { resolveSelfUpdateModifyPath } from "../self-update/modify-path-preference.ts";
 import { resolveSelfUpdateShowPathShadowingWarning } from "../self-update/path-shadowing-warning-preference.ts";
+import { isSelfUpdateDisabledByEnv } from "../self-update/self-update-disabled-preference.ts";
 import { isSemver } from "../semver.ts";
 import { writeSelfUpdatePathNoteIfNeeded } from "./self-update-output.ts";
 import { SelfUpdateProgressReporter } from "./self-update-progress.ts";
@@ -54,6 +55,10 @@ export const installCommand: CliCommandDefinition<
     ],
     inputSchema: installCommandInputSchema,
     handler: async (input, context) => {
+        if (isSelfUpdateDisabledByEnv(context.env)) {
+            throw new CliUserError("errors.selfUpdate.disabledByEnv", 1);
+        }
+
         context.telemetry?.recordProperties({
             force: input.force,
             path_modified: false,

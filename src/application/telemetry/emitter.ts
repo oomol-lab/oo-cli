@@ -9,6 +9,7 @@ import { readFile } from "node:fs/promises";
 import { arch, release } from "node:os";
 import process from "node:process";
 import { parse as parseToml } from "smol-toml";
+import { buildEnvApiKeyAccount } from "../commands/shared/auth-env-override.ts";
 import { authTomlFileSchema, getCurrentAuthAccount } from "../schemas/auth.ts";
 import { detectInstallationMethodFromExecPath } from "../self-update/installation.ts";
 import {
@@ -86,7 +87,10 @@ export async function emitCliCommandTelemetry(
         const ci = detectCiEnvironment(options.env);
         const uuid = Bun.randomUUIDv7();
         const payload = createCliCommandTelemetryPayload({
-            accountState: await resolveTelemetryAccountState(options.authStore),
+            accountState: await resolveTelemetryAccountState(
+                options.authStore,
+                options.env,
+            ),
             arch: arch(),
             ciName: ci.name,
             cliCommit: options.buildCommit,
@@ -200,7 +204,14 @@ function spawnTelemetryFlusherIfDue(
 
 async function resolveTelemetryAccountState(
     authStore: AuthStore | undefined,
+    env: Record<string, string | undefined>,
 ): Promise<TelemetryAccountState> {
+    // OO_API_KEY is an authenticated credential; report it as such without
+    // reading auth.toml, matching the override's "never touch auth.toml" contract.
+    if (buildEnvApiKeyAccount(env) !== undefined) {
+        return "authenticated";
+    }
+
     if (authStore === undefined) {
         return "unknown";
     }

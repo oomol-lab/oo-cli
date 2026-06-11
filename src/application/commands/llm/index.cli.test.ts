@@ -417,6 +417,40 @@ describe("llm CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("derives the LLM config from OO_API_KEY and OO_ENDPOINT without login", async () => {
+        const sandbox = await createCliSandbox();
+
+        // No writeAuthFile: drive auth and endpoint purely from env.
+        sandbox.env.OO_API_KEY = "env-key";
+        sandbox.env.OO_ENDPOINT = "oomol.dev";
+
+        try {
+            const result = await sandbox.run(["llm", "config", "--json"], {
+                fetcher: () => {
+                    throw new Error("llm config should not make network requests");
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            const config = JSON.parse(result.stdout) as {
+                apiKey: string;
+                baseUrl: string;
+                chatCompletionsUrl: string;
+                model: string;
+            };
+
+            expect(config).toEqual({
+                apiKey: "env-key",
+                baseUrl: "https://llm.oomol.dev/v1",
+                chatCompletionsUrl: "https://llm.oomol.dev/v1/chat/completions",
+                model: "oomol-chat",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
 
 function createChatCompletionResponse(content: string): Response {
