@@ -53,15 +53,15 @@ export function resolveConnectorIdentity(input: {
     return { identity: {}, source: "personal" };
 }
 
-// Builds the identity request headers (`x-oo-organization`). Returns an empty
-// object for the personal identity so callers can spread it unconditionally.
+// Builds the identity request headers (`x-oo-organization-name`). Returns an
+// empty object for the personal identity so callers can spread it unconditionally.
 export function connectorIdentityHeaders(
     identity: ConnectorIdentity | undefined,
 ): Record<string, string> {
     const headers: Record<string, string> = {};
 
     if (identity?.organization !== undefined) {
-        headers["x-oo-organization"] = identity.organization;
+        headers["x-oo-organization-name"] = identity.organization;
     }
 
     return headers;

@@ -65,7 +65,7 @@ describe("resolveConnectorIdentity", () => {
 describe("connectorIdentityHeaders", () => {
     test("returns the organization header for an organization identity", () => {
         expect(connectorIdentityHeaders({ organization: "acme" })).toEqual({
-            "x-oo-organization": "acme",
+            "x-oo-organization-name": "acme",
         });
     });
 

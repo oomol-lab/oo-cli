@@ -602,7 +602,7 @@ describe("connectorCommand CLI", () => {
             expect(requests).toHaveLength(1);
             expect(requests[0]?.method).toBe("POST");
             expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
-            expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
             await expect(requests[0]?.json()).resolves.toEqual({
                 body: {
                     query: "hello",
@@ -3187,7 +3187,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "connector.run",
@@ -3271,13 +3271,13 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[0]?.headers.get("x-oo-organization")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
             // The run POST carries the organization identity.
             expect(requests[1]?.method).toBe("POST");
             expect(requests[1]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[1]?.headers.get("x-oo-organization")).toBe("acme");
+            expect(requests[1]?.headers.get("x-oo-organization-name")).toBe("acme");
         }
         finally {
             await sandbox.cleanup();
@@ -3330,7 +3330,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
             expect(runTelemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "config",
@@ -3389,7 +3389,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[0]?.headers.get("x-oo-organization")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
             expect(runTelemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "personal",
