@@ -223,7 +223,7 @@ describe("connector shared requests", () => {
         expect(requests[0]?.url).toBe(
             "https://connector.oomol.com/v1/actions/gmail.send_mail",
         );
-        expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+        expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
     });
 
     test("runConnectorAction omits the organization query and header for the personal identity", async () => {
@@ -257,7 +257,7 @@ describe("connector shared requests", () => {
         expect(requests[0]?.url).toBe(
             "https://connector.oomol.com/v1/actions/gmail.send_mail",
         );
-        expect(requests[0]?.headers.get("x-oo-organization")).toBeNull();
+        expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
     });
 
     test("getConnectorActionMetadata never sends an organization query or header", async () => {
@@ -293,7 +293,7 @@ describe("connector shared requests", () => {
         expect(requests[0]?.url).toBe(
             "https://connector.oomol.com/v1/actions/gmail.get_message",
         );
-        expect(requests[0]?.headers.get("x-oo-organization")).toBeNull();
+        expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
     });
 
     test("runConnectorProxy sends proxy requests with identity headers", async () => {
@@ -357,7 +357,7 @@ describe("connector shared requests", () => {
         expect(requests).toHaveLength(1);
         expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
         expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
-        expect(requests[0]?.headers.get("x-oo-organization")).toBe("acme");
+        expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
         await expect(requests[0]?.json()).resolves.toEqual({
             endpoint: "/search",
             method: "GET",
