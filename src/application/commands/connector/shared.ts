@@ -103,8 +103,11 @@ const connectorProxyResponseSchema = z.object({
 const connectorActionFailureResponseSchema = z.object({
     // `code` / `error` are accepted as aliases for `errorCode` / `message`
     // because some upstream connector responses use the shorter field names.
-    code: z.string().optional(),
-    error: z.string().optional(),
+    // They are typed as `unknown` so a non-string alias value (e.g. a nested
+    // `error` object) does not fail validation and discard the canonical
+    // fields; `firstNonEmptyString` filters them down to usable strings.
+    code: z.unknown().optional(),
+    error: z.unknown().optional(),
     errorCode: z.string().optional(),
     message: z.string().optional(),
     meta: z.object({
@@ -725,7 +728,7 @@ function createConnectorFailureBodyPreview(
 }
 
 function firstNonEmptyString(
-    ...values: (string | undefined)[]
+    ...values: unknown[]
 ): string | undefined {
     for (const value of values) {
         if (isNonEmptyString(value)) {

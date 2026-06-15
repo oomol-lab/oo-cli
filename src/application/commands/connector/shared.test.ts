@@ -618,6 +618,35 @@ describe("connector shared requests", () => {
         });
     });
 
+    test("runConnectorAction keeps the canonical message when an alias field is not a string", async () => {
+        const error = await expectCliUserError(runConnectorAction(
+            {
+                actionName: "assume_role",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                inputData: {},
+                serviceName: "aws_sts",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    error: {
+                        nested: true,
+                    },
+                    message: "access denied by policy",
+                }), {
+                    status: 403,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorRun.requestFailedWithMessage");
+        expect(error.params).toEqual({
+            action: "assume_role",
+            message: "access denied by policy",
+            status: 403,
+        });
+    });
+
     test("runConnectorAction surfaces the raw body when the failure response is not a recognized envelope", async () => {
         const error = await expectCliUserError(runConnectorAction(
             {
