@@ -476,7 +476,7 @@ describe("connector shared requests", () => {
         });
     });
 
-    test("runConnectorProxy surfaces status when the failure response has no message or errorCode", async () => {
+    test("runConnectorProxy surfaces the raw body when the failure response has no message or errorCode", async () => {
         const error = await expectCliUserError(runConnectorProxy(
             createProxyRunInput(),
             createProxyRequestContext(async () => new Response(JSON.stringify({
@@ -486,10 +486,46 @@ describe("connector shared requests", () => {
             })),
         ));
 
+        expect(error.key).toBe("errors.connectorProxy.requestFailedWithBody");
+        expect(error.params).toEqual({
+            body: "{\"success\":false}",
+            service: "tavily",
+            status: 500,
+        });
+    });
+
+    test("runConnectorProxy maps the code and error aliases to errorCode and message", async () => {
+        const error = await expectCliUserError(runConnectorProxy(
+            createProxyRunInput(),
+            createProxyRequestContext(async () => new Response(JSON.stringify({
+                code: "POLICY_DENIED",
+                error: "access denied by policy",
+            }), {
+                status: 403,
+            })),
+        ));
+
+        expect(error.key).toBe("errors.connectorProxy.requestFailedWithMessageAndCode");
+        expect(error.params).toEqual({
+            errorCode: "POLICY_DENIED",
+            message: "access denied by policy",
+            service: "tavily",
+            status: 403,
+        });
+    });
+
+    test("runConnectorProxy surfaces status when the failure response body is empty", async () => {
+        const error = await expectCliUserError(runConnectorProxy(
+            createProxyRunInput(),
+            createProxyRequestContext(async () => new Response("", {
+                status: 502,
+            })),
+        ));
+
         expect(error.key).toBe("errors.connectorProxy.requestFailed");
         expect(error.params).toEqual({
             service: "tavily",
-            status: 500,
+            status: 502,
         });
     });
 
@@ -551,6 +587,81 @@ describe("connector shared requests", () => {
             action: "send_mail",
             errorCode: "invalid_input",
             status: 400,
+        });
+    });
+
+    test("runConnectorAction maps the code and error aliases to errorCode and message", async () => {
+        const error = await expectCliUserError(runConnectorAction(
+            {
+                actionName: "assume_role",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                inputData: {},
+                serviceName: "aws_sts",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    code: "POLICY_DENIED",
+                    error: "access denied by policy",
+                }), {
+                    status: 403,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorRun.requestFailedWithMessageAndCode");
+        expect(error.params).toEqual({
+            action: "assume_role",
+            errorCode: "POLICY_DENIED",
+            message: "access denied by policy",
+            status: 403,
+        });
+    });
+
+    test("runConnectorAction surfaces the raw body when the failure response is not a recognized envelope", async () => {
+        const error = await expectCliUserError(runConnectorAction(
+            {
+                actionName: "assume_role",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                inputData: {},
+                serviceName: "aws_sts",
+            },
+            createRequestContext({
+                fetcher: async () => new Response("Forbidden by gateway", {
+                    status: 403,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorRun.requestFailedWithBody");
+        expect(error.params).toEqual({
+            action: "assume_role",
+            body: "Forbidden by gateway",
+            status: 403,
+        });
+    });
+
+    test("runConnectorAction surfaces status when the failure response body is empty", async () => {
+        const error = await expectCliUserError(runConnectorAction(
+            {
+                actionName: "assume_role",
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                inputData: {},
+                serviceName: "aws_sts",
+            },
+            createRequestContext({
+                fetcher: async () => new Response("", {
+                    status: 403,
+                }),
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorRun.requestFailed");
+        expect(error.params).toEqual({
+            action: "assume_role",
+            status: 403,
         });
     });
 

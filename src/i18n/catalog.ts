@@ -317,6 +317,8 @@ export const enMessages = {
         "The connector action run request failed: {message}",
     "errors.connectorRun.requestFailed":
         "Connector action {action} returned HTTP {status}.",
+    "errors.connectorRun.requestFailedWithBody":
+        "Connector action {action} returned HTTP {status}: {body}",
     "errors.connectorRun.requestFailedWithCode":
         "Connector action {action} returned HTTP {status} (errorCode: {errorCode}).",
     "errors.connectorRun.requestFailedWithMessage":
@@ -361,6 +363,8 @@ export const enMessages = {
         "The connector proxy request failed: {message}",
     "errors.connectorProxy.requestFailed":
         "Connector proxy service {service} returned HTTP {status}.",
+    "errors.connectorProxy.requestFailedWithBody":
+        "Connector proxy service {service} returned HTTP {status}: {body}",
     "errors.connectorProxy.requestFailedWithCode":
         "Connector proxy service {service} returned HTTP {status} (errorCode: {errorCode}).",
     "errors.connectorProxy.requestFailedWithMessage":
@@ -1440,6 +1444,8 @@ export const zhMessages = {
         "运行 connector action 失败：{message}",
     "errors.connectorRun.requestFailed":
         "Connector action {action} 返回了 HTTP {status}。",
+    "errors.connectorRun.requestFailedWithBody":
+        "Connector action {action} 返回了 HTTP {status}：{body}",
     "errors.connectorRun.requestFailedWithCode":
         "Connector action {action} 返回了 HTTP {status}（errorCode: {errorCode}）。",
     "errors.connectorRun.requestFailedWithMessage":
@@ -1484,6 +1490,8 @@ export const zhMessages = {
         "Connector proxy 请求失败：{message}",
     "errors.connectorProxy.requestFailed":
         "Connector proxy service {service} 返回了 HTTP {status}。",
+    "errors.connectorProxy.requestFailedWithBody":
+        "Connector proxy service {service} 返回了 HTTP {status}：{body}",
     "errors.connectorProxy.requestFailedWithCode":
         "Connector proxy service {service} 返回了 HTTP {status}（errorCode: {errorCode}）。",
     "errors.connectorProxy.requestFailedWithMessage":
