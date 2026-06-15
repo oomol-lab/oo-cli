@@ -628,7 +628,9 @@ Validate input data and run one connector action.
   includes `meta.pollCount`.
 - Output: dry-run JSON output returns `{ dryRun, ok }`.
 - Errors: stderr prints the HTTP status and includes the server `message`
-  and `errorCode` when the failure response provides them.
+  and `errorCode` when the failure response provides them. When the response
+  carries neither, the raw response body is included (trimmed and length
+  bounded) so the failure detail is not lost.
 - Notes: the command validates the input against the selected action contract
   before executing.
 - Notes: while waiting for an async result action in text mode, interactive
@@ -671,7 +673,9 @@ Proxy a provider API request through a connected connector app.
 - Output: JSON output keeps the stable shape
   `{ data: { status, headers, data }, meta: { executionId, service } }`.
 - Errors: stderr prints the connector proxy HTTP status and includes the server
-  `message` and `errorCode` when the failure response provides them.
+  `message` and `errorCode` when the failure response provides them. When the
+  response carries neither, the raw response body is included (trimmed and
+  length bounded) so the failure detail is not lost.
 - Notes: `oo connector proxy` does not use connector action schemas or schema
   cache. Use it when the selected connector supports proxy execution and no
   purpose-built connector action is available.

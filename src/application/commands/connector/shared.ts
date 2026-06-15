@@ -101,6 +101,13 @@ const connectorProxyResponseSchema = z.object({
 }) => response);
 
 const connectorActionFailureResponseSchema = z.object({
+    // `code` / `error` are accepted as aliases for `errorCode` / `message`
+    // because some upstream connector responses use the shorter field names.
+    // They are typed as `unknown` so a non-string alias value (e.g. a nested
+    // `error` object) does not fail validation and discard the canonical
+    // fields; `firstNonEmptyString` filters them down to usable strings.
+    code: z.unknown().optional(),
+    error: z.unknown().optional(),
     errorCode: z.string().optional(),
     message: z.string().optional(),
     meta: z.object({
@@ -382,6 +389,7 @@ export async function runConnectorAction(
             throw createConnectorRunRequestFailedError({
                 actionName: options.actionName,
                 failureResponse,
+                rawResponse,
                 status: response.status,
             });
         }
@@ -500,6 +508,7 @@ export async function runConnectorProxy(
 
             throw createConnectorProxyRequestFailedError({
                 failureResponse,
+                rawResponse,
                 serviceName: options.serviceName,
                 status: response.status,
             });
@@ -572,14 +581,24 @@ function createConnectorProxyRequestUrl(
 function parseConnectorFailureResponse(
     rawResponse: string,
 ): ConnectorActionFailureResponse | undefined {
+    let parsed: ConnectorActionFailureResponse;
+
     try {
-        return connectorActionFailureResponseSchema.parse(
+        parsed = connectorActionFailureResponseSchema.parse(
             JSON.parse(rawResponse) as unknown,
         );
     }
     catch {
         return undefined;
     }
+
+    // Normalize the alias fields so downstream readers only deal with the
+    // canonical `message` / `errorCode` shape.
+    return {
+        ...parsed,
+        errorCode: firstNonEmptyString(parsed.errorCode, parsed.code),
+        message: firstNonEmptyString(parsed.message, parsed.error),
+    };
 }
 
 const safeResponseHeaderNames = [
@@ -663,15 +682,61 @@ function collectSafeConnectorFailureDiagnostics(
     return diagnostics;
 }
 
+function sanitizeConnectorResponseText(rawResponse: string): string {
+    return rawResponse
+        .replaceAll(responsePreviewWhitespacePattern, " ")
+        .replaceAll(responsePreviewControlCharsPattern, "");
+}
+
 function createBoundedResponsePreview(rawResponse: string): string {
-    const flattened = rawResponse.replaceAll(responsePreviewWhitespacePattern, " ");
-    const stripped = flattened.replaceAll(responsePreviewControlCharsPattern, "");
+    const stripped = sanitizeConnectorResponseText(rawResponse);
 
     if (stripped.length <= rawResponsePreviewMaxLength) {
         return stripped;
     }
 
     return `${stripped.slice(0, rawResponsePreviewMaxLength)}...`;
+}
+
+const connectorFailureBodyPreviewMaxLength = 500;
+
+/**
+ * Builds a user-facing preview of a non-success connector response body.
+ *
+ * Used as a fallback so the operator who ran the action still sees the raw
+ * error detail when the response could not be reduced to a structured
+ * `message` / `errorCode`. Control characters are stripped and whitespace is
+ * folded to keep the error message single-line; the result is bounded to
+ * {@link connectorFailureBodyPreviewMaxLength} characters. Returns `undefined`
+ * when the body is empty (or only whitespace) so callers can fall back to a
+ * status-only message.
+ */
+function createConnectorFailureBodyPreview(
+    rawResponse: string,
+): string | undefined {
+    const preview = sanitizeConnectorResponseText(rawResponse).trim();
+
+    if (preview === "") {
+        return undefined;
+    }
+
+    if (preview.length <= connectorFailureBodyPreviewMaxLength) {
+        return preview;
+    }
+
+    return `${preview.slice(0, connectorFailureBodyPreviewMaxLength)}...`;
+}
+
+function firstNonEmptyString(
+    ...values: unknown[]
+): string | undefined {
+    for (const value of values) {
+        if (isNonEmptyString(value)) {
+            return value;
+        }
+    }
+
+    return undefined;
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -697,6 +762,7 @@ function sanitizeConnectorFailureMessage(
 
 function createConnectorProxyRequestFailedError(input: {
     failureResponse: ConnectorActionFailureResponse | undefined;
+    rawResponse: string;
     serviceName: string;
     status: number;
 }): CliUserError {
@@ -736,6 +802,15 @@ function createConnectorProxyRequestFailedError(input: {
         });
     }
 
+    const responseBody = createConnectorFailureBodyPreview(input.rawResponse);
+    if (responseBody !== undefined) {
+        return new CliUserError("errors.connectorProxy.requestFailedWithBody", 1, {
+            body: responseBody,
+            service: input.serviceName,
+            status: input.status,
+        });
+    }
+
     return new CliUserError("errors.connectorProxy.requestFailed", 1, {
         service: input.serviceName,
         status: input.status,
@@ -745,6 +820,7 @@ function createConnectorProxyRequestFailedError(input: {
 function createConnectorRunRequestFailedError(options: {
     actionName: string;
     failureResponse: ConnectorActionFailureResponse | undefined;
+    rawResponse: string;
     status: number;
 }): CliUserError {
     const responseMessage = options.failureResponse?.message;
@@ -790,6 +866,19 @@ function createConnectorRunRequestFailedError(options: {
             {
                 action: options.actionName,
                 errorCode,
+                status: options.status,
+            },
+        );
+    }
+
+    const responseBody = createConnectorFailureBodyPreview(options.rawResponse);
+    if (responseBody !== undefined) {
+        return new CliUserError(
+            "errors.connectorRun.requestFailedWithBody",
+            1,
+            {
+                action: options.actionName,
+                body: responseBody,
                 status: options.status,
             },
         );

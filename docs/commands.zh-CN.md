@@ -540,7 +540,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `--wait` 时，JSON 输出的 `data` 是完成后的结果，并包含 `meta.pollCount`。
 - 输出：dry-run 的 JSON 输出返回 `{ dryRun, ok }`。
 - 错误：stderr 会打印 HTTP 状态；如果失败响应包含服务端 `message` 或
-  `errorCode`，也会一并输出。
+  `errorCode`，也会一并输出；两者都缺失时，会输出原始响应体（已去除首尾空白
+  并限制长度），以免丢失失败详情。
 - 说明：命令会在执行前根据选中 action 的 contract 校验输入。
 - 说明：text 模式下等待 async result action 时，交互式终端会在 stderr
   显示进度。JSON 输出不会混入进度文本。
@@ -577,7 +578,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 输出：JSON 输出保持稳定结构
   `{ data: { status, headers, data }, meta: { executionId, service } }`。
 - 错误：stderr 会打印 connector proxy HTTP 状态；如果失败响应提供了
-  `message` 和 `errorCode`，也会一并包含。
+  `message` 和 `errorCode`，也会一并包含；两者都缺失时，会输出原始响应体
+  （已去除首尾空白并限制长度），以免丢失失败详情。
 - 说明：`oo connector proxy` 不使用 connector action schema 或 schema cache。
   当选中的 connector 支持 proxy execution 且没有专用 connector action 时使用。
 

@@ -2557,8 +2557,10 @@ describe("connectorCommand CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(1);
+            // The raw body is surfaced to stderr when no structured failure
+            // fields are present, so the operator sees the detail directly.
             expect(result.stderr).toContain(
-                "Connector action openai_image_async_result returned HTTP 500.",
+                "Connector action openai_image_async_result returned HTTP 500: <html><body>Internal Server Error</body></html>",
             );
             expect(content).toContain("\"actionName\":\"openai_image_async_result\"");
             // Safe bounded diagnostics:
@@ -2684,9 +2686,13 @@ describe("connectorCommand CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(1);
+            // The raw body is surfaced to stderr, but bounded so the oversized
+            // detail is truncated rather than dumped in full.
             expect(result.stderr).toContain(
-                "Connector action send_mail returned HTTP 500.",
+                "Connector action send_mail returned HTTP 500: {\"detail\":\"xxx",
             );
+            expect(result.stderr).not.toContain(oversizedDetail);
+            expect(result.stderr).toContain("...");
             expect(content).toContain("\"responseBodyLength\":");
             expect(content).toContain("\"responseContentType\":\"application/json\"");
             expect(content).toContain("\"rawResponsePreview\":");
@@ -2747,8 +2753,9 @@ describe("connectorCommand CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(1);
+            // No useful structured fields → the raw body is surfaced to stderr.
             expect(result.stderr).toContain(
-                "Connector action send_mail returned HTTP 500.",
+                "Connector action send_mail returned HTTP 500: {}",
             );
             // Schema parsed successfully but no useful fields → still include preview.
             expect(content).toContain("\"rawResponsePreview\":\"{}\"");
