@@ -708,15 +708,27 @@ describe("skills install --out-dir export", () => {
             // With registry export support, an unknown positional name is no
             // longer rejected as "not a bundled skill"; it is treated as a
             // registry package, so the export now requires authentication.
-            const result = await sandbox.run([
-                "skills",
-                "add",
-                "@alice/demo",
-                "--out-dir",
-                outDir,
-            ]);
+            let fetchCalled = false;
+            const result = await sandbox.run(
+                [
+                    "skills",
+                    "add",
+                    "@alice/demo",
+                    "--out-dir",
+                    outDir,
+                ],
+                {
+                    fetcher: async () => {
+                        fetchCalled = true;
+                        throw new Error("fetch must not run before auth");
+                    },
+                },
+            );
 
+            // The auth gate must trip before any registry request, so the
+            // failure proves the auth requirement rather than an unrelated error.
             expect(result.exitCode).toBe(1);
+            expect(fetchCalled).toBeFalse();
             expect(await pathExists(join(outDir, "demo"))).toBeFalse();
         }
         finally {
@@ -1201,6 +1213,107 @@ describe("skills install --out-dir export", () => {
             expect(result.exitCode).toBe(0);
             expect(await pathExists(join(outDir, "demo", "stale.txt"))).toBeFalse();
             expect(await pathExists(join(outDir, "demo", "SKILL.md"))).toBeTrue();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("preserves an earlier skill when a later skill in the same package fails", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir, "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return twoSkillPackageInfoResponse();
+                        }
+                        if (request.url.includes("/download-count")) {
+                            return new Response(null, { status: 204 });
+                        }
+                        if (request.url.endsWith("/demo-0.1.0.tgz")) {
+                            // The archive ships the first skill but omits the
+                            // second skill's SKILL.md, so the later export fails.
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/demo/SKILL.md":
+                                    "---\nname: demo\ndescription: Demo skill\n---\n\n# Demo\n",
+                            }));
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            // The skill exported before the failure is preserved in the report
+            // and on disk instead of being discarded by the later failure.
+            expect(payload.status).toBe("partial-failure");
+            expect(skills.map(skill => skill.skillId)).toEqual(["demo"]);
+            expect(await pathExists(join(outDir, "demo", "SKILL.md"))).toBeTrue();
+            expect(errors[0]).toMatchObject({ code: "invalid_package_archive" });
+            expect(await pathExists(join(outDir, "extra"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects a registry skill whose name escapes the output directory", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            let tarballRequested = false;
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir, "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            // A malicious registry advertises a traversal name.
+                            return new Response(JSON.stringify({
+                                packageName: "@alice/demo",
+                                version: "0.1.0",
+                                skills: [
+                                    { description: "evil", name: "../evil", title: "evil" },
+                                ],
+                            }));
+                        }
+                        if (request.url.endsWith("/demo-0.1.0.tgz")) {
+                            tarballRequested = true;
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            // The unsafe name is rejected before any download or filesystem
+            // write, and nothing is created outside the output directory.
+            expect(errors[0]).toMatchObject({ code: "invalid_path" });
+            expect(tarballRequested).toBeFalse();
+            expect(await pathExists(join(outDir, "..", "evil"))).toBeFalse();
         }
         finally {
             await rm(outDir, { force: true, recursive: true });

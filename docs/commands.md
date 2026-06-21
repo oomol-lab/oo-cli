@@ -1166,6 +1166,12 @@ Install bundled or published skills into supported local skill directories.
   `path`, and written `files`, plus the resolved `agentFormat` and
   `outputDirectory`. When a requested registry package cannot be exported, the
   failure is reported in the report's `errors[]` and the command exits `1`.
+  Skills exported before a later failure within the same package are still
+  listed in the report's exported skills, yielding a `partial-failure` status.
+- Path rule: under `--out-dir`, a registry skill name is accepted only when it
+  is a single safe path segment that stays inside the output directory;
+  otherwise the export is rejected with `invalid_path` before anything is
+  downloaded or written.
 - Output: successful non-interactive installs print a compact summary grouped by
   installed skills and target AI agents. When exactly one target is written, the
   summary includes that target path. With several package names, each package

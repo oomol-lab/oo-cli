@@ -981,7 +981,11 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   导出 skill 的 `kind`（`bundled` 或 `registry`）、来源 `packageName`（内置 skill
   为 `null`）、`path` 与写入的 `files`，以及解析后的 `agentFormat` 和
   `outputDirectory`。当请求的 registry package 无法导出时，失败会记录在报告的
-  `errors[]` 中，命令以退出码 `1` 结束。
+  `errors[]` 中，命令以退出码 `1` 结束。同一 package 中在后续 skill 失败之前已
+  导出的 skill 仍会列入报告的已导出 skill 列表，此时状态为 `partial-failure`。
+- 路径规则：使用 `--out-dir` 时，registry skill 名仅在其为单个安全路径段、且保持
+  在输出目录内时才被接受；否则导出会在下载或写入任何内容之前以 `invalid_path`
+  拒绝。
 - 输出：非交互安装成功时，会按已安装 skill 和目标 AI Agent 聚合输出精简摘要；
   当实际只写入一个目标时，摘要会包含该目标路径。传入多个 package 时，每个
   package 会按顺序各自输出摘要。

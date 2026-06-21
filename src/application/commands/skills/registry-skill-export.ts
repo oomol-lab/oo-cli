@@ -21,6 +21,7 @@ import {
     normalizeSkillFilterTokens,
     selectSkillsByFilter,
 } from "./skill-filter.ts";
+import { isSkillIdReference } from "./skill-id.ts";
 
 export interface RegistrySkillExportRequest {
     outputDirectoryPath: string;
@@ -43,6 +44,16 @@ export interface RegistrySkillExportResult {
     targetSkillDirectoryPath: string;
 }
 
+export interface RegistrySkillExportFailure {
+    error: unknown;
+    skillName: string;
+}
+
+export interface RegistrySkillExportOutcome {
+    exported: RegistrySkillExportResult[];
+    failures: RegistrySkillExportFailure[];
+}
+
 // Export published registry skills into an arbitrary directory. This mirrors the
 // registry install download/extract pipeline but is pure with respect to oo
 // state: it writes only inside `outputDirectoryPath`, never touches the oo
@@ -53,7 +64,7 @@ export interface RegistrySkillExportResult {
 export async function exportRegistrySkills(
     request: RegistrySkillExportRequest,
     context: CliExecutionContext,
-): Promise<RegistrySkillExportResult[]> {
+): Promise<RegistrySkillExportOutcome> {
     const account = await requireCurrentAccount(context);
     const packageInfo = await loadRegistryPackageSkillInfo(
         request.packageName,
@@ -75,7 +86,19 @@ export async function exportRegistrySkills(
     );
 
     if (selectedSkills.length === 0) {
-        return [];
+        return { exported: [], failures: [] };
+    }
+
+    // Registry skill names are server-provided and are used directly in
+    // filesystem joins and a destructive removePath. Reject any name that is not
+    // a single safe path segment before downloading or touching the output
+    // directory, mirroring the registry install path's containment check.
+    for (const skill of selectedSkills) {
+        if (!isSkillIdReference(skill.name)) {
+            throw new CliUserError("errors.skills.invalidPath", 1, {
+                name: skill.name,
+            });
+        }
     }
 
     await tryReportRegistryPackageDownload(
@@ -94,19 +117,27 @@ export async function exportRegistrySkills(
     const extractedPackage = await extractRegistryPackageArchive(packageBytes);
 
     try {
-        const results: RegistrySkillExportResult[] = [];
+        const exported: RegistrySkillExportResult[] = [];
+        const failures: RegistrySkillExportFailure[] = [];
 
         for (const skill of selectedSkills) {
-            results.push(await exportRegistrySkill({
-                context,
-                extractedPackage,
-                outputDirectoryPath: request.outputDirectoryPath,
-                packageInfo,
-                skill,
-            }));
+            try {
+                exported.push(await exportRegistrySkill({
+                    context,
+                    extractedPackage,
+                    outputDirectoryPath: request.outputDirectoryPath,
+                    packageInfo,
+                    skill,
+                }));
+            }
+            catch (error) {
+                // Preserve skills already written to disk: a later skill's
+                // failure must not discard earlier successful exports.
+                failures.push({ error, skillName: skill.name });
+            }
         }
 
-        return results;
+        return { exported, failures };
     }
     finally {
         await extractedPackage.cleanup();

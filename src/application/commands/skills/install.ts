@@ -622,7 +622,8 @@ async function exportBundledSkill(
 }
 
 // Download and export one registry package's selected skills, appending each
-// written skill to `exports`. Throws on download/lookup failure; the caller's
+// written skill to `exports`. Throws on download/lookup failure, or after a
+// per-skill failure once the skills that did succeed are recorded; the caller's
 // guard decides whether to propagate (text mode) or collect into `errors[]`.
 async function exportRegistryPackageSkills(
     specifier: SkillsInstallPackageSpecifier,
@@ -634,7 +635,7 @@ async function exportRegistryPackageSkills(
     },
     context: CliExecutionContext,
 ): Promise<void> {
-    const results = await exportRegistrySkills(
+    const { exported, failures } = await exportRegistrySkills(
         {
             outputDirectoryPath: state.outputDirectoryPath,
             packageName: specifier.packageName,
@@ -647,11 +648,14 @@ async function exportRegistryPackageSkills(
         context,
     );
 
-    if (results.length > 0) {
+    // A package that produced any export attempt matched the `--skill` filter,
+    // even if some of its skills then failed; record the match so a per-package
+    // failure is not misreported as a global filter miss.
+    if (exported.length + failures.length > 0) {
         state.registryFilterMatch.recordMatch();
     }
 
-    for (const result of results) {
+    for (const result of exported) {
         state.exports.push({
             skillId: result.skillName,
             kind: "registry",
@@ -660,6 +664,13 @@ async function exportRegistryPackageSkills(
             path: result.targetSkillDirectoryPath,
             files: result.files,
         });
+    }
+
+    // Surface the first per-skill failure only after the successful exports are
+    // recorded, so the package-level error still drives the exit code while the
+    // skills written before it remain in the report and on disk.
+    if (failures.length > 0) {
+        throw failures[0]!.error;
     }
 }
 
