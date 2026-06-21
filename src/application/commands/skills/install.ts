@@ -26,8 +26,8 @@ import {
     materializeBundledSkillToDirectory,
 } from "./embedded-assets.ts";
 import {
-    writeBundledSkillExportSummary,
     writeManagedSkillInstallSummary,
+    writeSkillExportSummary,
 } from "./install-output.ts";
 import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
 import { readSkillMetadataFileState } from "./local-skill-ownership.ts";
@@ -41,6 +41,7 @@ import {
     skillOperationOutputOptions,
     writeSkillOperationJson,
 } from "./operation-result.ts";
+import { exportRegistrySkills } from "./registry-skill-export.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 import {
     installBundledSkill,
@@ -158,11 +159,13 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             );
         }
 
-        // `--out-dir` switches to a pure bundled-skill export: it writes only
-        // inside the requested directory, with no app-data canonical storage,
-        // host detection, legacy migration, or network side effects.
+        // `--out-dir` switches to a pure export: it writes only inside the
+        // requested directory, with no app-data canonical storage, host
+        // detection, or legacy migration. Bundled skills are materialized
+        // offline; registry packages are downloaded and extracted into the same
+        // directory without any oo-managed marker.
         if (input.outDir !== undefined) {
-            await runBundledSkillExport(input, context);
+            await runSkillExport(input, context);
             return;
         }
 
@@ -408,157 +411,385 @@ function resolveInstallPackageKindLabel(
 function selectBundledSkillNamesOrThrow(
     skillFilter: readonly string[] | undefined,
 ): readonly BundledSkillName[] {
-    const tokens = normalizeSkillFilterTokens(skillFilter);
+    const selection = resolveBundledSkillSelection(skillFilter);
 
-    if (tokens === undefined) {
-        return availableBundledSkillNames;
-    }
-
-    const selected = availableBundledSkillNames.filter(name =>
-        skillMatchesFilterTokens({ name }, tokens),
-    );
-
-    if (selected.length === 0) {
+    if (selection.filterMissed) {
         throw new CliUserError("errors.skills.skillFilterNoMatch", 1, {
             skills: availableBundledSkillNames.join(", "),
         });
     }
 
-    return selected;
+    return selection.skills;
 }
 
-// Export bundled skills into an arbitrary directory rendered for one agent
-// format. Pure with respect to oo state: it never writes to the app-data
-// canonical storage or any agent home, performs no network requests, and
-// writes no `.oo-metadata.json` marker.
-async function runBundledSkillExport(
+// Resolve the bundled skills selected by the optional `--skill` filter without
+// throwing. `filterMissed` is true only when a filter was active yet matched no
+// bundled skill, letting callers either throw (text mode) or report a structured
+// error (JSON mode).
+function resolveBundledSkillSelection(
+    skillFilter: readonly string[] | undefined,
+): { filterMissed: boolean; skills: readonly BundledSkillName[] } {
+    const tokens = normalizeSkillFilterTokens(skillFilter);
+
+    if (tokens === undefined) {
+        return { filterMissed: false, skills: availableBundledSkillNames };
+    }
+
+    const skills = availableBundledSkillNames.filter(name =>
+        skillMatchesFilterTokens({ name }, tokens),
+    );
+
+    return { filterMissed: skills.length === 0, skills };
+}
+
+// Export bundled and registry skills into an arbitrary directory. Pure with
+// respect to oo state: it never writes to the app-data canonical storage or any
+// agent home, and writes no `.oo-metadata.json` marker. Bundled skills are
+// materialized offline and rendered for the requested `--agent-format`; registry
+// packages are downloaded, extracted, and written in their published form.
+async function runSkillExport(
     input: SkillsInstallInput,
     context: CliExecutionContext,
 ): Promise<void> {
-    const outputDirectoryPath = resolve(input.outDir!);
+    // Reject a blank `--out-dir` before resolving: `resolve("")` would silently
+    // fall back to the working directory and the per-skill removePath/cp would
+    // then clobber a same-named directory there.
+    if (input.outDir!.trim() === "") {
+        throw new CliUserError("errors.skills.install.invalidOutDir", 2);
+    }
+
+    // Resolve a relative `--out-dir` against the invocation cwd (not the process
+    // cwd) so embedded hosts that override the working directory behave like the
+    // file download command.
+    const outputDirectoryPath = resolve(context.cwd, input.outDir!);
     const agentName = parseAgentFormatOption(
         input.agentFormat,
         "errors.skills.install.invalidAgentFormat",
     );
     const skillFilterActive = normalizeSkillFilterTokens(input.skill) !== undefined;
-    const selectedBundled = selectExportBundledSkillNames(
-        input.packageNames,
-        input.skill,
-    );
+    const wantJson = input.format === "json";
+    const packageNames = input.packageNames ?? [];
 
-    context.telemetry?.recordProperties({
-        agent_format: agentName,
-        has_bundled_skill: true,
-        has_out_dir: true,
-        has_registry_skill: false,
-        has_skill_filter: skillFilterActive,
-        package_kind: "bundled",
-        skill_count_bucket: bucketTelemetryCount(selectedBundled.length),
-        ...createSkillIdsTelemetryProperties(selectedBundled),
+    // Parse every specifier up front so a malformed package name fails the whole
+    // command before any export side effects are written.
+    const targets = packageNames.map(classifySkillsInstallTarget);
+
+    recordExportBaseTelemetry(context, {
+        agentName,
+        skillFilterActive,
+        targets,
     });
 
     const exports: SkillExportResult[] = [];
+    const errors: SkillOperationError[] = [];
+    const registryFilterMatch = new RegistrySkillFilterMatchTracker();
 
-    for (const skillName of selectedBundled) {
-        const targetSkillDirectoryPath = join(outputDirectoryPath, skillName);
-        const files = await materializeBundledSkillToDirectory({
-            agentName,
-            skillName,
-            targetSkillDirectoryPath,
-        });
+    if (packageNames.length === 0) {
+        // No package argument exports the bundled skills, narrowed by the
+        // optional `--skill` filter.
+        const selection = resolveBundledSkillSelection(input.skill);
 
-        context.logger.info(
-            {
-                agentName,
-                path: targetSkillDirectoryPath,
-                skillName,
-            },
-            "Bundled skill exported to directory.",
-        );
-        exports.push({
-            skillId: skillName,
-            status: "exported",
-            path: targetSkillDirectoryPath,
-            files: [...files],
-        });
+        if (selection.filterMissed) {
+            reportExportSkillFilterMiss(
+                wantJson,
+                errors,
+                availableBundledSkillNames.join(", "),
+            );
+        }
+        else {
+            for (const skillName of selection.skills) {
+                await runGuardedExportStep(wantJson, errors, context, undefined, async () => {
+                    exports.push(await exportBundledSkill(
+                        skillName,
+                        agentName,
+                        outputDirectoryPath,
+                        context,
+                    ));
+                });
+            }
+        }
+    }
+    else {
+        for (const target of targets) {
+            if (target.kind === "bundled") {
+                // An explicitly named bundled skill is already a single-skill
+                // selection, so `--skill` does not further narrow it.
+                await runGuardedExportStep(wantJson, errors, context, undefined, async () => {
+                    exports.push(await exportBundledSkill(
+                        target.specifier.packageName as BundledSkillName,
+                        agentName,
+                        outputDirectoryPath,
+                        context,
+                    ));
+                });
+                continue;
+            }
+
+            await runGuardedExportStep(
+                wantJson,
+                errors,
+                context,
+                target.specifier.packageName,
+                () => exportRegistryPackageSkills(
+                    target.specifier,
+                    { exports, input, outputDirectoryPath, registryFilterMatch },
+                    context,
+                ),
+            );
+        }
+
+        // With a `--skill` filter, fail only when nothing was exported at all:
+        // per-package registry misses are silently skipped, and an explicitly
+        // named bundled skill (which `--skill` never narrows) keeps the command
+        // successful even when no registry package matched.
+        if (
+            skillFilterActive
+            && registryFilterMatch.isGlobalMiss()
+            && exports.length === 0
+        ) {
+            reportExportSkillFilterMiss(
+                wantJson,
+                errors,
+                registryFilterMatch.availableSkillsList(),
+            );
+        }
     }
 
-    if (input.format === "json") {
-        writeSkillOperationJson(
-            context.stdout,
-            buildExportReport(exports, agentName, outputDirectoryPath),
-            { showSchemaVersion: input.showSchemaVersion },
+    context.telemetry?.recordProperties({
+        skill_count_bucket: bucketTelemetryCount(exports.length),
+        ...createSkillIdsTelemetryProperties(exports.map(result => result.skillId)),
+    });
+
+    if (wantJson) {
+        const report = buildExportReport(
+            exports,
+            errors,
+            agentName,
+            outputDirectoryPath,
         );
+
+        writeSkillOperationJson(context.stdout, report, {
+            showSchemaVersion: input.showSchemaVersion,
+        });
+
+        if (report.status === "partial-failure" || report.status === "failed") {
+            throw new CliUserError("errors.skills.install.partialFailure", 1, {
+                count: errors.length,
+            });
+        }
         return;
     }
 
-    writeBundledSkillExportSummary(context, {
+    writeSkillExportSummary(context, {
         agentName,
         exports,
         outputDirectoryPath,
     });
 }
 
-// Resolve which bundled skills the export should materialize. With no positional
-// names the export covers every bundled skill, narrowed by the optional
-// `--skill` filter. Positional names must each identify a bundled skill: the
-// export is bundled-only and offline, so registry package specifiers are
-// rejected rather than downloaded.
-function selectExportBundledSkillNames(
-    packageNames: readonly string[] | undefined,
-    skillFilter: readonly string[] | undefined,
-): readonly BundledSkillName[] {
-    const names = packageNames ?? [];
+// Materialize one bundled skill into `<outputDirectoryPath>/<skillName>` and
+// return the structured export result.
+async function exportBundledSkill(
+    skillName: BundledSkillName,
+    agentName: BundledSkillAgentName,
+    outputDirectoryPath: string,
+    context: CliExecutionContext,
+): Promise<SkillExportResult> {
+    const targetSkillDirectoryPath = join(outputDirectoryPath, skillName);
+    const files = await materializeBundledSkillToDirectory({
+        agentName,
+        skillName,
+        targetSkillDirectoryPath,
+    });
 
-    if (names.length === 0) {
-        return selectBundledSkillNamesOrThrow(skillFilter);
+    context.logger.info(
+        {
+            agentName,
+            path: targetSkillDirectoryPath,
+            skillName,
+        },
+        "Bundled skill exported to directory.",
+    );
+
+    return {
+        skillId: skillName,
+        kind: "bundled",
+        packageName: null,
+        status: "exported",
+        path: targetSkillDirectoryPath,
+        files: [...files],
+    };
+}
+
+// Download and export one registry package's selected skills, appending each
+// written skill to `exports`. Throws on download/lookup failure, or after a
+// per-skill failure once the skills that did succeed are recorded; the caller's
+// guard decides whether to propagate (text mode) or collect into `errors[]`.
+async function exportRegistryPackageSkills(
+    specifier: SkillsInstallPackageSpecifier,
+    state: {
+        exports: SkillExportResult[];
+        input: SkillsInstallInput;
+        outputDirectoryPath: string;
+        registryFilterMatch: RegistrySkillFilterMatchTracker;
+    },
+    context: CliExecutionContext,
+): Promise<void> {
+    const { exported, failures } = await exportRegistrySkills(
+        {
+            outputDirectoryPath: state.outputDirectoryPath,
+            packageName: specifier.packageName,
+            packageShareId: specifier.packageShareId,
+            packageVersion: specifier.packageVersion,
+            reportSkillFilterMiss: names =>
+                state.registryFilterMatch.recordMiss(names),
+            skillFilter: state.input.skill,
+        },
+        context,
+    );
+
+    // A package that produced any export attempt matched the `--skill` filter,
+    // even if some of its skills then failed; record the match so a per-package
+    // failure is not misreported as a global filter miss.
+    if (exported.length + failures.length > 0) {
+        state.registryFilterMatch.recordMatch();
     }
 
-    const selected: BundledSkillName[] = [];
-    const seen = new Set<string>();
-
-    for (const rawName of names) {
-        const trimmedName = rawName.trim();
-
-        if (!isBundledSkillName(trimmedName)) {
-            throw new CliUserError("errors.skills.install.exportRequiresBundled", 2, {
-                skills: availableBundledSkillNames.join(", "),
-                value: rawName,
-            });
-        }
-
-        if (!seen.has(trimmedName)) {
-            seen.add(trimmedName);
-            selected.push(trimmedName);
-        }
+    for (const result of exported) {
+        state.exports.push({
+            skillId: result.skillName,
+            kind: "registry",
+            packageName: result.packageName,
+            status: "exported",
+            path: result.targetSkillDirectoryPath,
+            files: result.files,
+        });
     }
 
-    return selected;
+    // Surface the first per-skill failure only after the successful exports are
+    // recorded, so the package-level error still drives the exit code while the
+    // skills written before it remain in the report and on disk.
+    if (failures.length > 0) {
+        throw failures[0]!.error;
+    }
+}
+
+// Run one export step (bundled or registry). In JSON mode a failure is captured
+// into `errors` so the structured report still drives the exit code (mirroring
+// the install JSON path); in text mode it propagates so the CLI renders it,
+// keeping earlier exports on disk.
+async function runGuardedExportStep(
+    wantJson: boolean,
+    errors: SkillOperationError[],
+    context: CliExecutionContext,
+    packageName: string | undefined,
+    run: () => Promise<void>,
+): Promise<void> {
+    if (!wantJson) {
+        await run();
+        return;
+    }
+
+    try {
+        await run();
+    }
+    catch (error) {
+        const code = mapInstallErrorCode(error);
+
+        errors.push({
+            code,
+            message: installErrorMessages[code] ?? installErrorMessages.unknown!,
+        });
+        context.logger.warn(
+            { err: error, ...(packageName === undefined ? {} : { packageName }) },
+            "Skills export step failed.",
+        );
+    }
+}
+
+// Surface a `--skill` filter miss: throw in text mode, or record a structured
+// `skill_filter_no_match` error in JSON mode so the export report still emits.
+function reportExportSkillFilterMiss(
+    wantJson: boolean,
+    errors: SkillOperationError[],
+    availableSkills: string,
+): void {
+    if (!wantJson) {
+        throw new CliUserError("errors.skills.skillFilterNoMatch", 1, {
+            skills: availableSkills,
+        });
+    }
+
+    errors.push({
+        code: "skill_filter_no_match",
+        message: installErrorMessages.skill_filter_no_match!,
+    });
+}
+
+function recordExportBaseTelemetry(
+    context: CliExecutionContext,
+    options: {
+        agentName: BundledSkillAgentName;
+        skillFilterActive: boolean;
+        targets: readonly ClassifiedSkillsInstallTarget[];
+    },
+): void {
+    const registryPackageNames = [
+        ...new Set(
+            options.targets
+                .filter(target => target.kind === "registry")
+                .map(target => target.specifier.packageName),
+        ),
+    ];
+    const hasRegistry = registryPackageNames.length > 0;
+    // The no-argument export covers every bundled skill, so it always has a
+    // bundled component even though no positional bundled target is present.
+    const hasBundled = options.targets.length === 0
+        || options.targets.some(target => target.kind === "bundled");
+
+    context.telemetry?.recordProperties({
+        agent_format: options.agentName,
+        has_bundled_skill: hasBundled,
+        has_out_dir: true,
+        has_registry_skill: hasRegistry,
+        has_skill_filter: options.skillFilterActive,
+        package_kind: resolveInstallPackageKindLabel(hasBundled, hasRegistry),
+        ...createPackageNamesTelemetryProperties(registryPackageNames),
+    });
+
+    if (registryPackageNames.length === 1) {
+        context.telemetry?.recordProperties({
+            package_name: registryPackageNames[0]!,
+        });
+    }
 }
 
 function buildExportReport(
     exports: readonly SkillExportResult[],
+    errors: readonly SkillOperationError[],
     agentName: BundledSkillAgentName,
     outputDirectoryPath: string,
 ): ExportReport {
     const exported = exports.length;
+    const failed = errors.length;
 
     return {
         command: "skills.install.export",
         status: computeCommandStatus({
             succeeded: exported,
             failed: 0,
-            commandLevelErrors: 0,
+            commandLevelErrors: failed,
+            noopWhenEmpty: exported === 0 && failed === 0,
         }),
         agentFormat: agentName,
         outputDirectory: outputDirectoryPath,
         summary: {
-            requestedSkills: exported,
+            requestedSkills: exported + failed,
             exported,
-            failed: 0,
+            failed,
         },
         skills: [...exports],
-        errors: [],
+        errors: [...errors],
     };
 }
 
@@ -573,14 +804,9 @@ async function runInstallJsonReport(
     const packageNames = input.packageNames ?? [];
 
     if (packageNames.length === 0) {
-        const skillFilterTokens = normalizeSkillFilterTokens(input.skill);
-        const selectedBundled = skillFilterTokens === undefined
-            ? availableBundledSkillNames
-            : availableBundledSkillNames.filter(name =>
-                    skillMatchesFilterTokens({ name }, skillFilterTokens),
-                );
+        const selection = resolveBundledSkillSelection(input.skill);
 
-        if (skillFilterTokens !== undefined && selectedBundled.length === 0) {
+        if (selection.filterMissed) {
             errors.push({
                 code: "skill_filter_no_match",
                 message: installErrorMessages.skill_filter_no_match!,
@@ -589,7 +815,7 @@ async function runInstallJsonReport(
             return buildReport(skills, errors, 0);
         }
 
-        for (const bundledName of selectedBundled) {
+        for (const bundledName of selection.skills) {
             const result = await installBundledSkillForJson(
                 bundledName,
                 context,

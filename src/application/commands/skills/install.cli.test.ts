@@ -6,6 +6,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    createRegistrySkillArchiveBytes,
     toRequest,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
@@ -699,21 +700,36 @@ describe("skills install --out-dir export", () => {
         }
     });
 
-    test("rejects a non-bundled package name in export mode", async () => {
+    test("treats a non-bundled package name as a registry package that needs auth", async () => {
         const sandbox = await createCliSandbox();
         const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
 
         try {
-            const result = await sandbox.run([
-                "skills",
-                "add",
-                "not-a-bundled-skill",
-                "--out-dir",
-                outDir,
-            ]);
+            // With registry export support, an unknown positional name is no
+            // longer rejected as "not a bundled skill"; it is treated as a
+            // registry package, so the export now requires authentication.
+            let fetchCalled = false;
+            const result = await sandbox.run(
+                [
+                    "skills",
+                    "add",
+                    "@alice/demo",
+                    "--out-dir",
+                    outDir,
+                ],
+                {
+                    fetcher: async () => {
+                        fetchCalled = true;
+                        throw new Error("fetch must not run before auth");
+                    },
+                },
+            );
 
-            expect(result.exitCode).toBe(2);
-            expect(result.stderr).toContain("is not a bundled skill");
+            // The auth gate must trip before any registry request, so the
+            // failure proves the auth requirement rather than an unrelated error.
+            expect(result.exitCode).toBe(1);
+            expect(fetchCalled).toBeFalse();
+            expect(await pathExists(join(outDir, "demo"))).toBeFalse();
         }
         finally {
             await rm(outDir, { force: true, recursive: true });
@@ -797,6 +813,8 @@ describe("skills install --out-dir export", () => {
             expect(skills).toHaveLength(1);
             expect(skills[0]).toMatchObject({
                 skillId: "oo",
+                kind: "bundled",
+                packageName: null,
                 status: "exported",
                 path: join(outDir, "oo"),
             });
@@ -807,7 +825,534 @@ describe("skills install --out-dir export", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("exports a registry package into the directory without managed side effects", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+            // Pre-existing sibling content must survive the export.
+            await writeFile(join(outDir, "keep.txt"), "keep\n");
+
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir],
+                { fetcher: createRegistryDemoFetcher() },
+            );
+
+            expect(result.exitCode).toBe(0);
+
+            const skillMarkdown = await readFile(
+                join(outDir, "demo", "SKILL.md"),
+                "utf8",
+            );
+
+            expect(skillMarkdown).toContain("name: demo");
+            // Registry exports normalize the SKILL.md exactly like installs do.
+            expect(skillMarkdown).toContain("Requires the oo CLI.");
+            expect(
+                await pathExists(join(outDir, "demo", "references", "guide.md")),
+            ).toBeTrue();
+            // Pure export: no oo management marker is written.
+            expect(
+                await pathExists(join(outDir, "demo", ".oo-metadata.json")),
+            ).toBeFalse();
+            // Sibling content is untouched.
+            expect(await readFile(join(outDir, "keep.txt"), "utf8")).toBe("keep\n");
+
+            // Nothing is published to any agent home.
+            const universalHome = resolveManagedSkillAgentHomeDirectory(
+                sandbox.env,
+                "universal",
+            );
+
+            expect(await pathExists(join(universalHome, "skills"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("narrows a registry export with --skill", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir, "--skill", "demo"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return twoSkillPackageInfoResponse();
+                        }
+                        if (request.url.includes("/download-count")) {
+                            return new Response(null, { status: 204 });
+                        }
+                        if (request.url.endsWith("/demo-0.1.0.tgz")) {
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/demo/SKILL.md":
+                                    "---\nname: demo\ndescription: Demo skill\n---\n\n# Demo\n",
+                                "package/package/skills/extra/SKILL.md":
+                                    "---\nname: extra\ndescription: Extra skill\n---\n\n# Extra\n",
+                            }));
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(await pathExists(join(outDir, "demo", "SKILL.md"))).toBeTrue();
+            expect(await pathExists(join(outDir, "extra"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("emits registry kind and packageName in the JSON export report", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir, "--json"],
+                { fetcher: createRegistryDemoFetcher() },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.command).toBe("skills.install.export");
+            expect(payload.status).toBe("completed");
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills).toHaveLength(1);
+            expect(skills[0]).toMatchObject({
+                skillId: "demo",
+                kind: "registry",
+                packageName: "@alice/demo",
+                status: "exported",
+                path: join(outDir, "demo"),
+            });
+            expect(skills[0]!.files).toContain("SKILL.md");
+            expect(skills[0]!.files).toContain("references/guide.md");
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports a registry lookup failure in the JSON export report errors", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir, "--json"],
+                { fetcher: async () => new Response("err", { status: 500 }) },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(payload.status).toBe("failed");
+            expect(skills).toHaveLength(0);
+            expect(errors[0]).toMatchObject({ code: "package_lookup_failed" });
+            expect(await pathExists(join(outDir, "demo"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("exports bundled and registry skills together", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(
+                ["skills", "add", "oo", "@alice/demo", "--out-dir", outDir],
+                { fetcher: createRegistryDemoFetcher() },
+            );
+
+            expect(result.exitCode).toBe(0);
+            // Bundled skill is materialized offline.
+            expect(await pathExists(join(outDir, "oo", "SKILL.md"))).toBeTrue();
+            // Registry skill is downloaded and written alongside it.
+            expect(await pathExists(join(outDir, "demo", "SKILL.md"))).toBeTrue();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects a blank --out-dir without deleting a same-named cwd directory", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            // A blank --out-dir would resolve to the working directory; guard
+            // against the per-skill removePath wiping a same-named directory.
+            const collidingDirectory = join(sandbox.cwd, "oo");
+
+            await mkdir(collidingDirectory, { recursive: true });
+            await writeFile(join(collidingDirectory, "keep.txt"), "keep\n");
+
+            const result = await sandbox.run(["skills", "add", "oo", "--out-dir", ""]);
+
+            expect(result.exitCode).toBe(2);
+            // The pre-existing directory in the working directory is untouched.
+            expect(await readFile(join(collidingDirectory, "keep.txt"), "utf8")).toBe(
+                "keep\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects a whitespace-only --out-dir", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["skills", "add", "--out-dir", "   "]);
+
+            expect(result.exitCode).toBe(2);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("resolves a relative --out-dir against the invocation cwd", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "oo",
+                "--out-dir",
+                "exported",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(
+                await pathExists(join(sandbox.cwd, "exported", "oo", "SKILL.md")),
+            ).toBeTrue();
+        }
+        finally {
+            await rm(join(sandbox.cwd, "exported"), { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports a no-package --skill miss as JSON instead of throwing", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "--out-dir",
+                outDir,
+                "--skill",
+                "nope",
+                "--json",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(payload.command).toBe("skills.install.export");
+            expect(payload.status).toBe("failed");
+            expect(skills).toHaveLength(0);
+            expect(errors[0]).toMatchObject({ code: "skill_filter_no_match" });
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports a registry --skill miss in the JSON export report", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir, "--skill", "nope", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        // The filter excludes every published skill after
+                        // package-info loads but before any tarball fetch.
+                        if (request.url.includes("/package-info/")) {
+                            return packageInfoResponse("@alice/demo", "0.1.0", "demo");
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(payload.command).toBe("skills.install.export");
+            expect(payload.status).toBe("failed");
+            expect(skills).toHaveLength(0);
+            expect(errors[0]).toMatchObject({ code: "skill_filter_no_match" });
+            expect(await pathExists(join(outDir, "demo"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps earlier exports when a later registry package fails in text mode", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(
+                ["skills", "add", "oo", "@alice/demo", "--out-dir", outDir],
+                { fetcher: async () => new Response("err", { status: 500 }) },
+            );
+
+            expect(result.exitCode).toBe(1);
+            // The bundled skill exported before the registry failure survives.
+            expect(await pathExists(join(outDir, "oo", "SKILL.md"))).toBeTrue();
+            expect(await pathExists(join(outDir, "demo"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("emits a partial-failure JSON report when one package fails", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(
+                ["skills", "add", "oo", "@alice/demo", "--out-dir", outDir, "--json"],
+                { fetcher: async () => new Response("err", { status: 500 }) },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            expect(payload.status).toBe("partial-failure");
+            expect(skills.map(skill => skill.skillId)).toEqual(["oo"]);
+            expect(skills[0]).toMatchObject({ kind: "bundled" });
+            expect(errors[0]).toMatchObject({ code: "package_lookup_failed" });
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("replaces an existing per-skill directory and removes stale files", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+            // A stale file from a previous export must not linger.
+            await mkdir(join(outDir, "demo"), { recursive: true });
+            await writeFile(join(outDir, "demo", "stale.txt"), "stale\n");
+
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir],
+                { fetcher: createRegistryDemoFetcher() },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(await pathExists(join(outDir, "demo", "stale.txt"))).toBeFalse();
+            expect(await pathExists(join(outDir, "demo", "SKILL.md"))).toBeTrue();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("preserves an earlier skill when a later skill in the same package fails", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir, "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return twoSkillPackageInfoResponse();
+                        }
+                        if (request.url.includes("/download-count")) {
+                            return new Response(null, { status: 204 });
+                        }
+                        if (request.url.endsWith("/demo-0.1.0.tgz")) {
+                            // The archive ships the first skill but omits the
+                            // second skill's SKILL.md, so the later export fails.
+                            return new Response(await createRegistrySkillArchiveBytes({
+                                "package/package/skills/demo/SKILL.md":
+                                    "---\nname: demo\ndescription: Demo skill\n---\n\n# Demo\n",
+                            }));
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            // The skill exported before the failure is preserved in the report
+            // and on disk instead of being discarded by the later failure.
+            expect(payload.status).toBe("partial-failure");
+            expect(skills.map(skill => skill.skillId)).toEqual(["demo"]);
+            expect(await pathExists(join(outDir, "demo", "SKILL.md"))).toBeTrue();
+            expect(errors[0]).toMatchObject({ code: "invalid_package_archive" });
+            expect(await pathExists(join(outDir, "extra"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects a registry skill whose name escapes the output directory", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            let tarballRequested = false;
+            const result = await sandbox.run(
+                ["skills", "add", "@alice/demo", "--out-dir", outDir, "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            // A malicious registry advertises a traversal name.
+                            return new Response(JSON.stringify({
+                                packageName: "@alice/demo",
+                                version: "0.1.0",
+                                skills: [
+                                    { description: "evil", name: "../evil", title: "evil" },
+                                ],
+                            }));
+                        }
+                        if (request.url.endsWith("/demo-0.1.0.tgz")) {
+                            tarballRequested = true;
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            // The unsafe name is rejected before any download or filesystem
+            // write, and nothing is created outside the output directory.
+            expect(errors[0]).toMatchObject({ code: "invalid_path" });
+            expect(tarballRequested).toBeFalse();
+            expect(await pathExists(join(outDir, "..", "evil"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
 });
+
+function twoSkillPackageInfoResponse() {
+    return new Response(JSON.stringify({
+        packageName: "@alice/demo",
+        version: "0.1.0",
+        skills: [
+            { description: "demo", name: "demo", title: "demo" },
+            { description: "extra", name: "extra", title: "extra" },
+        ],
+    }));
+}
+
+function createRegistryDemoFetcher() {
+    return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        const request = toRequest(input, init);
+
+        if (request.url.includes("/package-info/")) {
+            return packageInfoResponse("@alice/demo", "0.1.0", "demo");
+        }
+        if (request.url.includes("/download-count")) {
+            return new Response(null, { status: 204 });
+        }
+        if (request.url.endsWith("/demo-0.1.0.tgz")) {
+            return new Response(await createRegistrySkillArchiveBytes({
+                "package/package/skills/demo/SKILL.md":
+                    "---\nname: demo\ndescription: Demo skill\n---\n\n# Demo\n",
+                "package/package/skills/demo/references/guide.md": "# Guide\n",
+            }));
+        }
+        throw new Error(`Unexpected request: ${request.url}`);
+    };
+}
 
 async function pathExists(path: string): Promise<boolean> {
     try {

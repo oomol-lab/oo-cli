@@ -960,21 +960,32 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   skill，并以 `warn` 日志记录此事件。`--force` **不会**绕过路径校验、
   package 校验、auth 或下载校验；**不影响**启动自动同步、`oo skills update`、
   `oo skills sync`、`oo skills uninstall`、`oo skills publish`。
-- 选项：`--out-dir <dir>` 会将内置 skill 释放到 `<dir>`，而不是安装到本地 AI Agent
+- 选项：`--out-dir <dir>` 会将 skill 释放到 `<dir>`，而不是安装到本地 AI Agent
   的 skill 目录。这是一个纯导出操作：只在 `<dir>` 内写入文件，不会改动 oo 的受管
-  存储，也不会改动任何 Agent 的主目录。每个被选中的内置 skill 写入到
+  存储，也不会改动任何 Agent 的主目录。每个被选中的 skill 写入到
   `<dir>/<skill-id>/`；已存在的 `<dir>/<skill-id>` 目录会被替换，而 `<dir>` 中的
-  其他内容保持不变。仅导出内置 skill——与 `--out-dir` 一起传入已发布的 package 名称
-  会失败。`-s, --skill` 过滤仍可缩小导出范围，显式传入内置 skill 名称则只导出该
-  skill。`--force` 在导出模式下无效。
-- 选项：`--agent-format <agent>` 选择导出 skill 的渲染格式，且仅在与 `--out-dir`
-  一起使用时生效；不带 `--out-dir` 使用它会失败。默认值为 `universal`（即
+  其他内容保持不变。导出的 skill 仅以 skill id 作为目录名，因此当多个被选中的
+  skill 解析到同一个 id（跨多个 package，或 registry skill 与内置 skill 同名）时，
+  后写入者会覆盖先前的导出。内置 skill 与已发布的 registry package 都可以导出：
+  内置 skill 名称（或无参形式）会离线生成，已发布的 package 名称则会被下载、解压
+  并以其发布形态写入。registry 导出会携带当前账号的 `Authorization` 头。`-s, --skill` 过滤
+  会缩小每个 registry package 导出的 skill，以及无参形式下导出的内置 skill；显式
+  传入内置 skill 名称则只导出该 skill。`--force` 在导出模式下无效。
+- 选项：`--agent-format <agent>` 选择导出内置 skill 的渲染格式，且仅在与
+  `--out-dir` 一起使用时生效；不带 `--out-dir` 使用它会失败。它不会改变导出的
+  registry skill，后者始终以发布形态写入。默认值为 `universal`（即
   `~/.agents` 格式）。可选值为 `universal`、`claude`、`hermes`、`codebuddy`、
   `workbuddy`、`trae`、`trae-cn`、`openclaw`、`qoderwork`、`deepseek-tui`。
 - 输出：使用 `--out-dir` 时，命令会输出已导出的 skill 及其目标目录；`--json` /
   `--format json` 会输出 `command: "skills.install.export"` 的导出报告，列出每个已
-  导出 skill 的 `path` 与写入的 `files`，以及解析后的 `agentFormat` 和
-  `outputDirectory`。
+  导出 skill 的 `kind`（`bundled` 或 `registry`）、来源 `packageName`（内置 skill
+  为 `null`）、`path` 与写入的 `files`，以及解析后的 `agentFormat` 和
+  `outputDirectory`。当请求的 registry package 无法导出时，失败会记录在报告的
+  `errors[]` 中，命令以退出码 `1` 结束。同一 package 中在后续 skill 失败之前已
+  导出的 skill 仍会列入报告的已导出 skill 列表，此时状态为 `partial-failure`。
+- 路径规则：使用 `--out-dir` 时，registry skill 名仅在其为单个安全路径段、且保持
+  在输出目录内时才被接受；否则导出会在下载或写入任何内容之前以 `invalid_path`
+  拒绝。
 - 输出：非交互安装成功时，会按已安装 skill 和目标 AI Agent 聚合输出精简摘要；
   当实际只写入一个目标时，摘要会包含该目标路径。传入多个 package 时，每个
   package 会按顺序各自输出摘要。
