@@ -1,9 +1,14 @@
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 
 import {
     availableBundledSkillAgentNames,
     availableBundledSkillNames,
     getBundledSkillFiles,
+    materializeBundledSkillToDirectory,
     readBundledSkillFileContent,
 } from "./embedded-assets.ts";
 
@@ -1120,6 +1125,133 @@ describe("embedded skill assets", () => {
         }
     });
 });
+
+describe("materializeBundledSkillToDirectory", () => {
+    test("writes every bundled skill file into the target directory", async () => {
+        const outputDirectory = await mkdtemp(join(tmpdir(), "oo-export-"));
+
+        try {
+            const targetSkillDirectoryPath = join(outputDirectory, "oo");
+            const written = await materializeBundledSkillToDirectory({
+                agentName: "universal",
+                skillName: "oo",
+                targetSkillDirectoryPath,
+            });
+
+            expect([...written]).toEqual(
+                getBundledSkillFiles("oo", "universal").map(file => file.relativePath),
+            );
+
+            for (const relativePath of written) {
+                expect(
+                    await pathExists(join(targetSkillDirectoryPath, relativePath)),
+                ).toBeTrue();
+            }
+        }
+        finally {
+            await rm(outputDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("renders the skill for the requested agent format", async () => {
+        const outputDirectory = await mkdtemp(join(tmpdir(), "oo-export-"));
+
+        try {
+            await materializeBundledSkillToDirectory({
+                agentName: "claude",
+                skillName: "oo",
+                targetSkillDirectoryPath: join(outputDirectory, "claude", "oo"),
+            });
+            await materializeBundledSkillToDirectory({
+                agentName: "universal",
+                skillName: "oo",
+                targetSkillDirectoryPath: join(outputDirectory, "universal", "oo"),
+            });
+
+            const claudeSkill = await readFile(
+                join(outputDirectory, "claude", "oo", "SKILL.md"),
+                "utf8",
+            );
+            const universalSkill = await readFile(
+                join(outputDirectory, "universal", "oo", "SKILL.md"),
+                "utf8",
+            );
+
+            // Claude renders the host-specific frontmatter; universal does not.
+            expect(claudeSkill).toContain("allowed-tools: [Bash(oo *)]");
+            expect(universalSkill).not.toContain("allowed-tools");
+            // No agentic-markdown directives survive the render in either format.
+            expect(claudeSkill).not.toContain("agentic:");
+            expect(universalSkill).not.toContain("agentic:");
+        }
+        finally {
+            await rm(outputDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("does not write an oo management metadata marker", async () => {
+        const outputDirectory = await mkdtemp(join(tmpdir(), "oo-export-"));
+
+        try {
+            const targetSkillDirectoryPath = join(outputDirectory, "oo");
+            await materializeBundledSkillToDirectory({
+                agentName: "universal",
+                skillName: "oo",
+                targetSkillDirectoryPath,
+            });
+
+            expect(
+                await pathExists(join(targetSkillDirectoryPath, ".oo-metadata.json")),
+            ).toBeFalse();
+        }
+        finally {
+            await rm(outputDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("replaces only the per-skill directory and keeps sibling content", async () => {
+        const outputDirectory = await mkdtemp(join(tmpdir(), "oo-export-"));
+
+        try {
+            const targetSkillDirectoryPath = join(outputDirectory, "oo");
+            await mkdir(targetSkillDirectoryPath, { recursive: true });
+            await writeFile(join(targetSkillDirectoryPath, "STALE.md"), "stale\n");
+            await writeFile(join(outputDirectory, "keep.txt"), "keep\n");
+
+            await materializeBundledSkillToDirectory({
+                agentName: "universal",
+                skillName: "oo",
+                targetSkillDirectoryPath,
+            });
+
+            // The stale file inside the per-skill directory is removed.
+            expect(
+                await pathExists(join(targetSkillDirectoryPath, "STALE.md")),
+            ).toBeFalse();
+            // The freshly materialized skill is present.
+            expect(
+                await pathExists(join(targetSkillDirectoryPath, "SKILL.md")),
+            ).toBeTrue();
+            // Sibling content outside the per-skill directory is untouched.
+            expect(await readFile(join(outputDirectory, "keep.txt"), "utf8")).toBe(
+                "keep\n",
+            );
+        }
+        finally {
+            await rm(outputDirectory, { force: true, recursive: true });
+        }
+    });
+});
+
+async function pathExists(path: string): Promise<boolean> {
+    try {
+        await access(path);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
 
 function normalizePathForAssertion(path: string): string {
     return path.replaceAll("\\", "/");

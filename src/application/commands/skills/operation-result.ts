@@ -67,6 +67,27 @@ export interface InstallReport {
     errors: SkillOperationError[];
 }
 
+export interface SkillExportResult {
+    skillId: string;
+    status: "exported";
+    path: string;
+    files: string[];
+}
+
+export interface ExportReport {
+    command: "skills.install.export";
+    status: CommandStatus;
+    agentFormat: BundledSkillAgentName;
+    outputDirectory: string;
+    summary: {
+        requestedSkills: number;
+        exported: number;
+        failed: number;
+    };
+    skills: SkillExportResult[];
+    errors: SkillOperationError[];
+}
+
 export interface UninstallReport {
     command: "skills.uninstall";
     status: CommandStatus;
@@ -121,6 +142,7 @@ export interface SyncApplyReport {
 
 export type SkillOperationReport
     = | InstallReport
+        | ExportReport
         | UninstallReport
         | UpdateReport
         | SyncUploadReport

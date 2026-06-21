@@ -583,8 +583,14 @@ export const enMessages = {
         "{agentName} is not installed. Expected the {agentName} home directory at {path}.",
     "errors.skills.noSupportedBundledSkillHosts":
         "No supported skill host is installed. Expected one of: {paths}.",
+    "errors.skills.install.agentFormatRequiresOutDir":
+        "--agent-format can only be used together with --out-dir.",
     "errors.skills.install.confirmationRequired":
         "Skill {name} already exists and requires interactive confirmation.",
+    "errors.skills.install.exportRequiresBundled":
+        "{value} is not a bundled skill. --out-dir exports bundled skills only. Available bundled skills: {skills}.",
+    "errors.skills.install.invalidAgentFormat":
+        "Unsupported agent format: {value}. Use {agents}.",
     "errors.skills.install.invalidArchive":
         "Downloaded package archive does not contain a valid skill directory for {name}.",
     "errors.skills.install.invalidPackageInfo":
@@ -896,6 +902,10 @@ export const enMessages = {
         "Force install even when a same-name skill directory exists and is not managed by oo",
     "options.skills.skill":
         "Skill name(s) to limit the operation to (case-insensitive; non-matching names are ignored)",
+    "options.skills.install.outDir":
+        "Export bundled skills into this directory instead of installing them into local agent homes; writes only inside this directory",
+    "options.skills.install.agentFormat":
+        "Agent render format for exported skills; only applies with --out-dir (default: universal)",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
     "selfUpdate.install.success": "Installed oo {version}.",
@@ -1033,6 +1043,10 @@ export const enMessages = {
     "warnings.skills.localUninstallAmbiguous":
         "Warning: Local skill {name} exists in multiple local sources ({agents}). Nothing was removed; pass --agent to choose one.",
     "skills.install.success": "Installed skill {name} to {path}.",
+    "skills.install.export.single":
+        "Exported skill {name} ({format}) to {path}.",
+    "skills.install.export.multiple":
+        "Exported {count} skills ({format}) to {path}.",
     "skills.install.summary.agentsLabel": "Agents",
     "skills.install.summary.detailLine": "{label}: {values}",
     "skills.install.summary.installed": "Installed",
@@ -1710,8 +1724,14 @@ export const zhMessages = {
         "未检测到 {agentName} 安装。期望的 {agentName} 根目录为 {path}。",
     "errors.skills.noSupportedBundledSkillHosts":
         "未检测到已安装的受支持 Agent。期望其中之一位于：{paths}。",
+    "errors.skills.install.agentFormatRequiresOutDir":
+        "--agent-format 只能与 --out-dir 一起使用。",
     "errors.skills.install.confirmationRequired":
         "Skill {name} 已存在，且需要在交互终端中确认覆盖。",
+    "errors.skills.install.exportRequiresBundled":
+        "{value} 不是内置 skill。--out-dir 只能导出内置 skill。可用的内置 skill：{skills}。",
+    "errors.skills.install.invalidAgentFormat":
+        "不受支持的 agent 格式：{value}。请使用 {agents}。",
     "errors.skills.install.invalidArchive":
         "下载的包归档中不包含 {name} 对应的有效 skill 目录。",
     "errors.skills.install.invalidPackageInfo":
@@ -2015,6 +2035,10 @@ export const zhMessages = {
         "强制安装，即使同名 skill 目录已存在且不受 oo 管理",
     "options.skills.skill":
         "限定操作的 skill 名称（可指定多个；大小写不敏感；不匹配的名称会被忽略）",
+    "options.skills.install.outDir":
+        "将内置 skill 释放到该目录，而不是安装到本地 Agent 主目录；仅在该目录内写入文件",
+    "options.skills.install.agentFormat":
+        "导出 skill 时使用的 Agent 渲染格式；仅在指定 --out-dir 时生效（默认：universal）",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
     "selfUpdate.install.success": "已安装 oo {version}。",
@@ -2152,6 +2176,10 @@ export const zhMessages = {
     "warnings.skills.localUninstallAmbiguous":
         "警告：本地 skill {name} 存在于多个本地来源（{agents}）。未删除任何内容；请传入 --agent 选择一个。",
     "skills.install.success": "已将 skill {name} 安装到 {path}。",
+    "skills.install.export.single":
+        "已将 skill {name}（{format}）导出到 {path}。",
+    "skills.install.export.multiple":
+        "已将 {count} 个 skills（{format}）导出到 {path}。",
     "skills.install.summary.agentsLabel": "Agents",
     "skills.install.summary.detailLine": "{label}：{values}",
     "skills.install.summary.installed": "已安装",

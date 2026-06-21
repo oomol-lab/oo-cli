@@ -2,26 +2,36 @@ import type {
     CliCommandDefinition,
     CliExecutionContext,
 } from "../../contracts/cli.ts";
-import type { BundledSkillName } from "./embedded-assets.ts";
+import type { BundledSkillAgentName, BundledSkillName } from "./embedded-assets.ts";
 
 import type { ManagedSkillInstallSummary } from "./install-output.ts";
 import type {
+    ExportReport,
     InstallReport,
     PreviousState,
+    SkillExportResult,
     SkillOperationError,
     SkillResult,
     SkillTargetResult,
 } from "./operation-result.ts";
+import { join, resolve } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parsePackageSpecifier } from "../shared/package-info.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
-import { availableBundledSkillNames } from "./embedded-assets.ts";
-import { writeManagedSkillInstallSummary } from "./install-output.ts";
+import {
+    availableBundledSkillNames,
+    materializeBundledSkillToDirectory,
+} from "./embedded-assets.ts";
+import {
+    writeBundledSkillExportSummary,
+    writeManagedSkillInstallSummary,
+} from "./install-output.ts";
 import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
 import { readSkillMetadataFileState } from "./local-skill-ownership.ts";
+import { parseAgentFormatOption } from "./managed-skill-agents.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
@@ -50,6 +60,8 @@ interface SkillsInstallInput {
     force?: boolean;
     packageNames?: string[];
     skill?: string[];
+    outDir?: string;
+    agentFormat?: string;
     format?: "json";
     showSchemaVersion?: boolean;
 }
@@ -111,17 +123,49 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             valueName: "skills...",
             descriptionKey: "options.skills.skill",
         },
+        {
+            name: "outDir",
+            longFlag: "--out-dir",
+            valueName: "dir",
+            descriptionKey: "options.skills.install.outDir",
+        },
+        {
+            name: "agentFormat",
+            longFlag: "--agent-format",
+            valueName: "agent",
+            descriptionKey: "options.skills.install.agentFormat",
+        },
         ...skillOperationOutputOptions,
     ],
     inputSchema: z.object({
         force: z.boolean().optional(),
         packageNames: z.array(z.string()).optional(),
         skill: z.array(z.string()).optional(),
+        outDir: z.string().optional(),
+        agentFormat: z.string().optional(),
         format: z.enum(["json"]).optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
+        // `--agent-format` only shapes the `--out-dir` export; on the normal
+        // install path it would be ignored, so reject the combination loudly
+        // instead of silently doing nothing.
+        if (input.agentFormat !== undefined && input.outDir === undefined) {
+            throw new CliUserError(
+                "errors.skills.install.agentFormatRequiresOutDir",
+                2,
+            );
+        }
+
+        // `--out-dir` switches to a pure bundled-skill export: it writes only
+        // inside the requested directory, with no app-data canonical storage,
+        // host detection, legacy migration, or network side effects.
+        if (input.outDir !== undefined) {
+            await runBundledSkillExport(input, context);
+            return;
+        }
+
         await migrateLegacyCanonicalSkillLayout(context);
 
         const force = input.force === true;
@@ -381,6 +425,141 @@ function selectBundledSkillNamesOrThrow(
     }
 
     return selected;
+}
+
+// Export bundled skills into an arbitrary directory rendered for one agent
+// format. Pure with respect to oo state: it never writes to the app-data
+// canonical storage or any agent home, performs no network requests, and
+// writes no `.oo-metadata.json` marker.
+async function runBundledSkillExport(
+    input: SkillsInstallInput,
+    context: CliExecutionContext,
+): Promise<void> {
+    const outputDirectoryPath = resolve(input.outDir!);
+    const agentName = parseAgentFormatOption(
+        input.agentFormat,
+        "errors.skills.install.invalidAgentFormat",
+    );
+    const skillFilterActive = normalizeSkillFilterTokens(input.skill) !== undefined;
+    const selectedBundled = selectExportBundledSkillNames(
+        input.packageNames,
+        input.skill,
+    );
+
+    context.telemetry?.recordProperties({
+        agent_format: agentName,
+        has_bundled_skill: true,
+        has_out_dir: true,
+        has_registry_skill: false,
+        has_skill_filter: skillFilterActive,
+        package_kind: "bundled",
+        skill_count_bucket: bucketTelemetryCount(selectedBundled.length),
+        ...createSkillIdsTelemetryProperties(selectedBundled),
+    });
+
+    const exports: SkillExportResult[] = [];
+
+    for (const skillName of selectedBundled) {
+        const targetSkillDirectoryPath = join(outputDirectoryPath, skillName);
+        const files = await materializeBundledSkillToDirectory({
+            agentName,
+            skillName,
+            targetSkillDirectoryPath,
+        });
+
+        context.logger.info(
+            {
+                agentName,
+                path: targetSkillDirectoryPath,
+                skillName,
+            },
+            "Bundled skill exported to directory.",
+        );
+        exports.push({
+            skillId: skillName,
+            status: "exported",
+            path: targetSkillDirectoryPath,
+            files: [...files],
+        });
+    }
+
+    if (input.format === "json") {
+        writeSkillOperationJson(
+            context.stdout,
+            buildExportReport(exports, agentName, outputDirectoryPath),
+            { showSchemaVersion: input.showSchemaVersion },
+        );
+        return;
+    }
+
+    writeBundledSkillExportSummary(context, {
+        agentName,
+        exports,
+        outputDirectoryPath,
+    });
+}
+
+// Resolve which bundled skills the export should materialize. With no positional
+// names the export covers every bundled skill, narrowed by the optional
+// `--skill` filter. Positional names must each identify a bundled skill: the
+// export is bundled-only and offline, so registry package specifiers are
+// rejected rather than downloaded.
+function selectExportBundledSkillNames(
+    packageNames: readonly string[] | undefined,
+    skillFilter: readonly string[] | undefined,
+): readonly BundledSkillName[] {
+    const names = packageNames ?? [];
+
+    if (names.length === 0) {
+        return selectBundledSkillNamesOrThrow(skillFilter);
+    }
+
+    const selected: BundledSkillName[] = [];
+    const seen = new Set<string>();
+
+    for (const rawName of names) {
+        const trimmedName = rawName.trim();
+
+        if (!isBundledSkillName(trimmedName)) {
+            throw new CliUserError("errors.skills.install.exportRequiresBundled", 2, {
+                skills: availableBundledSkillNames.join(", "),
+                value: rawName,
+            });
+        }
+
+        if (!seen.has(trimmedName)) {
+            seen.add(trimmedName);
+            selected.push(trimmedName);
+        }
+    }
+
+    return selected;
+}
+
+function buildExportReport(
+    exports: readonly SkillExportResult[],
+    agentName: BundledSkillAgentName,
+    outputDirectoryPath: string,
+): ExportReport {
+    const exported = exports.length;
+
+    return {
+        command: "skills.install.export",
+        status: computeCommandStatus({
+            succeeded: exported,
+            failed: 0,
+            commandLevelErrors: 0,
+        }),
+        agentFormat: agentName,
+        outputDirectory: outputDirectoryPath,
+        summary: {
+            requestedSkills: exported,
+            exported,
+            failed: 0,
+        },
+        skills: [...exports],
+        errors: [],
+    };
 }
 
 async function runInstallJsonReport(

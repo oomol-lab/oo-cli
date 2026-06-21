@@ -270,11 +270,13 @@ const commandTelemetryDecisions = {
     "skills.install": {
         kind: "properties",
         properties: [
+            "agent_format",
             "bundled_skill",
             "failed_count_bucket",
             "format",
             "has_bundled_skill",
             "has_force",
+            "has_out_dir",
             "has_registry_skill",
             "has_skill_filter",
             "installed_count_bucket",
@@ -288,7 +290,7 @@ const commandTelemetryDecisions = {
             "skill_ids_sample",
             "skill_ids_truncated",
         ],
-        reason: "Records install source, product-domain package dimensions, bounded skill/package samples, force-flag and skill-filter usage, and JSON-output result buckets.",
+        reason: "Records install source, product-domain package dimensions, bounded skill/package samples, force-flag and skill-filter usage, JSON-output result buckets, and for the --out-dir export the directory presence flag and selected agent render format (a fixed enum).",
     },
     "skills.info": {
         kind: "properties",

@@ -1137,6 +1137,25 @@ Install bundled or published skills into supported local skill directories.
   **not** bypass path containment, package validation, auth, or download
   validation; and it does **not** affect startup auto-sync, `oo skills update`,
   `oo skills sync`, `oo skills uninstall`, or `oo skills publish`.
+- Options: `--out-dir <dir>` exports the bundled skills into `<dir>` instead of
+  installing them into local agent skill directories. This is a pure export: it
+  writes only inside `<dir>` and does not modify oo's managed storage or any
+  agent home directory. Each selected bundled skill is written to
+  `<dir>/<skill-id>/`; an existing `<dir>/<skill-id>` directory is replaced,
+  while other contents of `<dir>` are left untouched. Only bundled skills are
+  exported — passing a published package name together with `--out-dir` fails.
+  The `-s, --skill` filter still narrows which bundled skills are exported, and
+  an explicit bundled skill name argument exports just that skill. `--force` has
+  no effect in export mode.
+- Options: `--agent-format <agent>` selects the render format for the exported
+  skills and only applies together with `--out-dir`; using it without
+  `--out-dir` fails. The default is `universal` (the `~/.agents` format).
+  Accepted values are `universal`, `claude`, `hermes`, `codebuddy`,
+  `workbuddy`, `trae`, `trae-cn`, `openclaw`, `qoderwork`, and `deepseek-tui`.
+- Output: with `--out-dir`, the command prints the exported skills and their
+  target directory; `--json` / `--format json` emits an export report with
+  `command: "skills.install.export"` that lists each exported skill's `path` and
+  written `files`, plus the resolved `agentFormat` and `outputDirectory`.
 - Output: successful non-interactive installs print a compact summary grouped by
   installed skills and target AI agents. When exactly one target is written, the
   summary includes that target path. With several package names, each package

@@ -1,7 +1,10 @@
 import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
+import { mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { render } from "agentic-markdown";
 
 import ooCreateSkillPath from "../../../../contrib/skills/shared/oo-create-skill/SKILL.md" with { type: "file" };
+
 import ooFindSkillsCliContractPath from "../../../../contrib/skills/shared/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
 import ooFindSkillsSkillPath from "../../../../contrib/skills/shared/oo-find-skills/SKILL.md" with { type: "file" };
 import ooPublishSkillPath from "../../../../contrib/skills/shared/oo-publish-skill/SKILL.md" with { type: "file" };
@@ -11,6 +14,7 @@ import ooFileTransferReferencePath from "../../../../contrib/skills/shared/oo/re
 import ooLlmClientReferencePath from "../../../../contrib/skills/shared/oo/references/llm-client.md" with { type: "file" };
 import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/shared/oo/references/search-and-selection.md" with { type: "file" };
 import ooSkillPath from "../../../../contrib/skills/shared/oo/SKILL.md" with { type: "file" };
+import { removePath } from "./bundled-skill-filesystem.ts";
 
 import {
     availableBundledSkillAgentNames,
@@ -74,6 +78,36 @@ export function getBundledSkillFiles(
         agentName,
         skillName,
     }));
+}
+
+// Materialize a bundled skill into an arbitrary directory rendered for the
+// given agent format. This is a pure export: it writes only inside
+// `targetSkillDirectoryPath`, never touches the oo app-data canonical storage
+// or any agent home directory, and writes no `.oo-metadata.json` management
+// marker. The per-skill directory is removed and recreated so stale files from
+// a previous export do not linger; sibling content in the parent directory is
+// left untouched. Returns the written file relative paths in registry order.
+export async function materializeBundledSkillToDirectory(options: {
+    agentName: BundledSkillAgentName;
+    skillName: BundledSkillName;
+    targetSkillDirectoryPath: string;
+}): Promise<readonly string[]> {
+    await removePath(options.targetSkillDirectoryPath);
+    await mkdir(options.targetSkillDirectoryPath, { recursive: true });
+
+    const files = getBundledSkillFiles(options.skillName, options.agentName);
+
+    for (const file of files) {
+        const destinationPath = join(
+            options.targetSkillDirectoryPath,
+            file.relativePath,
+        );
+
+        await mkdir(dirname(destinationPath), { recursive: true });
+        await Bun.write(destinationPath, await readBundledSkillFileContent(file));
+    }
+
+    return files.map(file => file.relativePath);
 }
 
 export async function readBundledSkillFileContent(

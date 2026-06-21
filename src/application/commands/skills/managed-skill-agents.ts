@@ -150,6 +150,30 @@ export function formatSupportedSkillAgentNames(): string {
     return availableBundledSkillAgentNames.join(", ");
 }
 
+// Resolve the `--agent-format` export option. An omitted (or blank) value
+// defaults to the universal `~/.agents` format; every provided value must name a
+// supported agent. Throws a localized `CliUserError` (exit 2) listing the
+// accepted agents when the value is unsupported.
+export function parseAgentFormatOption(
+    value: string | undefined,
+    errorKey: string,
+): BundledSkillAgentName {
+    const normalized = value === undefined ? "" : value.trim();
+
+    if (normalized === "") {
+        return "universal";
+    }
+
+    if (availableBundledSkillAgentNames.includes(normalized as BundledSkillAgentName)) {
+        return normalized as BundledSkillAgentName;
+    }
+
+    throw new CliUserError(errorKey, 2, {
+        agents: formatSupportedSkillAgentNames(),
+        value: normalized,
+    });
+}
+
 export function parseManagedSkillAgentOption(
     value: string | undefined,
     errorKey: string,
