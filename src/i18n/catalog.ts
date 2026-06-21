@@ -587,8 +587,8 @@ export const enMessages = {
         "--agent-format can only be used together with --out-dir.",
     "errors.skills.install.confirmationRequired":
         "Skill {name} already exists and requires interactive confirmation.",
-    "errors.skills.install.exportRequiresBundled":
-        "{value} is not a bundled skill. --out-dir exports bundled skills only. Available bundled skills: {skills}.",
+    "errors.skills.install.invalidOutDir":
+        "--out-dir requires a non-empty directory path.",
     "errors.skills.install.invalidAgentFormat":
         "Unsupported agent format: {value}. Use {agents}.",
     "errors.skills.install.invalidArchive":
@@ -903,9 +903,9 @@ export const enMessages = {
     "options.skills.skill":
         "Skill name(s) to limit the operation to (case-insensitive; non-matching names are ignored)",
     "options.skills.install.outDir":
-        "Export bundled skills into this directory instead of installing them into local agent homes; writes only inside this directory",
+        "Export bundled or registry skills into this directory instead of installing them into local agent homes; writes only inside this directory",
     "options.skills.install.agentFormat":
-        "Agent render format for exported skills; only applies with --out-dir (default: universal)",
+        "Agent render format for exported bundled skills; only applies with --out-dir (default: universal)",
     "options.lang": "Specify the display language",
     "options.version": "Show the current version",
     "selfUpdate.install.success": "Installed oo {version}.",
@@ -1728,8 +1728,8 @@ export const zhMessages = {
         "--agent-format 只能与 --out-dir 一起使用。",
     "errors.skills.install.confirmationRequired":
         "Skill {name} 已存在，且需要在交互终端中确认覆盖。",
-    "errors.skills.install.exportRequiresBundled":
-        "{value} 不是内置 skill。--out-dir 只能导出内置 skill。可用的内置 skill：{skills}。",
+    "errors.skills.install.invalidOutDir":
+        "--out-dir 需要一个非空的目录路径。",
     "errors.skills.install.invalidAgentFormat":
         "不受支持的 agent 格式：{value}。请使用 {agents}。",
     "errors.skills.install.invalidArchive":
@@ -2036,9 +2036,9 @@ export const zhMessages = {
     "options.skills.skill":
         "限定操作的 skill 名称（可指定多个；大小写不敏感；不匹配的名称会被忽略）",
     "options.skills.install.outDir":
-        "将内置 skill 释放到该目录，而不是安装到本地 Agent 主目录；仅在该目录内写入文件",
+        "将内置或 Registry skill 释放到该目录，而不是安装到本地 Agent 主目录；仅在该目录内写入文件",
     "options.skills.install.agentFormat":
-        "导出 skill 时使用的 Agent 渲染格式；仅在指定 --out-dir 时生效（默认：universal）",
+        "导出内置 skill 时使用的 Agent 渲染格式；仅在指定 --out-dir 时生效（默认：universal）",
     "options.lang": "指定显示语言",
     "options.version": "显示当前版本",
     "selfUpdate.install.success": "已安装 oo {version}。",

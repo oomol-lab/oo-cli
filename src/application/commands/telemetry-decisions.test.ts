@@ -290,7 +290,7 @@ const commandTelemetryDecisions = {
             "skill_ids_sample",
             "skill_ids_truncated",
         ],
-        reason: "Records install source, product-domain package dimensions, bounded skill/package samples, force-flag and skill-filter usage, JSON-output result buckets, and for the --out-dir export the directory presence flag and selected agent render format (a fixed enum).",
+        reason: "Records install source, product-domain package dimensions, bounded skill/package samples, force-flag and skill-filter usage, JSON-output result buckets, and for the --out-dir export (bundled or registry) the directory presence flag, the selected agent render format (a fixed enum), and the same package/skill dimensions.",
     },
     "skills.info": {
         kind: "properties",

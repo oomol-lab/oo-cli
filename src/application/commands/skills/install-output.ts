@@ -129,7 +129,7 @@ export function writeManagedSkillInstallSummary(
     );
 }
 
-export function writeBundledSkillExportSummary(
+export function writeSkillExportSummary(
     context: Pick<CliExecutionContext, "stdout" | "translator">,
     options: {
         agentName: BundledSkillAgentName;

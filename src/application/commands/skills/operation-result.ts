@@ -69,6 +69,8 @@ export interface InstallReport {
 
 export interface SkillExportResult {
     skillId: string;
+    kind: "bundled" | "registry";
+    packageName: string | null;
     status: "exported";
     path: string;
     files: string[];
