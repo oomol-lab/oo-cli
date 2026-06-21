@@ -960,6 +960,21 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   skill，并以 `warn` 日志记录此事件。`--force` **不会**绕过路径校验、
   package 校验、auth 或下载校验；**不影响**启动自动同步、`oo skills update`、
   `oo skills sync`、`oo skills uninstall`、`oo skills publish`。
+- 选项：`--out-dir <dir>` 会将内置 skill 释放到 `<dir>`，而不是安装到本地 AI Agent
+  的 skill 目录。这是一个纯导出操作：只在 `<dir>` 内写入文件，不会改动 oo 的受管
+  存储，也不会改动任何 Agent 的主目录。每个被选中的内置 skill 写入到
+  `<dir>/<skill-id>/`；已存在的 `<dir>/<skill-id>` 目录会被替换，而 `<dir>` 中的
+  其他内容保持不变。仅导出内置 skill——与 `--out-dir` 一起传入已发布的 package 名称
+  会失败。`-s, --skill` 过滤仍可缩小导出范围，显式传入内置 skill 名称则只导出该
+  skill。`--force` 在导出模式下无效。
+- 选项：`--agent-format <agent>` 选择导出 skill 的渲染格式，且仅在与 `--out-dir`
+  一起使用时生效；不带 `--out-dir` 使用它会失败。默认值为 `universal`（即
+  `~/.agents` 格式）。可选值为 `universal`、`claude`、`hermes`、`codebuddy`、
+  `workbuddy`、`trae`、`trae-cn`、`openclaw`、`qoderwork`、`deepseek-tui`。
+- 输出：使用 `--out-dir` 时，命令会输出已导出的 skill 及其目标目录；`--json` /
+  `--format json` 会输出 `command: "skills.install.export"` 的导出报告，列出每个已
+  导出 skill 的 `path` 与写入的 `files`，以及解析后的 `agentFormat` 和
+  `outputDirectory`。
 - 输出：非交互安装成功时，会按已安装 skill 和目标 AI Agent 聚合输出精简摘要；
   当实际只写入一个目标时，摘要会包含该目标路径。传入多个 package 时，每个
   package 会按顺序各自输出摘要。

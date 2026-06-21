@@ -1,4 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -483,3 +484,337 @@ describe("skills install --json", () => {
         }
     });
 });
+
+describe("skills install --out-dir export", () => {
+    // The export tests omit `version`, so the CLI runs as a development build and
+    // startup auto-sync is skipped. That keeps the agent homes and app-data
+    // canonical storage untouched, letting the tests assert the export's purity.
+    const allBundledSkillNames = [
+        "oo",
+        "oo-find-skills",
+        "oo-create-skill",
+        "oo-publish-skill",
+    ];
+
+    test("exports all bundled skills into the directory without touching agent homes", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            // Disable startup auto-sync so the only skill writes come from the
+            // export command itself, isolating its purity from the unrelated
+            // bundled-skill startup synchronization.
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(["skills", "add", "--out-dir", outDir]);
+
+            expect(result.exitCode).toBe(0);
+
+            for (const skillName of allBundledSkillNames) {
+                expect(
+                    await pathExists(join(outDir, skillName, "SKILL.md")),
+                ).toBeTrue();
+            }
+
+            // The default format equals the universal `~/.agents` format, which
+            // has no host-specific frontmatter.
+            const ooSkill = await readFile(join(outDir, "oo", "SKILL.md"), "utf8");
+
+            expect(ooSkill).not.toContain("allowed-tools");
+
+            // Pure export: nothing is published to any agent home. The
+            // always-provision universal host would be written first if the
+            // export wrongly fell back to the install path.
+            const universalHome = resolveManagedSkillAgentHomeDirectory(
+                sandbox.env,
+                "universal",
+            );
+            const claudeHome = resolveManagedSkillAgentHomeDirectory(
+                sandbox.env,
+                "claude",
+            );
+
+            expect(await pathExists(join(universalHome, "skills"))).toBeFalse();
+            expect(await pathExists(join(claudeHome, "skills"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("renders the requested agent format", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "--out-dir",
+                outDir,
+                "--agent-format",
+                "claude",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            const ooSkill = await readFile(join(outDir, "oo", "SKILL.md"), "utf8");
+
+            expect(ooSkill).toContain("allowed-tools: [Bash(oo *)]");
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("defaults the agent format to universal when --agent-format is omitted", async () => {
+        const sandbox = await createCliSandbox();
+        const omittedDir = await mkdtemp(join(tmpdir(), "oo-out-omitted-"));
+        const universalDir = await mkdtemp(join(tmpdir(), "oo-out-universal-"));
+
+        try {
+            const omittedResult = await sandbox.run([
+                "skills",
+                "add",
+                "oo",
+                "--out-dir",
+                omittedDir,
+            ]);
+            const universalResult = await sandbox.run([
+                "skills",
+                "add",
+                "oo",
+                "--out-dir",
+                universalDir,
+                "--agent-format",
+                "universal",
+            ]);
+
+            expect(omittedResult.exitCode).toBe(0);
+            expect(universalResult.exitCode).toBe(0);
+            expect(await readFile(join(omittedDir, "oo", "SKILL.md"), "utf8")).toBe(
+                await readFile(join(universalDir, "oo", "SKILL.md"), "utf8"),
+            );
+        }
+        finally {
+            await rm(omittedDir, { force: true, recursive: true });
+            await rm(universalDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects the removed default agent-format alias", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "--out-dir",
+                outDir,
+                "--agent-format",
+                "default",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("Unsupported agent format");
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("narrows the export with --skill", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "--out-dir",
+                outDir,
+                "--skill",
+                "oo",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(await pathExists(join(outDir, "oo", "SKILL.md"))).toBeTrue();
+            expect(await pathExists(join(outDir, "oo-find-skills"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("exports an explicitly named bundled skill", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "oo-create-skill",
+                "--out-dir",
+                outDir,
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            expect(
+                await pathExists(join(outDir, "oo-create-skill", "SKILL.md")),
+            ).toBeTrue();
+            expect(await pathExists(join(outDir, "oo"))).toBeFalse();
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails when --skill matches no bundled skill", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "--out-dir",
+                outDir,
+                "--skill",
+                "nope",
+            ]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("None of the requested skills exist");
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects a non-bundled package name in export mode", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "not-a-bundled-skill",
+                "--out-dir",
+                outDir,
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("is not a bundled skill");
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects --agent-format without --out-dir", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "--agent-format",
+                "claude",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("--out-dir");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects an unsupported agent format", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "--out-dir",
+                outDir,
+                "--agent-format",
+                "bogus",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("Unsupported agent format");
+            // The error lists the accepted agents (no `default` alias).
+            expect(result.stderr).toContain("universal");
+            expect(result.stderr).not.toContain("default");
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
+    test("emits a structured JSON export report", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            const result = await sandbox.run([
+                "skills",
+                "add",
+                "oo",
+                "--out-dir",
+                outDir,
+                "--json",
+            ]);
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload.command).toBe("skills.install.export");
+            expect(payload.status).toBe("completed");
+            expect(payload.agentFormat).toBe("universal");
+            expect(payload.outputDirectory).toBe(outDir);
+            expect(payload.summary).toMatchObject({
+                requestedSkills: 1,
+                exported: 1,
+                failed: 0,
+            });
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(skills).toHaveLength(1);
+            expect(skills[0]).toMatchObject({
+                skillId: "oo",
+                status: "exported",
+                path: join(outDir, "oo"),
+            });
+            expect(skills[0]!.files).toContain("SKILL.md");
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+});
+
+async function pathExists(path: string): Promise<boolean> {
+    try {
+        await access(path);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}

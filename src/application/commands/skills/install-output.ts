@@ -129,6 +129,55 @@ export function writeManagedSkillInstallSummary(
     );
 }
 
+export function writeBundledSkillExportSummary(
+    context: Pick<CliExecutionContext, "stdout" | "translator">,
+    options: {
+        agentName: BundledSkillAgentName;
+        exports: readonly { path: string; skillId: string }[];
+        outputDirectoryPath: string;
+    },
+): void {
+    if (options.exports.length === 0) {
+        return;
+    }
+
+    const colors = createWriterColors(context.stdout);
+    const format = colors.cyan(
+        readManagedSkillAgentLabel(options.agentName, context.translator),
+    );
+
+    if (options.exports.length === 1) {
+        const exported = options.exports[0]!;
+
+        writeLine(
+            context.stdout,
+            context.translator.t("skills.install.export.single", {
+                format,
+                name: colors.cyan(exported.skillId),
+                path: colors.dim(exported.path),
+            }),
+        );
+        return;
+    }
+
+    writeLine(
+        context.stdout,
+        context.translator.t("skills.install.export.multiple", {
+            count: colors.bold(options.exports.length),
+            format,
+            path: colors.dim(options.outputDirectoryPath),
+        }),
+    );
+    writeDetailLine(
+        context,
+        colors.bold(context.translator.t("skills.install.summary.skillsLabel")),
+        formatSkillNames(
+            options.exports.map(exported => exported.skillId),
+            colors,
+        ),
+    );
+}
+
 function readUniqueAgentNames(
     summaries: readonly ManagedSkillInstallSummary[],
 ): BundledSkillAgentName[] {
