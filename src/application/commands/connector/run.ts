@@ -57,7 +57,7 @@ const connectorAsyncLifecycleDefaultTimeoutMs = 6 * 3_600_000;
 
 interface ConnectorRunInput {
     action?: string;
-    alias?: string;
+    connectionName?: string;
     data?: string;
     dryRun?: boolean;
     format?: (typeof connectorFormatValues)[number];
@@ -98,10 +98,10 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             descriptionKey: "options.data",
         },
         {
-            name: "alias",
-            longFlag: "--alias",
-            valueName: "alias",
-            descriptionKey: "options.connectorRunAlias",
+            name: "connectionName",
+            longFlag: "--connection-name",
+            valueName: "connection-name",
+            descriptionKey: "options.connectorRunConnectionName",
         },
         {
             name: "dryRun",
@@ -134,7 +134,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     ],
     inputSchema: z.object({
         action: z.string().optional(),
-        alias: z.string().optional(),
+        connectionName: z.string().optional(),
         data: z.string().optional(),
         dryRun: z.boolean().optional(),
         format: z.enum(connectorFormatValues).optional(),
@@ -157,12 +157,15 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw new CliUserError("errors.connectorRun.identityConflict", 2);
         }
 
-        const alias = input.alias?.trim();
-        if (input.alias !== undefined && alias === "") {
-            throw new CliUserError("errors.connectorRun.aliasEmpty", 2);
+        const connectionName = input.connectionName?.trim();
+        if (input.connectionName !== undefined && connectionName === "") {
+            throw new CliUserError("errors.connectorRun.connectionNameEmpty", 2);
         }
 
-        const connectionSelector = alias === undefined ? undefined : { alias };
+        // The request layer sends this connection name on the wire as the
+        // legacy `x-oo-connector-alias` header.
+        const connectionSelector
+            = connectionName === undefined ? undefined : { connectionName };
         const organizationFlag = input.organization?.trim();
         if (input.organization !== undefined && organizationFlag === "") {
             throw new CliUserError("errors.connectorRun.organizationEmpty", 2);
@@ -184,7 +187,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 
         context.telemetry?.recordProperties({
             action: actionName,
-            connection_selector: connectionSelector === undefined ? "none" : "alias",
+            connection_selector: connectionSelector === undefined ? "none" : "connectionName",
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(inputData)),
             ),

@@ -91,7 +91,8 @@ Facts:
 - If `--data` is omitted, the CLI uses `{}`.
 - If a service has multiple connected apps or execution fails with
   `connection_ambiguous`, run `oo connector apps "<serviceName>" --json`, pick
-  the intended `alias`, then pass `--alias "<alias>"` to `oo connector run`.
+  the intended `connectionName`, then pass `--connection-name "<connectionName>"`
+  to `oo connector run`.
 - Do not use app ids as CLI selectors for connector actions.
 - `--json` returns a stable JSON object for execution output.
 - In execution responses, the execution id is nested under

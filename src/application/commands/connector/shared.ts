@@ -100,18 +100,24 @@ const connectorProxyResponseSchema = z.object({
     ...response
 }) => response);
 
-const connectorAppAliasSchema = z.string().nullable().optional().transform(value => value ?? null);
+const connectorAppConnectionNameSchema = z.string().nullable().optional().transform(value => value ?? null);
 
 const connectorAppViewSchema = z.object({
     accountLabel: z.string(),
-    alias: connectorAppAliasSchema,
+    // The backend response names this field `alias`; it is the only wire
+    // boundary that keeps the legacy name. Everything downstream reads it as
+    // `connectionName` via the transform below.
+    alias: connectorAppConnectionNameSchema,
     authType: z.string().nullable(),
     displayName: z.string(),
     isDefault: z.boolean(),
     scopes: z.array(z.string()).default([]),
     service: z.string().min(1),
     status: z.string().min(1),
-}).passthrough();
+}).passthrough().transform(({ alias, ...rest }) => ({
+    ...rest,
+    connectionName: alias,
+}));
 
 const connectorAppsByServiceResponseSchema = z.object({
     data: z.array(connectorAppViewSchema),
@@ -136,7 +142,7 @@ const connectorActionFailureResponseSchema = z.object({
 export const connectorFormatValues = ["json"] as const;
 
 export interface ConnectorConnectionSelector {
-    alias?: string;
+    connectionName?: string;
 }
 
 export function requireConnectorActionName(rawAction: string | undefined): string {
@@ -659,8 +665,10 @@ function connectorConnectionSelectorHeaders(
 ): Record<string, string> {
     const headers: Record<string, string> = {};
 
-    if (selector?.alias !== undefined) {
-        headers["x-oo-connector-alias"] = selector.alias;
+    // The connection name is sent on the wire as the legacy `x-oo-connector-alias`
+    // header; this is the only place the `alias` name survives.
+    if (selector?.connectionName !== undefined) {
+        headers["x-oo-connector-alias"] = selector.connectionName;
     }
 
     return headers;

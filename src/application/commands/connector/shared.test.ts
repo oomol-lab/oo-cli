@@ -142,12 +142,12 @@ describe("connector shared requests", () => {
         expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
         expect(apps).toHaveLength(1);
         expect(apps[0]).toMatchObject({
-            alias: "work",
+            connectionName: "work",
             displayName: "Work Gmail",
         });
     });
 
-    test("listConnectorAppsByService maps missing aliases to null", async () => {
+    test("listConnectorAppsByService maps missing connection names to null", async () => {
         const apps = await listConnectorAppsByService(
             {
                 apiKey: "secret-1",
@@ -170,7 +170,7 @@ describe("connector shared requests", () => {
             }),
         );
 
-        expect(apps[0]?.alias).toBeNull();
+        expect(apps[0]?.connectionName).toBeNull();
     });
 
     test("listConnectorAppsByService rejects unsupported response envelopes", async () => {
@@ -318,14 +318,14 @@ describe("connector shared requests", () => {
         expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
     });
 
-    test("runConnectorAction sends the alias selector as a header without query params", async () => {
+    test("runConnectorAction sends the connection-name selector as a header without query params", async () => {
         const requests: Request[] = [];
         await runConnectorAction(
             {
                 actionName: "send_mail",
                 apiKey: "secret-1",
                 connectionSelector: {
-                    alias: "work",
+                    connectionName: "work",
                 },
                 endpoint: "oomol.com",
                 inputData: {
