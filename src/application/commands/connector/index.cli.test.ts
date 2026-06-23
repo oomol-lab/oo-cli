@@ -492,8 +492,12 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("--organization");
             expect(result.stdout).toContain("--org ");
             expect(result.stdout).toContain("--personal");
+            expect(result.stdout).toContain("--alias");
             expect(help).toContain(
                 "Run the action under the given organization identity",
+            );
+            expect(help).toContain(
+                "Run the action with the connector app alias",
             );
         }
         finally {
@@ -930,6 +934,315 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("lists connector apps for one service as json without app ids", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["connector", "apps", "gmail", "--json"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: [
+                            {
+                                accountLabel: "user@example.com",
+                                alias: "work",
+                                aliasNormalized: "work",
+                                authType: "oauth2",
+                                createdAt: 1,
+                                displayName: "Work Gmail",
+                                id: "app-1",
+                                isDefault: true,
+                                providerAccountId: "acct-1",
+                                scopes: ["gmail.send"],
+                                service: "gmail",
+                                status: "active",
+                                updatedAt: 2,
+                                userId: "user-1",
+                            },
+                        ],
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const output = JSON.parse(result.stdout);
+
+            expect(output).toEqual([
+                {
+                    accountLabel: "user@example.com",
+                    alias: "work",
+                    authType: "oauth2",
+                    displayName: "Work Gmail",
+                    isDefault: true,
+                    scopes: ["gmail.send"],
+                    service: "gmail",
+                    status: "active",
+                },
+            ]);
+            expect(JSON.stringify(output)).not.toContain("app-1");
+            expect(JSON.stringify(output)).not.toContain("acct-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists connector apps as text with aliases and default status", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["connector", "apps", "gmail"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: [
+                            {
+                                accountLabel: "user@example.com",
+                                alias: "work",
+                                authType: "oauth2",
+                                displayName: "Work Gmail",
+                                isDefault: true,
+                                scopes: ["gmail.send"],
+                                service: "gmail",
+                                status: "active",
+                            },
+                        ],
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Alias\tName\tStatus\tAuth\tDefault");
+            expect(result.stdout).toContain("work\tWork Gmail\tactive\toauth2\tyes");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("renders empty connector apps output", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const textResult = await sandbox.run(
+                ["connector", "apps", "gmail"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: [],
+                    })),
+                },
+            );
+            const jsonResult = await sandbox.run(
+                ["connector", "apps", "gmail", "--json"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: [],
+                    })),
+                },
+            );
+
+            expect(textResult.exitCode).toBe(0);
+            expect(textResult.stdout).toContain(
+                "No connector apps were found for this service.",
+            );
+            expect(JSON.parse(jsonResult.stdout)).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("renders missing connector app aliases as null in json and dash in text", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const appResponse = JSON.stringify({
+                data: [
+                    {
+                        accountLabel: "user@example.com",
+                        authType: null,
+                        displayName: "Personal Gmail",
+                        isDefault: false,
+                        scopes: [],
+                        service: "gmail",
+                        status: "active",
+                    },
+                ],
+            });
+            const jsonResult = await sandbox.run(
+                ["connector", "apps", "gmail", "--json"],
+                {
+                    fetcher: async () => new Response(appResponse),
+                },
+            );
+            const textResult = await sandbox.run(
+                ["connector", "apps", "gmail"],
+                {
+                    fetcher: async () => new Response(appResponse),
+                },
+            );
+
+            expect(JSON.parse(jsonResult.stdout)[0]).toMatchObject({
+                alias: null,
+            });
+            expect(textResult.stdout).toContain("-\tPersonal Gmail\tactive\t-\tno");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("surfaces connector apps request and response failures", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const failedResult = await sandbox.run(
+                ["connector", "apps", "gmail"],
+                {
+                    fetcher: async () => new Response("", {
+                        status: 503,
+                    }),
+                },
+            );
+            const invalidResult = await sandbox.run(
+                ["connector", "apps", "gmail"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({})),
+                },
+            );
+
+            expect(failedResult.exitCode).toBe(1);
+            expect(failedResult.stderr).toContain(
+                "The connector apps request returned HTTP 503.",
+            );
+            expect(invalidResult.exitCode).toBe(1);
+            expect(invalidResult.stderr).toContain(
+                "The connector apps response body is unsupported.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records connector apps telemetry without raw app fields", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["connector", "apps", "gmail", "--json"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: [
+                            {
+                                accountLabel: "user@example.com",
+                                alias: "work",
+                                authType: "oauth2",
+                                displayName: "Work Gmail",
+                                id: "app-1",
+                                isDefault: true,
+                                providerAccountId: "acct-1",
+                                scopes: ["gmail.send"],
+                                service: "gmail",
+                                status: "active",
+                            },
+                        ],
+                    })),
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.apps",
+                    result_count_bucket: "1-5",
+                },
+            });
+            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain("app-1");
+            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain("acct-1");
+            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain("work");
+            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain(
+                "user@example.com",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records connector apps failure telemetry without raw service or error values", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["connector", "apps", "gmail"],
+                {
+                    fetcher: async () => new Response("private error body", {
+                        status: 503,
+                    }),
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.apps",
+                },
+            });
+            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain("gmail");
+            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain(
+                "private error body",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("renders connector apps help as a read-only listing command", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const connectorHelp = await sandbox.run(["connector", "--help"]);
+            const appsHelp = await sandbox.run(["connector", "apps", "--help"]);
+
+            expect(connectorHelp.stdout).toContain("apps");
+            expect(appsHelp.exitCode).toBe(0);
+            expect(appsHelp.stdout).toContain("--json");
+            expect(appsHelp.stdout).toContain("List connected connector apps");
+            expect(appsHelp.stdout).not.toContain("disconnect");
+            expect(appsHelp.stdout).not.toContain("reconnect");
+            expect(appsHelp.stdout).not.toContain("update alias");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports connector run with cached schema and json output", async () => {
         const sandbox = await createCliSandbox();
 
@@ -1023,6 +1336,7 @@ describe("connectorCommand CLI", () => {
                 properties: {
                     action: "send_mail",
                     command_full: "connector.run",
+                    connection_selector: "none",
                     data_size_bucket: "<1KB",
                     dry_run: false,
                     identity_source: "personal",
@@ -1032,6 +1346,184 @@ describe("connectorCommand CLI", () => {
             });
             expect(telemetryPayload?.properties).not.toHaveProperty("data");
             expect(telemetryPayload?.properties).not.toHaveProperty("input");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("runs a connector action with an alias selector header", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "--alias",
+                    " work ",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
+            );
+            expect(requests[0]?.headers.get("x-oo-connector-alias")).toBe("work");
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.run",
+                    connection_selector: "alias",
+                },
+            });
+            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain("work");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects an empty --alias value before login and schema lookup", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "--alias",
+                    "   ",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            data: {},
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("The --alias value cannot be empty.");
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps schema metadata requests alias-free", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "--alias",
+                    "work",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.method === "GET") {
+                            return new Response(JSON.stringify({
+                                data: {
+                                    description: "Send a Gmail message.",
+                                    inputSchema: {
+                                        properties: {
+                                            to: {
+                                                type: "string",
+                                            },
+                                        },
+                                        required: ["to"],
+                                        type: "object",
+                                    },
+                                    name: "send_mail",
+                                    outputSchema: {
+                                        type: "object",
+                                    },
+                                    providerPermissions: [],
+                                    requiredScopes: [],
+                                    service: "gmail",
+                                },
+                            }));
+                        }
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(2);
+            expect(requests[0]?.method).toBe("GET");
+            expect(requests[0]?.headers.get("x-oo-connector-alias")).toBeNull();
+            expect(requests[1]?.method).toBe("POST");
+            expect(requests[1]?.headers.get("x-oo-connector-alias")).toBe("work");
         }
         finally {
             await sandbox.cleanup();
@@ -1205,6 +1697,71 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("sends the alias selector on every async wait poll request", async () => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const requests: Request[] = [];
+            const responses = [
+                {
+                    data: {
+                        state: "processing",
+                    },
+                    meta: {
+                        executionId: "poll-exec-1",
+                    },
+                },
+                {
+                    data: {
+                        data: {
+                            images: ["image-1"],
+                        },
+                        state: "completed",
+                    },
+                    meta: {
+                        executionId: "poll-exec-2",
+                    },
+                },
+            ];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_result",
+                    "-d",
+                    "{\"sessionID\":\"session-1\"}",
+                    "--alias",
+                    "work",
+                    "--wait",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify(responses.shift()));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(2);
+            expect(requests.map(
+                request => request.headers.get("x-oo-connector-alias"),
+            )).toEqual(["work", "work"]);
+        }
+        finally {
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
     test("submits async actions and waits for result action completion when --wait-result is enabled", async () => {
         const sandbox = await createCliSandbox();
         const sleepMock = createBunSleepMock();
@@ -1318,6 +1875,84 @@ describe("connectorCommand CLI", () => {
                 },
             });
             expect(sleepMock.sleepCalls).toEqual([3_000]);
+        }
+        finally {
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("sends the alias selector on async submit and result requests", async () => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const requests: Request[] = [];
+            const responses = [
+                {
+                    data: {
+                        sessionId: "session-1",
+                    },
+                    meta: {
+                        executionId: "submit-exec",
+                    },
+                },
+                {
+                    data: {
+                        state: "processing",
+                    },
+                    meta: {
+                        executionId: "poll-exec-1",
+                    },
+                },
+                {
+                    data: {
+                        data: {
+                            images: ["image-1"],
+                        },
+                        state: "completed",
+                    },
+                    meta: {
+                        executionId: "poll-exec-2",
+                    },
+                },
+            ];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--alias",
+                    "work",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify(responses.shift()));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests.map(request => request.url)).toEqual([
+                "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
+                "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
+                "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
+            ]);
+            expect(requests.map(
+                request => request.headers.get("x-oo-connector-alias"),
+            )).toEqual(["work", "work", "work"]);
         }
         finally {
             sleepMock.restore();
@@ -2457,6 +3092,8 @@ describe("connectorCommand CLI", () => {
                     "gmail",
                     "-a",
                     "get_message",
+                    "--alias",
+                    "secret-work-alias",
                     "-d",
                     "{\"messageId\":\"invalid-id\"}",
                 ],
@@ -2501,6 +3138,7 @@ describe("connectorCommand CLI", () => {
                 properties: {
                     action: "get_message",
                     command_full: "connector.run",
+                    connection_selector: "alias",
                     data_size_bucket: "<1KB",
                     dry_run: false,
                     error_code: "invalid_input",
@@ -2509,6 +3147,12 @@ describe("connectorCommand CLI", () => {
                     wait: false,
                 },
             });
+            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain(
+                "secret-work-alias",
+            );
+            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain(
+                "Invalid id value",
+            );
         }
         finally {
             await sandbox.cleanup();

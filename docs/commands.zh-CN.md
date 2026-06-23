@@ -520,6 +520,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`-d, --data <data>` 支持直接传入 JSON，或使用 `@路径` 读取 JSON 文件。
   `--input <data>` 是 `--data <data>` 的 alias。
 - 选项：`--dry-run` 只做 payload 校验，不真正执行 action。
+- 选项：`--alias <alias>` 使用指定 connector app alias 运行该 action。
+  可用 `oo connector apps <serviceName>` 查看可用 alias。
 - 选项：`--wait` 会轮询选中的 action，直到进入终态。只有选中 action 的
   schema 声明了异步结果 lifecycle 时，这个选项才有效。
 - 选项：`--wait-result` 会提交异步 submit action，然后轮询它配置的结果
@@ -545,6 +547,20 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：命令会在执行前根据选中 action 的 contract 校验输入。
 - 说明：text 模式下等待 async result action 时，交互式终端会在 stderr
   显示进度。JSON 输出不会混入进度文本。
+
+### `oo connector apps <serviceName>`
+
+列出一个服务下已连接的 connector app。该命令只读。
+
+- 参数：`<serviceName>` 为服务名。
+- 选项：`--format=json` 和 `--json` 会输出 JSON 数组。
+- 输出：JSON 条目包含稳定 CLI 字段 `service`、`alias`、`displayName`、
+  `accountLabel`、`status`、`authType`、`isDefault` 和 `scopes`。不会包含
+  app id 字段。
+- 输出：当 app 没有 alias 时，JSON 输出使用 `null`，文本输出显示 `-`。
+- 输出：文本输出每个 app 一行，以 tab 分隔 alias、名称、状态、认证类型和默认标记。
+- 说明：可将列出的 `alias` 值传给
+  `oo connector run <serviceName> --alias <alias>`。
 
 ### `oo connector proxy <serviceName>`
 

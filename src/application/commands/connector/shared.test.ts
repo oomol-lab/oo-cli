@@ -16,6 +16,7 @@ import {
 import {
     getConnectorActionMetadata,
     listAuthenticatedConnectorServices,
+    listConnectorAppsByService,
     runConnectorAction,
     runConnectorProxy,
     searchConnectorActions,
@@ -96,6 +97,97 @@ describe("connector shared requests", () => {
 
         expect([...services]).toEqual([]);
         expect(fetchCount).toBe(0);
+    });
+
+    test("listConnectorAppsByService requests apps for one service", async () => {
+        const requests: Request[] = [];
+        const apps = await listConnectorAppsByService(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: [
+                            {
+                                accountLabel: "user@example.com",
+                                alias: "work",
+                                aliasNormalized: "work",
+                                authType: "oauth2",
+                                createdAt: 1,
+                                displayName: "Work Gmail",
+                                id: "app-1",
+                                isDefault: true,
+                                providerAccountId: "acct-1",
+                                scopes: ["gmail.send"],
+                                service: "gmail",
+                                status: "active",
+                                updatedAt: 2,
+                                userId: "user-1",
+                            },
+                        ],
+                    }));
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.url).toBe(
+            "https://connector.oomol.com/v1/apps/services/gmail",
+        );
+        expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
+        expect(apps).toHaveLength(1);
+        expect(apps[0]).toMatchObject({
+            alias: "work",
+            displayName: "Work Gmail",
+        });
+    });
+
+    test("listConnectorAppsByService maps missing aliases to null", async () => {
+        const apps = await listConnectorAppsByService(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    data: [
+                        {
+                            accountLabel: "user@example.com",
+                            authType: null,
+                            displayName: "Personal Gmail",
+                            isDefault: false,
+                            service: "gmail",
+                            status: "active",
+                        },
+                    ],
+                })),
+            }),
+        );
+
+        expect(apps[0]?.alias).toBeNull();
+    });
+
+    test("listConnectorAppsByService rejects unsupported response envelopes", async () => {
+        for (const body of ["{}", "{\"data\":{}}"]) {
+            const error = await expectCliUserError(listConnectorAppsByService(
+                {
+                    apiKey: "secret-1",
+                    endpoint: "oomol.com",
+                    serviceName: "gmail",
+                },
+                createRequestContext({
+                    fetcher: async () => new Response(body),
+                }),
+            ));
+
+            expect(error.key).toBe("errors.connectorApps.invalidResponse");
+        }
     });
 
     test("getConnectorActionMetadata preserves metadata-only fields", async () => {
@@ -224,6 +316,44 @@ describe("connector shared requests", () => {
             "https://connector.oomol.com/v1/actions/gmail.send_mail",
         );
         expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+    });
+
+    test("runConnectorAction sends the alias selector as a header without query params", async () => {
+        const requests: Request[] = [];
+        await runConnectorAction(
+            {
+                actionName: "send_mail",
+                apiKey: "secret-1",
+                connectionSelector: {
+                    alias: "work",
+                },
+                endpoint: "oomol.com",
+                inputData: {
+                    to: "foo@bar.com",
+                },
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: {
+                            messageId: "message-1",
+                        },
+                        meta: {
+                            executionId: "exec-1",
+                        },
+                    }));
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.url).toBe(
+            "https://connector.oomol.com/v1/actions/gmail.send_mail",
+        );
+        expect(requests[0]?.headers.get("x-oo-connector-alias")).toBe("work");
     });
 
     test("runConnectorAction omits the organization query and header for the personal identity", async () => {

@@ -89,6 +89,10 @@ Facts:
 - `--action` is required and selects the connector action name.
 - `--data` must be a JSON object string or `@path/to/file.json`.
 - If `--data` is omitted, the CLI uses `{}`.
+- If a service has multiple connected apps or execution fails with
+  `connection_ambiguous`, run `oo connector apps "<serviceName>" --json`, pick
+  the intended `alias`, then pass `--alias "<alias>"` to `oo connector run`.
+- Do not use app ids as CLI selectors for connector actions.
 - `--json` returns a stable JSON object for execution output.
 - In execution responses, the execution id is nested under
   `meta.executionId`, not a top-level field.
@@ -130,8 +134,6 @@ Facts:
 - Do not pass provider credentials, `Authorization`, cookies, or API keys in
   proxy headers. The connector service injects authentication from the
   connected app.
-- Use `--app-id "<id>"` or `--alias "<alias>"` only when the user identified a
-  specific connected app. They cannot be combined.
 - JSON output has this stable shape:
 
 ```json

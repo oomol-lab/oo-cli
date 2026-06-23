@@ -131,10 +131,16 @@ const commandTelemetryDecisions = {
         kind: "generic",
         reason: "Command group; child commands record connector dimensions.",
     },
+    "connector.apps": {
+        kind: "properties",
+        properties: ["result_count_bucket"],
+        reason: "Records bounded connector app list size without app ids, aliases, or account labels.",
+    },
     "connector.run": {
         kind: "properties",
         properties: [
             "action",
+            "connection_selector",
             "data_size_bucket",
             "dry_run",
             "error_code",
@@ -144,7 +150,7 @@ const commandTelemetryDecisions = {
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, and identity source (personal/flag/config) without the organization name.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/config), and none/alias selector mode without the organization name or alias value.",
     },
     "connector.proxy": {
         kind: "properties",

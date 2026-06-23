@@ -54,6 +54,9 @@ export const enMessages = {
     "commands.connector.proxy.description":
         "Proxy a provider API request through a connected connector app.",
     "commands.connector.proxy.summary": "Proxy a connector API request",
+    "commands.connector.apps.description":
+        "List connected connector apps for one service.",
+    "commands.connector.apps.summary": "List connector apps",
     "commands.completion.description":
         "Output a shell completion script for a supported shell.",
     "commands.completion.summary": "Generate shell completion scripts",
@@ -281,6 +284,12 @@ export const enMessages = {
         "The authenticated connector services request failed: {message}",
     "errors.connectorAuthenticated.requestFailed":
         "The authenticated connector services request returned HTTP {status}.",
+    "errors.connectorApps.invalidResponse":
+        "The connector apps response body is unsupported.",
+    "errors.connectorApps.requestError":
+        "The connector apps request failed: {message}",
+    "errors.connectorApps.requestFailed":
+        "The connector apps request returned HTTP {status}.",
     "errors.connectorMetadata.invalidResponse":
         "The connector action metadata response body is unsupported.",
     "errors.connectorMetadata.requestError":
@@ -289,6 +298,8 @@ export const enMessages = {
         "The connector action metadata request returned HTTP {status}.",
     "errors.connectorRun.actionRequired":
         "The --action option is required.",
+    "errors.connectorRun.aliasEmpty":
+        "The --alias value cannot be empty.",
     "errors.connectorRun.dataFilePathRequired":
         "The @data file path cannot be empty.",
     "errors.connectorRun.dataReadFailed":
@@ -824,6 +835,8 @@ export const enMessages = {
         "Poll until an async result action reaches a terminal state",
     "options.connectorRunWaitResult":
         "Submit an async action and wait for its result action",
+    "options.connectorRunAlias":
+        "Run the action with the connector app alias",
     "options.connectorRunOrganization":
         "Run the action under the given organization identity (alias: --org)",
     "options.connectorRunPersonal":
@@ -1109,6 +1122,15 @@ export const enMessages = {
     "connector.search.text.authenticated.yes": "yes",
     "connector.search.text.noResults":
         "No matching connector actions were found.",
+    "connector.apps.text.alias": "Alias",
+    "connector.apps.text.auth": "Auth",
+    "connector.apps.text.default": "Default",
+    "connector.apps.text.default.no": "no",
+    "connector.apps.text.default.yes": "yes",
+    "connector.apps.text.name": "Name",
+    "connector.apps.text.noResults":
+        "No connector apps were found for this service.",
+    "connector.apps.text.status": "Status",
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.run.text.executionId": "Execution ID",
     "connector.run.text.resultData": "Result data",
@@ -1222,6 +1244,10 @@ export const zhMessages = {
         "通过已连接的 connector app 代理 provider API 请求。",
     "commands.connector.proxy.summary":
         "代理 connector API 请求",
+    "commands.connector.apps.description":
+        "列出一个服务下已连接的 connector app。",
+    "commands.connector.apps.summary":
+        "列出 connector app",
     "commands.completion.description": "输出受支持 shell 的补全脚本。",
     "commands.completion.summary": "生成 shell 补全脚本",
     "commands.config.description": "读取并更新持久化的用户配置。",
@@ -1422,6 +1448,12 @@ export const zhMessages = {
         "获取已认证 connector 服务列表失败：{message}",
     "errors.connectorAuthenticated.requestFailed":
         "获取已认证 connector 服务列表返回了 HTTP {status}。",
+    "errors.connectorApps.invalidResponse":
+        "connector app 列表返回了不受支持的响应内容。",
+    "errors.connectorApps.requestError":
+        "获取 connector app 列表失败：{message}",
+    "errors.connectorApps.requestFailed":
+        "获取 connector app 列表返回了 HTTP {status}。",
     "errors.connectorMetadata.invalidResponse":
         "connector action 元数据返回了不受支持的响应内容。",
     "errors.connectorMetadata.requestError":
@@ -1430,6 +1462,8 @@ export const zhMessages = {
         "获取 connector action 元数据返回了 HTTP {status}。",
     "errors.connectorRun.actionRequired":
         "--action 选项为必填。",
+    "errors.connectorRun.aliasEmpty":
+        "--alias 的值不能为空。",
     "errors.connectorRun.dataFilePathRequired":
         "@data 文件路径不能为空。",
     "errors.connectorRun.dataReadFailed":
@@ -1960,6 +1994,8 @@ export const zhMessages = {
         "轮询异步结果 action，直到进入终态",
     "options.connectorRunWaitResult":
         "提交异步 action，并等待它的结果 action",
+    "options.connectorRunAlias":
+        "使用指定 connector app alias 运行该 action",
     "options.connectorRunOrganization":
         "以指定组织身份运行该 action（别名：--org）",
     "options.connectorRunPersonal":
@@ -2241,6 +2277,15 @@ export const zhMessages = {
     "connector.search.text.authenticated.no": "否",
     "connector.search.text.authenticated.yes": "是",
     "connector.search.text.noResults": "未找到匹配的 connector action。",
+    "connector.apps.text.alias": "Alias",
+    "connector.apps.text.auth": "认证",
+    "connector.apps.text.default": "默认",
+    "connector.apps.text.default.no": "否",
+    "connector.apps.text.default.yes": "是",
+    "connector.apps.text.name": "名称",
+    "connector.apps.text.noResults":
+        "该服务下未找到 connector app。",
+    "connector.apps.text.status": "状态",
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.run.text.executionId": "执行 ID",
     "connector.run.text.resultData": "结果数据",
