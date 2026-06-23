@@ -100,6 +100,23 @@ const connectorProxyResponseSchema = z.object({
     ...response
 }) => response);
 
+const connectorAppAliasSchema = z.string().nullable().optional().transform(value => value ?? null);
+
+const connectorAppViewSchema = z.object({
+    accountLabel: z.string(),
+    alias: connectorAppAliasSchema,
+    authType: z.string().nullable(),
+    displayName: z.string(),
+    isDefault: z.boolean(),
+    scopes: z.array(z.string()).default([]),
+    service: z.string().min(1),
+    status: z.string().min(1),
+}).passthrough();
+
+const connectorAppsByServiceResponseSchema = z.object({
+    data: z.array(connectorAppViewSchema),
+});
+
 const connectorActionFailureResponseSchema = z.object({
     // `code` / `error` are accepted as aliases for `errorCode` / `message`
     // because some upstream connector responses use the shorter field names.
@@ -118,6 +135,10 @@ const connectorActionFailureResponseSchema = z.object({
 
 export const connectorFormatValues = ["json"] as const;
 
+export interface ConnectorConnectionSelector {
+    alias?: string;
+}
+
 export function requireConnectorActionName(rawAction: string | undefined): string {
     const trimmed = rawAction?.trim();
 
@@ -132,6 +153,7 @@ export type ConnectorActionDefinition = z.output<typeof connectorActionDefinitio
 export type ConnectorActionAsyncLifecycle = z.output<typeof connectorActionAsyncLifecycleSchema>;
 export type ConnectorActionMetadata = z.output<typeof connectorActionMetadataSchema>;
 export type ConnectorActionRunResponse = z.output<typeof connectorActionRunResponseSchema>;
+export type ConnectorAppView = z.output<typeof connectorAppViewSchema>;
 export type ConnectorProxyResponse = z.output<typeof connectorProxyResponseSchema>;
 type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResponseSchema>;
 
@@ -257,6 +279,58 @@ export async function listAuthenticatedConnectorServices(
     }
 }
 
+export async function listConnectorAppsByService(
+    options: {
+        apiKey: string;
+        endpoint: string;
+        serviceName: string;
+    },
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<ConnectorAppView[]> {
+    const requestUrl = new URL(
+        `https://connector.${options.endpoint}/v1/apps/services/${encodeURIComponent(options.serviceName)}`,
+    );
+
+    const rawResponse = await requestText({
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.connectorApps.requestFailed",
+            1,
+            {
+                status,
+            },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.connectorApps.requestError",
+            1,
+            {
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ),
+        fields: {
+            start: {
+                serviceName: options.serviceName,
+            },
+        },
+        init: {
+            headers: {
+                Authorization: options.apiKey,
+            },
+        },
+        requestLabel: "Connector apps list",
+        requestUrl,
+    });
+
+    try {
+        return connectorAppsByServiceResponseSchema.parse(
+            JSON.parse(rawResponse) as unknown,
+        ).data;
+    }
+    catch {
+        throw new CliUserError("errors.connectorApps.invalidResponse", 1);
+    }
+}
+
 export async function getConnectorActionMetadata(
     options: {
         actionName: string;
@@ -316,6 +390,7 @@ export async function runConnectorAction(
     options: {
         actionName: string;
         apiKey: string;
+        connectionSelector?: ConnectorConnectionSelector;
         endpoint: string;
         identity?: ConnectorIdentity;
         inputData: unknown;
@@ -352,6 +427,7 @@ export async function runConnectorAction(
             headers: {
                 "Authorization": options.apiKey,
                 "Content-Type": "application/json",
+                ...connectorConnectionSelectorHeaders(options.connectionSelector),
                 ...connectorIdentityHeaders(options.identity),
             },
             method: "POST",
@@ -576,6 +652,18 @@ function createConnectorProxyRequestUrl(
     return new URL(
         `https://connector.${endpoint}/v1/proxy/${encodeURIComponent(serviceName)}`,
     );
+}
+
+function connectorConnectionSelectorHeaders(
+    selector: ConnectorConnectionSelector | undefined,
+): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    if (selector?.alias !== undefined) {
+        headers["x-oo-connector-alias"] = selector.alias;
+    }
+
+    return headers;
 }
 
 function parseConnectorFailureResponse(

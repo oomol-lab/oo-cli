@@ -601,6 +601,8 @@ Validate input data and run one connector action.
 - Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
   `--input <data>` is an alias for `--data <data>`.
 - Options: `--dry-run` validates the payload without executing the action.
+- Options: `--alias <alias>` runs the action with the connector app alias.
+  Use `oo connector apps <serviceName>` to list available aliases.
 - Options: `--wait` polls the selected action until it reaches a terminal state.
   This option is only valid when the selected action schema declares an async
   result lifecycle.
@@ -635,6 +637,22 @@ Validate input data and run one connector action.
   before executing.
 - Notes: while waiting for an async result action in text mode, interactive
   terminals show progress on stderr. JSON output does not include progress text.
+
+### `oo connector apps <serviceName>`
+
+List connected connector apps for one service. This command is read-only.
+
+- Arguments: `<serviceName>` is the service name.
+- Options: `--format=json` and `--json` print a JSON array.
+- Output: JSON entries include the stable CLI fields `service`, `alias`,
+  `displayName`, `accountLabel`, `status`, `authType`, `isDefault`, and
+  `scopes`. App id fields are not included.
+- Output: when an app has no alias, JSON output uses `null` and text output
+  prints `-`.
+- Output: text output prints one tab-separated row per app with alias, name,
+  status, auth type, and default marker.
+- Notes: use the listed `alias` value with
+  `oo connector run <serviceName> --alias <alias>`.
 
 ### `oo connector proxy <serviceName>`
 

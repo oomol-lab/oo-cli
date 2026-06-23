@@ -3,6 +3,7 @@ import type { ConnectorIdentity } from "./identity.ts";
 import type {
     ConnectorActionAsyncLifecycle,
     ConnectorActionRunResponse,
+    ConnectorConnectionSelector,
 } from "./shared.ts";
 
 import { Buffer } from "node:buffer";
@@ -56,6 +57,7 @@ const connectorAsyncLifecycleDefaultTimeoutMs = 6 * 3_600_000;
 
 interface ConnectorRunInput {
     action?: string;
+    alias?: string;
     data?: string;
     dryRun?: boolean;
     format?: (typeof connectorFormatValues)[number];
@@ -96,6 +98,12 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             descriptionKey: "options.data",
         },
         {
+            name: "alias",
+            longFlag: "--alias",
+            valueName: "alias",
+            descriptionKey: "options.connectorRunAlias",
+        },
+        {
             name: "dryRun",
             longFlag: "--dry-run",
             descriptionKey: "options.dryRun",
@@ -126,6 +134,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     ],
     inputSchema: z.object({
         action: z.string().optional(),
+        alias: z.string().optional(),
         data: z.string().optional(),
         dryRun: z.boolean().optional(),
         format: z.enum(connectorFormatValues).optional(),
@@ -148,6 +157,12 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw new CliUserError("errors.connectorRun.identityConflict", 2);
         }
 
+        const alias = input.alias?.trim();
+        if (input.alias !== undefined && alias === "") {
+            throw new CliUserError("errors.connectorRun.aliasEmpty", 2);
+        }
+
+        const connectionSelector = alias === undefined ? undefined : { alias };
         const organizationFlag = input.organization?.trim();
         if (input.organization !== undefined && organizationFlag === "") {
             throw new CliUserError("errors.connectorRun.organizationEmpty", 2);
@@ -169,6 +184,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 
         context.telemetry?.recordProperties({
             action: actionName,
+            connection_selector: connectionSelector === undefined ? "none" : "alias",
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(inputData)),
             ),
@@ -258,6 +274,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
                 {
                     actionName,
                     apiKey: account.apiKey,
+                    connectionSelector,
                     endpoint: account.endpoint,
                     identity,
                     inputData,
@@ -306,6 +323,7 @@ async function runConnectorActionWithDefaultMode(
     options: {
         actionName: string;
         apiKey: string;
+        connectionSelector: ConnectorConnectionSelector | undefined;
         endpoint: string;
         identity: ConnectorIdentity;
         inputData: unknown;
@@ -322,6 +340,7 @@ async function runConnectorActionWithDefaultMode(
             {
                 actionName: options.actionName,
                 apiKey: options.apiKey,
+                connectionSelector: options.connectionSelector,
                 endpoint: options.endpoint,
                 identity: options.identity,
                 inputData: options.inputData,
@@ -340,6 +359,7 @@ async function runConnectorActionWithDefaultMode(
             {
                 actionName: options.actionName,
                 apiKey: options.apiKey,
+                connectionSelector: options.connectionSelector,
                 endpoint: options.endpoint,
                 identity: options.identity,
                 inputData: options.inputData,
@@ -361,6 +381,7 @@ async function runConnectorActionWithDefaultMode(
         {
             actionName: options.actionName,
             apiKey: options.apiKey,
+            connectionSelector: options.connectionSelector,
             endpoint: options.endpoint,
             identity: options.identity,
             inputData: options.inputData,
@@ -374,6 +395,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
     options: {
         actionName: string;
         apiKey: string;
+        connectionSelector: ConnectorConnectionSelector | undefined;
         endpoint: string;
         identity: ConnectorIdentity;
         inputData: unknown;
@@ -394,6 +416,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
         {
             actionName: options.actionName,
             apiKey: options.apiKey,
+            connectionSelector: options.connectionSelector,
             endpoint: options.endpoint,
             identity: options.identity,
             inputData: options.inputData,
@@ -416,6 +439,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
         {
             actionName: options.submitLifecycle.resultAction,
             apiKey: options.apiKey,
+            connectionSelector: options.connectionSelector,
             endpoint: options.endpoint,
             identity: options.identity,
             inputData: {
@@ -443,6 +467,7 @@ async function waitForConnectorAsyncResult(
     options: {
         actionName: string;
         apiKey: string;
+        connectionSelector: ConnectorConnectionSelector | undefined;
         endpoint: string;
         identity: ConnectorIdentity;
         inputData: unknown;
@@ -475,6 +500,7 @@ async function waitForConnectorAsyncResult(
             {
                 actionName: options.actionName,
                 apiKey: options.apiKey,
+                connectionSelector: options.connectionSelector,
                 endpoint: options.endpoint,
                 identity: options.identity,
                 inputData: options.inputData,
