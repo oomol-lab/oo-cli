@@ -492,12 +492,12 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("--organization");
             expect(result.stdout).toContain("--org ");
             expect(result.stdout).toContain("--personal");
-            expect(result.stdout).toContain("--alias");
+            expect(result.stdout).toContain("--connection-name");
             expect(help).toContain(
                 "Run the action under the given organization identity",
             );
             expect(help).toContain(
-                "Run the action with the connector app alias",
+                "Run the action with the connector app connection name",
             );
         }
         finally {
@@ -972,8 +972,8 @@ describe("connectorCommand CLI", () => {
             expect(output).toEqual([
                 {
                     accountLabel: "user@example.com",
-                    alias: "work",
                     authType: "oauth2",
+                    connectionName: "work",
                     displayName: "Work Gmail",
                     isDefault: true,
                     scopes: ["gmail.send"],
@@ -989,7 +989,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("lists connector apps as text with aliases and default status", async () => {
+    test("lists connector apps as text with connection names and default status", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -1016,7 +1016,7 @@ describe("connectorCommand CLI", () => {
             );
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("Alias\tName\tStatus\tAuth\tDefault");
+            expect(result.stdout).toContain("Connection Name\tName\tStatus\tAuth\tDefault");
             expect(result.stdout).toContain("work\tWork Gmail\tactive\toauth2\tyes");
         }
         finally {
@@ -1058,7 +1058,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("renders missing connector app aliases as null in json and dash in text", async () => {
+    test("renders missing connector app connection names as null in json and dash in text", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -1091,7 +1091,7 @@ describe("connectorCommand CLI", () => {
             );
 
             expect(JSON.parse(jsonResult.stdout)[0]).toMatchObject({
-                alias: null,
+                connectionName: null,
             });
             expect(textResult.stdout).toContain("-\tPersonal Gmail\tactive\t-\tno");
         }
@@ -1352,7 +1352,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("runs a connector action with an alias selector header", async () => {
+    test("runs a connector action with a connection-name selector header", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -1367,7 +1367,7 @@ describe("connectorCommand CLI", () => {
                     "gmail",
                     "-a",
                     "send_mail",
-                    "--alias",
+                    "--connection-name",
                     " work ",
                     "-d",
                     "{\"to\":\"foo@bar.com\"}",
@@ -1404,7 +1404,7 @@ describe("connectorCommand CLI", () => {
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "connector.run",
-                    connection_selector: "alias",
+                    connection_selector: "connectionName",
                 },
             });
             expect(JSON.stringify(telemetryPayload?.properties)).not.toContain("work");
@@ -1414,7 +1414,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("rejects an empty --alias value before login and schema lookup", async () => {
+    test("rejects an empty --connection-name value before login and schema lookup", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -1426,7 +1426,7 @@ describe("connectorCommand CLI", () => {
                     "gmail",
                     "-a",
                     "send_mail",
-                    "--alias",
+                    "--connection-name",
                     "   ",
                     "-d",
                     "{\"to\":\"foo@bar.com\"}",
@@ -1448,7 +1448,7 @@ describe("connectorCommand CLI", () => {
 
             expect(result.exitCode).toBe(2);
             expect(result.stdout).toBe("");
-            expect(result.stderr).toContain("The --alias value cannot be empty.");
+            expect(result.stderr).toContain("The --connection-name value cannot be empty.");
             expect(requestCount).toBe(0);
         }
         finally {
@@ -1456,7 +1456,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("keeps schema metadata requests alias-free", async () => {
+    test("keeps schema metadata requests connection-name-free", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -1470,7 +1470,7 @@ describe("connectorCommand CLI", () => {
                     "gmail",
                     "-a",
                     "send_mail",
-                    "--alias",
+                    "--connection-name",
                     "work",
                     "-d",
                     "{\"to\":\"foo@bar.com\"}",
@@ -1697,7 +1697,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("sends the alias selector on every async wait poll request", async () => {
+    test("sends the connection-name selector on every async wait poll request", async () => {
         const sandbox = await createCliSandbox();
         const sleepMock = createBunSleepMock();
 
@@ -1736,7 +1736,7 @@ describe("connectorCommand CLI", () => {
                     "openai_image_async_result",
                     "-d",
                     "{\"sessionID\":\"session-1\"}",
-                    "--alias",
+                    "--connection-name",
                     "work",
                     "--wait",
                     "--json",
@@ -1882,7 +1882,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("sends the alias selector on async submit and result requests", async () => {
+    test("sends the connection-name selector on async submit and result requests", async () => {
         const sandbox = await createCliSandbox();
         const sleepMock = createBunSleepMock();
 
@@ -1930,7 +1930,7 @@ describe("connectorCommand CLI", () => {
                     "openai_image_async_submit",
                     "-d",
                     "{\"prompt\":\"a cat\"}",
-                    "--alias",
+                    "--connection-name",
                     "work",
                     "--wait-result",
                     "--json",
@@ -3092,8 +3092,8 @@ describe("connectorCommand CLI", () => {
                     "gmail",
                     "-a",
                     "get_message",
-                    "--alias",
-                    "secret-work-alias",
+                    "--connection-name",
+                    "secret-work-connection",
                     "-d",
                     "{\"messageId\":\"invalid-id\"}",
                 ],
@@ -3138,7 +3138,7 @@ describe("connectorCommand CLI", () => {
                 properties: {
                     action: "get_message",
                     command_full: "connector.run",
-                    connection_selector: "alias",
+                    connection_selector: "connectionName",
                     data_size_bucket: "<1KB",
                     dry_run: false,
                     error_code: "invalid_input",
@@ -3148,7 +3148,7 @@ describe("connectorCommand CLI", () => {
                 },
             });
             expect(JSON.stringify(telemetryPayload?.properties)).not.toContain(
-                "secret-work-alias",
+                "secret-work-connection",
             );
             expect(JSON.stringify(telemetryPayload?.properties)).not.toContain(
                 "Invalid id value",

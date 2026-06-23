@@ -19,8 +19,8 @@ interface ConnectorAppsInput {
 
 interface ConnectorAppListItem {
     accountLabel: string;
-    alias: string | null;
     authType: string | null;
+    connectionName: string | null;
     displayName: string;
     isDefault: boolean;
     scopes: string[];
@@ -79,8 +79,8 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
 function createConnectorAppListItem(app: ConnectorAppView): ConnectorAppListItem {
     return {
         accountLabel: app.accountLabel,
-        alias: app.alias,
         authType: app.authType,
+        connectionName: app.connectionName,
         displayName: app.displayName,
         isDefault: app.isDefault,
         scopes: app.scopes,
@@ -101,14 +101,14 @@ function formatConnectorAppsAsText(
 
     return [
         [
-            context.translator.t("connector.apps.text.alias"),
+            context.translator.t("connector.apps.text.connectionName"),
             context.translator.t("connector.apps.text.name"),
             context.translator.t("connector.apps.text.status"),
             context.translator.t("connector.apps.text.auth"),
             context.translator.t("connector.apps.text.default"),
         ].join("\t"),
         ...apps.map(app => [
-            app.alias ?? "-",
+            app.connectionName ?? "-",
             app.displayName,
             app.status,
             app.authType ?? "-",

@@ -134,7 +134,7 @@ const commandTelemetryDecisions = {
     "connector.apps": {
         kind: "properties",
         properties: ["result_count_bucket"],
-        reason: "Records bounded connector app list size without app ids, aliases, or account labels.",
+        reason: "Records bounded connector app list size without app ids, connection names, or account labels.",
     },
     "connector.run": {
         kind: "properties",
@@ -150,7 +150,7 @@ const commandTelemetryDecisions = {
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/config), and none/alias selector mode without the organization name or alias value.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/config), and none/connectionName selector mode without the organization name or connection name value.",
     },
     "connector.proxy": {
         kind: "properties",

@@ -601,8 +601,9 @@ Validate input data and run one connector action.
 - Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
   `--input <data>` is an alias for `--data <data>`.
 - Options: `--dry-run` validates the payload without executing the action.
-- Options: `--alias <alias>` runs the action with the connector app alias.
-  Use `oo connector apps <serviceName>` to list available aliases.
+- Options: `--connection-name <connection-name>` runs the action with the
+  connector app connection name. Use `oo connector apps <serviceName>` to list
+  available connection names.
 - Options: `--wait` polls the selected action until it reaches a terminal state.
   This option is only valid when the selected action schema declares an async
   result lifecycle.
@@ -644,15 +645,15 @@ List connected connector apps for one service. This command is read-only.
 
 - Arguments: `<serviceName>` is the service name.
 - Options: `--format=json` and `--json` print a JSON array.
-- Output: JSON entries include the stable CLI fields `service`, `alias`,
-  `displayName`, `accountLabel`, `status`, `authType`, `isDefault`, and
-  `scopes`. App id fields are not included.
-- Output: when an app has no alias, JSON output uses `null` and text output
-  prints `-`.
-- Output: text output prints one tab-separated row per app with alias, name,
-  status, auth type, and default marker.
-- Notes: use the listed `alias` value with
-  `oo connector run <serviceName> --alias <alias>`.
+- Output: JSON entries include the stable CLI fields `service`,
+  `connectionName`, `displayName`, `accountLabel`, `status`, `authType`,
+  `isDefault`, and `scopes`. App id fields are not included.
+- Output: when an app has no connection name, JSON output uses `null` and text
+  output prints `-`.
+- Output: text output prints one tab-separated row per app with connection
+  name, name, status, auth type, and default marker.
+- Notes: use the listed `connectionName` value with
+  `oo connector run <serviceName> --connection-name <connection-name>`.
 
 ### `oo connector proxy <serviceName>`
 

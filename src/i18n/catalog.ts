@@ -298,8 +298,8 @@ export const enMessages = {
         "The connector action metadata request returned HTTP {status}.",
     "errors.connectorRun.actionRequired":
         "The --action option is required.",
-    "errors.connectorRun.aliasEmpty":
-        "The --alias value cannot be empty.",
+    "errors.connectorRun.connectionNameEmpty":
+        "The --connection-name value cannot be empty.",
     "errors.connectorRun.dataFilePathRequired":
         "The @data file path cannot be empty.",
     "errors.connectorRun.dataReadFailed":
@@ -835,8 +835,8 @@ export const enMessages = {
         "Poll until an async result action reaches a terminal state",
     "options.connectorRunWaitResult":
         "Submit an async action and wait for its result action",
-    "options.connectorRunAlias":
-        "Run the action with the connector app alias",
+    "options.connectorRunConnectionName":
+        "Run the action with the connector app connection name",
     "options.connectorRunOrganization":
         "Run the action under the given organization identity (alias: --org)",
     "options.connectorRunPersonal":
@@ -1122,8 +1122,8 @@ export const enMessages = {
     "connector.search.text.authenticated.yes": "yes",
     "connector.search.text.noResults":
         "No matching connector actions were found.",
-    "connector.apps.text.alias": "Alias",
     "connector.apps.text.auth": "Auth",
+    "connector.apps.text.connectionName": "Connection Name",
     "connector.apps.text.default": "Default",
     "connector.apps.text.default.no": "no",
     "connector.apps.text.default.yes": "yes",
@@ -1462,8 +1462,8 @@ export const zhMessages = {
         "获取 connector action 元数据返回了 HTTP {status}。",
     "errors.connectorRun.actionRequired":
         "--action 选项为必填。",
-    "errors.connectorRun.aliasEmpty":
-        "--alias 的值不能为空。",
+    "errors.connectorRun.connectionNameEmpty":
+        "--connection-name 的值不能为空。",
     "errors.connectorRun.dataFilePathRequired":
         "@data 文件路径不能为空。",
     "errors.connectorRun.dataReadFailed":
@@ -1994,8 +1994,8 @@ export const zhMessages = {
         "轮询异步结果 action，直到进入终态",
     "options.connectorRunWaitResult":
         "提交异步 action，并等待它的结果 action",
-    "options.connectorRunAlias":
-        "使用指定 connector app alias 运行该 action",
+    "options.connectorRunConnectionName":
+        "使用指定 connector app 连接名称运行该 action",
     "options.connectorRunOrganization":
         "以指定组织身份运行该 action（别名：--org）",
     "options.connectorRunPersonal":
@@ -2277,8 +2277,8 @@ export const zhMessages = {
     "connector.search.text.authenticated.no": "否",
     "connector.search.text.authenticated.yes": "是",
     "connector.search.text.noResults": "未找到匹配的 connector action。",
-    "connector.apps.text.alias": "Alias",
     "connector.apps.text.auth": "认证",
+    "connector.apps.text.connectionName": "连接名称",
     "connector.apps.text.default": "默认",
     "connector.apps.text.default.no": "否",
     "connector.apps.text.default.yes": "是",
