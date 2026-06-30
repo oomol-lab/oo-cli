@@ -784,6 +784,8 @@ export const enMessages = {
         "Package name(s) to stop suggesting",
     "arguments.skills.recommend.unmute.packageName":
         "Package name(s) to resume suggesting",
+    "options.skills.recommend.plan.force":
+        "Surface suggestions even when they were already suggested recently this session",
     "options.skills.recommend.mute.all":
         "Mute every skill suggestion instead of specific packages",
     "options.skills.recommend.unmute.all":
@@ -1943,6 +1945,8 @@ export const zhMessages = {
         "要停止推荐的包名（可指定多个）",
     "arguments.skills.recommend.unmute.packageName":
         "要恢复推荐的包名（可指定多个）",
+    "options.skills.recommend.plan.force":
+        "即使本会话最近已推荐过，也仍然展示推荐",
     "options.skills.recommend.mute.all":
         "静音所有 skill 推荐，而非指定的包",
     "options.skills.recommend.unmute.all":

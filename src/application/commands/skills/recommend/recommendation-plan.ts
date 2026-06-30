@@ -10,7 +10,8 @@ export type RecommendationSkipReason
         | "dismissed"
         | "up-to-date"
         | "not-published"
-        | "lookup-failed";
+        | "lookup-failed"
+        | "recently-suggested";
 
 export interface RecommendationEntry {
     packageName: string;

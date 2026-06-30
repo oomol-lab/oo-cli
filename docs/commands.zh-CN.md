@@ -1303,10 +1303,17 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   skill 包（`github` → `oo-github`，`aliyun_oss` → `oo-aliyun-oss`）。空白项被忽略；
   推导出的包会去重，输出保留输入顺序。不传参数时计划为空。
 - 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出。`--show-schema-version`
-  （仅在 JSON 下有意义）会在顶层添加 `schemaVersion`。
+  （仅在 JSON 下有意义）会在顶层添加 `schemaVersion`。`--force` 会重新展示本应被会话冷却
+  抑制的推荐（见下文）。
 - 行为：每个推导出的 `oo-<service>` 包都会向 registry 确认。包已发布但本地未安装时推荐
   `install`；已安装且有更新的已发布版本时推荐 `update`；当包已是最新、未发布、此前被忽略
   或被全局静音时跳过。当推荐被全局静音时，计划返回 `muted: true` 且无推荐项。
+- 会话冷却：某条推荐被展示后，在一个较短的时间窗内，后续运行会抑制同一条推荐，从而避免重复的
+  wrap-up 每次都再次展示它。被抑制的推荐会以 `recently-suggested` 原因出现在 `skipped` 中，
+  而不是 `recommendations`。冷却按单条推荐计算：切换到不同的 service，或推荐内容发生变化
+  （例如 `install` 变为 `update`，或出现更新的最新版本）都会再次展示；传 `--force` 也会。
+  被全局静音的计划不展示任何内容，也不会开启冷却。该抑制是尽力而为的：当其本地状态不可用时，
+  计划会在不去重的情况下返回。
 - 网络：每个未被忽略、未被静音的包都会发一次公开的 registry package-info 请求（确认存在性
   与最新版本）。该端点无需登录，因此不需要账号或 API key——有账号时用其 endpoint，否则用默认
   endpoint；请求以较小的并发上限执行。被忽略、被静音的包不需要网络。`404` 视为"未发布"
@@ -1334,7 +1341,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - `action` 取值：`install` / `update`。
 - `reason` 取值：`up-to-date` / `not-published` / `dismissed` / `muted` /
-  `lookup-failed`。
+  `lookup-failed` / `recently-suggested`。
 - 退出码：即使查询失败或包未发布也返回 `0`（二者都编码为跳过项）。参数错误（如
   `--format xml`）以 exit 2 退出。
 

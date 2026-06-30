@@ -1540,12 +1540,23 @@ suggest installing or updating and which to skip.
   preserved in the output. With no arguments the plan is empty.
 - Options: `--format=json` and `--json` switch to a structured payload.
   `--show-schema-version` (only meaningful with JSON) prepends `schemaVersion`.
+  `--force` re-surfaces suggestions that the session cooldown would otherwise
+  suppress (see below).
 - Behavior: each derived `oo-<service>` package is confirmed against the
   registry. It is suggested for `install` when it is published but not installed
   locally; for `update` when an installed package has a newer published version;
   and skipped when it is already current, not published, previously dismissed,
   or globally muted. When suggestions are globally muted, the plan returns
   `muted: true` with no recommendations.
+- Session cooldown: once a suggestion is surfaced, the same suggestion is
+  suppressed on later runs for a short window so a repeated wrap-up does not
+  re-surface it every time. A suppressed suggestion is returned under `skipped`
+  with reason `recently-suggested` instead of `recommendations`. The window is
+  per suggestion: switching to a different service, or a suggestion whose content
+  changes (for example `install` becoming `update`, or a newer latest version),
+  surfaces again, as does passing `--force`. Globally muted plans surface nothing
+  and do not start a cooldown. This suppression is best-effort: if its on-disk
+  state is unavailable the plan is returned without de-duplication.
 - Network: every non-dismissed, non-muted package is verified with a public
   registry package-info request (existence + latest version). This endpoint
   needs no login, so no account or API key is required — the active account's
@@ -1576,7 +1587,7 @@ suggest installing or updating and which to skip.
 
 - `action` values: `install` / `update`.
 - `reason` values: `up-to-date` / `not-published` / `dismissed` / `muted` /
-  `lookup-failed`.
+  `lookup-failed` / `recently-suggested`.
 - Exit code: `0` even when a lookup fails or a package is unpublished (both are
   encoded as skips). Argument errors (for example `--format xml`) exit `2`.
 

@@ -156,16 +156,20 @@ proves its output.
    Lead with the useful result. For blockers, name the exact blocker and the
    next useful move. If you group or summarize by an attribute, make sure the
    payload or result actually used that attribute.
-   After the final useful result, run the wrap-up skill recommendation once.
-   Pass the deduplicated wrap-up list of connector services to
+   After the final useful result, run the wrap-up skill recommendation. Pass the
+   deduplicated wrap-up list of connector services to
    `oo skills recommend plan <connectorService>... --json`. That single command
    derives each `oo-<service>` package, confirms it is published, and skips
-   packages that are already installed and current, not published, dismissed, or
-   globally muted. Present its result and persist any "never remind" choice
+   packages that are already installed and current, not published, dismissed,
+   globally muted, or already suggested earlier this session. The CLI
+   de-duplicates within a session, so re-running the wrap-up will not re-surface
+   an already-shown suggestion: present only what is under `recommendations`, and
+   never re-present a suggestion absent from it. Persist any "never remind" choice
    exactly as
    [references/search-and-selection.md](references/search-and-selection.md)
    describes. If the plan reports `muted` or returns no `recommendations`, say
-   nothing about skills and finish.
+   nothing about skills and finish. Omit the optional suggestion when the user
+   explicitly asked for concise output.
 
 ## Capability contract
 

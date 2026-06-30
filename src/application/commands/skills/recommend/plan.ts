@@ -1,5 +1,7 @@
+import type { Cache } from "../../../contracts/cache.ts";
 import type { CliCommandDefinition, CliExecutionContext } from "../../../contracts/cli.ts";
 import type { ManagedSkillListItem } from "../managed-skill-listings.ts";
+import type { RecommendationCooldownGate } from "./recommendation-cooldown.ts";
 import type { CandidateResolution, RecommendationPartition } from "./recommendation-plan.ts";
 
 import { z } from "zod";
@@ -17,6 +19,7 @@ import { readKnownManagedSkillInstallations } from "../installed-managed-skills.
 import { resolveAvailableManagedSkillHosts } from "../managed-skill-hosts.ts";
 import { loadRegistryPackageSkillInfoAllowingMissing } from "../registry-skill-source.ts";
 import { createPackageNamesTelemetryProperties } from "../telemetry.ts";
+import { applyRecommendationCooldown } from "./recommendation-cooldown.ts";
 import {
     dedupePreserveOrder,
     deriveSkillPackageName,
@@ -27,6 +30,14 @@ const planFormatValues = ["json"] as const;
 // The package-info endpoint has no rate limit, so a small fixed fan-out keeps
 // the wrap-up snappy without hammering the registry.
 const packageExistenceConcurrency = 3;
+// The recommendation cooldown approximates "one session": once a suggestion is
+// surfaced, it is suppressed for this window so an agent that re-runs the wrap-up
+// after every task does not re-append the identical prompt every turn. The
+// window is long enough to span a continuous working session and short enough
+// that a genuinely new session later re-surfaces the suggestion.
+const recommendationCooldownCacheId = "skills-recommend-cooldown";
+const recommendationCooldownTtlMs = 4 * 60 * 60 * 1000;
+const recommendationCooldownMaxEntries = 256;
 
 interface RecommendationPlan extends RecommendationPartition {
     muted: boolean;
@@ -39,6 +50,7 @@ type RemotePackageStatus
 
 interface SkillsRecommendPlanInput {
     connectorServices?: string[];
+    force?: boolean;
     format?: (typeof planFormatValues)[number];
     showSchemaVersion?: boolean;
 }
@@ -55,9 +67,17 @@ export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPla
             variadic: true,
         },
     ],
-    options: [...jsonOutputOptions],
+    options: [
+        {
+            name: "force",
+            longFlag: "--force",
+            descriptionKey: "options.skills.recommend.plan.force",
+        },
+        ...jsonOutputOptions,
+    ],
     inputSchema: z.object({
         connectorServices: z.array(z.string()).optional(),
+        force: z.boolean().optional(),
         format: z.enum(planFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
@@ -74,7 +94,7 @@ export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPla
         const dismissed = new Set(getDismissedSkillRecommendations(settings));
         const muted = isSkillRecommendationsMuted(settings);
 
-        const plan: RecommendationPlan = muted
+        const resolvedPlan: RecommendationPlan = muted
             ? {
                     muted: true,
                     ...partitionRecommendations(
@@ -91,7 +111,19 @@ export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPla
                     ),
                 };
 
-        recordTelemetry(context, plan, packageNames);
+        // Muted plans surface nothing, so they neither read nor stamp the
+        // cooldown. Every other plan is de-duplicated against the per-session
+        // cooldown window before it reaches the user.
+        const { plan, cooldownSuppressedCount } = muted
+            ? { plan: resolvedPlan, cooldownSuppressedCount: 0 }
+            : applySessionCooldown(resolvedPlan, input.force === true, context);
+
+        // Muted plans skip the cooldown entirely, so `--force` bypasses nothing
+        // there; only report a force when the cooldown actually ran.
+        recordTelemetry(context, plan, packageNames, {
+            forced: !muted && input.force === true,
+            cooldownSuppressedCount,
+        });
 
         if (input.format === "json") {
             writeJsonOutput(context.stdout, plan, {
@@ -103,6 +135,55 @@ export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPla
         writeText(context, plan);
     },
 };
+
+// Applies the per-session cooldown to a resolved (non-muted) plan: recommendations
+// already surfaced within the window are demoted to `recently-suggested` skips.
+// The cooldown is best-effort — if the cache is unavailable the plan passes
+// through unchanged, preserving the pre-cooldown behavior rather than failing.
+function applySessionCooldown(
+    plan: RecommendationPlan,
+    force: boolean,
+    context: CliExecutionContext,
+): { plan: RecommendationPlan; cooldownSuppressedCount: number } {
+    if (plan.recommendations.length === 0) {
+        return { plan, cooldownSuppressedCount: 0 };
+    }
+
+    try {
+        const gate = createRecommendationCooldownGate(context);
+        const gated = applyRecommendationCooldown(plan, gate, { force });
+
+        return {
+            plan: { muted: false, ...gated },
+            cooldownSuppressedCount:
+                plan.recommendations.length - gated.recommendations.length,
+        };
+    }
+    catch (error) {
+        context.logger.warn(
+            { err: error },
+            "skills recommend plan cooldown unavailable; surfacing without de-duplication.",
+        );
+        return { plan, cooldownSuppressedCount: 0 };
+    }
+}
+
+function createRecommendationCooldownGate(
+    context: Pick<CliExecutionContext, "cacheStore">,
+): RecommendationCooldownGate {
+    const cache: Cache<number> = context.cacheStore.getCache<number>({
+        defaultTtlMs: recommendationCooldownTtlMs,
+        id: recommendationCooldownCacheId,
+        maxEntries: recommendationCooldownMaxEntries,
+    });
+
+    return {
+        wasRecentlySuggested: key => cache.has(key),
+        markSuggested: (key) => {
+            cache.set(key, 1);
+        },
+    };
+}
 
 // Resolves each candidate package to install/update/skip. Dismissed packages
 // short-circuit offline; every other package is confirmed against the registry
@@ -269,6 +350,7 @@ function recordTelemetry(
     context: CliExecutionContext,
     plan: RecommendationPlan,
     packageNames: readonly string[],
+    cooldown: { forced: boolean; cooldownSuppressedCount: number },
 ): void {
     const installCount = plan.recommendations.filter(
         entry => entry.action === "install",
@@ -279,9 +361,13 @@ function recordTelemetry(
 
     context.telemetry?.recordProperties({
         muted: plan.muted,
+        forced: cooldown.forced,
         install_count_bucket: bucketTelemetryCount(installCount),
         update_count_bucket: bucketTelemetryCount(updateCount),
         skipped_count_bucket: bucketTelemetryCount(plan.skipped.length),
+        cooldown_suppressed_count_bucket: bucketTelemetryCount(
+            cooldown.cooldownSuppressedCount,
+        ),
         ...createPackageNamesTelemetryProperties(packageNames),
     });
 }

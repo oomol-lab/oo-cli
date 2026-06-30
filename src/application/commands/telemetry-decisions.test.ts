@@ -395,14 +395,16 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "muted",
+            "forced",
             "install_count_bucket",
             "update_count_bucket",
             "skipped_count_bucket",
+            "cooldown_suppressed_count_bucket",
             "package_names_count_bucket",
             "package_names_sample",
             "package_names_truncated",
         ],
-        reason: "Records the global mute flag, bucketed install/update/skip counts, and bounded package-name samples; never records versions or paths.",
+        reason: "Records the global mute flag, whether the session cooldown was force-bypassed, bucketed install/update/skip/cooldown-suppressed counts, and bounded package-name samples; never records versions or paths.",
     },
     "skills.recommend.mute": {
         kind: "properties",
