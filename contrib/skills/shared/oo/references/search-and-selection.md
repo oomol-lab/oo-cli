@@ -226,8 +226,7 @@ already surfaced recently is returned under `skipped` as `recently-suggested`,
 not under `recommendations`. So if you re-run the wrap-up in a later turn of the
 same conversation, an already-shown suggestion will not reappear. Only present
 what is in `recommendations`; never re-present a suggestion that is absent from
-it. Pass `--force` only when the user explicitly asks to see install suggestions
-again.
+it. Pass `--force` only when the user explicitly asks to see suggestions again.
 
 If the user explicitly asked for concise output (for example only ids, or no
 extra text), omit the optional suggestion entirely, even when `recommendations`

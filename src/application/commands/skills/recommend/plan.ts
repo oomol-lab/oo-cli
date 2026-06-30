@@ -118,8 +118,10 @@ export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPla
             ? { plan: resolvedPlan, cooldownSuppressedCount: 0 }
             : applySessionCooldown(resolvedPlan, input.force === true, context);
 
+        // Muted plans skip the cooldown entirely, so `--force` bypasses nothing
+        // there; only report a force when the cooldown actually ran.
         recordTelemetry(context, plan, packageNames, {
-            forced: input.force === true,
+            forced: !muted && input.force === true,
             cooldownSuppressedCount,
         });
 
