@@ -200,8 +200,8 @@ selected connector path has produced a successful useful result.
 
 ## Wrap-up skill recommendation
 
-After the final useful result, run the recommendation exactly once over the
-deduplicated list of connector services you used:
+After the final useful result, run the recommendation once at the wrap-up over
+the deduplicated list of connector services you used:
 
 ```bash
 oo skills recommend plan <connectorService>... --json
@@ -218,7 +218,20 @@ returns:
   installed package has a newer version, and the entry also carries
   `currentVersion` and `latestVersion`.
 - `skipped`: packages excluded because they are already current, not published,
-  dismissed, or muted. Never mention skipped packages.
+  dismissed, muted, or already suggested earlier this session
+  (`recently-suggested`). Never mention skipped packages.
+
+The CLI de-duplicates suggestions across runs within a session: a suggestion it
+already surfaced recently is returned under `skipped` as `recently-suggested`,
+not under `recommendations`. So if you re-run the wrap-up in a later turn of the
+same conversation, an already-shown suggestion will not reappear. Only present
+what is in `recommendations`; never re-present a suggestion that is absent from
+it. Pass `--force` only when the user explicitly asks to see install suggestions
+again.
+
+If the user explicitly asked for concise output (for example only ids, or no
+extra text), omit the optional suggestion entirely, even when `recommendations`
+is non-empty.
 
 If `recommendations` is empty, say nothing about skills and finish. Otherwise
 present one short batched prompt that lists the install and update actions and

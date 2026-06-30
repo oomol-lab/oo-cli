@@ -337,6 +337,221 @@ describe("skills recommend plan CLI", () => {
         }
     });
 
+    test("--json suppresses a recommendation already surfaced earlier this session", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+
+                if (request.url.includes("package-info/oo-gmail")) {
+                    return packageInfoResponse("oo-gmail", "1.0.0", "gmail");
+                }
+                throw new Error(`Unexpected request: ${request.url}`);
+            };
+
+            const first = await sandbox.run(
+                ["skills", "recommend", "plan", "gmail", "--json"],
+                { fetcher },
+            );
+            const firstPlan = JSON.parse(first.stdout) as Record<string, unknown>;
+
+            expect(firstPlan.recommendations).toEqual([
+                { packageName: "oo-gmail", action: "install" },
+            ]);
+            expect(firstPlan.skipped).toEqual([]);
+
+            // A second wrap-up in the same session must not re-surface the same
+            // suggestion; it is demoted to a recently-suggested skip.
+            const second = await sandbox.run(
+                ["skills", "recommend", "plan", "gmail", "--json"],
+                { fetcher },
+            );
+            const secondPlan = JSON.parse(second.stdout) as Record<string, unknown>;
+
+            expect(secondPlan.recommendations).toEqual([]);
+            expect(secondPlan.skipped).toEqual([
+                { packageName: "oo-gmail", reason: "recently-suggested" },
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json still surfaces a different service after another was suggested", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+
+                if (request.url.includes("package-info/oo-gmail")) {
+                    return packageInfoResponse("oo-gmail", "1.0.0", "gmail");
+                }
+                if (request.url.includes("package-info/oo-notion")) {
+                    return packageInfoResponse("oo-notion", "1.0.0", "notion");
+                }
+                throw new Error(`Unexpected request: ${request.url}`);
+            };
+
+            await sandbox.run(
+                ["skills", "recommend", "plan", "gmail", "--json"],
+                { fetcher },
+            );
+            const second = await sandbox.run(
+                ["skills", "recommend", "plan", "notion", "--json"],
+                { fetcher },
+            );
+            const secondPlan = JSON.parse(second.stdout) as Record<string, unknown>;
+
+            expect(secondPlan.recommendations).toEqual([
+                { packageName: "oo-notion", action: "install" },
+            ]);
+            expect(secondPlan.skipped).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--force re-surfaces a recommendation suppressed by the session cooldown", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+
+                if (request.url.includes("package-info/oo-gmail")) {
+                    return packageInfoResponse("oo-gmail", "1.0.0", "gmail");
+                }
+                throw new Error(`Unexpected request: ${request.url}`);
+            };
+
+            await sandbox.run(
+                ["skills", "recommend", "plan", "gmail", "--json"],
+                { fetcher },
+            );
+            const forced = await sandbox.run(
+                ["skills", "recommend", "plan", "gmail", "--force", "--json"],
+                { fetcher },
+            );
+            const forcedPlan = JSON.parse(forced.stdout) as Record<string, unknown>;
+
+            expect(forcedPlan.recommendations).toEqual([
+                { packageName: "oo-gmail", action: "install" },
+            ]);
+            expect(forcedPlan.skipped).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json re-surfaces when a suggestion changes from install to update", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+
+                if (request.url.includes("package-info/oo-notion")) {
+                    return packageInfoResponse("oo-notion", "2.0.0", "notion");
+                }
+                throw new Error(`Unexpected request: ${request.url}`);
+            };
+
+            const first = await sandbox.run(
+                ["skills", "recommend", "plan", "notion", "--json"],
+                { fetcher },
+            );
+
+            expect((JSON.parse(first.stdout) as Record<string, unknown>).recommendations)
+                .toEqual([{ packageName: "oo-notion", action: "install" }]);
+
+            // Installing an older version flips the suggestion to `update`, which
+            // is a different cooldown key, so it surfaces again.
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "notion",
+                packageName: "oo-notion",
+                version: "1.0.0",
+            });
+
+            const second = await sandbox.run(
+                ["skills", "recommend", "plan", "notion", "--json"],
+                { fetcher },
+            );
+            const secondPlan = JSON.parse(second.stdout) as Record<string, unknown>;
+
+            expect(secondPlan.recommendations).toEqual([
+                {
+                    packageName: "oo-notion",
+                    action: "update",
+                    currentVersion: "1.0.0",
+                    latestVersion: "2.0.0",
+                },
+            ]);
+            expect(secondPlan.skipped).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("muted plans do not consume the session cooldown", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const gmailFetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+
+                if (request.url.includes("package-info/oo-gmail")) {
+                    return packageInfoResponse("oo-gmail", "1.0.0", "gmail");
+                }
+                throw new Error(`Unexpected request: ${request.url}`);
+            };
+
+            const muteResult = await sandbox.run(
+                ["skills", "recommend", "mute", "--all", "--json"],
+            );
+
+            expect(muteResult.exitCode).toBe(0);
+
+            // While muted the plan surfaces nothing and must stamp nothing.
+            const mutedRun = await sandbox.run(
+                ["skills", "recommend", "plan", "gmail", "--json"],
+                { fetcher: throwingFetcher },
+            );
+
+            expect((JSON.parse(mutedRun.stdout) as Record<string, unknown>).muted).toBe(true);
+
+            const unmuteResult = await sandbox.run(
+                ["skills", "recommend", "unmute", "--all", "--json"],
+            );
+
+            expect(unmuteResult.exitCode).toBe(0);
+
+            // The earlier muted run left no cooldown stamp, so the suggestion
+            // surfaces normally now.
+            const afterUnmute = await sandbox.run(
+                ["skills", "recommend", "plan", "gmail", "--json"],
+                { fetcher: gmailFetcher },
+            );
+            const afterPlan = JSON.parse(afterUnmute.stdout) as Record<string, unknown>;
+
+            expect(afterPlan.recommendations).toEqual([
+                { packageName: "oo-gmail", action: "install" },
+            ]);
+            expect(afterPlan.skipped).toEqual([]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("--format xml exits 2 with a format error", async () => {
         const sandbox = await createCliSandbox();
 
