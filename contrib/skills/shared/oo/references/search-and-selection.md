@@ -20,12 +20,31 @@ the desired outcome.
 Use this shape:
 
 ```text
-action + object + key constraint or target service
+action + object + target service
 ```
 
 Guidance:
 
-- Prefer outcome words over implementation guesses.
+- Name the target service or provider whenever it is known or reasonably
+  implied. This is the single strongest signal for reaching the right action.
+  Make it explicit even when the user only implies it (for example "put it on my
+  calendar" for a connected Google Calendar, or "delete that 3pm call" for a
+  calendar event).
+- But do NOT guess a provider you are unsure about. When the user's wording maps
+  to a generic capability that several providers offer, and nothing in the
+  request or known connected accounts tells you which one the user uses (for
+  example "my workbook" -> Excel or Google Sheets, "my deals" -> HubSpot or
+  Pipedrive, "an order"/"a coupon" -> WooCommerce, Shopify, or Stripe, "a booked
+  appointment" -> Cal.com or Calendly, "an alert" -> Pushover or PagerDuty),
+  search with just the operation and object and no service name, then pick the
+  right provider from the results. Naming the wrong provider actively buries the
+  correct action, so an honest service-less query beats a confident wrong guess.
+- Include a concrete operation verb (create, list, get, send, update, delete,
+  search) and the object noun (email, event, issue, file, deal, invoice). These
+  map directly onto action names.
+- Prefer the user's outcome words over implementation guesses, but keep the
+  operation, object, and service terms above rather than dropping them for vague
+  phrasing.
 - Preserve decisive constraints: language pair, file type, output format,
   target service, destination, time range, or attachment.
 - Avoid meta words such as `oo`, `CLI`, `search`, or `skill` unless the user
@@ -47,6 +66,9 @@ Examples:
 Always pass `1` to `3` keywords through `--keywords` on every `oo search` call.
 Never search without keywords.
 
+- Make the target service or provider name one of the keywords whenever it is
+  known or implied (for example `Gmail`, `Google Calendar`, `Stripe`), so the
+  service reaches the catalog even when the sentence phrasing buries it.
 - Keywords may use the user's original language; the English sentence stays in
   English.
 - Keep product names, brand names, and proper nouns exactly as the user wrote
