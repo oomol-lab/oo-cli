@@ -151,7 +151,7 @@ decide. Rank results in this order:
 Tie-breakers:
 
 - `fusion-api` actions are connector actions in `oo`. Prove them with
-  `oo connector schema "fusion-api" --action "<name>"` before execution, but
+  `oo connector schema "fusion-api.<name>"` before execution, but
   classify them as OOMOL-hosted Fusion API for selection.
 - For generic managed transforms such as OCR, translation, transcription, TTS,
   image generation, background removal, subtitling, document conversion, and
@@ -289,7 +289,10 @@ blindly or inventing a result.
 After selecting a candidate, do not execute yet.
 
 Read [connector-execution.md](connector-execution.md), then run
-`oo connector schema "<service>" --action "<name>"`.
+`oo connector schema "<service>.<name>"`. When the workflow already needs more
+than one action contract, pass all the `<service>.<action>` ids to one command
+(the output becomes a JSON array in request order) instead of running one
+schema command per action.
 
 Use the inspected metadata or schema to complete the minimum viable contract:
 exact callable id, required input names, payload shape, output meaning, and

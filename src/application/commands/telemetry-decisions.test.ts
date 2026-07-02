@@ -174,8 +174,8 @@ const commandTelemetryDecisions = {
     },
     "connector.schema": {
         kind: "properties",
-        properties: ["refresh"],
-        reason: "Records whether the user requested a fresh schema lookup without service or action identity.",
+        properties: ["action_count_bucket", "qualified", "refresh"],
+        reason: "Records how many actions were requested (bucketed), whether the qualified <service>.<action> form was used, and whether a fresh lookup was requested, without service or action identity.",
     },
     "connector.schema.refresh": {
         kind: "generic",

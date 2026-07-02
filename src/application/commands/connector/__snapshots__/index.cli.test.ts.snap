@@ -91,10 +91,11 @@ exports[`connectorCommand CLI renders connector schema help with the json compat
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"Show the schema contract for one connector action.
+"Show the schema contract for one or more connector actions.
 
 Arguments:
-  serviceName            Service name
+  actionId               Action id(s) in the form <service>.<action>, for
+                         example cal.create_schedule
 
 Options:
   -a, --action <action>  Specify the target action name
