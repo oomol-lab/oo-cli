@@ -567,9 +567,9 @@ Search connector actions with free-form text.
   label, optional description, and authenticated state.
 - Notes: use `oo connector schema "<service>" --action "<action>"` to inspect
   the selected action contract.
-- Notes: search results also update the local action schema cache, so a
-  following `oo connector schema` for a returned action is usually answered
-  locally without a fresh metadata request.
+- Notes: search results also warm the local action schema cache when schema
+  data is available, so a following `oo connector schema` for a returned
+  action is usually answered locally without a fresh metadata request.
 
 ### `oo connector schema <serviceName>`
 
@@ -719,9 +719,9 @@ Search connector actions with one free-form query.
   label, optional description, and authenticated state.
 - Notes: use `oo connector schema "<service>" --action "<action>"` to inspect
   the full connector action contract.
-- Notes: search results also update the local action schema cache, so a
-  following `oo connector schema` for a returned action is usually answered
-  locally without a fresh metadata request.
+- Notes: search results also warm the local action schema cache when schema
+  data is available, so a following `oo connector schema` for a returned
+  action is usually answered locally without a fresh metadata request.
 
 ## AI Agent Skills
 
