@@ -94,7 +94,13 @@ describe("searchCommand CLI", () => {
                                     {
                                         authenticated: false,
                                         description: "Send a Gmail message.",
+                                        inputSchema: {
+                                            type: "object",
+                                        },
                                         name: "send_mail",
+                                        outputSchema: {
+                                            type: "object",
+                                        },
                                         service: "gmail",
                                     },
                                 ],
@@ -109,6 +115,8 @@ describe("searchCommand CLI", () => {
             );
 
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
+            // Schema payloads warm the local action schema cache but stay out
+            // of the search output contract.
             expect(JSON.parse(result.stdout)).toEqual([
                 {
                     authenticated: false,

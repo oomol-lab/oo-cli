@@ -59,7 +59,9 @@ export const connectorActionMetadataSchema = connectorActionDefinitionSchema.ext
 const connectorActionSearchResultSchema = z.object({
     authenticated: z.boolean().optional().default(false),
     description: z.string().optional().default(""),
+    inputSchema: z.unknown(),
     name: z.string().min(1),
+    outputSchema: z.unknown(),
     service: z.string().min(1),
 });
 

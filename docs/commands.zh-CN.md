@@ -486,6 +486,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   描述和认证状态。
 - 说明：使用 `oo connector schema "<service>" --action "<action>"` 查看选中
   action 的 contract。
+- 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
+  对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
+  请求 metadata。
 
 ### `oo connector schema <serviceName>`
 
@@ -498,6 +501,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 输出：命令默认输出 JSON 对象，包含稳定 CLI 字段 `service`、`name`、
   `description`、`inputSchema` 和 `outputSchema`。
 - 说明：`--refresh` 会强制为选中的 action 重新获取 schema。
+- 说明：此前查询或 connector 搜索缓存的 schema 会在过期前被复用；需要
+  最新远端 contract 时请使用 `--refresh`。
 
 ### `oo connector schema refresh`
 
@@ -612,6 +617,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   描述和认证状态。
 - 说明：使用 `oo connector schema "<service>" --action "<action>"` 获取完整
   connector action contract。
+- 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
+  对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
+  请求 metadata。
 
 ## AI Agent Skill
 

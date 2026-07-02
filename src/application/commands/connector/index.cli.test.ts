@@ -31,7 +31,7 @@ import {
 } from "./search-provider.ts";
 
 describe("connectorCommand CLI", () => {
-    test("supports connector search with text output without caching partial schemas", async () => {
+    test("supports connector search with text output without caching schema-less results", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -121,6 +121,79 @@ describe("connectorCommand CLI", () => {
             expect(requests[1]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("warms the schema cache from search results so connector schema needs no fresh request", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const searchResult = await sandbox.run(
+                ["connector", "search", "send mail"],
+                {
+                    fetcher: async () => createConnectorSearchResponse([
+                        {
+                            authenticated: true,
+                            description: "Send a Gmail message.",
+                            inputSchema: {
+                                properties: {
+                                    to: {
+                                        type: "string",
+                                    },
+                                },
+                                required: ["to"],
+                                type: "object",
+                            },
+                            name: "send_mail",
+                            outputSchema: {
+                                type: "object",
+                            },
+                            service: "gmail",
+                        },
+                    ]),
+                },
+            );
+
+            const schemaRequests: Request[] = [];
+            const schemaResult = await sandbox.run(
+                ["connector", "schema", "gmail", "--action", "send_mail"],
+                {
+                    fetcher: async (input, init) => {
+                        schemaRequests.push(toRequest(input, init));
+
+                        return new Response("unexpected", {
+                            status: 500,
+                        });
+                    },
+                },
+            );
+
+            expect(searchResult.exitCode).toBe(0);
+            expect(searchResult.stdout).toContain("gmail.send_mail");
+            expect(schemaResult.exitCode).toBe(0);
+            expect(schemaRequests).toHaveLength(0);
+            expect(JSON.parse(schemaResult.stdout)).toEqual({
+                description: "Send a Gmail message.",
+                inputSchema: {
+                    properties: {
+                        to: {
+                            type: "string",
+                        },
+                    },
+                    required: ["to"],
+                    type: "object",
+                },
+                name: "send_mail",
+                outputSchema: {
+                    type: "object",
+                },
+                service: "gmail",
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -273,7 +346,13 @@ describe("connectorCommand CLI", () => {
                                 {
                                     authenticated: false,
                                     description: "Send a Gmail message.",
+                                    inputSchema: {
+                                        type: "object",
+                                    },
                                     name: "send_mail",
+                                    outputSchema: {
+                                        type: "object",
+                                    },
                                     service: "gmail",
                                 },
                             ]);
@@ -2522,14 +2601,17 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("rejects --wait on regular connector actions", async () => {
+    test("rejects --wait on regular connector actions after confirming with the metadata API", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
+            // A lifecycle-less cache entry (like the ones seeded from search
+            // results) is not trusted for wait modes; the run consults the
+            // metadata API once before rejecting the wait request.
             await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
 
-            let requestCount = 0;
+            const requests: Request[] = [];
             const result = await sandbox.run(
                 [
                     "connector",
@@ -2543,8 +2625,16 @@ describe("connectorCommand CLI", () => {
                     "--json",
                 ],
                 {
-                    fetcher: async () => {
-                        requestCount += 1;
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.method === "GET") {
+                            return new Response(JSON.stringify({
+                                data: createConnectorActionFixture(),
+                            }));
+                        }
 
                         return new Response(JSON.stringify({
                             data: {
@@ -2563,7 +2653,10 @@ describe("connectorCommand CLI", () => {
             expect(result.stderr).toContain(
                 "The --wait option is only supported for connector actions with an async result lifecycle.",
             );
-            expect(requestCount).toBe(0);
+            expect(requests.map(request => request.method)).toEqual(["GET"]);
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -2618,14 +2711,17 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("rejects --wait-result on regular connector actions before sending requests", async () => {
+    test("rejects --wait-result on regular connector actions after confirming with the metadata API", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
+            // A lifecycle-less cache entry (like the ones seeded from search
+            // results) is not trusted for wait modes; the run consults the
+            // metadata API once before rejecting the wait request.
             await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
 
-            let requestCount = 0;
+            const requests: Request[] = [];
             const result = await sandbox.run(
                 [
                     "connector",
@@ -2639,8 +2735,16 @@ describe("connectorCommand CLI", () => {
                     "--json",
                 ],
                 {
-                    fetcher: async () => {
-                        requestCount += 1;
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.method === "GET") {
+                            return new Response(JSON.stringify({
+                                data: createConnectorActionFixture(),
+                            }));
+                        }
 
                         return new Response(JSON.stringify({
                             data: {
@@ -2659,7 +2763,7 @@ describe("connectorCommand CLI", () => {
             expect(result.stderr).toContain(
                 "The --wait-result option is only supported for connector actions with an async submit lifecycle.",
             );
-            expect(requestCount).toBe(0);
+            expect(requests.map(request => request.method)).toEqual(["GET"]);
         }
         finally {
             await sandbox.cleanup();
@@ -4250,7 +4354,9 @@ function createConnectorSearchResponse(
     actions: Array<{
         authenticated: boolean;
         description: string;
+        inputSchema?: Record<string, unknown>;
         name: string;
+        outputSchema?: Record<string, unknown>;
         service: string;
     }>,
 ): Response {
