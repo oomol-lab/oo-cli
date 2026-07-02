@@ -24,33 +24,24 @@ describe("searchCommand CLI", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["search", "send mail", "--keywords=gmail,email,gmail"],
+                ["search", "send mail"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
 
                         requests.push(request);
 
-                        if (request.url.includes("/v1/connector-actions")) {
-                            return new Response(JSON.stringify({
-                                data: [
-                                    {
-                                        description: "Send a Gmail message.",
-                                        inputSchema: {
-                                            type: "object",
-                                        },
-                                        name: "send_mail",
-                                        outputSchema: {
-                                            type: "object",
-                                        },
-                                        service: "gmail",
-                                    },
-                                ],
-                            }));
-                        }
-
                         return new Response(JSON.stringify({
-                            data: ["gmail"],
+                            success: true,
+                            message: "ok",
+                            data: [
+                                {
+                                    authenticated: true,
+                                    description: "Send a Gmail message.",
+                                    name: "send_mail",
+                                    service: "gmail",
+                                },
+                            ],
                         }));
                     },
                 },
@@ -64,18 +55,17 @@ describe("searchCommand CLI", () => {
 
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(requests.map(request => request.url).sort()).toEqual([
-                "https://connector.oomol.com/v1/apps/authenticated?service=gmail",
-                "https://search.oomol.com/v1/connector-actions?q=send+mail&keywords=gmail%2Cemail",
+                "https://connector.oomol.com/v1/actions/search?q=send+mail",
             ]);
             expect(logContent).not.toContain("/v1/packages/-/intent-search");
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "search",
-                    keyword_count_bucket: "1-5",
                     query_length_bucket: "6-20",
                     result_count_bucket: "1-5",
                 },
             });
+            expect(telemetryPayload?.properties).not.toHaveProperty("keyword_count_bucket");
             expect(telemetryPayload?.properties).not.toHaveProperty("query");
             expect(telemetryPayload?.properties).not.toHaveProperty("text");
         }
@@ -96,18 +86,15 @@ describe("searchCommand CLI", () => {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
 
-                        if (request.url.includes("/v1/connector-actions")) {
+                        if (request.url.includes("/v1/actions/search")) {
                             return new Response(JSON.stringify({
+                                success: true,
+                                message: "ok",
                                 data: [
                                     {
+                                        authenticated: false,
                                         description: "Send a Gmail message.",
-                                        inputSchema: {
-                                            type: "object",
-                                        },
                                         name: "send_mail",
-                                        outputSchema: {
-                                            type: "object",
-                                        },
                                         service: "gmail",
                                     },
                                 ],

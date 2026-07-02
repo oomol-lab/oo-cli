@@ -558,11 +558,9 @@ agents.
 Search connector actions with free-form text.
 
 - Arguments: `<text>` is the semantic search text.
-- Options: `--keywords <keywords>` sends a comma-separated keyword list after
-  trimming empty and duplicate entries.
 - Options: `--format=json` and `--json` print a JSON array of matching action
   entries.
-- Output: every match is enriched with `authenticated`.
+- Output: every match includes `authenticated`.
 - Output: JSON entries include the stable CLI fields `service`, `name`,
   `description`, and `authenticated`.
 - Output: text output prints one block per action with the service/action
@@ -706,11 +704,9 @@ Proxy a provider API request through a connected connector app.
 Search connector actions with one free-form query.
 
 - Arguments: `<text>` is the semantic search text.
-- Options: `--keywords <keywords>` sends a comma-separated keyword list after
-  trimming empty and duplicate entries.
 - Options: `--format=json` and `--json` print a JSON array of matching action
   entries.
-- Output: every match is enriched with `authenticated`.
+- Output: every match includes `authenticated`.
 - Output: JSON entries include the stable CLI fields `service`, `name`,
   `description`, and `authenticated`.
 - Output: text output prints one block per action with the service/action

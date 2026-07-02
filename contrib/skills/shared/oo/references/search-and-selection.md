@@ -47,6 +47,10 @@ Guidance:
   phrasing.
 - Preserve decisive constraints: language pair, file type, output format,
   target service, destination, time range, or attachment.
+- Keep product, brand, and proper names exactly as the user wrote them and do
+  not translate them (for example keep `滴答清单`; do not turn it into
+  `TickTick`). The free-form query is the only discovery signal, so a translated
+  name can map onto a different global product.
 - Avoid meta words such as `oo`, `CLI`, `search`, or `skill` unless the user
   actually asked about them.
 - For a short multi-step workflow, search only the current unresolved external
@@ -60,25 +64,6 @@ Examples:
 - `find a Google Drive file by name and download it`
 - `collect Gmail messages from yesterday`
 - `create a Notion page from prepared content`
-
-## Search keywords
-
-Always pass `1` to `3` keywords through `--keywords` on every `oo search` call.
-Never search without keywords.
-
-- Make the target service or provider name one of the keywords whenever it is
-  known or implied (for example `Gmail`, `Google Calendar`, `Stripe`), so the
-  service reaches the catalog even when the sentence phrasing buries it.
-- Keywords may use the user's original language; the English sentence stays in
-  English.
-- Keep product names, brand names, and proper nouns exactly as the user wrote
-  them and do not translate them. For example, keep `滴答清单`; do not turn it
-  into `TickTick`.
-- The backend tokenizes `--keywords`, so original-language and product-name
-  keywords reach the catalog entry the user actually wants. The free-text query
-  alone runs an untokenized semantic search that can map a localized product
-  onto a different global product.
-- Pass keywords only through `--keywords`, never as extra positional arguments.
 
 ## Repair weak first queries
 
@@ -111,20 +96,18 @@ Examples:
 Canonical form:
 
 ```bash
-oo search "<text>" --keywords "<comma-separated keywords>" --json
+oo search "<text>" --json
 ```
 
 Facts:
 
 - `oo search` performs one discovery pass over connector action search.
-- `<text>` is one free-form query string, not multiple positional keywords.
+- `<text>` is one free-form query string, not multiple positional arguments.
 - `--json` returns a raw array, not an object wrapper.
 - The array contains `connector` entries.
 - Connector entries include stable fields such as `service`, `name`,
   `description`, and `authenticated`. Record the `service` of every connector
   you actually use; the wrap-up recommendation is keyed on it.
-- `--keywords` is required on every call: always pass `1` to `3` keywords. The
-  backend tokenizes them while keeping the same free-form text query.
 
 Representative JSON example:
 
@@ -316,11 +299,10 @@ complete.
 ## Refinement policy
 
 - Refine only after inspecting the first result set.
-- The first search already carries `1` to `3` keywords. When it captured the
-  general task but missed an important connector service, format, language, or
-  destination constraint, adjust or add keywords (still `1` to `3`) and search
-  again.
-- Do not pass keywords as extra positional arguments.
+- When the first search captured the general task but missed an important
+  connector service, format, language, or destination constraint, add that
+  constraint to the query sentence and search again.
+- Pass one free-form query string, not multiple positional arguments.
 - If the task looks like a managed API capability but the result set has
   no suitable connector candidate, run one connector refinement before reporting
   that no executable capability is available.

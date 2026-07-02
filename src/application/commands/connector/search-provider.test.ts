@@ -15,9 +15,7 @@ describe("connector search provider", () => {
                 account: {
                     apiKey: "secret-1",
                     endpoint: "oomol.com",
-                    id: "user-1",
                 },
-                keywords: [],
                 text: "send mail",
             },
             {
@@ -26,27 +24,18 @@ describe("connector search provider", () => {
 
                     requests.push(request);
 
-                    if (request.url.startsWith("https://search.")) {
+                    if (request.url.includes("/v1/actions/search")) {
                         return new Response(JSON.stringify({
+                            success: true,
+                            message: "ok",
                             data: [
                                 {
+                                    authenticated: true,
                                     description: "Send a Gmail message.",
-                                    inputSchema: {
-                                        type: "object",
-                                    },
                                     name: "send_mail",
-                                    outputSchema: {
-                                        type: "object",
-                                    },
                                     service: "gmail",
                                 },
                             ],
-                        }));
-                    }
-
-                    if (request.url.startsWith("https://connector.")) {
-                        return new Response(JSON.stringify({
-                            data: ["gmail"],
                         }));
                     }
 
@@ -68,8 +57,7 @@ describe("connector search provider", () => {
             },
         ]);
         expect(requests.map(request => request.url)).toEqual([
-            "https://search.oomol.com/v1/connector-actions?q=send+mail",
-            "https://connector.oomol.com/v1/apps/authenticated?service=gmail",
+            "https://connector.oomol.com/v1/actions/search?q=send+mail",
         ]);
     });
 });

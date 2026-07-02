@@ -39,46 +39,24 @@ describe("connectorCommand CLI", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["connector", "search", "send mail", "--keywords=gmail,email,gmail"],
+                ["connector", "search", "send mail"],
                 {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
 
                         requests.push(request);
 
-                        if (request.url.startsWith("https://search.")) {
-                            return new Response(JSON.stringify({
-                                data: [
-                                    {
-                                        description: "Send a Gmail message.",
-                                        inputSchema: {
-                                            properties: {
-                                                to: {
-                                                    format: "email",
-                                                    type: "string",
-                                                },
-                                            },
-                                            required: ["to"],
-                                            type: "object",
-                                        },
-                                        name: "send_mail",
-                                        outputSchema: {
-                                            properties: {
-                                                messageId: {
-                                                    type: "string",
-                                                },
-                                            },
-                                            required: ["messageId"],
-                                            type: "object",
-                                        },
-                                        service: "gmail",
-                                    },
-                                ],
-                            }));
-                        }
-
                         return new Response(JSON.stringify({
-                            data: ["gmail"],
+                            success: true,
+                            message: "ok",
+                            data: [
+                                {
+                                    authenticated: true,
+                                    description: "Send a Gmail message.",
+                                    name: "send_mail",
+                                    service: "gmail",
+                                },
+                            ],
                         }));
                     },
                 },
@@ -140,14 +118,11 @@ describe("connectorCommand CLI", () => {
                 },
                 service: "gmail",
             });
-            expect(requests).toHaveLength(3);
+            expect(requests).toHaveLength(2);
             expect(requests[0]?.url).toBe(
-                "https://search.oomol.com/v1/connector-actions?q=send+mail&keywords=gmail%2Cemail",
+                "https://connector.oomol.com/v1/actions/search?q=send+mail",
             );
             expect(requests[1]?.url).toBe(
-                "https://connector.oomol.com/v1/apps/authenticated?service=gmail",
-            );
-            expect(requests[2]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
         }
@@ -168,24 +143,15 @@ describe("connectorCommand CLI", () => {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
 
-                        if (request.url.startsWith("https://search.")) {
+                        if (request.url.includes("/v1/actions/search")) {
                             return new Response(JSON.stringify({
+                                success: true,
+                                message: "ok",
                                 data: [
                                     {
+                                        authenticated: false,
                                         description: "Submit OpenAI image generation.",
-                                        inputSchema: {
-                                            type: "object",
-                                        },
                                         name: "openai_image_async_submit",
-                                        outputSchema: {
-                                            properties: {
-                                                sessionId: {
-                                                    type: "string",
-                                                },
-                                            },
-                                            required: ["sessionId"],
-                                            type: "object",
-                                        },
                                         service: "fusion-api",
                                     },
                                 ],
@@ -310,18 +276,15 @@ describe("connectorCommand CLI", () => {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
 
-                        if (request.url.startsWith("https://search.")) {
+                        if (request.url.includes("/v1/actions/search")) {
                             return new Response(JSON.stringify({
+                                success: true,
+                                message: "ok",
                                 data: [
                                     {
+                                        authenticated: false,
                                         description: "Send a Gmail message.",
-                                        inputSchema: {
-                                            type: "object",
-                                        },
                                         name: "send_mail",
-                                        outputSchema: {
-                                            type: "object",
-                                        },
                                         service: "gmail",
                                     },
                                 ],
@@ -365,18 +328,15 @@ describe("connectorCommand CLI", () => {
                     fetcher: async (input, init) => {
                         const request = toRequest(input, init);
 
-                        if (request.url.startsWith("https://search.")) {
+                        if (request.url.includes("/v1/actions/search")) {
                             return new Response(JSON.stringify({
+                                success: true,
+                                message: "ok",
                                 data: [
                                     {
+                                        authenticated: true,
                                         description: "Send a Gmail message.",
-                                        inputSchema: {
-                                            type: "object",
-                                        },
                                         name: "send_mail",
-                                        outputSchema: {
-                                            type: "object",
-                                        },
                                         service: "gmail",
                                     },
                                 ],
@@ -4174,7 +4134,7 @@ describe("connectorCommand CLI", () => {
             expect(requests).toHaveLength(1);
             // OO_ENDPOINT must drive the execution endpoint derivation.
             expect(requests[0]!.url).toStartWith(
-                "https://search.oomol.dev/v1/connector-actions",
+                "https://connector.oomol.dev/v1/actions/search",
             );
             // OO_API_KEY must be used as the Authorization credential.
             expect(requests[0]!.headers.get("Authorization")).toBe("env-api-key");
@@ -4213,7 +4173,7 @@ describe("connectorCommand CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(requests).toHaveLength(1);
             expect(requests[0]!.url).toStartWith(
-                "https://search.oomol.dev/v1/connector-actions",
+                "https://connector.oomol.dev/v1/actions/search",
             );
             // The persisted API key is still used as the credential.
             expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");

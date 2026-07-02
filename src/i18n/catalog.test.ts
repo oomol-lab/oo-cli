@@ -48,6 +48,10 @@ describe("message catalog", () => {
 
     test("does not keep removed duplicate keys", () => {
         const removedKeys = [
+            "options.connectorKeywords",
+            "errors.connectorAuthenticated.invalidResponse",
+            "errors.connectorAuthenticated.requestError",
+            "errors.connectorAuthenticated.requestFailed",
             "options.skill",
             "options.all",
             "errors.skills.install.nonInteractiveSelection",

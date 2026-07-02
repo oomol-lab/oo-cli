@@ -13,13 +13,11 @@ import {
 import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
 import { requireCurrentAccount } from "./shared/auth-utils.ts";
 import { createFormatInputError } from "./shared/input-parsing.ts";
-import { parseCommaSeparatedKeywords } from "./shared/keywords.ts";
 
 const searchFormatValues = ["json"] as const;
 
 interface SearchInput {
     format?: (typeof searchFormatValues)[number];
-    keywords?: string;
     showSchemaVersion?: boolean;
     text: string;
 }
@@ -38,25 +36,15 @@ export const searchCommand: CliCommandDefinition<SearchInput> = {
     ],
     options: [
         ...jsonOutputOptions,
-        {
-            name: "keywords",
-            longFlag: "--keywords",
-            valueName: "keywords",
-            descriptionKey: "options.connectorKeywords",
-        },
     ],
     inputSchema: z.object({
         format: z.enum(searchFormatValues).optional(),
-        keywords: z.string().optional(),
         showSchemaVersion: z.boolean().optional(),
         text: z.string(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const keywords = parseCommaSeparatedKeywords(input.keywords);
-
         context.telemetry?.recordProperties({
-            keyword_count_bucket: bucketTelemetryCount(keywords.length),
             query_length_bucket: bucketTelemetryStringLength(input.text),
         });
 
@@ -64,7 +52,6 @@ export const searchCommand: CliCommandDefinition<SearchInput> = {
         const results = await loadConnectorSearchResults(
             {
                 account,
-                keywords,
                 text: input.text,
             },
             context,

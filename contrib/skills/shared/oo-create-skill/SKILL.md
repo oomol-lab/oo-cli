@@ -124,7 +124,7 @@ permission and name the blocked command. Common commands are:
 
 ```bash
 oo skills init <name> --agent <!-- agentic:var agent --> --description "..."
-oo search "<query>" --keywords "<keywords>" --json
+oo search "<query>" --json
 oo connector schema "<service>" --action "<action>"
 ```
 
@@ -175,20 +175,20 @@ not provided a complete connector action contract, use discovery before
 authoring:
 
 ```bash
-oo search "<goal>" --keywords "<comma-separated keywords>" --json
+oo search "<goal>" --json
 ```
 
 Do this even when the user mentions a model, product, provider name, or managed
 API capability, unless the user already provided a complete current connector
 contract. Shape `<goal>` as one short English outcome sentence for the current
 external step, preserving the user's decisive constraints such as target
-service, language pair, file type, and output format. Always pass `1` to `3`
-keywords. Keywords may use the user's original language and must keep product,
-brand, and proper names untranslated, for example keep `滴答清单` and do not
-turn it into `TickTick`; the backend tokenizes keywords, while the free-text
-query alone runs an untokenized semantic search. If those decisive business
-constraints are missing and would change the reusable skill contract, ask the
-user before discovery. Inspect the first result set before narrowing the query.
+service, language pair, file type, and output format. Name the target service
+when known, and keep product, brand, and proper names exactly as the user wrote
+them, for example keep `滴答清单` and do not turn it into `TickTick`, since the
+free-text query is the only discovery signal and a translated name can map onto
+a different global product. If those decisive business constraints are missing
+and would change the reusable skill contract, ask the user before discovery.
+Inspect the first result set before narrowing the query.
 
 Use only connector entries as authoring candidates. Treat non-connector entries
 as non-authoring catalog noise during this workflow: do not inspect them, do not

@@ -51,8 +51,6 @@ Options:
   --json                 Alias for --format=json
   --show-schema-version  Include schemaVersion in JSON output (no effect without
                          --json)
-  --keywords <keywords>  Specify comma-separated keywords to refine the
-                         connector action search
   -h, --help             Show help for command
 
 Global Options:
@@ -76,8 +74,6 @@ Options:
   --json                 Alias for --format=json
   --show-schema-version  Include schemaVersion in JSON output (no effect without
                          --json)
-  --keywords <keywords>  Specify comma-separated keywords to refine the
-                         connector action search
   -h, --help             Show help for command
 
 Global Options:

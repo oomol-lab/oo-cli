@@ -4,10 +4,7 @@ import type { TerminalColors } from "../../terminal-colors.ts";
 
 import { createWriterColors } from "../../terminal-colors.ts";
 
-import {
-    listAuthenticatedConnectorServices,
-    searchConnectorActions,
-} from "./shared.ts";
+import { searchConnectorActions } from "./shared.ts";
 
 export const connectorSearchActionColor = "#59F78D";
 export const connectorSearchServiceColor = "#CAA8FA";
@@ -23,8 +20,7 @@ type ConnectorSearchTextContext = Pick<CliExecutionContext, "stdout" | "translat
 
 export async function loadConnectorSearchResults(
     options: {
-        account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">;
-        keywords: readonly string[];
+        account: Pick<AuthAccount, "apiKey" | "endpoint">;
         text: string;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
@@ -32,25 +28,11 @@ export async function loadConnectorSearchResults(
     const actions = await searchConnectorActions({
         apiKey: options.account.apiKey,
         endpoint: options.account.endpoint,
-        keywords: options.keywords,
         text: options.text,
     }, context);
 
-    if (actions.length === 0) {
-        return [];
-    }
-
-    const authenticatedServices = await listAuthenticatedConnectorServices(
-        {
-            apiKey: options.account.apiKey,
-            endpoint: options.account.endpoint,
-            services: Array.from(new Set(actions.map(action => action.service))),
-        },
-        context,
-    );
-
     return actions.map(action => ({
-        authenticated: authenticatedServices.has(action.service),
+        authenticated: action.authenticated,
         description: action.description,
         name: action.name,
         service: action.service,
