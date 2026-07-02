@@ -167,7 +167,6 @@ const commandTelemetryDecisions = {
     "connector.search": {
         kind: "properties",
         properties: [
-            "keyword_count_bucket",
             "query_length_bucket",
             "result_count_bucket",
         ],
@@ -255,7 +254,6 @@ const commandTelemetryDecisions = {
     "search": {
         kind: "properties",
         properties: [
-            "keyword_count_bucket",
             "query_length_bucket",
             "result_count_bucket",
         ],

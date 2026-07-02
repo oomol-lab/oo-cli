@@ -281,8 +281,8 @@ State model:
    Discover or choose an action whose description identifies it as download or
    export and whose `outputSchema` exposes a download URL field, such as
    `transitUrl` on `googledrive.download_file`.
-   Prefer refining within the same connector service first, using the selected
-   service as a keyword or constraint.
+   Prefer refining within the same connector service first, naming the selected
+   service in the query sentence as a constraint.
 4. Save
    Feed that documented download URL to `oo file download`. Do not feed
    `webViewLink`, edit URLs, folder URLs, or console URLs to file download.

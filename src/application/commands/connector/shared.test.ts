@@ -15,7 +15,6 @@ import {
 } from "../shared/billing.ts";
 import {
     getConnectorActionMetadata,
-    listAuthenticatedConnectorServices,
     listConnectorAppsByService,
     runConnectorAction,
     runConnectorProxy,
@@ -29,7 +28,6 @@ describe("connector shared requests", () => {
             {
                 apiKey: "secret-1",
                 endpoint: "oomol.com",
-                keywords: ["gmail", "email"],
                 text: "send mail",
             },
             createRequestContext({
@@ -37,19 +35,13 @@ describe("connector shared requests", () => {
                     requests.push(toRequest(input, init));
 
                     return new Response(JSON.stringify({
+                        success: true,
+                        message: "ok",
                         data: [
                             {
+                                authenticated: true,
                                 description: "Send a Gmail message.",
-                                followUpActions: [],
-                                inputSchema: {
-                                    type: "object",
-                                },
                                 name: "send_mail",
-                                outputSchema: {
-                                    type: "object",
-                                },
-                                providerPermissions: ["gmail.send"],
-                                requiredScopes: ["gmail.send"],
                                 service: "gmail",
                             },
                         ],
@@ -60,43 +52,17 @@ describe("connector shared requests", () => {
 
         expect(actions).toEqual([
             {
+                authenticated: true,
                 description: "Send a Gmail message.",
-                inputSchema: {
-                    type: "object",
-                },
                 name: "send_mail",
-                outputSchema: {
-                    type: "object",
-                },
                 service: "gmail",
             },
         ]);
         expect(requests).toHaveLength(1);
         expect(requests[0]?.url).toBe(
-            "https://search.oomol.com/v1/connector-actions?q=send+mail&keywords=gmail%2Cemail",
+            "https://connector.oomol.com/v1/actions/search?q=send+mail",
         );
         expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
-    });
-
-    test("listAuthenticatedConnectorServices avoids a request when no services are provided", async () => {
-        let fetchCount = 0;
-        const services = await listAuthenticatedConnectorServices(
-            {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
-                services: [],
-            },
-            createRequestContext({
-                fetcher: async () => {
-                    fetchCount += 1;
-
-                    return new Response("[]");
-                },
-            }),
-        );
-
-        expect([...services]).toEqual([]);
-        expect(fetchCount).toBe(0);
     });
 
     test("listConnectorAppsByService requests apps for one service", async () => {

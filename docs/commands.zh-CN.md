@@ -478,10 +478,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 使用自由文本搜索 connector action。
 
 - 参数：`<text>` 为语义搜索文本。
-- 选项：`--keywords <keywords>` 接收逗号分隔的关键词列表，去掉空项和重复项
-  后发送。
 - 选项：`--format=json` 和 `--json` 会输出匹配 action 条目的 JSON 数组。
-- 输出：每条结果都会附加 `authenticated`。
+- 输出：每条结果都会包含 `authenticated`。
 - 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
   `authenticated`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
@@ -606,10 +604,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 使用一个自由文本查询搜索 connector action。
 
 - 参数：`<text>` 为语义搜索文本。
-- 选项：`--keywords <keywords>` 接收逗号分隔的关键词列表，去掉空项和重复项
-  后发送。
 - 选项：`--format=json` 和 `--json` 会输出匹配 action 条目的 JSON 数组。
-- 输出：每条结果都会附加 `authenticated`。
+- 输出：每条结果都会包含 `authenticated`。
 - 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
   `authenticated`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选

@@ -278,12 +278,6 @@ export const enMessages = {
         "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
     "errors.shared.networkRestrictedSandboxHint":
         "Current environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
-    "errors.connectorAuthenticated.invalidResponse":
-        "The authenticated connector services response body is unsupported.",
-    "errors.connectorAuthenticated.requestError":
-        "The authenticated connector services request failed: {message}",
-    "errors.connectorAuthenticated.requestFailed":
-        "The authenticated connector services request returned HTTP {status}.",
     "errors.connectorApps.invalidResponse":
         "The connector apps response body is unsupported.",
     "errors.connectorApps.requestError":
@@ -829,8 +823,6 @@ export const enMessages = {
     "options.blockId": "Specify the target block id",
     "options.action": "Specify the target action name",
     "options.blockName": "Alias for --block-id",
-    "options.connectorKeywords":
-        "Specify comma-separated keywords to refine the connector action search",
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
     "options.connectorRunWait":
@@ -1444,12 +1436,6 @@ export const zhMessages = {
         "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
     "errors.shared.networkRestrictedSandboxHint":
         "当前环境可能在网络受限的沙箱中，请尝试提权。",
-    "errors.connectorAuthenticated.invalidResponse":
-        "已认证 connector 服务列表返回了不受支持的响应内容。",
-    "errors.connectorAuthenticated.requestError":
-        "获取已认证 connector 服务列表失败：{message}",
-    "errors.connectorAuthenticated.requestFailed":
-        "获取已认证 connector 服务列表返回了 HTTP {status}。",
     "errors.connectorApps.invalidResponse":
         "connector app 列表返回了不受支持的响应内容。",
     "errors.connectorApps.requestError":
@@ -1990,8 +1976,6 @@ export const zhMessages = {
     "options.blockId": "指定目标 block id",
     "options.action": "指定目标 action 名称",
     "options.blockName": "--block-id 的别名",
-    "options.connectorKeywords":
-        "指定用于细化 connector action 搜索的逗号分隔关键词",
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
     "options.connectorRunWait":

@@ -56,16 +56,15 @@ export const connectorActionMetadataSchema = connectorActionDefinitionSchema.ext
     requiredScopes: z.array(z.string()).optional().default([]),
 }).passthrough();
 
-const connectorActionSearchResultSchema = connectorActionDefinitionSchema.extend({
-    asyncLifecycle: connectorActionAsyncLifecycleSchema.optional(),
+const connectorActionSearchResultSchema = z.object({
+    authenticated: z.boolean().optional().default(false),
+    description: z.string().optional().default(""),
+    name: z.string().min(1),
+    service: z.string().min(1),
 });
 
 const connectorActionSearchResponseSchema = z.object({
     data: z.array(connectorActionSearchResultSchema).optional().default([]),
-});
-
-const authenticatedConnectorServicesResponseSchema = z.object({
-    data: z.array(z.string()).optional().default([]),
 });
 
 const connectorActionMetadataResponseSchema = z.object({
@@ -156,6 +155,7 @@ export function requireConnectorActionName(rawAction: string | undefined): strin
 }
 
 export type ConnectorActionDefinition = z.output<typeof connectorActionDefinitionSchema>;
+export type ConnectorActionSearchResult = z.output<typeof connectorActionSearchResultSchema>;
 export type ConnectorActionAsyncLifecycle = z.output<typeof connectorActionAsyncLifecycleSchema>;
 export type ConnectorActionMetadata = z.output<typeof connectorActionMetadataSchema>;
 export type ConnectorActionRunResponse = z.output<typeof connectorActionRunResponseSchema>;
@@ -167,20 +167,15 @@ export async function searchConnectorActions(
     options: {
         apiKey: string;
         endpoint: string;
-        keywords: readonly string[];
         text: string;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<ConnectorActionDefinition[]> {
+): Promise<ConnectorActionSearchResult[]> {
     const requestUrl = new URL(
-        `https://search.${options.endpoint}/v1/connector-actions`,
+        `https://connector.${options.endpoint}/v1/actions/search`,
     );
 
     requestUrl.searchParams.set("q", options.text);
-
-    if (options.keywords.length > 0) {
-        requestUrl.searchParams.set("keywords", options.keywords.join(","));
-    }
 
     const rawResponse = await requestText({
         context,
@@ -200,7 +195,6 @@ export async function searchConnectorActions(
         ),
         fields: {
             start: {
-                keywordCount: options.keywords.length,
                 textLength: options.text.length,
             },
         },
@@ -220,68 +214,6 @@ export async function searchConnectorActions(
     }
     catch {
         throw new CliUserError("errors.connectorSearch.invalidResponse", 1);
-    }
-}
-
-export async function listAuthenticatedConnectorServices(
-    options: {
-        apiKey: string;
-        endpoint: string;
-        services: readonly string[];
-    },
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<Set<string>> {
-    if (options.services.length === 0) {
-        return new Set<string>();
-    }
-
-    const requestUrl = new URL(
-        `https://connector.${options.endpoint}/v1/apps/authenticated`,
-    );
-
-    for (const service of options.services) {
-        requestUrl.searchParams.append("service", service);
-    }
-
-    const rawResponse = await requestText({
-        context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.connectorAuthenticated.requestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.connectorAuthenticated.requestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
-            start: {
-                serviceCount: options.services.length,
-            },
-        },
-        init: {
-            headers: {
-                Authorization: options.apiKey,
-            },
-        },
-        requestLabel: "Authenticated connector services",
-        requestUrl,
-    });
-
-    try {
-        return new Set(
-            authenticatedConnectorServicesResponseSchema.parse(
-                JSON.parse(rawResponse) as unknown,
-            ).data,
-        );
-    }
-    catch {
-        throw new CliUserError("errors.connectorAuthenticated.invalidResponse", 1);
     }
 }
 

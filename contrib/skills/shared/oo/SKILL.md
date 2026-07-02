@@ -112,16 +112,14 @@ proves its output.
    prechecks; let the first substantive `oo` command surface availability or
    account problems.
 2. Search goal
-   For a single-step task, write one concise English goal sentence plus `1` to
-   `3` keywords. Keywords may use the user's original language and must keep
-   product, brand, and proper names untranslated. For a short multi-step task,
-   write 2 to 4 ordered subgoals and activate only the current unresolved
-   external step.
+   For a single-step task, write one concise English goal sentence that names
+   the target service when known and keeps product, brand, and proper names
+   untranslated. For a short multi-step task, write 2 to 4 ordered subgoals and
+   activate only the current unresolved external step.
 3. Discover
    Read [references/search-and-selection.md](references/search-and-selection.md)
-   before the first search. Run
-   `oo search "<goal>" --keywords "<keywords>" --json` with `1` to `3` keywords
-   unless a complete capability contract is already known from current evidence.
+   before the first search. Run `oo search "<goal>" --json` unless a complete
+   capability contract is already known from current evidence.
    A complete contract means connector schema already proves the callable id,
    required inputs, and output semantics; a user-named service is not enough.
    Record the `service` of each connector capability you actually use, building
