@@ -42,7 +42,7 @@ export const enMessages = {
         "Search connector actions.",
     "commands.connector.search.summary": "Search connector actions",
     "commands.connector.schema.description":
-        "Show the schema contract for one connector action.",
+        "Show the schema contract for one or more connector actions.",
     "commands.connector.schema.refresh.description":
         "Clear all locally cached connector action schemas.",
     "commands.connector.schema.refresh.summary":
@@ -376,6 +376,12 @@ export const enMessages = {
         "Connector proxy service {service} returned HTTP {status}: {message}",
     "errors.connectorProxy.requestFailedWithMessageAndCode":
         "Connector proxy service {service} returned HTTP {status} (errorCode: {errorCode}): {message}",
+    "errors.connectorSchema.actionIdRequired":
+        "Provide at least one action id in the form <service>.<action>.",
+    "errors.connectorSchema.invalidActionId":
+        "Invalid action id \"{actionId}\". Use the form <service>.<action>, for example cal.create_schedule.",
+    "errors.connectorSchema.legacyActionSingleService":
+        "The --action option accepts exactly one bare service name. To look up one or more actions by identifier, omit --action and pass <service>.<action> arguments instead.",
     "errors.connectorSchema.readFailed":
         "Failed to read the connector action schema cache at {path}: {message}",
     "errors.connectorSchema.writeFailed":
@@ -1105,6 +1111,7 @@ export const enMessages = {
     "arguments.skills.checkUpdate.packageName": "Package name(s) to check; checks every installed skill of each package",
     "arguments.skills.uninstall.name": "Skill or package name(s) to remove; a package name removes every installed skill that belongs to it",
     "arguments.serviceName": "Service name",
+    "arguments.actionId": "Action id(s) in the form <service>.<action>, for example cal.create_schedule",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
     "arguments.taskId": "Task id",
@@ -1223,7 +1230,7 @@ export const zhMessages = {
     "commands.connector.search.summary":
         "搜索 connector action",
     "commands.connector.schema.description":
-        "显示一个 connector action 的 schema contract。",
+        "显示一个或多个 connector action 的 schema contract。",
     "commands.connector.schema.refresh.description":
         "清除所有本地缓存的 connector action schema。",
     "commands.connector.schema.refresh.summary":
@@ -1534,6 +1541,12 @@ export const zhMessages = {
         "Connector proxy service {service} 返回了 HTTP {status}：{message}",
     "errors.connectorProxy.requestFailedWithMessageAndCode":
         "Connector proxy service {service} 返回了 HTTP {status}（errorCode: {errorCode}）：{message}",
+    "errors.connectorSchema.actionIdRequired":
+        "请至少提供一个 <service>.<action> 形式的 action id。",
+    "errors.connectorSchema.invalidActionId":
+        "无效的 action id “{actionId}”。请使用 <service>.<action> 形式，例如 cal.create_schedule。",
+    "errors.connectorSchema.legacyActionSingleService":
+        "--action 选项只接受一个纯服务名（不含点号）。若要按标识查询一个或多个 action，请省略 --action 并改用 <service>.<action> 形式的参数。",
     "errors.connectorSchema.readFailed":
         "读取 {path} 的 connector action schema cache 失败：{message}",
     "errors.connectorSchema.writeFailed":
@@ -2255,6 +2268,7 @@ export const zhMessages = {
     "arguments.skills.checkUpdate.packageName": "要检查的包名（可指定多个）；会检查每个包已安装的全部 skill",
     "arguments.skills.uninstall.name": "要移除的 skill 或包名（可指定多个）；传入包名会移除该包已安装的全部 skill",
     "arguments.serviceName": "服务名",
+    "arguments.actionId": "<service>.<action> 形式的 action id（可多个），例如 cal.create_schedule",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",
     "arguments.taskId": "任务 ID",

@@ -565,23 +565,29 @@ Search connector actions with free-form text.
   `description`, and `authenticated`.
 - Output: text output prints one block per action with the service/action
   label, optional description, and authenticated state.
-- Notes: use `oo connector schema "<service>" --action "<action>"` to inspect
-  the selected action contract.
+- Notes: use `oo connector schema "<service>.<action>"` to inspect the selected
+  action contract.
 - Notes: search results also warm the local action schema cache when schema
   data is available, so a following `oo connector schema` for a returned
   action is usually answered locally without a fresh metadata request.
 
-### `oo connector schema <serviceName>`
+### `oo connector schema <actionId...>`
 
-Show the stable schema contract for one connector action.
+Show the stable schema contract for one or more connector actions.
 
-- Arguments: `<serviceName>` is the service name.
-- Options: `-a, --action <action>` selects the action name and is required.
+- Arguments: `<actionId...>` is one or more action identifiers in the form
+  `<service>.<action>`, for example `cal.create_schedule`.
+- Options: `-a, --action <action>` selects the action name and treats the single
+  positional argument as a bare service name. This legacy form is retained for
+  backwards compatibility; it accepts exactly one bare service name and rejects
+  both additional positional arguments and the `<service>.<action>` form.
 - Options: `--refresh` fetches fresh metadata from the connector metadata API.
 - Options: `--json` is accepted for compatibility and does not change output.
-- Output: the command always prints a JSON object with the stable CLI fields
-  `service`, `name`, `description`, `inputSchema`, and `outputSchema`.
-- Notes: `--refresh` forces a fresh schema fetch for the selected action.
+- Output: for a single requested action, the command prints a JSON object with
+  the stable CLI fields `service`, `name`, `description`, `inputSchema`, and
+  `outputSchema`. For two or more requested actions, it prints a JSON array of
+  those objects in request order.
+- Notes: `--refresh` forces a fresh schema fetch for every selected action.
 - Notes: schemas cached by an earlier lookup or connector search are reused
   until they expire; use `--refresh` when the latest remote contract is
   required.
@@ -717,8 +723,8 @@ Search connector actions with one free-form query.
   `description`, and `authenticated`.
 - Output: text output prints one block per action with the service/action
   label, optional description, and authenticated state.
-- Notes: use `oo connector schema "<service>" --action "<action>"` to inspect
-  the full connector action contract.
+- Notes: use `oo connector schema "<service>.<action>"` to inspect the full
+  connector action contract.
 - Notes: search results also warm the local action schema cache when schema
   data is available, so a following `oo connector schema` for a returned
   action is usually answered locally without a fresh metadata request.

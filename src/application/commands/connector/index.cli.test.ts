@@ -3636,6 +3636,331 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("returns a JSON object for a single qualified action id", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "schema", "gmail.send_mail"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                description: "Send a Gmail message.",
+                                id: "gmail.send_mail",
+                                inputSchema: {
+                                    type: "object",
+                                },
+                                name: "send_mail",
+                                outputSchema: {
+                                    type: "object",
+                                },
+                                providerPermissions: [],
+                                requiredScopes: [],
+                                service: "gmail",
+                            },
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(Array.isArray(JSON.parse(result.stdout))).toBe(false);
+            expect(JSON.parse(result.stdout)).toEqual({
+                description: "Send a Gmail message.",
+                inputSchema: {
+                    type: "object",
+                },
+                name: "send_mail",
+                outputSchema: {
+                    type: "object",
+                },
+                service: "gmail",
+            });
+            expect(requests.map(request => request.url)).toEqual([
+                "https://connector.oomol.com/v1/actions/gmail.send_mail",
+            ]);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    action_count_bucket: "1-5",
+                    command_full: "connector.schema",
+                    qualified: true,
+                    refresh: false,
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports connector schema for multiple qualified action ids with array output", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "schema",
+                    "cal.create_schedule",
+                    "callingly.get_agent_schedule",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.endsWith("cal.create_schedule")) {
+                            return new Response(JSON.stringify({
+                                data: {
+                                    description: "Create a schedule.",
+                                    id: "cal.create_schedule",
+                                    inputSchema: {
+                                        type: "object",
+                                    },
+                                    name: "create_schedule",
+                                    outputSchema: {
+                                        type: "object",
+                                    },
+                                    providerPermissions: [],
+                                    requiredScopes: [],
+                                    service: "cal",
+                                },
+                            }));
+                        }
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                description: "Get an agent schedule.",
+                                id: "callingly.get_agent_schedule",
+                                inputSchema: {
+                                    type: "object",
+                                },
+                                name: "get_agent_schedule",
+                                outputSchema: {
+                                    type: "object",
+                                },
+                                providerPermissions: [],
+                                requiredScopes: [],
+                                service: "callingly",
+                            },
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            // Two action ids widen the output to an array in request order.
+            expect(JSON.parse(result.stdout)).toEqual([
+                {
+                    description: "Create a schedule.",
+                    inputSchema: {
+                        type: "object",
+                    },
+                    name: "create_schedule",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "cal",
+                },
+                {
+                    description: "Get an agent schedule.",
+                    inputSchema: {
+                        type: "object",
+                    },
+                    name: "get_agent_schedule",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "callingly",
+                },
+            ]);
+            expect(result.stdout).not.toContain("providerPermissions");
+            expect(requests.map(request => request.url)).toEqual([
+                "https://connector.oomol.com/v1/actions/cal.create_schedule",
+                "https://connector.oomol.com/v1/actions/callingly.get_agent_schedule",
+            ]);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    action_count_bucket: "1-5",
+                    command_full: "connector.schema",
+                    qualified: true,
+                    refresh: false,
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects a malformed action id that is missing the service separator", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            let metadataRequestCount = 0;
+            const result = await sandbox.run(
+                ["connector", "schema", "send_mail"],
+                {
+                    fetcher: async () => {
+                        metadataRequestCount += 1;
+
+                        throw new Error("Unexpected schema metadata request");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("Invalid action id");
+            expect(result.stderr).toContain("send_mail");
+            // The identifier is parsed before any account lookup or request.
+            expect(metadataRequestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects the legacy --action option combined with multiple service names", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            let metadataRequestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "schema",
+                    "gmail",
+                    "calendar",
+                    "--action",
+                    "send_mail",
+                ],
+                {
+                    fetcher: async () => {
+                        metadataRequestCount += 1;
+
+                        throw new Error("Unexpected schema metadata request");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("--action");
+            expect(metadataRequestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects the legacy --action option combined with a qualified action id", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            let metadataRequestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "schema",
+                    "cal.create_schedule",
+                    "--action",
+                    "send_mail",
+                ],
+                {
+                    fetcher: async () => {
+                        metadataRequestCount += 1;
+
+                        throw new Error("Unexpected schema metadata request");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("--action");
+            // Mixing syntaxes is rejected before any doomed metadata request.
+            expect(metadataRequestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records legacy telemetry when --action selects the action name", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["connector", "schema", "gmail", "--action", "send_mail"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            description: "Send a Gmail message.",
+                            id: "gmail.send_mail",
+                            inputSchema: {
+                                type: "object",
+                            },
+                            name: "send_mail",
+                            outputSchema: {
+                                type: "object",
+                            },
+                            providerPermissions: [],
+                            requiredScopes: [],
+                            service: "gmail",
+                        },
+                    })),
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(Array.isArray(JSON.parse(result.stdout))).toBe(false);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    action_count_bucket: "1-5",
+                    command_full: "connector.schema",
+                    qualified: false,
+                    refresh: false,
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports connector schema refresh by bypassing cached metadata", async () => {
         const sandbox = await createCliSandbox();
 

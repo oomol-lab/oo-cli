@@ -484,23 +484,27 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `authenticated`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
   描述和认证状态。
-- 说明：使用 `oo connector schema "<service>" --action "<action>"` 查看选中
-  action 的 contract。
+- 说明：使用 `oo connector schema "<service>.<action>"` 查看选中 action 的
+  contract。
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
   对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
   请求 metadata。
 
-### `oo connector schema <serviceName>`
+### `oo connector schema <actionId...>`
 
-显示一个 connector action 的稳定 schema contract。
+显示一个或多个 connector action 的稳定 schema contract。
 
-- 参数：`<serviceName>` 为服务名。
-- 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
+- 参数：`<actionId...>` 为一个或多个 `<service>.<action>` 形式的 action 标识，
+  例如 `cal.create_schedule`。
+- 选项：`-a, --action <action>` 用于指定 action 名称，并将唯一的位置参数视为
+  纯服务名。该旧写法为向后兼容而保留：只接受一个纯服务名，并会拒绝额外的
+  位置参数以及 `<service>.<action>` 形式。
 - 选项：`--refresh` 会直接从 connector metadata API 获取最新 schema。
 - 选项：`--json` 作为兼容性选项被接受，不会改变输出。
-- 输出：命令默认输出 JSON 对象，包含稳定 CLI 字段 `service`、`name`、
-  `description`、`inputSchema` 和 `outputSchema`。
-- 说明：`--refresh` 会强制为选中的 action 重新获取 schema。
+- 输出：当只请求一个 action 时，命令输出 JSON 对象，包含稳定 CLI 字段
+  `service`、`name`、`description`、`inputSchema` 和 `outputSchema`；当请求两个
+  或更多 action 时，则按请求顺序输出这些对象组成的 JSON 数组。
+- 说明：`--refresh` 会强制为每个选中的 action 重新获取 schema。
 - 说明：此前查询或 connector 搜索缓存的 schema 会在过期前被复用；需要
   最新远端 contract 时请使用 `--refresh`。
 
@@ -615,8 +619,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `authenticated`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
   描述和认证状态。
-- 说明：使用 `oo connector schema "<service>" --action "<action>"` 获取完整
-  connector action contract。
+- 说明：使用 `oo connector schema "<service>.<action>"` 获取完整 connector
+  action contract。
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
   对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
   请求 metadata。

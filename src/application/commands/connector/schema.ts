@@ -1,6 +1,9 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
+import type { ConnectorActionSchemaOutput } from "./schema-cache.ts";
 import { z } from "zod";
+import { CliUserError } from "../../contracts/cli.ts";
+import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
@@ -13,7 +16,12 @@ import { requireConnectorActionName } from "./shared.ts";
 
 interface ConnectorSchemaInput {
     action?: string;
+    actionId?: string[];
     refresh?: boolean;
+}
+
+interface QualifiedActionTarget {
+    actionName: string;
     serviceName: string;
 }
 
@@ -27,9 +35,10 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
     ],
     arguments: [
         {
-            name: "serviceName",
-            descriptionKey: "arguments.serviceName",
+            name: "actionId",
+            descriptionKey: "arguments.actionId",
             required: true,
+            variadic: true,
         },
     ],
     options: [
@@ -53,28 +62,104 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
     ],
     inputSchema: z.object({
         action: z.string().optional(),
+        actionId: z.array(z.string()).optional(),
         refresh: z.boolean().optional(),
-        serviceName: z.string(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const actionName = requireConnectorActionName(input.action);
+        const actionIds = input.actionId ?? [];
+        const targets = input.action === undefined
+            // New form: every positional is a `service.action` identifier.
+            ? parseQualifiedActionIds(actionIds)
+            // Legacy form: `--action` selects the action name and the single
+            // positional is treated verbatim as the service name.
+            : [createLegacyActionTarget(actionIds, input.action)];
 
         context.telemetry?.recordProperties({
+            action_count_bucket: bucketTelemetryCount(targets.length),
+            qualified: input.action === undefined,
             refresh: input.refresh === true,
         });
 
         const account = await requireCurrentAccount(context);
-        const actionSchema = await loadConnectorActionSchema(
-            {
-                account,
-                actionName,
-                refresh: input.refresh,
-                serviceName: input.serviceName,
-            },
-            context,
-        );
+        const outputs: ConnectorActionSchemaOutput[] = [];
 
-        writeJsonOutput(context.stdout, createConnectorActionSchemaOutput(actionSchema));
+        for (const target of targets) {
+            const actionSchema = await loadConnectorActionSchema(
+                {
+                    account,
+                    actionName: target.actionName,
+                    refresh: input.refresh,
+                    serviceName: target.serviceName,
+                },
+                context,
+            );
+
+            outputs.push(createConnectorActionSchemaOutput(actionSchema));
+        }
+
+        // A single requested action keeps the historical object shape; two or
+        // more actions widen the output to an array in request order.
+        writeJsonOutput(
+            context.stdout,
+            outputs.length === 1 ? outputs[0]! : outputs,
+        );
     },
 };
+
+function parseQualifiedActionIds(
+    actionIds: readonly string[],
+): QualifiedActionTarget[] {
+    if (actionIds.length === 0) {
+        throw new CliUserError("errors.connectorSchema.actionIdRequired", 2);
+    }
+
+    return actionIds.map(parseQualifiedActionId);
+}
+
+function parseQualifiedActionId(rawActionId: string): QualifiedActionTarget {
+    const trimmed = rawActionId.trim();
+    const separatorIndex = trimmed.indexOf(".");
+
+    // Require a non-empty service segment before the first dot and a non-empty
+    // action segment after it, e.g. `cal.create_schedule`.
+    if (separatorIndex <= 0 || separatorIndex >= trimmed.length - 1) {
+        throw new CliUserError("errors.connectorSchema.invalidActionId", 2, {
+            actionId: rawActionId,
+        });
+    }
+
+    return {
+        actionName: trimmed.slice(separatorIndex + 1),
+        serviceName: trimmed.slice(0, separatorIndex),
+    };
+}
+
+function createLegacyActionTarget(
+    actionIds: readonly string[],
+    rawAction: string,
+): QualifiedActionTarget {
+    if (actionIds.length !== 1) {
+        throw new CliUserError(
+            "errors.connectorSchema.legacyActionSingleService",
+            2,
+        );
+    }
+
+    const serviceName = actionIds[0]!.trim();
+
+    // With `--action` present the positional is a bare service name, so an
+    // empty value or a dotted `<service>.<action>` value means the two syntaxes
+    // were mixed; reject it instead of issuing a doomed metadata request.
+    if (serviceName === "" || serviceName.includes(".")) {
+        throw new CliUserError(
+            "errors.connectorSchema.legacyActionSingleService",
+            2,
+        );
+    }
+
+    return {
+        actionName: requireConnectorActionName(rawAction),
+        serviceName,
+    };
+}

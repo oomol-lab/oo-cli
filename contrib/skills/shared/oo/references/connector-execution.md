@@ -14,8 +14,11 @@ smallest sufficient JSON payload that matches the user's real intent.
 ## Confirm the action contract
 
 - Use the chosen search result's `service` and `name` as the starting point.
-- Run `oo connector schema "<service>" --action "<name>"` before
-  building any payload.
+- Run `oo connector schema "<service>.<action>"` before building any payload.
+- To inspect several actions, pass multiple `<service>.<action>` ids to one
+  command instead of running one command per action. With two or more ids the
+  output is a JSON array in request order; with one id it stays a single JSON
+  object.
 - Use the returned exact `service`, `name`, `description`, `inputSchema`, and
   `outputSchema` to confirm the action fit.
 - Prefer the action whose description most directly matches the user's desired
@@ -28,7 +31,15 @@ smallest sufficient JSON payload that matches the user's real intent.
 Representative schema command:
 
 ```bash
-oo connector schema "gmail" --action "send_mail"
+oo connector schema "gmail.send_mail"
+```
+
+Batch form for several actions at once (returns a JSON array in request
+order), useful when a workflow needs more than one contract, such as an async
+submit/result pair or a read step feeding a write step:
+
+```bash
+oo connector schema "cal.create_schedule" "callingly.get_agent_schedule"
 ```
 
 Representative schema JSON shape:
@@ -234,6 +245,10 @@ synchronous action. Treat that pattern as a resumable task lifecycle.
 
 Rules:
 
+- Fetch the whole lifecycle contract up front with one batch schema call, for
+  example
+  `oo connector schema "<service>.<submit_action>" "<service>.<result_action>"`,
+  instead of one schema command per lifecycle action.
 - Submit exactly once for the same logical work item.
 - Immediately save the submit response and extracted task id in a checkpoint
   file before polling.

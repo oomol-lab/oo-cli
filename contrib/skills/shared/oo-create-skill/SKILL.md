@@ -46,7 +46,7 @@ reusable user intent, compact runtime runbook, then convenience.
 3. Evidence outranks memory. For existing local workflows, inspect current files
    and use safe local command output or tests when they are proportionate. For
    connector workflows, a callable contract exists only when current command
-   output and `oo connector schema "<service>" --action "<action>"` prove the
+   output and `oo connector schema "<service>.<action>"` prove the
    selected service/action, required inputs, and output semantics. Do not invent
    connector facts from prior knowledge, examples, old runs, or catalog guesses.
 4. Resolve before designing. Do not predesign the whole execution process and
@@ -125,7 +125,7 @@ permission and name the blocked command. Common commands are:
 ```bash
 oo skills init <name> --agent <!-- agentic:var agent --> --description "..."
 oo search "<query>" --json
-oo connector schema "<service>" --action "<action>"
+oo connector schema "<service>.<action>"
 ```
 
 If <!-- agentic:var agentTitle --> cannot request the needed permission, or the
@@ -237,8 +237,13 @@ description, authentication state, and schema-derived input/output concepts.
 Use the schema command before authoring the runbook:
 
 ```bash
-oo connector schema "<service>" --action "<action>"
+oo connector schema "<service>.<action>"
 ```
+
+When the runbook depends on more than one action contract, such as an async
+submit/result pair, pass every `<service>.<action>` id to one schema command
+instead of running one command per action; with two or more ids the output is
+a JSON array in request order.
 
 When result shape, status transitions, file return format, or envelope structure
 will affect the runbook, run a minimal representative invocation or status/result
