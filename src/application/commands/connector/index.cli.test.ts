@@ -46,18 +46,14 @@ describe("connectorCommand CLI", () => {
 
                         requests.push(request);
 
-                        return new Response(JSON.stringify({
-                            success: true,
-                            message: "ok",
-                            data: [
-                                {
-                                    authenticated: true,
-                                    description: "Send a Gmail message.",
-                                    name: "send_mail",
-                                    service: "gmail",
-                                },
-                            ],
-                        }));
+                        return createConnectorSearchResponse([
+                            {
+                                authenticated: true,
+                                description: "Send a Gmail message.",
+                                name: "send_mail",
+                                service: "gmail",
+                            },
+                        ]);
                     },
                 },
             );
@@ -144,18 +140,14 @@ describe("connectorCommand CLI", () => {
                         const request = toRequest(input, init);
 
                         if (request.url.includes("/v1/actions/search")) {
-                            return new Response(JSON.stringify({
-                                success: true,
-                                message: "ok",
-                                data: [
-                                    {
-                                        authenticated: false,
-                                        description: "Submit OpenAI image generation.",
-                                        name: "openai_image_async_submit",
-                                        service: "fusion-api",
-                                    },
-                                ],
-                            }));
+                            return createConnectorSearchResponse([
+                                {
+                                    authenticated: false,
+                                    description: "Submit OpenAI image generation.",
+                                    name: "openai_image_async_submit",
+                                    service: "fusion-api",
+                                },
+                            ]);
                         }
 
                         return new Response(JSON.stringify({
@@ -277,18 +269,14 @@ describe("connectorCommand CLI", () => {
                         const request = toRequest(input, init);
 
                         if (request.url.includes("/v1/actions/search")) {
-                            return new Response(JSON.stringify({
-                                success: true,
-                                message: "ok",
-                                data: [
-                                    {
-                                        authenticated: false,
-                                        description: "Send a Gmail message.",
-                                        name: "send_mail",
-                                        service: "gmail",
-                                    },
-                                ],
-                            }));
+                            return createConnectorSearchResponse([
+                                {
+                                    authenticated: false,
+                                    description: "Send a Gmail message.",
+                                    name: "send_mail",
+                                    service: "gmail",
+                                },
+                            ]);
                         }
 
                         return new Response(JSON.stringify({
@@ -329,18 +317,14 @@ describe("connectorCommand CLI", () => {
                         const request = toRequest(input, init);
 
                         if (request.url.includes("/v1/actions/search")) {
-                            return new Response(JSON.stringify({
-                                success: true,
-                                message: "ok",
-                                data: [
-                                    {
-                                        authenticated: true,
-                                        description: "Send a Gmail message.",
-                                        name: "send_mail",
-                                        service: "gmail",
-                                    },
-                                ],
-                            }));
+                            return createConnectorSearchResponse([
+                                {
+                                    authenticated: true,
+                                    description: "Send a Gmail message.",
+                                    name: "send_mail",
+                                    service: "gmail",
+                                },
+                            ]);
                         }
 
                         return new Response(JSON.stringify({
@@ -4260,6 +4244,21 @@ function createAsyncResultActionSchema(
         service: "fusion-api",
         ...overrides,
     };
+}
+
+function createConnectorSearchResponse(
+    actions: Array<{
+        authenticated: boolean;
+        description: string;
+        name: string;
+        service: string;
+    }>,
+): Response {
+    return new Response(JSON.stringify({
+        success: true,
+        message: "ok",
+        data: actions,
+    }));
 }
 
 function createBunSleepMock(onSleep?: (durationMs: number) => void) {
