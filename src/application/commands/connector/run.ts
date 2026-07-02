@@ -202,6 +202,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             {
                 actionName,
                 account,
+                requireAsyncLifecycle: input.wait === true || input.waitResult === true,
                 serviceName: input.serviceName,
             },
             context,
@@ -254,6 +255,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
                 {
                     actionName: submitLifecycle.resultAction,
                     account,
+                    requireAsyncLifecycle: true,
                     serviceName: input.serviceName,
                 },
                 context,

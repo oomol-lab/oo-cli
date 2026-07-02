@@ -11,6 +11,7 @@ import pino from "pino";
 import {
     createCacheStore,
     createConnectorActionFixture,
+    createMemoryCache,
     createTemporaryDirectory,
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
@@ -139,6 +140,106 @@ describe("connector schema cache", () => {
             providerPermissions: [],
             requiredScopes: [],
             service: "gmail",
+        });
+        expect(fetchCount).toBe(0);
+    });
+
+    test("loadConnectorActionSchema refetches lifecycle-less cache entries when the async lifecycle is required", async () => {
+        const cache = createMemoryCache();
+        const cacheKey = createConnectorActionSchemaCacheKey({
+            accountId: "user-1",
+            actionName: "send_mail",
+            endpoint: "oomol.com",
+            serviceName: "gmail",
+        });
+
+        cache.set(cacheKey, createConnectorActionFixture({
+            description: "Search-seeded schema.",
+        }));
+
+        const schema = await loadConnectorActionSchema(
+            {
+                account: createAccount(),
+                actionName: "send_mail",
+                requireAsyncLifecycle: true,
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+                fetcher: async () => createMetadataResponse({
+                    asyncLifecycle: {
+                        role: "submit",
+                        resultAction: "get_send_result",
+                        handle: {
+                            inputField: "sessionID",
+                            outputField: "sessionId",
+                        },
+                    },
+                    description: "Fresh schema.",
+                }),
+            }),
+        );
+
+        expect(schema).toMatchObject({
+            asyncLifecycle: {
+                role: "submit",
+            },
+            description: "Fresh schema.",
+        });
+        expect(cache.get(cacheKey)).toMatchObject({
+            description: "Fresh schema.",
+        });
+    });
+
+    test("loadConnectorActionSchema reuses cached entries with an async lifecycle when it is required", async () => {
+        const cache = createMemoryCache();
+
+        cache.set(
+            createConnectorActionSchemaCacheKey({
+                accountId: "user-1",
+                actionName: "openai_image_async_submit",
+                endpoint: "oomol.com",
+                serviceName: "fusion-api",
+            }),
+            {
+                ...createConnectorActionFixture({
+                    name: "openai_image_async_submit",
+                    service: "fusion-api",
+                }),
+                asyncLifecycle: {
+                    role: "submit",
+                    resultAction: "openai_image_async_result",
+                    handle: {
+                        inputField: "sessionID",
+                        outputField: "sessionId",
+                    },
+                },
+            },
+        );
+
+        let fetchCount = 0;
+        const schema = await loadConnectorActionSchema(
+            {
+                account: createAccount(),
+                actionName: "openai_image_async_submit",
+                requireAsyncLifecycle: true,
+                serviceName: "fusion-api",
+            },
+            createCacheContext({
+                cache,
+                fetcher: async () => {
+                    fetchCount += 1;
+
+                    return new Response("unexpected");
+                },
+            }),
+        );
+
+        expect(schema).toMatchObject({
+            asyncLifecycle: {
+                role: "submit",
+            },
+            name: "openai_image_async_submit",
         });
         expect(fetchCount).toBe(0);
     });
@@ -634,19 +735,5 @@ function createCacheContext(options: {
             write: async (value: AppSettings) => value,
         },
         translator: createTranslator("en"),
-    };
-}
-
-function createMemoryCache(): Cache<unknown> {
-    const entries = new Map<string, unknown>();
-
-    return {
-        clear: () => entries.clear(),
-        delete: key => entries.delete(key),
-        get: key => entries.get(key) ?? null,
-        has: key => entries.has(key),
-        set: (key, value) => {
-            entries.set(key, value);
-        },
     };
 }

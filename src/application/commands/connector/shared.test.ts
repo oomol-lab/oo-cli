@@ -41,7 +41,13 @@ describe("connector shared requests", () => {
                             {
                                 authenticated: true,
                                 description: "Send a Gmail message.",
+                                inputSchema: {
+                                    type: "object",
+                                },
                                 name: "send_mail",
+                                outputSchema: {
+                                    type: "object",
+                                },
                                 service: "gmail",
                             },
                         ],
@@ -54,7 +60,13 @@ describe("connector shared requests", () => {
             {
                 authenticated: true,
                 description: "Send a Gmail message.",
+                inputSchema: {
+                    type: "object",
+                },
                 name: "send_mail",
+                outputSchema: {
+                    type: "object",
+                },
                 service: "gmail",
             },
         ]);
@@ -63,6 +75,39 @@ describe("connector shared requests", () => {
             "https://connector.oomol.com/v1/actions/search?q=send+mail",
         );
         expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
+    });
+
+    test("searchConnectorActions accepts results without schema payloads", async () => {
+        const actions = await searchConnectorActions(
+            {
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                text: "send mail",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    success: true,
+                    message: "ok",
+                    data: [
+                        {
+                            name: "send_mail",
+                            service: "gmail",
+                        },
+                    ],
+                })),
+            }),
+        );
+
+        expect(actions).toEqual([
+            {
+                authenticated: false,
+                description: "",
+                inputSchema: undefined,
+                name: "send_mail",
+                outputSchema: undefined,
+                service: "gmail",
+            },
+        ]);
     });
 
     test("listConnectorAppsByService requests apps for one service", async () => {

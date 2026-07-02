@@ -50,6 +50,14 @@ export async function loadConnectorActionSchema(
         account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">;
         actionName: string;
         refresh?: boolean;
+        /**
+         * Treat cached entries without an `asyncLifecycle` as cache misses so
+         * the loader falls back to the metadata API. Search-seeded cache
+         * entries never carry the async lifecycle, so callers that depend on
+         * it (the `--wait` / `--wait-result` run modes) must not trust a
+         * cached entry that lacks one.
+         */
+        requireAsyncLifecycle?: boolean;
         serviceName: string;
     },
     context: ConnectorActionSchemaLoaderContext,
@@ -68,7 +76,20 @@ export async function loadConnectorActionSchema(
         const cached = tryReadConnectorActionSchemaCache(cache, cacheKey, context);
 
         if (cached !== undefined) {
-            return cached;
+            if (options.requireAsyncLifecycle !== true
+                || cached.asyncLifecycle !== undefined) {
+                return cached;
+            }
+
+            context.logger.debug(
+                {
+                    accountId: options.account.id,
+                    actionName: options.actionName,
+                    endpoint: options.account.endpoint,
+                    serviceName: options.serviceName,
+                },
+                "Connector action schema cache entry lacks an async lifecycle; fetching metadata.",
+            );
         }
     }
     else {
@@ -117,11 +138,10 @@ export async function loadConnectorActionSchema(
 }
 
 /**
- * Test-only bulk cache populator. Production fills the connector action schema
- * cache lazily through `loadConnectorActionSchema`; this helper is only used by
- * tests to seed cache state up front.
- *
- * @public
+ * Bulk cache populator used to warm the connector action schema cache from
+ * connector search responses (which carry `inputSchema` / `outputSchema` but
+ * never an `asyncLifecycle`). `loadConnectorActionSchema` still fills the
+ * cache lazily from the metadata API for anything search did not cover.
  */
 export async function cacheConnectorActionSchemas(
     actions: readonly ConnectorActionDefinition[],

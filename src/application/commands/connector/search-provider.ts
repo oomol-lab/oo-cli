@@ -2,7 +2,9 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 
+import type { ConnectorActionSearchResult } from "./shared.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
+import { cacheConnectorActionSchemas } from "./schema-cache.ts";
 
 import { searchConnectorActions } from "./shared.ts";
 
@@ -20,10 +22,13 @@ type ConnectorSearchTextContext = Pick<CliExecutionContext, "stdout" | "translat
 
 export async function loadConnectorSearchResults(
     options: {
-        account: Pick<AuthAccount, "apiKey" | "endpoint">;
+        account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">;
         text: string;
     },
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+    context: Pick<
+        CliExecutionContext,
+        "cacheStore" | "fetcher" | "logger" | "settingsStore" | "translator"
+    >,
 ): Promise<ConnectorSearchResult[]> {
     const actions = await searchConnectorActions({
         apiKey: options.account.apiKey,
@@ -31,12 +36,41 @@ export async function loadConnectorSearchResults(
         text: options.text,
     }, context);
 
+    await warmConnectorActionSchemaCache(actions, options.account, context);
+
     return actions.map(action => ({
         authenticated: action.authenticated,
         description: action.description,
         name: action.name,
         service: action.service,
     }));
+}
+
+async function warmConnectorActionSchemaCache(
+    actions: readonly ConnectorActionSearchResult[],
+    account: Pick<AuthAccount, "endpoint" | "id">,
+    context: Pick<CliExecutionContext, "cacheStore" | "logger" | "settingsStore">,
+): Promise<void> {
+    const cacheableActions = actions.filter(action =>
+        action.inputSchema !== undefined && action.outputSchema !== undefined);
+
+    if (cacheableActions.length === 0) {
+        return;
+    }
+
+    try {
+        await cacheConnectorActionSchemas(cacheableActions, account, context);
+    }
+    catch (error) {
+        // Cache warming is a best-effort optimization; search results must
+        // still be returned when the local cache cannot be written.
+        context.logger.warn(
+            {
+                err: error,
+            },
+            "Failed to warm connector action schemas during search.",
+        );
+    }
 }
 
 export function formatConnectorSearchResultsAsText(

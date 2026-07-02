@@ -836,6 +836,20 @@ export function createSettingsStore(settings: AppSettings): SettingsStore {
     };
 }
 
+export function createMemoryCache(): Cache<unknown> {
+    const entries = new Map<string, unknown>();
+
+    return {
+        clear: () => entries.clear(),
+        delete: key => entries.delete(key),
+        get: key => entries.get(key) ?? null,
+        has: key => entries.has(key),
+        set: (key, value) => {
+            entries.set(key, value);
+        },
+    };
+}
+
 export function createCacheStore<Value>(
     cache?: Cache<Value>,
     cacheOptions?: CacheOptions[],

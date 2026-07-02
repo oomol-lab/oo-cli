@@ -1,18 +1,5 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`connectorCommand CLI supports connector search with text output without caching partial schemas 1`] = `
-{
-  "exitCode": 0,
-  "stderr": "",
-  "stdout": 
-"gmail.send_mail
-Send a Gmail message.
-Authenticated: yes
-"
-,
-}
-`;
-
 exports[`connectorCommand CLI supports connector search with json output and omits schemas 1`] = `
 {
   "exitCode": 0,
@@ -197,6 +184,19 @@ exports[`connectorCommand CLI supports connector schema refresh subcommand by cl
   "stderr": "",
   "stdout": 
 "Cleared locally cached connector action schemas.
+"
+,
+}
+`;
+
+exports[`connectorCommand CLI supports connector search with text output without caching schema-less results 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"gmail.send_mail
+Send a Gmail message.
+Authenticated: yes
 "
 ,
 }
