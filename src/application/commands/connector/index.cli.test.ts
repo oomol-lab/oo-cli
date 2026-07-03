@@ -4811,7 +4811,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("enriches top-level search results with the self-hosted authenticated-services lookup", async () => {
+    test("uses the wire authenticated field for self-hosted top-level search results", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -4829,23 +4829,14 @@ describe("connectorCommand CLI", () => {
 
                         requests.push(request);
 
-                        if (request.url.includes("/v1/actions/search")) {
-                            // The self-hosted runtime omits the per-result
-                            // `authenticated` field; the schema defaults it to
-                            // false before the follow-up lookup fills it in.
-                            return createConnectorSearchResponse([
-                                {
-                                    authenticated: false,
-                                    description: "Send a Gmail message.",
-                                    name: "send_mail",
-                                    service: "gmail",
-                                },
-                            ]);
-                        }
-
-                        return new Response(JSON.stringify({
-                            data: ["gmail"],
-                        }));
+                        return createConnectorSearchResponse([
+                            {
+                                authenticated: true,
+                                description: "Send a Gmail message.",
+                                name: "send_mail",
+                                service: "gmail",
+                            },
+                        ]);
                     },
                 },
             );
@@ -4854,9 +4845,8 @@ describe("connectorCommand CLI", () => {
             expect(result.stderr).toBe("");
             expect(requests.map(request => request.url)).toEqual([
                 "http://localhost:3000/v1/actions/search?q=send+mail",
-                "http://localhost:3000/v1/apps/authenticated?service=gmail",
             ]);
-            expect(requests[1]?.headers.get("Authorization")).toBe("Bearer oct_test");
+            expect(requests[0]?.headers.get("Authorization")).toBe("Bearer oct_test");
             expect(JSON.parse(result.stdout)).toEqual([
                 {
                     authenticated: true,

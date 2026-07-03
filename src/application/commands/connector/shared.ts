@@ -82,7 +82,7 @@ export const connectorActionMetadataSchema = connectorActionDefinitionSchema.ext
 }).passthrough();
 
 const connectorActionSearchResultSchema = z.object({
-    authenticated: z.boolean().optional().default(false),
+    authenticated: z.boolean(),
     description: z.string().optional().default(""),
     inputSchema: z.unknown(),
     name: z.string().min(1),
@@ -242,73 +242,6 @@ export async function searchConnectorActions(
     }
     catch {
         throw new CliUserError("errors.connectorSearch.invalidResponse", 1);
-    }
-}
-
-const connectorAuthenticatedServicesResponseSchema = z.object({
-    data: z.array(z.string()).optional().default([]),
-});
-
-/**
- * Lists which of the given services have an authenticated connection on the
- * connector server (`GET /v1/apps/authenticated`). The self-hosted runtime
- * omits the per-result `authenticated` field from search responses, so search
- * uses this endpoint to reconstruct that signal.
- */
-export async function listAuthenticatedConnectorServices(
-    options: {
-        serviceNames: readonly string[];
-        target: ConnectorRequestTarget;
-    },
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<string[]> {
-    const requestUrl = new URL(
-        `${options.target.baseUrl}/v1/apps/authenticated`,
-    );
-
-    for (const serviceName of options.serviceNames) {
-        requestUrl.searchParams.append("service", serviceName);
-    }
-
-    const rawResponse = await requestText({
-        context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.connectorApps.requestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.connectorApps.requestError",
-            1,
-            {
-                message: createConnectorUnexpectedErrorMessage(
-                    error,
-                    options.target,
-                    context.translator,
-                ),
-            },
-        ),
-        fields: {
-            start: {
-                serviceCount: options.serviceNames.length,
-            },
-        },
-        init: {
-            headers: connectorAuthorizationHeaders(options.target),
-        },
-        requestLabel: "Connector authenticated services",
-        requestUrl,
-    });
-
-    try {
-        return connectorAuthenticatedServicesResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        ).data;
-    }
-    catch {
-        throw new CliUserError("errors.connectorApps.invalidResponse", 1);
     }
 }
 
