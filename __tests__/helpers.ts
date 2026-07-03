@@ -1,12 +1,15 @@
 import type { Logger } from "pino";
 import type { CliInvocation } from "../src/application/bootstrap/run-cli.ts";
+import type { ConnectorTarget } from "../src/application/commands/connector/target.ts";
 import type { AuthStore } from "../src/application/contracts/auth-store.ts";
 import type { Cache, CacheOptions, CacheStore } from "../src/application/contracts/cache.ts";
 import type { Fetcher, InteractiveInput, Writer } from "../src/application/contracts/cli.ts";
+import type { ConnectorStore } from "../src/application/contracts/connector-store.ts";
 import type { FileDownloadSessionStore } from "../src/application/contracts/file-download-session-store.ts";
 import type { FileUploadRecordStore } from "../src/application/contracts/file-upload-store.ts";
 import type { SettingsStore } from "../src/application/contracts/settings-store.ts";
 import type { AuthFile } from "../src/application/schemas/auth.ts";
+import type { ConnectorFile } from "../src/application/schemas/connector.ts";
 import type { AppSettings } from "../src/application/schemas/settings.ts";
 import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -414,6 +417,75 @@ export async function writeAuthFile(
             `endpoint = "${account.endpoint}"`,
             "",
         ]),
+    ].join("\n");
+
+    await Bun.write(filePath, content);
+
+    return filePath;
+}
+
+export function createConnectorTargetFixture(
+    overrides: Partial<ConnectorTarget> = {},
+): ConnectorTarget {
+    return {
+        authorization: "secret-1",
+        baseUrl: "https://connector.oomol.com",
+        cacheAccountId: "user-1",
+        cacheEndpoint: "oomol.com",
+        kind: "oomol",
+        ...overrides,
+    };
+}
+
+export function createSelfHostedConnectorTargetFixture(
+    overrides: Partial<ConnectorTarget> = {},
+): ConnectorTarget {
+    return createConnectorTargetFixture({
+        authorization: "Bearer oct_x",
+        baseUrl: "http://localhost:3000",
+        cacheAccountId: "self-hosted",
+        cacheEndpoint: "http://localhost:3000",
+        kind: "self_hosted",
+        ...overrides,
+    });
+}
+
+export function createInMemoryConnectorStore(
+    initial: ConnectorFile = {},
+): ConnectorStore {
+    let connectorFile: ConnectorFile = initial;
+
+    return {
+        getFilePath: () => "<in-memory-connector-store>",
+        read: async () => connectorFile,
+        update: async (updater) => {
+            connectorFile = updater(connectorFile);
+            return connectorFile;
+        },
+        write: async (nextConnectorFile) => {
+            connectorFile = nextConnectorFile;
+            return connectorFile;
+        },
+    };
+}
+
+export async function writeConnectorFile(
+    sandbox: CliSandbox,
+    options: {
+        url: string;
+        token?: string;
+    },
+): Promise<string> {
+    const filePath = join(
+        sandbox.env.XDG_CONFIG_HOME!,
+        APP_NAME,
+        "connector.toml",
+    );
+    const content = [
+        "[self_hosted]",
+        `url = "${options.url}"`,
+        ...(options.token === undefined ? [] : [`token = "${options.token}"`]),
+        "",
     ].join("\n");
 
     await Bun.write(filePath, content);
