@@ -2,12 +2,14 @@ import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/
 
 import type { AuthAccount, AuthFile } from "../../schemas/auth.ts";
 
+import type { ResolvedSelfHostedConnector } from "../shared/self-hosted-connector.ts";
 import { z } from "zod";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { isNetworkRestrictedSandboxError } from "../shared/request.ts";
+import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
 import {
     formatAuthStrong,
     readCurrentAuth,
@@ -46,22 +48,32 @@ interface AuthStatusJsonAccount {
     apiKeyStatus?: ApiKeyStatus;
 }
 
+// The token itself is never emitted; only its presence.
+interface AuthStatusJsonConnector {
+    url: string;
+    tokenConfigured: boolean;
+    source: "env" | "file";
+}
+
 type AuthStatusJsonPayload
     = | {
         status: "logged-in";
         activeAccountId: string;
         accounts: AuthStatusJsonAccount[];
+        connector?: AuthStatusJsonConnector;
     }
     | {
         status: "logged-out";
         activeAccountId: null;
         accounts: AuthStatusJsonAccount[];
+        connector?: AuthStatusJsonConnector;
     }
     | {
         status: "active-account-missing";
         activeAccountId: null;
         missingAccountId: string;
         accounts: AuthStatusJsonAccount[];
+        connector?: AuthStatusJsonConnector;
     };
 
 export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
@@ -77,6 +89,9 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const { authFile, currentAccount } = await readCurrentAuth(context);
+        // Tolerant lookup: a broken connector.toml must not take down the
+        // whole status report; the block is simply omitted.
+        const selfHostedConnector = await resolveSelfHostedConnectorTolerantly(context);
 
         context.telemetry?.recordProperties({
             account_count_bucket: bucketTelemetryCount(authFile.auth.length),
@@ -93,20 +108,32 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
         if (input.format === "json") {
             writeJsonOutput(
                 context.stdout,
-                buildAuthStatusJsonPayload(authFile, activeStatus),
+                buildAuthStatusJsonPayload(authFile, activeStatus, selfHostedConnector),
                 { showSchemaVersion: input.showSchemaVersion },
             );
             return;
         }
 
         writeAuthStatusText(context, authFile, activeStatus);
+        writeSelfHostedConnectorText(context, selfHostedConnector);
     },
 };
 
 function buildAuthStatusJsonPayload(
     authFile: AuthFile,
     activeStatus: ActiveAccountStatus | undefined,
+    selfHostedConnector: ResolvedSelfHostedConnector | undefined,
 ): AuthStatusJsonPayload {
+    const connector: { connector?: AuthStatusJsonConnector }
+        = selfHostedConnector === undefined
+            ? {}
+            : {
+                    connector: {
+                        url: selfHostedConnector.config.url,
+                        tokenConfigured: selfHostedConnector.config.token !== undefined,
+                        source: selfHostedConnector.source,
+                    },
+                };
     const activeId = activeStatus?.account.id;
     const accounts: AuthStatusJsonAccount[] = authFile.auth.map((account) => {
         const isActive = account.id === activeId;
@@ -126,6 +153,7 @@ function buildAuthStatusJsonPayload(
             status: "logged-in",
             activeAccountId: activeStatus.account.id,
             accounts,
+            ...connector,
         };
     }
 
@@ -135,6 +163,7 @@ function buildAuthStatusJsonPayload(
             activeAccountId: null,
             missingAccountId: authFile.id,
             accounts,
+            ...connector,
         };
     }
 
@@ -142,7 +171,36 @@ function buildAuthStatusJsonPayload(
         status: "logged-out",
         activeAccountId: null,
         accounts,
+        ...connector,
     };
+}
+
+function writeSelfHostedConnectorText(
+    context: CliExecutionContext,
+    selfHostedConnector: ResolvedSelfHostedConnector | undefined,
+): void {
+    if (selfHostedConnector === undefined) {
+        return;
+    }
+
+    writeAuthBlock(context, {
+        tone: "success",
+        summary: context.translator.t("auth.status.selfHostedConnector", {
+            url: formatAuthStrong(context, selfHostedConnector.config.url),
+        }),
+        details: [
+            {
+                label: context.translator.t("auth.status.selfHostedConnectorToken"),
+                value: selfHostedConnector.config.token === undefined
+                    ? context.translator.t("auth.status.selfHostedConnectorToken.no")
+                    : context.translator.t("auth.status.selfHostedConnectorToken.yes"),
+            },
+            {
+                label: context.translator.t("auth.status.selfHostedConnectorSource"),
+                value: selfHostedConnector.source,
+            },
+        ],
+    });
 }
 
 function writeAuthStatusText(

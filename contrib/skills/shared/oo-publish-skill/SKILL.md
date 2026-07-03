@@ -99,4 +99,7 @@ arbitrary fallback directory.
 Report the published package name, version, visibility, and hub URL from the
 command output. Also mention any metadata writeback that occurred. If publish
 fails, do not retry blindly; summarize the failing command, the user-facing
-error, and the smallest next fix.
+error, and the smallest next fix. If the failure says the self-hosted
+connector only supports connector commands, or the JSON error code is
+`not_authenticated` in self-hosted connector mode, publishing requires an
+OOMOL account: ask the user to run `oo auth login`, then stop.

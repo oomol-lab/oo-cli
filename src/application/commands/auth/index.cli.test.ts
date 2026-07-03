@@ -15,6 +15,7 @@ import {
     runPrintedAuthLogin,
     toRequest,
     writeAuthFile,
+    writeConnectorFile,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
@@ -1371,7 +1372,220 @@ describe("auth CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("--json reports the self-hosted connector from connector.toml while logged out", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_status_secret",
+            });
+
+            const result = await sandbox.run(["auth", "status", "--json"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload).toEqual({
+                status: "logged-out",
+                activeAccountId: null,
+                accounts: [],
+                connector: {
+                    url: "http://localhost:3000",
+                    tokenConfigured: true,
+                    source: "file",
+                },
+            });
+            // Only the token presence is reported, never its value.
+            expect(result.stdout).not.toContain("oct_status_secret");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json reports source env when OO_CONNECTOR_URL overrides connector.toml", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_status_secret",
+            });
+            sandbox.env.OO_CONNECTOR_URL = "http://env-connector.local:4000";
+
+            const result = await sandbox.run(["auth", "status", "--json"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            // The env override replaces the file config entirely, so the
+            // file's token does not count as configured here.
+            expect(payload).toEqual({
+                status: "logged-out",
+                activeAccountId: null,
+                accounts: [],
+                connector: {
+                    url: "http://env-connector.local:4000",
+                    tokenConfigured: false,
+                    source: "env",
+                },
+            });
+            expect(result.stdout).not.toContain("oct_status_secret");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json omits the connector key when no self-hosted connector is configured", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["auth", "status", "--json"]);
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload).not.toHaveProperty("connector");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("text shows the self-hosted connector block when configured", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_status_secret",
+            });
+
+            const result = await sandbox.run(["auth", "status"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Not logged in to any OOMOL account.");
+            expect(result.stdout).toContain(
+                "Self-hosted connector: http://localhost:3000",
+            );
+            expect(result.stdout).toContain("Token configured: yes");
+            expect(result.stdout).toContain("Source: file");
+            // The token value itself must never appear in the output.
+            expect(result.stdout).not.toContain("oct_status_secret");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json omits the connector key when connector.toml is corrupt", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeCorruptConnectorFile(sandbox);
+
+            const result = await sandbox.run(["auth", "status", "--json"]);
+
+            // Connector-store corruption must not take down the status
+            // report; the connector block is simply omitted.
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(payload).toEqual({
+                status: "logged-out",
+                activeAccountId: null,
+                accounts: [],
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
+
+describe("authCommand CLI self-hosted connector login hint", () => {
+    test("login succeeds and prints the logout hint when connector.toml is configured", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+            });
+
+            const result = await runPrintedAuthLogin(sandbox, "api-key-1");
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Connector commands keep using your self-hosted connector at http://localhost:3000.",
+            );
+            expect(result.stdout).toContain("oo connector logout");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("login prints the env wording when OO_CONNECTOR_URL provides the connector", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            sandbox.env.OO_CONNECTOR_URL = "http://env-connector.local:4000";
+
+            const result = await runPrintedAuthLogin(sandbox, "api-key-1");
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "set via OO_CONNECTOR_URL",
+            );
+            // `oo connector logout` cannot remove an env-provided connector,
+            // so the file-oriented hint must not appear.
+            expect(result.stdout).not.toContain("oo connector logout");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("login still succeeds without the hint when connector.toml is corrupt", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeCorruptConnectorFile(sandbox);
+
+            const result = await runPrintedAuthLogin(sandbox, "api-key-1");
+
+            // Login already succeeded; a broken connector.toml must not flip
+            // the exit code or block the success output.
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain("Logged in to");
+            expect(result.stdout).not.toContain("self-hosted connector");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
+
+async function writeCorruptConnectorFile(
+    sandbox: { env: Record<string, string | undefined> },
+): Promise<string> {
+    const filePath = join(
+        sandbox.env.XDG_CONFIG_HOME!,
+        APP_NAME,
+        "connector.toml",
+    );
+
+    await Bun.write(filePath, "url = \"http://localhost:3000\"\nnot valid [ toml");
+
+    return filePath;
+}
 
 function createAuthLoginSnapshot(
     result: {

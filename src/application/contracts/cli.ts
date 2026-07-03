@@ -3,6 +3,7 @@ import type { ZodError, ZodType } from "zod";
 
 import type { AuthStore } from "./auth-store.ts";
 import type { CacheStore } from "./cache.ts";
+import type { ConnectorStore } from "./connector-store.ts";
 import type { FileDownloadSessionStore } from "./file-download-session-store.ts";
 import type { FileUploadRecordStore } from "./file-upload-store.ts";
 import type { SelfUpdateRuntimeOverrides } from "./self-update.ts";
@@ -142,6 +143,7 @@ export interface CompletionRenderer {
 export interface CliExecutionContext {
     authStore: AuthStore;
     cacheStore: CacheStore;
+    connectorStore: ConnectorStore;
     fileDownloadSessionStore: FileDownloadSessionStore;
     fileUploadStore: FileUploadRecordStore;
     currentLogFilePath: string;

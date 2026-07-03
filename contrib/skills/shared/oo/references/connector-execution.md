@@ -317,6 +317,15 @@ terminal for the current connector workflow:
 - `credential_expired`
 - `scope_missing`
 
+On a self-hosted connector these error codes are also terminal:
+
+- `executor_unavailable`: the action is not executable on this self-hosted
+  runtime. Report that and stop; do not retry and do not fall back to local
+  code.
+- `oauth_token_expired`
+- `credential_verification_failed`
+- `unknown_service`
+
 When one appears, stop immediately. Do not inspect additional schemas, run
 adjacent actions, enumerate capabilities, produce usage examples, or browse
 third-party docs unless the user explicitly asks for offline docs.
@@ -334,6 +343,13 @@ https://console.oomol.com/app-connections?provider=${serviceName}
 ```
 
 Replace `${serviceName}` with the selected connector service.
+
+That URL applies to the OOMOL-hosted connector. When the user is on a
+self-hosted connector (see the self-hosted connector mode in
+[auth-and-billing.md](auth-and-billing.md)), point connection fixes at the
+self-hosted console instead: use the `connector.url` value from
+`oo auth status --json` as the console address, not
+`https://console.oomol.com/app-connections?provider=...`.
 
 For `connection_required`, `app_not_found`, or `app_not_ready`, explain that
 the connector has not been connected or authorized yet. For

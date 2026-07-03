@@ -9,6 +9,7 @@ import type {
     InteractiveInput,
     Writer,
 } from "../contracts/cli.ts";
+import type { ConnectorStore } from "../contracts/connector-store.ts";
 import type { FileDownloadSessionStore } from "../contracts/file-download-session-store.ts";
 import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
@@ -22,6 +23,7 @@ import { CommanderCliAdapter } from "../../adapters/commander/commander-cli-adap
 import { StaticCompletionRenderer } from "../../adapters/completion/static-completion-renderer.ts";
 import { createCliLogger } from "../../adapters/logging/create-cli-logger.ts";
 import { FileAuthStore } from "../../adapters/store/file-auth-store.ts";
+import { FileConnectorStore } from "../../adapters/store/file-connector-store.ts";
 import { FileSettingsStore } from "../../adapters/store/file-settings-store.ts";
 import { SidecarFileDownloadSessionStore } from "../../adapters/store/sidecar-file-download-session-store.ts";
 import { SqliteFileUploadStore } from "../../adapters/store/sqlite-file-upload-store.ts";
@@ -59,6 +61,7 @@ export interface CliInvocation {
     argv: readonly string[];
     authStore?: AuthStore;
     cacheStore?: CacheStore;
+    connectorStore?: ConnectorStore;
     cwd: string;
     env: Record<string, string | undefined>;
     execPath?: string;
@@ -78,6 +81,7 @@ export interface CliInvocation {
 interface InitializedCliStores {
     authStore: AuthStore;
     cacheStore: CacheStore;
+    connectorStore: ConnectorStore;
     fileDownloadSessionStore: FileDownloadSessionStore;
     fileUploadStore: FileUploadRecordStore;
     settingsStore: SettingsStore;
@@ -89,6 +93,7 @@ interface CreateCliExecutionContextOptions {
     cacheStore: CacheStore;
     catalog: ReturnType<typeof createCliCatalog>;
     completionRenderer: StaticCompletionRenderer;
+    connectorStore: ConnectorStore;
     fetcher: Fetcher;
     fileDownloadSessionStore: FileDownloadSessionStore;
     fileUploadStore: FileUploadRecordStore;
@@ -107,7 +112,7 @@ interface CreateCliExecutionContextOptions {
 }
 
 const redactedCliArgumentValue = "<redacted>";
-const sensitiveCliOptionLongFlags = ["--api-key", "--session-token"] as const;
+const sensitiveCliOptionLongFlags = ["--api-key", "--session-token", "--token"] as const;
 
 export async function runCli(argv: string[]): Promise<number> {
     return executeCli({
@@ -259,6 +264,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             cacheStore,
             catalog,
             completionRenderer,
+            connectorStore: initializedStores.connectorStore,
             fetcher,
             fileDownloadSessionStore,
             fileUploadStore,
@@ -406,6 +412,11 @@ async function initializeCliStores(
             }),
         cacheStore: invocation.cacheStore
             ?? new SqliteCacheStore(storePaths.cacheFilePath, logger),
+        connectorStore: invocation.connectorStore
+            ?? new FileConnectorStore({
+                filePath: storePaths.connectorFilePath,
+                logger,
+            }),
         fileDownloadSessionStore: invocation.fileDownloadSessionStore
             ?? new SidecarFileDownloadSessionStore(
                 storePaths.downloadSessionsDirectoryPath,
@@ -452,6 +463,7 @@ function createCliExecutionContext(
     return {
         authStore: options.authStore,
         cacheStore: options.cacheStore,
+        connectorStore: options.connectorStore,
         currentLogFilePath: options.logFilePath,
         execPath: options.invocation.execPath ?? process.execPath,
         fetcher: options.fetcher,
@@ -503,6 +515,7 @@ function resolveCliErrorLogCategory(error: CliUserError): LogCategory {
 function isSystemCliUserError(error: CliUserError): boolean {
     return error.key.startsWith("errors.store.")
         || error.key.startsWith("errors.authStore.")
+        || error.key.startsWith("errors.connectorStore.")
         || error.key === "errors.unexpected"
         || error.key.endsWith(".invalidResponse")
         || error.key.endsWith(".requestError")

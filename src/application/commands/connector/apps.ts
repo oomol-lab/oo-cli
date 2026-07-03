@@ -4,12 +4,12 @@ import type { ConnectorAppView } from "./shared.ts";
 import { z } from "zod";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import {
     connectorFormatValues,
     listConnectorAppsByService,
 } from "./shared.ts";
+import { resolveConnectorTarget } from "./target.ts";
 
 interface ConnectorAppsInput {
     format?: (typeof connectorFormatValues)[number];
@@ -50,12 +50,16 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentAccount(context);
+        const target = await resolveConnectorTarget(context);
+
+        context.telemetry?.recordProperties({
+            connector_kind: target.kind,
+        });
+
         const apps = await listConnectorAppsByService(
             {
-                apiKey: account.apiKey,
-                endpoint: account.endpoint,
                 serviceName: input.serviceName,
+                target,
             },
             context,
         );

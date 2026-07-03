@@ -5,6 +5,7 @@ import type {
     ConnectorActionRunResponse,
     ConnectorConnectionSelector,
 } from "./shared.ts";
+import type { ConnectorTarget } from "./target.ts";
 
 import { Buffer } from "node:buffer";
 import { z } from "zod";
@@ -13,7 +14,6 @@ import { getConfiguredIdentityOrganization } from "../../schemas/settings.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
@@ -28,6 +28,7 @@ import {
     requireConnectorActionName,
     runConnectorAction,
 } from "./shared.ts";
+import { resolveConnectorTarget } from "./target.ts";
 import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 import { validateConnectorActionInput } from "./validation.ts";
 
@@ -43,6 +44,10 @@ type ConnectorRunTextContext = Pick<CliExecutionContext, "stdout" | "translator"
 type ConnectorRunTarget = Pick<ConnectorRunInput, "serviceName"> & {
     actionName: string;
 };
+type ConnectorRunRequestTarget = Pick<
+    ConnectorTarget,
+    "authorization" | "baseUrl" | "kind"
+>;
 type ConnectorAsyncLifecycleProgressContext = Pick<CliExecutionContext, "stderr" | "translator">;
 type ConnectorActionAsyncSubmitLifecycle = Extract<
     ConnectorActionAsyncLifecycle,
@@ -171,13 +176,24 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw new CliUserError("errors.connectorRun.organizationEmpty", 2);
         }
 
-        const account = await requireCurrentAccount(context);
+        const target = await resolveConnectorTarget(context);
+
+        // The self-hosted runtime is single-user and has no organization
+        // concept: an explicit --organization is a hard error, while a
+        // configured `identity.organization` default is silently ignored so a
+        // shared config does not break self-hosted usage.
+        if (target.kind === "self_hosted" && organizationFlag !== undefined) {
+            throw new CliUserError("errors.connector.organizationUnsupported", 2);
+        }
+
         const settings = await context.settingsStore.read();
-        const { identity, source: identitySource } = resolveConnectorIdentity({
-            configOrganization: getConfiguredIdentityOrganization(settings),
-            organizationFlag,
-            personalFlag: input.personal === true,
-        });
+        const { identity, source: identitySource } = target.kind === "self_hosted"
+            ? { identity: {}, source: "personal" as const }
+            : resolveConnectorIdentity({
+                    configOrganization: getConfiguredIdentityOrganization(settings),
+                    organizationFlag,
+                    personalFlag: input.personal === true,
+                });
         const inputData = await readJsonInputValue(
             input.data,
             context,
@@ -188,6 +204,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         context.telemetry?.recordProperties({
             action: actionName,
             connection_selector: connectionSelector === undefined ? "none" : "connectionName",
+            connector_kind: target.kind,
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(inputData)),
             ),
@@ -201,9 +218,9 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         const actionSchema = await loadConnectorActionSchema(
             {
                 actionName,
-                account,
                 requireAsyncLifecycle: input.wait === true || input.waitResult === true,
                 serviceName: input.serviceName,
+                target,
             },
             context,
         );
@@ -254,9 +271,9 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             const resultActionSchema = await loadConnectorActionSchema(
                 {
                     actionName: submitLifecycle.resultAction,
-                    account,
                     requireAsyncLifecycle: true,
                     serviceName: input.serviceName,
+                    target,
                 },
                 context,
             );
@@ -278,19 +295,18 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             response = await runConnectorActionWithDefaultMode(
                 {
                     actionName,
-                    apiKey: account.apiKey,
                     connectionSelector,
-                    endpoint: account.endpoint,
                     identity,
                     inputData,
                     progressReporter,
                     resultLifecycle,
                     serviceName: input.serviceName,
                     submitLifecycle,
+                    target,
                 },
                 context,
-                (target) => {
-                    currentTarget = target;
+                (runTarget) => {
+                    currentTarget = runTarget;
                 },
             );
         }
@@ -300,9 +316,9 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             if (isConnectorActionSchemaNotFoundError(error)) {
                 deleteConnectorActionSchemaCache(
                     {
-                        accountId: account.id,
+                        accountId: target.cacheAccountId,
                         actionName: currentTarget.actionName,
-                        endpoint: account.endpoint,
+                        endpoint: target.cacheEndpoint,
                         serviceName: currentTarget.serviceName,
                     },
                     context,
@@ -327,15 +343,14 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 async function runConnectorActionWithDefaultMode(
     options: {
         actionName: string;
-        apiKey: string;
         connectionSelector: ConnectorConnectionSelector | undefined;
-        endpoint: string;
         identity: ConnectorIdentity;
         inputData: unknown;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         resultLifecycle: ConnectorActionAsyncResultLifecycle | undefined;
         serviceName: string;
         submitLifecycle: ConnectorActionAsyncSubmitLifecycle | undefined;
+        target: ConnectorRunRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
     setCurrentTarget: (target: ConnectorRunTarget) => void,
@@ -344,15 +359,14 @@ async function runConnectorActionWithDefaultMode(
         return await runConnectorAsyncSubmitAndWaitForResult(
             {
                 actionName: options.actionName,
-                apiKey: options.apiKey,
                 connectionSelector: options.connectionSelector,
-                endpoint: options.endpoint,
                 identity: options.identity,
                 inputData: options.inputData,
                 progressReporter: options.progressReporter,
                 resultLifecycle: options.resultLifecycle,
                 serviceName: options.serviceName,
                 submitLifecycle: options.submitLifecycle,
+                target: options.target,
             },
             context,
             setCurrentTarget,
@@ -363,14 +377,13 @@ async function runConnectorActionWithDefaultMode(
         return await waitForConnectorAsyncResult(
             {
                 actionName: options.actionName,
-                apiKey: options.apiKey,
                 connectionSelector: options.connectionSelector,
-                endpoint: options.endpoint,
                 identity: options.identity,
                 inputData: options.inputData,
                 lifecycle: options.resultLifecycle,
                 progressReporter: options.progressReporter,
                 serviceName: options.serviceName,
+                target: options.target,
             },
             context,
             setCurrentTarget,
@@ -385,12 +398,11 @@ async function runConnectorActionWithDefaultMode(
     return await runConnectorAction(
         {
             actionName: options.actionName,
-            apiKey: options.apiKey,
             connectionSelector: options.connectionSelector,
-            endpoint: options.endpoint,
             identity: options.identity,
             inputData: options.inputData,
             serviceName: options.serviceName,
+            target: options.target,
         },
         context,
     );
@@ -399,15 +411,14 @@ async function runConnectorActionWithDefaultMode(
 async function runConnectorAsyncSubmitAndWaitForResult(
     options: {
         actionName: string;
-        apiKey: string;
         connectionSelector: ConnectorConnectionSelector | undefined;
-        endpoint: string;
         identity: ConnectorIdentity;
         inputData: unknown;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         resultLifecycle: ConnectorActionAsyncResultLifecycle;
         serviceName: string;
         submitLifecycle: ConnectorActionAsyncSubmitLifecycle;
+        target: ConnectorRunRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
     setCurrentTarget: (target: ConnectorRunTarget) => void,
@@ -420,12 +431,11 @@ async function runConnectorAsyncSubmitAndWaitForResult(
     const submitResponse = await runConnectorAction(
         {
             actionName: options.actionName,
-            apiKey: options.apiKey,
             connectionSelector: options.connectionSelector,
-            endpoint: options.endpoint,
             identity: options.identity,
             inputData: options.inputData,
             serviceName: options.serviceName,
+            target: options.target,
         },
         context,
     );
@@ -443,9 +453,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
     const resultResponse = await waitForConnectorAsyncResult(
         {
             actionName: options.submitLifecycle.resultAction,
-            apiKey: options.apiKey,
             connectionSelector: options.connectionSelector,
-            endpoint: options.endpoint,
             identity: options.identity,
             inputData: {
                 [options.submitLifecycle.handle.inputField]: handle,
@@ -453,6 +461,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
             lifecycle: options.resultLifecycle,
             progressReporter: options.progressReporter,
             serviceName: options.serviceName,
+            target: options.target,
         },
         context,
         setCurrentTarget,
@@ -471,14 +480,13 @@ async function runConnectorAsyncSubmitAndWaitForResult(
 async function waitForConnectorAsyncResult(
     options: {
         actionName: string;
-        apiKey: string;
         connectionSelector: ConnectorConnectionSelector | undefined;
-        endpoint: string;
         identity: ConnectorIdentity;
         inputData: unknown;
         lifecycle: ConnectorActionAsyncResultLifecycle;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         serviceName: string;
+        target: ConnectorRunRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
     setCurrentTarget: (target: ConnectorRunTarget) => void,
@@ -504,12 +512,11 @@ async function waitForConnectorAsyncResult(
         const pollResponse = await runConnectorAction(
             {
                 actionName: options.actionName,
-                apiKey: options.apiKey,
                 connectionSelector: options.connectionSelector,
-                endpoint: options.endpoint,
                 identity: options.identity,
                 inputData: options.inputData,
                 serviceName: options.serviceName,
+                target: options.target,
             },
             context,
         );

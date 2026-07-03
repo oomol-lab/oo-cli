@@ -3,6 +3,7 @@ import { resolveHomeDirectory } from "../../application/path/home-directory.ts";
 
 export const defaultSettingsFileName = "settings.toml";
 export const defaultAuthFileName = "auth.toml";
+export const defaultConnectorFileName = "connector.toml";
 const defaultCacheFileName = "cache.sqlite";
 const defaultDownloadSessionsDirectoryName = "download-sessions";
 const defaultLegacyDownloadSessionsFileName = "download-sessions.sqlite";
@@ -21,6 +22,7 @@ export interface FileStoreLocationOptions {
 export interface StorePaths {
     authFilePath: string;
     cacheFilePath: string;
+    connectorFilePath: string;
     dataDirectory: string;
     downloadSessionsDirectoryPath: string;
     legacyDownloadSessionsFilePath: string;
@@ -105,6 +107,7 @@ export function resolveStorePaths(
     return {
         authFilePath: join(rootDirectory, defaultAuthFileName),
         cacheFilePath: join(dataDirectory, defaultCacheFileName),
+        connectorFilePath: join(rootDirectory, defaultConnectorFileName),
         dataDirectory,
         downloadSessionsDirectoryPath: join(dataDirectory, defaultDownloadSessionsDirectoryName),
         legacyDownloadSessionsFilePath: join(

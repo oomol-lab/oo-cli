@@ -311,6 +311,7 @@ export function classifyTelemetryError(
     if (
         errorKey === "errors.auth.noSavedAccounts"
         || errorKey === "errors.auth.required"
+        || errorKey === "errors.auth.requiredConnectorOnly"
         || errorKey === "errors.auth.sessionTokenRequired"
         || errorKey === "errors.auth.loginTimeout"
     ) {
@@ -320,6 +321,7 @@ export function classifyTelemetryError(
     if (
         errorKey === "errors.unexpected"
         || errorKey.startsWith("errors.authStore.")
+        || errorKey.startsWith("errors.connectorStore.")
         || errorKey.startsWith("errors.store.")
         || errorKey.endsWith(".dataReadFailed")
         || errorKey.endsWith(".outDirCreateFailed")

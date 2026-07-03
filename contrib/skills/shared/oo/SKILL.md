@@ -31,6 +31,9 @@ discovery for that case, and do not read local auth files directly.
 - If one of those commands fails because the environment cannot establish
   outbound network connections in a sandboxed environment, request elevated
   permissions and retry the same `oo` command before changing strategy.
+  Exception: a failure saying the CLI could not reach the self-hosted
+  connector at its URL means the self-hosted server is down, so report that
+  and stop instead of requesting elevated permissions or retrying.
 
 ## Shell command safety
 

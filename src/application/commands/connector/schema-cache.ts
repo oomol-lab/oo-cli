@@ -1,11 +1,11 @@
 import type { Cache } from "../../contracts/cache.ts";
 import type { CliExecutionContext } from "../../contracts/cli.ts";
-import type { AuthAccount } from "../../schemas/auth.ts";
 
 import type {
     ConnectorActionDefinition,
     ConnectorActionMetadata,
 } from "./shared.ts";
+import type { ConnectorTarget } from "./target.ts";
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -47,7 +47,6 @@ export interface ConnectorActionSchemaOutput {
 
 export async function loadConnectorActionSchema(
     options: {
-        account: Pick<AuthAccount, "apiKey" | "endpoint" | "id">;
         actionName: string;
         refresh?: boolean;
         /**
@@ -59,6 +58,10 @@ export async function loadConnectorActionSchema(
          */
         requireAsyncLifecycle?: boolean;
         serviceName: string;
+        target: Pick<
+            ConnectorTarget,
+            "authorization" | "baseUrl" | "cacheAccountId" | "cacheEndpoint" | "kind"
+        >;
     },
     context: ConnectorActionSchemaLoaderContext,
 ): Promise<ConnectorActionMetadata> {
@@ -66,9 +69,9 @@ export async function loadConnectorActionSchema(
 
     const cache = openConnectorActionSchemaCache(context);
     const cacheKey = createConnectorActionSchemaCacheKey({
-        accountId: options.account.id,
+        accountId: options.target.cacheAccountId,
         actionName: options.actionName,
-        endpoint: options.account.endpoint,
+        endpoint: options.target.cacheEndpoint,
         serviceName: options.serviceName,
     });
 
@@ -83,9 +86,9 @@ export async function loadConnectorActionSchema(
 
             context.logger.debug(
                 {
-                    accountId: options.account.id,
+                    accountId: options.target.cacheAccountId,
                     actionName: options.actionName,
-                    endpoint: options.account.endpoint,
+                    endpoint: options.target.cacheEndpoint,
                     serviceName: options.serviceName,
                 },
                 "Connector action schema cache entry lacks an async lifecycle; fetching metadata.",
@@ -95,9 +98,9 @@ export async function loadConnectorActionSchema(
     else {
         context.logger.debug(
             {
-                accountId: options.account.id,
+                accountId: options.target.cacheAccountId,
                 actionName: options.actionName,
-                endpoint: options.account.endpoint,
+                endpoint: options.target.cacheEndpoint,
                 serviceName: options.serviceName,
             },
             "Connector action schema cache bypassed for refresh.",
@@ -108,9 +111,8 @@ export async function loadConnectorActionSchema(
         const metadata = await getConnectorActionMetadata(
             {
                 actionName: options.actionName,
-                apiKey: options.account.apiKey,
-                endpoint: options.account.endpoint,
                 serviceName: options.serviceName,
+                target: options.target,
             },
             context,
         );
@@ -118,9 +120,9 @@ export async function loadConnectorActionSchema(
         cache.set(cacheKey, metadata);
         context.logger.debug(
             {
-                accountId: options.account.id,
+                accountId: options.target.cacheAccountId,
                 actionName: options.actionName,
-                endpoint: options.account.endpoint,
+                endpoint: options.target.cacheEndpoint,
                 serviceName: options.serviceName,
             },
             "Connector action schema response cached.",
@@ -145,7 +147,7 @@ export async function loadConnectorActionSchema(
  */
 export async function cacheConnectorActionSchemas(
     actions: readonly ConnectorActionDefinition[],
-    account: Pick<AuthAccount, "endpoint" | "id">,
+    target: Pick<ConnectorTarget, "cacheAccountId" | "cacheEndpoint">,
     context: ConnectorActionSchemaCacheContext,
 ): Promise<void> {
     await cleanupLegacyConnectorActionSchemaCache(context);
@@ -155,9 +157,9 @@ export async function cacheConnectorActionSchemas(
     for (const action of actions) {
         cache.set(
             createConnectorActionSchemaCacheKey({
-                accountId: account.id,
+                accountId: target.cacheAccountId,
                 actionName: action.name,
-                endpoint: account.endpoint,
+                endpoint: target.cacheEndpoint,
                 serviceName: action.service,
             }),
             connectorActionMetadataSchema.parse(action),

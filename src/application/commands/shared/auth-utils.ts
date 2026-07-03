@@ -9,10 +9,12 @@ import {
     defaultOomolEndpoint,
     readEndpointOverride,
 } from "./auth-env-override.ts";
+import { resolveSelfHostedConnectorTolerantly } from "./self-hosted-connector.ts";
 
 const authErrorKeys = {
     activeAccountMissing: "auth.account.activeAccountMissing",
     required: "errors.auth.required",
+    requiredConnectorOnly: "errors.auth.requiredConnectorOnly",
 } as const;
 
 export async function requireCurrentAccount(
@@ -34,10 +36,20 @@ export async function requireCurrentAccount(
         return applyEndpointOverride(currentAccount, context.env);
     }
 
-    const errorKey = authFile.id === ""
-        ? authErrorKeys.required
-        : authErrorKeys.activeAccountMissing;
-    throw new CliUserError(errorKey, 1);
+    if (authFile.id !== "") {
+        throw new CliUserError(authErrorKeys.activeAccountMissing, 1);
+    }
+
+    // A user who only configured a self-hosted connector gets a dedicated
+    // explanation: the self-hosted server covers connector commands only, and
+    // everything else still needs an OOMOL account. The tolerant lookup keeps
+    // a broken connector.toml from changing which auth error is shown.
+    throw new CliUserError(
+        await resolveSelfHostedConnectorTolerantly(context) !== undefined
+            ? authErrorKeys.requiredConnectorOnly
+            : authErrorKeys.required,
+        1,
+    );
 }
 
 // Resolves the OOMOL endpoint without requiring a logged-in account. Prefers

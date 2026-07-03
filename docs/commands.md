@@ -18,8 +18,9 @@ The CLI reads these environment variables to support embedded and automated
 use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
 
 - `OO_CONFIG_DIR`: Override the configuration root directory that holds
-  `auth.toml`, `settings.toml`, and telemetry data (and, unless `OO_DATA_DIR`
-  is set, the `data` subdirectory). Takes precedence over `XDG_CONFIG_HOME`.
+  `auth.toml`, `connector.toml`, `settings.toml`, and telemetry data (and,
+  unless `OO_DATA_DIR` is set, the `data` subdirectory). Takes precedence over
+  `XDG_CONFIG_HOME`.
 - `OO_DATA_DIR`: Override the data directory that holds the local cache,
   uploads, and download-session state. Defaults to `<config-root>/data`.
 - `OO_LOG_DIR`: Override the debug-log directory. Takes precedence over every
@@ -31,6 +32,18 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   used to derive every service URL for execution commands. It pairs with
   `OO_API_KEY` and also overrides the endpoint of a saved account. Takes
   precedence over the legacy `OOMOL_ENDPOINT`.
+- `OO_CONNECTOR_URL`: Self-hosted connector server URL. It overrides the
+  configuration saved by `oo connector login`. Only connector commands
+  (`oo connector search/schema/run/proxy/apps` and top-level `oo search`)
+  route requests to it; other commands never send requests to it, but
+  `oo auth status` and `oo auth login` report the configured self-hosted
+  connector, and account-requiring commands mention it in their
+  login-required error when no account is available.
+- `OO_CONNECTOR_TOKEN`: Optional runtime API token paired with
+  `OO_CONNECTOR_URL`. Ignored when `OO_CONNECTOR_URL` is not set.
+- Connector commands resolve their target server with this precedence:
+  `OO_CONNECTOR_URL` > `OO_API_KEY` > the saved self-hosted connector
+  configuration (`oo connector login`) > the active account.
 - `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
   synchronization and legacy-cleanup side effects, so the CLI writes no skill
   files into agent home directories such as `~/.agents` or `~/.claude`.
@@ -89,6 +102,9 @@ with an existing API key, then save the authenticated account.
     validates the key against the account profile and saves the account without
     a device-login URL or polling. Exits with an error if the key is invalid or
     expired. `--api-key` and `--session-token` cannot be combined.
+- Notes: when a self-hosted connector is configured (`oo connector login`), it
+  keeps handling connector commands after login; the success output prints a
+  hint that `oo connector logout` switches them back to OOMOL.
 
 ### `oo auth logout`
 
@@ -105,6 +121,10 @@ Show every saved auth account and validate the API key of the active one.
   Inactive accounts are not validated, so `oo auth status` performs at most
   one network request regardless of how many accounts are saved.
 - API key values are never written to stdout in text or JSON output.
+- When a self-hosted connector is configured (`oo connector login` or
+  `OO_CONNECTOR_URL`), text output adds a self-hosted connector block showing
+  the server URL, whether a token is configured, and the configuration source.
+  The token value is never printed.
 - Options: `--format=json` and `--json` switch to structured JSON output.
   `--show-schema-version` prepends `schemaVersion` to the payload.
 - JSON shape (one of three):
@@ -135,6 +155,15 @@ Show every saved auth account and validate the API key of the active one.
   }
   ```
 
+- When a self-hosted connector is configured, each of the three shapes may
+  additionally carry an optional top-level `connector` field:
+
+  ```json
+  {
+    "connector": { "url": "http://localhost:3000", "tokenConfigured": true, "source": "file" }
+  }
+  ```
+
 - Notes (JSON):
   - The `apiKey` field is **never** emitted, and the JSON payload never
     contains the actual API key string under any field name.
@@ -147,6 +176,14 @@ Show every saved auth account and validate the API key of the active one.
     the enum `valid` / `invalid` / `request_failed` / `request_failed_sandbox`.
   - `missingAccountId` appears only when the auth file records an active id
     that is no longer present in `accounts[]`.
+  - `connector` is present only when a self-hosted connector is configured
+    and reports that configuration (the `OO_CONNECTOR_URL` override when set,
+    otherwise `connector.toml`): `url`, `tokenConfigured`, and `source`
+    (`env` / `file`). Note that when `OO_API_KEY` is set, connector commands
+    route to the hosted OOMOL connector service instead of a `source: "file"`
+    configuration (only `OO_CONNECTOR_URL` outranks `OO_API_KEY`). The token
+    value is never emitted. The block is omitted when `connector.toml`
+    cannot be read.
   - All three statuses exit `0` (this is a query command). Argument errors
     (for example `--format xml`) still exit `2`.
 
@@ -570,6 +607,8 @@ Search connector actions with free-form text.
 - Notes: search results also warm the local action schema cache when schema
   data is available, so a following `oo connector schema` for a returned
   action is usually answered locally without a fresh metadata request.
+- Notes: against a self-hosted connector server, `authenticated` is derived
+  from the server's connected-apps state.
 
 ### `oo connector schema <actionId...>`
 
@@ -648,6 +687,11 @@ Validate input data and run one connector action.
   before executing.
 - Notes: while waiting for an async result action in text mode, interactive
   terminals show progress on stderr. JSON output does not include progress text.
+- Notes: against a self-hosted connector, `--organization` is rejected with
+  exit `2`, a configured `identity.organization` default is ignored, and
+  `--personal` is accepted. `--wait` and `--wait-result` fail with the
+  existing unsupported errors because the self-hosted runtime does not expose
+  the async lifecycle contract.
 
 ### `oo connector apps <serviceName>`
 
@@ -708,6 +752,51 @@ Proxy a provider API request through a connected connector app.
 - Notes: `oo connector proxy` does not use connector action schemas or schema
   cache. Use it when the selected connector supports proxy execution and no
   purpose-built connector action is available.
+- Notes: against a self-hosted connector, `--organization` is rejected with
+  exit `2` and a configured `identity.organization` default is ignored. Proxy
+  execution depends on server support; the open-source runtime currently
+  returns an error.
+
+### `oo connector login <url>`
+
+Validate and save a self-hosted connector server so connector commands use it
+instead of the OOMOL-hosted connector.
+
+- Arguments: `<url>` is the self-hosted connector server URL, for example
+  `http://localhost:3000`.
+- Options: `--token <token>` provides a runtime API token for the server,
+  created on the server's `/access` page.
+- Output: text output confirms the connected server URL, reports whether the
+  token was verified, and points to `<url>/access` for managing runtime
+  tokens.
+- Notes: the command validates the server through its health endpoint before
+  saving the configuration. After a successful login, all connector commands —
+  `oo connector search/schema/run/proxy/apps` and top-level `oo search` — use
+  this server instead of the OOMOL-hosted connector.
+- Notes: when the server accepts unauthenticated requests, a provided token
+  cannot be verified; the configuration is still saved and a notice is
+  printed.
+- Notes: when no OOMOL account is logged in, the command prints a note that
+  non-connector commands still require `oo auth login`.
+- Errors: an invalid URL (not an http(s) URL) or an invalid token (empty, or
+  containing whitespace or control characters) exits `2`. An unreachable
+  server, an HTTP 401 response, or an unexpected/non-connector response exits
+  `1`; the 401 error includes a hint to create a runtime token at
+  `<url>/access`.
+
+### `oo connector logout`
+
+Remove the saved self-hosted connector configuration.
+
+- Arguments: none.
+- Output: text output confirms which server was disconnected. Connector
+  commands fall back to the active OOMOL account.
+- Notes: when no self-hosted connector is configured, the command prints a
+  notice instead of failing.
+- Notes: the command only removes the saved configuration; the
+  `OO_CONNECTOR_URL` environment variable is not affected.
+- Notes: a corrupt `connector.toml` is cleared as well, so `oo connector
+  logout` always leaves the configuration removed.
 
 ## Search
 
@@ -728,6 +817,8 @@ Search connector actions with one free-form query.
 - Notes: search results also warm the local action schema cache when schema
   data is available, so a following `oo connector schema` for a returned
   action is usually answered locally without a fresh metadata request.
+- Notes: against a self-hosted connector server, `authenticated` is derived
+  from the server's connected-apps state.
 
 ## AI Agent Skills
 

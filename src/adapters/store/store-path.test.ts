@@ -19,6 +19,7 @@ describe("resolveStorePaths", () => {
 
         expect(storePaths).toEqual({
             authFilePath: join("/tmp/xdg", APP_NAME, "auth.toml"),
+            connectorFilePath: join("/tmp/xdg", APP_NAME, "connector.toml"),
             cacheFilePath: join("/tmp/xdg", APP_NAME, "data", "cache.sqlite"),
             dataDirectory: join("/tmp/xdg", APP_NAME, "data"),
             downloadSessionsDirectoryPath: join(

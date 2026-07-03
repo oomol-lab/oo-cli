@@ -6,13 +6,13 @@ import {
     bucketTelemetryStringLength,
 } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import {
     formatConnectorSearchResultsAsText,
     loadConnectorSearchResults,
 } from "./search-provider.ts";
 import { connectorFormatValues } from "./shared.ts";
+import { resolveConnectorTarget } from "./target.ts";
 
 interface ConnectorSearchInput {
     format?: (typeof connectorFormatValues)[number];
@@ -46,10 +46,15 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
             query_length_bucket: bucketTelemetryStringLength(input.text),
         });
 
-        const account = await requireCurrentAccount(context);
+        const target = await resolveConnectorTarget(context);
+
+        context.telemetry?.recordProperties({
+            connector_kind: target.kind,
+        });
+
         const results = await loadConnectorSearchResults(
             {
-                account,
+                target,
                 text: input.text,
             },
             context,

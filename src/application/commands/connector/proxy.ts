@@ -7,7 +7,6 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { getConfiguredIdentityOrganization } from "../../schemas/settings.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { resolveConnectorIdentity } from "./identity.ts";
@@ -15,6 +14,7 @@ import {
     connectorFormatValues,
     runConnectorProxy,
 } from "./shared.ts";
+import { resolveConnectorTarget } from "./target.ts";
 import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 
 const connectorProxyDataErrorKeys = {
@@ -149,15 +149,26 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         }
 
         const proxyRequest = await buildConnectorProxyRequest(input, context);
-        const account = await requireCurrentAccount(context);
+        const target = await resolveConnectorTarget(context);
+
+        // Mirrors `connector run`: the self-hosted runtime has no organization
+        // concept, so an explicit --organization is rejected and any configured
+        // default identity is ignored.
+        if (target.kind === "self_hosted" && organizationFlag !== undefined) {
+            throw new CliUserError("errors.connector.organizationUnsupported", 2);
+        }
+
         const settings = await context.settingsStore.read();
-        const { identity, source: identitySource } = resolveConnectorIdentity({
-            configOrganization: getConfiguredIdentityOrganization(settings),
-            organizationFlag,
-            personalFlag: input.personal === true,
-        });
+        const { identity, source: identitySource } = target.kind === "self_hosted"
+            ? { identity: {}, source: "personal" as const }
+            : resolveConnectorIdentity({
+                    configOrganization: getConfiguredIdentityOrganization(settings),
+                    organizationFlag,
+                    personalFlag: input.personal === true,
+                });
 
         context.telemetry?.recordProperties({
+            connector_kind: target.kind,
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(proxyRequest)),
             ),
@@ -170,11 +181,10 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         try {
             response = await runConnectorProxy(
                 {
-                    apiKey: account.apiKey,
-                    endpoint: account.endpoint,
                     identity,
                     proxyRequest,
                     serviceName: input.serviceName,
+                    target,
                 },
                 context,
             );

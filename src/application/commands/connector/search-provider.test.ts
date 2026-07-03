@@ -5,7 +5,9 @@ import pino from "pino";
 
 import {
     createCacheStore,
+    createConnectorTargetFixture,
     createMemoryCache,
+    createSelfHostedConnectorTargetFixture,
     createSettingsStore,
     toRequest,
 } from "../../../../__tests__/helpers.ts";
@@ -21,7 +23,7 @@ describe("connector search provider", () => {
 
         const results = await loadConnectorSearchResults(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 text: "send mail",
             },
             createSearchContext({
@@ -91,7 +93,7 @@ describe("connector search provider", () => {
 
         const results = await loadConnectorSearchResults(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 text: "send mail",
             },
             createSearchContext({
@@ -129,7 +131,7 @@ describe("connector search provider", () => {
 
         const results = await loadConnectorSearchResults(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 text: "send mail",
             },
             createSearchContext({
@@ -164,15 +166,186 @@ describe("connector search provider", () => {
             },
         ]);
     });
-});
 
-function createAccount() {
-    return {
-        apiKey: "secret-1",
-        endpoint: "oomol.com",
-        id: "user-1",
-    };
-}
+    test("enriches self-hosted results from the authenticated services endpoint with deduplicated service params", async () => {
+        const requests: Request[] = [];
+
+        const results = await loadConnectorSearchResults(
+            {
+                target: createSelfHostedConnectorTargetFixture(),
+                text: "send mail",
+            },
+            createSearchContext({
+                cache: createMemoryCache(),
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+
+                    requests.push(request);
+
+                    if (request.url.includes("/v1/actions/search")) {
+                        return new Response(JSON.stringify({
+                            success: true,
+                            data: [
+                                {
+                                    description: "Send a Gmail message.",
+                                    name: "send_mail",
+                                    service: "gmail",
+                                },
+                                {
+                                    description: "Draft a Gmail message.",
+                                    name: "draft_mail",
+                                    service: "gmail",
+                                },
+                                {
+                                    description: "Send a Slack message.",
+                                    name: "post_message",
+                                    service: "slack",
+                                },
+                            ],
+                        }));
+                    }
+
+                    if (request.url.includes("/v1/apps/authenticated")) {
+                        return new Response(JSON.stringify({
+                            data: ["gmail"],
+                        }));
+                    }
+
+                    throw new Error(`Unexpected request: ${request.url}`);
+                },
+            }),
+        );
+
+        expect(requests.map(request => request.url)).toEqual([
+            "http://localhost:3000/v1/actions/search?q=send+mail",
+            "http://localhost:3000/v1/apps/authenticated?service=gmail&service=slack",
+        ]);
+        expect(results).toEqual([
+            {
+                authenticated: true,
+                description: "Send a Gmail message.",
+                name: "send_mail",
+                service: "gmail",
+            },
+            {
+                authenticated: true,
+                description: "Draft a Gmail message.",
+                name: "draft_mail",
+                service: "gmail",
+            },
+            {
+                authenticated: false,
+                description: "Send a Slack message.",
+                name: "post_message",
+                service: "slack",
+            },
+        ]);
+    });
+
+    test("returns self-hosted results as unauthenticated when the authenticated services request fails", async () => {
+        const requests: Request[] = [];
+
+        const results = await loadConnectorSearchResults(
+            {
+                target: createSelfHostedConnectorTargetFixture(),
+                text: "send mail",
+            },
+            createSearchContext({
+                cache: createMemoryCache(),
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+
+                    requests.push(request);
+
+                    if (request.url.includes("/v1/actions/search")) {
+                        return new Response(JSON.stringify({
+                            success: true,
+                            data: [
+                                {
+                                    description: "Send a Gmail message.",
+                                    name: "send_mail",
+                                    service: "gmail",
+                                },
+                            ],
+                        }));
+                    }
+
+                    return new Response("", {
+                        status: 500,
+                    });
+                },
+            }),
+        );
+
+        expect(requests.map(request => request.url)).toEqual([
+            "http://localhost:3000/v1/actions/search?q=send+mail",
+            "http://localhost:3000/v1/apps/authenticated?service=gmail",
+        ]);
+        expect(results).toEqual([
+            {
+                authenticated: false,
+                description: "Send a Gmail message.",
+                name: "send_mail",
+                service: "gmail",
+            },
+        ]);
+    });
+
+    test("uses the wire authenticated field without an authenticated services request for oomol targets", async () => {
+        const requests: Request[] = [];
+
+        const results = await loadConnectorSearchResults(
+            {
+                target: createConnectorTargetFixture(),
+                text: "send mail",
+            },
+            createSearchContext({
+                cache: createMemoryCache(),
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+
+                    requests.push(request);
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        data: [
+                            {
+                                authenticated: true,
+                                description: "Send a Gmail message.",
+                                name: "send_mail",
+                                service: "gmail",
+                            },
+                            {
+                                authenticated: false,
+                                description: "Send a Slack message.",
+                                name: "post_message",
+                                service: "slack",
+                            },
+                        ],
+                    }));
+                },
+            }),
+        );
+
+        expect(requests.map(request => request.url)).toEqual([
+            "https://connector.oomol.com/v1/actions/search?q=send+mail",
+        ]);
+        expect(results).toEqual([
+            {
+                authenticated: true,
+                description: "Send a Gmail message.",
+                name: "send_mail",
+                service: "gmail",
+            },
+            {
+                authenticated: false,
+                description: "Send a Slack message.",
+                name: "post_message",
+                service: "slack",
+            },
+        ]);
+    });
+});
 
 function createSearchContext(options: {
     cache: ReturnType<typeof createMemoryCache>;

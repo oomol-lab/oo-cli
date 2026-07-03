@@ -133,6 +133,11 @@ user denies it, stop and ask the user to open the required access. Do not
 continue in the restricted sandbox and do not guess service names, action names,
 inputs, or outputs.
 
+If an `oo` command fails with a message saying the self-hosted connector only
+supports connector commands, or with JSON error code `not_authenticated` in
+self-hosted connector mode, an OOMOL account is required. Ask the user to run
+`oo auth login`, then stop.
+
 Never work around a blocked `oo skills init --agent <!-- agentic:var agent -->`
 by manually creating a skill directory elsewhere. Manual skeleton creation
 bypasses the agent-native target directory, metadata writing, and OO notice
