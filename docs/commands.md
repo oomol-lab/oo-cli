@@ -607,8 +607,6 @@ Search connector actions with free-form text.
 - Notes: search results also warm the local action schema cache when schema
   data is available, so a following `oo connector schema` for a returned
   action is usually answered locally without a fresh metadata request.
-- Notes: against a self-hosted connector server, `authenticated` is derived
-  from the server's connected-apps state.
 
 ### `oo connector schema <actionId...>`
 
@@ -819,8 +817,6 @@ Search connector actions with one free-form query.
 - Notes: search results also warm the local action schema cache when schema
   data is available, so a following `oo connector schema` for a returned
   action is usually answered locally without a fresh metadata request.
-- Notes: against a self-hosted connector server, `authenticated` is derived
-  from the server's connected-apps state.
 
 ## AI Agent Skills
 

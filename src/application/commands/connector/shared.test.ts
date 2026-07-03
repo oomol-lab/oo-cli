@@ -18,7 +18,6 @@ import {
 } from "../shared/billing.ts";
 import {
     getConnectorActionMetadata,
-    listAuthenticatedConnectorServices,
     listConnectorAppsByService,
     runConnectorAction,
     runConnectorProxy,
@@ -92,6 +91,7 @@ describe("connector shared requests", () => {
                     message: "ok",
                     data: [
                         {
+                            authenticated: false,
                             name: "send_mail",
                             service: "gmail",
                         },
@@ -886,6 +886,7 @@ describe("connector shared requests", () => {
                         success: true,
                         data: [
                             {
+                                authenticated: false,
                                 description: "Send a Gmail message.",
                                 name: "send_mail",
                                 service: "gmail",
@@ -1077,32 +1078,6 @@ describe("connector shared requests", () => {
 
             expect(action.asyncLifecycle).toEqual(asyncLifecycle);
         }
-    });
-
-    test("listAuthenticatedConnectorServices sends repeated service params and parses the service list", async () => {
-        const requests: Request[] = [];
-        const services = await listAuthenticatedConnectorServices(
-            {
-                serviceNames: ["gmail", "slack"],
-                target: createSelfHostedConnectorTargetFixture(),
-            },
-            createRequestContext({
-                fetcher: async (input, init) => {
-                    requests.push(toRequest(input, init));
-
-                    return new Response(JSON.stringify({
-                        data: ["gmail"],
-                    }));
-                },
-            }),
-        );
-
-        expect(services).toEqual(["gmail"]);
-        expect(requests).toHaveLength(1);
-        expect(requests[0]?.url).toBe(
-            "http://localhost:3000/v1/apps/authenticated?service=gmail&service=slack",
-        );
-        expect(requests[0]?.headers.get("Authorization")).toBe("Bearer oct_x");
     });
 
     test("runConnectorAction reports the self-hosted URL without the sandbox hint when the server is unreachable", async () => {

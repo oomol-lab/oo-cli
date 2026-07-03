@@ -167,7 +167,7 @@ describe("connector search provider", () => {
         ]);
     });
 
-    test("enriches self-hosted results from the authenticated services endpoint with deduplicated service params", async () => {
+    test("uses the wire authenticated field for self-hosted results without a follow-up request", async () => {
         const requests: Request[] = [];
 
         const results = await loadConnectorSearchResults(
@@ -187,27 +187,18 @@ describe("connector search provider", () => {
                             success: true,
                             data: [
                                 {
+                                    authenticated: true,
                                     description: "Send a Gmail message.",
                                     name: "send_mail",
                                     service: "gmail",
                                 },
                                 {
-                                    description: "Draft a Gmail message.",
-                                    name: "draft_mail",
-                                    service: "gmail",
-                                },
-                                {
+                                    authenticated: false,
                                     description: "Send a Slack message.",
                                     name: "post_message",
                                     service: "slack",
                                 },
                             ],
-                        }));
-                    }
-
-                    if (request.url.includes("/v1/apps/authenticated")) {
-                        return new Response(JSON.stringify({
-                            data: ["gmail"],
                         }));
                     }
 
@@ -218,19 +209,12 @@ describe("connector search provider", () => {
 
         expect(requests.map(request => request.url)).toEqual([
             "http://localhost:3000/v1/actions/search?q=send+mail",
-            "http://localhost:3000/v1/apps/authenticated?service=gmail&service=slack",
         ]);
         expect(results).toEqual([
             {
                 authenticated: true,
                 description: "Send a Gmail message.",
                 name: "send_mail",
-                service: "gmail",
-            },
-            {
-                authenticated: true,
-                description: "Draft a Gmail message.",
-                name: "draft_mail",
                 service: "gmail",
             },
             {
@@ -238,55 +222,6 @@ describe("connector search provider", () => {
                 description: "Send a Slack message.",
                 name: "post_message",
                 service: "slack",
-            },
-        ]);
-    });
-
-    test("returns self-hosted results as unauthenticated when the authenticated services request fails", async () => {
-        const requests: Request[] = [];
-
-        const results = await loadConnectorSearchResults(
-            {
-                target: createSelfHostedConnectorTargetFixture(),
-                text: "send mail",
-            },
-            createSearchContext({
-                cache: createMemoryCache(),
-                fetcher: async (input, init) => {
-                    const request = toRequest(input, init);
-
-                    requests.push(request);
-
-                    if (request.url.includes("/v1/actions/search")) {
-                        return new Response(JSON.stringify({
-                            success: true,
-                            data: [
-                                {
-                                    description: "Send a Gmail message.",
-                                    name: "send_mail",
-                                    service: "gmail",
-                                },
-                            ],
-                        }));
-                    }
-
-                    return new Response("", {
-                        status: 500,
-                    });
-                },
-            }),
-        );
-
-        expect(requests.map(request => request.url)).toEqual([
-            "http://localhost:3000/v1/actions/search?q=send+mail",
-            "http://localhost:3000/v1/apps/authenticated?service=gmail",
-        ]);
-        expect(results).toEqual([
-            {
-                authenticated: false,
-                description: "Send a Gmail message.",
-                name: "send_mail",
-                service: "gmail",
             },
         ]);
     });
