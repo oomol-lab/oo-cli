@@ -5,6 +5,10 @@ remote result artifact should be saved locally.
 
 This page owns the detailed URI and artifact rules for the `oo` skill.
 
+`oo file upload` requires an OOMOL account. In self-hosted-connector-only
+mode, stop and ask the user to run `oo auth login` (see
+[auth-and-billing.md](auth-and-billing.md)).
+
 ## Goal
 
 Move files into or out of the selected `oo` path without inventing alternate

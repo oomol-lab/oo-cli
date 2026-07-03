@@ -16,9 +16,9 @@
 CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、`true`、`yes` 或 `on`
 （大小写不敏感）。
 
-- `OO_CONFIG_DIR`：覆盖配置根目录，其中包含 `auth.toml`、`settings.toml` 和
-  telemetry 数据（在未设置 `OO_DATA_DIR` 时也包含 `data` 子目录）。优先级高于
-  `XDG_CONFIG_HOME`。
+- `OO_CONFIG_DIR`：覆盖配置根目录，其中包含 `auth.toml`、`connector.toml`、
+  `settings.toml` 和 telemetry 数据（在未设置 `OO_DATA_DIR` 时也包含 `data`
+  子目录）。优先级高于 `XDG_CONFIG_HOME`。
 - `OO_DATA_DIR`：覆盖数据目录，其中包含本地缓存、上传和下载会话状态。默认值为
   `<配置根目录>/data`。
 - `OO_LOG_DIR`：覆盖 debug 日志目录。优先级高于所有平台默认值。
@@ -27,6 +27,16 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - `OO_ENDPOINT`：基础域名（例如 `oomol.com` 或 `oomol.dev`），用于派生执行命令的
   所有服务 URL。它与 `OO_API_KEY` 搭配使用，也会覆盖已保存账号的 endpoint。优先级
   高于历史遗留的 `OOMOL_ENDPOINT`。
+- `OO_CONNECTOR_URL`：自部署 Connector 服务地址。它会覆盖 `oo connector login`
+  保存的配置。只有 connector 相关命令（`oo connector
+  search/schema/run/proxy/apps` 及顶层 `oo search`）会将请求路由到该地址；
+  其他命令不会向它发送请求，但 `oo auth status` 与 `oo auth login`
+  会展示该自部署 Connector 配置，需要账号的命令在未登录时的报错也会提及它。
+- `OO_CONNECTOR_TOKEN`：与 `OO_CONNECTOR_URL` 搭配使用的可选 Runtime API
+  令牌。未设置 `OO_CONNECTOR_URL` 时会被忽略。
+- Connector 相关命令按以下优先级解析目标服务：
+  `OO_CONNECTOR_URL` > `OO_API_KEY` > 已保存的自部署 Connector 配置
+  （`oo connector login`）> 当前激活账号。
 - `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步与 legacy
   清理副作用，使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill
   文件。
@@ -75,6 +85,9 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   - `--api-key <api-key>`：使用已有 API key 登录。CLI 会通过账号 profile 校验该 key，
     校验通过后直接保存账号，不会打印 device-login URL 或轮询；若 key 无效或已过期则以
     错误退出。`--api-key` 与 `--session-token` 不能同时使用。
+- 说明：如果已配置自部署 Connector（`oo connector login`），登录后 connector
+  相关命令仍会继续使用它；成功输出会打印一行提示，说明可运行
+  `oo connector logout` 切回 OOMOL。
 
 ### `oo auth logout`
 
@@ -90,6 +103,9 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   对应的 endpoint 校验得到。其它账号不参与校验，所以无论有多少账号，
   `oo auth status` 最多发送 1 次网络请求。
 - 文本和 JSON 输出都永远不会包含 API key 实际内容。
+- 当配置了自部署 Connector（`oo connector login` 或 `OO_CONNECTOR_URL`）时，
+  文本输出会额外显示一个自部署 Connector 区块，包含服务地址、是否已配置令牌
+  以及配置来源。令牌内容永远不会被打印。
 - 选项：`--format=json` 与 `--json` 切换到结构化 JSON 输出。
   `--show-schema-version` 会向 payload 顶层添加 `schemaVersion`。
 - JSON 三种形态：
@@ -120,6 +136,15 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   }
   ```
 
+- 当配置了自部署 Connector 时，以上三种形态都可能额外携带一个可选的顶层
+  `connector` 字段：
+
+  ```json
+  {
+    "connector": { "url": "http://localhost:3000", "tokenConfigured": true, "source": "file" }
+  }
+  ```
+
 - 说明（JSON）：
   - **绝不**输出 `apiKey` 字段；JSON payload 在任何字段下都不包含实际 API key 字符串。
   - `accounts[]` 按原顺序列出本地 auth file 中保存的全部账号，每条 entry 为
@@ -131,6 +156,13 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
     `valid` / `invalid` / `request_failed` / `request_failed_sandbox`。
   - `missingAccountId` 仅在 auth file 记录的 active id 已不存在于
     `accounts[]` 时出现。
+  - `connector` 仅在配置了自部署 Connector 时出现，报告已配置的自部署
+    Connector（`OO_CONNECTOR_URL` 覆盖优先于 `connector.toml`）：
+    `url`、`tokenConfigured` 和 `source`（`env` / `file`）。注意：设置了
+    `OO_API_KEY` 时，connector 命令会路由到托管的 OOMOL Connector 服务，
+    而不是 `source: "file"` 的配置（只有 `OO_CONNECTOR_URL` 的优先级高于
+    `OO_API_KEY`）。令牌内容永远不会被输出。`connector.toml`
+    无法读取时该字段会被省略。
   - 三种状态都以 0 退出（查询命令）；参数错误（如 `--format xml`）仍以 2 退出。
 
 ### `oo auth switch`
@@ -489,6 +521,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
   对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
   请求 metadata。
+- 说明：面向自部署 Connector 服务时，`authenticated` 由该服务已连接 app 的
+  状态推导得出。
 
 ### `oo connector schema <actionId...>`
 
@@ -554,6 +588,10 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：命令会在执行前根据选中 action 的 contract 校验输入。
 - 说明：text 模式下等待 async result action 时，交互式终端会在 stderr
   显示进度。JSON 输出不会混入进度文本。
+- 说明：面向自部署 Connector 时，传入 `--organization` 会被拒绝（exit `2`），
+  已配置的 `identity.organization` 默认值会被忽略，`--personal` 仍可使用。
+  由于自部署 runtime 不提供异步 lifecycle contract，`--wait` 和
+  `--wait-result` 会以现有的“不支持”错误失败。
 
 ### `oo connector apps <serviceName>`
 
@@ -605,6 +643,42 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   （已去除首尾空白并限制长度），以免丢失失败详情。
 - 说明：`oo connector proxy` 不使用 connector action schema 或 schema cache。
   当选中的 connector 支持 proxy execution 且没有专用 connector action 时使用。
+- 说明：面向自部署 Connector 时，传入 `--organization` 会被拒绝（exit `2`），
+  已配置的 `identity.organization` 默认值会被忽略。proxy execution 取决于
+  服务端支持；开源 runtime 目前会返回错误。
+
+### `oo connector login <url>`
+
+校验并保存一个自部署 Connector 服务，使 connector 相关命令改用该服务，而不再
+使用 OOMOL 托管的 Connector。
+
+- 参数：`<url>` 为自部署 Connector 服务地址，例如 `http://localhost:3000`。
+- 选项：`--token <token>` 指定该服务的 Runtime API 令牌（在服务的 `/access`
+  页面创建）。
+- 输出：文本输出会确认已连接的服务地址、报告令牌是否通过验证，并提示可在
+  `<url>/access` 管理 Runtime Token。
+- 说明：命令会先通过服务的健康检查端点校验该服务，然后才保存配置。登录成功后，
+  所有 connector 相关命令——`oo connector search/schema/run/proxy/apps` 及
+  顶层 `oo search`——都会改用该服务，而不再使用 OOMOL 托管的 Connector。
+- 说明：当服务接受未认证请求时，传入的令牌无法被验证；配置仍会被保存，并
+  打印一条提示。
+- 说明：当没有登录 OOMOL 账号且未设置 `OO_API_KEY` 时，命令会打印一条提示，
+  说明非 connector 命令仍需要 `oo auth login`。
+- 错误：无效 URL（非 http(s) URL）或无效令牌（为空、或包含空白/控制字符）以
+  `2` 退出。服务不可达、返回 HTTP 401、或返回非预期/非 Connector 响应时以
+  `1` 退出；401 错误会附带在 `<url>/access` 创建 Runtime Token 的提示。
+
+### `oo connector logout`
+
+移除已保存的自部署 Connector 配置。
+
+- 参数：无。
+- 输出：文本输出会确认断开了哪个服务。除非仍设置了 `OO_CONNECTOR_URL`，否则
+  connector 相关命令回落到当前激活的 OOMOL 账号。
+- 说明：当没有配置自部署 Connector 时，命令打印一条提示而不会失败。
+- 说明：命令只移除已保存的配置；`OO_CONNECTOR_URL` 环境变量不受影响。
+- 说明：损坏的 `connector.toml` 也会被一并清除，因此 `oo connector logout`
+  总能保证配置被移除。
 
 ## Search
 
@@ -624,6 +698,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
   对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
   请求 metadata。
+- 说明：面向自部署 Connector 服务时，`authenticated` 由该服务已连接 app 的
+  状态推导得出。
 
 ## AI Agent Skill
 

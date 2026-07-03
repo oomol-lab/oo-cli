@@ -1,10 +1,13 @@
 import type { Fetcher } from "../../contracts/cli.ts";
 
+import type { ConnectorActionAsyncLifecycle } from "./shared.ts";
 import { describe, expect, test } from "bun:test";
-import pino from "pino";
 
+import pino from "pino";
 import {
+    createConnectorTargetFixture,
     createFailedToOpenSocketError,
+    createSelfHostedConnectorTargetFixture,
     expectCliUserError,
     toRequest,
 } from "../../../../__tests__/helpers.ts";
@@ -15,6 +18,7 @@ import {
 } from "../shared/billing.ts";
 import {
     getConnectorActionMetadata,
+    listAuthenticatedConnectorServices,
     listConnectorAppsByService,
     runConnectorAction,
     runConnectorProxy,
@@ -26,8 +30,7 @@ describe("connector shared requests", () => {
         const requests: Request[] = [];
         const actions = await searchConnectorActions(
             {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 text: "send mail",
             },
             createRequestContext({
@@ -80,8 +83,7 @@ describe("connector shared requests", () => {
     test("searchConnectorActions accepts results without schema payloads", async () => {
         const actions = await searchConnectorActions(
             {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 text: "send mail",
             },
             createRequestContext({
@@ -114,8 +116,7 @@ describe("connector shared requests", () => {
         const requests: Request[] = [];
         const apps = await listConnectorAppsByService(
             {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 serviceName: "gmail",
             },
             createRequestContext({
@@ -161,8 +162,7 @@ describe("connector shared requests", () => {
     test("listConnectorAppsByService maps missing connection names to null", async () => {
         const apps = await listConnectorAppsByService(
             {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 serviceName: "gmail",
             },
             createRequestContext({
@@ -188,8 +188,7 @@ describe("connector shared requests", () => {
         for (const body of ["{}", "{\"data\":{}}"]) {
             const error = await expectCliUserError(listConnectorAppsByService(
                 {
-                    apiKey: "secret-1",
-                    endpoint: "oomol.com",
+                    target: createConnectorTargetFixture(),
                     serviceName: "gmail",
                 },
                 createRequestContext({
@@ -205,8 +204,7 @@ describe("connector shared requests", () => {
         const action = await getConnectorActionMetadata(
             {
                 actionName: "get_message",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 serviceName: "gmail",
             },
             createRequestContext({
@@ -250,8 +248,7 @@ describe("connector shared requests", () => {
         const response = await runConnectorAction(
             {
                 actionName: "send_mail",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 inputData: {
                     to: "foo@bar.com",
                 },
@@ -296,8 +293,7 @@ describe("connector shared requests", () => {
         await runConnectorAction(
             {
                 actionName: "send_mail",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 identity: {
                     organization: "acme",
                 },
@@ -334,15 +330,14 @@ describe("connector shared requests", () => {
         await runConnectorAction(
             {
                 actionName: "send_mail",
-                apiKey: "secret-1",
                 connectionSelector: {
                     connectionName: "work",
                 },
-                endpoint: "oomol.com",
                 inputData: {
                     to: "foo@bar.com",
                 },
                 serviceName: "gmail",
+                target: createConnectorTargetFixture(),
             },
             createRequestContext({
                 fetcher: async (input, init) => {
@@ -372,8 +367,7 @@ describe("connector shared requests", () => {
         await runConnectorAction(
             {
                 actionName: "send_mail",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 inputData: {
                     to: "foo@bar.com",
                 },
@@ -406,8 +400,7 @@ describe("connector shared requests", () => {
         await getConnectorActionMetadata(
             {
                 actionName: "get_message",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 serviceName: "gmail",
             },
             createRequestContext({
@@ -441,8 +434,7 @@ describe("connector shared requests", () => {
         const requests: Request[] = [];
         const response = await runConnectorProxy(
             {
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 identity: {
                     organization: "acme",
                 },
@@ -706,8 +698,7 @@ describe("connector shared requests", () => {
         const error = await expectCliUserError(runConnectorAction(
             {
                 actionName: "send_mail",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 inputData: {
                     to: "foo@bar.com",
                 },
@@ -735,8 +726,7 @@ describe("connector shared requests", () => {
         const error = await expectCliUserError(runConnectorAction(
             {
                 actionName: "assume_role",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 inputData: {},
                 serviceName: "aws_sts",
             },
@@ -763,8 +753,7 @@ describe("connector shared requests", () => {
         const error = await expectCliUserError(runConnectorAction(
             {
                 actionName: "assume_role",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 inputData: {},
                 serviceName: "aws_sts",
             },
@@ -792,8 +781,7 @@ describe("connector shared requests", () => {
         const error = await expectCliUserError(runConnectorAction(
             {
                 actionName: "assume_role",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 inputData: {},
                 serviceName: "aws_sts",
             },
@@ -816,8 +804,7 @@ describe("connector shared requests", () => {
         const error = await expectCliUserError(runConnectorAction(
             {
                 actionName: "assume_role",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 inputData: {},
                 serviceName: "aws_sts",
             },
@@ -839,8 +826,7 @@ describe("connector shared requests", () => {
         const error = await expectCliUserError(runConnectorAction(
             {
                 actionName: "send_mail",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 inputData: {
                     to: "foo@bar.com",
                 },
@@ -867,8 +853,7 @@ describe("connector shared requests", () => {
         const error = await expectCliUserError(runConnectorAction(
             {
                 actionName: "send_mail",
-                apiKey: "secret-1",
-                endpoint: "oomol.com",
+                target: createConnectorTargetFixture(),
                 inputData: {},
                 serviceName: "gmail",
             },
@@ -884,6 +869,262 @@ describe("connector shared requests", () => {
             message:
                 "network down\nCurrent environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
         });
+    });
+
+    test("searchConnectorActions sends the Bearer token to a self-hosted target", async () => {
+        const requests: Request[] = [];
+        const actions = await searchConnectorActions(
+            {
+                target: createSelfHostedConnectorTargetFixture(),
+                text: "send mail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        data: [
+                            {
+                                description: "Send a Gmail message.",
+                                name: "send_mail",
+                                service: "gmail",
+                            },
+                        ],
+                    }));
+                },
+            }),
+        );
+
+        expect(actions).toEqual([
+            {
+                authenticated: false,
+                description: "Send a Gmail message.",
+                inputSchema: undefined,
+                name: "send_mail",
+                outputSchema: undefined,
+                service: "gmail",
+            },
+        ]);
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.url).toBe(
+            "http://localhost:3000/v1/actions/search?q=send+mail",
+        );
+        expect(requests[0]?.headers.get("Authorization")).toBe("Bearer oct_x");
+    });
+
+    test("searchConnectorActions omits the Authorization header when the target has no authorization", async () => {
+        const requests: Request[] = [];
+
+        await searchConnectorActions(
+            {
+                target: createSelfHostedConnectorTargetFixture({
+                    authorization: undefined,
+                }),
+                text: "send mail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: [],
+                    }));
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.headers.get("Authorization")).toBeNull();
+    });
+
+    test("searchConnectorActions preserves a self-hosted base URL path prefix", async () => {
+        const requests: Request[] = [];
+
+        await searchConnectorActions(
+            {
+                target: createSelfHostedConnectorTargetFixture({
+                    baseUrl: "http://host:9000/connect",
+                    cacheEndpoint: "http://host:9000/connect",
+                }),
+                text: "send mail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: [],
+                    }));
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.url).toBe(
+            "http://host:9000/connect/v1/actions/search?q=send+mail",
+        );
+    });
+
+    test("getConnectorActionMetadata normalizes a null asyncLifecycle to undefined", async () => {
+        const action = await getConnectorActionMetadata(
+            {
+                actionName: "get_message",
+                target: createSelfHostedConnectorTargetFixture(),
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    data: {
+                        asyncLifecycle: null,
+                        description: "Get one Gmail message.",
+                        inputSchema: {
+                            type: "object",
+                        },
+                        name: "get_message",
+                        outputSchema: {
+                            type: "object",
+                        },
+                        service: "gmail",
+                    },
+                })),
+            }),
+        );
+
+        expect(action.asyncLifecycle).toBeUndefined();
+    });
+
+    test("getConnectorActionMetadata normalizes a connect-style asyncLifecycle shape to undefined", async () => {
+        const action = await getConnectorActionMetadata(
+            {
+                actionName: "get_message",
+                target: createSelfHostedConnectorTargetFixture(),
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    data: {
+                        asyncLifecycle: {
+                            startActionId: "a",
+                            statusActionId: "b",
+                        },
+                        description: "Get one Gmail message.",
+                        inputSchema: {
+                            type: "object",
+                        },
+                        name: "get_message",
+                        outputSchema: {
+                            type: "object",
+                        },
+                        service: "gmail",
+                    },
+                })),
+            }),
+        );
+
+        expect(action.asyncLifecycle).toBeUndefined();
+    });
+
+    test("getConnectorActionMetadata preserves valid submit and result asyncLifecycle shapes", async () => {
+        const validLifecycles: ConnectorActionAsyncLifecycle[] = [
+            {
+                handle: {
+                    inputField: "task_id",
+                    outputField: "id",
+                },
+                resultAction: "get_result",
+                role: "submit",
+            },
+            {
+                role: "result",
+                wait: {
+                    intervalSeconds: 2,
+                    resultField: "output",
+                    state: {
+                        failure: ["failed"],
+                        field: "status",
+                        running: ["running"],
+                        success: ["succeeded"],
+                    },
+                },
+            },
+        ];
+
+        for (const asyncLifecycle of validLifecycles) {
+            const action = await getConnectorActionMetadata(
+                {
+                    actionName: "get_message",
+                    target: createConnectorTargetFixture(),
+                    serviceName: "gmail",
+                },
+                createRequestContext({
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            asyncLifecycle,
+                            description: "Get one Gmail message.",
+                            inputSchema: {
+                                type: "object",
+                            },
+                            name: "get_message",
+                            outputSchema: {
+                                type: "object",
+                            },
+                            service: "gmail",
+                        },
+                    })),
+                }),
+            );
+
+            expect(action.asyncLifecycle).toEqual(asyncLifecycle);
+        }
+    });
+
+    test("listAuthenticatedConnectorServices sends repeated service params and parses the service list", async () => {
+        const requests: Request[] = [];
+        const services = await listAuthenticatedConnectorServices(
+            {
+                serviceNames: ["gmail", "slack"],
+                target: createSelfHostedConnectorTargetFixture(),
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: ["gmail"],
+                    }));
+                },
+            }),
+        );
+
+        expect(services).toEqual(["gmail"]);
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.url).toBe(
+            "http://localhost:3000/v1/apps/authenticated?service=gmail&service=slack",
+        );
+        expect(requests[0]?.headers.get("Authorization")).toBe("Bearer oct_x");
+    });
+
+    test("runConnectorAction reports the self-hosted URL without the sandbox hint when the server is unreachable", async () => {
+        const error = await expectCliUserError(runConnectorAction(
+            {
+                actionName: "send_mail",
+                target: createSelfHostedConnectorTargetFixture(),
+                inputData: {},
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async () => {
+                    throw createFailedToOpenSocketError("network down");
+                },
+            }),
+        ));
+
+        expect(error.key).toBe("errors.connectorRun.requestError");
+        expect(error.params?.message).toContain("http://localhost:3000");
+        expect(error.params?.message).not.toContain(
+            "network-restricted sandbox",
+        );
     });
 });
 
@@ -903,8 +1144,7 @@ function createProxyRunInput(
     overrides: Partial<Parameters<typeof runConnectorProxy>[0]> = {},
 ): Parameters<typeof runConnectorProxy>[0] {
     return {
-        apiKey: "secret-1",
-        endpoint: "oomol.com",
+        target: createConnectorTargetFixture(),
         proxyRequest: {
             endpoint: "/search",
             method: "GET",

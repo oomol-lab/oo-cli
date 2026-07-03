@@ -182,7 +182,10 @@ Tie-breakers:
   `https://console.oomol.com/app-connections?provider=<service>`, and ask the
   user to connect it first. Do not run `oo connector schema`, inspect adjacent
   actions, or provide usage examples until the user confirms the service is
-  connected.
+  connected. On a self-hosted connector the `authenticated` field reflects the
+  server's connected apps; when a needed connector is not connected, direct
+  the user to the self-hosted console at the `connector.url` from
+  `oo auth status --json` instead of console.oomol.com.
 - If both `fusion-api` and an authenticated non-Fusion connector are suitable,
   choose the one whose output contract best matches the user's requested result.
   Ask the user only when the choice changes provider, account, cost, compliance,
@@ -204,6 +207,10 @@ values you actually use. Do not install or ask about installation before the
 selected connector path has produced a successful useful result.
 
 ## Wrap-up skill recommendation
+
+Skip this wrap-up entirely in self-hosted connector mode without an OOMOL
+account (see [auth-and-billing.md](auth-and-billing.md)): installing skills
+requires an OOMOL account. Say nothing about skills and finish.
 
 After the final useful result, run the recommendation once at the wrap-up over
 the deduplicated list of connector services you used:

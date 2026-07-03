@@ -1,6 +1,7 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
 import type { ConnectorIdentity } from "./identity.ts";
+import type { ConnectorRequestTarget } from "./target.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -9,7 +10,11 @@ import {
     createInsufficientCreditError,
     isInsufficientCreditFailure,
 } from "../shared/billing.ts";
-import { getUnexpectedRequestErrorMessage, requestText } from "../shared/request.ts";
+import {
+    getUnexpectedRequestErrorMessage,
+    isNetworkRestrictedSandboxError,
+    requestText,
+} from "../shared/request.ts";
 import { connectorIdentityHeaders } from "./identity.ts";
 
 export const connectorActionDefinitionSchema = z.object({
@@ -48,8 +53,28 @@ export const connectorActionAsyncLifecycleSchema = z.discriminatedUnion("role", 
     connectorActionAsyncLifecycleResultSchema,
 ]);
 
+// Different connector backends disagree on the async lifecycle contract: the
+// OOMOL service returns the submit/result union, while the open-source
+// self-hosted runtime returns either `null` or a `{startActionId, ...}` shape
+// that carries no polling contract. Anything that does not match the union is
+// normalized to `undefined` so plain schema/run flows keep working; the
+// `--wait` / `--wait-result` modes then fail with their existing clear
+// "unsupported" errors instead of a blanket metadata parse failure.
+function normalizeConnectorActionAsyncLifecycle(value: unknown): unknown {
+    if (value === undefined || value === null) {
+        return undefined;
+    }
+
+    return connectorActionAsyncLifecycleSchema.safeParse(value).success
+        ? value
+        : undefined;
+}
+
 export const connectorActionMetadataSchema = connectorActionDefinitionSchema.extend({
-    asyncLifecycle: connectorActionAsyncLifecycleSchema.optional(),
+    asyncLifecycle: z.preprocess(
+        normalizeConnectorActionAsyncLifecycle,
+        connectorActionAsyncLifecycleSchema.optional(),
+    ),
     followUpActions: z.unknown().optional(),
     id: z.string().optional(),
     providerPermissions: z.array(z.string()).optional().default([]),
@@ -167,14 +192,13 @@ type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResp
 
 export async function searchConnectorActions(
     options: {
-        apiKey: string;
-        endpoint: string;
+        target: ConnectorRequestTarget;
         text: string;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorActionSearchResult[]> {
     const requestUrl = new URL(
-        `https://connector.${options.endpoint}/v1/actions/search`,
+        `${options.target.baseUrl}/v1/actions/search`,
     );
 
     requestUrl.searchParams.set("q", options.text);
@@ -192,7 +216,11 @@ export async function searchConnectorActions(
             "errors.connectorSearch.requestError",
             1,
             {
-                message: error instanceof Error ? error.message : String(error),
+                message: createConnectorUnexpectedErrorMessage(
+                    error,
+                    options.target,
+                    context.translator,
+                ),
             },
         ),
         fields: {
@@ -201,9 +229,7 @@ export async function searchConnectorActions(
             },
         },
         init: {
-            headers: {
-                Authorization: options.apiKey,
-            },
+            headers: connectorAuthorizationHeaders(options.target),
         },
         requestLabel: "Connector action search",
         requestUrl,
@@ -219,16 +245,82 @@ export async function searchConnectorActions(
     }
 }
 
+const connectorAuthenticatedServicesResponseSchema = z.object({
+    data: z.array(z.string()).optional().default([]),
+});
+
+/**
+ * Lists which of the given services have an authenticated connection on the
+ * connector server (`GET /v1/apps/authenticated`). The self-hosted runtime
+ * omits the per-result `authenticated` field from search responses, so search
+ * uses this endpoint to reconstruct that signal.
+ */
+export async function listAuthenticatedConnectorServices(
+    options: {
+        serviceNames: readonly string[];
+        target: ConnectorRequestTarget;
+    },
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<string[]> {
+    const requestUrl = new URL(
+        `${options.target.baseUrl}/v1/apps/authenticated`,
+    );
+
+    for (const serviceName of options.serviceNames) {
+        requestUrl.searchParams.append("service", serviceName);
+    }
+
+    const rawResponse = await requestText({
+        context,
+        createRequestFailedError: status => new CliUserError(
+            "errors.connectorApps.requestFailed",
+            1,
+            {
+                status,
+            },
+        ),
+        createUnexpectedError: error => new CliUserError(
+            "errors.connectorApps.requestError",
+            1,
+            {
+                message: createConnectorUnexpectedErrorMessage(
+                    error,
+                    options.target,
+                    context.translator,
+                ),
+            },
+        ),
+        fields: {
+            start: {
+                serviceCount: options.serviceNames.length,
+            },
+        },
+        init: {
+            headers: connectorAuthorizationHeaders(options.target),
+        },
+        requestLabel: "Connector authenticated services",
+        requestUrl,
+    });
+
+    try {
+        return connectorAuthenticatedServicesResponseSchema.parse(
+            JSON.parse(rawResponse) as unknown,
+        ).data;
+    }
+    catch {
+        throw new CliUserError("errors.connectorApps.invalidResponse", 1);
+    }
+}
+
 export async function listConnectorAppsByService(
     options: {
-        apiKey: string;
-        endpoint: string;
         serviceName: string;
+        target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorAppView[]> {
     const requestUrl = new URL(
-        `https://connector.${options.endpoint}/v1/apps/services/${encodeURIComponent(options.serviceName)}`,
+        `${options.target.baseUrl}/v1/apps/services/${encodeURIComponent(options.serviceName)}`,
     );
 
     const rawResponse = await requestText({
@@ -244,7 +336,11 @@ export async function listConnectorAppsByService(
             "errors.connectorApps.requestError",
             1,
             {
-                message: error instanceof Error ? error.message : String(error),
+                message: createConnectorUnexpectedErrorMessage(
+                    error,
+                    options.target,
+                    context.translator,
+                ),
             },
         ),
         fields: {
@@ -253,9 +349,7 @@ export async function listConnectorAppsByService(
             },
         },
         init: {
-            headers: {
-                Authorization: options.apiKey,
-            },
+            headers: connectorAuthorizationHeaders(options.target),
         },
         requestLabel: "Connector apps list",
         requestUrl,
@@ -274,14 +368,13 @@ export async function listConnectorAppsByService(
 export async function getConnectorActionMetadata(
     options: {
         actionName: string;
-        apiKey: string;
-        endpoint: string;
         serviceName: string;
+        target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorActionMetadata> {
     const requestUrl = createConnectorActionRequestUrl(
-        options.endpoint,
+        options.target.baseUrl,
         options.serviceName,
         options.actionName,
     );
@@ -298,7 +391,11 @@ export async function getConnectorActionMetadata(
             "errors.connectorMetadata.requestError",
             1,
             {
-                message: error instanceof Error ? error.message : String(error),
+                message: createConnectorUnexpectedErrorMessage(
+                    error,
+                    options.target,
+                    context.translator,
+                ),
             },
         ),
         fields: {
@@ -308,9 +405,7 @@ export async function getConnectorActionMetadata(
             },
         },
         init: {
-            headers: {
-                Authorization: options.apiKey,
-            },
+            headers: connectorAuthorizationHeaders(options.target),
         },
         requestLabel: "Connector action metadata",
         requestUrl,
@@ -329,17 +424,16 @@ export async function getConnectorActionMetadata(
 export async function runConnectorAction(
     options: {
         actionName: string;
-        apiKey: string;
         connectionSelector?: ConnectorConnectionSelector;
-        endpoint: string;
         identity?: ConnectorIdentity;
         inputData: unknown;
         serviceName: string;
+        target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorActionRunResponse> {
     const requestUrl = createConnectorActionRequestUrl(
-        options.endpoint,
+        options.target.baseUrl,
         options.serviceName,
         options.actionName,
     );
@@ -365,7 +459,7 @@ export async function runConnectorAction(
         const response = await context.fetcher(requestUrl, {
             body: requestBody,
             headers: {
-                "Authorization": options.apiKey,
+                ...connectorAuthorizationHeaders(options.target),
                 "Content-Type": "application/json",
                 ...connectorConnectionSelectorHeaders(options.connectionSelector),
                 ...connectorIdentityHeaders(options.identity),
@@ -440,7 +534,11 @@ export async function runConnectorAction(
         );
 
         throw new CliUserError("errors.connectorRun.requestError", 1, {
-            message: getUnexpectedRequestErrorMessage(error, context.translator),
+            message: createConnectorPostUnexpectedErrorMessage(
+                error,
+                options.target,
+                context.translator,
+            ),
         });
     }
 
@@ -456,16 +554,15 @@ export async function runConnectorAction(
 
 export async function runConnectorProxy(
     options: {
-        apiKey: string;
-        endpoint: string;
         identity?: ConnectorIdentity;
         proxyRequest: unknown;
         serviceName: string;
+        target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorProxyResponse> {
     const requestUrl = createConnectorProxyRequestUrl(
-        options.endpoint,
+        options.target.baseUrl,
         options.serviceName,
     );
     const requestBody = JSON.stringify(options.proxyRequest);
@@ -487,7 +584,7 @@ export async function runConnectorProxy(
         const response = await context.fetcher(requestUrl, {
             body: requestBody,
             headers: {
-                "Authorization": options.apiKey,
+                ...connectorAuthorizationHeaders(options.target),
                 "Content-Type": "application/json",
                 ...connectorIdentityHeaders(options.identity),
             },
@@ -558,7 +655,11 @@ export async function runConnectorProxy(
         );
 
         throw new CliUserError("errors.connectorProxy.requestError", 1, {
-            message: getUnexpectedRequestErrorMessage(error, context.translator),
+            message: createConnectorPostUnexpectedErrorMessage(
+                error,
+                options.target,
+                context.translator,
+            ),
         });
     }
 
@@ -572,8 +673,11 @@ export async function runConnectorProxy(
     }
 }
 
+// Request URLs are built by string concatenation on the normalized base URL
+// (never `new URL(path, base)`) so a self-hosted server behind a path prefix
+// keeps that prefix.
 function createConnectorActionRequestUrl(
-    endpoint: string,
+    baseUrl: string,
     serviceName: string,
     actionName: string,
 ): URL {
@@ -581,17 +685,66 @@ function createConnectorActionRequestUrl(
         = `${encodeURIComponent(serviceName)}.${encodeURIComponent(actionName)}`;
 
     return new URL(
-        `https://connector.${endpoint}/v1/actions/${qualifiedActionName}`,
+        `${baseUrl}/v1/actions/${qualifiedActionName}`,
     );
 }
 
 function createConnectorProxyRequestUrl(
-    endpoint: string,
+    baseUrl: string,
     serviceName: string,
 ): URL {
     return new URL(
-        `https://connector.${endpoint}/v1/proxy/${encodeURIComponent(serviceName)}`,
+        `${baseUrl}/v1/proxy/${encodeURIComponent(serviceName)}`,
     );
+}
+
+function connectorAuthorizationHeaders(
+    target: Pick<ConnectorRequestTarget, "authorization">,
+): Record<string, string> {
+    if (target.authorization === undefined) {
+        return {};
+    }
+
+    return { Authorization: target.authorization };
+}
+
+// Self-hosted servers are typically local processes, so a connection failure
+// usually means the server is not running — the sandbox hint the OOMOL paths
+// use would send users down the wrong path.
+function selfHostedConnectorUnreachableMessage(
+    error: unknown,
+    target: Pick<ConnectorRequestTarget, "baseUrl" | "kind">,
+    translator: Pick<CliExecutionContext["translator"], "t">,
+): string | undefined {
+    if (target.kind === "self_hosted" && isNetworkRestrictedSandboxError(error)) {
+        return translator.t("errors.connector.selfHostedUnreachable", {
+            url: target.baseUrl,
+        });
+    }
+
+    return undefined;
+}
+
+// For GET-style calls routed through the shared request layer, which already
+// enhanced sandbox network errors with the hint — the message is used as-is.
+function createConnectorUnexpectedErrorMessage(
+    error: unknown,
+    target: Pick<ConnectorRequestTarget, "baseUrl" | "kind">,
+    translator: Pick<CliExecutionContext["translator"], "t">,
+): string {
+    return selfHostedConnectorUnreachableMessage(error, target, translator)
+        ?? (error instanceof Error ? error.message : String(error));
+}
+
+// For the direct-fetch POST paths (run/proxy), which see the raw fetch error
+// and still need the sandbox hint appended for OOMOL targets.
+function createConnectorPostUnexpectedErrorMessage(
+    error: unknown,
+    target: Pick<ConnectorRequestTarget, "baseUrl" | "kind">,
+    translator: Pick<CliExecutionContext["translator"], "t">,
+): string {
+    return selfHostedConnectorUnreachableMessage(error, target, translator)
+        ?? getUnexpectedRequestErrorMessage(error, translator);
 }
 
 function connectorConnectionSelectorHeaders(

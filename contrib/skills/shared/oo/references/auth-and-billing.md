@@ -38,6 +38,37 @@ When the user needs to repair auth, guide them to:
 oo auth login
 ```
 
+## Self-hosted connector mode
+
+The user may route connector commands to a self-hosted connector server
+instead of an OOMOL account. Detect this mode when either signal appears:
+
+- A command fails with a message saying the self-hosted connector only
+  supports connector commands.
+- `oo auth status --json` shows a top-level `connector` object while `status`
+  is not `logged-in`.
+
+Exception: when the `OO_API_KEY` environment variable is set, OOMOL-backed
+capabilities work even if `oo auth status` reports `logged-out`, so do not
+treat that combination as self-hosted-only mode. In practice this rarely
+matters because you should only check auth status after a command has already
+failed with an auth error.
+
+In this mode, connector commands keep working against the self-hosted server:
+`oo search`, `oo connector search`, `oo connector schema`, `oo connector run`,
+and `oo connector apps`.
+
+Anything that needs an OOMOL account does not work and must not be retried:
+`oo file upload`, `oo llm config`, `oo llm json`, `oo variables`, and
+`oo skills search`, `oo skills install`, `oo skills publish`, and
+`oo skills sync`. Tell the user that capability requires an OOMOL account, ask
+them to run `oo auth login`, then stop.
+
+If a connector command fails with a message like
+`Could not reach the self-hosted connector at <url>`, report that the
+self-hosted server appears to be down and stop. Do not treat it as a sandbox
+or permission problem, and do not retry with elevated permissions.
+
 ## Billing blocker
 
 Billing has a hard stop signal:

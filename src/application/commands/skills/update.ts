@@ -1274,6 +1274,7 @@ function mapUpdateErrorCode(error: unknown): string {
         case "errors.skills.noSupportedBundledSkillHosts":
             return "no_supported_hosts";
         case "errors.auth.required":
+        case "errors.auth.requiredConnectorOnly":
         case "auth.account.activeAccountMissing":
             return "not_authenticated";
         case "errors.skills.update.packageNotInstalled":

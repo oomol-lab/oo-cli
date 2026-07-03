@@ -5,7 +5,6 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import {
     createConnectorActionSchemaOutput,
@@ -13,6 +12,7 @@ import {
 } from "./schema-cache.ts";
 import { connectorSchemaRefreshCommand } from "./schema-refresh.ts";
 import { requireConnectorActionName } from "./shared.ts";
+import { resolveConnectorTarget } from "./target.ts";
 
 interface ConnectorSchemaInput {
     action?: string;
@@ -81,16 +81,21 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
             refresh: input.refresh === true,
         });
 
-        const account = await requireCurrentAccount(context);
+        const connectorTarget = await resolveConnectorTarget(context);
+
+        context.telemetry?.recordProperties({
+            connector_kind: connectorTarget.kind,
+        });
+
         const outputs: ConnectorActionSchemaOutput[] = [];
 
         for (const target of targets) {
             const actionSchema = await loadConnectorActionSchema(
                 {
-                    account,
                     actionName: target.actionName,
                     refresh: input.refresh,
                     serviceName: target.serviceName,
+                    target: connectorTarget,
                 },
                 context,
             );

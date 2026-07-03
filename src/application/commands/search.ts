@@ -10,8 +10,8 @@ import {
     formatConnectorSearchResultsAsText,
     loadConnectorSearchResults,
 } from "./connector/search-provider.ts";
+import { resolveConnectorTarget } from "./connector/target.ts";
 import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
-import { requireCurrentAccount } from "./shared/auth-utils.ts";
 import { createFormatInputError } from "./shared/input-parsing.ts";
 
 const searchFormatValues = ["json"] as const;
@@ -48,10 +48,15 @@ export const searchCommand: CliCommandDefinition<SearchInput> = {
             query_length_bucket: bucketTelemetryStringLength(input.text),
         });
 
-        const account = await requireCurrentAccount(context);
+        const target = await resolveConnectorTarget(context);
+
+        context.telemetry?.recordProperties({
+            connector_kind: target.kind,
+        });
+
         const results = await loadConnectorSearchResults(
             {
-                account,
+                target,
                 text: input.text,
             },
             context,

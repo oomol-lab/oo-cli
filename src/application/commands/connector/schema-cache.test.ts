@@ -11,6 +11,7 @@ import pino from "pino";
 import {
     createCacheStore,
     createConnectorActionFixture,
+    createConnectorTargetFixture,
     createMemoryCache,
     createTemporaryDirectory,
 } from "../../../../__tests__/helpers.ts";
@@ -69,8 +70,8 @@ describe("connector schema cache", () => {
         await cacheConnectorActionSchemas(
             [createConnectorActionFixture()],
             {
-                endpoint: "oomol.com",
-                id: "user-1",
+                cacheAccountId: "user-1",
+                cacheEndpoint: "oomol.com",
             },
             createCacheContext({
                 cache,
@@ -114,7 +115,7 @@ describe("connector schema cache", () => {
         let fetchCount = 0;
         const schema = await loadConnectorActionSchema(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 actionName: "send_mail",
                 serviceName: "gmail",
             },
@@ -159,7 +160,7 @@ describe("connector schema cache", () => {
 
         const schema = await loadConnectorActionSchema(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 actionName: "send_mail",
                 requireAsyncLifecycle: true,
                 serviceName: "gmail",
@@ -220,7 +221,7 @@ describe("connector schema cache", () => {
         let fetchCount = 0;
         const schema = await loadConnectorActionSchema(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 actionName: "openai_image_async_submit",
                 requireAsyncLifecycle: true,
                 serviceName: "fusion-api",
@@ -259,7 +260,7 @@ describe("connector schema cache", () => {
 
         const schema = await loadConnectorActionSchema(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 actionName: "get_message",
                 serviceName: "gmail",
             },
@@ -299,7 +300,7 @@ describe("connector schema cache", () => {
 
         const schema = await loadConnectorActionSchema(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 actionName: "send_mail",
                 refresh: true,
                 serviceName: "gmail",
@@ -336,10 +337,13 @@ describe("connector schema cache", () => {
         });
     });
 
-    test("loadConnectorActionSchema rejects async lifecycle with non-positive wait interval", async () => {
-        await expect(loadConnectorActionSchema(
+    test("loadConnectorActionSchema strips async lifecycle with non-positive wait interval", async () => {
+        // A malformed lifecycle must not break the plain schema/run flows; it
+        // is normalized away so the wait modes fail with their dedicated
+        // "unsupported" errors instead.
+        const schema = await loadConnectorActionSchema(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 actionName: "openai_image_async_result",
                 serviceName: "fusion-api",
             },
@@ -362,7 +366,9 @@ describe("connector schema cache", () => {
                     service: "fusion-api",
                 }),
             }),
-        )).rejects.toThrow("errors.connectorMetadata.invalidResponse");
+        );
+
+        expect(schema.asyncLifecycle).toBeUndefined();
     });
 
     test("loadConnectorActionSchema deletes stale entries when metadata reports not found", async () => {
@@ -378,7 +384,7 @@ describe("connector schema cache", () => {
 
         await expect(loadConnectorActionSchema(
             {
-                account: createAccount(),
+                target: createConnectorTargetFixture(),
                 actionName: "send_mail",
                 refresh: true,
                 serviceName: "gmail",
@@ -654,8 +660,8 @@ describe("connector schema cache", () => {
             await cacheConnectorActionSchemas(
                 [createConnectorActionFixture()],
                 {
-                    endpoint: "oomol.com",
-                    id: "user-1",
+                    cacheAccountId: "user-1",
+                    cacheEndpoint: "oomol.com",
                 },
                 createCacheContext({
                     cache: createMemoryCache(),
@@ -670,14 +676,6 @@ describe("connector schema cache", () => {
         }
     });
 });
-
-function createAccount() {
-    return {
-        apiKey: "secret-1",
-        endpoint: "oomol.com",
-        id: "user-1",
-    };
-}
 
 function createMetadataResponse(overrides: {
     asyncLifecycle?: ConnectorActionMetadata["asyncLifecycle"];

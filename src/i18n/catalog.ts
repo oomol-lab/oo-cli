@@ -7,6 +7,10 @@ export const enMessages = {
         "The active account is missing from the auth store.",
     "auth.account.loggedIn": "Logged in to {endpoint} account {name}",
     "auth.login.waiting": "Waiting for the device login to complete...",
+    "auth.login.selfHostedConnectorHint":
+        "Connector commands keep using your self-hosted connector at {url}. Run `oo connector logout` to switch them back to OOMOL.",
+    "auth.login.selfHostedConnectorHintEnv":
+        "Connector commands keep using your self-hosted connector at {url} (set via OO_CONNECTOR_URL). Unset that variable to switch them back to OOMOL.",
     "auth.logout.success": "Logged out the current account.",
     "auth.status.accountActive": "active",
     "auth.status.accountId": "Account ID",
@@ -19,6 +23,11 @@ export const enMessages = {
     "auth.status.apiKeyStatus": "API key status",
     "auth.status.apiKeyValid": "Valid",
     "auth.status.loggedOut": "Not logged in to any OOMOL account.",
+    "auth.status.selfHostedConnector": "Self-hosted connector: {url}",
+    "auth.status.selfHostedConnectorSource": "Source",
+    "auth.status.selfHostedConnectorToken": "Token configured",
+    "auth.status.selfHostedConnectorToken.no": "no",
+    "auth.status.selfHostedConnectorToken.yes": "yes",
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
     "commands.auth.description": "Manage CLI authentication accounts.",
     "commands.auth.login.description":
@@ -57,6 +66,12 @@ export const enMessages = {
     "commands.connector.apps.description":
         "List connected connector apps for one service.",
     "commands.connector.apps.summary": "List connector apps",
+    "commands.connector.login.description":
+        "Validate and save a self-hosted connector server so connector commands use it instead of the OOMOL-hosted connector.",
+    "commands.connector.login.summary": "Connect a self-hosted connector",
+    "commands.connector.logout.description":
+        "Remove the saved self-hosted connector configuration.",
+    "commands.connector.logout.summary": "Disconnect the self-hosted connector",
     "commands.completion.description":
         "Output a shell completion script for a supported shell.",
     "commands.completion.summary": "Generate shell completion scripts",
@@ -256,6 +271,8 @@ export const enMessages = {
         "There are no auth accounts to switch to.",
     "errors.auth.required":
         "You must log in before using this command.",
+    "errors.auth.requiredConnectorOnly":
+        "Your self-hosted connector only supports connector commands. This command requires an OOMOL account; run `oo auth login` first.",
     "errors.auth.sessionTokenRequired":
         "Session token must not be empty.",
     "errors.auth.switch.userAmbiguous":
@@ -270,6 +287,30 @@ export const enMessages = {
         "Failed to read the auth file at {path}.",
     "errors.authStore.writeFailed":
         "Failed to write the auth file at {path}.",
+    "errors.connector.organizationUnsupported":
+        "The --organization option is not supported by a self-hosted connector.",
+    "errors.connector.selfHostedUnreachable":
+        "Could not reach the self-hosted connector at {url}. Check that the server is running, or run `oo connector login` to reconfigure it.",
+    "errors.connectorLogin.invalidToken":
+        "The connector token must not be empty or contain whitespace or control characters.",
+    "errors.connectorLogin.invalidUrl":
+        "The connector URL {url} is not a valid http(s) URL.",
+    "errors.connectorLogin.notConnectorServer":
+        "The server at {url} did not return a connector health response.",
+    "errors.connectorLogin.unauthorized":
+        "The connector server rejected the request (HTTP 401). Create a runtime token at {accessUrl} and try again.",
+    "errors.connectorLogin.unexpectedStatus":
+        "The connector server at {url} returned HTTP {status}.",
+    "errors.connectorLogin.unreachable":
+        "Could not reach the connector server at {url}: {message}",
+    "errors.connectorStore.invalidToml":
+        "The connector file at {path} is not valid TOML.",
+    "errors.connectorStore.invalidSchema":
+        "The connector file at {path} has an unsupported shape.",
+    "errors.connectorStore.readFailed":
+        "Failed to read the connector file at {path}.",
+    "errors.connectorStore.writeFailed":
+        "Failed to write the connector file at {path}.",
     "errors.billing.insufficientCredit":
         "Your OOMOL account balance is insufficient. Recharge before retrying: {url}",
     "errors.shared.invalidFormat":
@@ -841,6 +882,8 @@ export const enMessages = {
         "Run the action under the given organization identity (alias: --org)",
     "options.connectorRunPersonal":
         "Run the action under your personal identity, ignoring any configured default organization",
+    "options.connectorLoginToken":
+        "Runtime API token for the self-hosted connector (created on the server's /access page)",
     "options.connectorProxyBody":
         "Specify the upstream request body as JSON",
     "options.connectorProxyData":
@@ -1111,6 +1154,7 @@ export const enMessages = {
     "arguments.skills.checkUpdate.packageName": "Package name(s) to check; checks every installed skill of each package",
     "arguments.skills.uninstall.name": "Skill or package name(s) to remove; a package name removes every installed skill that belongs to it",
     "arguments.serviceName": "Service name",
+    "arguments.connectorUrl": "Self-hosted connector server URL, for example http://localhost:3000",
     "arguments.actionId": "Action id(s) in the form <service>.<action>, for example cal.create_schedule",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
@@ -1133,6 +1177,20 @@ export const enMessages = {
         "No connector apps were found for this service.",
     "connector.apps.text.status": "Status",
     "connector.run.text.dryRunPassed": "Validation passed.",
+    "connector.login.manageTokens": "Manage runtime tokens at {accessUrl}",
+    "connector.login.noToken":
+        "No token configured. If the server enables runtime tokens later, create one at {accessUrl} and log in again.",
+    "connector.login.oomolAccountNote":
+        "Connector commands now use this server. Other features still require an OOMOL account (run `oo auth login`).",
+    "connector.login.success": "Connected to the self-hosted connector at {url}",
+    "connector.login.tokenUnverified":
+        "The server currently accepts unauthenticated requests, so the token could not be verified.",
+    "connector.login.tokenVerified": "The token was accepted by the server.",
+    "connector.logout.cleared":
+        "Removed the self-hosted connector configuration. Connector commands now use your OOMOL account when logged in.",
+    "connector.logout.notConfigured": "No self-hosted connector is configured.",
+    "connector.logout.success":
+        "Disconnected the self-hosted connector at {url}. Connector commands now use your OOMOL account when logged in.",
     "connector.run.text.executionId": "Execution ID",
     "connector.run.text.resultData": "Result data",
     "connector.proxy.text.status": "Status",
@@ -1197,9 +1255,18 @@ export const zhMessages = {
     "auth.account.loggedIn": "已登录 {endpoint} 账号 {name}",
     "auth.login.waiting": "正在等待 device login 完成...",
     "auth.logout.success": "已登出当前账号。",
+    "auth.login.selfHostedConnectorHint":
+        "Connector 命令仍会使用你的自部署 Connector（{url}）。运行 `oo connector logout` 可切回 OOMOL。",
+    "auth.login.selfHostedConnectorHintEnv":
+        "Connector 命令仍会使用你的自部署 Connector（{url}，由 OO_CONNECTOR_URL 指定）。取消该环境变量可切回 OOMOL。",
     "auth.status.accountActive": "激活",
     "auth.status.accountId": "账号 ID",
     "auth.status.accountsLabel": "账号列表",
+    "auth.status.selfHostedConnector": "自部署 Connector：{url}",
+    "auth.status.selfHostedConnectorSource": "来源",
+    "auth.status.selfHostedConnectorToken": "已配置令牌",
+    "auth.status.selfHostedConnectorToken.no": "否",
+    "auth.status.selfHostedConnectorToken.yes": "是",
     "auth.status.activeAccount": "当前激活账号",
     "auth.status.apiKeyInvalid": "无效",
     "auth.status.apiKeyRequestFailed": "请求失败",
@@ -1249,6 +1316,11 @@ export const zhMessages = {
         "列出一个服务下已连接的 connector app。",
     "commands.connector.apps.summary":
         "列出 connector app",
+    "commands.connector.login.description":
+        "校验并保存自部署 Connector 服务，使 connector 命令改用该服务而非 OOMOL 托管的 Connector。",
+    "commands.connector.login.summary": "连接自部署 Connector",
+    "commands.connector.logout.description": "移除已保存的自部署 Connector 配置。",
+    "commands.connector.logout.summary": "断开自部署 Connector",
     "commands.completion.description": "输出受支持 shell 的补全脚本。",
     "commands.completion.summary": "生成 shell 补全脚本",
     "commands.config.description": "读取并更新持久化的用户配置。",
@@ -1426,6 +1498,8 @@ export const zhMessages = {
     "errors.auth.noSavedAccounts": "没有可切换的认证账号。",
     "errors.auth.required":
         "使用此命令前请先登录。",
+    "errors.auth.requiredConnectorOnly":
+        "自部署 Connector 仅支持 connector 相关命令。此命令需要 OOMOL 账号，请先运行 `oo auth login`。",
     "errors.auth.sessionTokenRequired": "session token 不能为空。",
     "errors.auth.switch.userAmbiguous":
         "存在多个 name 为 {value} 的账号。请通过 --user <account-id> 进行消歧。",
@@ -1437,6 +1511,26 @@ export const zhMessages = {
     "errors.authStore.invalidSchema": "认证文件 {path} 的结构不受支持。",
     "errors.authStore.readFailed": "读取认证文件 {path} 失败。",
     "errors.authStore.writeFailed": "写入认证文件 {path} 失败。",
+    "errors.connector.organizationUnsupported":
+        "自部署 Connector 不支持 --organization 选项。",
+    "errors.connector.selfHostedUnreachable":
+        "无法连接自部署 Connector（{url}）。请确认服务已启动，或运行 `oo connector login` 重新配置。",
+    "errors.connectorLogin.invalidToken":
+        "Connector 令牌不能为空，且不能包含空白或控制字符。",
+    "errors.connectorLogin.invalidUrl":
+        "Connector 地址 {url} 不是有效的 http(s) URL。",
+    "errors.connectorLogin.notConnectorServer":
+        "{url} 未返回 Connector 健康检查响应。",
+    "errors.connectorLogin.unauthorized":
+        "Connector 服务拒绝了该请求（HTTP 401）。请在 {accessUrl} 创建 Runtime Token 后重试。",
+    "errors.connectorLogin.unexpectedStatus":
+        "Connector 服务 {url} 返回了 HTTP {status}。",
+    "errors.connectorLogin.unreachable":
+        "无法连接 Connector 服务 {url}：{message}",
+    "errors.connectorStore.invalidToml": "Connector 配置文件 {path} 不是有效的 TOML。",
+    "errors.connectorStore.invalidSchema": "Connector 配置文件 {path} 的结构不受支持。",
+    "errors.connectorStore.readFailed": "读取 Connector 配置文件 {path} 失败。",
+    "errors.connectorStore.writeFailed": "写入 Connector 配置文件 {path} 失败。",
     "errors.shared.invalidFormat":
         "无效的 format：{value}。请使用 json。",
     "errors.shared.invalidPositiveIntegerOption":
@@ -2001,6 +2095,8 @@ export const zhMessages = {
         "以指定组织身份运行该 action（别名：--org）",
     "options.connectorRunPersonal":
         "以个人身份运行该 action，忽略已配置的默认组织",
+    "options.connectorLoginToken":
+        "自部署 Connector 的 Runtime API 令牌（在服务的 /access 页面创建）",
     "options.connectorProxyBody":
         "以 JSON 指定上游请求体",
     "options.connectorProxyData":
@@ -2268,6 +2364,7 @@ export const zhMessages = {
     "arguments.skills.checkUpdate.packageName": "要检查的包名（可指定多个）；会检查每个包已安装的全部 skill",
     "arguments.skills.uninstall.name": "要移除的 skill 或包名（可指定多个）；传入包名会移除该包已安装的全部 skill",
     "arguments.serviceName": "服务名",
+    "arguments.connectorUrl": "自部署 Connector 服务地址，例如 http://localhost:3000",
     "arguments.actionId": "<service>.<action> 形式的 action id（可多个），例如 cal.create_schedule",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",
@@ -2289,6 +2386,20 @@ export const zhMessages = {
         "该服务下未找到 connector app。",
     "connector.apps.text.status": "状态",
     "connector.run.text.dryRunPassed": "校验通过。",
+    "connector.login.manageTokens": "可在 {accessUrl} 管理 Runtime Token。",
+    "connector.login.noToken":
+        "未配置令牌。若服务之后启用了 Runtime Token，请在 {accessUrl} 创建后重新登录。",
+    "connector.login.oomolAccountNote":
+        "Connector 命令将使用该服务。其他功能仍需要 OOMOL 账号（运行 `oo auth login`）。",
+    "connector.login.success": "已连接自部署 Connector：{url}",
+    "connector.login.tokenUnverified":
+        "该服务当前接受未认证请求，因此无法验证令牌是否有效。",
+    "connector.login.tokenVerified": "令牌已通过服务验证。",
+    "connector.logout.cleared":
+        "已移除自部署 Connector 配置。登录 OOMOL 账号后，connector 命令将改用 OOMOL 服务。",
+    "connector.logout.notConfigured": "当前未配置自部署 Connector。",
+    "connector.logout.success":
+        "已断开自部署 Connector（{url}）。登录 OOMOL 账号后，connector 命令将改用 OOMOL 服务。",
     "connector.run.text.executionId": "执行 ID",
     "connector.run.text.resultData": "结果数据",
     "connector.proxy.text.status": "状态",

@@ -4,6 +4,7 @@ import type {
     CliExecutionContext,
     InteractiveInput,
 } from "../../contracts/cli.ts";
+import type { ConnectorStore } from "../../contracts/connector-store.ts";
 import type { Translator } from "../../contracts/translator.ts";
 import type { AuthFile } from "../../schemas/auth.ts";
 
@@ -13,6 +14,7 @@ import pino from "pino";
 import {
     createAuthStore,
     createCacheStore,
+    createInMemoryConnectorStore,
     createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
     createSettingsStore,
@@ -132,6 +134,62 @@ describe("requireCurrentAccount", () => {
             endpoint: "oomol.dev",
         });
     });
+
+    test("uses the connector-only auth key when only connector.toml is configured", async () => {
+        const context = createAuthContext(
+            { auth: [], id: "" },
+            {
+                connectorStore: createInMemoryConnectorStore({
+                    selfHosted: { url: "http://localhost:3000" },
+                }),
+            },
+        );
+
+        await expect(requireCurrentAccount(context)).rejects.toMatchObject({
+            exitCode: 1,
+            key: "errors.auth.requiredConnectorOnly",
+        });
+    });
+
+    test("uses the connector-only auth key when OO_CONNECTOR_URL is set", async () => {
+        const context = createAuthContext(
+            { auth: [], id: "" },
+            { env: { OO_CONNECTOR_URL: "http://localhost:3000" } },
+        );
+
+        await expect(requireCurrentAccount(context)).rejects.toMatchObject({
+            exitCode: 1,
+            key: "errors.auth.requiredConnectorOnly",
+        });
+    });
+
+    test("keeps the missing-account key for a stale active id even with a self-hosted connector", async () => {
+        const context = createAuthContext(
+            { auth: [], id: "user-1" },
+            {
+                connectorStore: createInMemoryConnectorStore({
+                    selfHosted: { url: "http://localhost:3000" },
+                }),
+            },
+        );
+
+        await expect(requireCurrentAccount(context)).rejects.toMatchObject({
+            exitCode: 1,
+            key: "auth.account.activeAccountMissing",
+        });
+    });
+
+    test("falls back to the shared auth-required key when the connector store read fails", async () => {
+        const context = createAuthContext(
+            { auth: [], id: "" },
+            { connectorStore: createThrowingConnectorStore() },
+        );
+
+        await expect(requireCurrentAccount(context)).rejects.toMatchObject({
+            exitCode: 1,
+            key: "errors.auth.required",
+        });
+    });
 });
 
 function createThrowingAuthStore(): AuthStore {
@@ -147,10 +205,26 @@ function createThrowingAuthStore(): AuthStore {
     };
 }
 
+// Simulates a corrupted connector.toml: a broken store must not change which
+// auth-required error requireCurrentAccount reports.
+function createThrowingConnectorStore(): ConnectorStore {
+    const fail = (): never => {
+        throw new Error("connector.toml is corrupted");
+    };
+
+    return {
+        getFilePath: () => "<broken-connector-store>",
+        read: async () => fail(),
+        write: async () => fail(),
+        update: async () => fail(),
+    };
+}
+
 function createAuthContext(
     authFile: AuthFile,
     overrides: {
         authStore?: AuthStore;
+        connectorStore?: ConnectorStore;
         env?: Record<string, string | undefined>;
     } = {},
 ): CliExecutionContext {
@@ -160,6 +234,7 @@ function createAuthContext(
     return {
         authStore: overrides.authStore ?? createAuthStore(authFile),
         cacheStore: createCacheStore(),
+        connectorStore: overrides.connectorStore ?? createInMemoryConnectorStore(),
         currentLogFilePath: "",
         execPath: process.execPath,
         fetcher: async () => new Response(null),

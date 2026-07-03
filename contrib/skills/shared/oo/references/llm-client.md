@@ -4,6 +4,10 @@ Read this file when local code you write or run needs OOMOL-hosted LLM client
 configuration, an OpenAI-compatible base URL, an API key, or the default OOMOL
 model.
 
+This capability requires an OOMOL account. In self-hosted-connector-only mode,
+stop and ask the user to run `oo auth login` (see
+[auth-and-billing.md](auth-and-billing.md)).
+
 Run:
 
 ```bash

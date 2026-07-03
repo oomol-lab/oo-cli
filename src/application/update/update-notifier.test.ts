@@ -3,6 +3,7 @@ import type { Cache, CacheOptions, CacheStore } from "../contracts/cache.ts";
 import type { CliExecutionContext } from "../contracts/cli.ts";
 import { describe, expect, test } from "bun:test";
 import {
+    createInMemoryConnectorStore,
     createLogCapture,
     createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
@@ -412,6 +413,7 @@ function createUpdateNotifierHarness(options: {
             update: async updater => updater(defaultAuthFile),
         },
         cacheStore: options.cacheStore ?? createMemoryCacheStore(() => Date.now()),
+        connectorStore: createInMemoryConnectorStore(),
         catalog: {
             commands: [],
             descriptionKey: "catalog.description",

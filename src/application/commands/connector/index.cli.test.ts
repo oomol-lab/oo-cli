@@ -16,6 +16,7 @@ import {
     readLatestLogContent,
     toRequest,
     writeAuthFile,
+    writeConnectorFile,
 } from "../../../../__tests__/helpers.ts";
 import { SqliteCacheStore } from "../../../adapters/cache/sqlite-cache.ts";
 import { APP_NAME } from "../../config/app-config.ts";
@@ -4595,6 +4596,280 @@ describe("connectorCommand CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("runs a connector action against a self-hosted connector without an OOMOL account", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            // Only connector.toml is configured: no auth file exists on disk.
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_test",
+            });
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.method === "GET") {
+                            return new Response(JSON.stringify({
+                                data: {
+                                    description: "Send a Gmail message.",
+                                    inputSchema: {
+                                        properties: {
+                                            to: {
+                                                type: "string",
+                                            },
+                                        },
+                                        required: ["to"],
+                                        type: "object",
+                                    },
+                                    name: "send_mail",
+                                    outputSchema: {
+                                        type: "object",
+                                    },
+                                    providerPermissions: [],
+                                    requiredScopes: [],
+                                    service: "gmail",
+                                },
+                            }));
+                        }
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    messageId: "message-1",
+                },
+                meta: {
+                    executionId: "exec-1",
+                },
+            });
+            expect(requests).toHaveLength(2);
+            // The schema lookup hits the self-hosted server first, then the run POST.
+            expect(requests[0]?.method).toBe("GET");
+            expect(requests[0]?.url).toBe(
+                "http://localhost:3000/v1/actions/gmail.send_mail",
+            );
+            expect(requests[0]?.headers.get("Authorization")).toBe("Bearer oct_test");
+            expect(requests[1]?.method).toBe("POST");
+            expect(requests[1]?.url).toBe(
+                "http://localhost:3000/v1/actions/gmail.send_mail",
+            );
+            expect(requests[1]?.headers.get("Authorization")).toBe("Bearer oct_test");
+            await expect(requests[1]?.json()).resolves.toEqual({
+                input: {
+                    to: "foo@bar.com",
+                },
+            });
+            // The self-hosted flow never needs or creates auth.toml.
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+
+            await expect(Bun.file(authFilePath).exists()).resolves.toBeFalse();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects --organization for a self-hosted connector before any request", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_test",
+            });
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--organization",
+                    "acme",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({
+                            data: {},
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain(
+                "The --organization option is not supported by a self-hosted connector.",
+            );
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prefers connector.toml over a saved account and OO_API_KEY over connector.toml", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            // Both an OOMOL account and a self-hosted connector are configured.
+            await writeAuthFile(sandbox);
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_test",
+            });
+
+            const selfHostedRequests: Request[] = [];
+            const selfHostedResult = await sandbox.run(
+                ["connector", "search", "send mail", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        selfHostedRequests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+
+            expect(selfHostedResult.exitCode).toBe(0);
+            expect(selfHostedRequests).toHaveLength(1);
+            // The persisted self-hosted connector wins over the saved account.
+            expect(selfHostedRequests[0]!.url).toStartWith(
+                "http://localhost:3000/v1/actions/search",
+            );
+            expect(selfHostedRequests[0]!.headers.get("Authorization")).toBe(
+                "Bearer oct_test",
+            );
+
+            // An explicit OO_API_KEY env credential outranks connector.toml.
+            sandbox.env.OO_API_KEY = "env-api-key";
+
+            const envRequests: Request[] = [];
+            const envResult = await sandbox.run(
+                ["connector", "search", "send mail", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        envRequests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+
+            expect(envResult.exitCode).toBe(0);
+            expect(envRequests).toHaveLength(1);
+            expect(envRequests[0]!.url).toStartWith(
+                "https://connector.oomol.com/v1/actions/search",
+            );
+            expect(envRequests[0]!.headers.get("Authorization")).toBe("env-api-key");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("enriches top-level search results with the self-hosted authenticated-services lookup", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_test",
+            });
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["search", "send mail", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("/v1/actions/search")) {
+                            // The self-hosted runtime omits the per-result
+                            // `authenticated` field; the schema defaults it to
+                            // false before the follow-up lookup fills it in.
+                            return createConnectorSearchResponse([
+                                {
+                                    authenticated: false,
+                                    description: "Send a Gmail message.",
+                                    name: "send_mail",
+                                    service: "gmail",
+                                },
+                            ]);
+                        }
+
+                        return new Response(JSON.stringify({
+                            data: ["gmail"],
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requests.map(request => request.url)).toEqual([
+                "http://localhost:3000/v1/actions/search?q=send+mail",
+                "http://localhost:3000/v1/apps/authenticated?service=gmail",
+            ]);
+            expect(requests[1]?.headers.get("Authorization")).toBe("Bearer oct_test");
+            expect(JSON.parse(result.stdout)).toEqual([
+                {
+                    authenticated: true,
+                    description: "Send a Gmail message.",
+                    name: "send_mail",
+                    service: "gmail",
+                },
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
 
 type SeedConnectorAction = ConnectorActionDefinition & Partial<Pick<
@@ -4728,8 +5003,8 @@ async function seedConnectorActionSchema(
         await cacheConnectorActionSchemas(
             [action],
             {
-                endpoint: "oomol.com",
-                id: "user-1",
+                cacheAccountId: "user-1",
+                cacheEndpoint: "oomol.com",
             },
             {
                 cacheStore,

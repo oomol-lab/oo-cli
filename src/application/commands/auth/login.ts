@@ -15,6 +15,7 @@ import { upsertAuthAccount } from "../../schemas/auth.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { writeLine } from "../shared/output.ts";
+import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
 import {
     formatAuthStrong,
     writeAuthBlock,
@@ -103,6 +104,29 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
                 },
             ],
         });
+
+        // Connector routing does not change with this login: a configured
+        // self-hosted connector keeps handling connector commands, which is
+        // easy to miss right after logging into an OOMOL account. Tolerant
+        // lookup: login already succeeded, so a broken connector.toml must not
+        // flip the exit code.
+        const selfHostedConnector = await resolveSelfHostedConnectorTolerantly(context);
+
+        if (selfHostedConnector !== undefined) {
+            // `oo connector logout` only removes the persisted configuration;
+            // an env-driven connector gets the OO_CONNECTOR_URL wording.
+            writeLine(
+                context.stdout,
+                context.translator.t(
+                    selfHostedConnector.source === "env"
+                        ? "auth.login.selfHostedConnectorHintEnv"
+                        : "auth.login.selfHostedConnectorHint",
+                    {
+                        url: selfHostedConnector.config.url,
+                    },
+                ),
+            );
+        }
     },
 };
 

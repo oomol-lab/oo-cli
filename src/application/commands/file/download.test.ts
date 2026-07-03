@@ -16,6 +16,7 @@ import pino from "pino";
 import {
     createAuthStore,
     createCacheStore,
+    createInMemoryConnectorStore,
     createNoopFileUploadStore,
     createSettingsStore,
     createTemporaryDirectory,
@@ -367,6 +368,7 @@ function createDownloadContext(options: {
         context: {
             authStore: createAuthStore(emptyAuthFile),
             cacheStore: createCacheStore(),
+            connectorStore: createInMemoryConnectorStore(),
             completionRenderer: {
                 render: () => "",
             },

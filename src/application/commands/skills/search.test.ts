@@ -13,6 +13,7 @@ import pino from "pino";
 
 import {
     createAuthStore,
+    createInMemoryConnectorStore,
     createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
     createSettingsStore,
@@ -198,6 +199,7 @@ function createSearchContext(options: {
             },
             getFilePath: () => "",
         },
+        connectorStore: createInMemoryConnectorStore(),
         currentLogFilePath: "",
         execPath: process.execPath,
         fetcher: options.fetcher,

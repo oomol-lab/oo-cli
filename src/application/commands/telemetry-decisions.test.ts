@@ -133,14 +133,24 @@ const commandTelemetryDecisions = {
     },
     "connector.apps": {
         kind: "properties",
-        properties: ["result_count_bucket"],
-        reason: "Records bounded connector app list size without app ids, connection names, or account labels.",
+        properties: ["connector_kind", "result_count_bucket"],
+        reason: "Records bounded connector app list size and the connector target kind (oomol/self_hosted) without app ids, connection names, account labels, or server URLs.",
+    },
+    "connector.login": {
+        kind: "properties",
+        properties: ["auth_mode"],
+        reason: "Records whether the self-hosted connector was configured with a token or as an open server, without the URL or the token.",
+    },
+    "connector.logout": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; the removed server URL is never recorded.",
     },
     "connector.run": {
         kind: "properties",
         properties: [
             "action",
             "connection_selector",
+            "connector_kind",
             "data_size_bucket",
             "dry_run",
             "error_code",
@@ -155,6 +165,7 @@ const commandTelemetryDecisions = {
     "connector.proxy": {
         kind: "properties",
         properties: [
+            "connector_kind",
             "data_size_bucket",
             "error_code",
             "has_body",
@@ -167,14 +178,15 @@ const commandTelemetryDecisions = {
     "connector.search": {
         kind: "properties",
         properties: [
+            "connector_kind",
             "query_length_bucket",
             "result_count_bucket",
         ],
-        reason: "Records query and result buckets without query text.",
+        reason: "Records query and result buckets plus the connector target kind (oomol/self_hosted) without query text or server URLs.",
     },
     "connector.schema": {
         kind: "properties",
-        properties: ["action_count_bucket", "qualified", "refresh"],
+        properties: ["action_count_bucket", "connector_kind", "qualified", "refresh"],
         reason: "Records how many actions were requested (bucketed), whether the qualified <service>.<action> form was used, and whether a fresh lookup was requested, without service or action identity.",
     },
     "connector.schema.refresh": {
@@ -254,10 +266,11 @@ const commandTelemetryDecisions = {
     "search": {
         kind: "properties",
         properties: [
+            "connector_kind",
             "query_length_bucket",
             "result_count_bucket",
         ],
-        reason: "Records query and result buckets without query text.",
+        reason: "Records query and result buckets plus the connector target kind (oomol/self_hosted) without query text or server URLs.",
     },
     "skills": {
         kind: "generic",
