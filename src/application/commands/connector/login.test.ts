@@ -251,6 +251,34 @@ describe("connector login CLI", () => {
         }
     });
 
+    test("guards the health check with an abort timeout signal", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const signals: (AbortSignal | null | undefined)[] = [];
+            const result = await sandbox.run(
+                ["connector", "login", "http://localhost:3000"],
+                {
+                    fetcher: async (_input, init) => {
+                        signals.push(init?.signal);
+
+                        return createConnectorHealthResponse();
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            // The health probe must carry an unaborted timeout signal so an
+            // unresponsive server cannot block login indefinitely.
+            expect(signals).toHaveLength(1);
+            expect(signals[0]).toBeInstanceOf(AbortSignal);
+            expect(signals[0]?.aborted).toBe(false);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("rejects invalid connector URLs before any request", async () => {
         const sandbox = await createCliSandbox();
 

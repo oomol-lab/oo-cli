@@ -2,6 +2,7 @@ import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/
 import type { ConnectorFile } from "../../schemas/connector.ts";
 
 import { z } from "zod";
+import { CliUserError } from "../../contracts/cli.ts";
 import { getSelfHostedConnectorConfig } from "../../schemas/connector.ts";
 import { writeLine } from "../shared/output.ts";
 
@@ -62,13 +63,26 @@ async function readConnectorFileForLogout(
         return await context.connectorStore.read();
     }
     catch (error) {
+        // Only corrupt file contents make logout fall back to clearing the
+        // file; a transient read failure (I/O, permissions) must propagate so
+        // logout never silently wipes a connector.toml it merely failed to read.
+        if (!isCorruptConnectorFileError(error)) {
+            throw error;
+        }
+
         context.logger.warn(
             {
                 err: error,
             },
-            "Connector store read failed during logout; clearing the file.",
+            "Connector store file is corrupt during logout; clearing it.",
         );
 
         return undefined;
     }
+}
+
+function isCorruptConnectorFileError(error: unknown): boolean {
+    return error instanceof CliUserError
+        && (error.key === "errors.connectorStore.invalidToml"
+            || error.key === "errors.connectorStore.invalidSchema");
 }

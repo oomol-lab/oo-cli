@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -55,6 +55,34 @@ describe("connector logout CLI", () => {
                 "Removed the self-hosted connector configuration.",
             );
             expect(fileContent).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("propagates a read failure instead of clearing the file", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const filePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "connector.toml",
+            );
+
+            // A directory at the config path makes the store read fail with an
+            // I/O error rather than a parse error, exercising the readFailed
+            // path that must not wipe the configuration.
+            await mkdir(filePath, { recursive: true });
+
+            const result = await sandbox.run(["connector", "logout"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("Failed to read the connector file");
+            // The path must be left untouched instead of being cleared.
+            expect((await stat(filePath)).isDirectory()).toBe(true);
         }
         finally {
             await sandbox.cleanup();

@@ -776,8 +776,9 @@ instead of the OOMOL-hosted connector.
 - Notes: when the server accepts unauthenticated requests, a provided token
   cannot be verified; the configuration is still saved and a notice is
   printed.
-- Notes: when no OOMOL account is logged in, the command prints a note that
-  non-connector commands still require `oo auth login`.
+- Notes: when no OOMOL account is logged in and `OO_API_KEY` is unset, the
+  command prints a note that non-connector commands still require
+  `oo auth login`.
 - Errors: an invalid URL (not an http(s) URL) or an invalid token (empty, or
   containing whitespace or control characters) exits `2`. An unreachable
   server, an HTTP 401 response, or an unexpected/non-connector response exits
@@ -790,7 +791,8 @@ Remove the saved self-hosted connector configuration.
 
 - Arguments: none.
 - Output: text output confirms which server was disconnected. Connector
-  commands fall back to the active OOMOL account.
+  commands fall back to the active OOMOL account unless `OO_CONNECTOR_URL`
+  is still set.
 - Notes: when no self-hosted connector is configured, the command prints a
   notice instead of failing.
 - Notes: the command only removes the saved configuration; the

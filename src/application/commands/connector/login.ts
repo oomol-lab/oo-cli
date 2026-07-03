@@ -161,6 +161,11 @@ async function acceptsUnauthenticatedRequests(
     }
 }
 
+// An unresponsive self-hosted server would otherwise block `connector login`
+// indefinitely: the retrying fetcher retries failures but enforces no request
+// deadline, so the health probe carries its own abort timeout.
+const connectorHealthRequestTimeoutMs = 10_000;
+
 async function requestSelfHostedConnectorHealth(
     baseUrl: string,
     token: string | undefined,
@@ -181,6 +186,7 @@ async function requestSelfHostedConnectorHealth(
             headers: token === undefined
                 ? {}
                 : { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(connectorHealthRequestTimeoutMs),
         });
     }
     catch (error) {

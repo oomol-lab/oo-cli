@@ -127,6 +127,15 @@ export function normalizeSelfHostedConnectorUrl(rawUrl: string): string {
         });
     }
 
+    // `parsed.origin` drops any embedded `user:pass@` credentials, so accepting
+    // such a URL would silently discard them. Reject it instead, mirroring the
+    // query/hash rejection above, so the failure is explicit.
+    if (parsed.username !== "" || parsed.password !== "") {
+        throw new CliUserError("errors.connectorLogin.invalidUrl", 2, {
+            url: trimmed,
+        });
+    }
+
     let pathname = parsed.pathname;
 
     while (pathname.endsWith("/")) {

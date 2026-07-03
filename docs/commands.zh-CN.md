@@ -662,8 +662,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   顶层 `oo search`——都会改用该服务，而不再使用 OOMOL 托管的 Connector。
 - 说明：当服务接受未认证请求时，传入的令牌无法被验证；配置仍会被保存，并
   打印一条提示。
-- 说明：当没有登录 OOMOL 账号时，命令会打印一条提示，说明非 connector 命令
-  仍需要 `oo auth login`。
+- 说明：当没有登录 OOMOL 账号且未设置 `OO_API_KEY` 时，命令会打印一条提示，
+  说明非 connector 命令仍需要 `oo auth login`。
 - 错误：无效 URL（非 http(s) URL）或无效令牌（为空、或包含空白/控制字符）以
   `2` 退出。服务不可达、返回 HTTP 401、或返回非预期/非 Connector 响应时以
   `1` 退出；401 错误会附带在 `<url>/access` 创建 Runtime Token 的提示。
@@ -673,8 +673,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 移除已保存的自部署 Connector 配置。
 
 - 参数：无。
-- 输出：文本输出会确认断开了哪个服务。connector 相关命令回落到当前激活的
-  OOMOL 账号。
+- 输出：文本输出会确认断开了哪个服务。除非仍设置了 `OO_CONNECTOR_URL`，否则
+  connector 相关命令回落到当前激活的 OOMOL 账号。
 - 说明：当没有配置自部署 Connector 时，命令打印一条提示而不会失败。
 - 说明：命令只移除已保存的配置；`OO_CONNECTOR_URL` 环境变量不受影响。
 - 说明：损坏的 `connector.toml` 也会被一并清除，因此 `oo connector logout`

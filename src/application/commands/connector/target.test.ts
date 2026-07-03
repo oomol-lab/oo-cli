@@ -111,6 +111,20 @@ describe("normalizeSelfHostedConnectorUrl", () => {
             expect(error.exitCode).toBe(2);
         }
     });
+
+    test("rejects URLs embedding userinfo credentials", () => {
+        for (const rawUrl of [
+            "http://user:pass@localhost:3000",
+            "http://user@localhost:3000",
+        ]) {
+            const error = expectCliUserError(
+                () => normalizeSelfHostedConnectorUrl(rawUrl),
+            );
+
+            expect(error.key).toBe("errors.connectorLogin.invalidUrl");
+            expect(error.exitCode).toBe(2);
+        }
+    });
 });
 
 describe("normalizeSelfHostedConnectorToken", () => {
