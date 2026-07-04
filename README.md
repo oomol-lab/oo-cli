@@ -99,6 +99,7 @@ documented in [PRIVACY.md](./PRIVACY.md).
 
 - [OOMOL Console — Connections](https://console.oomol.com/connections)
 - [Command reference](./docs/commands.md)
+- [Self-hosted connector integration](./docs/self-hosted-connector.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Privacy](./PRIVACY.md)
 

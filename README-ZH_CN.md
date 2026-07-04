@@ -91,6 +91,7 @@ hostname、IP 地址、真实 OOMOL 账号 ID 或账号名。Telemetry 控制方
 
 - [OOMOL Console — Connections](https://console.oomol.com/connections)
 - [命令参考](./docs/commands.zh-CN.md)
+- [自部署 Connector 接入指南](./docs/self-hosted-connector.zh-CN.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Privacy](./PRIVACY-ZH_CN.md)
 
