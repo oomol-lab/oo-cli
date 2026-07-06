@@ -68,6 +68,27 @@ describe("formatConnectorAppsAsText", () => {
         expect(output).toContain("-");
     });
 
+    test("pads wide CJK names by display width so later columns stay aligned", () => {
+        const output = formatConnectorAppsAsText(
+            [
+                // "钉钉" is 2 UTF-16 units but 4 display columns; "AB" is 2 of
+                // each. Padding by display width keeps the status column aligned.
+                sampleApp({ displayName: "钉钉", service: "dingtalk", status: "active" }),
+                sampleApp({ displayName: "AB", service: "notion", status: "active" }),
+            ],
+            "all",
+            createTranslatorStub(),
+            createTerminalColors(false),
+        );
+        const lines = output.split("\n");
+        const displayWidthBeforeStatus = (line: string): number =>
+            Bun.stringWidth(line.slice(0, line.indexOf("active")));
+
+        expect(displayWidthBeforeStatus(lines[1]!)).toBe(
+            displayWidthBeforeStatus(lines[2]!),
+        );
+    });
+
     test("returns the no-connections message for an empty all-scope listing", () => {
         const output = formatConnectorAppsAsText(
             [],

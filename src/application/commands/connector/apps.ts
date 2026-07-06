@@ -194,15 +194,16 @@ export function formatConnectorAppsAsText(
     const columns = createConnectorAppsColumns(listScope, translator, colors);
     const headerCells = columns.map(column => colors.dim(column.header));
     const rows = apps.map(app => columns.map(column => column.render(app)));
-    // Column widths are computed from the visible (ANSI-stripped) length so the
-    // color escape sequences never skew the alignment.
+    // Column widths use the terminal display width, which ignores ANSI color
+    // escapes and counts wide CJK/emoji glyphs as two columns, so neither color
+    // codes nor multi-cell characters skew the alignment.
     const widths = columns.map((_, index) => Math.max(
-        visibleWidth(headerCells[index]!, colors),
-        ...rows.map(row => visibleWidth(row[index]!, colors)),
+        visibleWidth(headerCells[index]!),
+        ...rows.map(row => visibleWidth(row[index]!)),
     ));
 
     return [headerCells, ...rows]
-        .map(cells => joinConnectorAppsRow(cells, widths, colors))
+        .map(cells => joinConnectorAppsRow(cells, widths))
         .join("\n");
 }
 
@@ -253,20 +254,21 @@ function colorConnectorAppStatus(status: string, colors: TerminalColors): string
     return colors[colorName](status);
 }
 
-// Pads every cell except the last to its column width (measured on visible
-// characters) and joins the row with a two-space gutter.
+// Pads every cell except the last to its column width (measured in display
+// columns) and joins the row with a two-space gutter.
 function joinConnectorAppsRow(
     cells: readonly string[],
     widths: readonly number[],
-    colors: TerminalColors,
 ): string {
     return cells
         .map((cell, index) => index === cells.length - 1
             ? cell
-            : cell + " ".repeat(widths[index]! - visibleWidth(cell, colors)))
+            : cell + " ".repeat(widths[index]! - visibleWidth(cell)))
         .join("  ");
 }
 
-function visibleWidth(cell: string, colors: TerminalColors): number {
-    return colors.strip(cell).length;
+// Terminal display width of the cell: ANSI color escapes count as zero and wide
+// CJK/emoji glyphs count as two columns, unlike `String.length` (UTF-16 units).
+function visibleWidth(cell: string): number {
+    return Bun.stringWidth(cell);
 }
