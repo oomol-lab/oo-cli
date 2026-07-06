@@ -1040,8 +1040,16 @@ describe("connectorCommand CLI", () => {
             );
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("Connection Name\tName\tStatus\tAuth\tDefault");
-            expect(result.stdout).toContain("work\tWork Gmail\tactive\toauth2\tyes");
+            // The by-service listing omits the Service column.
+            expect(result.stdout).not.toContain("Service");
+            expect(result.stdout).toContain("Connection Name");
+            expect(result.stdout).toContain("Default");
+            expect(result.stdout).toContain("work");
+            expect(result.stdout).toContain("Work Gmail");
+            expect(result.stdout).toContain("active");
+            expect(result.stdout).toContain("oauth2");
+            // A default connection renders a check marker instead of a word.
+            expect(result.stdout).toContain("✓");
         }
         finally {
             await sandbox.cleanup();
@@ -1117,7 +1125,12 @@ describe("connectorCommand CLI", () => {
             expect(JSON.parse(jsonResult.stdout)[0]).toMatchObject({
                 connectionName: null,
             });
-            expect(textResult.stdout).toContain("-\tPersonal Gmail\tactive\t-\tno");
+            expect(textResult.stdout).toContain("Personal Gmail");
+            expect(textResult.stdout).toContain("active");
+            // Missing connection name / auth render as a dash; a non-default app
+            // does not get the check marker.
+            expect(textResult.stdout).toContain("-");
+            expect(textResult.stdout).not.toContain("✓");
         }
         finally {
             await sandbox.cleanup();
@@ -1257,10 +1270,423 @@ describe("connectorCommand CLI", () => {
             expect(connectorHelp.stdout).toContain("apps");
             expect(appsHelp.exitCode).toBe(0);
             expect(appsHelp.stdout).toContain("--json");
+            expect(appsHelp.stdout).toContain("--organization");
+            expect(appsHelp.stdout).toContain("--personal");
             expect(appsHelp.stdout).toContain("List connected connector apps");
             expect(appsHelp.stdout).not.toContain("disconnect");
             expect(appsHelp.stdout).not.toContain("reconnect");
             expect(appsHelp.stdout).not.toContain("update alias");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists every connected connector app as json without a service argument", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "apps", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: [
+                                {
+                                    accountLabel: "user@example.com",
+                                    alias: "work",
+                                    authType: "oauth2",
+                                    displayName: "Work Gmail",
+                                    id: "app-1",
+                                    isDefault: true,
+                                    providerAccountId: "acct-1",
+                                    scopes: ["gmail.send"],
+                                    service: "gmail",
+                                    status: "active",
+                                },
+                                {
+                                    accountLabel: "team",
+                                    alias: null,
+                                    authType: "oauth2",
+                                    displayName: "Linear",
+                                    id: "app-2",
+                                    isDefault: true,
+                                    providerAccountId: "acct-2",
+                                    scopes: [],
+                                    service: "linear",
+                                    status: "active",
+                                },
+                            ],
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.method).toBe("GET");
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/apps?status=active",
+            );
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
+            expect(JSON.parse(result.stdout)).toEqual([
+                {
+                    accountLabel: "user@example.com",
+                    authType: "oauth2",
+                    connectionName: "work",
+                    displayName: "Work Gmail",
+                    isDefault: true,
+                    scopes: ["gmail.send"],
+                    service: "gmail",
+                    status: "active",
+                },
+                {
+                    accountLabel: "team",
+                    authType: "oauth2",
+                    connectionName: null,
+                    displayName: "Linear",
+                    isDefault: true,
+                    scopes: [],
+                    service: "linear",
+                    status: "active",
+                },
+            ]);
+            expect(JSON.stringify(JSON.parse(result.stdout))).not.toContain("app-1");
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.apps",
+                    identity_source: "personal",
+                    list_scope: "all",
+                    result_count_bucket: "1-5",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists every connected connector app as text with a service column", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["connector", "apps"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: [
+                            {
+                                accountLabel: "user@example.com",
+                                alias: "work",
+                                authType: "oauth2",
+                                displayName: "Work Gmail",
+                                isDefault: true,
+                                scopes: ["gmail.send"],
+                                service: "gmail",
+                                status: "active",
+                            },
+                            {
+                                accountLabel: "team",
+                                alias: null,
+                                authType: "oauth2",
+                                displayName: "Linear",
+                                isDefault: true,
+                                scopes: [],
+                                service: "x",
+                                status: "active",
+                            },
+                        ],
+                    })),
+                },
+            );
+            const lines = result.stdout.trimEnd().split("\n");
+
+            expect(result.exitCode).toBe(0);
+            // Header leads with the Service column across providers.
+            expect(lines[0]).toContain("Service");
+            expect(lines[0]).toContain("Connection Name");
+            expect(lines[0]).toContain("Default");
+            expect(result.stdout).toContain("gmail");
+            expect(result.stdout).toContain("Work Gmail");
+            expect(result.stdout).toContain("Linear");
+            expect(result.stdout).toContain("✓");
+            // Columns are padded to a common width, so the "Name" column starts
+            // at the same offset regardless of service-name length.
+            expect(lines[1]!.indexOf("Work Gmail")).toBe(lines[2]!.indexOf("Linear"));
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists every connected connector app under an organization identity", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "apps", "--organization", "acme", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/apps?status=active",
+            );
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.apps",
+                    identity_source: "flag",
+                    list_scope: "all",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("organization");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists every connected connector app under the configured default organization", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await sandbox.run(["config", "set", "identity.organization", "acme"]);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "apps", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+            const appsTelemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.apps");
+
+            expect(result.exitCode).toBe(0);
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(appsTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "config",
+                    list_scope: "all",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("applies the organization identity to the by-service apps listing", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "apps", "gmail", "--organization", "acme", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/apps/services/gmail",
+            );
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "flag",
+                    list_scope: "service",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects conflicting identity flags when listing apps", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                ["connector", "apps", "--organization", "acme", "--personal"],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain(
+                "Use either --organization or --personal, not both.",
+            );
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("renders the no-connections message when no apps are connected", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["connector", "apps"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({ data: [] })),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "No connected connector apps were found.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists every connected app against a self-hosted connector without identity headers", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_test",
+            });
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "apps", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: [
+                                {
+                                    accountLabel: "default",
+                                    alias: "default",
+                                    authType: "oauth2",
+                                    displayName: "GitHub",
+                                    isDefault: true,
+                                    scopes: [],
+                                    service: "github",
+                                    status: "active",
+                                },
+                            ],
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.url).toBe("http://localhost:3000/v1/apps?status=active");
+            expect(requests[0]?.headers.get("Authorization")).toBe("Bearer oct_test");
+            expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    connector_kind: "self_hosted",
+                    identity_source: "personal",
+                    list_scope: "all",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects --organization for a self-hosted connector when listing apps", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_test",
+            });
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                ["connector", "apps", "--organization", "acme", "--json"],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain(
+                "The --organization option is not supported by a self-hosted connector.",
+            );
+            expect(requestCount).toBe(0);
         }
         finally {
             await sandbox.cleanup();

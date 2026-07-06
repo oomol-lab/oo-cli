@@ -133,8 +133,13 @@ const commandTelemetryDecisions = {
     },
     "connector.apps": {
         kind: "properties",
-        properties: ["connector_kind", "result_count_bucket"],
-        reason: "Records bounded connector app list size and the connector target kind (oomol/self_hosted) without app ids, connection names, account labels, or server URLs.",
+        properties: [
+            "connector_kind",
+            "identity_source",
+            "list_scope",
+            "result_count_bucket",
+        ],
+        reason: "Records bounded connector app list size, the connector target kind (oomol/self_hosted), the identity source (personal/flag/config), and whether the listing was scoped to all apps or one service, without app ids, connection names, account labels, organization names, or server URLs.",
     },
     "connector.login": {
         kind: "properties",

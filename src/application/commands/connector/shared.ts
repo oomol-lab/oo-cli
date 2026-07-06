@@ -145,7 +145,11 @@ const connectorAppViewSchema = z.object({
     connectionName: alias,
 }));
 
-const connectorAppsByServiceResponseSchema = z.object({
+// Both the list-all (`/v1/apps`) and by-service (`/v1/apps/services/{service}`)
+// endpoints return the same `{ data: [appView] }` envelope, so a single schema
+// covers both. The self-hosted open-source runtime exposes the same `/v1/apps`
+// shape, so this parses every connector backend uniformly.
+const connectorAppsResponseSchema = z.object({
     data: z.array(connectorAppViewSchema),
 });
 
@@ -245,8 +249,44 @@ export async function searchConnectorActions(
     }
 }
 
+// Lists every connected app under the effective identity. Backed by
+// `GET /v1/apps?status=active`, which the OOMOL service and the open-source
+// self-hosted runtime both implement with the same `{ data: [appView] }`
+// envelope; the self-hosted runtime simply ignores the `status` filter.
+export async function listConnectorApps(
+    options: {
+        identity?: ConnectorIdentity;
+        target: ConnectorRequestTarget;
+    },
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<ConnectorAppView[]> {
+    const requestUrl = new URL(`${options.target.baseUrl}/v1/apps`);
+
+    requestUrl.searchParams.set("status", "active");
+
+    return parseConnectorAppsResponse(
+        await requestText({
+            context,
+            createRequestFailedError: createConnectorAppsRequestFailedError,
+            createUnexpectedError: createConnectorAppsUnexpectedError(
+                options.target,
+                context.translator,
+            ),
+            init: {
+                headers: {
+                    ...connectorAuthorizationHeaders(options.target),
+                    ...connectorIdentityHeaders(options.identity),
+                },
+            },
+            requestLabel: "Connector apps list",
+            requestUrl,
+        }),
+    );
+}
+
 export async function listConnectorAppsByService(
     options: {
+        identity?: ConnectorIdentity;
         serviceName: string;
         target: ConnectorRequestTarget;
     },
@@ -256,46 +296,53 @@ export async function listConnectorAppsByService(
         `${options.target.baseUrl}/v1/apps/services/${encodeURIComponent(options.serviceName)}`,
     );
 
-    const rawResponse = await requestText({
-        context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.connectorApps.requestFailed",
-            1,
-            {
-                status,
+    return parseConnectorAppsResponse(
+        await requestText({
+            context,
+            createRequestFailedError: createConnectorAppsRequestFailedError,
+            createUnexpectedError: createConnectorAppsUnexpectedError(
+                options.target,
+                context.translator,
+            ),
+            fields: {
+                start: {
+                    serviceName: options.serviceName,
+                },
             },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.connectorApps.requestError",
-            1,
-            {
-                message: createConnectorUnexpectedErrorMessage(
-                    error,
-                    options.target,
-                    context.translator,
-                ),
+            init: {
+                headers: {
+                    ...connectorAuthorizationHeaders(options.target),
+                    ...connectorIdentityHeaders(options.identity),
+                },
             },
-        ),
-        fields: {
-            start: {
-                serviceName: options.serviceName,
-            },
-        },
-        init: {
-            headers: connectorAuthorizationHeaders(options.target),
-        },
-        requestLabel: "Connector apps list",
-        requestUrl,
-    });
+            requestLabel: "Connector apps list",
+            requestUrl,
+        }),
+    );
+}
 
+function parseConnectorAppsResponse(rawResponse: string): ConnectorAppView[] {
     try {
-        return connectorAppsByServiceResponseSchema.parse(
+        return connectorAppsResponseSchema.parse(
             JSON.parse(rawResponse) as unknown,
         ).data;
     }
     catch {
         throw new CliUserError("errors.connectorApps.invalidResponse", 1);
     }
+}
+
+function createConnectorAppsRequestFailedError(status: number): CliUserError {
+    return new CliUserError("errors.connectorApps.requestFailed", 1, { status });
+}
+
+function createConnectorAppsUnexpectedError(
+    target: ConnectorRequestTarget,
+    translator: Pick<CliExecutionContext["translator"], "t">,
+): (error: unknown) => CliUserError {
+    return error => new CliUserError("errors.connectorApps.requestError", 1, {
+        message: createConnectorUnexpectedErrorMessage(error, target, translator),
+    });
 }
 
 export async function getConnectorActionMetadata(
