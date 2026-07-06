@@ -64,7 +64,7 @@ export const enMessages = {
         "Proxy a provider API request through a connected connector app.",
     "commands.connector.proxy.summary": "Proxy a connector API request",
     "commands.connector.apps.description":
-        "List connected connector apps for one service.",
+        "List connected connector apps, optionally scoped to one service.",
     "commands.connector.apps.summary": "List connector apps",
     "commands.connector.login.description":
         "Validate and save a self-hosted connector server so connector commands use it instead of the OOMOL-hosted connector.",
@@ -878,6 +878,10 @@ export const enMessages = {
         "Submit an async action and wait for its result action",
     "options.connectorRunConnectionName":
         "Run the action with the connector app connection name",
+    "options.connectorAppsOrganization":
+        "List connected apps under the given organization identity (alias: --org)",
+    "options.connectorAppsPersonal":
+        "List connected apps under your personal identity, ignoring any configured default organization",
     "options.connectorRunOrganization":
         "Run the action under the given organization identity (alias: --org)",
     "options.connectorRunPersonal":
@@ -1154,6 +1158,7 @@ export const enMessages = {
     "arguments.skills.checkUpdate.packageName": "Package name(s) to check; checks every installed skill of each package",
     "arguments.skills.uninstall.name": "Skill or package name(s) to remove; a package name removes every installed skill that belongs to it",
     "arguments.serviceName": "Service name",
+    "arguments.connectorAppsServiceName": "Optional service name; omit to list every connected app",
     "arguments.connectorUrl": "Self-hosted connector server URL, for example http://localhost:3000",
     "arguments.actionId": "Action id(s) in the form <service>.<action>, for example cal.create_schedule",
     "arguments.shell": "Target shell",
@@ -1170,11 +1175,12 @@ export const enMessages = {
     "connector.apps.text.auth": "Auth",
     "connector.apps.text.connectionName": "Connection Name",
     "connector.apps.text.default": "Default",
-    "connector.apps.text.default.no": "no",
-    "connector.apps.text.default.yes": "yes",
     "connector.apps.text.name": "Name",
+    "connector.apps.text.noConnections":
+        "No connected connector apps were found.",
     "connector.apps.text.noResults":
         "No connector apps were found for this service.",
+    "connector.apps.text.service": "Service",
     "connector.apps.text.status": "Status",
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.login.manageTokens": "Manage runtime tokens at {accessUrl}",
@@ -1313,7 +1319,7 @@ export const zhMessages = {
     "commands.connector.proxy.summary":
         "代理 connector API 请求",
     "commands.connector.apps.description":
-        "列出一个服务下已连接的 connector app。",
+        "列出已连接的 connector app，可选按单个服务过滤。",
     "commands.connector.apps.summary":
         "列出 connector app",
     "commands.connector.login.description":
@@ -2091,6 +2097,10 @@ export const zhMessages = {
         "提交异步 action，并等待它的结果 action",
     "options.connectorRunConnectionName":
         "使用指定 connector app 连接名称运行该 action",
+    "options.connectorAppsOrganization":
+        "以指定组织身份列出已连接的 app（别名：--org）",
+    "options.connectorAppsPersonal":
+        "以个人身份列出已连接的 app，忽略已配置的默认组织",
     "options.connectorRunOrganization":
         "以指定组织身份运行该 action（别名：--org）",
     "options.connectorRunPersonal":
@@ -2364,6 +2374,7 @@ export const zhMessages = {
     "arguments.skills.checkUpdate.packageName": "要检查的包名（可指定多个）；会检查每个包已安装的全部 skill",
     "arguments.skills.uninstall.name": "要移除的 skill 或包名（可指定多个）；传入包名会移除该包已安装的全部 skill",
     "arguments.serviceName": "服务名",
+    "arguments.connectorAppsServiceName": "可选的服务名；省略时列出全部已连接的 app",
     "arguments.connectorUrl": "自部署 Connector 服务地址，例如 http://localhost:3000",
     "arguments.actionId": "<service>.<action> 形式的 action id（可多个），例如 cal.create_schedule",
     "arguments.shell": "目标 shell",
@@ -2379,11 +2390,12 @@ export const zhMessages = {
     "connector.apps.text.auth": "认证",
     "connector.apps.text.connectionName": "连接名称",
     "connector.apps.text.default": "默认",
-    "connector.apps.text.default.no": "否",
-    "connector.apps.text.default.yes": "是",
     "connector.apps.text.name": "名称",
+    "connector.apps.text.noConnections":
+        "未找到已连接的 connector app。",
     "connector.apps.text.noResults":
         "该服务下未找到 connector app。",
+    "connector.apps.text.service": "服务",
     "connector.apps.text.status": "状态",
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.login.manageTokens": "可在 {accessUrl} 管理 Runtime Token。",

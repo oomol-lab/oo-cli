@@ -691,21 +691,38 @@ Validate input data and run one connector action.
   existing unsupported errors because the self-hosted runtime does not expose
   the async lifecycle contract.
 
-### `oo connector apps <serviceName>`
+### `oo connector apps [serviceName]`
 
-List connected connector apps for one service. This command is read-only.
+List connected connector apps under the effective identity. This command is
+read-only.
 
-- Arguments: `<serviceName>` is the service name.
+- Arguments: `[serviceName]` is optional. When omitted, the command lists every
+  connected app across all providers. When provided, the listing is scoped to
+  that one service.
+- Options: `--organization <name>` lists connected apps under the given
+  organization identity instead of your personal identity. `--org <name>` is an
+  alias for `--organization <name>`. When omitted, the listing uses the
+  `identity.organization` config default if set, otherwise your personal
+  identity.
+- Options: `--personal` lists connected apps under your personal identity and
+  ignores any configured default organization. It cannot be combined with
+  `--organization`.
 - Options: `--format=json` and `--json` print a JSON array.
 - Output: JSON entries include the stable CLI fields `service`,
   `connectionName`, `displayName`, `accountLabel`, `status`, `authType`,
   `isDefault`, and `scopes`. App id fields are not included.
 - Output: when an app has no connection name, JSON output uses `null` and text
   output prints `-`.
-- Output: text output prints one tab-separated row per app with connection
-  name, name, status, auth type, and default marker.
+- Output: text output prints one column-aligned row per app. The listing across
+  all providers leads with a `Service` column; the single-service listing omits
+  it because the service is fixed by the argument. On a color-capable terminal
+  the status and default columns are color-coded; piped or `NO_COLOR` output is
+  plain aligned text.
 - Notes: use the listed `connectionName` value with
   `oo connector run <serviceName> --connection-name <connection-name>`.
+- Notes: against a self-hosted connector, `--organization` is rejected with exit
+  `2`, a configured `identity.organization` default is ignored, and `--personal`
+  is accepted.
 
 ### `oo connector proxy <serviceName>`
 

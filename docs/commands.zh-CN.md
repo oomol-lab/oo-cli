@@ -591,19 +591,29 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   由于自部署 runtime 不提供异步 lifecycle contract，`--wait` 和
   `--wait-result` 会以现有的“不支持”错误失败。
 
-### `oo connector apps <serviceName>`
+### `oo connector apps [serviceName]`
 
-列出一个服务下已连接的 connector app。该命令只读。
+按当前生效身份列出已连接的 connector app。该命令只读。
 
-- 参数：`<serviceName>` 为服务名。
+- 参数：`[serviceName]` 可选。省略时列出所有 provider 下已连接的 app；提供时仅列出
+  该服务的 app。
+- 选项：`--organization <name>` 以指定组织身份列出已连接的 app，而非个人身份。
+  `--org <name>` 是 `--organization <name>` 的别名。省略时，若配置了
+  `identity.organization` 默认值则按该组织列出，否则按个人身份列出。
+- 选项：`--personal` 以个人身份列出已连接的 app，并忽略已配置的默认组织。该选项不能与
+  `--organization` 同时使用。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 数组。
 - 输出：JSON 条目包含稳定 CLI 字段 `service`、`connectionName`、`displayName`、
   `accountLabel`、`status`、`authType`、`isDefault` 和 `scopes`。不会包含
   app id 字段。
 - 输出：当 app 没有连接名称时，JSON 输出使用 `null`，文本输出显示 `-`。
-- 输出：文本输出每个 app 一行，以 tab 分隔连接名称、名称、状态、认证类型和默认标记。
+- 输出：文本输出每个 app 一行，列对齐。跨全部 provider 的列表以 `Service` 列开头；
+  单服务列表则省略该列，因为服务已由参数固定。在支持颜色的终端上，状态列与默认列会
+  着色；管道输出或 `NO_COLOR` 下为纯对齐文本。
 - 说明：可将列出的 `connectionName` 值传给
   `oo connector run <serviceName> --connection-name <connection-name>`。
+- 说明：对自部署 Connector，`--organization` 会以退出码 `2` 拒绝，已配置的
+  `identity.organization` 默认值会被忽略，`--personal` 可正常使用。
 
 ### `oo connector proxy <serviceName>`
 
