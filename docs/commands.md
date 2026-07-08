@@ -214,6 +214,61 @@ and `--api-key <api-key>` options.
 
 Alias for `oo auth logout`.
 
+## Organizations
+
+Organization identity lets connector commands (`oo connector run`, `oo connector
+proxy`, `oo connector apps`) act as an organization instead of your personal
+account, selected per run with `--organization <name>` or as a default with the
+`identity.organization` config key. These commands help discover which
+organizations your account can use and manage that default. They apply to OOMOL
+accounts only and are not available when only a self-hosted connector is
+configured.
+
+### `oo org list`
+
+List the organizations the active account can authenticate as. This command is
+read-only.
+
+- Options: `--format=json` and `--json` print a JSON array.
+- Output: JSON entries include the stable CLI fields `name`, `id`, `role`, and
+  `current`. `role` is `creator` or `member`. `current` is `true` for the
+  organization that matches the `identity.organization` default.
+- Output: pass the `name` value to `--organization <name>` (or `oo org use
+  <name>`).
+- Output: text output prints one column-aligned row per organization and marks
+  the current default. When the account has no organizations, it reports that
+  connector commands run under your personal identity.
+
+### `oo org current`
+
+Show the default organization identity (`identity.organization`) used by
+connector commands when no `--organization` / `--personal` flag is given. This
+command is offline and does not make a network request.
+
+- Options: `--format=json` and `--json` print a JSON object.
+- Output: JSON is `{ "organization": "<name>" }`, or `{ "organization": null }`
+  when no default is configured.
+
+### `oo org use <name>`
+
+Set the default organization identity to `<name>` after checking the active
+account can access it.
+
+- Arguments: `<name>` is the organization name, as shown by `oo org list`.
+- Behavior: the name is validated against the organizations the account can
+  access; an inaccessible name is rejected with exit `1` and the default is left
+  unchanged. On success it is persisted to the `identity.organization` config
+  key.
+
+### `oo org clear`
+
+Clear the default organization identity so connector commands run under your
+personal identity. This command is offline.
+
+- Behavior: removes the `identity.organization` config key. When no default is
+  configured it reports that connector commands already run under your personal
+  identity.
+
 ## LLM
 
 ### `oo llm config`

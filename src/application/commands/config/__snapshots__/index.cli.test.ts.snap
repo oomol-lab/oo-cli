@@ -37,6 +37,7 @@ Commands:
                                login)
   logout                       Log out the current account (alias for auth
                                logout)
+  org                          Manage organization identity
   completion <shell>           Generate shell completion scripts
   config                       Manage persisted configuration
   skills                       Manage AI agent skills
@@ -72,6 +73,7 @@ Commands:
   llm                          管理 LLM client 配置
   login [options]              登录 OOMOL 账号（auth login 的别名）
   logout                       登出当前账号（auth logout 的别名）
+  org                          管理组织身份
   completion <shell>           生成 shell 补全脚本
   config                       管理持久化配置
   skills                       管理 AI Agent skill
@@ -193,6 +195,48 @@ exports[`config CLI supports the file download output directory config key 1`] =
     "stderr": "",
     "stdout": 
 "Removed file.download.out_dir.
+"
+,
+  },
+}
+`;
+
+exports[`config CLI supports the identity organization config key 1`] = `
+{
+  "get": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"acme
+"
+,
+  },
+  "getAfterUnset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": "",
+  },
+  "list": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"identity.organization=acme
+"
+,
+  },
+  "set": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Set identity.organization to acme.
+"
+,
+  },
+  "unset": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"Removed identity.organization.
 "
 ,
   },
@@ -343,47 +387,5 @@ exports[`config CLI ignores unknown persisted settings keys and logs a warning 1
 "zh
 "
 ,
-}
-`;
-
-exports[`config CLI supports the identity organization config key 1`] = `
-{
-  "get": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"acme
-"
-,
-  },
-  "getAfterUnset": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": "",
-  },
-  "list": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"identity.organization=acme
-"
-,
-  },
-  "set": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"Set identity.organization to acme.
-"
-,
-  },
-  "unset": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"Removed identity.organization.
-"
-,
-  },
 }
 `;
