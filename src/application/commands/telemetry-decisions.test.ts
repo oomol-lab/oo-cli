@@ -268,6 +268,28 @@ const commandTelemetryDecisions = {
         properties: ["account_count_bucket"],
         reason: "Top-level auth alias records the same safe auth dimensions as auth.logout.",
     },
+    "org": {
+        kind: "generic",
+        reason: "Command group; child commands record organization dimensions where safe.",
+    },
+    "org.list": {
+        kind: "properties",
+        properties: ["result_count_bucket"],
+        reason: "Records the bounded accessible-organization count without organization names or ids.",
+    },
+    "org.current": {
+        kind: "properties",
+        properties: ["has_configured_org"],
+        reason: "Records whether a default organization identity is configured, without the organization name.",
+    },
+    "org.use": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; the organization name is never recorded.",
+    },
+    "org.clear": {
+        kind: "generic",
+        reason: "Generic command telemetry is enough; no organization details are recorded.",
+    },
     "search": {
         kind: "properties",
         properties: [

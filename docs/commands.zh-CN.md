@@ -188,6 +188,49 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 
 `oo auth logout` 的别名。
 
+## 组织
+
+组织身份让 connector 命令（`oo connector run`、`oo connector proxy`、`oo connector
+apps`）以某个组织身份运行，而非个人账号：既可用每次运行的 `--organization <name>`
+指定，也可用配置项 `identity.organization` 设为默认。下列命令用于发现当前账号可用的
+组织并管理该默认值。它们仅适用于 OOMOL 账号；当仅配置了自部署 Connector 时不可用。
+
+### `oo org list`
+
+列出当前活动账号可认证的组织。该命令是只读的。
+
+- 选项：`--format=json` 与 `--json` 输出 JSON 数组。
+- 输出：JSON 条目包含稳定的 CLI 字段 `name`、`id`、`role`、`current`。`role` 为
+  `creator` 或 `member`。`current` 对与 `identity.organization` 默认值匹配的组织为
+  `true`。
+- 输出：将 `name` 的值传给 `--organization <name>`（或 `oo org use <name>`）。
+- 输出：文本输出为每个组织打印一行列对齐的记录，并标出当前默认组织。当账号没有任何
+  组织时，会提示 connector 命令以个人身份运行。
+
+### `oo org current`
+
+显示未传 `--organization` / `--personal` 时 connector 命令使用的默认组织身份
+（`identity.organization`）。该命令离线运行，不发起网络请求。
+
+- 选项：`--format=json` 与 `--json` 输出 JSON 对象。
+- 输出：JSON 为 `{ "organization": "<name>" }`；未配置默认值时为
+  `{ "organization": null }`。
+
+### `oo org use <name>`
+
+在确认当前活动账号可访问后，将默认组织身份设置为 `<name>`。
+
+- 参数：`<name>` 为组织名称，取值见 `oo org list`。
+- 行为：会用账号可访问的组织校验该名称；无法访问的名称以退出码 `1` 拒绝，且默认值保持
+  不变。成功时持久化到配置项 `identity.organization`。
+
+### `oo org clear`
+
+清除默认组织身份，让 connector 命令以个人身份运行。该命令离线运行。
+
+- 行为：移除配置项 `identity.organization`。当未配置默认值时，会提示 connector 命令
+  本就以个人身份运行。
+
 ## LLM
 
 ### `oo llm config`

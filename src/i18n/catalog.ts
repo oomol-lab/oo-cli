@@ -144,6 +144,21 @@ export const enMessages = {
         "Remove the current account from persisted auth data. Alias for auth logout.",
     "commands.logout.summary":
         "Log out the current account (alias for auth logout)",
+    "commands.org.description":
+        "List the organizations your account can access and manage the default organization identity used by connector commands.",
+    "commands.org.summary": "Manage organization identity",
+    "commands.org.list.description":
+        "List the organizations the active account can authenticate as, marking the current default.",
+    "commands.org.list.summary": "List accessible organizations",
+    "commands.org.current.description":
+        "Show the default organization identity used by connector commands when no --organization / --personal flag is given.",
+    "commands.org.current.summary": "Show the default organization identity",
+    "commands.org.use.description":
+        "Set the default organization identity used by connector commands, after checking the account can access it.",
+    "commands.org.use.summary": "Set the default organization identity",
+    "commands.org.clear.description":
+        "Clear the default organization identity so connector commands run under your personal identity.",
+    "commands.org.clear.summary": "Clear the default organization identity",
     "commands.search.description":
         "Search connector actions with one free-form query.",
     "commands.search.summary": "Search connector actions",
@@ -325,6 +340,14 @@ export const enMessages = {
         "The connector apps request failed: {message}",
     "errors.connectorApps.requestFailed":
         "The connector apps request returned HTTP {status}.",
+    "errors.org.invalidResponse":
+        "The organization list response body is unsupported.",
+    "errors.org.nameEmpty": "The organization name must not be empty.",
+    "errors.org.notAccessible":
+        "The active account cannot access the organization \"{organization}\". Run `oo org list` to see the organizations you can use.",
+    "errors.org.requestError": "The organization list request failed: {message}",
+    "errors.org.requestFailed":
+        "The organization list request returned HTTP {status}.",
     "errors.connectorMetadata.invalidResponse":
         "The connector action metadata response body is unsupported.",
     "errors.connectorMetadata.requestError":
@@ -1159,6 +1182,7 @@ export const enMessages = {
     "arguments.skills.uninstall.name": "Skill or package name(s) to remove; a package name removes every installed skill that belongs to it",
     "arguments.serviceName": "Service name",
     "arguments.connectorAppsServiceName": "Optional service name; omit to list every connected app",
+    "arguments.orgUseName": "Organization name to use as the default identity",
     "arguments.connectorUrl": "Self-hosted connector server URL, for example http://localhost:3000",
     "arguments.actionId": "Action id(s) in the form <service>.<action>, for example cal.create_schedule",
     "arguments.shell": "Target shell",
@@ -1182,6 +1206,19 @@ export const enMessages = {
         "No connector apps were found for this service.",
     "connector.apps.text.service": "Service",
     "connector.apps.text.status": "Status",
+    "org.list.text.organization": "Organization",
+    "org.list.text.role": "Role",
+    "org.list.text.default": "Default",
+    "org.list.text.noOrganizations":
+        "The active account has no organizations; connector commands run under your personal identity.",
+    "org.current.text.configured": "Default organization identity: {organization}",
+    "org.current.text.personal":
+        "No default organization; connector commands run under your personal identity.",
+    "org.use.success": "Set the default organization identity to {organization}.",
+    "org.clear.success":
+        "Cleared the default organization identity; connector commands now run under your personal identity.",
+    "org.clear.alreadyPersonal":
+        "No default organization was set; connector commands already run under your personal identity.",
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.login.manageTokens": "Manage runtime tokens at {accessUrl}",
     "connector.login.noToken":
@@ -1388,6 +1425,21 @@ export const zhMessages = {
     "commands.login.summary": "登录 OOMOL 账号（auth login 的别名）",
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
     "commands.logout.summary": "登出当前账号（auth logout 的别名）",
+    "commands.org.description":
+        "列出当前账号可访问的组织，并管理 connector 命令使用的默认组织身份。",
+    "commands.org.summary": "管理组织身份",
+    "commands.org.list.description":
+        "列出当前活动账号可认证的组织，并标出当前默认组织。",
+    "commands.org.list.summary": "列出可访问的组织",
+    "commands.org.current.description":
+        "显示未传 --organization / --personal 时 connector 命令使用的默认组织身份。",
+    "commands.org.current.summary": "显示默认组织身份",
+    "commands.org.use.description":
+        "在确认账号可访问后，设置 connector 命令使用的默认组织身份。",
+    "commands.org.use.summary": "设置默认组织身份",
+    "commands.org.clear.description":
+        "清除默认组织身份，让 connector 命令以个人身份运行。",
+    "commands.org.clear.summary": "清除默认组织身份",
     "commands.search.description":
         "使用一个自由文本查询搜索 connector action。",
     "commands.search.summary": "搜索 connector action",
@@ -1549,6 +1601,14 @@ export const zhMessages = {
         "获取 connector app 列表失败：{message}",
     "errors.connectorApps.requestFailed":
         "获取 connector app 列表返回了 HTTP {status}。",
+    "errors.org.invalidResponse":
+        "组织列表返回了不受支持的响应内容。",
+    "errors.org.nameEmpty": "组织名称不能为空。",
+    "errors.org.notAccessible":
+        "当前活动账号无法访问组织 “{organization}”。运行 `oo org list` 查看可用的组织。",
+    "errors.org.requestError": "获取组织列表失败：{message}",
+    "errors.org.requestFailed":
+        "获取组织列表返回了 HTTP {status}。",
     "errors.connectorMetadata.invalidResponse":
         "connector action 元数据返回了不受支持的响应内容。",
     "errors.connectorMetadata.requestError":
@@ -2375,6 +2435,7 @@ export const zhMessages = {
     "arguments.skills.uninstall.name": "要移除的 skill 或包名（可指定多个）；传入包名会移除该包已安装的全部 skill",
     "arguments.serviceName": "服务名",
     "arguments.connectorAppsServiceName": "可选的服务名；省略时列出全部已连接的 app",
+    "arguments.orgUseName": "用作默认身份的组织名称",
     "arguments.connectorUrl": "自部署 Connector 服务地址，例如 http://localhost:3000",
     "arguments.actionId": "<service>.<action> 形式的 action id（可多个），例如 cal.create_schedule",
     "arguments.shell": "目标 shell",
@@ -2397,6 +2458,19 @@ export const zhMessages = {
         "该服务下未找到 connector app。",
     "connector.apps.text.service": "服务",
     "connector.apps.text.status": "状态",
+    "org.list.text.organization": "组织",
+    "org.list.text.role": "角色",
+    "org.list.text.default": "默认",
+    "org.list.text.noOrganizations":
+        "当前活动账号没有任何组织；connector 命令以个人身份运行。",
+    "org.current.text.configured": "默认组织身份：{organization}",
+    "org.current.text.personal":
+        "未设置默认组织；connector 命令以个人身份运行。",
+    "org.use.success": "已将默认组织身份设置为 {organization}。",
+    "org.clear.success":
+        "已清除默认组织身份；connector 命令现在以个人身份运行。",
+    "org.clear.alreadyPersonal":
+        "未设置默认组织；connector 命令本就以个人身份运行。",
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.login.manageTokens": "可在 {accessUrl} 管理 Runtime Token。",
     "connector.login.noToken":
