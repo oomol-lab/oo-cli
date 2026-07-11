@@ -1,6 +1,6 @@
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
@@ -187,9 +187,9 @@ describe("embedded skill assets", () => {
                 ),
             ).toEqual([
                 "SKILL.md",
-                join("references", "skill-authoring.md"),
-                join("references", "existing-workflow.md"),
-                join("references", "oo-powered.md"),
+                posix.join("references", "skill-authoring.md"),
+                posix.join("references", "existing-workflow.md"),
+                posix.join("references", "oo-powered.md"),
             ]);
         }
         expect(
