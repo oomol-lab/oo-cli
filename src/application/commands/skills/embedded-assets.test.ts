@@ -187,9 +187,9 @@ describe("embedded skill assets", () => {
                 ),
             ).toEqual([
                 "SKILL.md",
-                "references/skill-authoring.md",
-                "references/existing-workflow.md",
-                "references/oo-powered.md",
+                join("references", "skill-authoring.md"),
+                join("references", "existing-workflow.md"),
+                join("references", "oo-powered.md"),
             ]);
         }
         expect(

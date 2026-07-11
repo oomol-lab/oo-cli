@@ -57,9 +57,9 @@ const bundledSkillRegistry = {
     ]),
     "oo-create-skill": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooCreateSkillPath),
-        createAgenticMarkdownFile("references/skill-authoring.md", ooCreateSkillAuthoringPath),
-        createAgenticMarkdownFile("references/existing-workflow.md", ooCreateSkillExistingWorkflowPath),
-        createAgenticMarkdownFile("references/oo-powered.md", ooCreateSkillOoPoweredPath),
+        createAgenticMarkdownFile(join("references", "skill-authoring.md"), ooCreateSkillAuthoringPath),
+        createAgenticMarkdownFile(join("references", "existing-workflow.md"), ooCreateSkillExistingWorkflowPath),
+        createAgenticMarkdownFile(join("references", "oo-powered.md"), ooCreateSkillOoPoweredPath),
     ]),
     "oo-find-skills": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooFindSkillsSkillPath),

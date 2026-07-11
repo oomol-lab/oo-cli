@@ -416,6 +416,11 @@ Exit condition: a future agent can reach the selected capability without
 rediscovery, build a valid payload, read the useful result, and stop on common
 failures.
 
+### 7. Validate Before Finishing
+
+After authoring the skill, run `oo skills validate "<skill-directory>"`. If
+validation fails, fix the generic skill contract before reporting completion.
+
 ## Final Acceptance Check
 
 Before finishing, verify the generated skill against the Constitution and answer
@@ -434,8 +439,3 @@ If any answer is missing, add only the missing execution guidance.
 
 Keep `SKILL.md` concise. Use `references/workflow.md` only when the workflow
 has several steps, decision rules, or examples.
-
-### 7. Validate Before Finishing
-
-After authoring the skill, run `oo skills validate "<skill-directory>"`. If
-validation fails, fix the generic skill contract before reporting completion.
