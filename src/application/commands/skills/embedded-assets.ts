@@ -3,6 +3,9 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { render } from "agentic-markdown";
 
+import ooCreateSkillExistingWorkflowPath from "../../../../contrib/skills/shared/oo-create-skill/references/existing-workflow.md" with { type: "file" };
+import ooCreateSkillOoPoweredPath from "../../../../contrib/skills/shared/oo-create-skill/references/oo-powered.md" with { type: "file" };
+import ooCreateSkillAuthoringPath from "../../../../contrib/skills/shared/oo-create-skill/references/skill-authoring.md" with { type: "file" };
 import ooCreateSkillPath from "../../../../contrib/skills/shared/oo-create-skill/SKILL.md" with { type: "file" };
 
 import ooFindSkillsCliContractPath from "../../../../contrib/skills/shared/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
@@ -54,6 +57,9 @@ const bundledSkillRegistry = {
     ]),
     "oo-create-skill": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooCreateSkillPath),
+        createAgenticMarkdownFile("references/skill-authoring.md", ooCreateSkillAuthoringPath),
+        createAgenticMarkdownFile("references/existing-workflow.md", ooCreateSkillExistingWorkflowPath),
+        createAgenticMarkdownFile("references/oo-powered.md", ooCreateSkillOoPoweredPath),
     ]),
     "oo-find-skills": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooFindSkillsSkillPath),
