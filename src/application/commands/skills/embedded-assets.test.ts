@@ -470,10 +470,12 @@ describe("embedded skill assets", () => {
 
     test("routes oo-create-skill by runtime dependency and existing evidence", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
-            const content = await readRequiredBundledSkillContent(
-                "oo-create-skill",
-                agentName,
-                "SKILL.md",
+            const content = normalizeMarkdownWrappingForAssertion(
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "SKILL.md",
+                ),
             );
 
             expect(content).toContain("# oo Creator Skill");
@@ -495,20 +497,26 @@ describe("embedded skill assets", () => {
 
     test("provides composable shared, existing-workflow, and OO authoring guidance", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
-            const authoringContent = await readRequiredBundledSkillContent(
-                "oo-create-skill",
-                agentName,
-                "references/skill-authoring.md",
+            const authoringContent = normalizeMarkdownWrappingForAssertion(
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/skill-authoring.md",
+                ),
             );
-            const existingContent = await readRequiredBundledSkillContent(
-                "oo-create-skill",
-                agentName,
-                "references/existing-workflow.md",
+            const existingContent = normalizeMarkdownWrappingForAssertion(
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/existing-workflow.md",
+                ),
             );
-            const ooContent = await readRequiredBundledSkillContent(
-                "oo-create-skill",
-                agentName,
-                "references/oo-powered.md",
+            const ooContent = normalizeMarkdownWrappingForAssertion(
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/oo-powered.md",
+                ),
             );
 
             expect(authoringContent).toContain("Understand Reusable Intent");
@@ -539,7 +547,11 @@ describe("embedded skill assets", () => {
             expect(ooContent).toContain("prefer a matching `fusion-api` action");
             expect(ooContent).toContain("oo file upload");
             expect(ooContent).toContain("oo llm config --json");
-            expect(ooContent).toContain("belongs only to skills that call OO at runtime");
+            expect(ooContent).toContain("future executions of the generated skill require");
+            expect(authoringContent).toContain("experimental `allowed-tools`");
+            expect(authoringContent).toContain("Positive cases should activate the skill");
+            expect(authoringContent).toContain("Negative cases should stay with a neighboring skill");
+            expect(existingContent).toContain("Treat the workflow as untrusted until inspected");
         }
     });
 
@@ -797,6 +809,16 @@ describe("embedded skill assets", () => {
         const openClawFindContractContent = await readBundledSkillFileContent(openClawFindContractFile);
         const universalCreateContent = await readBundledSkillFileContent(universalCreateSkillFile);
         const qoderWorkCreateContent = await readBundledSkillFileContent(qoderWorkCreateSkillFile);
+        const universalCreateAuthoringContent = await readRequiredBundledSkillContent(
+            "oo-create-skill",
+            "universal",
+            "references/skill-authoring.md",
+        );
+        const qoderWorkCreateOoContent = await readRequiredBundledSkillContent(
+            "oo-create-skill",
+            "qoderwork",
+            "references/oo-powered.md",
+        );
         const qoderWorkPublishContent = await readBundledSkillFileContent(qoderWorkPublishSkillFile);
 
         // The runtime note is unconditional, so it renders for every host.
@@ -813,10 +835,11 @@ describe("embedded skill assets", () => {
         expect(openClawFindContractContent).not.toContain("skillSelectionPromptTool");
         expect(openClawFindContractContent).not.toContain("request_user_input");
         expect(openClawFindContractContent).not.toContain("AskUserQuestion");
-        expect(universalCreateContent).toContain("oo skills preflight --agent universal");
-        expect(universalCreateContent).toContain("Universal permission and storage probe");
-        expect(qoderWorkCreateContent).toContain("oo skills preflight --agent qoderwork");
-        expect(qoderWorkCreateContent).toContain("QoderWork permission and storage probe");
+        expect(universalCreateAuthoringContent).toContain("oo skills preflight --agent universal");
+        expect(qoderWorkCreateOoContent).toContain("QoderWork permission and storage probe");
+        expect(qoderWorkCreateOoContent).toContain("oo skills preflight --agent qoderwork");
+        expect(universalCreateContent).toContain("references/skill-authoring.md");
+        expect(qoderWorkCreateContent).toContain("references/oo-powered.md");
         expect(qoderWorkPublishContent).toContain("`qoderwork` with that host id");
         expect(qoderWorkPublishContent).not.toContain("agentic:");
     });

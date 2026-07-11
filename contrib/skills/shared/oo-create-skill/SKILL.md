@@ -1,6 +1,6 @@
 ---
 name: oo-create-skill
-description: Create, adopt, or update local AI agent skills, including ordinary knowledge or workflow skills and skills powered by oo connectors or hosted capabilities. Use when the user asks to create a skill from scratch, turn existing files or scripts into a skill, or build a reusable skill that calls oo at runtime.
+description: Create, adopt, review, or update local AI agent skills, including ordinary knowledge or workflow skills and skills powered by oo connectors or hosted capabilities. Use when the user asks to create or improve a skill, turn existing files or scripts into a skill, check a skill against modern authoring practices, or build a reusable skill that calls oo at runtime.
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
 <!-- agentic:endif -->
@@ -66,5 +66,7 @@ Before finishing:
 3. Preserve existing user files and established commands.
 4. Ensure runtime dependencies match the selected standard or OO-powered mode.
 5. Validate the completed skill and fix reported contract errors.
-6. Report the created or adopted skill path and summarize its runtime
+6. Exercise realistic positive and negative trigger cases, plus the important
+   runtime path, in proportion to the skill's risk and complexity.
+7. Report the created or adopted skill path and summarize its runtime
    dependencies.

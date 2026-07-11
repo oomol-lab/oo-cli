@@ -99,10 +99,11 @@ reusable user intent, compact runtime runbook, then convenience.
     Include a section only when it changes runtime behavior. Omit broad `oo`
     mechanics, full schema dumps, and implementation details already covered by
     the managed OO notice.
-10. Write generated skills in English regardless of the user's language,
-    including `--description`, `--title`, frontmatter, headings, examples, and
-    reference files. Preserve non-English only for literal runtime values,
-    product names, language-pair requirements, or necessary sample I/O.
+10. Choose the generated skill's prose language for its intended users and
+    runtime environment. Prefer English for broadly shared cross-locale skills.
+    Preserve literal runtime values, product names, identifiers, language-pair
+    requirements, and necessary sample I/O exactly when translation could alter
+    behavior.
 
 ## Authoring State Machine
 
@@ -319,9 +320,10 @@ invocation. Existing local workflows must come from a successful
 `oo skills adopt "<path>" --agent <!-- agentic:var agent -->` invocation before
 you fill in or patch workflow instructions or run validation.
 
-Write all generated skill prose in English, including frontmatter, headings,
-examples, and reference files. Preserve non-English only for literal runtime
-values, product names, language-pair requirements, or necessary sample I/O.
+Use the prose language selected during intent capture consistently across
+frontmatter, headings, examples, and references. Preserve literal runtime
+values, product names, identifiers, and necessary sample I/O exactly when
+translation could alter behavior.
 
 Exit condition: the native skill directory exists, includes the managed OO
 notice, and has a user-facing trigger description.
