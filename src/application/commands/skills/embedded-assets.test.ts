@@ -1,6 +1,6 @@
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
@@ -180,76 +180,18 @@ describe("embedded skill assets", () => {
             "SKILL.md",
             "references/oo-cli-contract.md",
         ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "universal").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "claude").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "hermes").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "codebuddy").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "workbuddy").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "trae").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "trae-cn").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "openclaw").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "qoderwork").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
-        expect(
-            getBundledSkillFiles("oo-create-skill", "deepseek-tui").map(
-                file => file.relativePath,
-            ),
-        ).toEqual([
-            "SKILL.md",
-        ]);
+        for (const agentName of availableBundledSkillAgentNames) {
+            expect(
+                getBundledSkillFiles("oo-create-skill", agentName).map(
+                    file => file.relativePath,
+                ),
+            ).toEqual([
+                "SKILL.md",
+                posix.join("references", "skill-authoring.md"),
+                posix.join("references", "existing-workflow.md"),
+                posix.join("references", "oo-powered.md"),
+            ]);
+        }
         expect(
             getBundledSkillFiles("oo-publish-skill", "universal").map(
                 file => file.relativePath,
@@ -526,432 +468,210 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("guides oo-create-skill agents to fill presentation metadata", async () => {
+    test("routes oo-create-skill by runtime dependency and existing evidence", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
-            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
-                file => file.relativePath === "SKILL.md",
-            );
-
-            if (skillFile === undefined) {
-                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
-            }
-
             const content = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(skillFile),
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "SKILL.md",
+                ),
             );
 
-            expect(content).toContain("with a required `--description`");
-            expect(content).toContain("Include `--title` and `--icon` when you have suitable values");
-            expect(content).toContain("Derive title and icon");
-            expect(content).toContain("fitting icon reference: an emoji, an image URL");
-            expect(content).toContain("`:collection:icon:`");
-            expect(content).toContain("https://icones.js.org/");
-            expect(content).toContain(
-                "If `metadata.title` or `metadata.icon` is absent, add a suitable value",
-            );
-            expect(content).not.toContain(
-                "Pass `--title` only when the user provided or confirmed",
-            );
-            expect(content).not.toContain(
-                "do not add it by deriving a title from the skill name",
-            );
+            expect(content).toContain("# oo Creator Skill");
+            expect(content).toContain("A skill is **standard**");
+            expect(content).toContain("A skill is **OO-powered**");
+            expect(content).toContain("A skill has an **existing workflow**");
+            expect(content).toContain("The references compose");
+            expect(content).toContain("Do not run OO capability discovery for a standard skill");
+            expect(content).toContain("Being managed by `oo` does not by itself");
+            expect(content).toContain("Local scripts also do not imply");
+            expect(content).toContain("Authoring-time use of `oo`");
+            expect(content).toContain("explains or documents OO without executing it is standard");
+            expect(content).toContain("directly or indirectly invokes `oo` is OO-powered");
+            expect(content).toContain("including an optional path");
+            expect(content).toContain("An obsolete OO call");
+            expect(content).toContain("first inspect available files and context");
         }
     });
 
-    test("guides oo-create-skill agents to ask for business decisions without offloading metadata lookup", async () => {
+    test("provides composable shared, existing-workflow, and OO authoring guidance", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
-            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
-                file => file.relativePath === "SKILL.md",
+            const authoringContent = normalizeMarkdownWrappingForAssertion(
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/skill-authoring.md",
+                ),
+            );
+            const existingContent = normalizeMarkdownWrappingForAssertion(
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/existing-workflow.md",
+                ),
+            );
+            const ooContent = normalizeMarkdownWrappingForAssertion(
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/oo-powered.md",
+                ),
             );
 
-            if (skillFile === undefined) {
-                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
-            }
+            expect(authoringContent).toContain("Understand Reusable Intent");
+            expect(authoringContent).toContain("Plan Reusable Contents");
+            expect(authoringContent).toContain("preferably verb-led lowercase hyphen-case name");
+            expect(authoringContent).toContain("Namespace it by tool");
+            expect(authoringContent).toContain(`oo skills preflight --agent ${agentName}`);
+            expect(authoringContent).toContain(`oo skills init <name> --agent ${agentName}`);
+            expect(authoringContent).toContain("remove the generated `compatibility:");
+            expect(authoringContent).toContain("Keep OO management metadata separate");
+            expect(authoringContent).toContain("under 500 lines when practical");
+            expect(authoringContent).toContain("reference longer than 100 lines");
+            expect(authoringContent).toContain("agents/openai.yaml");
+            expect(authoringContent).toContain("Write workflow instructions in imperative or infinitive form");
+            expect(authoringContent).toContain("Forward-Test Complex Skills");
+            expect(authoringContent).toContain("not the intended answer");
+            expect(authoringContent).toContain("remove test artifacts");
+            expect(authoringContent).toContain("succeeds only after it sees authoring context");
+            expect(authoringContent).toContain("Ask the user before forward testing");
+            expect(authoringContent).toContain("oo skills validate");
+            expect(existingContent).toContain("Treat the existing files as the source of truth");
+            expect(existingContent).toContain(`oo skills adopt \"<path>\" --agent ${agentName}`);
+            expect(existingContent).toContain("A local script can be a standard skill");
+            expect(existingContent).toContain("Inspect transitive runtime dependencies");
+            expect(existingContent).toContain("intended final workflow");
+            expect(ooContent).toContain("## Contents");
+            expect(ooContent).toContain("oo connector schema");
+            expect(ooContent).toContain("prefer a matching `fusion-api` action");
+            expect(ooContent).toContain("oo file upload");
+            expect(ooContent).toContain("oo llm config --json");
+            expect(ooContent).toContain("future executions of the generated skill require");
+            expect(authoringContent).toContain("experimental `allowed-tools`");
+            expect(authoringContent).toContain("Positive cases should activate the skill");
+            expect(authoringContent).toContain("Negative cases should stay with a neighboring skill");
+            expect(existingContent).toContain("Treat the workflow as untrusted until inspected");
+        }
+    });
 
+    test("preserves OO authoring decision and permission boundaries", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
             const content = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(skillFile),
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/oo-powered.md",
+                ),
             );
 
-            expect(content).toContain("Constitution");
-            expect(content).toContain("Use these rules to decide confidently");
-            expect(content).toContain("not a separate checklist");
             expect(content).toContain("priority order: safety, local authoring scope");
             expect(content).toContain("Ask for reusable intent; prove execution facts");
-            expect(content).toContain("decision would change");
-            expect(content).toContain("scope, workflow ordering");
-            expect(content).toContain("workflow ordering");
-            expect(content).toContain("required user inputs");
-            expect(content).toContain("expected outputs");
-            expect(content).toContain("data routing");
-            expect(content).toContain("metadata ambiguity");
-            expect(content).toContain("choice prompt with a recommended option");
-            expect(content).toContain("recommended option");
-            expect(content).toContain("free-form input");
-            expect(content).toContain("concrete choices");
-            expect(content).toContain("Evidence outranks memory");
-            expect(content).toContain("Do not ask");
-            expect(content).toContain("resolve facts that `oo` metadata");
+            expect(content).toContain("workflow ordering, required user inputs");
+            expect(content).toContain("account, cost, compliance, data routing");
             expect(content).toContain("connector service/action identifiers");
-            expect(content).toContain("field names");
             expect(content).toContain("result field paths");
-            expect(content).toContain("authentication state");
-            expect(content).toContain("defaults");
-            expect(content).toContain("current command output");
-            expect(content).toContain("Resolve before designing");
-            expect(content).toContain("Test only when the test is safer than the uncertainty");
-            expect(content).toContain("observed");
-            expect(content).toContain("current evidence");
-            expect(content).toContain("future agents");
-            expect(content).toContain("without rediscovery");
-            expect(content).toContain("Do not ask only for cosmetic details");
-            expect(content).toContain("facts that `oo` metadata can resolve");
-            expect(content).toContain("Exit condition");
-            expect(content).not.toContain("package/block references");
-            expect(content).not.toContain("Operating Principles");
-            expect(content).not.toContain("Work like a confident authoring agent");
-            expect(content).not.toContain("interrupt the user only for true blockers");
-            expect(content).not.toContain("Ask only for true blockers");
-            expect(content).not.toContain("Otherwise decide and proceed");
+            expect(content).toContain("request the smallest sufficient permission");
+            expect(content).toContain("name the blocked command");
+            expect(content).toContain("self-hosted connector only supports connector commands");
+            expect(content).toContain("`not_authenticated`");
+            expect(content).toContain("Ask the user to run `oo auth login`");
+            expect(content).toContain("Exit condition:");
         }
     });
 
-    test("guides oo-create-skill trigger descriptions toward local skill authoring", async () => {
+    test("preserves precise OO capability discovery and repair rules", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
-            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
-                file => file.relativePath === "SKILL.md",
-            );
-
-            if (skillFile === undefined) {
-                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
-            }
-
             const content = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(skillFile),
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/oo-powered.md",
+                ),
             );
 
-            expect(content).toContain("Author, generate, adopt, or document a local AI agent skill");
-            expect(content).toContain("create a skill, write a skill, adopt an existing workflow");
-            expect(content).toContain("existing local workflow directory");
-            expect(content).toContain("connector action");
-            expect(content).toContain("Use the local workflow path");
-            expect(content).toContain("oo skills preflight --agent");
-            expect(content).toContain("oo skills adopt \"<path>\" --agent");
-            expect(content).toContain("oo skills init <name> --agent");
-            expect(content).toContain("find or install an");
-            expect(content).toContain("existing skill");
-            expect(content).toContain("distribute a finished skill");
-            expect(content).not.toContain("Author, generate, or scaffold a new local AI agent skill");
-            expect(content).not.toContain("Author, generate, scaffold, or update");
-            expect(content).not.toContain("create or update a local skill");
-            expect(content).not.toContain("default private");
-            expect(content).not.toContain("private visibility");
-            expect(content).not.toContain("--visibility private");
-            expect(content).not.toContain("already knows which oo package or block");
-        }
-    });
-
-    test("guides oo-create-skill generated descriptions toward user outcomes", async () => {
-        for (const agentName of availableBundledSkillAgentNames) {
-            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
-                file => file.relativePath === "SKILL.md",
-            );
-
-            if (skillFile === undefined) {
-                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
-            }
-
-            const content = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(skillFile),
-            );
-
-            expect(content).toContain("user-facing trigger summary");
-            expect(content).toContain("main signal future agents see before loading the skill");
-            expect(content).toContain("Start with the user outcome");
-            expect(content).toContain("natural request verbs");
-            expect(content).toContain("one or two concise sentences");
-            expect(content).toContain("what users would ask");
-            expect(content).toContain("Use this description shape when helpful");
-            expect(content).toContain("negative conditions in the workflow body");
-            expect(content).toContain(
-                "Before validation, re-check the trigger description and presentation metadata",
-            );
-            expect(content).toContain(
-                "against the Initialize Skill contract",
-            );
-            expect(content).not.toContain("one short positive trigger sentence");
-            expect(content).not.toContain("Keep implementation plumbing out of the description");
-        }
-    });
-
-    test("guides oo-create-skill generated skills to stay in English", async () => {
-        for (const agentName of availableBundledSkillAgentNames) {
-            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
-                file => file.relativePath === "SKILL.md",
-            );
-
-            if (skillFile === undefined) {
-                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
-            }
-
-            const content = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(skillFile),
-            );
-
-            expect(content).toContain(
-                "Write generated skills in English regardless of the user's language",
-            );
-            expect(content).toContain("including `--description`, `--title`");
-            expect(content).toContain("frontmatter, headings, examples, and reference files");
-            expect(content).toContain("Preserve non-English only for literal runtime values");
-            expect(content).toContain("language-pair requirements");
-            expect(content).not.toContain("Do not mirror the user's language into the skill body");
-        }
-    });
-
-    test("guides oo-create-skill discovery toward Fusion API selection preference", async () => {
-        for (const agentName of availableBundledSkillAgentNames) {
-            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
-                file => file.relativePath === "SKILL.md",
-            );
-
-            if (skillFile === undefined) {
-                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
-            }
-
-            const content = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(skillFile),
-            );
-
-            expect(content).toContain("Capability Discovery");
-            expect(content).toContain("Capability Contract");
-            expect(content).toContain("Resolve before designing");
-            expect(content).toContain("Do not predesign the whole");
-            expect(content).toContain("execution process");
-            expect(content).toContain("Discover");
-            expect(content).toContain("the capability");
-            expect(content).toContain("Test only when the test is safer than the uncertainty");
-            expect(content).toContain("smallest representative invocation");
-            expect(content).toContain("cheap, non-sensitive, non-destructive");
-            expect(content).toContain("observed");
-            expect(content).toContain("current evidence");
-            expect(content).toContain("Select the most direct executable action");
-            expect(content).toContain("prefer a matching `fusion-api` action by default");
-            expect(content).toContain("generic managed transforms");
-            expect(content).toContain("background removal");
-            expect(content).toContain("OCR");
-            expect(content).toContain("translation");
-            expect(content).toContain("image generation");
-            expect(content).toContain("document conversion");
-            expect(content).toContain("Apply the Constitution's Fusion tie-breaker");
-            expect(content).toContain("non-Fusion connectors only when user intent");
-            expect(content).toContain("contract constraints require them");
-            expect(content).toContain("Fusion API actions are connector actions");
-            expect(content).toContain("using `fusion-api` as the service");
-            expect(content).toContain("Capability discovery may return");
-            expect(content).toContain("complete connector action contract");
-            expect(content).toContain("Do this even when the user mentions");
-            expect(content).toContain("model, product, provider name");
-            expect(content).toContain("Use only connector entries");
-            expect(content).toContain("authoring candidates");
-            expect(content).toContain("non-connector entries");
+            expect(content).toContain("one short English outcome sentence");
+            expect(content).toContain("target service, language pair, file type, and output format");
+            expect(content).toContain("keep `滴答清单` and do not turn it into `TickTick`");
+            expect(content).toContain("Inspect the first result set before narrowing");
             expect(content).toContain("non-authoring catalog noise");
-            expect(content).toContain("classify `fusion-api`");
-            expect(content).toContain("OOMOL-hosted Fusion API");
-            expect(content).toContain("account, cost, compliance");
-            expect(content).toContain("data-routing");
-            expect(content).toContain("output-contract constraints");
-            expect(content).toContain("oo connector schema");
-            expect(content).toContain("selected service/action");
-            expect(content).toContain("current command output");
-            expect(content).toContain(
-                "Do not choose a connector action unless current command output exposes it",
-            );
-            expect(content).toContain("non-destructive test");
-            expect(content).toContain("unknown action");
-            expect(content).toContain("choose an exposed action");
+            expect(content).toContain("user-visible destination action");
+            expect(content).toContain("prefer a matching `fusion-api` action by default");
+            expect(content).toContain("run one connector narrowing pass");
+            expect(content).toContain("reports `unknown action`");
             expect(content).toContain("async submission plus polling replacing a synchronous call");
-            expect(content).toContain("When result shape");
-            expect(content).toContain("status transitions");
-            expect(content).toContain("file return format");
-            expect(content).toContain("envelope structure");
-            expect(content).toContain("minimal representative invocation");
-            expect(content).toContain("status/result poll");
-            expect(content).toContain("safe and proportionate");
+            expect(content).toContain("stable non-connector OO commands");
+        }
+    });
+
+    test("preserves OO schema and response-envelope evidence rules", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const content = normalizeMarkdownWrappingForAssertion(
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/oo-powered.md",
+                ),
+            );
+
+            expect(content).toContain("pass every `<service>.<action>` id to one schema command");
+            expect(content).toContain("a JSON array in request order");
+            expect(content).toContain("minimal representative invocation or status/result poll");
+            expect(content).toContain("documented dry-run or read-only paths");
             expect(content).toContain("full `oo connector run --json` response paths");
-            expect(content).toContain("not only the connector payload's inner field names");
             expect(content).toContain("response.data.sessionId");
             expect(content).toContain("response.data.state");
             expect(content).toContain("response.data.data.image.url");
-            expect(content).toContain("Do not spend");
-            expect(content).toContain("meaningful user money");
-            expect(content).toContain("mutate external state");
-            expect(content).toContain("disclose sensitive data");
-            expect(content).toContain("documented dry-run");
-            expect(content).toContain("read-only paths");
-            expect(content).toContain("inferred from schema rather than observed");
             expect(content).toContain("label it as untested");
-            expect(content).toContain("Keep the chosen connector action concrete");
-            expect(content).toContain("run one connector narrowing pass");
-            expect(content).toContain("reporting that no Fusion API action is available");
-            expect(content).toContain(
-                "connector service/action identifiers",
-            );
-            expect(content).toContain("future agents");
-            expect(content).toContain("without rediscovery");
-            expect(content).not.toContain("default preference order");
-            expect(content).not.toContain("If Fusion API and an ordinary connector action both match");
-            expect(content).not.toContain("Apply the capability principle above");
-            expect(content).not.toContain("If the user provides only package-level information");
-            expect(content).not.toContain("packages or blocks after those");
-            expect(content).not.toContain("complete package/block contract");
-            expect(content).not.toContain("complete package-level contract");
-            expect(content).not.toContain("package-like name");
-            expect(content).not.toContain("package/block results");
-            expect(content).not.toContain("connector actions, packages, and blocks");
-            expect(content).not.toContain("Blocks are flexible");
-            expect(content).not.toContain("Do not force a package or block reference");
-            expect(content).not.toContain("package-only path");
-            expect(content).not.toContain("Treat Connect and");
-            expect(content).not.toContain("Fusion API actions as the only authoring candidates");
-            expect(content).not.toContain("Use only Connect and Fusion API connector entries");
-            expect(content).not.toContain("for Connect and Fusion API contracts");
+            expect(content).toContain("prove every OO command or connector contract");
         }
     });
 
-    test("guides oo-create-skill generated workflows to route file transfers through connector-native actions", async () => {
+    test("preserves OO file-source, asynchronous, and artifact handling rules", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
-            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
-                file => file.relativePath === "SKILL.md",
-            );
-
-            if (skillFile === undefined) {
-                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
-            }
-
             const content = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(skillFile),
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/oo-powered.md",
+                ),
             );
 
-            expect(content).toContain(
-                "Preserve file and artifact boundaries",
-            );
-            expect(content).toContain(
-                "Local files are not remote connector inputs",
-            );
-            expect(content).toContain(
-                "temporary source adapter",
-            );
-            expect(content).toContain(
-                "connector-native upload/import/attach/create-file actions",
-            );
-            expect(content).toContain("`oo file upload \"<filePath>\" --json`");
-            expect(content).toContain("returned `downloadUrl`");
-            expect(content).toContain(
-                "another supported file input shape",
-            );
-            expect(content).toContain("target-service write");
-            expect(content).toContain("`oo file download \"<url>\" [outDir]");
-            expect(content).toContain(
-                "downloadable artifact URL and the task needs a local file result",
-            );
-            expect(content).toContain("`Saved to: <path>`");
-            expect(content).toContain("does not support `--json`");
-            expect(content).toContain(
-                "schema explicitly supports local paths",
-            );
-            expect(content).toContain("A file-producing skill is not complete");
-            expect(content).toContain("future agents can preview, attach, link, save");
             expect(content).toContain("environment-exposed attachment paths");
             expect(content).toContain("chat-visible media with no readable CLI path");
             expect(content).toContain("recent-file fallback");
             expect(content).toContain("candidate hashes match");
-            expect(content).toContain("Do not default generated artifacts into the current repository workspace");
-            expect(content).toContain("local/remote connector file boundary");
-            expect(content).not.toContain("local/cloud");
-            expect(content).not.toContain("cloud payloads");
-            expect(content).toContain("oo llm config --json");
-            expect(content).toContain("OOMOL-hosted LLM client");
-            expect(content).toContain("returned `apiKey`");
-            expect(content).toContain("`baseUrl`");
-            expect(content).toContain("`model`");
-            expect(content).toContain("Do not hardcode");
-            expect(content).toContain("read local auth files directly");
-            expect(content).not.toContain("oo-upload");
-            expect(content).not.toContain("oo-download");
+            expect(content).toContain("`--data @payload.json`");
+            expect(content).toContain("inline base64 or `data:` URI artifacts");
+            expect(content).toContain("status values, bounded retry policy");
+            expect(content).toContain("stops polling immediately");
+            expect(content).toContain("use a non-conflicting name");
+            expect(content).toContain("PNG alpha/RGBA check and dimensions check");
+            expect(content).toContain("connector-native action that performs the final upload");
+            expect(content).toContain("does not support `--json`");
         }
     });
 
-    test("guides oo-create-skill generated workflows to be compact execution runbooks", async () => {
+    test("preserves the OO runtime acceptance contract", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
-            const skillFile = getBundledSkillFiles("oo-create-skill", agentName).find(
-                file => file.relativePath === "SKILL.md",
-            );
-
-            if (skillFile === undefined) {
-                throw new Error(`Missing ${agentName} oo-create-skill SKILL.md`);
-            }
-
             const content = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(skillFile),
+                await readRequiredBundledSkillContent(
+                    "oo-create-skill",
+                    agentName,
+                    "references/oo-powered.md",
+                ),
             );
 
-            expect(content).toContain("compact execution runbook");
-            expect(content).toContain("call the selected capability without rediscovery");
-            expect(content).toContain("not a full schema dump");
-            expect(content).toContain("Include a section only when it changes runtime behavior");
-            expect(content).toContain("Authoring State Machine");
-            expect(content).toContain("selected connector action workflows");
-            expect(content).toContain("Runtime input policy");
-            expect(content).toContain("required inputs");
-            expect(content).toContain("be inferred or defaulted");
-            expect(content).toContain("optional inputs to omit when absent");
-            expect(content).toContain("missing runtime values");
-            expect(content).toContain("Source resolution for file-like inputs");
-            expect(content).toContain("chat-visible media with no");
-            expect(content).toContain("multiple candidate files");
-            expect(content).toContain("Invocation");
-            expect(content).toContain("small payload skeleton");
-            expect(content).toContain("`--data @payload.json`");
-            expect(content).toContain("Payload rules");
-            expect(content).toContain("Result handling");
-            expect(content).toContain("JSON field paths");
-            expect(content).toContain("full CLI response paths");
-            expect(content).toContain("schema-only paths as untested");
-            expect(content).toContain("what not to treat as the final result");
-            expect(content).toContain("files, images, documents");
-            expect(content).toContain("preview them or deliver them to the user");
-            expect(content).toContain("reporting a local path");
-            expect(content).toContain("inline base64 or `data:` URI artifacts");
-            expect(content).toContain("save and preview the artifact");
-            expect(content).toContain("printing the full");
-            expect(content).toContain("encoded payload");
-            expect(content).toContain("Async handling");
-            expect(content).toContain("early-exit");
-            expect(content).toContain("stops polling immediately");
-            expect(content).toContain("Artifact destination and verification");
-            expect(content).toContain("avoids polluting an unrelated repository");
-            expect(content).toContain("PNG alpha/RGBA check");
-            expect(content).toContain("Failure handling");
-            expect(content).toContain("action-specific stop conditions");
-            expect(content).toContain("schema rejection");
-            expect(content).toContain("async or");
-            expect(content).toContain("idempotency guidance");
-            expect(content).toContain("observed metadata");
-            expect(content).toContain("documented oo");
-            expect(content).toContain("Final Acceptance Check");
-            expect(content).toContain("future agent can reach the selected capability");
+            expect(content).toContain("compact execution runbook, not API documentation");
             expect(content).toContain("without rediscovery");
-            expect(content).toContain("stop on common failures");
-            expect(content).toContain("only the runtime questions that apply");
             expect(content).toContain("Source: how required runtime inputs are obtained");
             expect(content).toContain("Invoke: the exact selected service/action");
             expect(content).toContain("Result: the full CLI JSON path");
             expect(content).toContain("Async: terminal success, failure, timeout");
             expect(content).toContain("Artifact: destination, preview/handoff, and verification");
             expect(content).toContain("Failure: auth, billing, permission, schema");
-            expect(content).not.toContain("Use whatever structure fits the domain");
-            expect(content).not.toContain("async polling/idempotency when needed");
-            expect(content).not.toContain("future agent can ask less");
+            expect(content).toContain("If any answer is missing, add only the missing execution guidance");
+            expect(content).toContain("oo skills validate \"<skill-directory>\"");
         }
     });
 
@@ -1089,6 +809,16 @@ describe("embedded skill assets", () => {
         const openClawFindContractContent = await readBundledSkillFileContent(openClawFindContractFile);
         const universalCreateContent = await readBundledSkillFileContent(universalCreateSkillFile);
         const qoderWorkCreateContent = await readBundledSkillFileContent(qoderWorkCreateSkillFile);
+        const universalCreateAuthoringContent = await readRequiredBundledSkillContent(
+            "oo-create-skill",
+            "universal",
+            "references/skill-authoring.md",
+        );
+        const qoderWorkCreateOoContent = await readRequiredBundledSkillContent(
+            "oo-create-skill",
+            "qoderwork",
+            "references/oo-powered.md",
+        );
         const qoderWorkPublishContent = await readBundledSkillFileContent(qoderWorkPublishSkillFile);
 
         // The runtime note is unconditional, so it renders for every host.
@@ -1105,10 +835,11 @@ describe("embedded skill assets", () => {
         expect(openClawFindContractContent).not.toContain("skillSelectionPromptTool");
         expect(openClawFindContractContent).not.toContain("request_user_input");
         expect(openClawFindContractContent).not.toContain("AskUserQuestion");
-        expect(universalCreateContent).toContain("oo skills preflight --agent universal");
-        expect(universalCreateContent).toContain("Universal permission and storage probe");
-        expect(qoderWorkCreateContent).toContain("oo skills preflight --agent qoderwork");
-        expect(qoderWorkCreateContent).toContain("QoderWork permission and storage probe");
+        expect(universalCreateAuthoringContent).toContain("oo skills preflight --agent universal");
+        expect(qoderWorkCreateOoContent).toContain("QoderWork permission and storage probe");
+        expect(qoderWorkCreateOoContent).toContain("oo skills preflight --agent qoderwork");
+        expect(universalCreateContent).toContain("references/skill-authoring.md");
+        expect(qoderWorkCreateContent).toContain("references/oo-powered.md");
         expect(qoderWorkPublishContent).toContain("`qoderwork` with that host id");
         expect(qoderWorkPublishContent).not.toContain("agentic:");
     });
@@ -1283,4 +1014,14 @@ function getRequiredBundledSkillFile(
     }
 
     return skillFile;
+}
+
+async function readRequiredBundledSkillContent(
+    skillName: (typeof availableBundledSkillNames)[number],
+    agentName: (typeof availableBundledSkillAgentNames)[number],
+    relativePath: string,
+): Promise<string> {
+    return await readBundledSkillFileContent(
+        getRequiredBundledSkillFile(skillName, agentName, relativePath),
+    );
 }

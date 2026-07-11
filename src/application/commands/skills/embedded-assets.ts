@@ -1,8 +1,11 @@
 import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 import { mkdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { render } from "agentic-markdown";
 
+import ooCreateSkillExistingWorkflowPath from "../../../../contrib/skills/shared/oo-create-skill/references/existing-workflow.md" with { type: "file" };
+import ooCreateSkillOoPoweredPath from "../../../../contrib/skills/shared/oo-create-skill/references/oo-powered.md" with { type: "file" };
+import ooCreateSkillAuthoringPath from "../../../../contrib/skills/shared/oo-create-skill/references/skill-authoring.md" with { type: "file" };
 import ooCreateSkillPath from "../../../../contrib/skills/shared/oo-create-skill/SKILL.md" with { type: "file" };
 
 import ooFindSkillsCliContractPath from "../../../../contrib/skills/shared/oo-find-skills/references/oo-cli-contract.md" with { type: "file" };
@@ -28,6 +31,8 @@ export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-sk
 export type BundledSkillName = (typeof availableBundledSkillNames)[number];
 
 interface BundledSkillSourceFile {
+    // Portable logical path used by skill references; convert it only when
+    // materializing to the local filesystem.
     readonly relativePath: string;
     readonly sourcePath: string;
 }
@@ -54,6 +59,9 @@ const bundledSkillRegistry = {
     ]),
     "oo-create-skill": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooCreateSkillPath),
+        createAgenticMarkdownFile(posix.join("references", "skill-authoring.md"), ooCreateSkillAuthoringPath),
+        createAgenticMarkdownFile(posix.join("references", "existing-workflow.md"), ooCreateSkillExistingWorkflowPath),
+        createAgenticMarkdownFile(posix.join("references", "oo-powered.md"), ooCreateSkillOoPoweredPath),
     ]),
     "oo-find-skills": createAgentDefinitions([
         createAgenticMarkdownFile("SKILL.md", ooFindSkillsSkillPath),
