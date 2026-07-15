@@ -288,14 +288,14 @@ describe("connector shared requests", () => {
         });
     });
 
-    test("runConnectorAction sends the organization header for an organization identity", async () => {
+    test("runConnectorAction sends the team header for a team identity", async () => {
         const requests: Request[] = [];
         await runConnectorAction(
             {
                 actionName: "send_mail",
                 target: createConnectorTargetFixture(),
                 identity: {
-                    organization: "acme",
+                    team: "acme",
                 },
                 inputData: {
                     to: "foo@bar.com",
@@ -322,7 +322,7 @@ describe("connector shared requests", () => {
         expect(requests[0]?.url).toBe(
             "https://connector.oomol.com/v1/actions/gmail.send_mail",
         );
-        expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+        expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
     });
 
     test("runConnectorAction sends the connection-name selector as a header without query params", async () => {
@@ -362,7 +362,7 @@ describe("connector shared requests", () => {
         expect(requests[0]?.headers.get("x-oo-connector-alias")).toBe("work");
     });
 
-    test("runConnectorAction omits the organization query and header for the personal identity", async () => {
+    test("runConnectorAction omits the team query and header for the personal identity", async () => {
         const requests: Request[] = [];
         await runConnectorAction(
             {
@@ -392,10 +392,10 @@ describe("connector shared requests", () => {
         expect(requests[0]?.url).toBe(
             "https://connector.oomol.com/v1/actions/gmail.send_mail",
         );
-        expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
+        expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
     });
 
-    test("getConnectorActionMetadata never sends an organization query or header", async () => {
+    test("getConnectorActionMetadata never sends a team query or header", async () => {
         const requests: Request[] = [];
         await getConnectorActionMetadata(
             {
@@ -427,7 +427,7 @@ describe("connector shared requests", () => {
         expect(requests[0]?.url).toBe(
             "https://connector.oomol.com/v1/actions/gmail.get_message",
         );
-        expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
+        expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
     });
 
     test("runConnectorProxy sends proxy requests with identity headers", async () => {
@@ -436,7 +436,7 @@ describe("connector shared requests", () => {
             {
                 target: createConnectorTargetFixture(),
                 identity: {
-                    organization: "acme",
+                    team: "acme",
                 },
                 proxyRequest: {
                     endpoint: "/search",
@@ -490,7 +490,7 @@ describe("connector shared requests", () => {
         expect(requests).toHaveLength(1);
         expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
         expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
-        expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+        expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
         await expect(requests[0]?.json()).resolves.toEqual({
             endpoint: "/search",
             method: "GET",

@@ -8,8 +8,8 @@ import {
 describe("resolveConnectorIdentity", () => {
     test("defaults to personal when nothing is provided", () => {
         expect(resolveConnectorIdentity({
-            configOrganization: undefined,
-            organizationFlag: undefined,
+            configTeam: undefined,
+            teamFlag: undefined,
             personalFlag: false,
         })).toEqual({
             identity: {},
@@ -17,32 +17,32 @@ describe("resolveConnectorIdentity", () => {
         });
     });
 
-    test("uses the organization flag over the configured default", () => {
+    test("uses the team flag over the configured default", () => {
         expect(resolveConnectorIdentity({
-            configOrganization: "config-org",
-            organizationFlag: "flag-org",
+            configTeam: "config-team",
+            teamFlag: "flag-team",
             personalFlag: false,
         })).toEqual({
-            identity: { organization: "flag-org" },
+            identity: { team: "flag-team" },
             source: "flag",
         });
     });
 
-    test("falls back to the configured organization when no flag is set", () => {
+    test("falls back to the configured team when no flag is set", () => {
         expect(resolveConnectorIdentity({
-            configOrganization: "config-org",
-            organizationFlag: undefined,
+            configTeam: "config-team",
+            teamFlag: undefined,
             personalFlag: false,
         })).toEqual({
-            identity: { organization: "config-org" },
+            identity: { team: "config-team" },
             source: "config",
         });
     });
 
-    test("personal flag overrides both the organization flag and the configured default", () => {
+    test("personal flag overrides both the team flag and the configured default", () => {
         expect(resolveConnectorIdentity({
-            configOrganization: "config-org",
-            organizationFlag: "flag-org",
+            configTeam: "config-team",
+            teamFlag: "flag-team",
             personalFlag: true,
         })).toEqual({
             identity: {},
@@ -50,22 +50,22 @@ describe("resolveConnectorIdentity", () => {
         });
     });
 
-    test("treats an empty organization flag as absent and falls back to config", () => {
+    test("treats an empty team flag as absent and falls back to config", () => {
         expect(resolveConnectorIdentity({
-            configOrganization: "config-org",
-            organizationFlag: "",
+            configTeam: "config-team",
+            teamFlag: "",
             personalFlag: false,
         })).toEqual({
-            identity: { organization: "config-org" },
+            identity: { team: "config-team" },
             source: "config",
         });
     });
 });
 
 describe("connectorIdentityHeaders", () => {
-    test("returns the organization header for an organization identity", () => {
-        expect(connectorIdentityHeaders({ organization: "acme" })).toEqual({
-            "x-oo-organization-name": "acme",
+    test("returns the team header for a team identity", () => {
+        expect(connectorIdentityHeaders({ team: "acme" })).toEqual({
+            "x-oo-team-name": "acme",
         });
     });
 

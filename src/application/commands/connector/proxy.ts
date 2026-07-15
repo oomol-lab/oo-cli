@@ -4,7 +4,7 @@ import type { ConnectorProxyResponse } from "./shared.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { getConfiguredIdentityOrganization } from "../../schemas/settings.ts";
+import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
@@ -52,7 +52,7 @@ interface ConnectorProxyInput {
     format?: (typeof connectorFormatValues)[number];
     headers?: string;
     method?: string;
-    organization?: string;
+    team?: string;
     personal?: boolean;
     query?: string;
     serviceName: string;
@@ -111,11 +111,10 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             descriptionKey: "options.connectorProxyBody",
         },
         {
-            name: "organization",
-            longFlag: "--organization",
-            aliasFlags: ["--org"],
-            valueName: "organization",
-            descriptionKey: "options.connectorProxyOrganization",
+            name: "team",
+            longFlag: "--team",
+            valueName: "team",
+            descriptionKey: "options.connectorProxyTeam",
         },
         {
             name: "personal",
@@ -131,7 +130,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         format: z.enum(connectorFormatValues).optional(),
         headers: z.string().optional(),
         method: z.string().optional(),
-        organization: z.string().optional(),
+        team: z.string().optional(),
         personal: z.boolean().optional(),
         query: z.string().optional(),
         serviceName: z.string(),
@@ -139,31 +138,31 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        if (input.personal === true && input.organization !== undefined) {
+        if (input.personal === true && input.team !== undefined) {
             throw new CliUserError("errors.connectorRun.identityConflict", 2);
         }
 
-        const organizationFlag = input.organization?.trim();
-        if (input.organization !== undefined && organizationFlag === "") {
-            throw new CliUserError("errors.connectorRun.organizationEmpty", 2);
+        const teamFlag = input.team?.trim();
+        if (input.team !== undefined && teamFlag === "") {
+            throw new CliUserError("errors.connectorRun.teamEmpty", 2);
         }
 
         const proxyRequest = await buildConnectorProxyRequest(input, context);
         const target = await resolveConnectorTarget(context);
 
-        // Mirrors `connector run`: the self-hosted runtime has no organization
-        // concept, so an explicit --organization is rejected and any configured
+        // Mirrors `connector run`: the self-hosted runtime has no team
+        // concept, so an explicit --team is rejected and any configured
         // default identity is ignored.
-        if (target.kind === "self_hosted" && organizationFlag !== undefined) {
-            throw new CliUserError("errors.connector.organizationUnsupported", 2);
+        if (target.kind === "self_hosted" && teamFlag !== undefined) {
+            throw new CliUserError("errors.connector.teamUnsupported", 2);
         }
 
         const settings = await context.settingsStore.read();
         const { identity, source: identitySource } = target.kind === "self_hosted"
             ? { identity: {}, source: "personal" as const }
             : resolveConnectorIdentity({
-                    configOrganization: getConfiguredIdentityOrganization(settings),
-                    organizationFlag,
+                    configTeam: getConfiguredIdentityTeam(settings),
+                    teamFlag,
                     personalFlag: input.personal === true,
                 });
 

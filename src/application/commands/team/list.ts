@@ -1,48 +1,46 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 
-import type { OrganizationRole, OrganizationView } from "./shared.ts";
+import type { TeamRole, TeamView } from "./shared.ts";
 
 import { z } from "zod";
-import { getConfiguredIdentityOrganization } from "../../schemas/settings.ts";
+import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
-import { listMemberOrganizations, orgFormatValues } from "./shared.ts";
+import { listMemberTeams, teamFormatValues } from "./shared.ts";
 
-interface OrgListInput {
-    format?: (typeof orgFormatValues)[number];
+interface TeamListInput {
+    format?: (typeof teamFormatValues)[number];
     showSchemaVersion?: boolean;
 }
 
-interface OrgListItem {
+interface TeamListItem {
     current: boolean;
     id: string;
     name: string;
-    role: OrganizationRole;
+    role: TeamRole;
 }
 
-export const orgListCommand: CliCommandDefinition<OrgListInput> = {
+export const teamListCommand: CliCommandDefinition<TeamListInput> = {
     name: "list",
-    summaryKey: "commands.org.list.summary",
-    descriptionKey: "commands.org.list.description",
+    summaryKey: "commands.team.list.summary",
+    descriptionKey: "commands.team.list.description",
     options: [...jsonOutputOptions],
     inputSchema: z.object({
-        format: z.enum(orgFormatValues).optional(),
+        format: z.enum(teamFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const account = await requireCurrentAccount(context);
         const settings = await context.settingsStore.read();
-        const configuredOrganization = getConfiguredIdentityOrganization(settings);
+        const configuredTeam = getConfiguredIdentityTeam(settings);
 
-        const organizations = await listMemberOrganizations(account, context);
-        const output = organizations.map(organization =>
-            createOrgListItem(organization, configuredOrganization),
-        );
+        const teams = await listMemberTeams(account, context);
+        const output = teams.map(team => createTeamListItem(team, configuredTeam));
 
         context.telemetry?.recordProperties({
             result_count_bucket: bucketTelemetryCount(output.length),
@@ -56,7 +54,7 @@ export const orgListCommand: CliCommandDefinition<OrgListInput> = {
         }
 
         context.stdout.write(
-            `${formatOrganizationsAsText(
+            `${formatTeamsAsText(
                 output,
                 context.translator,
                 createWriterColors(context.stdout),
@@ -65,41 +63,41 @@ export const orgListCommand: CliCommandDefinition<OrgListInput> = {
     },
 };
 
-function createOrgListItem(
-    organization: OrganizationView,
-    configuredOrganization: string | undefined,
-): OrgListItem {
+function createTeamListItem(
+    team: TeamView,
+    configuredTeam: string | undefined,
+): TeamListItem {
     return {
-        current: organization.name === configuredOrganization,
-        id: organization.id,
-        name: organization.name,
-        role: organization.role,
+        current: team.name === configuredTeam,
+        id: team.id,
+        name: team.name,
+        role: team.role,
     };
 }
 
-type OrgListTranslator = Pick<CliExecutionContext["translator"], "t">;
+type TeamListTranslator = Pick<CliExecutionContext["translator"], "t">;
 
-interface OrgListColumn {
+interface TeamListColumn {
     header: string;
-    render: (organization: OrgListItem) => string;
+    render: (team: TeamListItem) => string;
 }
 
-// Renders the organization listing as a color-coded, column-aligned table. The
-// current default (matching `identity.organization`) is marked so callers can
-// see at a glance which value `oo connector run` uses without `--org`.
-export function formatOrganizationsAsText(
-    organizations: readonly OrgListItem[],
-    translator: OrgListTranslator,
+// Renders the team listing as a color-coded, column-aligned table. The current
+// default (matching `identity.team`) is marked so callers can see at a glance
+// which value `oo connector run` uses without `--team`.
+export function formatTeamsAsText(
+    teams: readonly TeamListItem[],
+    translator: TeamListTranslator,
     colors: TerminalColors,
 ): string {
-    if (organizations.length === 0) {
-        return translator.t("org.list.text.noOrganizations");
+    if (teams.length === 0) {
+        return translator.t("team.list.text.noTeams");
     }
 
-    const columns = createOrgListColumns(translator, colors);
+    const columns = createTeamListColumns(translator, colors);
     const headerCells = columns.map(column => colors.dim(column.header));
-    const rows = organizations.map(
-        organization => columns.map(column => column.render(organization)),
+    const rows = teams.map(
+        team => columns.map(column => column.render(team)),
     );
     // Column widths use the terminal display width, which ignores ANSI color
     // escapes and counts wide CJK/emoji glyphs as two columns, so neither color
@@ -110,26 +108,26 @@ export function formatOrganizationsAsText(
     ));
 
     return [headerCells, ...rows]
-        .map(cells => joinOrgListRow(cells, widths))
+        .map(cells => joinTeamListRow(cells, widths))
         .join("\n");
 }
 
-function createOrgListColumns(
-    translator: OrgListTranslator,
+function createTeamListColumns(
+    translator: TeamListTranslator,
     colors: TerminalColors,
-): OrgListColumn[] {
+): TeamListColumn[] {
     return [
         {
-            header: translator.t("org.list.text.organization"),
-            render: organization => colors.bold(organization.name),
+            header: translator.t("team.list.text.team"),
+            render: team => colors.bold(team.name),
         },
         {
-            header: translator.t("org.list.text.role"),
-            render: organization => colors.dim(organization.role),
+            header: translator.t("team.list.text.role"),
+            render: team => colors.dim(team.role),
         },
         {
-            header: translator.t("org.list.text.default"),
-            render: organization => organization.current
+            header: translator.t("team.list.text.default"),
+            render: team => team.current
                 ? colors.green("✓")
                 : colors.dim("-"),
         },
@@ -138,7 +136,7 @@ function createOrgListColumns(
 
 // Pads every cell except the last to its column width (measured in display
 // columns) and joins the row with a two-space gutter.
-function joinOrgListRow(
+function joinTeamListRow(
     cells: readonly string[],
     widths: readonly number[],
 ): string {

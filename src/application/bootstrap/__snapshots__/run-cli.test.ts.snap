@@ -51,7 +51,7 @@ Commands:
                                login)
   logout                       Log out the current account (alias for auth
                                logout)
-  org                          Manage organization identity
+  team                         Manage team identity
   completion <shell>           Generate shell completion scripts
   config                       Manage persisted configuration
   skills                       Manage AI agent skills
@@ -93,7 +93,7 @@ Commands:
                                login)
   logout                       Log out the current account (alias for auth
                                logout)
-  org                          Manage organization identity
+  team                         Manage team identity
   completion <shell>           Generate shell completion scripts
   config                       Manage persisted configuration
   skills                       Manage AI agent skills
@@ -138,7 +138,7 @@ Commands:
                                login)
   logout                       Log out the current account (alias for auth
                                logout)
-  org                          Manage organization identity
+  team                         Manage team identity
   completion <shell>           Generate shell completion scripts
   config                       Manage persisted configuration
   skills                       Manage AI agent skills
@@ -178,7 +178,7 @@ exports[`runCli bootstrap renders help in English and Chinese 1`] = `
   llm                          管理 LLM client 配置
   login [options]              登录 OOMOL 账号（auth login 的别名）
   logout                       登出当前账号（auth logout 的别名）
-  org                          管理组织身份
+  team                         管理团队身份
   completion <shell>           生成 shell 补全脚本
   config                       管理持久化配置
   skills                       管理 AI Agent skill
@@ -217,7 +217,7 @@ Commands:
                                login)
   logout                       Log out the current account (alias for auth
                                logout)
-  org                          Manage organization identity
+  team                         Manage team identity
   completion <shell>           Generate shell completion scripts
   config                       Manage persisted configuration
   skills                       Manage AI agent skills
@@ -260,7 +260,7 @@ Commands:
                                login)
   logout                       Log out the current account (alias for auth
                                logout)
-  org                          Manage organization identity
+  team                         Manage team identity
   completion <shell>           Generate shell completion scripts
   config                       Manage persisted configuration
   skills                       Manage AI agent skills

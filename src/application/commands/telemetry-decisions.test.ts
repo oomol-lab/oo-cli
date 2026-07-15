@@ -139,7 +139,7 @@ const commandTelemetryDecisions = {
             "list_scope",
             "result_count_bucket",
         ],
-        reason: "Records bounded connector app list size, the connector target kind (oomol/self_hosted), the identity source (personal/flag/config), and whether the listing was scoped to all apps or one service, without app ids, connection names, account labels, organization names, or server URLs.",
+        reason: "Records bounded connector app list size, the connector target kind (oomol/self_hosted), the identity source (personal/flag/config), and whether the listing was scoped to all apps or one service, without app ids, connection names, account labels, team names, or server URLs.",
     },
     "connector.login": {
         kind: "properties",
@@ -165,7 +165,7 @@ const commandTelemetryDecisions = {
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/config), and none/connectionName selector mode without the organization name or connection name value.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/config), and none/connectionName selector mode without the team name or connection name value.",
     },
     "connector.proxy": {
         kind: "properties",
@@ -178,7 +178,7 @@ const commandTelemetryDecisions = {
             "identity_source",
             "method",
         ],
-        reason: "Records connector proxy bucketed payload size, method enum, identity source, stable error code, and HTTP status without service name, endpoint, headers, body, or organization name.",
+        reason: "Records connector proxy bucketed payload size, method enum, identity source, stable error code, and HTTP status without service name, endpoint, headers, body, or team name.",
     },
     "connector.search": {
         kind: "properties",
@@ -268,27 +268,27 @@ const commandTelemetryDecisions = {
         properties: ["account_count_bucket"],
         reason: "Top-level auth alias records the same safe auth dimensions as auth.logout.",
     },
-    "org": {
+    "team": {
         kind: "generic",
-        reason: "Command group; child commands record organization dimensions where safe.",
+        reason: "Command group; child commands record team dimensions where safe.",
     },
-    "org.list": {
+    "team.list": {
         kind: "properties",
         properties: ["result_count_bucket"],
-        reason: "Records the bounded accessible-organization count without organization names or ids.",
+        reason: "Records the bounded accessible-team count without team names or ids.",
     },
-    "org.current": {
+    "team.current": {
         kind: "properties",
-        properties: ["has_configured_org"],
-        reason: "Records whether a default organization identity is configured, without the organization name.",
+        properties: ["has_configured_team"],
+        reason: "Records whether a default team identity is configured, without the team name.",
     },
-    "org.use": {
+    "team.use": {
         kind: "generic",
-        reason: "Generic command telemetry is enough; the organization name is never recorded.",
+        reason: "Generic command telemetry is enough; the team name is never recorded.",
     },
-    "org.clear": {
+    "team.clear": {
         kind: "generic",
-        reason: "Generic command telemetry is enough; no organization details are recorded.",
+        reason: "Generic command telemetry is enough; no team details are recorded.",
     },
     "search": {
         kind: "properties",
