@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
 import { createTerminalColors } from "../../terminal-colors.ts";
-import { formatOrganizationsAsText } from "./list.ts";
+import { formatTeamsAsText } from "./list.ts";
 
-type OrgListRow = Parameters<typeof formatOrganizationsAsText>[0][number];
+type TeamListRow = Parameters<typeof formatTeamsAsText>[0][number];
 
 const greenOpenCode = "[32m";
 
-describe("formatOrganizationsAsText", () => {
-    test("marks the current default organization with a green check", () => {
-        const output = formatOrganizationsAsText(
-            [sampleOrg({ current: true, name: "acme", role: "creator" })],
+describe("formatTeamsAsText", () => {
+    test("marks the current default team with a green check", () => {
+        const output = formatTeamsAsText(
+            [sampleTeam({ current: true, name: "acme", role: "creator" })],
             createTranslatorStub(),
             createTerminalColors(true),
         );
@@ -22,10 +22,10 @@ describe("formatOrganizationsAsText", () => {
     });
 
     test("aligns columns as plain text without escape sequences when colors are disabled", () => {
-        const output = formatOrganizationsAsText(
+        const output = formatTeamsAsText(
             [
-                sampleOrg({ current: true, name: "acme", role: "creator" }),
-                sampleOrg({ current: false, name: "beta", role: "member" }),
+                sampleTeam({ current: true, name: "acme", role: "creator" }),
+                sampleTeam({ current: false, name: "beta", role: "member" }),
             ],
             createTranslatorStub(),
             createTerminalColors(false),
@@ -33,18 +33,18 @@ describe("formatOrganizationsAsText", () => {
         const lines = output.split("\n");
 
         expect(output).not.toContain("[");
-        // The non-current organization renders a dash in the default column.
+        // The non-current team renders a dash in the default column.
         expect(output).toContain("-");
-        // The role column lines up across rows because the organization column
+        // The role column lines up across rows because the team column
         // is padded to a shared width.
         expect(lines[1]!.indexOf("creator")).toBe(lines[2]!.indexOf("member"));
     });
 
-    test("pads wide CJK organization names by display width so later columns stay aligned", () => {
-        const output = formatOrganizationsAsText(
+    test("pads wide CJK team names by display width so later columns stay aligned", () => {
+        const output = formatTeamsAsText(
             [
-                sampleOrg({ name: "钉钉", role: "creator" }),
-                sampleOrg({ name: "AB", role: "member" }),
+                sampleTeam({ name: "钉钉", role: "creator" }),
+                sampleTeam({ name: "AB", role: "member" }),
             ],
             createTranslatorStub(),
             createTerminalColors(false),
@@ -58,21 +58,21 @@ describe("formatOrganizationsAsText", () => {
         );
     });
 
-    test("returns the empty-listing message when there are no organizations", () => {
-        const output = formatOrganizationsAsText(
+    test("returns the empty-listing message when there are no teams", () => {
+        const output = formatTeamsAsText(
             [],
             createTranslatorStub(),
             createTerminalColors(false),
         );
 
-        expect(output).toBe("org.list.text.noOrganizations");
+        expect(output).toBe("team.list.text.noTeams");
     });
 });
 
-function sampleOrg(overrides: Partial<OrgListRow> = {}): OrgListRow {
+function sampleTeam(overrides: Partial<TeamListRow> = {}): TeamListRow {
     return {
         current: false,
-        id: "org-1",
+        id: "team-1",
         name: "acme",
         role: "member",
         ...overrides,

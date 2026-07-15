@@ -33,8 +33,8 @@ const telemetrySettingsReadSchema = z.object(telemetrySettingsShape);
 const telemetrySettingsSchema = z.object(telemetrySettingsShape).strict();
 
 const identitySettingsShape = {
-    // The default organization used to authenticate `oo connector run`.
-    organization: z.string().trim().min(1).optional(),
+    // The default team used to authenticate `oo connector run`.
+    team: z.string().trim().min(1).optional(),
 };
 
 const identitySettingsReadSchema = z.object(identitySettingsShape);
@@ -110,12 +110,12 @@ const defaultSettingsCommentBlocks = [
         "# dismissed = [\"oo-gmail\"]",
     ],
     [
-        "# identity.organization sets the default organization used to authenticate `oo connector run`.",
+        "# identity.team sets the default team used to authenticate `oo connector run`.",
         "# Default: unset (runs under your personal identity).",
-        "# Supported values: any non-empty organization name.",
-        "# Override per run with `--organization <name>` (alias `--org`), or force personal with `--personal`.",
+        "# Supported values: any non-empty team name.",
+        "# Override per run with `--team <name>`, or force personal with `--personal`.",
         "# [identity]",
-        "# organization = \"acme\"",
+        "# team = \"acme\"",
     ],
 ] as const;
 
@@ -143,9 +143,9 @@ export function renderSettingsFile(settings: AppSettings): string {
         };
     }
 
-    if (parsedSettings.identity?.organization !== undefined) {
+    if (parsedSettings.identity?.team !== undefined) {
         persistedSettings.identity = {
-            organization: parsedSettings.identity.organization,
+            team: parsedSettings.identity.team,
         };
     }
 
@@ -243,13 +243,13 @@ export function unsetTelemetryEnabled(
     return deleteNestedProperty(settings, ["telemetry", "enabled"]);
 }
 
-export function getConfiguredIdentityOrganization(
+export function getConfiguredIdentityTeam(
     settings: AppSettings,
 ): string | undefined {
-    return settings.identity?.organization;
+    return settings.identity?.team;
 }
 
-export function setIdentityOrganization(
+export function setIdentityTeam(
     settings: AppSettings,
     value: string,
 ): AppSettings {
@@ -257,19 +257,19 @@ export function setIdentityOrganization(
         ...settings,
         identity: {
             ...settings.identity,
-            organization: value,
+            team: value,
         },
     };
 }
 
-export function unsetIdentityOrganization(
+export function unsetIdentityTeam(
     settings: AppSettings,
 ): AppSettings {
-    if (settings.identity?.organization === undefined) {
+    if (settings.identity?.team === undefined) {
         return settings;
     }
 
-    return deleteNestedProperty(settings, ["identity", "organization"]);
+    return deleteNestedProperty(settings, ["identity", "team"]);
 }
 
 export function isSkillRecommendationsMuted(settings: AppSettings): boolean {

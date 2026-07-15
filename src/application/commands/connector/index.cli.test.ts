@@ -513,12 +513,11 @@ describe("connectorCommand CLI", () => {
             expect(help).toContain(
                 "Submit an async action and wait for its result action",
             );
-            expect(result.stdout).toContain("--organization");
-            expect(result.stdout).toContain("--org ");
+            expect(result.stdout).toContain("--team");
             expect(result.stdout).toContain("--personal");
             expect(result.stdout).toContain("--connection-name");
             expect(help).toContain(
-                "Run the action under the given organization identity",
+                "Run the action under the given team identity",
             );
             expect(help).toContain(
                 "Run the action with the connector app connection name",
@@ -543,7 +542,7 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("--query");
             expect(result.stdout).toContain("--headers");
             expect(result.stdout).toContain("--body");
-            expect(result.stdout).toContain("--organization");
+            expect(result.stdout).toContain("--team");
             expect(result.stdout).toContain("--personal");
             expect(help).toContain(
                 "Proxy a provider API request through a connected connector app",
@@ -556,7 +555,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("supports connector proxy with split request options and organization identity", async () => {
+    test("supports connector proxy with split request options and team identity", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -578,7 +577,7 @@ describe("connectorCommand CLI", () => {
                     "{\"accept\":\"application/json\"}",
                     "--body",
                     "{\"query\":\"hello\"}",
-                    "--organization",
+                    "--team",
                     "acme",
                     "--json",
                 ],
@@ -630,7 +629,7 @@ describe("connectorCommand CLI", () => {
             expect(requests).toHaveLength(1);
             expect(requests[0]?.method).toBe("POST");
             expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
             await expect(requests[0]?.json()).resolves.toEqual({
                 body: {
                     query: "hello",
@@ -656,7 +655,7 @@ describe("connectorCommand CLI", () => {
             expect(telemetryPayload?.properties).not.toHaveProperty("body");
             expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
             expect(telemetryPayload?.properties).not.toHaveProperty("headers");
-            expect(telemetryPayload?.properties).not.toHaveProperty("organization");
+            expect(telemetryPayload?.properties).not.toHaveProperty("team");
             expect(telemetryPayload?.properties).not.toHaveProperty("service");
         }
         finally {
@@ -1270,7 +1269,7 @@ describe("connectorCommand CLI", () => {
             expect(connectorHelp.stdout).toContain("apps");
             expect(appsHelp.exitCode).toBe(0);
             expect(appsHelp.stdout).toContain("--json");
-            expect(appsHelp.stdout).toContain("--organization");
+            expect(appsHelp.stdout).toContain("--team");
             expect(appsHelp.stdout).toContain("--personal");
             expect(appsHelp.stdout).toContain("List connected connector apps");
             expect(appsHelp.stdout).not.toContain("disconnect");
@@ -1338,7 +1337,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/apps?status=active",
             );
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
             expect(JSON.parse(result.stdout)).toEqual([
                 {
                     accountLabel: "user@example.com",
@@ -1431,7 +1430,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("lists every connected connector app under an organization identity", async () => {
+    test("lists every connected connector app under a team identity", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -1439,7 +1438,7 @@ describe("connectorCommand CLI", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["connector", "apps", "--organization", "acme", "--json"],
+                ["connector", "apps", "--team", "acme", "--json"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -1459,7 +1458,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/apps?status=active",
             );
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "connector.apps",
@@ -1467,19 +1466,19 @@ describe("connectorCommand CLI", () => {
                     list_scope: "all",
                 },
             });
-            expect(telemetryPayload?.properties).not.toHaveProperty("organization");
+            expect(telemetryPayload?.properties).not.toHaveProperty("team");
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("lists every connected connector app under the configured default organization", async () => {
+    test("lists every connected connector app under the configured default team", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.organization", "acme"]);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
 
             const requests: Request[] = [];
             const result = await sandbox.run(
@@ -1499,7 +1498,7 @@ describe("connectorCommand CLI", () => {
                 .find(payload => payload?.properties?.command_full === "connector.apps");
 
             expect(result.exitCode).toBe(0);
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
             expect(appsTelemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "config",
@@ -1512,7 +1511,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("applies the organization identity to the by-service apps listing", async () => {
+    test("applies the team identity to the by-service apps listing", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -1520,7 +1519,7 @@ describe("connectorCommand CLI", () => {
 
             const requests: Request[] = [];
             const result = await sandbox.run(
-                ["connector", "apps", "gmail", "--organization", "acme", "--json"],
+                ["connector", "apps", "gmail", "--team", "acme", "--json"],
                 {
                     fetcher: async (input, init) => {
                         requests.push(toRequest(input, init));
@@ -1539,7 +1538,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/apps/services/gmail",
             );
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "flag",
@@ -1560,7 +1559,7 @@ describe("connectorCommand CLI", () => {
 
             let requestCount = 0;
             const result = await sandbox.run(
-                ["connector", "apps", "--organization", "acme", "--personal"],
+                ["connector", "apps", "--team", "acme", "--personal"],
                 {
                     fetcher: async () => {
                         requestCount += 1;
@@ -1572,7 +1571,7 @@ describe("connectorCommand CLI", () => {
 
             expect(result.exitCode).toBe(2);
             expect(result.stderr).toContain(
-                "Use either --organization or --personal, not both.",
+                "Use either --team or --personal, not both.",
             );
             expect(requestCount).toBe(0);
         }
@@ -1647,7 +1646,7 @@ describe("connectorCommand CLI", () => {
             expect(requests).toHaveLength(1);
             expect(requests[0]?.url).toBe("http://localhost:3000/v1/apps?status=active");
             expect(requests[0]?.headers.get("Authorization")).toBe("Bearer oct_test");
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     connector_kind: "self_hosted",
@@ -1661,7 +1660,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("rejects --organization for a self-hosted connector when listing apps", async () => {
+    test("rejects --team for a self-hosted connector when listing apps", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -1672,7 +1671,7 @@ describe("connectorCommand CLI", () => {
 
             let requestCount = 0;
             const result = await sandbox.run(
-                ["connector", "apps", "--organization", "acme", "--json"],
+                ["connector", "apps", "--team", "acme", "--json"],
                 {
                     fetcher: async () => {
                         requestCount += 1;
@@ -1684,7 +1683,7 @@ describe("connectorCommand CLI", () => {
 
             expect(result.exitCode).toBe(2);
             expect(result.stderr).toContain(
-                "The --organization option is not supported by a self-hosted connector.",
+                "The --team option is not supported by a self-hosted connector.",
             );
             expect(requestCount).toBe(0);
         }
@@ -4590,7 +4589,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("runs a connector action under an organization identity from --organization", async () => {
+    test("runs a connector action under a team identity from --team", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -4607,7 +4606,7 @@ describe("connectorCommand CLI", () => {
                     "send_mail",
                     "-d",
                     "{\"to\":\"foo@bar.com\"}",
-                    "--organization",
+                    "--team",
                     "acme",
                     "--json",
                 ],
@@ -4638,21 +4637,21 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "connector.run",
                     identity_source: "flag",
                 },
             });
-            expect(telemetryPayload?.properties).not.toHaveProperty("organization");
+            expect(telemetryPayload?.properties).not.toHaveProperty("team");
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("accepts the --org alias and keeps the action schema request identity-free", async () => {
+    test("keeps the action schema request identity-free while the run carries the team identity", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -4668,7 +4667,7 @@ describe("connectorCommand CLI", () => {
                     "send_mail",
                     "-d",
                     "{\"to\":\"foo@bar.com\"}",
-                    "--org",
+                    "--team",
                     "acme",
                     "--json",
                 ],
@@ -4722,26 +4721,26 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
-            // The run POST carries the organization identity.
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            // The run POST carries the team identity.
             expect(requests[1]?.method).toBe("POST");
             expect(requests[1]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[1]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("acme");
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("uses the configured default organization when no identity flag is provided", async () => {
+    test("uses the configured default team when no identity flag is provided", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
-            await sandbox.run(["config", "set", "identity.organization", "acme"]);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
 
             const requests: Request[] = [];
             const result = await sandbox.run(
@@ -4781,7 +4780,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
             expect(runTelemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "config",
@@ -4793,13 +4792,13 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("forces the personal identity with --personal even when a default organization is configured", async () => {
+    test("forces the personal identity with --personal even when a default team is configured", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
             await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
-            await sandbox.run(["config", "set", "identity.organization", "acme"]);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
 
             const requests: Request[] = [];
             const result = await sandbox.run(
@@ -4840,7 +4839,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe(
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
-            expect(requests[0]?.headers.get("x-oo-organization-name")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
             expect(runTelemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "personal",
@@ -4852,7 +4851,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("rejects an empty --organization value before sending requests", async () => {
+    test("rejects an empty --team value before sending requests", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -4866,7 +4865,7 @@ describe("connectorCommand CLI", () => {
                     "send_mail",
                     "-d",
                     "{\"to\":\"foo@bar.com\"}",
-                    "--organization",
+                    "--team",
                     "   ",
                     "--json",
                 ],
@@ -4887,7 +4886,7 @@ describe("connectorCommand CLI", () => {
             expect(result.exitCode).toBe(2);
             expect(result.stdout).toBe("");
             expect(result.stderr).toContain(
-                "The --organization value cannot be empty.",
+                "The --team value cannot be empty.",
             );
             expect(requestCount).toBe(0);
         }
@@ -4896,7 +4895,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("rejects combining --organization and --personal before sending requests", async () => {
+    test("rejects combining --team and --personal before sending requests", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -4910,7 +4909,7 @@ describe("connectorCommand CLI", () => {
                     "send_mail",
                     "-d",
                     "{\"to\":\"foo@bar.com\"}",
-                    "--organization",
+                    "--team",
                     "acme",
                     "--personal",
                     "--json",
@@ -4932,7 +4931,7 @@ describe("connectorCommand CLI", () => {
             expect(result.exitCode).toBe(2);
             expect(result.stdout).toBe("");
             expect(result.stderr).toContain(
-                "Use either --organization or --personal, not both.",
+                "Use either --team or --personal, not both.",
             );
             expect(requestCount).toBe(0);
         }
@@ -5128,7 +5127,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("rejects --organization for a self-hosted connector before any request", async () => {
+    test("rejects --team for a self-hosted connector before any request", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -5147,7 +5146,7 @@ describe("connectorCommand CLI", () => {
                     "send_mail",
                     "-d",
                     "{\"to\":\"foo@bar.com\"}",
-                    "--organization",
+                    "--team",
                     "acme",
                     "--json",
                 ],
@@ -5168,7 +5167,7 @@ describe("connectorCommand CLI", () => {
             expect(result.exitCode).toBe(2);
             expect(result.stdout).toBe("");
             expect(result.stderr).toContain(
-                "The --organization option is not supported by a self-hosted connector.",
+                "The --team option is not supported by a self-hosted connector.",
             );
             expect(requestCount).toBe(0);
         }

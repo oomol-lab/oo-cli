@@ -214,58 +214,55 @@ and `--api-key <api-key>` options.
 
 Alias for `oo auth logout`.
 
-## Organizations
+## Teams
 
-Organization identity lets connector commands (`oo connector run`, `oo connector
-proxy`, `oo connector apps`) act as an organization instead of your personal
-account, selected per run with `--organization <name>` or as a default with the
-`identity.organization` config key. These commands help discover which
-organizations your account can use and manage that default. They apply to OOMOL
-accounts only and are not available when only a self-hosted connector is
-configured.
+Team identity lets connector commands (`oo connector run`, `oo connector proxy`,
+`oo connector apps`) act as a team instead of your personal account, selected
+per run with `--team <name>` or as a default with the `identity.team` config
+key. These commands help discover which teams your account can use and manage
+that default. They apply to OOMOL accounts only and are not available when only
+a self-hosted connector is configured.
 
-### `oo org list`
+### `oo team list`
 
-List the organizations the active account can authenticate as. This command is
+List the teams the active account can authenticate as. This command is
 read-only.
 
 - Options: `--format=json` and `--json` print a JSON array.
 - Output: JSON entries include the stable CLI fields `name`, `id`, `role`, and
-  `current`. `role` is `creator` or `member`. `current` is `true` for the
-  organization that matches the `identity.organization` default.
-- Output: pass the `name` value to `--organization <name>` (or `oo org use
-  <name>`).
-- Output: text output prints one column-aligned row per organization and marks
-  the current default. When the account has no organizations, it reports that
-  connector commands run under your personal identity.
+  `current`. `role` is `creator` or `member`. `current` is `true` for the team
+  that matches the `identity.team` default.
+- Output: pass the `name` value to `--team <name>` (or `oo team use <name>`).
+- Output: text output prints one column-aligned row per team and marks the
+  current default. When the account has no teams, it reports that connector
+  commands run under your personal identity.
 
-### `oo org current`
+### `oo team current`
 
-Show the default organization identity (`identity.organization`) used by
-connector commands when no `--organization` / `--personal` flag is given. This
-command is offline and does not make a network request.
+Show the default team identity (`identity.team`) used by connector commands
+when no `--team` / `--personal` flag is given. This command is offline and does
+not make a network request.
 
 - Options: `--format=json` and `--json` print a JSON object.
-- Output: JSON is `{ "organization": "<name>" }`, or `{ "organization": null }`
-  when no default is configured.
+- Output: JSON is `{ "team": "<name>" }`, or `{ "team": null }` when no default
+  is configured.
 
-### `oo org use <name>`
+### `oo team use <name>`
 
-Set the default organization identity to `<name>` after checking the active
-account can access it.
+Set the default team identity to `<name>` after checking the active account can
+access it.
 
-- Arguments: `<name>` is the organization name, as shown by `oo org list`.
-- Behavior: the name is validated against the organizations the account can
-  access; an inaccessible name is rejected with exit `1` and the default is left
-  unchanged. On success it is persisted to the `identity.organization` config
-  key.
+- Arguments: `<name>` is the team name, as shown by `oo team list`.
+- Behavior: the name is validated against the teams the account can access; an
+  inaccessible name is rejected with exit `1` and the default is left unchanged.
+  On success it is persisted to the `identity.team` config key.
 
-### `oo org clear`
+### `oo team clear`
 
-Clear the default organization identity so connector commands run under your
-personal identity. This command is offline.
+Clear the default team identity so connector commands run under your personal
+identity. This command is offline.
 
-- Behavior: removes the `identity.organization` config key. When no default is
+- Behavior: removes the `identity.team` config key. When no default is
   configured it reports that connector commands already run under your personal
   identity.
 
@@ -333,7 +330,7 @@ List persisted configuration values that are currently set.
 Read one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.organization`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.team`.
 
 ### `oo config path`
 
@@ -344,7 +341,7 @@ Print the path to the persisted configuration file.
 Persist one configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.organization`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.team`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
 - Value rules: for `file.download.out_dir`, use any non-empty path string. Relative
@@ -355,9 +352,9 @@ Persist one configuration value.
   are rejected. Setting `telemetry.enabled` to `false` also attempts to purge
   pending telemetry events immediately and the current `config set` invocation is
   not recorded as telemetry.
-- Value rules: for `identity.organization`, use any non-empty organization name.
-  It sets the default organization identity used by `oo connector run` and
-  `oo connector proxy` when neither `--organization` nor `--personal` is
+- Value rules: for `identity.team`, use any non-empty team name.
+  It sets the default team identity used by `oo connector run` and
+  `oo connector proxy` when neither `--team` nor `--personal` is
   passed.
 
 ### `oo config unset <key>`
@@ -365,7 +362,7 @@ Persist one configuration value.
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.organization`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.team`.
 
 ## Telemetry
 
@@ -712,14 +709,12 @@ Validate input data and run one connector action.
 - Options: `--wait-result` submits an async submit action and then polls its
   configured result action. This option is only valid when the selected action
   schema declares an async submit lifecycle.
-- Options: `--organization <name>` runs the action under the given organization
-  identity instead of your personal identity. `--org <name>` is an alias for
-  `--organization <name>`. When omitted, the action runs under the
-  `identity.organization` config default if set, otherwise your personal
-  identity.
+- Options: `--team <name>` runs the action under the given team identity
+  instead of your personal identity. When omitted, the action runs under the
+  `identity.team` config default if set, otherwise your personal identity.
 - Options: `--personal` runs the action under your personal identity and
-  ignores any configured default organization. It cannot be combined with
-  `--organization`.
+  ignores any configured default team. It cannot be combined with
+  `--team`.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.
@@ -740,8 +735,8 @@ Validate input data and run one connector action.
   before executing.
 - Notes: while waiting for an async result action in text mode, interactive
   terminals show progress on stderr. JSON output does not include progress text.
-- Notes: against a self-hosted connector, `--organization` is rejected with
-  exit `2`, a configured `identity.organization` default is ignored, and
+- Notes: against a self-hosted connector, `--team` is rejected with
+  exit `2`, a configured `identity.team` default is ignored, and
   `--personal` is accepted. `--wait` and `--wait-result` fail with the
   existing unsupported errors because the self-hosted runtime does not expose
   the async lifecycle contract.
@@ -754,14 +749,12 @@ read-only.
 - Arguments: `[serviceName]` is optional. When omitted, the command lists every
   connected app across all providers. When provided, the listing is scoped to
   that one service.
-- Options: `--organization <name>` lists connected apps under the given
-  organization identity instead of your personal identity. `--org <name>` is an
-  alias for `--organization <name>`. When omitted, the listing uses the
-  `identity.organization` config default if set, otherwise your personal
-  identity.
+- Options: `--team <name>` lists connected apps under the given team identity
+  instead of your personal identity. When omitted, the listing uses the
+  `identity.team` config default if set, otherwise your personal identity.
 - Options: `--personal` lists connected apps under your personal identity and
-  ignores any configured default organization. It cannot be combined with
-  `--organization`.
+  ignores any configured default team. It cannot be combined with
+  `--team`.
 - Options: `--format=json` and `--json` print a JSON array.
 - Output: JSON entries include the stable CLI fields `service`,
   `connectionName`, `displayName`, `accountLabel`, `status`, `authType`,
@@ -775,8 +768,8 @@ read-only.
   plain aligned text.
 - Notes: use the listed `connectionName` value with
   `oo connector run <serviceName> --connection-name <connection-name>`.
-- Notes: against a self-hosted connector, `--organization` is rejected with exit
-  `2`, a configured `identity.organization` default is ignored, and `--personal`
+- Notes: against a self-hosted connector, `--team` is rejected with exit
+  `2`, a configured `identity.team` default is ignored, and `--personal`
   is accepted.
 
 ### `oo connector proxy <serviceName>`
@@ -804,14 +797,12 @@ Proxy a provider API request through a connected connector app.
   options.
 - Options: `--body` is parsed as JSON. To send a text body, pass a JSON string
   such as `"hello"`.
-- Options: `--organization <name>` runs the proxy request under the given
-  organization identity instead of your personal identity. `--org <name>` is an
-  alias for `--organization <name>`. When omitted, the request runs under the
-  `identity.organization` config default if set, otherwise your personal
-  identity.
+- Options: `--team <name>` runs the proxy request under the given team identity
+  instead of your personal identity. When omitted, the request runs under the
+  `identity.team` config default if set, otherwise your personal identity.
 - Options: `--personal` runs the proxy request under your personal identity and
-  ignores any configured default organization. It cannot be combined with
-  `--organization`.
+  ignores any configured default team. It cannot be combined with
+  `--team`.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON output keeps the stable shape
   `{ data: { status, headers, data }, meta: { executionId, service } }`.
@@ -822,8 +813,8 @@ Proxy a provider API request through a connected connector app.
 - Notes: `oo connector proxy` does not use connector action schemas or schema
   cache. Use it when the selected connector supports proxy execution and no
   purpose-built connector action is available.
-- Notes: against a self-hosted connector, `--organization` is rejected with
-  exit `2` and a configured `identity.organization` default is ignored. Proxy
+- Notes: against a self-hosted connector, `--team` is rejected with
+  exit `2` and a configured `identity.team` default is ignored. Proxy
   execution depends on server support; the open-source runtime currently
   returns an error.
 

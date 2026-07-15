@@ -168,17 +168,16 @@ Facts:
 A connector action or proxy request runs under one identity. Pick it from what
 the user said:
 
-- If the user does not mention any organization, run under their personal
-  identity: add nothing extra. This is the default.
-- If the user asks to run as a specific organization (for example "run this as
-  Acme" or "use my Acme org"), add `--organization "<name>"` (the `--org`
-  alias is equivalent), using the organization name the user gave:
+- If the user does not mention any team, run under their personal identity: add
+  nothing extra. This is the default.
+- If the user asks to run as a specific team (for example "run this as Acme" or
+  "use my Acme team"), add `--team "<name>"`, using the team name the user gave:
 
 ```bash
 oo connector run "<serviceName>" \
   --action "<actionName>" \
   --data '<json object>' \
-  --organization "<organizationName>" \
+  --team "<teamName>" \
   --json
 ```
 
@@ -188,20 +187,20 @@ For proxy requests, use the same identity option:
 oo connector proxy "<serviceName>" \
   --endpoint "<provider-endpoint-path>" \
   --method GET \
-  --organization "<organizationName>" \
+  --team "<teamName>" \
   --json
 ```
 
-- If the user has a configured default organization but explicitly asks for this
-  one run to be personal, add `--personal`.
+- If the user has a configured default team but explicitly asks for this one run
+  to be personal, add `--personal`.
 
 Facts:
 
-- `--organization` and `--personal` cannot be combined.
-- Do not guess an organization name. If the user is vague about which
-  organization to use, ask before running.
+- `--team` and `--personal` cannot be combined.
+- Do not guess a team name. If the user is vague about which team to use, ask
+  before running.
 - The action schema itself is identity-independent, so `oo connector schema`
-  never needs an organization argument.
+  never needs a team argument.
 
 Expected execution JSON:
 

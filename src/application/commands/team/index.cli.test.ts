@@ -13,77 +13,77 @@ import {
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 
-const organizationsResponse = {
-    organizations: [
+const teamsResponse = {
+    teams: [
         {
-            id: "org-1",
+            id: "team-1",
             name: "acme",
             avatar: "",
             creator_user_id: "user-1",
             role: "creator",
         },
         {
-            id: "org-2",
+            id: "team-2",
             name: "beta",
             role: "member",
         },
     ],
 };
 
-describe("orgCommand CLI", () => {
-    test("lists accessible organizations as JSON and marks the configured default", async () => {
+describe("teamCommand CLI", () => {
+    test("lists accessible teams as JSON and marks the configured default", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.organization", "acme"]);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
 
             const requests: Request[] = [];
-            const result = await sandbox.run(["org", "list", "--json"], {
+            const result = await sandbox.run(["team", "list", "--json"], {
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init));
 
-                    return new Response(JSON.stringify(organizationsResponse));
+                    return new Response(JSON.stringify(teamsResponse));
                 },
             });
             const telemetryPayload = readTelemetryRowsForTest(
                 join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
             )
                 .map(row => parseTelemetryRowPayload(row))
-                .find(payload => payload?.properties?.command_full === "org.list");
+                .find(payload => payload?.properties?.command_full === "team.list");
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(requests).toHaveLength(1);
             expect(requests[0]?.url).toBe(
-                "https://org-control.oomol.com/v1/me/organizations",
+                "https://relation-control.oomol.com/v1/me/teams",
             );
             expect(requests[0]?.headers.get("authorization")).toBe("secret-1");
             expect(JSON.parse(result.stdout)).toEqual([
-                { name: "acme", id: "org-1", role: "creator", current: true },
-                { name: "beta", id: "org-2", role: "member", current: false },
+                { name: "acme", id: "team-1", role: "creator", current: true },
+                { name: "beta", id: "team-2", role: "member", current: false },
             ]);
             expect(telemetryPayload).toMatchObject({
                 properties: {
-                    command_full: "org.list",
+                    command_full: "team.list",
                     result_count_bucket: "1-5",
                 },
             });
-            expect(telemetryPayload?.properties).not.toHaveProperty("organization");
+            expect(telemetryPayload?.properties).not.toHaveProperty("team");
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("renders accessible organizations as an aligned text table", async () => {
+    test("renders accessible teams as an aligned text table", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
 
-            const result = await sandbox.run(["org", "list"], {
-                fetcher: async () => new Response(JSON.stringify(organizationsResponse)),
+            const result = await sandbox.run(["team", "list"], {
+                fetcher: async () => new Response(JSON.stringify(teamsResponse)),
             });
 
             expect(result.exitCode).toBe(0);
@@ -97,14 +97,14 @@ describe("orgCommand CLI", () => {
         }
     });
 
-    test("reports personal identity when the account has no organizations", async () => {
+    test("reports personal identity when the account has no teams", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
 
-            const result = await sandbox.run(["org", "list"], {
-                fetcher: async () => new Response(JSON.stringify({ organizations: [] })),
+            const result = await sandbox.run(["team", "list"], {
+                fetcher: async () => new Response(JSON.stringify({ teams: [] })),
             });
 
             expect(result.exitCode).toBe(0);
@@ -115,16 +115,16 @@ describe("orgCommand CLI", () => {
         }
     });
 
-    test("fails to list organizations without an account", async () => {
+    test("fails to list teams without an account", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             let requested = false;
-            const result = await sandbox.run(["org", "list"], {
+            const result = await sandbox.run(["team", "list"], {
                 fetcher: async () => {
                     requested = true;
 
-                    return new Response(JSON.stringify({ organizations: [] }));
+                    return new Response(JSON.stringify({ teams: [] }));
                 },
             });
 
@@ -136,18 +136,18 @@ describe("orgCommand CLI", () => {
         }
     });
 
-    test("shows the default organization identity via current", async () => {
+    test("shows the default team identity via current", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.organization", "acme"]);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
 
-            const jsonResult = await sandbox.run(["org", "current", "--json"]);
-            const textResult = await sandbox.run(["org", "current"]);
+            const jsonResult = await sandbox.run(["team", "current", "--json"]);
+            const textResult = await sandbox.run(["team", "current"]);
 
             expect(jsonResult.exitCode).toBe(0);
-            expect(JSON.parse(jsonResult.stdout)).toEqual({ organization: "acme" });
+            expect(JSON.parse(jsonResult.stdout)).toEqual({ team: "acme" });
             expect(textResult.stdout).toContain("acme");
         }
         finally {
@@ -161,11 +161,11 @@ describe("orgCommand CLI", () => {
         try {
             await writeAuthFile(sandbox);
 
-            const jsonResult = await sandbox.run(["org", "current", "--json"]);
-            const textResult = await sandbox.run(["org", "current"]);
+            const jsonResult = await sandbox.run(["team", "current", "--json"]);
+            const textResult = await sandbox.run(["team", "current"]);
 
             expect(jsonResult.exitCode).toBe(0);
-            expect(JSON.parse(jsonResult.stdout)).toEqual({ organization: null });
+            expect(JSON.parse(jsonResult.stdout)).toEqual({ team: null });
             expect(textResult.stdout).toContain("personal identity");
         }
         finally {
@@ -173,75 +173,75 @@ describe("orgCommand CLI", () => {
         }
     });
 
-    test("sets the default organization with use after checking membership", async () => {
+    test("sets the default team with use after checking membership", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
 
             const requests: Request[] = [];
-            const useResult = await sandbox.run(["org", "use", "beta"], {
+            const useResult = await sandbox.run(["team", "use", "beta"], {
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init));
 
-                    return new Response(JSON.stringify(organizationsResponse));
+                    return new Response(JSON.stringify(teamsResponse));
                 },
             });
-            const currentResult = await sandbox.run(["org", "current", "--json"]);
+            const currentResult = await sandbox.run(["team", "current", "--json"]);
 
             expect(useResult.exitCode).toBe(0);
             expect(requests).toHaveLength(1);
-            expect(JSON.parse(currentResult.stdout)).toEqual({ organization: "beta" });
+            expect(JSON.parse(currentResult.stdout)).toEqual({ team: "beta" });
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("rejects use for an organization the account cannot access", async () => {
+    test("rejects use for a team the account cannot access", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
 
-            const result = await sandbox.run(["org", "use", "ghost"], {
-                fetcher: async () => new Response(JSON.stringify(organizationsResponse)),
+            const result = await sandbox.run(["team", "use", "ghost"], {
+                fetcher: async () => new Response(JSON.stringify(teamsResponse)),
             });
-            const currentResult = await sandbox.run(["org", "current", "--json"]);
+            const currentResult = await sandbox.run(["team", "current", "--json"]);
 
             expect(result.exitCode).toBe(1);
-            expect(JSON.parse(currentResult.stdout)).toEqual({ organization: null });
+            expect(JSON.parse(currentResult.stdout)).toEqual({ team: null });
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("clears the default organization identity", async () => {
+    test("clears the default team identity", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.organization", "acme"]);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
 
-            const clearResult = await sandbox.run(["org", "clear"]);
-            const currentResult = await sandbox.run(["org", "current", "--json"]);
+            const clearResult = await sandbox.run(["team", "clear"]);
+            const currentResult = await sandbox.run(["team", "current", "--json"]);
 
             expect(clearResult.exitCode).toBe(0);
-            expect(JSON.parse(currentResult.stdout)).toEqual({ organization: null });
+            expect(JSON.parse(currentResult.stdout)).toEqual({ team: null });
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("reports already-personal when clearing with no configured organization", async () => {
+    test("reports already-personal when clearing with no configured team", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
 
-            const result = await sandbox.run(["org", "clear"]);
+            const result = await sandbox.run(["team", "clear"]);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toContain("personal identity");

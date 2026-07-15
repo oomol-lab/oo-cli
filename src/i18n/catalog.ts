@@ -144,21 +144,21 @@ export const enMessages = {
         "Remove the current account from persisted auth data. Alias for auth logout.",
     "commands.logout.summary":
         "Log out the current account (alias for auth logout)",
-    "commands.org.description":
-        "List the organizations your account can access and manage the default organization identity used by connector commands.",
-    "commands.org.summary": "Manage organization identity",
-    "commands.org.list.description":
-        "List the organizations the active account can authenticate as, marking the current default.",
-    "commands.org.list.summary": "List accessible organizations",
-    "commands.org.current.description":
-        "Show the default organization identity used by connector commands when no --organization / --personal flag is given.",
-    "commands.org.current.summary": "Show the default organization identity",
-    "commands.org.use.description":
-        "Set the default organization identity used by connector commands, after checking the account can access it.",
-    "commands.org.use.summary": "Set the default organization identity",
-    "commands.org.clear.description":
-        "Clear the default organization identity so connector commands run under your personal identity.",
-    "commands.org.clear.summary": "Clear the default organization identity",
+    "commands.team.description":
+        "List the teams your account can access and manage the default team identity used by connector commands.",
+    "commands.team.summary": "Manage team identity",
+    "commands.team.list.description":
+        "List the teams the active account can authenticate as, marking the current default.",
+    "commands.team.list.summary": "List accessible teams",
+    "commands.team.current.description":
+        "Show the default team identity used by connector commands when no --team / --personal flag is given.",
+    "commands.team.current.summary": "Show the default team identity",
+    "commands.team.use.description":
+        "Set the default team identity used by connector commands, after checking the account can access it.",
+    "commands.team.use.summary": "Set the default team identity",
+    "commands.team.clear.description":
+        "Clear the default team identity so connector commands run under your personal identity.",
+    "commands.team.clear.summary": "Clear the default team identity",
     "commands.search.description":
         "Search connector actions with one free-form query.",
     "commands.search.summary": "Search connector actions",
@@ -302,8 +302,8 @@ export const enMessages = {
         "Failed to read the auth file at {path}.",
     "errors.authStore.writeFailed":
         "Failed to write the auth file at {path}.",
-    "errors.connector.organizationUnsupported":
-        "The --organization option is not supported by a self-hosted connector.",
+    "errors.connector.teamUnsupported":
+        "The --team option is not supported by a self-hosted connector.",
     "errors.connector.selfHostedUnreachable":
         "Could not reach the self-hosted connector at {url}. Check that the server is running, or run `oo connector login` to reconfigure it.",
     "errors.connectorLogin.invalidToken":
@@ -340,14 +340,14 @@ export const enMessages = {
         "The connector apps request failed: {message}",
     "errors.connectorApps.requestFailed":
         "The connector apps request returned HTTP {status}.",
-    "errors.org.invalidResponse":
-        "The organization list response body is unsupported.",
-    "errors.org.nameEmpty": "The organization name must not be empty.",
-    "errors.org.notAccessible":
-        "The active account cannot access the organization \"{organization}\". Run `oo org list` to see the organizations you can use.",
-    "errors.org.requestError": "The organization list request failed: {message}",
-    "errors.org.requestFailed":
-        "The organization list request returned HTTP {status}.",
+    "errors.team.invalidResponse":
+        "The team list response body is unsupported.",
+    "errors.team.nameEmpty": "The team name must not be empty.",
+    "errors.team.notAccessible":
+        "The active account cannot access the team \"{team}\". Run `oo team list` to see the teams you can use.",
+    "errors.team.requestError": "The team list request failed: {message}",
+    "errors.team.requestFailed":
+        "The team list request returned HTTP {status}.",
     "errors.connectorMetadata.invalidResponse":
         "The connector action metadata response body is unsupported.",
     "errors.connectorMetadata.requestError":
@@ -399,9 +399,9 @@ export const enMessages = {
     "errors.connectorRun.waitModeConflict":
         "Use either --wait or --wait-result, not both.",
     "errors.connectorRun.identityConflict":
-        "Use either --organization or --personal, not both.",
-    "errors.connectorRun.organizationEmpty":
-        "The --organization value cannot be empty.",
+        "Use either --team or --personal, not both.",
+    "errors.connectorRun.teamEmpty":
+        "The --team value cannot be empty.",
     "errors.connectorRun.waitResultActionUnsupported":
         "The result action {action} configured for --wait-result must declare an async result lifecycle.",
     "errors.connectorRun.waitResultUnsupported":
@@ -504,8 +504,8 @@ export const enMessages = {
         "Invalid file.download.out_dir value: {value}. Use a non-empty path.",
     "errors.config.invalidTelemetryEnabledValue":
         "Invalid telemetry.enabled value: {value}. Use true or false.",
-    "errors.config.invalidIdentityOrganizationValue":
-        "Invalid identity.organization value: {value}. Use a non-empty organization name.",
+    "errors.config.invalidIdentityTeamValue":
+        "Invalid identity.team value: {value}. Use a non-empty team name.",
     "errors.skills.invalidName":
         "Unsupported skill: {value}. Use {choices}.",
     "errors.skills.invalidPath":
@@ -901,14 +901,14 @@ export const enMessages = {
         "Submit an async action and wait for its result action",
     "options.connectorRunConnectionName":
         "Run the action with the connector app connection name",
-    "options.connectorAppsOrganization":
-        "List connected apps under the given organization identity (alias: --org)",
+    "options.connectorAppsTeam":
+        "List connected apps under the given team identity",
     "options.connectorAppsPersonal":
-        "List connected apps under your personal identity, ignoring any configured default organization",
-    "options.connectorRunOrganization":
-        "Run the action under the given organization identity (alias: --org)",
+        "List connected apps under your personal identity, ignoring any configured default team",
+    "options.connectorRunTeam":
+        "Run the action under the given team identity",
     "options.connectorRunPersonal":
-        "Run the action under your personal identity, ignoring any configured default organization",
+        "Run the action under your personal identity, ignoring any configured default team",
     "options.connectorLoginToken":
         "Runtime API token for the self-hosted connector (created on the server's /access page)",
     "options.connectorProxyBody":
@@ -921,10 +921,10 @@ export const enMessages = {
         "Specify non-authentication upstream headers as a JSON object",
     "options.connectorProxyMethod":
         "Specify the upstream HTTP method",
-    "options.connectorProxyOrganization":
-        "Run the proxy request under the given organization identity (alias: --org)",
+    "options.connectorProxyTeam":
+        "Run the proxy request under the given team identity",
     "options.connectorProxyPersonal":
-        "Run the proxy request under your personal identity, ignoring any configured default organization",
+        "Run the proxy request under your personal identity, ignoring any configured default team",
     "options.connectorProxyQuery":
         "Specify upstream query parameters as a JSON object",
     "options.debug": "Print the current log file path when the CLI exits",
@@ -1182,7 +1182,7 @@ export const enMessages = {
     "arguments.skills.uninstall.name": "Skill or package name(s) to remove; a package name removes every installed skill that belongs to it",
     "arguments.serviceName": "Service name",
     "arguments.connectorAppsServiceName": "Optional service name; omit to list every connected app",
-    "arguments.orgUseName": "Organization name to use as the default identity",
+    "arguments.teamUseName": "Team name to use as the default identity",
     "arguments.connectorUrl": "Self-hosted connector server URL, for example http://localhost:3000",
     "arguments.actionId": "Action id(s) in the form <service>.<action>, for example cal.create_schedule",
     "arguments.shell": "Target shell",
@@ -1206,19 +1206,19 @@ export const enMessages = {
         "No connector apps were found for this service.",
     "connector.apps.text.service": "Service",
     "connector.apps.text.status": "Status",
-    "org.list.text.organization": "Organization",
-    "org.list.text.role": "Role",
-    "org.list.text.default": "Default",
-    "org.list.text.noOrganizations":
-        "The active account has no organizations; connector commands run under your personal identity.",
-    "org.current.text.configured": "Default organization identity: {organization}",
-    "org.current.text.personal":
-        "No default organization; connector commands run under your personal identity.",
-    "org.use.success": "Set the default organization identity to {organization}.",
-    "org.clear.success":
-        "Cleared the default organization identity; connector commands now run under your personal identity.",
-    "org.clear.alreadyPersonal":
-        "No default organization was set; connector commands already run under your personal identity.",
+    "team.list.text.team": "Team",
+    "team.list.text.role": "Role",
+    "team.list.text.default": "Default",
+    "team.list.text.noTeams":
+        "The active account has no teams; connector commands run under your personal identity.",
+    "team.current.text.configured": "Default team identity: {team}",
+    "team.current.text.personal":
+        "No default team; connector commands run under your personal identity.",
+    "team.use.success": "Set the default team identity to {team}.",
+    "team.clear.success":
+        "Cleared the default team identity; connector commands now run under your personal identity.",
+    "team.clear.alreadyPersonal":
+        "No default team was set; connector commands already run under your personal identity.",
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.login.manageTokens": "Manage runtime tokens at {accessUrl}",
     "connector.login.noToken":
@@ -1425,21 +1425,21 @@ export const zhMessages = {
     "commands.login.summary": "登录 OOMOL 账号（auth login 的别名）",
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
     "commands.logout.summary": "登出当前账号（auth logout 的别名）",
-    "commands.org.description":
-        "列出当前账号可访问的组织，并管理 connector 命令使用的默认组织身份。",
-    "commands.org.summary": "管理组织身份",
-    "commands.org.list.description":
-        "列出当前活动账号可认证的组织，并标出当前默认组织。",
-    "commands.org.list.summary": "列出可访问的组织",
-    "commands.org.current.description":
-        "显示未传 --organization / --personal 时 connector 命令使用的默认组织身份。",
-    "commands.org.current.summary": "显示默认组织身份",
-    "commands.org.use.description":
-        "在确认账号可访问后，设置 connector 命令使用的默认组织身份。",
-    "commands.org.use.summary": "设置默认组织身份",
-    "commands.org.clear.description":
-        "清除默认组织身份，让 connector 命令以个人身份运行。",
-    "commands.org.clear.summary": "清除默认组织身份",
+    "commands.team.description":
+        "列出当前账号可访问的团队，并管理 connector 命令使用的默认团队身份。",
+    "commands.team.summary": "管理团队身份",
+    "commands.team.list.description":
+        "列出当前活动账号可认证的团队，并标出当前默认团队。",
+    "commands.team.list.summary": "列出可访问的团队",
+    "commands.team.current.description":
+        "显示未传 --team / --personal 时 connector 命令使用的默认团队身份。",
+    "commands.team.current.summary": "显示默认团队身份",
+    "commands.team.use.description":
+        "在确认账号可访问后，设置 connector 命令使用的默认团队身份。",
+    "commands.team.use.summary": "设置默认团队身份",
+    "commands.team.clear.description":
+        "清除默认团队身份，让 connector 命令以个人身份运行。",
+    "commands.team.clear.summary": "清除默认团队身份",
     "commands.search.description":
         "使用一个自由文本查询搜索 connector action。",
     "commands.search.summary": "搜索 connector action",
@@ -1569,8 +1569,8 @@ export const zhMessages = {
     "errors.authStore.invalidSchema": "认证文件 {path} 的结构不受支持。",
     "errors.authStore.readFailed": "读取认证文件 {path} 失败。",
     "errors.authStore.writeFailed": "写入认证文件 {path} 失败。",
-    "errors.connector.organizationUnsupported":
-        "自部署 Connector 不支持 --organization 选项。",
+    "errors.connector.teamUnsupported":
+        "自部署 Connector 不支持 --team 选项。",
     "errors.connector.selfHostedUnreachable":
         "无法连接自部署 Connector（{url}）。请确认服务已启动，或运行 `oo connector login` 重新配置。",
     "errors.connectorLogin.invalidToken":
@@ -1601,14 +1601,14 @@ export const zhMessages = {
         "获取 connector app 列表失败：{message}",
     "errors.connectorApps.requestFailed":
         "获取 connector app 列表返回了 HTTP {status}。",
-    "errors.org.invalidResponse":
-        "组织列表返回了不受支持的响应内容。",
-    "errors.org.nameEmpty": "组织名称不能为空。",
-    "errors.org.notAccessible":
-        "当前活动账号无法访问组织 “{organization}”。运行 `oo org list` 查看可用的组织。",
-    "errors.org.requestError": "获取组织列表失败：{message}",
-    "errors.org.requestFailed":
-        "获取组织列表返回了 HTTP {status}。",
+    "errors.team.invalidResponse":
+        "团队列表返回了不受支持的响应内容。",
+    "errors.team.nameEmpty": "团队名称不能为空。",
+    "errors.team.notAccessible":
+        "当前活动账号无法访问团队 “{team}”。运行 `oo team list` 查看可用的团队。",
+    "errors.team.requestError": "获取团队列表失败：{message}",
+    "errors.team.requestFailed":
+        "获取团队列表返回了 HTTP {status}。",
     "errors.connectorMetadata.invalidResponse":
         "connector action 元数据返回了不受支持的响应内容。",
     "errors.connectorMetadata.requestError":
@@ -1660,9 +1660,9 @@ export const zhMessages = {
     "errors.connectorRun.waitModeConflict":
         "--wait 和 --wait-result 只能使用其中一个。",
     "errors.connectorRun.identityConflict":
-        "--organization 和 --personal 只能使用其中一个。",
-    "errors.connectorRun.organizationEmpty":
-        "--organization 的值不能为空。",
+        "--team 和 --personal 只能使用其中一个。",
+    "errors.connectorRun.teamEmpty":
+        "--team 的值不能为空。",
     "errors.connectorRun.waitResultActionUnsupported":
         "--wait-result 配置的结果 action {action} 必须声明异步结果 lifecycle。",
     "errors.connectorRun.waitResultUnsupported":
@@ -1765,8 +1765,8 @@ export const zhMessages = {
         "无效的 file.download.out_dir 值：{value}。请使用非空路径。",
     "errors.config.invalidTelemetryEnabledValue":
         "无效的 telemetry.enabled 值：{value}。请使用 true 或 false。",
-    "errors.config.invalidIdentityOrganizationValue":
-        "无效的 identity.organization 值：{value}。请使用非空的组织名称。",
+    "errors.config.invalidIdentityTeamValue":
+        "无效的 identity.team 值：{value}。请使用非空的团队名称。",
     "errors.skills.invalidName":
         "不支持的 skill：{value}。请使用 {choices}。",
     "errors.skills.invalidPath":
@@ -2157,14 +2157,14 @@ export const zhMessages = {
         "提交异步 action，并等待它的结果 action",
     "options.connectorRunConnectionName":
         "使用指定 connector app 连接名称运行该 action",
-    "options.connectorAppsOrganization":
-        "以指定组织身份列出已连接的 app（别名：--org）",
+    "options.connectorAppsTeam":
+        "以指定团队身份列出已连接的 app",
     "options.connectorAppsPersonal":
-        "以个人身份列出已连接的 app，忽略已配置的默认组织",
-    "options.connectorRunOrganization":
-        "以指定组织身份运行该 action（别名：--org）",
+        "以个人身份列出已连接的 app，忽略已配置的默认团队",
+    "options.connectorRunTeam":
+        "以指定团队身份运行该 action",
     "options.connectorRunPersonal":
-        "以个人身份运行该 action，忽略已配置的默认组织",
+        "以个人身份运行该 action，忽略已配置的默认团队",
     "options.connectorLoginToken":
         "自部署 Connector 的 Runtime API 令牌（在服务的 /access 页面创建）",
     "options.connectorProxyBody":
@@ -2177,10 +2177,10 @@ export const zhMessages = {
         "以 JSON object 指定非认证上游请求头",
     "options.connectorProxyMethod":
         "指定上游 HTTP method",
-    "options.connectorProxyOrganization":
-        "以指定组织身份运行该 proxy 请求（别名：--org）",
+    "options.connectorProxyTeam":
+        "以指定团队身份运行该 proxy 请求",
     "options.connectorProxyPersonal":
-        "以个人身份运行该 proxy 请求，忽略已配置的默认组织",
+        "以个人身份运行该 proxy 请求，忽略已配置的默认团队",
     "options.connectorProxyQuery":
         "以 JSON object 指定上游 query 参数",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
@@ -2435,7 +2435,7 @@ export const zhMessages = {
     "arguments.skills.uninstall.name": "要移除的 skill 或包名（可指定多个）；传入包名会移除该包已安装的全部 skill",
     "arguments.serviceName": "服务名",
     "arguments.connectorAppsServiceName": "可选的服务名；省略时列出全部已连接的 app",
-    "arguments.orgUseName": "用作默认身份的组织名称",
+    "arguments.teamUseName": "用作默认身份的团队名称",
     "arguments.connectorUrl": "自部署 Connector 服务地址，例如 http://localhost:3000",
     "arguments.actionId": "<service>.<action> 形式的 action id（可多个），例如 cal.create_schedule",
     "arguments.shell": "目标 shell",
@@ -2458,19 +2458,19 @@ export const zhMessages = {
         "该服务下未找到 connector app。",
     "connector.apps.text.service": "服务",
     "connector.apps.text.status": "状态",
-    "org.list.text.organization": "组织",
-    "org.list.text.role": "角色",
-    "org.list.text.default": "默认",
-    "org.list.text.noOrganizations":
-        "当前活动账号没有任何组织；connector 命令以个人身份运行。",
-    "org.current.text.configured": "默认组织身份：{organization}",
-    "org.current.text.personal":
-        "未设置默认组织；connector 命令以个人身份运行。",
-    "org.use.success": "已将默认组织身份设置为 {organization}。",
-    "org.clear.success":
-        "已清除默认组织身份；connector 命令现在以个人身份运行。",
-    "org.clear.alreadyPersonal":
-        "未设置默认组织；connector 命令本就以个人身份运行。",
+    "team.list.text.team": "团队",
+    "team.list.text.role": "角色",
+    "team.list.text.default": "默认",
+    "team.list.text.noTeams":
+        "当前活动账号没有任何团队；connector 命令以个人身份运行。",
+    "team.current.text.configured": "默认团队身份：{team}",
+    "team.current.text.personal":
+        "未设置默认团队；connector 命令以个人身份运行。",
+    "team.use.success": "已将默认团队身份设置为 {team}。",
+    "team.clear.success":
+        "已清除默认团队身份；connector 命令现在以个人身份运行。",
+    "team.clear.alreadyPersonal":
+        "未设置默认团队；connector 命令本就以个人身份运行。",
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.login.manageTokens": "可在 {accessUrl} 管理 Runtime Token。",
     "connector.login.noToken":

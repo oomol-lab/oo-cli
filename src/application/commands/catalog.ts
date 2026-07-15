@@ -13,9 +13,9 @@ import { llmCommand } from "./llm/index.ts";
 import { logCommand } from "./log/index.ts";
 import { loginCommand } from "./login.ts";
 import { logoutCommand } from "./logout.ts";
-import { orgCommand } from "./org/index.ts";
 import { searchCommand } from "./search.ts";
 import { skillsCommand } from "./skills/index.ts";
+import { teamCommand } from "./team/index.ts";
 import { telemetryCommand } from "./telemetry/index.ts";
 import { uninstallCommand } from "./uninstall.ts";
 import { updateCommand } from "./update.ts";
@@ -53,7 +53,7 @@ export function createCliCatalog(): CliCatalog {
             llmCommand,
             loginCommand,
             logoutCommand,
-            orgCommand,
+            teamCommand,
             completionCommand,
             configCommand,
             skillsCommand,

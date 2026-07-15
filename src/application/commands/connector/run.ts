@@ -10,7 +10,7 @@ import type { ConnectorTarget } from "./target.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { getConfiguredIdentityOrganization } from "../../schemas/settings.ts";
+import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
@@ -66,7 +66,7 @@ interface ConnectorRunInput {
     data?: string;
     dryRun?: boolean;
     format?: (typeof connectorFormatValues)[number];
-    organization?: string;
+    team?: string;
     personal?: boolean;
     serviceName: string;
     showSchemaVersion?: boolean;
@@ -124,11 +124,10 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             descriptionKey: "options.connectorRunWaitResult",
         },
         {
-            name: "organization",
-            longFlag: "--organization",
-            aliasFlags: ["--org"],
-            valueName: "organization",
-            descriptionKey: "options.connectorRunOrganization",
+            name: "team",
+            longFlag: "--team",
+            valueName: "team",
+            descriptionKey: "options.connectorRunTeam",
         },
         {
             name: "personal",
@@ -143,7 +142,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         data: z.string().optional(),
         dryRun: z.boolean().optional(),
         format: z.enum(connectorFormatValues).optional(),
-        organization: z.string().optional(),
+        team: z.string().optional(),
         personal: z.boolean().optional(),
         serviceName: z.string(),
         showSchemaVersion: z.boolean().optional(),
@@ -158,7 +157,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw new CliUserError("errors.connectorRun.waitModeConflict", 2);
         }
 
-        if (input.personal === true && input.organization !== undefined) {
+        if (input.personal === true && input.team !== undefined) {
             throw new CliUserError("errors.connectorRun.identityConflict", 2);
         }
 
@@ -171,27 +170,27 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         // legacy `x-oo-connector-alias` header.
         const connectionSelector
             = connectionName === undefined ? undefined : { connectionName };
-        const organizationFlag = input.organization?.trim();
-        if (input.organization !== undefined && organizationFlag === "") {
-            throw new CliUserError("errors.connectorRun.organizationEmpty", 2);
+        const teamFlag = input.team?.trim();
+        if (input.team !== undefined && teamFlag === "") {
+            throw new CliUserError("errors.connectorRun.teamEmpty", 2);
         }
 
         const target = await resolveConnectorTarget(context);
 
-        // The self-hosted runtime is single-user and has no organization
-        // concept: an explicit --organization is a hard error, while a
-        // configured `identity.organization` default is silently ignored so a
-        // shared config does not break self-hosted usage.
-        if (target.kind === "self_hosted" && organizationFlag !== undefined) {
-            throw new CliUserError("errors.connector.organizationUnsupported", 2);
+        // The self-hosted runtime is single-user and has no team concept: an
+        // explicit --team is a hard error, while a configured `identity.team`
+        // default is silently ignored so a shared config does not break
+        // self-hosted usage.
+        if (target.kind === "self_hosted" && teamFlag !== undefined) {
+            throw new CliUserError("errors.connector.teamUnsupported", 2);
         }
 
         const settings = await context.settingsStore.read();
         const { identity, source: identitySource } = target.kind === "self_hosted"
             ? { identity: {}, source: "personal" as const }
             : resolveConnectorIdentity({
-                    configOrganization: getConfiguredIdentityOrganization(settings),
-                    organizationFlag,
+                    configTeam: getConfiguredIdentityTeam(settings),
+                    teamFlag,
                     personalFlag: input.personal === true,
                 });
         const inputData = await readJsonInputValue(
