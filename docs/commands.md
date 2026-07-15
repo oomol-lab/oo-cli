@@ -220,8 +220,12 @@ Team identity lets connector commands (`oo connector run`, `oo connector proxy`,
 `oo connector apps`) act as a team instead of your personal account, selected
 per run with `--team <name>` or as a default with the `identity.team` config
 key. These commands help discover which teams your account can use and manage
-that default. They apply to OOMOL accounts only and are not available when only
-a self-hosted connector is configured.
+that default.
+
+`oo team list` and `oo team use` query OOMOL for your team memberships, so they
+require an OOMOL account and are unavailable when only a self-hosted connector
+is configured. `oo team current` and `oo team clear` only read and write local
+settings, so they work regardless.
 
 ### `oo team list`
 

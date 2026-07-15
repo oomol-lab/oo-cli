@@ -168,8 +168,10 @@ Facts:
 A connector action or proxy request runs under one identity. Pick it from what
 the user said:
 
-- If the user does not mention any team, run under their personal identity: add
-  nothing extra. This is the default.
+- If the user does not mention any team, add nothing extra. The run then uses
+  the `identity.team` config default when one is set, and their personal
+  identity otherwise — omitting the flags does not force a personal run. Check
+  `oo team current` when you need to know which one applies.
 - If the user asks to run as a specific team (for example "run this as Acme" or
   "use my Acme team"), add `--team "<name>"`, using the team name the user gave:
 
@@ -192,7 +194,8 @@ oo connector proxy "<serviceName>" \
 ```
 
 - If the user has a configured default team but explicitly asks for this one run
-  to be personal, add `--personal`.
+  to be personal, add `--personal`. This is the only way to force a personal
+  run when a default team is configured.
 
 Facts:
 

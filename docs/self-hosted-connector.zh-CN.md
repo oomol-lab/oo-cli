@@ -158,9 +158,9 @@ oo connector run gmail --action send_email --data '@payload.json'
 
 自部署运行时暴露的能力比 OOMOL 服务更小，CLI 会做如下适配：
 
-- **不支持团队身份。** `oo connector run` 与 `oo connector proxy` 上的 `--team`
-  会以退出码 `2` 被拒绝，任何已配置的 `identity.team` 默认值都会被忽略；
-  `--personal` 可以使用（它本就是实际行为）。
+- **不支持团队身份。** `oo connector run`、`oo connector proxy` 与 `oo connector
+  apps` 上的 `--team` 会以退出码 `2` 被拒绝，任何已配置的 `identity.team` 默认值
+  都会被忽略；`--personal` 可以使用（它本就是实际行为）。
 - **无法等待异步生命周期。** `--wait` 与 `--wait-result` 会以既有的「不支持」
   错误失败，因为自部署运行时未暴露异步结果生命周期契约。
 - **Proxy 取决于服务支持。** 只有当你的服务实现了 proxy 端点时，

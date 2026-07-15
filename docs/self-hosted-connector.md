@@ -178,9 +178,9 @@ A self-hosted runtime exposes a smaller surface than the OOMOL service. The CLI
 adapts as follows:
 
 - **Team identity is not supported.** `--team` is rejected with exit code `2` on
-  `oo connector run` and `oo connector proxy`, and any configured `identity.team`
-  default is ignored. `--personal` is accepted (it is already the effective
-  behavior).
+  `oo connector run`, `oo connector proxy`, and `oo connector apps`, and any
+  configured `identity.team` default is ignored. `--personal` is accepted (it is
+  already the effective behavior).
 - **Async lifecycle waiting is unavailable.** `--wait` and `--wait-result` fail
   with the existing "unsupported" errors because the self-hosted runtime does
   not expose the async result-lifecycle contract.

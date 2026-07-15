@@ -193,7 +193,11 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 团队身份让 connector 命令（`oo connector run`、`oo connector proxy`、`oo connector
 apps`）以某个团队身份运行，而非个人账号：既可用每次运行的 `--team <name>`
 指定，也可用配置项 `identity.team` 设为默认。下列命令用于发现当前账号可用的
-团队并管理该默认值。它们仅适用于 OOMOL 账号；当仅配置了自部署 Connector 时不可用。
+团队并管理该默认值。
+
+`oo team list` 与 `oo team use` 需要向 OOMOL 查询团队成员关系，因此需要 OOMOL
+账号；当仅配置了自部署 Connector 时不可用。`oo team current` 与 `oo team clear`
+仅读写本地配置，不受此限制。
 
 ### `oo team list`
 
