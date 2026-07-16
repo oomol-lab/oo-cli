@@ -48,11 +48,10 @@ instead of an OOMOL account. Detect this mode when either signal appears:
 - `oo auth status --json` shows a top-level `connector` object while `status`
   is not `logged-in`.
 
-Exception: when the `OO_API_KEY` environment variable is set, OOMOL-backed
-capabilities work even if `oo auth status` reports `logged-out`, so do not
-treat that combination as self-hosted-only mode. In practice this rarely
-matters because you should only check auth status after a command has already
-failed with an auth error.
+When the `OO_API_KEY` environment variable supplies the credential,
+`oo auth status` reports `logged-in` with a top-level `envOverride` object and
+no active entry in `accounts[]`. That is an authenticated OOMOL account, not
+self-hosted-only mode.
 
 In this mode, connector commands keep working against the self-hosted server:
 `oo search`, `oo connector search`, `oo connector schema`, `oo connector run`,

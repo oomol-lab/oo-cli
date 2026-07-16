@@ -2,8 +2,9 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { removeCurrentAuthAccount } from "../../schemas/auth.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
+import { buildEnvApiKeyAccount } from "../shared/auth-env-override.ts";
 import { writeLine } from "../shared/output.ts";
-import { emptyAuthCommandInputSchema } from "./shared.ts";
+import { emptyAuthCommandInputSchema, writeAuthBlock } from "./shared.ts";
 
 export const authLogoutCommand: CliCommandDefinition = {
     name: "logout",
@@ -11,6 +12,28 @@ export const authLogoutCommand: CliCommandDefinition = {
     descriptionKey: "commands.auth.logout.description",
     inputSchema: emptyAuthCommandInputSchema,
     handler: async (_, context) => {
+        // OO_API_KEY, not auth.toml, is what authenticates every command here,
+        // and this command cannot unset an environment variable. Removing the
+        // saved account would leave the caller just as authenticated as before
+        // while destroying state they never asked to lose, so do nothing and
+        // say so.
+        if (buildEnvApiKeyAccount(context.env) !== undefined) {
+            context.telemetry?.recordProperties({ credential_source: "env" });
+            context.logger.info(
+                {},
+                "Auth logout did nothing: OO_API_KEY provides the active credential.",
+            );
+            writeAuthBlock(context, {
+                tone: "warning",
+                summary: context.translator.t("auth.logout.envOverrideNoop"),
+            });
+            writeLine(
+                context.stdout,
+                context.translator.t("auth.envOverride.unsetHint"),
+            );
+            return;
+        }
+
         let previousCurrentAuthId = "";
         let remainingSavedAccounts = 0;
 
@@ -31,6 +54,7 @@ export const authLogoutCommand: CliCommandDefinition = {
         );
         context.telemetry?.recordProperties({
             account_count_bucket: bucketTelemetryCount(remainingSavedAccounts),
+            credential_source: "file",
         });
 
         writeLine(

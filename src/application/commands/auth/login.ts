@@ -14,6 +14,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { upsertAuthAccount } from "../../schemas/auth.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
+import { buildEnvApiKeyAccount } from "../shared/auth-env-override.ts";
 import { writeLine } from "../shared/output.ts";
 import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
 import {
@@ -78,8 +79,11 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
         const nextAuthFile = await context.authStore.update(authFile =>
             upsertAuthAccount(authFile, account),
         );
+        const hasEnvOverride = buildEnvApiKeyAccount(context.env) !== undefined;
+
         context.telemetry?.recordProperties({
             account_count_bucket: bucketTelemetryCount(nextAuthFile.auth.length),
+            credential_source: hasEnvOverride ? "env" : "file",
         });
         context.logger.info(
             {
@@ -104,6 +108,16 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
                 },
             ],
         });
+
+        // The account is saved, but OO_API_KEY still outranks it everywhere, so
+        // the login block above would otherwise imply an identity that no
+        // command actually uses.
+        if (hasEnvOverride) {
+            writeLine(
+                context.stdout,
+                context.translator.t("auth.login.envOverrideHint"),
+            );
+        }
 
         // Connector routing does not change with this login: a configured
         // self-hosted connector keeps handling connector commands, which is

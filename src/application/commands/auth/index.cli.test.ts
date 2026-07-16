@@ -1573,6 +1573,348 @@ describe("authCommand CLI self-hosted connector login hint", () => {
     });
 });
 
+describe("auth CLI OO_API_KEY override", () => {
+    test("status text reports the env identity and marks no saved account active", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+        sandbox.env.OO_ENDPOINT = "oomol.dev";
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(
+                ["auth", "status"],
+                { fetcher: async () => new Response(null, { status: 200 }) },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Logged in to oomol.dev with the API key from OO_API_KEY",
+            );
+            expect(result.stdout).toContain("API key status: Valid");
+            expect(result.stdout).toContain(
+                "Saved accounts are not in use while OO_API_KEY is set.",
+            );
+            // The saved active id must not win over the env credential.
+            expect(result.stdout).not.toContain("[active]");
+            expect(result.stdout).not.toContain("Not logged in");
+            expect(result.stdout).toContain("Alice");
+            expect(result.stdout).toContain("Bob");
+            expectNoAuthSecrets(result.stdout);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("status text stays compact under OO_API_KEY without saved accounts", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            const result = await sandbox.run(
+                ["auth", "status"],
+                { fetcher: async () => new Response(null, { status: 200 }) },
+            );
+
+            expect(result.exitCode).toBe(0);
+            // The public default applies when OO_ENDPOINT is absent.
+            expect(result.stdout).toContain(
+                "Logged in to oomol.com with the API key from OO_API_KEY",
+            );
+            expect(result.stdout).not.toContain("Accounts:");
+            expect(result.stdout).not.toContain(
+                "Saved accounts are not in use",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("status validates the env credential against the OO_ENDPOINT host", async () => {
+        const sandbox = await createCliSandbox();
+        const requests: Request[] = [];
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+        sandbox.env.OO_ENDPOINT = "oomol.dev";
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(
+                ["auth", "status"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+                        return new Response(null, { status: 200 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            // The saved account's key and host must not be used for validation.
+            expect(requests[0]!.url).toBe("https://api.oomol.dev/v1/users/profile");
+            expect(requests[0]!.headers.get("Authorization")).toBe("env-key-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json exposes the envOverride block and keeps saved accounts inactive", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+        sandbox.env.OO_ENDPOINT = "oomol.dev";
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(
+                ["auth", "status", "--json"],
+                { fetcher: async () => new Response(null, { status: 200 }) },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                status: "logged-in",
+                activeAccountId: "oo-env-override",
+                accounts: [
+                    {
+                        id: "user-1",
+                        name: "Alice",
+                        endpoint: defaultAuthEndpoint,
+                        active: false,
+                    },
+                ],
+                envOverride: {
+                    endpoint: "oomol.dev",
+                    apiKeyStatus: "valid",
+                },
+            });
+            expectNoAuthSecrets(result.stdout);
+            expect(result.stdout).not.toContain("env-key-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json reports logged-in under OO_API_KEY even when the saved active id is stale", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-missing",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(
+                ["auth", "status", "--json"],
+                { fetcher: async () => new Response(null, { status: 200 }) },
+            );
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+
+            expect(result.exitCode).toBe(0);
+            // A stale auth.toml id is irrelevant while the env credential wins.
+            expect(payload.status).toBe("logged-in");
+            expect(payload).not.toHaveProperty("missingAccountId");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("logout does nothing and leaves auth.toml untouched under OO_API_KEY", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            const authFilePath = await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                ],
+            });
+            const before = await readFile(authFilePath, "utf8");
+
+            const result = await sandbox.run(["auth", "logout"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Nothing was logged out: the active credential comes from OO_API_KEY, not from a saved account.",
+            );
+            expect(result.stdout).toContain(
+                "Unset OO_API_KEY to manage saved accounts.",
+            );
+            expect(result.stdout).not.toContain("Logged out the current account.");
+            // The saved account must survive a logout that could not log out.
+            expect(await readFile(authFilePath, "utf8")).toBe(before);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("switch does nothing and leaves auth.toml untouched under OO_API_KEY", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            const authFilePath = await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                    { id: "user-2", name: "Bob", apiKey: "secret-2", endpoint: defaultAuthEndpoint },
+                ],
+            });
+            const before = await readFile(authFilePath, "utf8");
+
+            const result = await sandbox.run(["auth", "switch", "--user", "Bob"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Nothing was switched: the active credential comes from OO_API_KEY, not from a saved account.",
+            );
+            expect(result.stdout).toContain(
+                "Unset OO_API_KEY to manage saved accounts.",
+            );
+            expect(result.stdout).not.toContain("Switched active account");
+            expect(await readFile(authFilePath, "utf8")).toBe(before);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("switch reports the no-op instead of failing when no account is saved", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            const result = await sandbox.run(["auth", "switch"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Nothing was switched");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("login saves the account and warns that OO_API_KEY outranks it", async () => {
+        const sandbox = await createCliSandbox();
+        const apiKey = "secret-api-1";
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+            const result = await sandbox.run(
+                ["auth", "login", "--api-key", apiKey],
+                {
+                    fetcher: async () =>
+                        new Response(JSON.stringify({
+                            displayname: "Kevin Cui",
+                            email: "bh@bugs.cc",
+                            nickname: "Kevin Cui",
+                            uid: "019343c2-c43d-710f-81b2-dfa68d3079de",
+                            username: "BlackHole1",
+                        })),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            // Login still persists the account; only its effect is deferred.
+            expect(await readFile(authFilePath, "utf8")).toContain(
+                "name = \"BlackHole1\"",
+            );
+            expect(result.stdout).toContain(
+                "Commands keep using the API key from OO_API_KEY, not this account. Unset OO_API_KEY to use the account you just saved.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
+
+describe("auth CLI OO_ENDPOINT override", () => {
+    test("status reports and validates the redirected endpoint of a saved account", async () => {
+        const sandbox = await createCliSandbox();
+        const requests: Request[] = [];
+
+        sandbox.env.OO_ENDPOINT = "oomol.dev";
+
+        try {
+            await writeAuthFile(sandbox, {
+                activeId: "user-1",
+                accounts: [
+                    { id: "user-1", name: "Alice", apiKey: "secret-1", endpoint: defaultAuthEndpoint },
+                ],
+            });
+
+            const result = await sandbox.run(
+                ["auth", "status"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+                        return new Response(null, { status: 200 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            // A bare OO_ENDPOINT redirects every other command, so status must
+            // not keep reporting (and validating against) the saved endpoint.
+            expect(result.stdout).toContain("Logged in to oomol.dev account Alice");
+            expect(requests).toHaveLength(1);
+            expect(requests[0]!.url).toBe("https://api.oomol.dev/v1/users/profile");
+            expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
+
+function expectNoAuthSecrets(output: string): void {
+    for (const secret of ["secret-1", "secret-2", "apiKey\"", "api_key"]) {
+        expect(output).not.toContain(secret);
+    }
+}
+
 async function writeCorruptConnectorFile(
     sandbox: { env: Record<string, string | undefined> },
 ): Promise<string> {
