@@ -6,11 +6,16 @@ export const enMessages = {
     "auth.account.activeAccountMissing":
         "The active account is missing from the auth store.",
     "auth.account.loggedIn": "Logged in to {endpoint} account {name}",
+    "auth.envOverride.unsetHint": "Unset OO_API_KEY to manage saved accounts.",
     "auth.login.waiting": "Waiting for the device login to complete...",
+    "auth.login.envOverrideHint":
+        "Commands keep using the API key from OO_API_KEY, not this account. Unset OO_API_KEY to use the account you just saved.",
     "auth.login.selfHostedConnectorHint":
         "Connector commands keep using your self-hosted connector at {url}. Run `oo connector logout` to switch them back to OOMOL.",
     "auth.login.selfHostedConnectorHintEnv":
         "Connector commands keep using your self-hosted connector at {url} (set via OO_CONNECTOR_URL). Unset that variable to switch them back to OOMOL.",
+    "auth.logout.envOverrideNoop":
+        "Nothing was logged out: the active credential comes from OO_API_KEY, not from a saved account.",
     "auth.logout.success": "Logged out the current account.",
     "auth.status.accountActive": "active",
     "auth.status.accountId": "Account ID",
@@ -22,12 +27,17 @@ export const enMessages = {
         "Request failed (network-restricted sandbox, try requesting elevated permissions)",
     "auth.status.apiKeyStatus": "API key status",
     "auth.status.apiKeyValid": "Valid",
+    "auth.status.envOverride": "Logged in to {endpoint} with the API key from OO_API_KEY",
     "auth.status.loggedOut": "Not logged in to any OOMOL account.",
+    "auth.status.savedAccountsIgnored":
+        "Saved accounts are not in use while OO_API_KEY is set.",
     "auth.status.selfHostedConnector": "Self-hosted connector: {url}",
     "auth.status.selfHostedConnectorSource": "Source",
     "auth.status.selfHostedConnectorToken": "Token configured",
     "auth.status.selfHostedConnectorToken.no": "no",
     "auth.status.selfHostedConnectorToken.yes": "yes",
+    "auth.switch.envOverrideNoop":
+        "Nothing was switched: the active credential comes from OO_API_KEY, not from a saved account.",
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
     "commands.auth.description": "Manage CLI authentication accounts.",
     "commands.auth.login.description":
@@ -1296,8 +1306,13 @@ export const zhMessages = {
     "auth.login.openManually": "请在你的浏览器中打开此登录 URL：",
     "auth.account.activeAccountMissing": "当前激活账号不存在于认证数据中。",
     "auth.account.loggedIn": "已登录 {endpoint} 账号 {name}",
+    "auth.envOverride.unsetHint": "如需管理保存的账号，请取消 OO_API_KEY 环境变量。",
     "auth.login.waiting": "正在等待 device login 完成...",
+    "auth.logout.envOverrideNoop":
+        "没有登出任何账号：当前生效的凭证来自 OO_API_KEY，而不是保存的账号。",
     "auth.logout.success": "已登出当前账号。",
+    "auth.login.envOverrideHint":
+        "命令仍会使用 OO_API_KEY 中的 API key，而不是这个账号。取消 OO_API_KEY 后即可使用刚保存的账号。",
     "auth.login.selfHostedConnectorHint":
         "Connector 命令仍会使用你的自部署 Connector（{url}）。运行 `oo connector logout` 可切回 OOMOL。",
     "auth.login.selfHostedConnectorHintEnv":
@@ -1317,7 +1332,11 @@ export const zhMessages = {
         "请求失败（网络受限沙箱，请尝试提权）",
     "auth.status.apiKeyStatus": "API key 状态",
     "auth.status.apiKeyValid": "有效",
+    "auth.status.envOverride": "已使用 OO_API_KEY 中的 API key 登录 {endpoint}",
     "auth.status.loggedOut": "当前没有登录任何 OOMOL 账号。",
+    "auth.status.savedAccountsIgnored": "设置了 OO_API_KEY 时，保存的账号不会被使用。",
+    "auth.switch.envOverrideNoop":
+        "没有切换任何账号：当前生效的凭证来自 OO_API_KEY，而不是保存的账号。",
     "auth.switch.success": "已将 {endpoint} 的当前激活账号切换为 {name}",
     "commands.auth.description": "管理 CLI 的认证账号。",
     "commands.auth.login.description": "通过 device login、session token 或 API key 登录 OOMOL 账号。",

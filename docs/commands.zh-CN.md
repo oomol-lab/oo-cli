@@ -24,9 +24,13 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - `OO_LOG_DIR`：覆盖 debug 日志目录。优先级高于所有平台默认值。
 - `OO_API_KEY`：使用该 API key 执行命令，无需交互式登录。设置后 CLI 会构造一个
   内存账号，不读取、不要求、也不写入 `auth.toml`，且优先级高于任何已保存的账号。
+  由于设置它之后任何已保存账号都不会生效，`oo auth logout` 与 `oo auth switch`
+  会成为空操作并保持 `auth.toml` 不变；`oo auth login` 仍会保存账号，但会说明该
+  变量的优先级高于它。`oo auth status` 会展示该变量提供的身份。
 - `OO_ENDPOINT`：基础域名（例如 `oomol.com` 或 `oomol.dev`），用于派生执行命令的
-  所有服务 URL。它与 `OO_API_KEY` 搭配使用，也会覆盖已保存账号的 endpoint。优先级
-  高于历史遗留的 `OOMOL_ENDPOINT`。
+  所有服务 URL。它与 `OO_API_KEY` 搭配使用，也会覆盖已保存账号的 endpoint，
+  包括 `oo auth status` 展示与校验所用的 endpoint。优先级高于历史遗留的
+  `OOMOL_ENDPOINT`。
 - `OO_CONNECTOR_URL`：自部署 Connector 服务地址。它会覆盖 `oo connector login`
   保存的配置。只有 connector 相关命令（`oo connector
   search/schema/run/proxy/apps` 及顶层 `oo search`）会将请求路由到该地址；
@@ -88,16 +92,27 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - 说明：如果已配置自部署 Connector（`oo connector login`），登录后 connector
   相关命令仍会继续使用它；成功输出会打印一行提示，说明可运行
   `oo connector logout` 切回 OOMOL。
+- 设置了 `OO_API_KEY` 时，登录仍会校验并保存账号，但该变量的优先级依然高于它。
+  成功输出会打印一行提示，说明取消 `OO_API_KEY` 后刚保存的账号才会生效。
 
 ### `oo auth logout`
 
 从持久化认证数据中移除当前账号。
+
+- 设置了 `OO_API_KEY` 时，提供凭证的是该变量而非已保存账号，因此没有任何可登出的
+  对象。命令以 `0` 退出，不修改 `auth.toml`，并说明没有登出任何账号。
 
 ### `oo auth status`
 
 显示已保存的全部认证账号，并校验当前激活账号的 API key 状态。
 
 - 别名：`oo auth info`。
+- 展示的是命令实际生效的身份，它未必是当前激活的已保存账号：`OO_API_KEY`
+  的优先级完全高于 `auth.toml`，`OO_ENDPOINT` 则会重定向已保存账号的 endpoint。
+  展示的 endpoint 就是校验 API key 所使用的 endpoint。
+- 设置了 `OO_API_KEY` 时，状态恒为 `logged-in`（`auth.toml` 中过期的 active id
+  不再有影响），不会有任何已保存账号被标注 `[active]`，文本输出会说明已保存账号
+  不会被使用。
 - 文本输出会在 `Accounts:` 区块下列出所有已保存账号。当前激活账号会标注
   `[active]`，并额外显示其 `API key status`——通过一次 profile 请求向该账号
   对应的 endpoint 校验得到。其它账号不参与校验，所以无论有多少账号，
@@ -145,15 +160,38 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   }
   ```
 
+- 当由 `OO_API_KEY` 提供凭证时，payload 恒为 `logged-in`，并携带一个可选的顶层
+  `envOverride` 字段：
+
+  ```json
+  {
+    "status": "logged-in",
+    "activeAccountId": "oo-env-override",
+    "envOverride": { "endpoint": "oomol.dev", "apiKeyStatus": "valid" },
+    "accounts": [
+      { "id": "user-1", "name": "Alice", "endpoint": "oomol.com", "active": false }
+    ]
+  }
+  ```
+
 - 说明（JSON）：
   - **绝不**输出 `apiKey` 字段；JSON payload 在任何字段下都不包含实际 API key 字符串。
   - `accounts[]` 按原顺序列出本地 auth file 中保存的全部账号，每条 entry 为
     `{ id, name, endpoint, active, apiKeyStatus? }`。
   - `activeAccountId` 是当前激活账号 ID；无可用激活账号时（包括
-    `active-account-missing` 状态）为 `null`。
-  - `accounts[].active` 仅在激活账号上为 `true`。
+    `active-account-missing` 状态）为 `null`。设置了 `OO_API_KEY` 时为稳定的
+    合成 ID `oo-env-override`，它并非已保存账号，因此不会出现在 `accounts[]` 中。
+  - `accounts[].active` 仅在激活账号上为 `true`；设置了 `OO_API_KEY` 时，
+    所有 entry 均为 `false`。
   - `accounts[].apiKeyStatus` 只在激活账号 entry 出现，枚举为
     `valid` / `invalid` / `request_failed` / `request_failed_sandbox`。
+  - `envOverride` 仅在设置了 `OO_API_KEY` 时出现，此时状态恒为 `logged-in`。
+    它报告生效的 `endpoint`（来自 `OO_ENDPOINT`，否则为公有默认值）以及该环境
+    凭证的 `apiKeyStatus`，枚举与 `accounts[].apiKeyStatus` 相同。API key
+    实际内容永远不会被输出。
+  - `accounts[].endpoint` 是 `auth.toml` 中保存的 endpoint。单独设置
+    `OO_ENDPOINT`（不设 `OO_API_KEY`）会重定向文本输出与 API key 校验所用的
+    endpoint，但不会改写该字段。
   - `missingAccountId` 仅在 auth file 记录的 active id 已不存在于
     `accounts[]` 时出现。
   - `connector` 仅在配置了自部署 Connector 时出现，报告已配置的自部署
@@ -177,6 +215,9 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   并提示需要传 account id 进行消歧。account id 是稳定字符串，可通过
   `oo auth status --json` 获取。
 - 当指定的账号已是激活账号时，切换为幂等操作（exit `0`，不改变激活状态）。
+- 设置了 `OO_API_KEY` 时，任何已保存账号都不可能生效，因此切换不会改变后续命令
+  的任何行为。命令以 `0` 退出，不读取也不重写 `auth.toml`，并说明没有切换任何
+  账号。该行为在传与不传 `--user` 时一致，且优先于「没有已保存账号」的报错。
 - 任何输出路径都不会将 API key 写入 stdout/stderr。
 
 ### `oo login`

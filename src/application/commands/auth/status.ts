@@ -7,7 +7,12 @@ import { z } from "zod";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import {
+    applyEndpointOverride,
+    buildEnvApiKeyAccount,
+} from "../shared/auth-env-override.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
+import { writeLine } from "../shared/output.ts";
 import { isNetworkRestrictedSandboxError } from "../shared/request.ts";
 import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
 import {
@@ -28,9 +33,21 @@ const apiKeyStatusConfig = {
 
 type ApiKeyStatus = keyof typeof apiKeyStatusConfig;
 
+/**
+ * Where the credential that commands actually use comes from. `env` means
+ * OO_API_KEY short-circuited auth.toml, so no saved account is in effect.
+ */
+type CredentialSource = "env" | "file";
+
 interface ActiveAccountStatus {
     account: AuthAccount;
     apiKeyStatus: ApiKeyStatus;
+    source: CredentialSource;
+}
+
+interface ResolvedStatusIdentity {
+    account: AuthAccount;
+    source: CredentialSource;
 }
 
 const authStatusFormatValues = ["json"] as const;
@@ -55,11 +72,20 @@ interface AuthStatusJsonConnector {
     source: "env" | "file";
 }
 
+// Present only when OO_API_KEY supplies the credential. The key itself is
+// never emitted; the endpoint and the validation result are enough to explain
+// which identity commands actually run as.
+interface AuthStatusJsonEnvOverride {
+    endpoint: string;
+    apiKeyStatus: ApiKeyStatus;
+}
+
 type AuthStatusJsonPayload
     = | {
         status: "logged-in";
         activeAccountId: string;
         accounts: AuthStatusJsonAccount[];
+        envOverride?: AuthStatusJsonEnvOverride;
         connector?: AuthStatusJsonConnector;
     }
     | {
@@ -92,17 +118,24 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
         // Tolerant lookup: a broken connector.toml must not take down the
         // whole status report; the block is simply omitted.
         const selfHostedConnector = await resolveSelfHostedConnectorTolerantly(context);
+        // Status must describe the identity commands actually run as, which is
+        // what requireCurrentAccount() resolves — not the raw auth.toml
+        // contents. Reporting the file while OO_API_KEY/OO_ENDPOINT redirect
+        // every other command is how status ends up naming the wrong account,
+        // the wrong endpoint, and validating the wrong key.
+        const identity = resolveStatusIdentity(currentAccount, context.env);
 
         context.telemetry?.recordProperties({
             account_count_bucket: bucketTelemetryCount(authFile.auth.length),
+            credential_source: identity?.source ?? "none",
         });
 
         const activeStatus: ActiveAccountStatus | undefined
-            = currentAccount === undefined
+            = identity === undefined
                 ? undefined
                 : {
-                        account: currentAccount,
-                        apiKeyStatus: await readApiKeyStatus(currentAccount, context),
+                        ...identity,
+                        apiKeyStatus: await readApiKeyStatus(identity.account, context),
                     };
 
         if (input.format === "json") {
@@ -119,6 +152,30 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
     },
 };
 
+/**
+ * Mirrors requireCurrentAccount()'s precedence: OO_API_KEY wins outright, then
+ * the active saved account with a bare OO_ENDPOINT applied on top.
+ */
+function resolveStatusIdentity(
+    currentAccount: AuthAccount | undefined,
+    env: CliExecutionContext["env"],
+): ResolvedStatusIdentity | undefined {
+    const envAccount = buildEnvApiKeyAccount(env);
+
+    if (envAccount !== undefined) {
+        return { account: envAccount, source: "env" };
+    }
+
+    if (currentAccount === undefined) {
+        return undefined;
+    }
+
+    return {
+        account: applyEndpointOverride(currentAccount, env),
+        source: "file",
+    };
+}
+
 function buildAuthStatusJsonPayload(
     authFile: AuthFile,
     activeStatus: ActiveAccountStatus | undefined,
@@ -134,7 +191,11 @@ function buildAuthStatusJsonPayload(
                         source: selfHostedConnector.source,
                     },
                 };
-    const activeId = activeStatus?.account.id;
+    // Only a file-sourced identity can mark a saved account active; the
+    // OO_API_KEY account is synthetic and never appears in accounts[].
+    const activeId = activeStatus?.source === "file"
+        ? activeStatus.account.id
+        : undefined;
     const accounts: AuthStatusJsonAccount[] = authFile.auth.map((account) => {
         const isActive = account.id === activeId;
         return {
@@ -153,6 +214,14 @@ function buildAuthStatusJsonPayload(
             status: "logged-in",
             activeAccountId: activeStatus.account.id,
             accounts,
+            ...(activeStatus.source === "env"
+                ? {
+                        envOverride: {
+                            endpoint: activeStatus.account.endpoint,
+                            apiKeyStatus: activeStatus.apiKeyStatus,
+                        },
+                    }
+                : {}),
             ...connector,
         };
     }
@@ -232,8 +301,34 @@ function writeAuthStatusText(
         return;
     }
 
-    const { account, apiKeyStatus } = activeStatus;
+    const { account, apiKeyStatus, source } = activeStatus;
     const statusConfig = apiKeyStatusConfig[apiKeyStatus];
+    const apiKeyStatusDetail = {
+        label: context.translator.t("auth.status.apiKeyStatus"),
+        value: context.translator.t(statusConfig.translationKey),
+    };
+
+    if (source === "env") {
+        writeAuthBlock(context, {
+            tone: statusConfig.tone,
+            summary: context.translator.t("auth.status.envOverride", {
+                endpoint: formatAuthStrong(context, account.endpoint),
+            }),
+            details: [apiKeyStatusDetail],
+        });
+
+        // Without this the accounts list below reads as a bug: every saved
+        // account is unmarked because none of them is in effect.
+        if (authFile.auth.length > 0) {
+            writeLine(
+                context.stdout,
+                context.translator.t("auth.status.savedAccountsIgnored"),
+            );
+        }
+
+        writeAuthAccountsList(context, authFile, undefined);
+        return;
+    }
 
     writeAuthBlock(context, {
         tone: statusConfig.tone,
@@ -246,10 +341,7 @@ function writeAuthStatusText(
                 label: context.translator.t("auth.status.activeAccount"),
                 value: "true",
             },
-            {
-                label: context.translator.t("auth.status.apiKeyStatus"),
-                value: context.translator.t(statusConfig.translationKey),
-            },
+            apiKeyStatusDetail,
         ],
     });
     writeAuthAccountsList(context, authFile, account.id);

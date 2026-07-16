@@ -72,23 +72,23 @@ const commandTelemetryDecisions = {
     },
     "auth.login": {
         kind: "properties",
-        properties: ["auth_method", "account_count_bucket"],
-        reason: "Records login method and bounded saved-account count.",
+        properties: ["auth_method", "account_count_bucket", "credential_source"],
+        reason: "Records login method, bounded saved-account count, and whether OO_API_KEY outranks the saved account.",
     },
     "auth.logout": {
         kind: "properties",
-        properties: ["account_count_bucket"],
-        reason: "Records bounded saved-account count after logout.",
+        properties: ["account_count_bucket", "credential_source"],
+        reason: "Records bounded saved-account count after logout and whether OO_API_KEY made the command a no-op.",
     },
     "auth.status": {
         kind: "properties",
-        properties: ["account_count_bucket"],
-        reason: "Records bounded saved-account count without account identity.",
+        properties: ["account_count_bucket", "credential_source"],
+        reason: "Records bounded saved-account count and which credential source is in effect, without account identity.",
     },
     "auth.switch": {
         kind: "properties",
-        properties: ["account_count_bucket", "has_user_filter"],
-        reason: "Records bounded saved-account count and whether --user was used, without account identity.",
+        properties: ["account_count_bucket", "credential_source", "has_user_filter"],
+        reason: "Records bounded saved-account count, which credential source is in effect, and whether --user was used, without account identity.",
     },
     "check-update": {
         kind: "properties",
@@ -260,12 +260,12 @@ const commandTelemetryDecisions = {
     },
     "login": {
         kind: "properties",
-        properties: ["auth_method", "account_count_bucket"],
+        properties: ["auth_method", "account_count_bucket", "credential_source"],
         reason: "Top-level auth alias records the same safe auth dimensions as auth.login.",
     },
     "logout": {
         kind: "properties",
-        properties: ["account_count_bucket"],
+        properties: ["account_count_bucket", "credential_source"],
         reason: "Top-level auth alias records the same safe auth dimensions as auth.logout.",
     },
     "team": {

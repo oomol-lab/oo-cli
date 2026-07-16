@@ -28,9 +28,14 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
 - `OO_API_KEY`: Run execution commands with this API key without an interactive
   login. When set, the CLI builds an in-memory account and does not read,
   require, or write `auth.toml`, and it takes precedence over any saved account.
+  Because no saved account can be in effect while it is set, `oo auth logout`
+  and `oo auth switch` become no-ops that leave `auth.toml` untouched, and
+  `oo auth login` still saves the account but reports that this variable
+  outranks it. `oo auth status` reports the identity this variable provides.
 - `OO_ENDPOINT`: Base endpoint domain (for example `oomol.com` or `oomol.dev`)
   used to derive every service URL for execution commands. It pairs with
-  `OO_API_KEY` and also overrides the endpoint of a saved account. Takes
+  `OO_API_KEY` and also overrides the endpoint of a saved account, including
+  the endpoint `oo auth status` reports and validates against. Takes
   precedence over the legacy `OOMOL_ENDPOINT`.
 - `OO_CONNECTOR_URL`: Self-hosted connector server URL. It overrides the
   configuration saved by `oo connector login`. Only connector commands
@@ -105,16 +110,30 @@ with an existing API key, then save the authenticated account.
 - Notes: when a self-hosted connector is configured (`oo connector login`), it
   keeps handling connector commands after login; the success output prints a
   hint that `oo connector logout` switches them back to OOMOL.
+- When `OO_API_KEY` is set, login still validates and saves the account, but
+  that variable keeps outranking it. The success output prints a hint that the
+  saved account takes effect only once `OO_API_KEY` is unset.
 
 ### `oo auth logout`
 
 Remove the current account from persisted auth data.
+
+- When `OO_API_KEY` is set it supplies the credential instead of a saved
+  account, so there is nothing for this command to log out of. It exits `0`
+  without modifying `auth.toml` and reports that nothing was logged out.
 
 ### `oo auth status`
 
 Show every saved auth account and validate the API key of the active one.
 
 - Aliases: `oo auth info`.
+- Reports the identity that commands actually run as, which is not always the
+  active saved account: `OO_API_KEY` outranks `auth.toml` entirely, and
+  `OO_ENDPOINT` redirects the endpoint of a saved account. The reported
+  endpoint is the one the API key is validated against.
+- When `OO_API_KEY` is set, the status is always `logged-in` (a stale active id
+  in `auth.toml` is irrelevant), no saved account is marked `[active]`, and
+  text output notes that saved accounts are not in use.
 - Text output lists all saved accounts under an `Accounts:` block. The active
   account is annotated with `[active]`; the active account additionally shows
   `API key status` resolved from a single profile request to its endpoint.
@@ -164,6 +183,20 @@ Show every saved auth account and validate the API key of the active one.
   }
   ```
 
+- When `OO_API_KEY` supplies the credential, the payload is `logged-in` and
+  carries an optional top-level `envOverride` field:
+
+  ```json
+  {
+    "status": "logged-in",
+    "activeAccountId": "oo-env-override",
+    "envOverride": { "endpoint": "oomol.dev", "apiKeyStatus": "valid" },
+    "accounts": [
+      { "id": "user-1", "name": "Alice", "endpoint": "oomol.com", "active": false }
+    ]
+  }
+  ```
+
 - Notes (JSON):
   - The `apiKey` field is **never** emitted, and the JSON payload never
     contains the actual API key string under any field name.
@@ -171,9 +204,20 @@ Show every saved auth account and validate the API key of the active one.
     original order; each entry is `{ id, name, endpoint, active, apiKeyStatus? }`.
   - `activeAccountId` is the active account id, or `null` when no active
     account can be resolved (including the `active-account-missing` state).
-  - `accounts[].active` is `true` only for the active account.
+    Under `OO_API_KEY` it is the stable synthetic id `oo-env-override`, which
+    is deliberately absent from `accounts[]` because it is not a saved account.
+  - `accounts[].active` is `true` only for the active account, and is `false`
+    for every entry while `OO_API_KEY` is set.
   - `accounts[].apiKeyStatus` is present only on the active entry and uses
     the enum `valid` / `invalid` / `request_failed` / `request_failed_sandbox`.
+  - `envOverride` is present only when `OO_API_KEY` is set, in which case the
+    status is always `logged-in`. It reports the `endpoint` in effect (from
+    `OO_ENDPOINT`, otherwise the public default) and the `apiKeyStatus` of the
+    environment credential, using the same enum as `accounts[].apiKeyStatus`.
+    The API key value itself is never emitted.
+  - `accounts[].endpoint` is the endpoint saved in `auth.toml`. A bare
+    `OO_ENDPOINT` (without `OO_API_KEY`) redirects the endpoint used for text
+    output and API key validation, but does not rewrite this field.
   - `missingAccountId` appears only when the auth file records an active id
     that is no longer present in `accounts[]`.
   - `connector` is present only when a self-hosted connector is configured
@@ -203,6 +247,11 @@ Switch the active auth account.
   them.
 - When the requested account is already the active one, the switch is
   idempotent (exit `0`, no rewrite mode change).
+- When `OO_API_KEY` is set, no saved account can be in effect, so switching
+  would change nothing that a later command honors. The command exits `0`
+  without reading or rewriting `auth.toml` and reports that nothing was
+  switched. This applies with and without `--user`, and takes precedence over
+  the no-saved-accounts error.
 - API key values are never written to stdout or stderr in any output path.
 
 ### `oo login`
