@@ -1749,6 +1749,86 @@ describe("auth CLI OO_API_KEY override", () => {
         }
     });
 
+    test("status does not create auth.toml under OO_API_KEY", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+            const result = await sandbox.run(
+                ["auth", "status"],
+                { fetcher: async () => new Response(null, { status: 200 }) },
+            );
+
+            expect(result.exitCode).toBe(0);
+            // OO_API_KEY's contract is that auth.toml is never read, required,
+            // or written; authStore.read() would initialize it here.
+            expect(await Bun.file(authFilePath).exists()).toBeFalse();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("status reports the env identity when auth.toml is corrupt", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+        sandbox.env.OO_ENDPOINT = "oomol.dev";
+
+        try {
+            const authFilePath = await writeCorruptAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["auth", "status", "--json"],
+                { fetcher: async () => new Response(null, { status: 200 }) },
+            );
+
+            // A file that is not the credential must not fail the report, and
+            // --json must stay machine-readable.
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                status: "logged-in",
+                activeAccountId: "oo-env-override",
+                accounts: [],
+                envOverride: {
+                    endpoint: "oomol.dev",
+                    apiKeyStatus: "valid",
+                },
+            });
+            // The unreadable file is reported around, never repaired or erased.
+            expect(await readFile(authFilePath, "utf8")).toContain(
+                "not valid [ toml",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("status still fails on a corrupt auth.toml without OO_API_KEY", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeCorruptAuthFile(sandbox);
+
+            const result = await sandbox.run(["auth", "status"]);
+
+            // Without the override the file IS the credential, so a corrupt one
+            // must still be an error rather than a silent empty account list.
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout + result.stderr).toContain("is not valid TOML");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("logout does nothing and leaves auth.toml untouched under OO_API_KEY", async () => {
         const sandbox = await createCliSandbox();
 
@@ -1913,6 +1993,20 @@ function expectNoAuthSecrets(output: string): void {
     for (const secret of ["secret-1", "secret-2", "apiKey\"", "api_key"]) {
         expect(output).not.toContain(secret);
     }
+}
+
+async function writeCorruptAuthFile(
+    sandbox: { env: Record<string, string | undefined> },
+): Promise<string> {
+    const filePath = join(
+        sandbox.env.XDG_CONFIG_HOME!,
+        APP_NAME,
+        "auth.toml",
+    );
+
+    await Bun.write(filePath, "id = \"acct-1\"\nnot valid [ toml\n");
+
+    return filePath;
 }
 
 async function writeCorruptConnectorFile(

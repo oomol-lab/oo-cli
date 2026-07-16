@@ -222,6 +222,10 @@ function createCommanderContext(
                 auth: [],
                 id: "",
             }),
+            readTolerant: async () => ({
+                auth: [],
+                id: "",
+            }),
             update: async updater => updater({
                 auth: [],
                 id: "",

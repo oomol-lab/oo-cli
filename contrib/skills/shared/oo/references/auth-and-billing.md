@@ -27,16 +27,25 @@ oo auth status
 
 Interpret the result this way:
 
-- If the output confirms a valid active account, continue troubleshooting the
-  selected `oo` path instead of blaming auth.
+- If the API key status is valid, continue troubleshooting the selected `oo`
+  path instead of blaming auth. Under `OO_API_KEY` no saved account is marked
+  `[active]` and the output says saved accounts are not in use — that is a
+  valid authenticated state, not a missing account.
 - If the status is logged out, missing, invalid, or the request fails, stop the
   current `oo` path and ask the user to repair authentication first.
 
-When the user needs to repair auth, guide them to:
+The repair depends on where the credential comes from, which the status output
+names:
 
-```bash
-oo auth login
-```
+- Credential from the `OO_API_KEY` environment variable (the output says so, or
+  `--json` carries an `envOverride` object): `oo auth login` cannot fix it,
+  because that variable outranks any saved account. Ask the user to correct the
+  value or unset it.
+- Credential from a saved account: guide the user to
+
+  ```bash
+  oo auth login
+  ```
 
 ## Self-hosted connector mode
 

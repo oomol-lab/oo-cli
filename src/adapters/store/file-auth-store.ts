@@ -107,6 +107,28 @@ export class FileAuthStore implements AuthStore {
         }
     }
 
+    async readTolerant(): Promise<AuthFile> {
+        try {
+            return await this.readPersistedAuth();
+        }
+        catch (error) {
+            // A caller reaching for this already has its credential elsewhere,
+            // so a missing or unreadable file is not an error here — it only
+            // means there are no saved accounts worth showing.
+            this.logger?.debug(
+                {
+                    err: error,
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store tolerant read fell back to the empty auth file.",
+            );
+
+            // A fresh copy: defaultAuthFile is a shared module-level value and
+            // must not be handed out where a caller could mutate it.
+            return { ...defaultAuthFile, auth: [] };
+        }
+    }
+
     async write(auth: AuthFile): Promise<AuthFile> {
         const renderedAuth = renderAuthFile(auth);
         const directory = dirname(this.filePath);

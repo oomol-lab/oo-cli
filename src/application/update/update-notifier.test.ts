@@ -409,6 +409,7 @@ function createUpdateNotifierHarness(options: {
         authStore: {
             getFilePath: () => "",
             read: async () => defaultAuthFile,
+            readTolerant: async () => defaultAuthFile,
             write: async auth => auth,
             update: async updater => updater(defaultAuthFile),
         },
