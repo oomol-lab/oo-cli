@@ -133,7 +133,11 @@ Show every saved auth account and validate the API key of the active one.
   endpoint is the one the API key is validated against.
 - When `OO_API_KEY` is set, the status is always `logged-in` (a stale active id
   in `auth.toml` is irrelevant), no saved account is marked `[active]`, and
-  text output notes that saved accounts are not in use.
+  text output notes that saved accounts are not in use. `auth.toml` is then
+  only a source of the account list, so it is never created when missing, and
+  an unreadable one leaves `accounts[]` empty instead of failing the command.
+  Without `OO_API_KEY` the file is the credential, so a corrupt one still
+  exits non-zero.
 - Text output lists all saved accounts under an `Accounts:` block. The active
   account is annotated with `[active]`; the active account additionally shows
   `API key status` resolved from a single profile request to its endpoint.

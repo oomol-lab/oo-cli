@@ -114,7 +114,6 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const { authFile, currentAccount } = await readCurrentAuth(context);
         // Tolerant lookup: a broken connector.toml must not take down the
         // whole status report; the block is simply omitted.
         const selfHostedConnector = await resolveSelfHostedConnectorTolerantly(context);
@@ -123,7 +122,7 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
         // contents. Reporting the file while OO_API_KEY/OO_ENDPOINT redirect
         // every other command is how status ends up naming the wrong account,
         // the wrong endpoint, and validating the wrong key.
-        const identity = resolveStatusIdentity(currentAccount, context.env);
+        const { authFile, identity } = await resolveStatusState(context);
 
         context.telemetry?.recordProperties({
             account_count_bucket: bucketTelemetryCount(authFile.auth.length),
@@ -153,26 +152,39 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
 };
 
 /**
- * Mirrors requireCurrentAccount()'s precedence: OO_API_KEY wins outright, then
- * the active saved account with a bare OO_ENDPOINT applied on top.
+ * Resolves what to report, mirroring requireCurrentAccount()'s precedence:
+ * OO_API_KEY wins outright, then the active saved account with a bare
+ * OO_ENDPOINT applied on top.
+ *
+ * The env branch must be decided before the store is touched. OO_API_KEY's
+ * contract is that auth.toml is neither read nor required, and `read()` breaks
+ * both halves of that: it creates the file when missing and fails the command
+ * when it is corrupt. Under the override the file is only a display detail —
+ * which saved accounts exist — so it gets the same tolerance the self-hosted
+ * connector block above already gets.
  */
-function resolveStatusIdentity(
-    currentAccount: AuthAccount | undefined,
-    env: CliExecutionContext["env"],
-): ResolvedStatusIdentity | undefined {
-    const envAccount = buildEnvApiKeyAccount(env);
+async function resolveStatusState(
+    context: CliExecutionContext,
+): Promise<{ authFile: AuthFile; identity: ResolvedStatusIdentity | undefined }> {
+    const envAccount = buildEnvApiKeyAccount(context.env);
 
     if (envAccount !== undefined) {
-        return { account: envAccount, source: "env" };
+        return {
+            authFile: await context.authStore.readTolerant(),
+            identity: { account: envAccount, source: "env" },
+        };
     }
 
-    if (currentAccount === undefined) {
-        return undefined;
-    }
+    const { authFile, currentAccount } = await readCurrentAuth(context);
 
     return {
-        account: applyEndpointOverride(currentAccount, env),
-        source: "file",
+        authFile,
+        identity: currentAccount === undefined
+            ? undefined
+            : {
+                    account: applyEndpointOverride(currentAccount, context.env),
+                    source: "file",
+                },
     };
 }
 
