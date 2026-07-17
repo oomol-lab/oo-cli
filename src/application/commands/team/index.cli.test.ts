@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    expectTelemetryFreeOfTeamIdentity,
     toRequest,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
@@ -303,8 +304,12 @@ describe("teamCommand CLI", () => {
                     team_source: "env_id",
                 },
             });
-            expect(telemetryPayload?.properties).not.toHaveProperty("team");
-            expect(telemetryPayload?.properties).not.toHaveProperty("team_id");
+            // Only the source enum is reported: neither the env-selected id
+            // nor the configured team name reaches telemetry.
+            expectTelemetryFreeOfTeamIdentity(
+                telemetryPayload?.properties,
+                ["team-1", "acme"],
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -352,6 +357,10 @@ describe("teamCommand CLI", () => {
                     team_source: "env_name",
                 },
             });
+            expectTelemetryFreeOfTeamIdentity(
+                telemetryPayload?.properties,
+                ["beta", "acme"],
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -416,6 +425,13 @@ describe("teamCommand CLI", () => {
 
             expect(clearResult.exitCode).toBe(0);
             expect(clearResult.stdout).toContain("OO_TEAM_ID");
+            // The saved default is gone, but the env override still selects a
+            // team, so the output must not claim connector commands now run
+            // personally — it reports the override instead.
+            expect(clearResult.stdout).toContain("Cleared the default team identity");
+            expect(clearResult.stdout).not.toContain(
+                "connector commands now run under your personal identity",
+            );
             // The follow-up clear has nothing to remove but still points at
             // the env override instead of promising a personal identity.
             expect(repeatResult.exitCode).toBe(0);

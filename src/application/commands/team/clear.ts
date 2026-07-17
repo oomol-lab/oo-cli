@@ -48,15 +48,17 @@ export const teamClearCommand: CliCommandDefinition = {
             { teamConfigured: false },
             "Default team identity cleared.",
         );
-        writeLine(context.stdout, context.translator.t("team.clear.success"));
-
-        if (envOverride !== undefined) {
-            writeLine(
-                context.stdout,
-                context.translator.t("team.clear.envOverrideHint", {
-                    envVar: teamEnvOverrideVariableName(envOverride),
-                }),
-            );
-        }
+        // One line per outcome: the plain success message promises a personal
+        // identity, which is untrue while the env override still selects a
+        // team, so the override case gets its own message instead of a
+        // follow-up hint that contradicts the line above it.
+        writeLine(
+            context.stdout,
+            envOverride === undefined
+                ? context.translator.t("team.clear.success")
+                : context.translator.t("team.clear.successEnvOverride", {
+                        envVar: teamEnvOverrideVariableName(envOverride),
+                    }),
+        );
     },
 };

@@ -990,3 +990,26 @@ export function createCache<Value>(handlers: {
         clear: () => {},
     };
 }
+
+// Asserts that a command's telemetry properties carry no raw team identity.
+// Command telemetry may record the identity *source* enum but never the team
+// name or id itself, so a leak has to fail a test rather than reach the
+// telemetry backend: this checks both that no property is named like a team
+// field and that no property value contains one of the raw values under test
+// (the team names/ids the command was driven with).
+export function expectTelemetryFreeOfTeamIdentity(
+    properties: Record<string, unknown> | undefined,
+    rawValues: readonly string[],
+): void {
+    expect(properties).toBeDefined();
+
+    for (const forbiddenKey of ["team", "team_id", "team_name", "org", "org_id"]) {
+        expect(properties).not.toHaveProperty(forbiddenKey);
+    }
+
+    for (const [key, value] of Object.entries(properties ?? {})) {
+        for (const rawValue of rawValues) {
+            expect(`${key}=${JSON.stringify(value)}`).not.toContain(rawValue);
+        }
+    }
+}

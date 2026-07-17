@@ -1239,8 +1239,8 @@ export const enMessages = {
         "Cleared the default team identity; connector commands now run under your personal identity.",
     "team.clear.alreadyPersonal":
         "No default team was set; connector commands already run under your personal identity.",
-    "team.clear.envOverrideHint":
-        "Connector commands still use the team from {envVar}. Unset {envVar} to run under your personal identity.",
+    "team.clear.successEnvOverride":
+        "Cleared the default team identity, but {envVar} still selects the team for connector commands. Unset {envVar} to run under your personal identity.",
     "team.clear.alreadyPersonalEnvHint":
         "No default team was set, but {envVar} still selects a team for connector commands.",
     "connector.run.text.dryRunPassed": "Validation passed.",
@@ -2514,8 +2514,8 @@ export const zhMessages = {
         "已清除默认团队身份；connector 命令现在以个人身份运行。",
     "team.clear.alreadyPersonal":
         "未设置默认团队；connector 命令本就以个人身份运行。",
-    "team.clear.envOverrideHint":
-        "connector 命令仍会使用 {envVar} 指定的团队。取消 {envVar} 后才会以个人身份运行。",
+    "team.clear.successEnvOverride":
+        "已清除默认团队身份，但 {envVar} 仍会为 connector 命令选择团队。取消 {envVar} 后才会以个人身份运行。",
     "team.clear.alreadyPersonalEnvHint":
         "未设置默认团队，但 {envVar} 仍会为 connector 命令选择团队。",
     "connector.run.text.dryRunPassed": "校验通过。",

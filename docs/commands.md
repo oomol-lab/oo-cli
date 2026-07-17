@@ -347,14 +347,18 @@ access it.
 
 ### `oo team clear`
 
-Clear the default team identity so connector commands run under your personal
-identity. This command is offline.
+Clear the persisted default team identity (`identity.team`). Connector commands
+then run under your personal identity, unless `OO_TEAM_ID` / `OO_TEAM_NAME`
+still selects a team — this command removes only the config default and does
+not affect the environment override. This command is offline.
 
 - Behavior: removes the `identity.team` config key. When no default is
   configured it reports that connector commands already run under your personal
   identity.
 - Behavior: when `OO_TEAM_ID` / `OO_TEAM_NAME` is set, the output reports that
-  the environment variable still selects a team for connector commands.
+  the environment variable still selects a team for connector commands, so
+  clearing the default does not switch them to your personal identity. Unset
+  the variable to do that.
 
 ## LLM
 

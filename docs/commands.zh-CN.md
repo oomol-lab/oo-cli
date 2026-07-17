@@ -297,12 +297,15 @@ apps`）以某个团队身份运行，而非个人账号：既可用每次运行
 
 ### `oo team clear`
 
-清除默认团队身份，让 connector 命令以个人身份运行。该命令离线运行。
+清除持久化的默认团队身份（`identity.team`）。之后 connector 命令以个人身份
+运行；但若 `OO_TEAM_ID` / `OO_TEAM_NAME` 仍在选择团队则不然——该命令只移除
+配置默认值，不影响环境变量覆盖。该命令离线运行。
 
 - 行为：移除配置项 `identity.team`。当未配置默认值时，会提示 connector 命令
   本就以个人身份运行。
 - 行为：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时，输出会说明该环境变量仍会为
-  connector 命令选择团队。
+  connector 命令选择团队，因此清除默认值并不会让它们切换到个人身份；需要取消
+  该环境变量才可以。
 
 ## LLM
 
