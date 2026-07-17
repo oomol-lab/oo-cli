@@ -139,7 +139,7 @@ const commandTelemetryDecisions = {
             "list_scope",
             "result_count_bucket",
         ],
-        reason: "Records bounded connector app list size, the connector target kind (oomol/self_hosted), the identity source (personal/flag/config), and whether the listing was scoped to all apps or one service, without app ids, connection names, account labels, team names, or server URLs.",
+        reason: "Records bounded connector app list size, the connector target kind (oomol/self_hosted), the identity source (personal/flag/env_id/env_name/config), and whether the listing was scoped to all apps or one service, without app ids, connection names, account labels, team names or ids, or server URLs.",
     },
     "connector.login": {
         kind: "properties",
@@ -165,7 +165,7 @@ const commandTelemetryDecisions = {
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/config), and none/connectionName selector mode without the team name or connection name value.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/env_id/env_name/config), and none/connectionName selector mode without the team name/id or connection name value.",
     },
     "connector.proxy": {
         kind: "properties",
@@ -178,7 +178,7 @@ const commandTelemetryDecisions = {
             "identity_source",
             "method",
         ],
-        reason: "Records connector proxy bucketed payload size, method enum, identity source, stable error code, and HTTP status without service name, endpoint, headers, body, or team name.",
+        reason: "Records connector proxy bucketed payload size, method enum, identity source (personal/flag/env_id/env_name/config), stable error code, and HTTP status without service name, endpoint, headers, body, or team name/id.",
     },
     "connector.search": {
         kind: "properties",
@@ -279,8 +279,8 @@ const commandTelemetryDecisions = {
     },
     "team.current": {
         kind: "properties",
-        properties: ["has_configured_team"],
-        reason: "Records whether a default team identity is configured, without the team name.",
+        properties: ["has_configured_team", "team_source"],
+        reason: "Records whether a default team identity is configured and which mechanism selects the effective team (env_id/env_name/config/none), without the team name or id.",
     },
     "team.use": {
         kind: "generic",

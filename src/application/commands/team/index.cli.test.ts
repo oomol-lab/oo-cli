@@ -147,7 +147,11 @@ describe("teamCommand CLI", () => {
             const textResult = await sandbox.run(["team", "current"]);
 
             expect(jsonResult.exitCode).toBe(0);
-            expect(JSON.parse(jsonResult.stdout)).toEqual({ team: "acme" });
+            expect(JSON.parse(jsonResult.stdout)).toEqual({
+                team: "acme",
+                teamId: null,
+                source: "config",
+            });
             expect(textResult.stdout).toContain("acme");
         }
         finally {
@@ -165,7 +169,11 @@ describe("teamCommand CLI", () => {
             const textResult = await sandbox.run(["team", "current"]);
 
             expect(jsonResult.exitCode).toBe(0);
-            expect(JSON.parse(jsonResult.stdout)).toEqual({ team: null });
+            expect(JSON.parse(jsonResult.stdout)).toEqual({
+                team: null,
+                teamId: null,
+                source: null,
+            });
             expect(textResult.stdout).toContain("personal identity");
         }
         finally {
@@ -191,7 +199,11 @@ describe("teamCommand CLI", () => {
 
             expect(useResult.exitCode).toBe(0);
             expect(requests).toHaveLength(1);
-            expect(JSON.parse(currentResult.stdout)).toEqual({ team: "beta" });
+            expect(JSON.parse(currentResult.stdout)).toEqual({
+                team: "beta",
+                teamId: null,
+                source: "config",
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -210,7 +222,11 @@ describe("teamCommand CLI", () => {
             const currentResult = await sandbox.run(["team", "current", "--json"]);
 
             expect(result.exitCode).toBe(1);
-            expect(JSON.parse(currentResult.stdout)).toEqual({ team: null });
+            expect(JSON.parse(currentResult.stdout)).toEqual({
+                team: null,
+                teamId: null,
+                source: null,
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -228,7 +244,11 @@ describe("teamCommand CLI", () => {
             const currentResult = await sandbox.run(["team", "current", "--json"]);
 
             expect(clearResult.exitCode).toBe(0);
-            expect(JSON.parse(currentResult.stdout)).toEqual({ team: null });
+            expect(JSON.parse(currentResult.stdout)).toEqual({
+                team: null,
+                teamId: null,
+                source: null,
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -245,6 +265,162 @@ describe("teamCommand CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toContain("personal identity");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports the OO_TEAM_ID env override via current", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            sandbox.env.OO_TEAM_ID = "team-1";
+
+            const jsonResult = await sandbox.run(["team", "current", "--json"]);
+            const textResult = await sandbox.run(["team", "current"]);
+            const telemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "team.current");
+
+            expect(jsonResult.exitCode).toBe(0);
+            expect(JSON.parse(jsonResult.stdout)).toEqual({
+                team: null,
+                teamId: "team-1",
+                source: "env_id",
+            });
+            expect(textResult.stdout).toContain("OO_TEAM_ID");
+            expect(textResult.stdout).toContain("team-1");
+            // The configured default is reported as inactive.
+            expect(textResult.stdout).toContain("acme");
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    has_configured_team: true,
+                    team_source: "env_id",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("team");
+            expect(telemetryPayload?.properties).not.toHaveProperty("team_id");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports the OO_TEAM_NAME env override via current without resolving it", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            sandbox.env.OO_TEAM_NAME = "beta";
+
+            let requested = false;
+            const jsonResult = await sandbox.run(["team", "current", "--json"], {
+                fetcher: async () => {
+                    requested = true;
+
+                    return new Response(JSON.stringify(teamsResponse));
+                },
+            });
+            const textResult = await sandbox.run(["team", "current"]);
+            const telemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "team.current");
+
+            expect(jsonResult.exitCode).toBe(0);
+            expect(JSON.parse(jsonResult.stdout)).toEqual({
+                team: "beta",
+                teamId: null,
+                source: "env_name",
+            });
+            // `team current` stays offline even under the env override.
+            expect(requested).toBe(false);
+            expect(textResult.stdout).toContain("OO_TEAM_NAME");
+            expect(textResult.stdout).toContain("beta");
+            // The ignored config default is reported alongside.
+            expect(textResult.stdout).toContain("acme");
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    has_configured_team: true,
+                    team_source: "env_name",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("marks the env-selected team as current in the listing", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            sandbox.env.OO_TEAM_ID = "team-2";
+
+            const result = await sandbox.run(["team", "list", "--json"], {
+                fetcher: async () => new Response(JSON.stringify(teamsResponse)),
+            });
+
+            expect(result.exitCode).toBe(0);
+            // The env override outranks the configured default, so the marker
+            // follows the id from OO_TEAM_ID instead of the `acme` name.
+            expect(JSON.parse(result.stdout)).toEqual([
+                { name: "acme", id: "team-1", role: "creator", current: false },
+                { name: "beta", id: "team-2", role: "member", current: true },
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("hints that the env override still outranks a newly set default", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_TEAM_NAME = "acme";
+
+            const result = await sandbox.run(["team", "use", "beta"], {
+                fetcher: async () => new Response(JSON.stringify(teamsResponse)),
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Set the default team identity to beta.");
+            expect(result.stdout).toContain("OO_TEAM_NAME");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("hints that the env override still selects a team after clearing", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            sandbox.env.OO_TEAM_ID = "team-1";
+
+            const clearResult = await sandbox.run(["team", "clear"]);
+            const repeatResult = await sandbox.run(["team", "clear"]);
+
+            expect(clearResult.exitCode).toBe(0);
+            expect(clearResult.stdout).toContain("OO_TEAM_ID");
+            // The follow-up clear has nothing to remove but still points at
+            // the env override instead of promising a personal identity.
+            expect(repeatResult.exitCode).toBe(0);
+            expect(repeatResult.stdout).toContain("OO_TEAM_ID");
+            expect(repeatResult.stdout).not.toContain("personal identity");
         }
         finally {
             await sandbox.cleanup();

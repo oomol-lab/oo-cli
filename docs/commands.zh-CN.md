@@ -41,6 +41,19 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - Connector 相关命令按以下优先级解析目标服务：
   `OO_CONNECTOR_URL` > `OO_API_KEY` > 已保存的自部署 Connector 配置
   （`oo connector login`）> 当前激活账号。
+- `OO_TEAM_ID`：让 connector 命令（`oo connector run`、`oo connector proxy`、
+  `oo connector apps`）以该 id 对应的团队身份运行。优先级高于 `OO_TEAM_NAME`
+  和 `identity.team` 配置默认值；每次运行的 `--team` 与 `--personal`
+  标志仍然优先于它。取值按原样发送，不做成员关系校验。当 connector
+  目标为自部署服务时会被忽略。
+- `OO_TEAM_NAME`：与 `OO_TEAM_ID` 相同，但按名称选择团队。执行前 CLI
+  会通过账号的团队成员关系将名称解析为团队 id（每次调用多一个请求），
+  因此请求会同时携带名称与 id；账号无法访问的名称以退出码 `1` 失败。
+  `oo connector run --dry-run` 不发送执行请求，也会跳过该解析，保持完全
+  离线。设置了 `OO_TEAM_ID` 或 connector 目标为自部署服务时会被忽略。
+- Connector 相关命令按以下优先级解析团队身份：
+  `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` >
+  `identity.team` 配置默认值 > 个人身份。
 - `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步与 legacy
   清理副作用，使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill
   文件。
@@ -235,7 +248,8 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 
 团队身份让 connector 命令（`oo connector run`、`oo connector proxy`、`oo connector
 apps`）以某个团队身份运行，而非个人账号：既可用每次运行的 `--team <name>`
-指定，也可用配置项 `identity.team` 设为默认。下列命令用于发现当前账号可用的
+指定，也可用环境变量 `OO_TEAM_ID` / `OO_TEAM_NAME` 指定，还可用配置项
+`identity.team` 设为默认（优先级依此排序）。下列命令用于发现当前账号可用的
 团队并管理该默认值。
 
 `oo team list` 与 `oo team use` 需要向 OOMOL 查询团队成员关系，因此需要 OOMOL
@@ -248,20 +262,28 @@ apps`）以某个团队身份运行，而非个人账号：既可用每次运行
 
 - 选项：`--format=json` 与 `--json` 输出 JSON 数组。
 - 输出：JSON 条目包含稳定的 CLI 字段 `name`、`id`、`role`、`current`。`role` 为
-  `creator` 或 `member`。`current` 对与 `identity.team` 默认值匹配的团队为
-  `true`。
-- 输出：将 `name` 的值传给 `--team <name>`（或 `oo team use <name>`）。
+  `creator` 或 `member`。`current` 对 connector 命令默认使用的团队为 `true`：
+  设置了 `OO_TEAM_ID`（按 id 匹配）或 `OO_TEAM_NAME`（按名称匹配）时为
+  env 指定的团队，否则为与 `identity.team` 默认值匹配的团队。
+- 输出：将 `name` 的值传给 `--team <name>`（或 `oo team use <name>`），将 `id`
+  的值传给 `OO_TEAM_ID`。
 - 输出：文本输出为每个团队打印一行列对齐的记录，并标出当前默认团队。当账号没有任何
   团队时，会提示 connector 命令以个人身份运行。
 
 ### `oo team current`
 
-显示未传 `--team` / `--personal` 时 connector 命令使用的默认团队身份
-（`identity.team`）。该命令离线运行，不发起网络请求。
+显示未传 `--team` / `--personal` 时 connector 命令使用的团队身份：设置了
+`OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时为 env 指定的团队，否则为
+`identity.team` 配置默认值。该命令离线运行，不发起网络请求（`OO_TEAM_NAME`
+的值按原样展示，不解析其 id）。
 
 - 选项：`--format=json` 与 `--json` 输出 JSON 对象。
-- 输出：JSON 为 `{ "team": "<name>" }`；未配置默认值时为
-  `{ "team": null }`。
+- 输出：JSON 为 `{ "team": <name|null>, "teamId": <id|null>, "source":
+  <"env_id"|"env_name"|"config"|null> }`。`source` 表示团队由哪种机制选定；
+  connector 命令以个人身份运行时为 `null`。`team` 在名称已知（`env_name` 或
+  `config`）时携带名称；`teamId` 仅在 `env_id` 时携带 id。
+- 输出：设置了环境变量时，文本输出会指明变量名，并说明已配置的
+  `identity.team` 默认值在覆盖生效期间不会被使用。
 
 ### `oo team use <name>`
 
@@ -270,6 +292,8 @@ apps`）以某个团队身份运行，而非个人账号：既可用每次运行
 - 参数：`<name>` 为团队名称，取值见 `oo team list`。
 - 行为：会用账号可访问的团队校验该名称；无法访问的名称以退出码 `1` 拒绝，且默认值保持
   不变。成功时持久化到配置项 `identity.team`。
+- 行为：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时，默认值仍会保存，但输出会说明该
+  环境变量在取消之前持续优先于它。
 
 ### `oo team clear`
 
@@ -277,6 +301,8 @@ apps`）以某个团队身份运行，而非个人账号：既可用每次运行
 
 - 行为：移除配置项 `identity.team`。当未配置默认值时，会提示 connector 命令
   本就以个人身份运行。
+- 行为：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时，输出会说明该环境变量仍会为
+  connector 命令选择团队。
 
 ## LLM
 
@@ -358,8 +384,9 @@ apps`）以某个团队身份运行，而非个人账号：既可用每次运行
   CLI 还会立即尝试清空待发送 telemetry 事件，并且本次 `config set` 调用自身不会被记录为
   telemetry。
 - 取值规则：当 `<key>` 为 `identity.team` 时，支持任意非空的团队名称。
-  它设置 `oo connector run` 和 `oo connector proxy` 在未传 `--team` 或
-  `--personal` 时使用的默认团队身份。
+  它设置 `oo connector run`、`oo connector proxy` 和 `oo connector apps`
+  在未传 `--team` 或 `--personal`、且未设置 `OO_TEAM_ID` / `OO_TEAM_NAME`
+  环境变量时使用的默认团队身份。
 
 ### `oo config unset <key>`
 
@@ -655,10 +682,11 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   schema 声明了异步结果 lifecycle 时，这个选项才有效。
 - 选项：`--wait-result` 会提交异步 submit action，然后轮询它配置的结果
   action。只有选中 action 的 schema 声明了异步 submit lifecycle 时，这个选项才有效。
-- 选项：`--team <name>` 以指定团队身份运行该 action，而非个人身份。省略时，若配置了
-  `identity.team` 默认值则使用该团队，否则使用个人身份。
-- 选项：`--personal` 以个人身份运行该 action，并忽略已配置的默认团队。
-  不能与 `--team` 同时使用。
+- 选项：`--team <name>` 以指定团队身份运行该 action，而非个人身份。省略时，若设置了
+  `OO_TEAM_ID` / `OO_TEAM_NAME` 则使用 env 选定的团队，其次使用
+  `identity.team` 配置默认值，否则使用个人身份。
+- 选项：`--personal` 以个人身份运行该 action，并忽略 `OO_TEAM_ID` /
+  `OO_TEAM_NAME` 环境变量和已配置的默认团队。不能与 `--team` 同时使用。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：非 dry-run 的 JSON 输出会保持稳定结构
   `{ data, meta: { executionId } }`。
@@ -676,7 +704,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：text 模式下等待 async result action 时，交互式终端会在 stderr
   显示进度。JSON 输出不会混入进度文本。
 - 说明：面向自部署 Connector 时，传入 `--team` 会被拒绝（exit `2`），
-  已配置的 `identity.team` 默认值会被忽略，`--personal` 仍可使用。
+  已配置的 `identity.team` 默认值和 `OO_TEAM_ID` / `OO_TEAM_NAME`
+  环境变量会被忽略，`--personal` 仍可使用。
   由于自部署 runtime 不提供异步 lifecycle contract，`--wait` 和
   `--wait-result` 会以现有的“不支持”错误失败。
 
@@ -686,10 +715,11 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 参数：`[serviceName]` 可选。省略时列出所有 provider 下已连接的 app；提供时仅列出
   该服务的 app。
-- 选项：`--team <name>` 以指定团队身份列出已连接的 app，而非个人身份。省略时，若配置了
-  `identity.team` 默认值则按该团队列出，否则按个人身份列出。
-- 选项：`--personal` 以个人身份列出已连接的 app，并忽略已配置的默认团队。该选项不能与
-  `--team` 同时使用。
+- 选项：`--team <name>` 以指定团队身份列出已连接的 app，而非个人身份。省略时，若设置了
+  `OO_TEAM_ID` / `OO_TEAM_NAME` 则按 env 选定的团队列出，其次按
+  `identity.team` 配置默认值列出，否则按个人身份列出。
+- 选项：`--personal` 以个人身份列出已连接的 app，并忽略 `OO_TEAM_ID` /
+  `OO_TEAM_NAME` 环境变量和已配置的默认团队。该选项不能与 `--team` 同时使用。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 数组。
 - 输出：JSON 条目包含稳定 CLI 字段 `service`、`connectionName`、`displayName`、
   `accountLabel`、`status`、`authType`、`isDefault` 和 `scopes`。不会包含
@@ -701,7 +731,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：可将列出的 `connectionName` 值传给
   `oo connector run <serviceName> --connection-name <connection-name>`。
 - 说明：对自部署 Connector，`--team` 会以退出码 `2` 拒绝，已配置的
-  `identity.team` 默认值会被忽略，`--personal` 可正常使用。
+  `identity.team` 默认值和 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量会被忽略，
+  `--personal` 可正常使用。
 
 ### `oo connector proxy <serviceName>`
 
@@ -726,10 +757,11 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   credential。
 - 选项：`--body` 会按 JSON 解析。如需发送文本 body，请传 JSON string，例如
   `"hello"`。
-- 选项：`--team <name>` 以指定团队身份运行该 proxy 请求，而非个人身份。省略时，若配置了
-  `identity.team` 默认值则使用该团队，否则使用个人身份。
-- 选项：`--personal` 以个人身份运行该 proxy 请求，并忽略已配置的默认团队。
-  不能与 `--team` 同时使用。
+- 选项：`--team <name>` 以指定团队身份运行该 proxy 请求，而非个人身份。省略时，若设置了
+  `OO_TEAM_ID` / `OO_TEAM_NAME` 则使用 env 选定的团队，其次使用
+  `identity.team` 配置默认值，否则使用个人身份。
+- 选项：`--personal` 以个人身份运行该 proxy 请求，并忽略 `OO_TEAM_ID` /
+  `OO_TEAM_NAME` 环境变量和已配置的默认团队。不能与 `--team` 同时使用。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：JSON 输出保持稳定结构
   `{ data: { status, headers, data }, meta: { executionId, service } }`。
@@ -739,8 +771,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：`oo connector proxy` 不使用 connector action schema 或 schema cache。
   当选中的 connector 支持 proxy execution 且没有专用 connector action 时使用。
 - 说明：面向自部署 Connector 时，传入 `--team` 会被拒绝（exit `2`），
-  已配置的 `identity.team` 默认值会被忽略。proxy execution 取决于
-  服务端支持；开源 runtime 目前会返回错误。
+  已配置的 `identity.team` 默认值和 `OO_TEAM_ID` / `OO_TEAM_NAME`
+  环境变量会被忽略。proxy execution 取决于服务端支持；开源 runtime
+  目前会返回错误。
 
 ### `oo connector login <url>`
 
