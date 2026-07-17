@@ -350,6 +350,8 @@ export const enMessages = {
         "The connector apps request failed: {message}",
     "errors.connectorApps.requestFailed":
         "The connector apps request returned HTTP {status}.",
+    "errors.team.envNameNotAccessible":
+        "The active account cannot access the team \"{team}\" from OO_TEAM_NAME. Run `oo team list` to see the teams you can use.",
     "errors.team.invalidResponse":
         "The team list response body is unsupported.",
     "errors.team.nameEmpty": "The team name must not be empty.",
@@ -1224,11 +1226,23 @@ export const enMessages = {
     "team.current.text.configured": "Default team identity: {team}",
     "team.current.text.personal":
         "No default team; connector commands run under your personal identity.",
+    "team.current.text.envId":
+        "Team identity comes from the OO_TEAM_ID environment variable: {teamId}",
+    "team.current.text.envName":
+        "Team identity comes from the OO_TEAM_NAME environment variable: {team}",
+    "team.current.text.configIgnored":
+        "The `identity.team` config default ({team}) is not in use while {envVar} is set.",
     "team.use.success": "Set the default team identity to {team}.",
+    "team.use.envOverrideHint":
+        "Connector commands keep using the team from {envVar}, not this default. Unset {envVar} to use the saved default.",
     "team.clear.success":
         "Cleared the default team identity; connector commands now run under your personal identity.",
     "team.clear.alreadyPersonal":
         "No default team was set; connector commands already run under your personal identity.",
+    "team.clear.successEnvOverride":
+        "Cleared the default team identity, but {envVar} still selects the team for connector commands. Unset {envVar} to run under your personal identity.",
+    "team.clear.alreadyPersonalEnvHint":
+        "No default team was set, but {envVar} still selects a team for connector commands.",
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.login.manageTokens": "Manage runtime tokens at {accessUrl}",
     "connector.login.noToken":
@@ -1620,6 +1634,8 @@ export const zhMessages = {
         "获取 connector app 列表失败：{message}",
     "errors.connectorApps.requestFailed":
         "获取 connector app 列表返回了 HTTP {status}。",
+    "errors.team.envNameNotAccessible":
+        "当前活动账号无法访问 OO_TEAM_NAME 指定的团队 “{team}”。运行 `oo team list` 查看可用的团队。",
     "errors.team.invalidResponse":
         "团队列表返回了不受支持的响应内容。",
     "errors.team.nameEmpty": "团队名称不能为空。",
@@ -2485,11 +2501,23 @@ export const zhMessages = {
     "team.current.text.configured": "默认团队身份：{team}",
     "team.current.text.personal":
         "未设置默认团队；connector 命令以个人身份运行。",
+    "team.current.text.envId":
+        "团队身份来自 OO_TEAM_ID 环境变量：{teamId}",
+    "team.current.text.envName":
+        "团队身份来自 OO_TEAM_NAME 环境变量：{team}",
+    "team.current.text.configIgnored":
+        "设置了 {envVar} 时，`identity.team` 配置的默认值（{team}）不会生效。",
     "team.use.success": "已将默认团队身份设置为 {team}。",
+    "team.use.envOverrideHint":
+        "connector 命令仍会使用 {envVar} 指定的团队，而不是这个默认值。取消 {envVar} 后保存的默认值才会生效。",
     "team.clear.success":
         "已清除默认团队身份；connector 命令现在以个人身份运行。",
     "team.clear.alreadyPersonal":
         "未设置默认团队；connector 命令本就以个人身份运行。",
+    "team.clear.successEnvOverride":
+        "已清除默认团队身份，但 {envVar} 仍会为 connector 命令选择团队。取消 {envVar} 后才会以个人身份运行。",
+    "team.clear.alreadyPersonalEnvHint":
+        "未设置默认团队，但 {envVar} 仍会为 connector 命令选择团队。",
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.login.manageTokens": "可在 {accessUrl} 管理 Runtime Token。",
     "connector.login.noToken":

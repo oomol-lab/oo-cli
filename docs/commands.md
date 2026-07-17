@@ -49,6 +49,22 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
 - Connector commands resolve their target server with this precedence:
   `OO_CONNECTOR_URL` > `OO_API_KEY` > the saved self-hosted connector
   configuration (`oo connector login`) > the active account.
+- `OO_TEAM_ID`: Run connector commands (`oo connector run`, `oo connector
+  proxy`, `oo connector apps`) under the team with this id. It takes precedence
+  over `OO_TEAM_NAME` and the `identity.team` config default; the per-run
+  `--team` and `--personal` flags still outrank it. The value is sent as-is
+  without a membership check. Ignored when the connector target is
+  self-hosted.
+- `OO_TEAM_NAME`: Same as `OO_TEAM_ID`, but selects the team by name. Before
+  execution the CLI resolves the name to its team id through the account's
+  team memberships (one extra request per invocation), so requests carry both
+  the name and the id; a name the account cannot access fails with exit `1`.
+  `oo connector run --dry-run` sends no execution request and skips the
+  resolution, so it stays offline. Ignored when `OO_TEAM_ID` is set or the
+  connector target is self-hosted.
+- Connector commands resolve their team identity with this precedence:
+  `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the `identity.team`
+  config default > your personal identity.
 - `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
   synchronization and legacy-cleanup side effects, so the CLI writes no skill
   files into agent home directories such as `~/.agents` or `~/.claude`.
@@ -271,9 +287,10 @@ Alias for `oo auth logout`.
 
 Team identity lets connector commands (`oo connector run`, `oo connector proxy`,
 `oo connector apps`) act as a team instead of your personal account, selected
-per run with `--team <name>` or as a default with the `identity.team` config
-key. These commands help discover which teams your account can use and manage
-that default.
+per run with `--team <name>`, per environment with `OO_TEAM_ID` /
+`OO_TEAM_NAME`, or as a default with the `identity.team` config key
+(precedence in that order). These commands help discover which teams your
+account can use and manage that default.
 
 `oo team list` and `oo team use` query OOMOL for your team memberships, so they
 require an OOMOL account and are unavailable when only a self-hosted connector
@@ -288,21 +305,32 @@ read-only.
 - Options: `--format=json` and `--json` print a JSON array.
 - Output: JSON entries include the stable CLI fields `name`, `id`, `role`, and
   `current`. `role` is `creator` or `member`. `current` is `true` for the team
-  that matches the `identity.team` default.
-- Output: pass the `name` value to `--team <name>` (or `oo team use <name>`).
+  connector commands use by default: the team selected by `OO_TEAM_ID`
+  (matched by id) or `OO_TEAM_NAME` (matched by name) when set, otherwise the
+  team matching the `identity.team` default.
+- Output: pass the `name` value to `--team <name>` (or `oo team use <name>`),
+  and the `id` value to `OO_TEAM_ID`.
 - Output: text output prints one column-aligned row per team and marks the
   current default. When the account has no teams, it reports that connector
   commands run under your personal identity.
 
 ### `oo team current`
 
-Show the default team identity (`identity.team`) used by connector commands
-when no `--team` / `--personal` flag is given. This command is offline and does
-not make a network request.
+Show the team identity used by connector commands when no `--team` /
+`--personal` flag is given: the `OO_TEAM_ID` / `OO_TEAM_NAME` environment
+override when set, otherwise the `identity.team` config default. This command
+is offline and does not make a network request (an `OO_TEAM_NAME` value is
+reported as-is, without resolving its id).
 
 - Options: `--format=json` and `--json` print a JSON object.
-- Output: JSON is `{ "team": "<name>" }`, or `{ "team": null }` when no default
-  is configured.
+- Output: JSON is `{ "team": <name|null>, "teamId": <id|null>, "source":
+  <"env_id"|"env_name"|"config"|null> }`. `source` says which mechanism
+  selects the team, and is `null` when connector commands run under your
+  personal identity. `team` carries the name when it is known (`env_name` or
+  `config`); `teamId` carries the id only for `env_id`.
+- Output: text output names the environment variable when one is set, and
+  notes that a configured `identity.team` default is not in use while the
+  override is active.
 
 ### `oo team use <name>`
 
@@ -313,15 +341,24 @@ access it.
 - Behavior: the name is validated against the teams the account can access; an
   inaccessible name is rejected with exit `1` and the default is left unchanged.
   On success it is persisted to the `identity.team` config key.
+- Behavior: when `OO_TEAM_ID` / `OO_TEAM_NAME` is set, the default is still
+  saved, but the output reports that the environment variable keeps outranking
+  it until unset.
 
 ### `oo team clear`
 
-Clear the default team identity so connector commands run under your personal
-identity. This command is offline.
+Clear the persisted default team identity (`identity.team`). Connector commands
+then run under your personal identity, unless `OO_TEAM_ID` / `OO_TEAM_NAME`
+still selects a team — this command removes only the config default and does
+not affect the environment override. This command is offline.
 
 - Behavior: removes the `identity.team` config key. When no default is
   configured it reports that connector commands already run under your personal
   identity.
+- Behavior: when `OO_TEAM_ID` / `OO_TEAM_NAME` is set, the output reports that
+  the environment variable still selects a team for connector commands, so
+  clearing the default does not switch them to your personal identity. Unset
+  the variable to do that.
 
 ## LLM
 
@@ -410,9 +447,10 @@ Persist one configuration value.
   pending telemetry events immediately and the current `config set` invocation is
   not recorded as telemetry.
 - Value rules: for `identity.team`, use any non-empty team name.
-  It sets the default team identity used by `oo connector run` and
-  `oo connector proxy` when neither `--team` nor `--personal` is
-  passed.
+  It sets the default team identity used by `oo connector run`,
+  `oo connector proxy`, and `oo connector apps` when neither `--team` nor
+  `--personal` is passed and no `OO_TEAM_ID` / `OO_TEAM_NAME` environment
+  variable is set.
 
 ### `oo config unset <key>`
 
@@ -768,10 +806,11 @@ Validate input data and run one connector action.
   schema declares an async submit lifecycle.
 - Options: `--team <name>` runs the action under the given team identity
   instead of your personal identity. When omitted, the action runs under the
-  `identity.team` config default if set, otherwise your personal identity.
+  team selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the
+  `identity.team` config default, otherwise your personal identity.
 - Options: `--personal` runs the action under your personal identity and
-  ignores any configured default team. It cannot be combined with
-  `--team`.
+  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
+  configured default team. It cannot be combined with `--team`.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.
@@ -793,10 +832,11 @@ Validate input data and run one connector action.
 - Notes: while waiting for an async result action in text mode, interactive
   terminals show progress on stderr. JSON output does not include progress text.
 - Notes: against a self-hosted connector, `--team` is rejected with
-  exit `2`, a configured `identity.team` default is ignored, and
-  `--personal` is accepted. `--wait` and `--wait-result` fail with the
-  existing unsupported errors because the self-hosted runtime does not expose
-  the async lifecycle contract.
+  exit `2`, a configured `identity.team` default and the `OO_TEAM_ID` /
+  `OO_TEAM_NAME` environment variables are ignored, and `--personal` is
+  accepted. `--wait` and `--wait-result` fail with the existing unsupported
+  errors because the self-hosted runtime does not expose the async lifecycle
+  contract.
 
 ### `oo connector apps [serviceName]`
 
@@ -807,11 +847,12 @@ read-only.
   connected app across all providers. When provided, the listing is scoped to
   that one service.
 - Options: `--team <name>` lists connected apps under the given team identity
-  instead of your personal identity. When omitted, the listing uses the
-  `identity.team` config default if set, otherwise your personal identity.
+  instead of your personal identity. When omitted, the listing uses the team
+  selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the `identity.team`
+  config default, otherwise your personal identity.
 - Options: `--personal` lists connected apps under your personal identity and
-  ignores any configured default team. It cannot be combined with
-  `--team`.
+  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
+  configured default team. It cannot be combined with `--team`.
 - Options: `--format=json` and `--json` print a JSON array.
 - Output: JSON entries include the stable CLI fields `service`,
   `connectionName`, `displayName`, `accountLabel`, `status`, `authType`,
@@ -826,8 +867,9 @@ read-only.
 - Notes: use the listed `connectionName` value with
   `oo connector run <serviceName> --connection-name <connection-name>`.
 - Notes: against a self-hosted connector, `--team` is rejected with exit
-  `2`, a configured `identity.team` default is ignored, and `--personal`
-  is accepted.
+  `2`, a configured `identity.team` default and the `OO_TEAM_ID` /
+  `OO_TEAM_NAME` environment variables are ignored, and `--personal` is
+  accepted.
 
 ### `oo connector proxy <serviceName>`
 
@@ -856,10 +898,11 @@ Proxy a provider API request through a connected connector app.
   such as `"hello"`.
 - Options: `--team <name>` runs the proxy request under the given team identity
   instead of your personal identity. When omitted, the request runs under the
-  `identity.team` config default if set, otherwise your personal identity.
+  team selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the
+  `identity.team` config default, otherwise your personal identity.
 - Options: `--personal` runs the proxy request under your personal identity and
-  ignores any configured default team. It cannot be combined with
-  `--team`.
+  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
+  configured default team. It cannot be combined with `--team`.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON output keeps the stable shape
   `{ data: { status, headers, data }, meta: { executionId, service } }`.
@@ -871,9 +914,9 @@ Proxy a provider API request through a connected connector app.
   cache. Use it when the selected connector supports proxy execution and no
   purpose-built connector action is available.
 - Notes: against a self-hosted connector, `--team` is rejected with
-  exit `2` and a configured `identity.team` default is ignored. Proxy
-  execution depends on server support; the open-source runtime currently
-  returns an error.
+  exit `2` and a configured `identity.team` default and the `OO_TEAM_ID` /
+  `OO_TEAM_NAME` environment variables are ignored. Proxy execution depends on
+  server support; the open-source runtime currently returns an error.
 
 ### `oo connector login <url>`
 

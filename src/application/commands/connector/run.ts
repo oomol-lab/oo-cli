@@ -17,7 +17,7 @@ import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
-import { resolveConnectorIdentity } from "./identity.ts";
+import { resolveConnectorIdentityWithEnv } from "./identity.ts";
 import {
     deleteConnectorActionSchemaCache,
     isConnectorActionSchemaNotFoundError,
@@ -188,11 +188,19 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         const settings = await context.settingsStore.read();
         const { identity, source: identitySource } = target.kind === "self_hosted"
             ? { identity: {}, source: "personal" as const }
-            : resolveConnectorIdentity({
-                    configTeam: getConfiguredIdentityTeam(settings),
-                    teamFlag,
-                    personalFlag: input.personal === true,
-                });
+            : await resolveConnectorIdentityWithEnv(
+                    {
+                        configTeam: getConfiguredIdentityTeam(settings),
+                        // A dry run never sends the execution request that
+                        // needs the team id, so it must not pay (or fail on)
+                        // the OO_TEAM_NAME membership request.
+                        resolveEnvTeamId: input.dryRun !== true,
+                        target,
+                        teamFlag,
+                        personalFlag: input.personal === true,
+                    },
+                    context,
+                );
         const inputData = await readJsonInputValue(
             input.data,
             context,

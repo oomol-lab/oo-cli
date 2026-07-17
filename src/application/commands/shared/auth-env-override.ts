@@ -18,7 +18,9 @@ const endpointEnvName = "OO_ENDPOINT";
 export const envOverrideAccountId = "oo-env-override";
 const envOverrideAccountName = "Environment (OO_API_KEY)";
 
-function readTrimmedEnv(
+// Shared by every env-override reader: a set-but-blank variable behaves
+// exactly like an unset one.
+export function readTrimmedEnv(
     env: Record<string, string | undefined>,
     name: string,
 ): string | undefined {

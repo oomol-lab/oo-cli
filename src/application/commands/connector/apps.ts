@@ -10,7 +10,7 @@ import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
-import { resolveConnectorIdentity } from "./identity.ts";
+import { resolveConnectorIdentityWithEnv } from "./identity.ts";
 import { connectorSearchServiceColor } from "./search-provider.ts";
 import {
     connectorFormatValues,
@@ -111,11 +111,15 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
         const settings = await context.settingsStore.read();
         const { identity, source: identitySource } = target.kind === "self_hosted"
             ? { identity: {}, source: "personal" as const }
-            : resolveConnectorIdentity({
-                    configTeam: getConfiguredIdentityTeam(settings),
-                    teamFlag,
-                    personalFlag: input.personal === true,
-                });
+            : await resolveConnectorIdentityWithEnv(
+                    {
+                        configTeam: getConfiguredIdentityTeam(settings),
+                        target,
+                        teamFlag,
+                        personalFlag: input.personal === true,
+                    },
+                    context,
+                );
 
         context.telemetry?.recordProperties({
             connector_kind: target.kind,

@@ -1,5 +1,6 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
+import type { TeamEnvOverride } from "../shared/team-env-override.ts";
 
 import type { TeamRole, TeamView } from "./shared.ts";
 
@@ -10,6 +11,7 @@ import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
+import { readTeamEnvOverride } from "../shared/team-env-override.ts";
 import { listMemberTeams, teamFormatValues } from "./shared.ts";
 
 interface TeamListInput {
@@ -37,10 +39,13 @@ export const teamListCommand: CliCommandDefinition<TeamListInput> = {
     handler: async (input, context) => {
         const account = await requireCurrentAccount(context);
         const settings = await context.settingsStore.read();
-        const configuredTeam = getConfiguredIdentityTeam(settings);
+        const isCurrent = createCurrentTeamMatcher(
+            readTeamEnvOverride(context.env),
+            getConfiguredIdentityTeam(settings),
+        );
 
         const teams = await listMemberTeams(account, context);
-        const output = teams.map(team => createTeamListItem(team, configuredTeam));
+        const output = teams.map(team => createTeamListItem(team, isCurrent));
 
         context.telemetry?.recordProperties({
             result_count_bucket: bucketTelemetryCount(output.length),
@@ -63,12 +68,29 @@ export const teamListCommand: CliCommandDefinition<TeamListInput> = {
     },
 };
 
+// Decides which row is the effective default for connector commands: the
+// OO_TEAM_ID / OO_TEAM_NAME env override when set (matched by id or name
+// respectively), otherwise the `identity.team` config default (matched by
+// name).
+function createCurrentTeamMatcher(
+    envOverride: TeamEnvOverride | undefined,
+    configuredTeam: string | undefined,
+): (team: TeamView) => boolean {
+    if (envOverride !== undefined) {
+        return envOverride.kind === "id"
+            ? team => team.id === envOverride.value
+            : team => team.name === envOverride.value;
+    }
+
+    return team => configuredTeam !== undefined && team.name === configuredTeam;
+}
+
 function createTeamListItem(
     team: TeamView,
-    configuredTeam: string | undefined,
+    isCurrent: (team: TeamView) => boolean,
 ): TeamListItem {
     return {
-        current: team.name === configuredTeam,
+        current: isCurrent(team),
         id: team.id,
         name: team.name,
         role: team.role,
@@ -82,9 +104,10 @@ interface TeamListColumn {
     render: (team: TeamListItem) => string;
 }
 
-// Renders the team listing as a color-coded, column-aligned table. The current
-// default (matching `identity.team`) is marked so callers can see at a glance
-// which value `oo connector run` uses without `--team`.
+// Renders the team listing as a color-coded, column-aligned table. The
+// effective default (the OO_TEAM_ID / OO_TEAM_NAME env override, or
+// `identity.team`) is marked so callers can see at a glance which team
+// `oo connector run` uses without `--team`.
 export function formatTeamsAsText(
     teams: readonly TeamListItem[],
     translator: TeamListTranslator,

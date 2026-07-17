@@ -13,6 +13,7 @@ import {
     createCliSandbox,
     createCliSnapshot,
     createConnectorActionFixture,
+    expectTelemetryFreeOfTeamIdentity,
     readLatestLogContent,
     toRequest,
     writeAuthFile,
@@ -657,6 +658,188 @@ describe("connectorCommand CLI", () => {
             expect(telemetryPayload?.properties).not.toHaveProperty("headers");
             expect(telemetryPayload?.properties).not.toHaveProperty("team");
             expect(telemetryPayload?.properties).not.toHaveProperty("service");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("resolves OO_TEAM_NAME to its id for a proxy request", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_TEAM_NAME = "acme";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "POST",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("relation-control")) {
+                            return new Response(JSON.stringify({
+                                teams: [
+                                    { id: "team-1", name: "acme", role: "creator" },
+                                ],
+                            }));
+                        }
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                data: {},
+                                headers: {},
+                                status: 200,
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+            const proxyTelemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.proxy");
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(2);
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/me/teams",
+            );
+            // The proxy request carries both identity dimensions.
+            expect(requests[1]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("acme");
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(proxyTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "env_name",
+                },
+            });
+            expectTelemetryFreeOfTeamIdentity(
+                proxyTelemetryPayload?.properties,
+                ["acme", "team-1"],
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("applies the OO_TEAM_ID env team to a proxy request", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            sandbox.env.OO_TEAM_ID = "team-1";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "POST",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                data: {},
+                                headers: {},
+                                status: 200,
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+            const proxyTelemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.proxy");
+
+            expect(result.exitCode).toBe(0);
+            // The id needs no resolution, so the proxy request is the only one.
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            expect(proxyTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "env_id",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails a proxy request when OO_TEAM_NAME is not an accessible team", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_TEAM_NAME = "ghost";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "POST",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            teams: [
+                                { id: "team-1", name: "acme", role: "creator" },
+                            ],
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("OO_TEAM_NAME");
+            // The failed resolution aborts before the proxy request.
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/me/teams",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -4843,6 +5026,485 @@ describe("connectorCommand CLI", () => {
             expect(runTelemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "personal",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("runs under the OO_TEAM_ID env team and sends the id header", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            sandbox.env.OO_TEAM_ID = "team-1";
+            // The id form outranks the name form, so no resolution request
+            // may be sent for this value.
+            sandbox.env.OO_TEAM_NAME = "beta";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+            const runTelemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.run");
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.method).toBe("POST");
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            expect(runTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "env_id",
+                },
+            });
+            // Only the source enum is reported; neither env variable's raw
+            // value reaches telemetry.
+            expectTelemetryFreeOfTeamIdentity(
+                runTelemetryPayload?.properties,
+                ["team-1", "beta"],
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("resolves OO_TEAM_NAME to its team id before running the action", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            sandbox.env.OO_TEAM_NAME = "acme";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        requests.push(request);
+
+                        if (request.url.includes("relation-control")) {
+                            return new Response(JSON.stringify({
+                                teams: [
+                                    { id: "team-1", name: "acme", role: "creator" },
+                                ],
+                            }));
+                        }
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+            const runTelemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.run");
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(2);
+            // The membership listing resolves the name to its id first.
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/me/teams",
+            );
+            expect(requests[0]?.headers.get("authorization")).toBe("secret-1");
+            // The run POST carries both identity dimensions.
+            expect(requests[1]?.method).toBe("POST");
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("acme");
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(runTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "env_name",
+                },
+            });
+            // The resolved name and id travel in headers only; telemetry keeps
+            // just the source enum.
+            expectTelemetryFreeOfTeamIdentity(
+                runTelemetryPayload?.properties,
+                ["acme", "team-1"],
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails the run when OO_TEAM_NAME is not an accessible team", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            sandbox.env.OO_TEAM_NAME = "ghost";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            teams: [
+                                { id: "team-1", name: "acme", role: "creator" },
+                            ],
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("OO_TEAM_NAME");
+            expect(result.stderr).toContain("ghost");
+            // Only the membership listing was attempted; no action ran.
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/me/teams",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails the run when the OO_TEAM_NAME resolution request fails", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            sandbox.env.OO_TEAM_NAME = "acme";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response("boom", { status: 500 });
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("HTTP 500");
+            // The failed resolution aborts the run: every request went to the
+            // membership endpoint and no action execution was attempted.
+            expect(requests.length).toBeGreaterThan(0);
+            expect(requests.every(request =>
+                request.url === "https://relation-control.oomol.com/v1/me/teams",
+            )).toBe(true);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps a dry run offline when OO_TEAM_NAME is set", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            sandbox.env.OO_TEAM_NAME = "acme";
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--dry-run",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        return new Response(JSON.stringify({ teams: [] }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({ dryRun: true, ok: true });
+            // A dry run sends no execution request, so the env team name is
+            // not resolved either — the whole invocation stays offline.
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prefers the --team flag over the env team", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            sandbox.env.OO_TEAM_ID = "team-9";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--team",
+                    "acme",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+            const runTelemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.run");
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
+            expect(runTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "flag",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("forces the personal identity with --personal even when the env team is set", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            sandbox.env.OO_TEAM_NAME = "acme";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--personal",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+            const runTelemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.run");
+
+            expect(result.exitCode).toBe(0);
+            // No membership resolution and no identity headers.
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
+            expect(runTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "personal",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("ignores the env team for a self-hosted connector", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                url: "http://localhost:3000",
+                token: "oct_test",
+            });
+            sandbox.env.OO_TEAM_ID = "team-1";
+            sandbox.env.OO_TEAM_NAME = "acme";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "apps", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+            const appsTelemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.apps");
+
+            expect(result.exitCode).toBe(0);
+            // Ambient team identity is ignored for self-hosted targets, like
+            // the `identity.team` config default.
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
+            expect(appsTelemetryPayload).toMatchObject({
+                properties: {
+                    connector_kind: "self_hosted",
+                    identity_source: "personal",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("applies the env team to the apps listing", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            sandbox.env.OO_TEAM_ID = "team-1";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "apps", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({ data: [] }));
+                    },
+                },
+            );
+            const appsTelemetryPayload = readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "connector.apps");
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            expect(appsTelemetryPayload).toMatchObject({
+                properties: {
+                    identity_source: "env_id",
+                    list_scope: "all",
                 },
             });
         }

@@ -9,7 +9,7 @@ import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
-import { resolveConnectorIdentity } from "./identity.ts";
+import { resolveConnectorIdentityWithEnv } from "./identity.ts";
 import {
     connectorFormatValues,
     runConnectorProxy,
@@ -160,11 +160,15 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         const settings = await context.settingsStore.read();
         const { identity, source: identitySource } = target.kind === "self_hosted"
             ? { identity: {}, source: "personal" as const }
-            : resolveConnectorIdentity({
-                    configTeam: getConfiguredIdentityTeam(settings),
-                    teamFlag,
-                    personalFlag: input.personal === true,
-                });
+            : await resolveConnectorIdentityWithEnv(
+                    {
+                        configTeam: getConfiguredIdentityTeam(settings),
+                        target,
+                        teamFlag,
+                        personalFlag: input.personal === true,
+                    },
+                    context,
+                );
 
         context.telemetry?.recordProperties({
             connector_kind: target.kind,
