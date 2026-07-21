@@ -1,6 +1,7 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 
+import type { ConnectorIdentity } from "./identity.ts";
 import type { ConnectorActionSearchResult } from "./shared.ts";
 import type { ConnectorTarget } from "./target.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
@@ -22,6 +23,7 @@ type ConnectorSearchTextContext = Pick<CliExecutionContext, "stdout" | "translat
 
 export async function loadConnectorSearchResults(
     options: {
+        identity?: ConnectorIdentity;
         target: Pick<
             ConnectorTarget,
             "authorization" | "baseUrl" | "cacheAccountId" | "cacheEndpoint" | "kind"
@@ -34,6 +36,7 @@ export async function loadConnectorSearchResults(
     >,
 ): Promise<ConnectorSearchResult[]> {
     const actions = await searchConnectorActions({
+        identity: options.identity,
         target: options.target,
         text: options.text,
     }, context);

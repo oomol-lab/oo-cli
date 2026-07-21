@@ -50,7 +50,8 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   `OO_CONNECTOR_URL` > `OO_API_KEY` > the saved self-hosted connector
   configuration (`oo connector login`) > the active account.
 - `OO_TEAM_ID`: Run connector commands (`oo connector run`, `oo connector
-  proxy`, `oo connector apps`) under the team with this id. It takes precedence
+  proxy`, `oo connector apps`, `oo connector search` / `oo search`) under the
+  team with this id. It takes precedence
   over `OO_TEAM_NAME` and the `identity.team` config default; the per-run
   `--team` and `--personal` flags still outrank it. The value is sent as-is
   without a membership check. Ignored when the connector target is
@@ -448,9 +449,9 @@ Persist one configuration value.
   not recorded as telemetry.
 - Value rules: for `identity.team`, use any non-empty team name.
   It sets the default team identity used by `oo connector run`,
-  `oo connector proxy`, and `oo connector apps` when neither `--team` nor
-  `--personal` is passed and no `OO_TEAM_ID` / `OO_TEAM_NAME` environment
-  variable is set.
+  `oo connector proxy`, `oo connector apps`, and `oo connector search` /
+  `oo search` when neither `--team` nor `--personal` is passed and no
+  `OO_TEAM_ID` / `OO_TEAM_NAME` environment variable is set.
 
 ### `oo config unset <key>`
 
@@ -744,11 +745,22 @@ Search connector actions with free-form text.
 - Arguments: `<text>` is the semantic search text.
 - Options: `--format=json` and `--json` print a JSON array of matching action
   entries.
+- Options: `--team <name>` reports each result's `authenticated` state under the
+  given team identity instead of your personal identity. When omitted, the
+  effective identity follows `OO_TEAM_ID` / `OO_TEAM_NAME`, then the
+  `identity.team` config default, otherwise your personal identity.
+- Options: `--personal` reports `authenticated` under your personal identity and
+  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
+  configured default team. It cannot be combined with `--team`.
 - Output: every match includes `authenticated`.
 - Output: JSON entries include the stable CLI fields `service`, `name`,
   `description`, and `authenticated`.
 - Output: text output prints one block per action with the service/action
   label, optional description, and authenticated state.
+- Notes: the action list itself does not depend on identity; only each result's
+  `authenticated` state reflects the effective identity's connected apps, so an
+  app connected under a team appears as authenticated only when that team is the
+  effective identity.
 - Notes: use `oo connector schema "<service>.<action>"` to inspect the selected
   action contract.
 - Notes: search results also warm the local action schema cache when schema
@@ -970,11 +982,22 @@ Search connector actions with one free-form query.
 - Arguments: `<text>` is the semantic search text.
 - Options: `--format=json` and `--json` print a JSON array of matching action
   entries.
+- Options: `--team <name>` reports each result's `authenticated` state under the
+  given team identity instead of your personal identity. When omitted, the
+  effective identity follows `OO_TEAM_ID` / `OO_TEAM_NAME`, then the
+  `identity.team` config default, otherwise your personal identity.
+- Options: `--personal` reports `authenticated` under your personal identity and
+  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
+  configured default team. It cannot be combined with `--team`.
 - Output: every match includes `authenticated`.
 - Output: JSON entries include the stable CLI fields `service`, `name`,
   `description`, and `authenticated`.
 - Output: text output prints one block per action with the service/action
   label, optional description, and authenticated state.
+- Notes: the action list itself does not depend on identity; only each result's
+  `authenticated` state reflects the effective identity's connected apps, so an
+  app connected under a team appears as authenticated only when that team is the
+  effective identity.
 - Notes: use `oo connector schema "<service>.<action>"` to inspect the full
   connector action contract.
 - Notes: search results also warm the local action schema cache when schema

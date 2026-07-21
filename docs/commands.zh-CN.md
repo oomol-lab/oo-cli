@@ -42,7 +42,8 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   `OO_CONNECTOR_URL` > `OO_API_KEY` > 已保存的自部署 Connector 配置
   （`oo connector login`）> 当前激活账号。
 - `OO_TEAM_ID`：让 connector 命令（`oo connector run`、`oo connector proxy`、
-  `oo connector apps`）以该 id 对应的团队身份运行。优先级高于 `OO_TEAM_NAME`
+  `oo connector apps`、`oo connector search` / `oo search`）以该 id 对应的团队
+  身份运行。优先级高于 `OO_TEAM_NAME`
   和 `identity.team` 配置默认值；每次运行的 `--team` 与 `--personal`
   标志仍然优先于它。取值按原样发送，不做成员关系校验。当 connector
   目标为自部署服务时会被忽略。
@@ -387,9 +388,9 @@ apps`）以某个团队身份运行，而非个人账号：既可用每次运行
   CLI 还会立即尝试清空待发送 telemetry 事件，并且本次 `config set` 调用自身不会被记录为
   telemetry。
 - 取值规则：当 `<key>` 为 `identity.team` 时，支持任意非空的团队名称。
-  它设置 `oo connector run`、`oo connector proxy` 和 `oo connector apps`
-  在未传 `--team` 或 `--personal`、且未设置 `OO_TEAM_ID` / `OO_TEAM_NAME`
-  环境变量时使用的默认团队身份。
+  它设置 `oo connector run`、`oo connector proxy`、`oo connector apps` 和
+  `oo connector search` / `oo search` 在未传 `--team` 或 `--personal`、且未
+  设置 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时使用的默认团队身份。
 
 ### `oo config unset <key>`
 
@@ -631,11 +632,19 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 参数：`<text>` 为语义搜索文本。
 - 选项：`--format=json` 和 `--json` 会输出匹配 action 条目的 JSON 数组。
+- 选项：`--team <name>` 以指定团队身份（而非个人身份）报告每条结果的
+  `authenticated` 状态。省略时有效身份依次取 `OO_TEAM_ID` / `OO_TEAM_NAME`、
+  `identity.team` 配置默认值，最后回退到个人身份。
+- 选项：`--personal` 以个人身份报告 `authenticated`，忽略 `OO_TEAM_ID` /
+  `OO_TEAM_NAME` 环境变量与任何已配置的默认团队；不能与 `--team` 同用。
 - 输出：每条结果都会包含 `authenticated`。
 - 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
   `authenticated`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
   描述和认证状态。
+- 说明：action 列表本身与身份无关，只有每条结果的 `authenticated` 状态反映
+  有效身份下的已连接应用；因此连接在团队下的应用只有当该团队为有效身份时才显示
+  为已认证。
 - 说明：使用 `oo connector schema "<service>.<action>"` 查看选中 action 的
   contract。
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
@@ -819,11 +828,19 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 参数：`<text>` 为语义搜索文本。
 - 选项：`--format=json` 和 `--json` 会输出匹配 action 条目的 JSON 数组。
+- 选项：`--team <name>` 以指定团队身份（而非个人身份）报告每条结果的
+  `authenticated` 状态。省略时有效身份依次取 `OO_TEAM_ID` / `OO_TEAM_NAME`、
+  `identity.team` 配置默认值，最后回退到个人身份。
+- 选项：`--personal` 以个人身份报告 `authenticated`，忽略 `OO_TEAM_ID` /
+  `OO_TEAM_NAME` 环境变量与任何已配置的默认团队；不能与 `--team` 同用。
 - 输出：每条结果都会包含 `authenticated`。
 - 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
   `authenticated`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
   描述和认证状态。
+- 说明：action 列表本身与身份无关，只有每条结果的 `authenticated` 状态反映
+  有效身份下的已连接应用；因此连接在团队下的应用只有当该团队为有效身份时才显示
+  为已认证。
 - 说明：使用 `oo connector schema "<service>.<action>"` 获取完整 connector
   action contract。
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后

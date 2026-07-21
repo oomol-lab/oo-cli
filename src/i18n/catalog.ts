@@ -917,6 +917,10 @@ export const enMessages = {
         "List connected apps under the given team identity",
     "options.connectorAppsPersonal":
         "List connected apps under your personal identity, ignoring any configured default team",
+    "options.searchTeam":
+        "Report each action's authenticated status under the given team identity",
+    "options.searchPersonal":
+        "Report authenticated status under your personal identity, ignoring any configured default team",
     "options.connectorRunTeam":
         "Run the action under the given team identity",
     "options.connectorRunPersonal":
@@ -2196,6 +2200,10 @@ export const zhMessages = {
         "以指定团队身份列出已连接的 app",
     "options.connectorAppsPersonal":
         "以个人身份列出已连接的 app，忽略已配置的默认团队",
+    "options.searchTeam":
+        "以指定团队身份报告每个 action 的 authenticated 状态",
+    "options.searchPersonal":
+        "以个人身份报告 authenticated 状态，忽略已配置的默认团队",
     "options.connectorRunTeam":
         "以指定团队身份运行该 action",
     "options.connectorRunPersonal":
