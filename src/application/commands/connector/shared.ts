@@ -196,6 +196,7 @@ type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResp
 
 export async function searchConnectorActions(
     options: {
+        identity?: ConnectorIdentity;
         target: ConnectorRequestTarget;
         text: string;
     },
@@ -233,7 +234,13 @@ export async function searchConnectorActions(
             },
         },
         init: {
-            headers: connectorAuthorizationHeaders(options.target),
+            // The action list itself is identity-independent, but each result's
+            // `authenticated` flag reflects the effective identity's connected
+            // apps, so the identity headers are forwarded like `apps`/`run`.
+            headers: {
+                ...connectorAuthorizationHeaders(options.target),
+                ...connectorIdentityHeaders(options.identity),
+            },
         },
         requestLabel: "Connector action search",
         requestUrl,

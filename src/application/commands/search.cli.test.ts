@@ -74,6 +74,61 @@ describe("searchCommand CLI", () => {
         }
     });
 
+    test("sends the team identity header and records its source when --team is given", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["search", "send mail", "--team", "acme"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            message: "ok",
+                            data: [
+                                {
+                                    authenticated: true,
+                                    description: "Send a Gmail message.",
+                                    name: "send_mail",
+                                    service: "gmail",
+                                },
+                            ],
+                        }));
+                    },
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            // The action list is identity-independent, but the team identity is
+            // forwarded so the backend scopes each result's authenticated flag.
+            expect(requests[0]?.url).toBe(
+                "https://connector.oomol.com/v1/actions/search?q=send+mail",
+            );
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "search",
+                    identity_source: "flag",
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("team");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports connector search with json output", async () => {
         const sandbox = await createCliSandbox();
 

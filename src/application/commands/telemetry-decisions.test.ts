@@ -184,10 +184,11 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "connector_kind",
+            "identity_source",
             "query_length_bucket",
             "result_count_bucket",
         ],
-        reason: "Records query and result buckets plus the connector target kind (oomol/self_hosted) without query text or server URLs.",
+        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (personal/flag/env_id/env_name/config) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
     },
     "connector.schema": {
         kind: "properties",
@@ -294,10 +295,11 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: [
             "connector_kind",
+            "identity_source",
             "query_length_bucket",
             "result_count_bucket",
         ],
-        reason: "Records query and result buckets plus the connector target kind (oomol/self_hosted) without query text or server URLs.",
+        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (personal/flag/env_id/env_name/config) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
     },
     "skills": {
         kind: "generic",
