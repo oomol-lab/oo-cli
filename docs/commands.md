@@ -124,6 +124,25 @@ with an existing API key, then save the authenticated account.
     validates the key against the account profile and saves the account without
     a device-login URL or polling. Exits with an error if the key is invalid or
     expired. `--api-key` and `--session-token` cannot be combined.
+  - `--team <name>`: Set the default team identity (the `identity.team` config
+    key) to the named team after login. The name must be one of the account's
+    team memberships; otherwise the command exits `1` (the account itself is
+    still saved). Works with all three login methods.
+- Default team: after a successful login the CLI fetches the account's team
+  memberships and persists a default team identity. Without `--team`, a
+  configured `identity.team` that is still one of the memberships is kept;
+  otherwise the backend-provisioned default team (`system_created`) is
+  adopted. When neither exists — the membership list carries no
+  `system_created` team (an older backend) or is empty — nothing is persisted,
+  no default-team line is printed, and login still exits `0`. Otherwise the
+  success output prints the resulting default
+  (`Default team identity: <name>`), and when the account belongs to more than
+  one team it also prints how many teams the account has (naming at most five,
+  truncating the rest with an ellipsis) and that `oo team use <name>` switches
+  the default. When the membership request fails and no `--team` was given,
+  login still exits `0` and prints that the default team is unchanged. When
+  `OO_TEAM_ID` / `OO_TEAM_NAME` is set, the default is still saved but a hint
+  notes that the env override keeps outranking it.
 - Notes: when a self-hosted connector is configured (`oo connector login`), it
   keeps handling connector commands after login; the success output prints a
   hint that `oo connector logout` switches them back to OOMOL.
@@ -160,6 +179,11 @@ Show every saved auth account and validate the API key of the active one.
   `API key status` resolved from a single profile request to its endpoint.
   Inactive accounts are not validated, so `oo auth status` performs at most
   one network request regardless of how many accounts are saved.
+- The active-identity block also shows a `Default team` line, resolved offline
+  the same way `oo team current` resolves it: the `OO_TEAM_ID` /
+  `OO_TEAM_NAME` env override when set (annotated with the variable that
+  supplies it), otherwise the `identity.team` config default, otherwise
+  `personal (no default team)`.
 - API key values are never written to stdout in text or JSON output.
 - When a self-hosted connector is configured (`oo connector login` or
   `OO_CONNECTOR_URL`), text output adds a self-hosted connector block showing
@@ -204,8 +228,21 @@ Show every saved auth account and validate the API key of the active one.
   }
   ```
 
-- When `OO_API_KEY` supplies the credential, the payload is `logged-in` and
-  carries an optional top-level `envOverride` field:
+- When a default team identity is in effect, the `oo auth status --json` output
+  — specifically its `logged-in` shape above — carries an optional top-level
+  `team` field. The CLI fills it from the local default-team identity
+  (`OO_TEAM_ID` / `OO_TEAM_NAME`, otherwise the `identity.team` config); it is
+  not returned by any login or backend request:
+
+  ```json
+  {
+    "team": { "name": "acme", "id": null, "source": "config" }
+  }
+  ```
+
+- When `OO_API_KEY` supplies the credential, the `oo auth status --json` output
+  is always the `logged-in` shape and carries an optional top-level
+  `envOverride` field:
 
   ```json
   {
@@ -239,6 +276,14 @@ Show every saved auth account and validate the API key of the active one.
   - `accounts[].endpoint` is the endpoint saved in `auth.toml`. A bare
     `OO_ENDPOINT` (without `OO_API_KEY`) redirects the endpoint used for text
     output and API key validation, but does not rewrite this field.
+  - `team` is present only on the `logged-in` shape and only when a default
+    team identity is in effect. It is resolved locally from the env/config
+    default-team identity, never from a login or backend response. `source` is
+    `config` (the `identity.team` default), `env_id` (`OO_TEAM_ID`), or
+    `env_name` (`OO_TEAM_NAME`). `name` carries the team name when the source
+    knows it (`config` / `env_name`) and `id` the team id (`env_id` only); the
+    command never spends a network request resolving one form into the other
+    (so `id` stays `null` for the `config` source).
   - `missingAccountId` appears only when the auth file records an active id
     that is no longer present in `accounts[]`.
   - `connector` is present only when a self-hosted connector is configured
@@ -277,8 +322,8 @@ Switch the active auth account.
 
 ### `oo login`
 
-Alias for `oo auth login`. Supports the same `--session-token <session-token>`
-and `--api-key <api-key>` options.
+Alias for `oo auth login`. Supports the same `--session-token <session-token>`,
+`--api-key <api-key>`, and `--team <name>` options.
 
 ### `oo logout`
 
@@ -297,6 +342,11 @@ account can use and manage that default.
 require an OOMOL account and are unavailable when only a self-hosted connector
 is configured. `oo team current` and `oo team clear` only read and write local
 settings, so they work regardless.
+
+`oo auth login` (and its `oo login` alias) persists the default automatically:
+it keeps a still-valid configured `identity.team`, otherwise adopts the
+backend-provisioned `system_created` team (when one exists), and accepts
+`--team <name>` to pick one explicitly.
 
 ### `oo team list`
 
