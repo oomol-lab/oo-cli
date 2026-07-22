@@ -103,6 +103,19 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   - `--api-key <api-key>`：使用已有 API key 登录。CLI 会通过账号 profile 校验该 key，
     校验通过后直接保存账号，不会打印 device-login URL 或轮询；若 key 无效或已过期则以
     错误退出。`--api-key` 与 `--session-token` 不能同时使用。
+  - `--team <name>`：登录后将默认团队身份（配置项 `identity.team`）设置为指定
+    团队。该名称必须是当前账号的团队成员关系之一，否则命令以 `1` 退出（账号
+    本身仍会被保存）。与三种登录方式均可组合。
+- 默认团队：登录成功后，CLI 会获取账号的团队成员关系并持久化默认团队身份。
+  未传 `--team` 时，若已配置的 `identity.team` 仍在成员关系中则保留；否则采用
+  后端为每个账号创建的默认团队（`system_created`）。两者都不存在时——成员
+  关系中没有 `system_created` 团队（旧版后端）或列表为空——不会持久化任何
+  内容，也不打印默认团队行，登录仍以 `0` 退出。否则成功输出会打印生效的
+  默认团队（`当前默认团队身份：<name>`）；当账号拥有多个团队时，还会打印团队
+  数量（最多列出 5 个名称，其余以省略号截断）以及使用 `oo team use <name>`
+  切换的提示。未传 `--team` 且成员关系请求失败时，登录仍以 `0` 退出，并提示
+  默认团队保持不变。设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时默认值仍会被保存，
+  但会提示 env 覆盖的优先级依然更高。
 - 说明：如果已配置自部署 Connector（`oo connector login`），登录后 connector
   相关命令仍会继续使用它；成功输出会打印一行提示，说明可运行
   `oo connector logout` 切回 OOMOL。
@@ -133,6 +146,10 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   `[active]`，并额外显示其 `API key status`——通过一次 profile 请求向该账号
   对应的 endpoint 校验得到。其它账号不参与校验，所以无论有多少账号，
   `oo auth status` 最多发送 1 次网络请求。
+- 当前身份区块还会显示一行「默认团队」，其解析方式与 `oo team current`
+  相同且完全离线：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时显示 env 覆盖值
+  （并标注来源变量），否则显示 `identity.team` 配置默认值，都未设置时显示
+  个人身份（未设置默认团队）。
 - 文本和 JSON 输出都永远不会包含 API key 实际内容。
 - 当配置了自部署 Connector（`oo connector login` 或 `OO_CONNECTOR_URL`）时，
   文本输出会额外显示一个自部署 Connector 区块，包含服务地址、是否已配置令牌
@@ -176,8 +193,19 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   }
   ```
 
-- 当由 `OO_API_KEY` 提供凭证时，payload 恒为 `logged-in`，并携带一个可选的顶层
-  `envOverride` 字段：
+- 当存在默认团队身份时，`oo auth status --json` 的输出——即上面的 `logged-in`
+  形态——会携带一个可选的顶层 `team` 字段。该字段由 CLI 从本地默认团队身份
+  （`OO_TEAM_ID` / `OO_TEAM_NAME`，否则 `identity.team` 配置）填充，并非由任何
+  login 或后端接口返回：
+
+  ```json
+  {
+    "team": { "name": "acme", "id": null, "source": "config" }
+  }
+  ```
+
+- 当由 `OO_API_KEY` 提供凭证时，`oo auth status --json` 的输出恒为 `logged-in`
+  形态，并携带一个可选的顶层 `envOverride` 字段：
 
   ```json
   {
@@ -208,6 +236,12 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   - `accounts[].endpoint` 是 `auth.toml` 中保存的 endpoint。单独设置
     `OO_ENDPOINT`（不设 `OO_API_KEY`）会重定向文本输出与 API key 校验所用的
     endpoint，但不会改写该字段。
+  - `team` 仅在 `logged-in` 形态且存在默认团队身份时出现。它由本地 env/config
+    的默认团队身份解析而来，绝不来自任何 login 或后端接口响应。`source` 为
+    `config`（`identity.team` 默认值）、`env_id`（`OO_TEAM_ID`）或
+    `env_name`（`OO_TEAM_NAME`）。`name` 在来源已知名称时携带团队名称
+    （`config` / `env_name`），`id` 仅在 `env_id` 时携带团队 id；该命令不会
+    发起网络请求在两种形式之间互相解析（因此 `config` 来源下 `id` 恒为 `null`）。
   - `missingAccountId` 仅在 auth file 记录的 active id 已不存在于
     `accounts[]` 时出现。
   - `connector` 仅在配置了自部署 Connector 时出现，报告已配置的自部署
@@ -238,8 +272,8 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 
 ### `oo login`
 
-`oo auth login` 的别名。支持相同的 `--session-token <session-token>` 与
-`--api-key <api-key>` 选项。
+`oo auth login` 的别名。支持相同的 `--session-token <session-token>`、
+`--api-key <api-key>` 与 `--team <name>` 选项。
 
 ### `oo logout`
 
@@ -256,6 +290,10 @@ apps`）以某个团队身份运行，而非个人账号：既可用每次运行
 `oo team list` 与 `oo team use` 需要向 OOMOL 查询团队成员关系，因此需要 OOMOL
 账号；当仅配置了自部署 Connector 时不可用。`oo team current` 与 `oo team clear`
 仅读写本地配置，不受此限制。
+
+`oo auth login`（及其别名 `oo login`）会自动持久化该默认值：仍然有效的
+`identity.team` 配置会被保留，否则采用后端创建的 `system_created` 默认团队
+（存在时）；也可通过 `--team <name>` 显式指定。
 
 ### `oo team list`
 

@@ -119,7 +119,23 @@ export interface PrintedAuthLoginOptions {
     argv?: readonly string[];
     verificationUrl?: string;
     stdoutHasColors?: boolean;
+    teamsResponse?: unknown;
+    teamsStatus?: number;
 }
+
+// Default membership answered by the login-flow teams request: the backend
+// provisions exactly one `system_created` team per account, so this is the
+// common shape a fresh login sees.
+export const defaultLoginTeamsResponse = {
+    teams: [
+        {
+            id: "team-system-1",
+            name: "alice-team",
+            role: "creator",
+            system_created: true,
+        },
+    ],
+} as const;
 
 export const defaultAuthEndpoint = "oomol.com";
 
@@ -532,6 +548,19 @@ export async function runPrintedAuthLogin(
                     name: "Alice",
                     status: "verified",
                 }));
+            }
+
+            if (
+                request.method === "GET"
+                && requestUrl.host === `relation-control.${accountEndpoint}`
+                && requestUrl.pathname === "/v1/me/teams"
+            ) {
+                return new Response(
+                    JSON.stringify(
+                        options.teamsResponse ?? defaultLoginTeamsResponse,
+                    ),
+                    { status: options.teamsStatus ?? 200 },
+                );
             }
 
             throw new Error(`Unexpected auth login request: ${request.method} ${requestUrl}`);

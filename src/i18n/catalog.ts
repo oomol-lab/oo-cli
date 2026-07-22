@@ -14,6 +14,11 @@ export const enMessages = {
         "Connector commands keep using your self-hosted connector at {url}. Run `oo connector logout` to switch them back to OOMOL.",
     "auth.login.selfHostedConnectorHintEnv":
         "Connector commands keep using your self-hosted connector at {url} (set via OO_CONNECTOR_URL). Unset that variable to switch them back to OOMOL.",
+    "auth.login.teamDefault": "Default team identity: {team}",
+    "auth.login.teamOverview":
+        "You belong to {count} teams: {teams}. Switch with `oo team use <name>`.",
+    "auth.login.teamUnresolved":
+        "Could not load your teams, so the default team identity is unchanged. Run `oo team list` to inspect them later.",
     "auth.logout.envOverrideNoop":
         "Nothing was logged out: the active credential comes from OO_API_KEY, not from a saved account.",
     "auth.logout.success": "Logged out the current account.",
@@ -36,6 +41,9 @@ export const enMessages = {
     "auth.status.selfHostedConnectorToken": "Token configured",
     "auth.status.selfHostedConnectorToken.no": "no",
     "auth.status.selfHostedConnectorToken.yes": "yes",
+    "auth.status.team": "Default team",
+    "auth.status.teamEnvOverride": "{team} (via {envVar})",
+    "auth.status.teamPersonal": "personal (no default team)",
     "auth.switch.envOverrideNoop":
         "Nothing was switched: the active credential comes from OO_API_KEY, not from a saved account.",
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
@@ -992,6 +1000,7 @@ export const enMessages = {
     "options.status": "Filter by task status",
     "options.apiKey": "Log in with an existing API key",
     "options.sessionToken": "Log in with a session token",
+    "options.loginTeam": "Set the default team identity after login",
     "options.schema": "Provide response JSON Schema or @path to a JSON file",
     "options.system": "System prompt text or @path to a text file",
     "options.timeout":
@@ -1335,6 +1344,11 @@ export const zhMessages = {
         "Connector 命令仍会使用你的自部署 Connector（{url}）。运行 `oo connector logout` 可切回 OOMOL。",
     "auth.login.selfHostedConnectorHintEnv":
         "Connector 命令仍会使用你的自部署 Connector（{url}，由 OO_CONNECTOR_URL 指定）。取消该环境变量可切回 OOMOL。",
+    "auth.login.teamDefault": "当前默认团队身份：{team}",
+    "auth.login.teamOverview":
+        "你共有 {count} 个团队：{teams}。可使用 `oo team use <name>` 切换。",
+    "auth.login.teamUnresolved":
+        "无法获取团队列表，默认团队身份保持不变。可稍后运行 `oo team list` 查看。",
     "auth.status.accountActive": "激活",
     "auth.status.accountId": "账号 ID",
     "auth.status.accountsLabel": "账号列表",
@@ -1353,6 +1367,9 @@ export const zhMessages = {
     "auth.status.envOverride": "已使用 OO_API_KEY 中的 API key 登录 {endpoint}",
     "auth.status.loggedOut": "当前没有登录任何 OOMOL 账号。",
     "auth.status.savedAccountsIgnored": "设置了 OO_API_KEY 时，保存的账号不会被使用。",
+    "auth.status.team": "默认团队",
+    "auth.status.teamEnvOverride": "{team}（来自 {envVar}）",
+    "auth.status.teamPersonal": "个人身份（未设置默认团队）",
     "auth.switch.envOverrideNoop":
         "没有切换任何账号：当前生效的凭证来自 OO_API_KEY，而不是保存的账号。",
     "auth.switch.success": "已将 {endpoint} 的当前激活账号切换为 {name}",
@@ -2273,6 +2290,7 @@ export const zhMessages = {
     "options.status": "按任务状态过滤",
     "options.apiKey": "使用已有 API key 登录",
     "options.sessionToken": "使用 session token 登录",
+    "options.loginTeam": "登录后设置的默认团队身份",
     "options.schema": "提供响应 JSON Schema，或使用 @路径 读取 JSON 文件",
     "options.system": "System prompt 文本，或使用 @路径 读取文本文件",
     "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",

@@ -18,8 +18,8 @@ const oomolTarget = {
 
 const teamsResponse = {
     teams: [
-        { id: "team-1", name: "acme", role: "creator" },
-        { id: "team-2", name: "beta", role: "member" },
+        { id: "team-1", name: "acme", role: "creator", system_created: false },
+        { id: "team-2", name: "beta", role: "member", system_created: false },
     ],
 };
 

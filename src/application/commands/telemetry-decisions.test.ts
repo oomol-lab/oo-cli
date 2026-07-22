@@ -72,8 +72,14 @@ const commandTelemetryDecisions = {
     },
     "auth.login": {
         kind: "properties",
-        properties: ["auth_method", "account_count_bucket", "credential_source"],
-        reason: "Records login method, bounded saved-account count, and whether OO_API_KEY outranks the saved account.",
+        properties: [
+            "auth_method",
+            "account_count_bucket",
+            "credential_source",
+            "team_count_bucket",
+            "team_selection",
+        ],
+        reason: "Records login method, bounded saved-account count, whether OO_API_KEY outranks the saved account, bounded team count, and which mechanism picked the default team (enum only, never the team name).",
     },
     "auth.logout": {
         kind: "properties",
@@ -82,8 +88,8 @@ const commandTelemetryDecisions = {
     },
     "auth.status": {
         kind: "properties",
-        properties: ["account_count_bucket", "credential_source"],
-        reason: "Records bounded saved-account count and which credential source is in effect, without account identity.",
+        properties: ["account_count_bucket", "credential_source", "team_source"],
+        reason: "Records bounded saved-account count, which credential source is in effect, and which mechanism selects the default team (enum only), without account or team identity.",
     },
     "auth.switch": {
         kind: "properties",
@@ -261,7 +267,13 @@ const commandTelemetryDecisions = {
     },
     "login": {
         kind: "properties",
-        properties: ["auth_method", "account_count_bucket", "credential_source"],
+        properties: [
+            "auth_method",
+            "account_count_bucket",
+            "credential_source",
+            "team_count_bucket",
+            "team_selection",
+        ],
         reason: "Top-level auth alias records the same safe auth dimensions as auth.login.",
     },
     "logout": {

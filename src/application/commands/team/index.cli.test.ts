@@ -22,11 +22,13 @@ const teamsResponse = {
             avatar: "",
             creator_user_id: "user-1",
             role: "creator",
+            system_created: false,
         },
         {
             id: "team-2",
             name: "beta",
             role: "member",
+            system_created: false,
         },
     ],
 };

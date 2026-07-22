@@ -692,7 +692,7 @@ describe("connectorCommand CLI", () => {
                         if (request.url.includes("relation-control")) {
                             return new Response(JSON.stringify({
                                 teams: [
-                                    { id: "team-1", name: "acme", role: "creator" },
+                                    { id: "team-1", name: "acme", role: "creator", system_created: false },
                                 ],
                             }));
                         }
@@ -826,7 +826,7 @@ describe("connectorCommand CLI", () => {
 
                         return new Response(JSON.stringify({
                             teams: [
-                                { id: "team-1", name: "acme", role: "creator" },
+                                { id: "team-1", name: "acme", role: "creator", system_created: false },
                             ],
                         }));
                     },
@@ -5130,7 +5130,7 @@ describe("connectorCommand CLI", () => {
                         if (request.url.includes("relation-control")) {
                             return new Response(JSON.stringify({
                                 teams: [
-                                    { id: "team-1", name: "acme", role: "creator" },
+                                    { id: "team-1", name: "acme", role: "creator", system_created: false },
                                 ],
                             }));
                         }
@@ -5206,7 +5206,7 @@ describe("connectorCommand CLI", () => {
 
                         return new Response(JSON.stringify({
                             teams: [
-                                { id: "team-1", name: "acme", role: "creator" },
+                                { id: "team-1", name: "acme", role: "creator", system_created: false },
                             ],
                         }));
                     },

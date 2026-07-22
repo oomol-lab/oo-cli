@@ -10,6 +10,7 @@ exports[`auth CLI writes auth device login logs without persisting secrets 1`] =
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
+Default team identity: alice-team
 "
 ,
 }
@@ -23,6 +24,7 @@ exports[`auth CLI writes auth-store and auth status logs 1`] = `
 "✓ Logged in to oomol.com account Alice
   - Active account: true
   - API key status: Valid
+  - Default team: personal (no default team)
   - Accounts:
     * Alice [active] (oomol.com)
 "
@@ -42,6 +44,7 @@ Alias for auth login.
 Options:
   --api-key <api-key>              Log in with an existing API key
   --session-token <session-token>  Log in with a session token
+  --team <name>                    Set the default team identity after login
   -h, --help                       Show help for command
 
 Global Options:
@@ -82,6 +85,7 @@ exports[`auth CLI supports auth login and updates the existing account without d
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
+Default team identity: alice-team
 "
 ,
   },
@@ -94,6 +98,7 @@ Waiting for the device login to complete...
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
+Default team identity: alice-team
 "
 ,
   },
@@ -110,6 +115,7 @@ exports[`auth CLI supports auth login with a custom OOMOL_ENDPOINT 1`] = `
 Waiting for the device login to complete...
 ✓ Logged in to staging.oomol.test account Alice
   - Active account: true
+Default team identity: alice-team
 "
 ,
 }
@@ -125,6 +131,7 @@ exports[`auth CLI supports login as an alias for auth login 1`] = `
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
+Default team identity: alice-team
 "
 ,
 }
@@ -140,6 +147,7 @@ exports[`auth CLI renders the auth login url and success block with color stylin
 Waiting for the device login to complete...
 ✓ Logged in to oomol.com account Alice
   - Active account: true
+Default team identity: alice-team
 "
 ,
 }
@@ -176,6 +184,7 @@ exports[`auth CLI supports auth status for valid and invalid api keys 1`] = `
 "X Logged in to oomol.com account Alice
   - Active account: true
   - API key status: Invalid
+  - Default team: personal (no default team)
   - Accounts:
     * Alice [active] (oomol.com)
 "
@@ -188,6 +197,7 @@ exports[`auth CLI supports auth status for valid and invalid api keys 1`] = `
 "✓ Logged in to oomol.com account Alice
   - Active account: true
   - API key status: Valid
+  - Default team: personal (no default team)
   - Accounts:
     * Alice [active] (oomol.com)
 "

@@ -9,6 +9,8 @@ import {
     createConnectionRefusedError,
     createFailedToOpenSocketError,
     defaultAuthEndpoint,
+    defaultLoginTeamsResponse,
+    expectTelemetryFreeOfTeamIdentity,
     findLoginUrl,
     readAuthLoginUrlPrefix,
     readLatestLogContent,
@@ -18,6 +20,10 @@ import {
     writeConnectorFile,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import { JSON_OUTPUT_SCHEMA_VERSION } from "../json-output.ts";
 
@@ -287,6 +293,16 @@ describe("auth CLI", () => {
                             }));
                         }
 
+                        if (
+                            request.method === "GET"
+                            && requestUrl.host === `relation-control.${defaultAuthEndpoint}`
+                            && requestUrl.pathname === "/v1/me/teams"
+                        ) {
+                            return new Response(
+                                JSON.stringify(defaultLoginTeamsResponse),
+                            );
+                        }
+
                         throw new Error(`Unexpected auth fast login request: ${request.method} ${requestUrl}`);
                     },
                 },
@@ -295,7 +311,7 @@ describe("auth CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(1);
+            expect(requests).toHaveLength(2);
             expect(result.stdout).not.toContain("Open this login URL");
             expect(result.stdout).not.toContain("Enter this code");
             expect(result.stdout).not.toContain("Waiting for the device login");
@@ -303,7 +319,7 @@ describe("auth CLI", () => {
                 exitCode: 0,
                 stderr: "",
                 stdout:
-                    "✓ Logged in to oomol.com account Alice\n  - Active account: true\n",
+                    "✓ Logged in to oomol.com account Alice\n  - Active account: true\nDefault team identity: alice-team\n",
             });
             expect(authFileContent).toContain("id = \"0193438c-238f-703c-8754-e4a04e0be0c1\"");
             expect(authFileContent).toContain("api_key = \"secret-1\"");
@@ -354,6 +370,16 @@ describe("auth CLI", () => {
                             }));
                         }
 
+                        if (
+                            request.method === "GET"
+                            && requestUrl.host === `relation-control.${defaultAuthEndpoint}`
+                            && requestUrl.pathname === "/v1/me/teams"
+                        ) {
+                            return new Response(
+                                JSON.stringify(defaultLoginTeamsResponse),
+                            );
+                        }
+
                         throw new Error(`Unexpected auth api key login request: ${request.method} ${requestUrl}`);
                     },
                 },
@@ -362,14 +388,14 @@ describe("auth CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(1);
+            expect(requests).toHaveLength(2);
             expect(result.stdout).not.toContain("Open this login URL");
             expect(result.stdout).not.toContain("Waiting for the device login");
             expect(createCliSnapshot(result)).toEqual({
                 exitCode: 0,
                 stderr: "",
                 stdout:
-                    "✓ Logged in to oomol.com account BlackHole1\n  - Active account: true\n",
+                    "✓ Logged in to oomol.com account BlackHole1\n  - Active account: true\nDefault team identity: alice-team\n",
             });
             expect(authFileContent).toContain("id = \"019343c2-c43d-710f-81b2-dfa68d3079de\"");
             expect(authFileContent).toContain("name = \"BlackHole1\"");
@@ -2061,3 +2087,702 @@ function expectForbiddenDeviceLoginPhrases(output: string): void {
         expect(output).not.toContain(phrase);
     }
 }
+
+// Reads the command-specific telemetry properties recorded for the given
+// command path, so tests can pin the safe property shape (enums/buckets only)
+// and assert raw team identity never reaches telemetry.
+function readCommandTelemetryProperties(
+    sandbox: { env: Record<string, string | undefined> },
+    commandFull: string,
+): Record<string, unknown> | undefined {
+    return readTelemetryRowsForTest(
+        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+    )
+        .map(row => parseTelemetryRowPayload(row))
+        .find(payload => payload?.properties?.command_full === commandFull)
+        ?.properties;
+}
+
+describe("auth CLI login default team", () => {
+    function readSettingsFilePath(sandbox: {
+        env: Record<string, string | undefined>;
+    }): string {
+        return join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml");
+    }
+
+    // The settings file may not exist yet when login never persisted a
+    // default team; treat a missing file as empty content.
+    async function readOptionalSettingsContent(sandbox: {
+        env: Record<string, string | undefined>;
+    }): Promise<string> {
+        const settingsFile = Bun.file(readSettingsFilePath(sandbox));
+
+        return (await settingsFile.exists()) ? await settingsFile.text() : "";
+    }
+
+    test("adopts the system-created team and persists it as the default", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1");
+            const settingsContent = await readFile(
+                readSettingsFilePath(sandbox),
+                "utf8",
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain(
+                "Default team identity: alice-team",
+            );
+            expect(result.stdout).not.toContain("You belong to");
+            expect(settingsContent).toContain("team = \"alice-team\"");
+
+            // Only the selection enum and the bounded count reach telemetry.
+            const telemetryProperties = readCommandTelemetryProperties(
+                sandbox,
+                "auth.login",
+            );
+            expect(telemetryProperties).toMatchObject({
+                auth_method: "device_login",
+                team_count_bucket: "1-5",
+                team_selection: "system_default",
+            });
+            expectTelemetryFreeOfTeamIdentity(
+                telemetryProperties,
+                ["alice-team", "team-system-1"],
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("lists at most five team names and truncates the rest with an ellipsis", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                teamsResponse: {
+                    teams: [
+                        {
+                            id: "team-system-1",
+                            name: "alice-team",
+                            role: "creator",
+                            system_created: true,
+                        },
+                        { id: "team-2", name: "beta", role: "member", system_created: false },
+                        { id: "team-3", name: "gamma", role: "member", system_created: false },
+                        { id: "team-4", name: "delta", role: "member", system_created: false },
+                        { id: "team-5", name: "epsilon", role: "member", system_created: false },
+                        { id: "team-6", name: "zeta", role: "member", system_created: false },
+                        { id: "team-7", name: "eta", role: "member", system_created: false },
+                    ],
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Default team identity: alice-team",
+            );
+            expect(result.stdout).toContain(
+                "You belong to 7 teams: alice-team, beta, gamma, delta, epsilon, …. Switch with `oo team use <name>`.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("sets the explicitly requested team with --team", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                argv: ["auth", "login", "--team", "beta"],
+                teamsResponse: {
+                    teams: [
+                        {
+                            id: "team-system-1",
+                            name: "alice-team",
+                            role: "creator",
+                            system_created: true,
+                        },
+                        { id: "team-2", name: "beta", role: "member", system_created: false },
+                    ],
+                },
+            });
+            const settingsContent = await readFile(
+                readSettingsFilePath(sandbox),
+                "utf8",
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Default team identity: beta");
+            expect(result.stdout).toContain(
+                "You belong to 2 teams: alice-team, beta. Switch with `oo team use <name>`.",
+            );
+            expect(result.stdout).not.toContain("…");
+            expect(settingsContent).toContain("team = \"beta\"");
+
+            const telemetryProperties = readCommandTelemetryProperties(
+                sandbox,
+                "auth.login",
+            );
+            expect(telemetryProperties).toMatchObject({
+                team_count_bucket: "1-5",
+                team_selection: "flag",
+            });
+            expectTelemetryFreeOfTeamIdentity(
+                telemetryProperties,
+                ["alice-team", "beta", "team-system-1", "team-2"],
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails when the membership request fails under an explicit --team", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                argv: ["auth", "login", "--team", "beta"],
+                teamsStatus: 500,
+            });
+
+            // The caller asked for exactly that team, so a failed membership
+            // request must fail loudly instead of degrading to a hint.
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(
+                "The team list request returned HTTP 500.",
+            );
+            expect(await readFile(authFilePath, "utf8")).toContain(
+                "id = \"user-1\"",
+            );
+            expect(await readOptionalSettingsContent(sandbox))
+                .not
+                .toContain("\nteam = ");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails when the requested team is not a membership but keeps the login", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                argv: ["auth", "login", "--team", "ghost"],
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(
+                "The active account cannot access the team \"ghost\".",
+            );
+            // The account itself logged in fine; only the team request failed.
+            expect(await readFile(authFilePath, "utf8")).toContain(
+                "id = \"user-1\"",
+            );
+            // The commented settings template mentions `# team = ...`, so only
+            // an uncommented assignment counts as a persisted default.
+            expect(await readOptionalSettingsContent(sandbox))
+                .not
+                .toContain("\nteam = ");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects a blank --team value without starting a login", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["auth", "login", "--team", " "],
+                {
+                    fetcher: async () => {
+                        throw new Error("No request should be made for a blank team.");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("The team name must not be empty.");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps a still-valid configured team on re-login", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await sandbox.run(["config", "set", "identity.team", "beta"]);
+
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                teamsResponse: {
+                    teams: [
+                        {
+                            id: "team-system-1",
+                            name: "alice-team",
+                            role: "creator",
+                            system_created: true,
+                        },
+                        { id: "team-2", name: "beta", role: "member", system_created: false },
+                    ],
+                },
+            });
+            const settingsContent = await readFile(
+                readSettingsFilePath(sandbox),
+                "utf8",
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Default team identity: beta");
+            expect(settingsContent).toContain("team = \"beta\"");
+
+            const telemetryProperties = readCommandTelemetryProperties(
+                sandbox,
+                "auth.login",
+            );
+            expect(telemetryProperties).toMatchObject({
+                team_count_bucket: "1-5",
+                team_selection: "kept_config",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("changes nothing when no system-created team matches", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await sandbox.run(["config", "set", "identity.team", "ghost"]);
+
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                teamsResponse: {
+                    teams: [{ id: "team-2", name: "beta", role: "member", system_created: false }],
+                },
+            });
+            const settingsContent = await readFile(
+                readSettingsFilePath(sandbox),
+                "utf8",
+            );
+
+            // No membership carries system_created, so the stale configured
+            // default is left alone instead of being replaced or cleared.
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).not.toContain("Default team identity:");
+            expect(settingsContent).toContain("team = \"ghost\"");
+            expect(readCommandTelemetryProperties(sandbox, "auth.login"))
+                .toMatchObject({ team_selection: "none" });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("changes nothing when the account has no teams", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                teamsResponse: { teams: [] },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).not.toContain("Default team identity:");
+            expect(result.stdout).not.toContain("You belong to");
+            expect(await readOptionalSettingsContent(sandbox))
+                .not
+                .toContain("\nteam = ");
+            expect(readCommandTelemetryProperties(sandbox, "auth.login"))
+                .toMatchObject({
+                    team_count_bucket: "0",
+                    team_selection: "none",
+                });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("replaces a stale configured team with the system-created default", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await sandbox.run(["config", "set", "identity.team", "ghost"]);
+
+            const result = await runPrintedAuthLogin(sandbox, "secret-1");
+            const settingsContent = await readFile(
+                readSettingsFilePath(sandbox),
+                "utf8",
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Default team identity: alice-team",
+            );
+            expect(settingsContent).toContain("team = \"alice-team\"");
+            expect(settingsContent).not.toContain("team = \"ghost\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps login successful when the team listing cannot be parsed", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                teamsResponse: "boom",
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Could not load your teams, so the default team identity is unchanged.",
+            );
+            expect(await readOptionalSettingsContent(sandbox))
+                .not
+                .toContain("\nteam = ");
+
+            // No membership data resolved, so no count bucket is recorded.
+            const telemetryProperties = readCommandTelemetryProperties(
+                sandbox,
+                "auth.login",
+            );
+            expect(telemetryProperties).toMatchObject({
+                team_selection: "unresolved",
+            });
+            expect(telemetryProperties).not.toHaveProperty("team_count_bucket");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints the env override hint when OO_TEAM_ID outranks the new default", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_TEAM_ID = "team-42";
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1");
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Default team identity: alice-team",
+            );
+            expect(result.stdout).toContain(
+                "Connector commands keep using the team from OO_TEAM_ID, not this default.",
+            );
+            // The default is still persisted; only its effect is deferred
+            // while the env override is set.
+            expect(await readFile(readSettingsFilePath(sandbox), "utf8"))
+                .toContain("team = \"alice-team\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints the env override hint naming OO_TEAM_NAME", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_TEAM_NAME = "other";
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1");
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain(
+                "Connector commands keep using the team from OO_TEAM_NAME, not this default.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("supports --team combined with --api-key login", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["auth", "login", "--api-key", "secret-api-1", "--team", "beta"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+                        const requestUrl = new URL(request.url);
+
+                        if (
+                            request.method === "GET"
+                            && requestUrl.host === `api.${defaultAuthEndpoint}`
+                            && requestUrl.pathname === "/v1/users/profile"
+                        ) {
+                            return new Response(JSON.stringify({
+                                displayname: "Alice",
+                                email: "alice@example.com",
+                                nickname: "Alice",
+                                uid: "user-1",
+                                username: "Alice",
+                            }));
+                        }
+
+                        if (
+                            request.method === "GET"
+                            && requestUrl.host === `relation-control.${defaultAuthEndpoint}`
+                            && requestUrl.pathname === "/v1/me/teams"
+                        ) {
+                            return new Response(JSON.stringify({
+                                teams: [
+                                    {
+                                        id: "team-system-1",
+                                        name: "alice-team",
+                                        role: "creator",
+                                        system_created: true,
+                                    },
+                                    { id: "team-2", name: "beta", role: "member", system_created: false },
+                                ],
+                            }));
+                        }
+
+                        throw new Error(`Unexpected api key login request: ${request.method} ${requestUrl}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Default team identity: beta");
+            expect(await readFile(readSettingsFilePath(sandbox), "utf8"))
+                .toContain("team = \"beta\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prints localized team tips under --lang zh", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                argv: ["--lang", "zh", "auth", "login"],
+                teamsResponse: {
+                    teams: [
+                        {
+                            id: "team-system-1",
+                            name: "alice-team",
+                            role: "creator",
+                            system_created: true,
+                        },
+                        { id: "team-2", name: "beta", role: "member", system_created: false },
+                    ],
+                },
+            });
+
+            // Pins the zh placeholder substitution ({team}/{count}/{teams});
+            // a mistyped placeholder name would render literally.
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("当前默认团队身份：alice-team");
+            expect(result.stdout).toContain(
+                "你共有 2 个团队：alice-team, beta。可使用 `oo team use <name>` 切换。",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
+
+describe("auth CLI status default team", () => {
+    test("reports the configured default team in text and JSON", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
+
+            const fetcher = async (): Promise<Response> =>
+                new Response(null, { status: 200 });
+            const textResult = await sandbox.run(["auth", "status"], { fetcher });
+            const jsonResult = await sandbox.run(
+                ["auth", "info", "--json"],
+                { fetcher },
+            );
+            const payload = JSON.parse(jsonResult.stdout) as {
+                team?: { name: string | null; id: string | null; source: string };
+            };
+
+            expect(textResult.exitCode).toBe(0);
+            expect(textResult.stdout).toContain("- Default team: acme");
+            expect(jsonResult.exitCode).toBe(0);
+            expect(payload.team).toEqual({
+                name: "acme",
+                id: null,
+                source: "config",
+            });
+
+            // Only the source enum reaches telemetry, never the team name.
+            const telemetryProperties = readCommandTelemetryProperties(
+                sandbox,
+                "auth.status",
+            );
+            expect(telemetryProperties).toMatchObject({
+                team_source: "config",
+            });
+            expectTelemetryFreeOfTeamIdentity(telemetryProperties, ["acme"]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports the default team alongside the OO_API_KEY identity", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
+
+            const fetcher = async (): Promise<Response> =>
+                new Response(null, { status: 200 });
+            const textResult = await sandbox.run(["auth", "status"], { fetcher });
+            const jsonResult = await sandbox.run(
+                ["auth", "status", "--json"],
+                { fetcher },
+            );
+            const payload = JSON.parse(jsonResult.stdout) as {
+                status: string;
+                envOverride?: unknown;
+                team?: { name: string | null; id: string | null; source: string };
+            };
+
+            // The team default is orthogonal to the credential source, so the
+            // env-credential block reports it too.
+            expect(textResult.exitCode).toBe(0);
+            expect(textResult.stdout).toContain("- Default team: acme");
+            expect(payload.status).toBe("logged-in");
+            expect(payload.envOverride).toBeDefined();
+            expect(payload.team).toEqual({
+                name: "acme",
+                id: null,
+                source: "config",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports the OO_TEAM_ID override ahead of the configured default", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_TEAM_ID = "team-42";
+
+        try {
+            await writeAuthFile(sandbox);
+            await sandbox.run(["config", "set", "identity.team", "acme"]);
+
+            const fetcher = async (): Promise<Response> =>
+                new Response(null, { status: 200 });
+            const textResult = await sandbox.run(["auth", "status"], { fetcher });
+            const jsonResult = await sandbox.run(
+                ["auth", "status", "--json"],
+                { fetcher },
+            );
+            const payload = JSON.parse(jsonResult.stdout) as {
+                team?: { name: string | null; id: string | null; source: string };
+            };
+
+            expect(textResult.exitCode).toBe(0);
+            expect(textResult.stdout).toContain(
+                "- Default team: team-42 (via OO_TEAM_ID)",
+            );
+            expect(payload.team).toEqual({
+                name: null,
+                id: "team-42",
+                source: "env_id",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports the OO_TEAM_NAME override by name", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_TEAM_NAME = "acme";
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const fetcher = async (): Promise<Response> =>
+                new Response(null, { status: 200 });
+            const textResult = await sandbox.run(["auth", "status"], { fetcher });
+            const jsonResult = await sandbox.run(
+                ["auth", "status", "--json"],
+                { fetcher },
+            );
+            const payload = JSON.parse(jsonResult.stdout) as {
+                team?: { name: string | null; id: string | null; source: string };
+            };
+
+            expect(textResult.stdout).toContain(
+                "- Default team: acme (via OO_TEAM_NAME)",
+            );
+            expect(payload.team).toEqual({
+                name: "acme",
+                id: null,
+                source: "env_name",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("omits the team field from JSON when no default is configured", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const jsonResult = await sandbox.run(
+                ["auth", "status", "--json"],
+                {
+                    fetcher: async () => new Response(null, { status: 200 }),
+                },
+            );
+            const payload = JSON.parse(jsonResult.stdout) as {
+                team?: unknown;
+            };
+
+            expect(jsonResult.exitCode).toBe(0);
+            expect(payload.team).toBeUndefined();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
