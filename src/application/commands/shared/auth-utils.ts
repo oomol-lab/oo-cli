@@ -2,6 +2,7 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
+import { getCurrentAuthAccount } from "../../schemas/auth.ts";
 import { readCurrentAuth } from "../auth/shared.ts";
 import {
     applyEndpointOverride,
@@ -50,6 +51,33 @@ export async function requireCurrentAccount(
             : authErrorKeys.required,
         1,
     );
+}
+
+// Resolves the account commands run as, or `undefined` when there is none.
+// Precedence matches requireCurrentAccount(), but every way of having no
+// usable account — no login, a stale active id, an unreadable auth.toml — comes
+// back as an absence instead of an error.
+//
+// For commands whose own output does not depend on the account, so that an
+// optional enrichment (a name lookup, say) degrades instead of taking the
+// command down. Commands that cannot proceed without credentials must keep
+// using requireCurrentAccount(), which explains what to do about it.
+export async function resolveCurrentAccountTolerantly(
+    context: CliExecutionContext,
+): Promise<AuthAccount | undefined> {
+    const envAccount = buildEnvApiKeyAccount(context.env);
+
+    if (envAccount !== undefined) {
+        return envAccount;
+    }
+
+    const currentAccount = getCurrentAuthAccount(
+        await context.authStore.readTolerant(),
+    );
+
+    return currentAccount === undefined
+        ? undefined
+        : applyEndpointOverride(currentAccount, context.env);
 }
 
 // Resolves the OOMOL endpoint without requiring a logged-in account. Prefers

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
     getUnexpectedRequestErrorMessage,
+    isNetworkRestrictedSandboxError,
     requestText,
 } from "../shared/request.ts";
 
@@ -82,6 +83,103 @@ export async function listMemberTeams(
     }
     catch {
         throw new CliUserError("errors.team.invalidResponse", 1);
+    }
+}
+
+// How a team-id lookup ended. Only `valid` carries a team; every other value
+// explains why the name stays unknown, and the distinction is the whole point:
+// "this id is not a team you belong to" and "the lookup could not run" call for
+// different fixes, and collapsing them into one "unknown" sends the reader down
+// the wrong path.
+export type TeamLookupStatus
+    = | "valid"
+        | "not_a_member"
+        | "not_found"
+        | "deleted"
+        | "request_failed"
+        | "request_failed_sandbox";
+
+export type TeamLookupResult
+    = | { status: "valid"; team: TeamView }
+        | { status: Exclude<TeamLookupStatus, "valid"> };
+
+// The three statuses the backend distinguishes for a member-gated team read.
+// Anything else — including 401 from a rejected key — is a failed lookup rather
+// than a statement about the team.
+const teamLookupStatusByHttpStatus: Record<number, Exclude<TeamLookupStatus, "valid">> = {
+    403: "not_a_member",
+    404: "not_found",
+    410: "deleted",
+};
+
+// Resolves one team id to its team. Backed by
+// `GET https://relation-control.{endpoint}/v1/teams/{teamId}`, the singular form
+// of `/v1/me/teams`, so the response is a single membership entry and parses
+// with the same schema.
+//
+// This never throws: callers are diagnostic commands that must still report the
+// rest of their output when the lookup fails, so every failure comes back as a
+// status instead of an error.
+export async function fetchTeamById(
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    teamId: string,
+    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+): Promise<TeamLookupResult> {
+    const requestUrl = new URL(
+        `https://relation-control.${account.endpoint}/v1/teams/${encodeURIComponent(teamId)}`,
+    );
+    const requestStartedAt = Date.now();
+
+    context.logger.debug(
+        { endpoint: account.endpoint },
+        "Team lookup request started.",
+    );
+
+    try {
+        const response = await context.fetcher(requestUrl, {
+            headers: {
+                Authorization: account.apiKey,
+            },
+        });
+
+        context.logger.debug(
+            {
+                durationMs: Date.now() - requestStartedAt,
+                endpoint: account.endpoint,
+                status: response.status,
+            },
+            "Team lookup request completed.",
+        );
+
+        if (response.status !== 200) {
+            return {
+                status: teamLookupStatusByHttpStatus[response.status]
+                    ?? "request_failed",
+            };
+        }
+
+        return {
+            status: "valid",
+            team: toTeamView(
+                teamResponseItemSchema.parse(await response.json() as unknown),
+            ),
+        };
+    }
+    catch (error) {
+        context.logger.warn(
+            {
+                durationMs: Date.now() - requestStartedAt,
+                endpoint: account.endpoint,
+                err: error,
+            },
+            "Team lookup request failed unexpectedly.",
+        );
+
+        return {
+            status: isNetworkRestrictedSandboxError(error)
+                ? "request_failed_sandbox"
+                : "request_failed",
+        };
     }
 }
 
