@@ -3,6 +3,12 @@ import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/
 import type { AuthAccount, AuthFile } from "../../schemas/auth.ts";
 
 import type { ResolvedSelfHostedConnector } from "../shared/self-hosted-connector.ts";
+
+import type {
+    DefaultTeamIdentity,
+    TeamIdentitySource,
+    TeamNameStatus,
+} from "../team/default-identity.ts";
 import { z } from "zod";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
@@ -17,9 +23,11 @@ import { writeLine } from "../shared/output.ts";
 import { isNetworkRestrictedSandboxError } from "../shared/request.ts";
 import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
 import {
-    readTeamEnvOverride,
-    teamEnvOverrideVariableName,
-} from "../shared/team-env-override.ts";
+    appendTeamIdentityStatus,
+    formatTeamIdentityValue,
+    resolveDefaultTeamIdentity,
+    teamNameStatusForTelemetry,
+} from "../team/default-identity.ts";
 import {
     formatAuthStrong,
     readCurrentAuth,
@@ -85,22 +93,19 @@ interface AuthStatusJsonEnvOverride {
     apiKeyStatus: ApiKeyStatus;
 }
 
-// The default team identity in effect for team-scoped commands, resolved
-// offline the same way `oo team current` does: the OO_TEAM_ID / OO_TEAM_NAME
-// env override outranks the `identity.team` config default. An env id
-// override knows only the id and a name-based source only the name; status
-// never spends a network request resolving one form into the other.
+// The default team identity in effect for team-scoped commands, resolved the
+// same way `oo team current` resolves it: the OO_TEAM_ID / OO_TEAM_NAME env
+// override outranks the `identity.team` config default.
+//
+// `status` reports what happened to the name lookup and is `null` when none was
+// needed — only an OO_TEAM_ID identity starts out as a bare id. `envVar` is
+// deliberately not part of this payload: it is a hint for the text renderer,
+// not a fact about the identity.
 interface AuthStatusJsonTeam {
     name: string | null;
     id: string | null;
-    source: "config" | "env_id" | "env_name";
-}
-
-// Internal resolution of the team identity; `envVar` names the overriding
-// variable for the text hint and is absent for the config source.
-interface StatusTeamIdentity {
-    team: AuthStatusJsonTeam;
-    envVar?: string;
+    source: TeamIdentitySource;
+    status: TeamNameStatus | null;
 }
 
 type AuthStatusJsonPayload
@@ -147,21 +152,35 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
         // every other command is how status ends up naming the wrong account,
         // the wrong endpoint, and validating the wrong key.
         const { authFile, identity } = await resolveStatusState(context);
-        const teamIdentity = await resolveStatusTeamIdentity(context);
+        const settings = await context.settingsStore.read();
+
+        // The key validation and the team name lookup answer independent
+        // questions, so they go out together. Sequencing them would double the
+        // command's latency to report the same two facts.
+        const [apiKeyStatus, teamIdentity] = await Promise.all([
+            identity === undefined
+                ? undefined
+                : readApiKeyStatus(identity.account, context),
+            resolveDefaultTeamIdentity(
+                {
+                    account: identity?.account,
+                    configuredTeam: getConfiguredIdentityTeam(settings),
+                },
+                context,
+            ),
+        ]);
 
         context.telemetry?.recordProperties({
             account_count_bucket: bucketTelemetryCount(authFile.auth.length),
             credential_source: identity?.source ?? "none",
-            team_source: teamIdentity?.team.source ?? "none",
+            team_source: teamIdentity?.source ?? "none",
+            team_status: teamNameStatusForTelemetry(teamIdentity),
         });
 
         const activeStatus: ActiveAccountStatus | undefined
-            = identity === undefined
+            = identity === undefined || apiKeyStatus === undefined
                 ? undefined
-                : {
-                        ...identity,
-                        apiKeyStatus: await readApiKeyStatus(identity.account, context),
-                    };
+                : { ...identity, apiKeyStatus };
 
         if (input.format === "json") {
             writeJsonOutput(
@@ -181,41 +200,6 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
         writeSelfHostedConnectorText(context, selfHostedConnector);
     },
 };
-
-// Resolves the default team identity offline, mirroring `oo team current`:
-// the OO_TEAM_ID / OO_TEAM_NAME env override when set, otherwise the
-// `identity.team` config default, otherwise none (personal identity).
-async function resolveStatusTeamIdentity(
-    context: CliExecutionContext,
-): Promise<StatusTeamIdentity | undefined> {
-    const envOverride = readTeamEnvOverride(context.env);
-
-    if (envOverride !== undefined) {
-        return {
-            team: {
-                name: envOverride.kind === "name" ? envOverride.value : null,
-                id: envOverride.kind === "id" ? envOverride.value : null,
-                source: envOverride.kind === "id" ? "env_id" : "env_name",
-            },
-            envVar: teamEnvOverrideVariableName(envOverride),
-        };
-    }
-
-    const settings = await context.settingsStore.read();
-    const configuredTeam = getConfiguredIdentityTeam(settings);
-
-    if (configuredTeam === undefined) {
-        return undefined;
-    }
-
-    return {
-        team: {
-            name: configuredTeam,
-            id: null,
-            source: "config",
-        },
-    };
-}
 
 /**
  * Resolves what to report, mirroring requireCurrentAccount()'s precedence:
@@ -257,7 +241,7 @@ async function resolveStatusState(
 function buildAuthStatusJsonPayload(
     authFile: AuthFile,
     activeStatus: ActiveAccountStatus | undefined,
-    teamIdentity: StatusTeamIdentity | undefined,
+    teamIdentity: DefaultTeamIdentity | undefined,
     selfHostedConnector: ResolvedSelfHostedConnector | undefined,
 ): AuthStatusJsonPayload {
     const connector: { connector?: AuthStatusJsonConnector }
@@ -293,9 +277,18 @@ function buildAuthStatusJsonPayload(
             status: "logged-in",
             activeAccountId: activeStatus.account.id,
             accounts,
+            // `envVar` is intentionally dropped: it explains the text hint, not
+            // the identity, and would not survive a source change.
             ...(teamIdentity === undefined
                 ? {}
-                : { team: teamIdentity.team }),
+                : {
+                        team: {
+                            name: teamIdentity.name,
+                            id: teamIdentity.id,
+                            source: teamIdentity.source,
+                            status: teamIdentity.status,
+                        },
+                    }),
             ...(activeStatus.source === "env"
                 ? {
                         envOverride: {
@@ -359,7 +352,7 @@ function writeSelfHostedConnectorText(
 // supplies it, or the personal fallback when no default team is set.
 function formatStatusTeamDetail(
     context: CliExecutionContext,
-    teamIdentity: StatusTeamIdentity | undefined,
+    teamIdentity: DefaultTeamIdentity | undefined,
 ): { label: string; value: string } {
     const label = context.translator.t("auth.status.team");
 
@@ -370,26 +363,28 @@ function formatStatusTeamDetail(
         };
     }
 
-    const teamValue = teamIdentity.team.name ?? teamIdentity.team.id ?? "";
+    const teamValue = formatTeamIdentityValue(teamIdentity, context.translator);
 
-    if (teamIdentity.envVar !== undefined) {
-        return {
-            label,
-            value: context.translator.t("auth.status.teamEnvOverride", {
-                team: teamValue,
-                envVar: teamIdentity.envVar,
-            }),
-        };
-    }
-
-    return { label, value: teamValue };
+    return {
+        label,
+        value: appendTeamIdentityStatus(
+            teamIdentity.envVar === undefined
+                ? teamValue
+                : context.translator.t("auth.status.teamEnvOverride", {
+                        team: teamValue,
+                        envVar: teamIdentity.envVar,
+                    }),
+            teamIdentity,
+            context.translator,
+        ),
+    };
 }
 
 function writeAuthStatusText(
     context: CliExecutionContext,
     authFile: AuthFile,
     activeStatus: ActiveAccountStatus | undefined,
-    teamIdentity: StatusTeamIdentity | undefined,
+    teamIdentity: DefaultTeamIdentity | undefined,
 ): void {
     if (activeStatus === undefined) {
         if (authFile.id !== "") {

@@ -1240,11 +1240,22 @@ export const enMessages = {
     "team.current.text.personal":
         "No default team; connector commands run under your personal identity.",
     "team.current.text.envId":
-        "Team identity comes from the OO_TEAM_ID environment variable: {teamId}",
+        "Team identity comes from the OO_TEAM_ID environment variable: {team}",
     "team.current.text.envName":
         "Team identity comes from the OO_TEAM_NAME environment variable: {team}",
     "team.current.text.configIgnored":
         "The `identity.team` config default ({team}) is not in use while {envVar} is set.",
+    "team.identity.nameWithId": "{name} ({teamId})",
+    "team.identity.statusSuffix": "{value} — {reason}",
+    "team.identity.status.notAMember":
+        "the active account is not a member of this team",
+    "team.identity.status.notFound": "no team exists with this id",
+    "team.identity.status.deleted": "this team has been deleted",
+    "team.identity.status.requestFailed": "could not look up the team name",
+    "team.identity.status.requestFailedSandbox":
+        "could not look up the team name; the sandbox blocked the request",
+    "team.identity.status.noCredential":
+        "log in to look up the team name",
     "team.use.success": "Set the default team identity to {team}.",
     "team.use.envOverrideHint":
         "Connector commands keep using the team from {envVar}, not this default. Unset {envVar} to use the saved default.",
@@ -2528,11 +2539,20 @@ export const zhMessages = {
     "team.current.text.personal":
         "未设置默认团队；connector 命令以个人身份运行。",
     "team.current.text.envId":
-        "团队身份来自 OO_TEAM_ID 环境变量：{teamId}",
+        "团队身份来自 OO_TEAM_ID 环境变量：{team}",
     "team.current.text.envName":
         "团队身份来自 OO_TEAM_NAME 环境变量：{team}",
     "team.current.text.configIgnored":
         "设置了 {envVar} 时，`identity.team` 配置的默认值（{team}）不会生效。",
+    "team.identity.nameWithId": "{name}（{teamId}）",
+    "team.identity.statusSuffix": "{value} —— {reason}",
+    "team.identity.status.notAMember": "当前账号不是该团队的成员",
+    "team.identity.status.notFound": "不存在该 id 对应的团队",
+    "team.identity.status.deleted": "该团队已被删除",
+    "team.identity.status.requestFailed": "无法查询团队名称",
+    "team.identity.status.requestFailedSandbox":
+        "无法查询团队名称：沙箱拦截了该请求",
+    "team.identity.status.noCredential": "登录后才能查询团队名称",
     "team.use.success": "已将默认团队身份设置为 {team}。",
     "team.use.envOverrideHint":
         "connector 命令仍会使用 {envVar} 指定的团队，而不是这个默认值。取消 {envVar} 后保存的默认值才会生效。",

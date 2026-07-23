@@ -1,4 +1,6 @@
+import type { Fetcher } from "../../contracts/cli.ts";
 import { readFile } from "node:fs/promises";
+
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -2628,17 +2630,16 @@ describe("auth CLI status default team", () => {
                 ["auth", "info", "--json"],
                 { fetcher },
             );
-            const payload = JSON.parse(jsonResult.stdout) as {
-                team?: { name: string | null; id: string | null; source: string };
-            };
-
             expect(textResult.exitCode).toBe(0);
             expect(textResult.stdout).toContain("- Default team: acme");
             expect(jsonResult.exitCode).toBe(0);
-            expect(payload.team).toEqual({
+            // A config default already carries its name, so no lookup runs and
+            // there is no status to report.
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
                 name: "acme",
                 id: null,
                 source: "config",
+                status: null,
             });
 
             // Only the source enum reaches telemetry, never the team name.
@@ -2648,6 +2649,7 @@ describe("auth CLI status default team", () => {
             );
             expect(telemetryProperties).toMatchObject({
                 team_source: "config",
+                team_status: "none",
             });
             expectTelemetryFreeOfTeamIdentity(telemetryProperties, ["acme"]);
         }
@@ -2674,7 +2676,6 @@ describe("auth CLI status default team", () => {
             const payload = JSON.parse(jsonResult.stdout) as {
                 status: string;
                 envOverride?: unknown;
-                team?: { name: string | null; id: string | null; source: string };
             };
 
             // The team default is orthogonal to the credential source, so the
@@ -2683,10 +2684,11 @@ describe("auth CLI status default team", () => {
             expect(textResult.stdout).toContain("- Default team: acme");
             expect(payload.status).toBe("logged-in");
             expect(payload.envOverride).toBeDefined();
-            expect(payload.team).toEqual({
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
                 name: "acme",
                 id: null,
                 source: "config",
+                status: null,
             });
         }
         finally {
@@ -2694,7 +2696,7 @@ describe("auth CLI status default team", () => {
         }
     });
 
-    test("reports the OO_TEAM_ID override ahead of the configured default", async () => {
+    test("resolves the OO_TEAM_ID override to its name ahead of the configured default", async () => {
         const sandbox = await createCliSandbox();
 
         sandbox.env.OO_TEAM_ID = "team-42";
@@ -2703,31 +2705,105 @@ describe("auth CLI status default team", () => {
             await writeAuthFile(sandbox);
             await sandbox.run(["config", "set", "identity.team", "acme"]);
 
-            const fetcher = async (): Promise<Response> =>
-                new Response(null, { status: 200 });
+            const requests: Request[] = [];
+            const fetcher = createAuthStatusFetcher(requests);
             const textResult = await sandbox.run(["auth", "status"], { fetcher });
             const jsonResult = await sandbox.run(
                 ["auth", "status", "--json"],
                 { fetcher },
             );
-            const payload = JSON.parse(jsonResult.stdout) as {
-                team?: { name: string | null; id: string | null; source: string };
-            };
 
             expect(textResult.exitCode).toBe(0);
+            // The name is the new information; the id is what the reader put in
+            // the environment, so both are shown.
             expect(textResult.stdout).toContain(
-                "- Default team: team-42 (via OO_TEAM_ID)",
+                "- Default team: platform (team-42) (via OO_TEAM_ID)",
             );
-            expect(payload.team).toEqual({
-                name: null,
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
+                name: "platform",
                 id: "team-42",
                 source: "env_id",
+                status: "valid",
             });
+            // Two requests per run and no more: the key check and the name
+            // lookup, which the command must not turn into a listing scan.
+            expect(requests.map(request => request.url)).toEqual([
+                "https://api.oomol.com/v1/users/profile",
+                "https://relation-control.oomol.com/v1/teams/team-42",
+                "https://api.oomol.com/v1/users/profile",
+                "https://relation-control.oomol.com/v1/teams/team-42",
+            ]);
         }
         finally {
             await sandbox.cleanup();
         }
     });
+
+    // The status separates a misconfigured id from an unreachable backend; a
+    // bare id with no explanation is the output this feature exists to remove.
+    test.each([
+        {
+            httpStatus: 403,
+            status: "not_a_member",
+            reason: "the active account is not a member of this team",
+        },
+        {
+            httpStatus: 404,
+            status: "not_found",
+            reason: "no team exists with this id",
+        },
+        {
+            httpStatus: 410,
+            status: "deleted",
+            reason: "this team has been deleted",
+        },
+        {
+            httpStatus: 500,
+            status: "request_failed",
+            reason: "could not look up the team name",
+        },
+    ])(
+        "reports OO_TEAM_ID lookup status $status for HTTP $httpStatus",
+        async ({ httpStatus, status, reason }) => {
+            const sandbox = await createCliSandbox();
+
+            sandbox.env.OO_TEAM_ID = "team-42";
+
+            try {
+                await writeAuthFile(sandbox);
+
+                const fetcher = createAuthStatusFetcher([], {
+                    teamHttpStatus: httpStatus,
+                });
+                const textResult = await sandbox.run(["auth", "status"], { fetcher });
+                const jsonResult = await sandbox.run(
+                    ["auth", "status", "--json"],
+                    { fetcher },
+                );
+
+                // A failed name lookup never fails the command, and never
+                // downgrades the API key verdict either.
+                expect(textResult.exitCode).toBe(0);
+                expect(textResult.stdout).toContain("- API key status: Valid");
+                // The id is kept so the reader can see what was tried, and the
+                // reason lands last rather than between the id and its source.
+                expect(textResult.stdout).toContain(
+                    `- Default team: team-42 (via OO_TEAM_ID) — ${reason}`,
+                );
+                expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
+                    name: null,
+                    id: "team-42",
+                    source: "env_id",
+                    status,
+                });
+                expect(readCommandTelemetryProperties(sandbox, "auth.status"))
+                    .toMatchObject({ team_source: "env_id", team_status: status });
+            }
+            finally {
+                await sandbox.cleanup();
+            }
+        },
+    );
 
     test("reports the OO_TEAM_NAME override by name", async () => {
         const sandbox = await createCliSandbox();
@@ -2737,25 +2813,29 @@ describe("auth CLI status default team", () => {
         try {
             await writeAuthFile(sandbox);
 
-            const fetcher = async (): Promise<Response> =>
-                new Response(null, { status: 200 });
+            const requests: Request[] = [];
+            const fetcher = createAuthStatusFetcher(requests);
             const textResult = await sandbox.run(["auth", "status"], { fetcher });
             const jsonResult = await sandbox.run(
                 ["auth", "status", "--json"],
                 { fetcher },
             );
-            const payload = JSON.parse(jsonResult.stdout) as {
-                team?: { name: string | null; id: string | null; source: string };
-            };
 
             expect(textResult.stdout).toContain(
                 "- Default team: acme (via OO_TEAM_NAME)",
             );
-            expect(payload.team).toEqual({
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
                 name: "acme",
                 id: null,
                 source: "env_name",
+                status: null,
             });
+            // A name-shaped identity has nothing to resolve, so the command
+            // keeps its single-request cost.
+            expect(requests.map(request => request.url)).toEqual([
+                "https://api.oomol.com/v1/users/profile",
+                "https://api.oomol.com/v1/users/profile",
+            ]);
         }
         finally {
             await sandbox.cleanup();
@@ -2786,3 +2866,38 @@ describe("auth CLI status default team", () => {
         }
     });
 });
+
+// Answers both requests `auth status` can make: the API key check and the
+// singular team lookup. Recording every request is what lets a test assert the
+// command's request count, which is part of its documented contract.
+function createAuthStatusFetcher(
+    requests: Request[],
+    options: { teamHttpStatus?: number } = {},
+): Fetcher {
+    return async (input, init) => {
+        const request = toRequest(input, init);
+        requests.push(request);
+
+        if (!new URL(request.url).pathname.startsWith("/v1/teams/")) {
+            return new Response(null, { status: 200 });
+        }
+
+        const teamHttpStatus = options.teamHttpStatus ?? 200;
+
+        return new Response(
+            teamHttpStatus === 200
+                ? JSON.stringify({
+                        id: "team-42",
+                        name: "platform",
+                        role: "member",
+                        system_created: false,
+                    })
+                : "{}",
+            { status: teamHttpStatus },
+        );
+    };
+}
+
+function parseAuthStatusTeam(stdout: string): unknown {
+    return (JSON.parse(stdout) as { team?: unknown }).team;
+}

@@ -20,7 +20,10 @@ import {
     createSettingsStore,
     createTextBuffer,
 } from "../../../../__tests__/helpers.ts";
-import { requireCurrentAccount } from "./auth-utils.ts";
+import {
+    requireCurrentAccount,
+    resolveCurrentAccountTolerantly,
+} from "./auth-utils.ts";
 
 const emptyCatalog: CliCatalog = {
     name: "oo",
@@ -188,6 +191,54 @@ describe("requireCurrentAccount", () => {
         await expect(requireCurrentAccount(context)).rejects.toMatchObject({
             exitCode: 1,
             key: "errors.auth.required",
+        });
+    });
+});
+
+describe("resolveCurrentAccountTolerantly", () => {
+    // Every way of having no usable account collapses to the same absence, so
+    // callers get one case to handle instead of three error shapes.
+    test.each<{ case: string; authFile: AuthFile }>([
+        { case: "no account is configured", authFile: { auth: [], id: "" } },
+        { case: "the active id is stale", authFile: { auth: [], id: "user-1" } },
+    ])("returns undefined when $case", async ({ authFile }) => {
+        await expect(
+            resolveCurrentAccountTolerantly(createAuthContext(authFile)),
+        ).resolves.toBeUndefined();
+    });
+
+    test("returns the active account with a bare OO_ENDPOINT applied", async () => {
+        const account = {
+            id: "user-1",
+            name: "Test User",
+            apiKey: "persisted-key",
+            endpoint: "oomol.com",
+        };
+        const context = createAuthContext(
+            { auth: [account], id: "user-1" },
+            { env: { OO_ENDPOINT: "oomol.dev" } },
+        );
+
+        await expect(resolveCurrentAccountTolerantly(context)).resolves.toEqual({
+            ...account,
+            endpoint: "oomol.dev",
+        });
+    });
+
+    test("resolves the OO_API_KEY override without reading auth.toml", async () => {
+        const context = createAuthContext(
+            { auth: [], id: "" },
+            {
+                authStore: createThrowingAuthStore(),
+                env: { OO_API_KEY: "env-key", OO_ENDPOINT: "oomol.dev" },
+            },
+        );
+
+        await expect(resolveCurrentAccountTolerantly(context)).resolves.toEqual({
+            apiKey: "env-key",
+            endpoint: "oomol.dev",
+            id: "oo-env-override",
+            name: "Environment (OO_API_KEY)",
         });
     });
 });

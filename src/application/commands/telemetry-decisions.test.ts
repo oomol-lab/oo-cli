@@ -88,8 +88,13 @@ const commandTelemetryDecisions = {
     },
     "auth.status": {
         kind: "properties",
-        properties: ["account_count_bucket", "credential_source", "team_source"],
-        reason: "Records bounded saved-account count, which credential source is in effect, and which mechanism selects the default team (enum only), without account or team identity.",
+        properties: [
+            "account_count_bucket",
+            "credential_source",
+            "team_source",
+            "team_status",
+        ],
+        reason: "Records bounded saved-account count, which credential source is in effect, which mechanism selects the default team (enum only), and how the team name lookup ended (valid/not_a_member/not_found/deleted/request_failed/request_failed_sandbox/no_credential/none), without account or team identity.",
     },
     "auth.switch": {
         kind: "properties",
@@ -292,8 +297,8 @@ const commandTelemetryDecisions = {
     },
     "team.current": {
         kind: "properties",
-        properties: ["has_configured_team", "team_source"],
-        reason: "Records whether a default team identity is configured and which mechanism selects the effective team (env_id/env_name/config/none), without the team name or id.",
+        properties: ["has_configured_team", "team_source", "team_status"],
+        reason: "Records whether a default team identity is configured, which mechanism selects the effective team (env_id/env_name/config/none), and how the team name lookup ended (valid/not_a_member/not_found/deleted/request_failed/request_failed_sandbox/no_credential/none), without the team name or id.",
     },
     "team.use": {
         kind: "generic",

@@ -1,3 +1,5 @@
+import type { Fetcher } from "../../contracts/cli.ts";
+
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -154,6 +156,7 @@ describe("teamCommand CLI", () => {
                 team: "acme",
                 teamId: null,
                 source: "config",
+                status: null,
             });
             expect(textResult.stdout).toContain("acme");
         }
@@ -176,6 +179,7 @@ describe("teamCommand CLI", () => {
                 team: null,
                 teamId: null,
                 source: null,
+                status: null,
             });
             expect(textResult.stdout).toContain("personal identity");
         }
@@ -206,6 +210,7 @@ describe("teamCommand CLI", () => {
                 team: "beta",
                 teamId: null,
                 source: "config",
+                status: null,
             });
         }
         finally {
@@ -229,6 +234,7 @@ describe("teamCommand CLI", () => {
                 team: null,
                 teamId: null,
                 source: null,
+                status: null,
             });
         }
         finally {
@@ -251,6 +257,7 @@ describe("teamCommand CLI", () => {
                 team: null,
                 teamId: null,
                 source: null,
+                status: null,
             });
         }
         finally {
@@ -274,16 +281,22 @@ describe("teamCommand CLI", () => {
         }
     });
 
-    test("reports the OO_TEAM_ID env override via current", async () => {
+    test("resolves the OO_TEAM_ID env override to its team name via current", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await sandbox.run(["config", "set", "identity.team", "beta"]);
             sandbox.env.OO_TEAM_ID = "team-1";
 
-            const jsonResult = await sandbox.run(["team", "current", "--json"]);
-            const textResult = await sandbox.run(["team", "current"]);
+            const requests: Request[] = [];
+            const respondWithTeam = createTeamLookupFetcher(requests);
+            const jsonResult = await sandbox.run(["team", "current", "--json"], {
+                fetcher: respondWithTeam,
+            });
+            const textResult = await sandbox.run(["team", "current"], {
+                fetcher: respondWithTeam,
+            });
             const telemetryPayload = readTelemetryRowsForTest(
                 join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
             )
@@ -292,26 +305,114 @@ describe("teamCommand CLI", () => {
 
             expect(jsonResult.exitCode).toBe(0);
             expect(JSON.parse(jsonResult.stdout)).toEqual({
-                team: null,
+                team: "acme",
                 teamId: "team-1",
                 source: "env_id",
+                status: "valid",
             });
+            // The id is resolved through the singular team route, not by
+            // pulling the whole membership listing.
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/teams/team-1",
+            );
+            expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
             expect(textResult.stdout).toContain("OO_TEAM_ID");
+            // Both halves are shown: the name is the new information, the id is
+            // what the reader put in the environment.
+            expect(textResult.stdout).toContain("acme");
             expect(textResult.stdout).toContain("team-1");
             // The configured default is reported as inactive.
-            expect(textResult.stdout).toContain("acme");
+            expect(textResult.stdout).toContain("beta");
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     has_configured_team: true,
                     team_source: "env_id",
+                    team_status: "valid",
                 },
             });
-            // Only the source enum is reported: neither the env-selected id
-            // nor the configured team name reaches telemetry.
+            // Only the source and status enums are reported: neither the
+            // env-selected id nor either team name reaches telemetry.
             expectTelemetryFreeOfTeamIdentity(
                 telemetryPayload?.properties,
-                ["team-1", "acme"],
+                ["team-1", "acme", "beta"],
             );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    // Each backend answer means a different fix, so `current` must keep them
+    // apart instead of collapsing them into a bare unresolved id.
+    test.each([
+        { httpStatus: 403, status: "not_a_member" },
+        { httpStatus: 404, status: "not_found" },
+        { httpStatus: 410, status: "deleted" },
+        { httpStatus: 500, status: "request_failed" },
+    ])(
+        "reports OO_TEAM_ID lookup status $status for HTTP $httpStatus via current",
+        async ({ httpStatus, status }) => {
+            const sandbox = await createCliSandbox();
+
+            try {
+                await writeAuthFile(sandbox);
+                sandbox.env.OO_TEAM_ID = "team-1";
+
+                const respond = async (): Promise<Response> =>
+                    new Response("{}", { status: httpStatus });
+                const jsonResult = await sandbox.run(["team", "current", "--json"], {
+                    fetcher: respond,
+                });
+                const textResult = await sandbox.run(["team", "current"], {
+                    fetcher: respond,
+                });
+
+                // A failed lookup is a diagnostic, never a command failure.
+                expect(jsonResult.exitCode).toBe(0);
+                expect(textResult.exitCode).toBe(0);
+                expect(JSON.parse(jsonResult.stdout)).toEqual({
+                    team: null,
+                    teamId: "team-1",
+                    source: "env_id",
+                    status,
+                });
+                // The id still prints, so the reader can see what was tried.
+                expect(textResult.stdout).toContain("team-1");
+            }
+            finally {
+                await sandbox.cleanup();
+            }
+        },
+    );
+
+    test("skips the OO_TEAM_ID name lookup when no account is configured", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            sandbox.env.OO_TEAM_ID = "team-1";
+
+            let requested = false;
+            const fetcher = async (): Promise<Response> => {
+                requested = true;
+
+                return new Response("{}", { status: 200 });
+            };
+            const jsonResult = await sandbox.run(["team", "current", "--json"], {
+                fetcher,
+            });
+            const textResult = await sandbox.run(["team", "current"], { fetcher });
+
+            // Reading the local default must not start requiring a login.
+            expect(jsonResult.exitCode).toBe(0);
+            expect(textResult.exitCode).toBe(0);
+            expect(requested).toBe(false);
+            expect(JSON.parse(jsonResult.stdout)).toEqual({
+                team: null,
+                teamId: "team-1",
+                source: "env_id",
+                status: "no_credential",
+            });
+            expect(textResult.stdout).toContain("team-1");
         }
         finally {
             await sandbox.cleanup();
@@ -346,8 +447,10 @@ describe("teamCommand CLI", () => {
                 team: "beta",
                 teamId: null,
                 source: "env_name",
+                status: null,
             });
-            // `team current` stays offline even under the env override.
+            // A name-shaped identity already knows its name, so it stays
+            // offline; only OO_TEAM_ID costs a request.
             expect(requested).toBe(false);
             expect(textResult.stdout).toContain("OO_TEAM_NAME");
             expect(textResult.stdout).toContain("beta");
@@ -445,3 +548,13 @@ describe("teamCommand CLI", () => {
         }
     });
 });
+
+// Answers the singular team route with the first fixture team and records what
+// was asked, so a test can assert both the resolved name and the route used.
+function createTeamLookupFetcher(requests: Request[]): Fetcher {
+    return async (input, init) => {
+        requests.push(toRequest(input, init));
+
+        return new Response(JSON.stringify(teamsResponse.teams[0]));
+    };
+}
