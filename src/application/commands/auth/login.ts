@@ -20,7 +20,11 @@ import {
 } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { buildEnvApiKeyAccount } from "../shared/auth-env-override.ts";
+import {
+    buildEnvApiKeyAccount,
+    readEndpointOverride,
+    readTrimmedEnv,
+} from "../shared/auth-env-override.ts";
 import { writeLine } from "../shared/output.ts";
 import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
 import {
@@ -35,6 +39,9 @@ import {
 
 const loginUrlColor = "#c09ff5";
 const defaultAuthEndpoint = "oomol.com";
+// Legacy endpoint override, kept only as a fallback below OO_ENDPOINT. Slated
+// for removal once callers have migrated to OO_ENDPOINT.
+const legacyEndpointEnvName = "OOMOL_ENDPOINT";
 
 type LoginMethod = "api_key" | "device_login" | "session_token";
 
@@ -421,8 +428,15 @@ async function runDeviceLogin(
     return session.waitForAccount();
 }
 
+// Resolves the endpoint the login flow authenticates against. OO_ENDPOINT wins
+// so `oo auth login` targets the same host execution commands use, matching the
+// precedence in resolveCurrentEndpoint(). The legacy OOMOL_ENDPOINT stays only
+// as a fallback and is slated for removal, after which OO_ENDPOINT and the
+// public default are the only sources.
 function readAuthEndpoint(
     env: CliExecutionContext["env"],
 ): string {
-    return env.OOMOL_ENDPOINT?.trim() || defaultAuthEndpoint;
+    return readEndpointOverride(env)
+        ?? readTrimmedEnv(env, legacyEndpointEnvName)
+        ?? defaultAuthEndpoint;
 }

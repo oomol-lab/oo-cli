@@ -29,8 +29,9 @@ export function readTrimmedEnv(
 }
 
 // Returns the OO_ENDPOINT override when set to a non-empty value, otherwise
-// undefined. OO_ENDPOINT only affects the new override path; the legacy
-// OOMOL_ENDPOINT keeps its historical login/unauthenticated-read behavior.
+// undefined. OO_ENDPOINT is the primary endpoint override across execution,
+// login, and unauthenticated reads; the legacy OOMOL_ENDPOINT remains only as a
+// fallback and is slated for removal.
 export function readEndpointOverride(
     env: Record<string, string | undefined>,
 ): string | undefined {

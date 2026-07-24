@@ -28,9 +28,10 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   会成为空操作并保持 `auth.toml` 不变；`oo auth login` 仍会保存账号，但会说明该
   变量的优先级高于它。`oo auth status` 会展示该变量提供的身份。
 - `OO_ENDPOINT`：基础域名（例如 `oomol.com` 或 `oomol.dev`），用于派生执行命令的
-  所有服务 URL。它与 `OO_API_KEY` 搭配使用，也会覆盖已保存账号的 endpoint，
-  包括 `oo auth status` 展示与校验所用的 endpoint。优先级高于历史遗留的
-  `OOMOL_ENDPOINT`。
+  所有服务 URL。它与 `OO_API_KEY` 搭配使用，会覆盖已保存账号的 endpoint（包括
+  `oo auth status` 展示与校验所用的 endpoint），并决定 `oo auth login` 校验所用的
+  endpoint。优先级高于历史遗留的 `OOMOL_ENDPOINT`；后者仅作为回退保留，计划在
+  未来移除。
 - `OO_CONNECTOR_URL`：自部署 Connector 服务地址。它会覆盖 `oo connector login`
   保存的配置。只有 connector 相关命令（`oo connector
   search/schema/run/proxy/apps` 及顶层 `oo search`）会将请求路由到该地址；
@@ -121,6 +122,9 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   `oo connector logout` 切回 OOMOL。
 - 设置了 `OO_API_KEY` 时，登录仍会校验并保存账号，但该变量的优先级依然高于它。
   成功输出会打印一行提示，说明取消 `OO_API_KEY` 后刚保存的账号才会生效。
+- `OO_ENDPOINT`（回退到历史遗留的 `OOMOL_ENDPOINT`）决定三种登录方式（device
+  login、session token、API key）校验所用的 host，保存的账号也会记录该 endpoint；
+  两者都未设置时使用公有默认值。
 
 ### `oo auth logout`
 

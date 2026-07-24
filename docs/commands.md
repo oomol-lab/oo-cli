@@ -34,9 +34,11 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   outranks it. `oo auth status` reports the identity this variable provides.
 - `OO_ENDPOINT`: Base endpoint domain (for example `oomol.com` or `oomol.dev`)
   used to derive every service URL for execution commands. It pairs with
-  `OO_API_KEY` and also overrides the endpoint of a saved account, including
-  the endpoint `oo auth status` reports and validates against. Takes
-  precedence over the legacy `OOMOL_ENDPOINT`.
+  `OO_API_KEY`, overrides the endpoint of a saved account (including the
+  endpoint `oo auth status` reports and validates against), and selects the
+  endpoint `oo auth login` authenticates against. Takes precedence over the
+  legacy `OOMOL_ENDPOINT`, which remains only as a fallback and is slated for
+  removal.
 - `OO_CONNECTOR_URL`: Self-hosted connector server URL. It overrides the
   configuration saved by `oo connector login`. Only connector commands
   (`oo connector search/schema/run/proxy/apps` and top-level `oo search`)
@@ -149,6 +151,10 @@ with an existing API key, then save the authenticated account.
 - When `OO_API_KEY` is set, login still validates and saves the account, but
   that variable keeps outranking it. The success output prints a hint that the
   saved account takes effect only once `OO_API_KEY` is unset.
+- `OO_ENDPOINT` (falling back to the legacy `OOMOL_ENDPOINT`) selects the host
+  login authenticates against for all three methods (device login, session
+  token, and API key), and the saved account records that endpoint. Without
+  either variable the public default is used.
 
 ### `oo auth logout`
 

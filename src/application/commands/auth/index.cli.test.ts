@@ -238,6 +238,52 @@ describe("auth CLI", () => {
         }
     });
 
+    test("supports auth login with a custom OO_ENDPOINT", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_ENDPOINT = "staging.oomol.test";
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                accountEndpoint: sandbox.env.OO_ENDPOINT,
+            });
+            const loginUrl = findLoginUrl(result.stdout);
+
+            expect(result.exitCode).toBe(0);
+            expect(loginUrl).toStartWith(
+                readAuthLoginUrlPrefix("staging.oomol.test"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("prefers OO_ENDPOINT over OOMOL_ENDPOINT for auth login", async () => {
+        const sandbox = await createCliSandbox();
+
+        // runPrintedAuthLogin only answers api.${accountEndpoint}; if login
+        // resolved the legacy host instead, the request would hit the unmocked
+        // host and throw, so a green run proves OO_ENDPOINT wins the precedence.
+        sandbox.env.OO_ENDPOINT = "override.oomol.test";
+        sandbox.env.OOMOL_ENDPOINT = "legacy.oomol.test";
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                accountEndpoint: sandbox.env.OO_ENDPOINT,
+            });
+            const loginUrl = findLoginUrl(result.stdout);
+
+            expect(result.exitCode).toBe(0);
+            expect(loginUrl).toStartWith(
+                readAuthLoginUrlPrefix("override.oomol.test"),
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports login as an alias for auth login", async () => {
         const sandbox = await createCliSandbox();
 
@@ -408,6 +454,70 @@ describe("auth CLI", () => {
             expect(content).toContain(`"msg":"Auth account persisted after api key login."`);
             expect(content).not.toContain(apiKey);
             expect(result.stdout).not.toContain(apiKey);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("logs in with an API key against the OO_ENDPOINT host", async () => {
+        const sandbox = await createCliSandbox();
+        const apiKey = "secret-api-1";
+        const endpoint = "oomol.dev";
+        const requests: Request[] = [];
+
+        sandbox.env.OO_ENDPOINT = endpoint;
+
+        try {
+            const authFilePath = join(
+                sandbox.env.XDG_CONFIG_HOME!,
+                APP_NAME,
+                "auth.toml",
+            );
+            const result = await sandbox.run(
+                ["login", "--api-key", apiKey],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+                        const requestUrl = new URL(request.url);
+
+                        requests.push(request);
+
+                        if (
+                            request.method === "GET"
+                            && requestUrl.host === `api.${endpoint}`
+                            && requestUrl.pathname === "/v1/users/profile"
+                            && request.headers.get("Authorization") === apiKey
+                        ) {
+                            return new Response(JSON.stringify({
+                                displayname: "Kevin Cui",
+                                email: "bh@bugs.cc",
+                                nickname: "Kevin Cui",
+                                uid: "019343c2-c43d-710f-81b2-dfa68d3079de",
+                                username: "BlackHole1",
+                            }));
+                        }
+
+                        if (
+                            request.method === "GET"
+                            && requestUrl.host === `relation-control.${endpoint}`
+                            && requestUrl.pathname === "/v1/me/teams"
+                        ) {
+                            return new Response(
+                                JSON.stringify(defaultLoginTeamsResponse),
+                            );
+                        }
+
+                        throw new Error(`Unexpected auth api key login request: ${request.method} ${requestUrl}`);
+                    },
+                },
+            );
+            const authFileContent = await readFile(authFilePath, "utf8");
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(2);
+            expect(result.stdout).toContain("Logged in to oomol.dev");
+            expect(authFileContent).toContain("endpoint = \"oomol.dev\"");
         }
         finally {
             await sandbox.cleanup();
