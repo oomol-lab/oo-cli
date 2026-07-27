@@ -121,11 +121,6 @@ const teamNameStatusTranslationKeys = {
  * could not answer passes through, because the gateway sees every execution
  * request anyway and stays the final judge — the CLI must not turn its own
  * connectivity problem into a verdict about the team.
- *
- * The connector commands migrate onto this gate in the next stacked PR; the
- * tag below only bridges knip until that lands.
- *
- * @public
  */
 export function requireValidTeamIdentity(
     identity: TeamIdentity | undefined,

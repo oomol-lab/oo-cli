@@ -45,13 +45,16 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   `oo connector apps`、`oo connector search` / `oo search`）以该 id 对应的团队
   身份运行。优先级高于 `OO_TEAM_NAME`
   和 `identity.team` 配置默认值；每次运行的 `--team` 与 `--personal`
-  标志仍然优先于它。取值按原样发送，不做成员关系校验。当 connector
-  目标为自部署服务时会被忽略。
+  标志仍然优先于它。执行前 CLI 会校验该 id 并解析出团队名称（每次调用多一个
+  请求），因此请求会同时携带名称与 id；账号无法使用的 id——不是成员、团队
+  不存在、团队已删除——以退出码 `1` 失败。若查询本身无法完成，则只按原样
+  发送 id，由服务端裁决。当 connector 目标为自部署服务时会被忽略。
 - `OO_TEAM_NAME`：与 `OO_TEAM_ID` 相同，但按名称选择团队。执行前 CLI
   会通过账号的团队成员关系将名称解析为团队 id（每次调用多一个请求），
   因此请求会同时携带名称与 id；账号无法访问的名称以退出码 `1` 失败。
-  `oo connector run --dry-run` 不发送执行请求，也会跳过该解析，保持完全
-  离线。设置了 `OO_TEAM_ID` 或 connector 目标为自部署服务时会被忽略。
+  若查询本身无法完成，则只发送名称，由服务端裁决。`oo connector run
+  --dry-run` 不发送执行请求，也会完全跳过该查询，保持离线。设置了
+  `OO_TEAM_ID` 或 connector 目标为自部署服务时会被忽略。
 - Connector 相关命令按以下优先级解析团队身份：
   `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` >
   `identity.team` 配置默认值 > 个人身份。
