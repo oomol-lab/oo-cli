@@ -18,7 +18,7 @@ import type {
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { writeJsonOutput } from "../json-output.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { removePath } from "./bundled-skill-filesystem.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
@@ -36,7 +36,6 @@ import {
 import { uninstallRequestedSkills } from "./managed-skill-uninstall.ts";
 import {
     computeCommandStatus,
-    skillOperationOutputOptions,
 } from "./operation-result.ts";
 import {
     isBundledSkillName,
@@ -44,6 +43,7 @@ import {
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
 import {
+    isSkillDirectoryAbsent,
     managedMetadataOfKind,
     readSkillDirectoryState,
 } from "./skill-directory-state.ts";
@@ -94,7 +94,7 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
             valueName: "agent",
             descriptionKey: "options.agent",
         },
-        ...skillOperationOutputOptions,
+        ...jsonOutputOptions,
     ],
     inputSchema: z.object({
         agent: z.string().optional(),
@@ -358,10 +358,7 @@ async function uninstallBundledSkillForJson(
         const installedMetadata = managedMetadataOfKind(targetState, "bundled");
 
         if (installedMetadata === undefined) {
-            if (
-                targetState.kind === "missing"
-                || targetState.kind === "not-directory"
-            ) {
+            if (isSkillDirectoryAbsent(targetState)) {
                 targets.push({
                     agentId: installation.agentName,
                     status: "absent",
@@ -554,10 +551,7 @@ async function uninstallRegistrySkillForJson(
         const metadata = managedMetadataOfKind(targetState, "registry");
 
         if (metadata === undefined) {
-            if (
-                targetState.kind === "missing"
-                || targetState.kind === "not-directory"
-            ) {
+            if (isSkillDirectoryAbsent(targetState)) {
                 targets.push({
                     agentId: installation.agentName,
                     status: "absent",
@@ -738,10 +732,7 @@ async function uninstallLocalSkillForJson(
     const source = sources[0]!;
     const sourceState = await readSkillDirectoryState(source.path);
 
-    if (
-        sourceState.kind !== "managed"
-        || sourceState.metadata.kind !== "local"
-    ) {
+    if (managedMetadataOfKind(sourceState, "local") === undefined) {
         return undefined;
     }
 

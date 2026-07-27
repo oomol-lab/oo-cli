@@ -69,5 +69,19 @@ describe("skill metadata", () => {
         expect(renderSkillMetadataJson({ version: "1.2.3" })).toBe(
             "{\n  \"version\": \"1.2.3\"\n}\n",
         );
+        expect(renderSkillMetadataJson(createRegistrySkillMetadata({
+            packageName: "openai",
+            version: "0.0.3",
+        }))).toBe(
+            [
+                "{",
+                "  \"kind\": \"registry\",",
+                "  \"packageName\": \"openai\",",
+                "  \"schemaVersion\": 1,",
+                "  \"version\": \"0.0.3\"",
+                "}",
+                "",
+            ].join("\n"),
+        );
     });
 });

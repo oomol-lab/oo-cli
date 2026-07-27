@@ -1,10 +1,4 @@
-import type { CliOptionDefinition } from "../../contracts/cli.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
-
-import { jsonOutputOptions } from "../json-output.ts";
-
-export const skillOperationOutputOptions
-    = jsonOutputOptions satisfies readonly CliOptionDefinition[];
 
 export type SkillKind = "bundled" | "registry" | "local" | "unknown";
 

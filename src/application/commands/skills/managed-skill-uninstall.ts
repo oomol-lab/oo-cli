@@ -31,6 +31,7 @@ import {
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
 import {
+    isSkillDirectoryAbsent,
     managedMetadataOfKind,
     readSkillDirectoryState,
 } from "./skill-directory-state.ts";
@@ -198,10 +199,7 @@ export async function uninstallBundledSkill(
         const installedMetadata = managedMetadataOfKind(targetState, "bundled");
 
         if (installedMetadata === undefined) {
-            if (
-                targetState.kind === "missing"
-                || targetState.kind === "not-directory"
-            ) {
+            if (isSkillDirectoryAbsent(targetState)) {
                 continue;
             }
 
@@ -405,10 +403,7 @@ async function uninstallLocalSkillFromSources(
     const source = sources[0]!;
     const sourceState = await readSkillDirectoryState(source.path);
 
-    if (
-        sourceState.kind !== "managed"
-        || sourceState.metadata.kind !== "local"
-    ) {
+    if (managedMetadataOfKind(sourceState, "local") === undefined) {
         return undefined;
     }
 
@@ -485,10 +480,7 @@ async function resolveRegistrySkillUninstallTargets(
             installation.installedSkillDirectoryPath,
         );
 
-        if (
-            targetState.kind === "missing"
-            || targetState.kind === "not-directory"
-        ) {
+        if (isSkillDirectoryAbsent(targetState)) {
             continue;
         }
 

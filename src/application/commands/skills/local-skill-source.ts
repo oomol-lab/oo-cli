@@ -10,7 +10,10 @@ import {
     resolveManagedSkillDirectoryPath,
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
-import { readSkillDirectoryState } from "./skill-directory-state.ts";
+import {
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 export interface LocalSkillSource {
     agentName: BundledSkillAgentName;
@@ -54,7 +57,7 @@ export async function isLocalSkillDirectory(
 ): Promise<boolean> {
     const state = await readSkillDirectoryState(skillDirectoryPath);
 
-    return state.kind === "managed" && state.metadata.kind === "local";
+    return managedMetadataOfKind(state, "local") !== undefined;
 }
 
 async function listAgentLocalSkillSources(

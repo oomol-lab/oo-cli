@@ -18,7 +18,7 @@ import { join, resolve } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { writeJsonOutput } from "../json-output.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parsePackageSpecifier } from "../shared/package-info.ts";
 import {
@@ -36,7 +36,6 @@ import {
 } from "./managed-skill-paths.ts";
 import {
     computeCommandStatus,
-    skillOperationOutputOptions,
 } from "./operation-result.ts";
 import { exportRegistrySkills } from "./registry-skill-export.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
@@ -46,6 +45,7 @@ import {
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
 import {
+    isSkillDirectoryAbsent,
     managedMetadataOfKind,
     readSkillDirectoryState,
 } from "./skill-directory-state.ts";
@@ -137,7 +137,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             valueName: "agent",
             descriptionKey: "options.skills.install.agentFormat",
         },
-        ...skillOperationOutputOptions,
+        ...jsonOutputOptions,
     ],
     inputSchema: z.object({
         force: z.boolean().optional(),
@@ -1042,7 +1042,7 @@ async function buildRegistrySkillResult(
 async function resolvePreviousState(installedDirectoryPath: string): Promise<PreviousState> {
     const state = await readSkillDirectoryState(installedDirectoryPath);
 
-    if (state.kind === "missing" || state.kind === "not-directory") {
+    if (isSkillDirectoryAbsent(state)) {
         return "absent";
     }
 

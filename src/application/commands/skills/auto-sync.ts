@@ -341,19 +341,17 @@ async function listCanonicalRegistrySkills(
             context.settingsStore.getFilePath(),
         ),
         inspect: async (entryName, canonicalSkillDirectoryPath) => {
-            const canonicalState = await readSkillDirectoryState(
-                canonicalSkillDirectoryPath,
+            const canonicalMetadata = managedMetadataOfKind(
+                await readSkillDirectoryState(canonicalSkillDirectoryPath),
+                "registry",
             );
 
-            if (
-                canonicalState.kind !== "managed"
-                || canonicalState.metadata.kind !== "registry"
-            ) {
+            if (canonicalMetadata === undefined) {
                 return undefined;
             }
 
             return {
-                metadata: canonicalState.metadata,
+                metadata: canonicalMetadata,
                 name: entryName,
                 path: canonicalSkillDirectoryPath,
             } satisfies CanonicalRegistrySkill;

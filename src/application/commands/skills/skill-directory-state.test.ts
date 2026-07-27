@@ -1,11 +1,11 @@
 import type { SkillDirectoryState } from "./skill-directory-state.ts";
 
 import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
+import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
 import { resolveManagedSkillMetadataFilePath } from "./managed-skill-paths.ts";
 import {
     isCurrentRegistryPublication,
@@ -18,14 +18,12 @@ import {
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
 
+const symlinkType = process.platform === "win32" ? "junction" : "dir";
+
 let rootDirectoryPath: string;
 
 beforeEach(async () => {
-    rootDirectoryPath = join(
-        tmpdir(),
-        `oo-skill-directory-state-${Bun.randomUUIDv7()}`,
-    );
-    await mkdir(rootDirectoryPath, { recursive: true });
+    rootDirectoryPath = await createTemporaryDirectory("oo-skill-directory-state");
 });
 
 afterEach(async () => {
@@ -45,7 +43,7 @@ describe("readSkillDirectoryState", () => {
         await symlink(
             join(rootDirectoryPath, "absent-target"),
             skillDirectoryPath,
-            process.platform === "win32" ? "junction" : "dir",
+            symlinkType,
         );
 
         await expect(
@@ -172,7 +170,7 @@ describe("readSkillDirectoryState", () => {
         await symlink(
             canonicalSkillDirectoryPath,
             installedSkillDirectoryPath,
-            process.platform === "win32" ? "junction" : "dir",
+            symlinkType,
         );
 
         await expect(

@@ -27,6 +27,7 @@ import {
 } from "./managed-skill-paths.ts";
 import { createSkillPackageHubUrl } from "./publish.ts";
 import {
+    isSkillDirectoryAbsent,
     managedMetadataOfKind,
     readSkillDirectoryState,
 } from "./skill-directory-state.ts";
@@ -357,10 +358,7 @@ async function resolveManagedSkillShareTarget(
         registrySkillDirectoryPath,
     );
 
-    if (
-        canonicalState.kind === "missing"
-        || canonicalState.kind === "not-directory"
-    ) {
+    if (isSkillDirectoryAbsent(canonicalState)) {
         return undefined;
     }
 

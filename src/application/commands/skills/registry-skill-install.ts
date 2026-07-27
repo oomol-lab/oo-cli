@@ -35,6 +35,7 @@ import {
     tryReportRegistryPackageDownload,
 } from "./registry-skill-source.ts";
 import {
+    isSkillDirectoryAbsent,
     managedMetadataOfKind,
     readSkillDirectoryState,
 } from "./skill-directory-state.ts";
@@ -492,7 +493,7 @@ async function readManagedSkillPathState(
 ): Promise<ManagedSkillPathState> {
     const state = await readSkillDirectoryState(skillDirectoryPath);
 
-    if (state.kind === "missing" || state.kind === "not-directory") {
+    if (isSkillDirectoryAbsent(state)) {
         return {
             exists: false,
             metadataPackageName: undefined,

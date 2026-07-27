@@ -17,7 +17,10 @@ import {
 } from "./managed-skill-paths.ts";
 import { isBundledSkillName } from "./shared.ts";
 
-import { readSkillDirectoryState } from "./skill-directory-state.ts";
+import {
+    isSkillDirectoryAbsent,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 export const skillListSourceValues = ["bundled", "registry", "local"] as const;
 export type SkillListSource = (typeof skillListSourceValues)[number];
@@ -76,8 +79,7 @@ export async function listManagedSkillInstallations(
             const state = await readSkillDirectoryState(skillDirectoryPath);
 
             if (
-                state.kind === "missing"
-                || state.kind === "not-directory"
+                isSkillDirectoryAbsent(state)
                 || (state.kind === "unmanaged" && !state.metadataFilePresent)
             ) {
                 return undefined;

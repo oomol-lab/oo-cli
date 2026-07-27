@@ -94,6 +94,13 @@ async function isCurrentPublicationPath(
     }
 }
 
+// True when no directory is present at the path — nothing exists there, or a
+// non-directory occupies it. The classification-side equivalent of the old
+// `!directoryExists(path)` guards.
+export function isSkillDirectoryAbsent(state: SkillDirectoryState): boolean {
+    return state.kind === "missing" || state.kind === "not-directory";
+}
+
 export function managedMetadataOfKind<Kind extends SkillMetadata["kind"]>(
     state: SkillDirectoryState,
     kind: Kind,

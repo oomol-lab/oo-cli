@@ -32,7 +32,10 @@ import {
     isBundledSkillName,
     publishManagedBundledSkill,
 } from "./shared.ts";
-import { readSkillDirectoryState } from "./skill-directory-state.ts";
+import {
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 interface SkillsRepairInput {
     agent?: string[];
@@ -238,16 +241,14 @@ async function resolveRepairSources(
         const canonicalState = await readSkillDirectoryState(
             canonicalDirectoryPath,
         );
+        const canonicalMetadata = managedMetadataOfKind(canonicalState, "registry");
 
-        if (
-            canonicalState.kind === "managed"
-            && canonicalState.metadata.kind === "registry"
-        ) {
+        if (canonicalMetadata !== undefined) {
             sources.push({
                 kind: "registry",
                 skillName,
                 canonicalDirectoryPath,
-                version: canonicalState.metadata.version,
+                version: canonicalMetadata.version,
             });
             continue;
         }
