@@ -10,7 +10,7 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createRetryingFetcher } from "../../shared/retrying-fetcher.ts";
 import { parseEnumOption, parsePositiveIntegerOption } from "../shared/input-parsing.ts";
-import { performLoggedRequest, requestText } from "../shared/request.ts";
+import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
 
 export { createFormatInputError } from "../shared/input-parsing.ts";
 
@@ -166,38 +166,23 @@ export async function createMultipartFileUpload(
     fileSize: number,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<MultipartUploadSession> {
-    const requestUrl = createFileUploadRequestUrl(
-        account.endpoint,
+    const response = await requestFileUploadAction(
         "create-multipart-upload",
-    );
-    const rawResponse = await requestFileUpload(
-        requestUrl,
-        account.apiKey,
-        context,
+        account,
         {
-            body: JSON.stringify({
-                fileSize,
-                filename: fileName,
-            }),
-            method: "POST",
+            fileSize,
+            filename: fileName,
         },
+        multipartUploadResponseSchema,
+        context,
     );
 
-    try {
-        const response = multipartUploadResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        );
-
-        return {
-            key: response.data.key,
-            partSize: response.data.partSize,
-            totalParts: response.data.totalParts,
-            uploadID: response.data.uploadID,
-        };
-    }
-    catch {
-        throw new CliUserError("errors.fileUpload.invalidResponse", 1);
-    }
+    return {
+        key: response.data.key,
+        partSize: response.data.partSize,
+        totalParts: response.data.totalParts,
+        uploadID: response.data.uploadID,
+    };
 }
 
 export async function generatePresignedFileUploadPartUrls(
@@ -205,35 +190,22 @@ export async function generatePresignedFileUploadPartUrls(
     session: MultipartUploadSession,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<PresignedPartUrl[]> {
-    const requestUrl = createFileUploadRequestUrl(
-        account.endpoint,
+    const response = await requestFileUploadAction(
         "generate-presigned-urls",
-    );
-    const rawResponse = await requestFileUpload(
-        requestUrl,
-        account.apiKey,
-        context,
+        account,
         {
-            body: JSON.stringify({
-                key: session.key,
-                partNumbers: Array.from(
-                    { length: session.totalParts },
-                    (_, index) => index + 1,
-                ),
-                uploadID: session.uploadID,
-            }),
-            method: "POST",
+            key: session.key,
+            partNumbers: Array.from(
+                { length: session.totalParts },
+                (_, index) => index + 1,
+            ),
+            uploadID: session.uploadID,
         },
+        presignedPartUrlsResponseSchema,
+        context,
     );
 
-    try {
-        return presignedPartUrlsResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        ).data;
-    }
-    catch {
-        throw new CliUserError("errors.fileUpload.invalidResponse", 1);
-    }
+    return response.data;
 }
 
 export async function uploadFileParts(
@@ -274,36 +246,21 @@ export async function completeMultipartFileUpload(
     parts: readonly UploadedPart[],
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<CompleteFileUploadResponse> {
-    const requestUrl = createFileUploadRequestUrl(
-        account.endpoint,
+    const response = await requestFileUploadAction(
         "complete-multipart-upload",
-    );
-    const rawResponse = await requestFileUpload(
-        requestUrl,
-        account.apiKey,
-        context,
+        account,
         {
-            body: JSON.stringify({
-                key: session.key,
-                parts,
-                uploadID: session.uploadID,
-            }),
-            method: "POST",
+            key: session.key,
+            parts,
+            uploadID: session.uploadID,
         },
+        completeFileUploadResponseSchema,
+        context,
     );
 
-    try {
-        const response = completeFileUploadResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        );
-
-        return {
-            downloadUrl: normalizeFileUploadDownloadUrl(response.data.downloadURL),
-        };
-    }
-    catch {
-        throw new CliUserError("errors.fileUpload.invalidResponse", 1);
-    }
+    return {
+        downloadUrl: normalizeFileUploadDownloadUrl(response.data.downloadURL),
+    };
 }
 
 export function readFileUploadStatus(
@@ -313,74 +270,27 @@ export function readFileUploadStatus(
     return expiresAtMs <= now ? "expired" : "active";
 }
 
-function createFileUploadRequestUrl(
-    endpoint: string,
-    actionName: string,
-): URL {
-    return new URL(
-        `https://fusion-api.${endpoint}/v1/file-upload/action/${actionName}`,
-    );
-}
-
 function normalizeFileUploadDownloadUrlValue(rawUrl: string): string {
     return new URL(rawUrl).href;
 }
 
-async function requestFileUpload(
-    requestUrl: URL,
-    apiKey: string,
+async function requestFileUploadAction<Value>(
+    actionName: string,
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    jsonBody: unknown,
+    schema: { parse: (input: unknown) => Value },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-    options: {
-        body?: string;
-        method?: string;
-    } = {},
-): Promise<string> {
-    const method = options.method ?? "GET";
-    const headers: Record<string, string> = {
-        Authorization: apiKey,
-    };
-
-    if (options.body !== undefined) {
-        headers["Content-Type"] = "application/json";
-    }
-
-    return await requestText({
+): Promise<Value> {
+    return await requestOo({
+        authorization: account.apiKey,
         context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.fileUpload.requestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.fileUpload.requestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
-            error: {
-                method,
-            },
-            response: {
-                method,
-            },
-            start: {
-                bodyBytes: options.body?.length ?? 0,
-                hasBody: options.body !== undefined,
-                method,
-                query: requestUrl.searchParams.toString(),
-            },
-        },
-        init: {
-            body: options.body,
-            headers,
-            method,
-        },
-        requestLabel: "File upload",
-        requestUrl,
+        errors: { scope: "fileUpload" },
+        host: { endpoint: account.endpoint, service: "fusion-api" },
+        jsonBody,
+        label: "File upload",
+        method: "POST",
+        path: `/v1/file-upload/action/${actionName}`,
+        schema,
     });
 }
 
@@ -390,7 +300,6 @@ async function uploadFilePart(
     partNumber: number,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<UploadedPart> {
-    const requestUrl = new URL(presignedUrl);
     const uploadPartFetcher = createRetryingFetcher({
         fetcher: context.fetcher,
         logger: context.logger,
@@ -404,50 +313,25 @@ async function uploadFilePart(
     // array sidesteps the lazy file-backed code path entirely.
     const partBytes = new Uint8Array(await partData.arrayBuffer());
 
-    const response = await performLoggedRequest({
+    const response = await requestOoResponse({
+        body: partBytes,
         context: {
             fetcher: uploadPartFetcher,
             logger: context.logger,
             translator: context.translator,
         },
-        createRequestFailedError: status => new CliUserError(
-            "errors.fileUpload.requestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.fileUpload.requestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
+        errors: { scope: "fileUpload" },
+        headers: {
+            "Content-Type": "application/octet-stream",
+        },
+        host: { baseUrl: presignedUrl },
+        label: "File upload part",
+        logFields: {
             common: {
                 partNumber,
             },
-            error: {
-                method: "PUT",
-            },
-            response: {
-                method: "PUT",
-            },
-            start: {
-                bodyBytes: partBytes.byteLength,
-                method: "PUT",
-            },
         },
-        init: {
-            body: partBytes,
-            headers: {
-                "Content-Type": "application/octet-stream",
-            },
-            method: "PUT",
-        },
-        requestLabel: "File upload part",
-        requestUrl,
+        method: "PUT",
     });
 
     const etag = response.headers.get("ETag");

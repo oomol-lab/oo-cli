@@ -16,8 +16,8 @@ import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parseCommaSeparatedValues } from "../shared/list-parsing.ts";
+import { requestOo } from "../shared/oo-request.ts";
 import { writeLine } from "../shared/output.ts";
-import { requestText } from "../shared/request.ts";
 import {
     isInstalledRegistrySkill,
     readInstalledSkills,
@@ -627,19 +627,6 @@ function recordSyncApplyTelemetry(
     });
 }
 
-export function createSkillSyncRequestUrl(endpoint: string): URL {
-    return new URL(`https://cli-api.${endpoint}/v1/skills`);
-}
-
-export function parseSkillSyncResponse(rawResponse: string): SkillSyncRecord[] {
-    try {
-        return skillSyncRecordsSchema.parse(JSON.parse(rawResponse) as unknown);
-    }
-    catch {
-        throw new CliUserError("errors.skills.sync.invalidResponse", 1);
-    }
-}
-
 export function filterSkillSyncRecords(
     records: readonly SkillSyncRecord[],
     ignorePatterns: readonly string[],
@@ -693,68 +680,37 @@ async function requestSkillSyncUpload(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<void> {
-    parseSkillSyncResponse(
-        await requestText({
-            context,
-            createRequestFailedError: status => new CliUserError(
-                "errors.skills.sync.requestFailed",
-                1,
-                { status },
-            ),
-            createUnexpectedError: error => new CliUserError(
-                "errors.skills.sync.requestError",
-                1,
-                {
-                    message: error instanceof Error ? error.message : String(error),
-                },
-            ),
-            fields: {
-                common: {
-                    skillCount: records.length,
-                },
+    await requestOo({
+        authorization: account.apiKey,
+        context,
+        errors: { scope: "skills.sync" },
+        host: { endpoint: account.endpoint, service: "cli-api" },
+        jsonBody: records,
+        label: "Skills sync upload",
+        logFields: {
+            common: {
+                skillCount: records.length,
             },
-            init: {
-                body: JSON.stringify(records),
-                headers: {
-                    "Authorization": account.apiKey,
-                    "Content-Type": "application/json",
-                },
-                method: "PUT",
-            },
-            requestLabel: "Skills sync upload",
-            requestUrl: createSkillSyncRequestUrl(account.endpoint),
-        }),
-    );
+        },
+        method: "PUT",
+        path: "/v1/skills",
+        schema: skillSyncRecordsSchema,
+    });
 }
 
 async function requestSkillSyncDownload(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<SkillSyncRecord[]> {
-    return parseSkillSyncResponse(
-        await requestText({
-            context,
-            createRequestFailedError: status => new CliUserError(
-                "errors.skills.sync.requestFailed",
-                1,
-                { status },
-            ),
-            createUnexpectedError: error => new CliUserError(
-                "errors.skills.sync.requestError",
-                1,
-                {
-                    message: error instanceof Error ? error.message : String(error),
-                },
-            ),
-            init: {
-                headers: {
-                    Authorization: account.apiKey,
-                },
-            },
-            requestLabel: "Skills sync download",
-            requestUrl: createSkillSyncRequestUrl(account.endpoint),
-        }),
-    );
+    return await requestOo({
+        authorization: account.apiKey,
+        context,
+        errors: { scope: "skills.sync" },
+        host: { endpoint: account.endpoint, service: "cli-api" },
+        label: "Skills sync download",
+        path: "/v1/skills",
+        schema: skillSyncRecordsSchema,
+    });
 }
 
 function parseSkillSyncSource(value: string | undefined): SkillSyncSource {

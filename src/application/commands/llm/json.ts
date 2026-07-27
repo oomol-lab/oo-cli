@@ -13,7 +13,7 @@ import {
     formatJsonSchemaErrors,
     validateCompiledJsonSchema,
 } from "../shared/json-schema-validation.ts";
-import { requestText } from "../shared/request.ts";
+import { requestOo } from "../shared/oo-request.ts";
 import {
     createLlmChatCompletionsUrl,
     defaultLlmModel,
@@ -297,38 +297,20 @@ async function requestStructuredJsonCompletion(
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<string> {
-    const requestUrl = new URL(createLlmChatCompletionsUrl(options.endpoint));
-    const rawResponse = await requestText({
+    const parsed = await requestOo({
+        authorization: `Bearer ${options.apiKey}`,
         context,
-        createRequestFailedError: status => createLlmJsonRequestFailedError(status),
-        createUnexpectedError: error => new CliUserError(
-            "errors.llmJson.requestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        init: {
-            body: JSON.stringify(createChatCompletionRequestBody(options)),
-            headers: {
-                "Accept": "application/json",
-                "Authorization": `Bearer ${options.apiKey}`,
-                "Content-Type": "application/json",
-            },
-            method: "POST",
-        },
-        requestLabel: "LLM structured JSON completion",
-        requestUrl,
+        errors: { scope: "llmJson" },
+        headers: { Accept: "application/json" },
+        host: { baseUrl: createLlmChatCompletionsUrl(options.endpoint) },
+        jsonBody: createChatCompletionRequestBody(options),
+        label: "LLM structured JSON completion",
+        method: "POST",
+        schema: chatCompletionResponseSchema,
+        statusErrors: failure => createLlmJsonStatusError(failure.status),
     });
 
-    try {
-        return chatCompletionResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        ).choices[0]!.message.content;
-    }
-    catch {
-        throw new CliUserError("errors.llmJson.invalidResponse", 1);
-    }
+    return parsed.choices[0]!.message.content;
 }
 
 function createChatCompletionRequestBody(
@@ -433,7 +415,9 @@ function createUserMessage(
     return parts.join("\n");
 }
 
-function createLlmJsonRequestFailedError(status: number): CliUserError {
+// Statuses with dedicated guidance; anything else falls through to the
+// module's generic llmJson requestFailed mapping.
+function createLlmJsonStatusError(status: number): CliUserError | undefined {
     switch (status) {
         case 401:
         case 403:
@@ -445,9 +429,7 @@ function createLlmJsonRequestFailedError(status: number): CliUserError {
         case 429:
             return new CliUserError("errors.llmJson.rateLimited", 1, { status });
         default:
-            return new CliUserError("errors.llmJson.requestFailed", 1, {
-                status,
-            });
+            return undefined;
     }
 }
 

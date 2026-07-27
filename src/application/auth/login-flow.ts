@@ -3,7 +3,7 @@ import type { Logger } from "pino";
 import type { CliExecutionContext, Fetcher } from "../contracts/cli.ts";
 import type { AuthAccount } from "../schemas/auth.ts";
 import { z } from "zod";
-import { getUnexpectedRequestErrorMessage } from "../commands/shared/request.ts";
+import { getUnexpectedRequestErrorMessage } from "../commands/shared/oo-request.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import {
     withAccountIdentity,

@@ -4,9 +4,22 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
-import { performLoggedRequest, requestText } from "../shared/request.ts";
+import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
 
 const registryPackageNotFoundStatus = 404;
+
+// The irregular skills.install request-error keys predate the shared triplet
+// convention; both key families keep their historical names.
+const registryPackageInfoErrors = {
+    invalidResponse: "errors.skills.install.invalidPackageInfo",
+    requestError: "errors.skills.install.packageInfoRequestError",
+    requestFailed: "errors.skills.install.packageInfoRequestFailed",
+} as const;
+
+const registryPackageDownloadErrors = {
+    requestError: "errors.skills.install.packageDownloadError",
+    requestFailed: "errors.skills.install.packageDownloadFailed",
+} as const;
 
 const registrySkillSchema = z.object({
     description: z.string().optional().default(""),
@@ -33,241 +46,44 @@ export interface RegistryPackageSkillInfo {
     skills: RegistrySkillSummary[];
 }
 
-export function createRegistryPackageInfoRequestUrl(
-    endpoint: string,
+export function createRegistryPackageInfoPath(
     packageName: string,
     packageVersion = "latest",
-): URL {
-    return new URL(
-        `https://registry.${endpoint}/-/oomol/package-info/${encodeURIComponent(packageName)}/${encodeURIComponent(packageVersion)}`,
-    );
+): string {
+    return `/-/oomol/package-info/${encodeURIComponent(packageName)}/${encodeURIComponent(packageVersion)}`;
 }
 
-export function createRegistryPackageTarballRequestUrl(
-    endpoint: string,
+export function createRegistryPackageTarballPath(
     packageName: string,
     packageVersion: string,
-): URL {
+): string {
     const packagePath = encodeURI(packageName);
     const tarballPackageName = resolveRegistryPackageTarballPackageName(packageName);
 
-    return new URL(
-        `https://registry.${endpoint}/${packagePath}/-/meta/${encodeURIComponent(tarballPackageName)}-${encodeURIComponent(packageVersion)}.tgz`,
-    );
+    return `/${packagePath}/-/meta/${encodeURIComponent(tarballPackageName)}-${encodeURIComponent(packageVersion)}.tgz`;
 }
 
-export function createRegistryPackageShareDownloadMetaRequestUrl(
-    endpoint: string,
+export function createRegistryPackageShareDownloadMetaPath(
     packageShareId: string,
-): URL {
-    return new URL(
-        `https://registry.${endpoint}/-/oomol/package-shares/download-meta/${encodeURIComponent(packageShareId)}`,
-    );
+): string {
+    return `/-/oomol/package-shares/download-meta/${encodeURIComponent(packageShareId)}`;
 }
 
-export function createRegistryPackageDownloadCountRequestUrl(
-    endpoint: string,
+export function createRegistryPackageDownloadCountPath(
     packageName: string,
     packageVersion: string,
-): URL {
+): string {
     const packagePath = encodeURI(packageName);
 
-    return new URL(
-        `https://registry.${endpoint}/-/oomol/packages/${packagePath}/${encodeURIComponent(packageVersion)}/download-count`,
-    );
+    return `/-/oomol/packages/${packagePath}/${encodeURIComponent(packageVersion)}/download-count`;
 }
 
-export async function loadRegistryPackageSkillInfo(
-    packageName: string,
-    account: Pick<AuthAccount, "apiKey" | "endpoint">,
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-    packageVersion = "latest",
-): Promise<RegistryPackageSkillInfo> {
-    const requestUrl = createRegistryPackageInfoRequestUrl(
-        account.endpoint,
-        packageName,
-        packageVersion,
-    );
-    const rawResponse = await requestText({
-        context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.skills.install.packageInfoRequestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.skills.install.packageInfoRequestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
-            common: withPackageIdentity(packageName, packageVersion),
-        },
-        init: {
-            headers: {
-                Authorization: account.apiKey,
-            },
-        },
-        requestLabel: "Skills install package info",
-        requestUrl,
-    });
-
-    return parseRegistryPackageSkillInfo(rawResponse);
-}
-
-// Like loadRegistryPackageSkillInfo, but unauthenticated and 404-aware: the
-// package-info endpoint is public, so no Authorization header is sent, and a
-// 404 is treated as a definitive "the package does not exist" signal instead of
-// an error. Used to confirm a derived `oo-<service>` package is published before
-// recommending it. Other non-success statuses and network errors still throw.
-export async function loadRegistryPackageSkillInfoAllowingMissing(
-    packageName: string,
-    endpoint: string,
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-    packageVersion = "latest",
-): Promise<RegistryPackageSkillInfo | "not-found"> {
-    const requestUrl = createRegistryPackageInfoRequestUrl(
-        endpoint,
-        packageName,
-        packageVersion,
-    );
-    const response = await performLoggedRequest({
-        allowedStatuses: [registryPackageNotFoundStatus],
-        context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.skills.install.packageInfoRequestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.skills.install.packageInfoRequestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
-            common: withPackageIdentity(packageName, packageVersion),
-        },
-        requestLabel: "Skills recommend package info",
-        requestUrl,
-    });
-
-    if (response.status === registryPackageNotFoundStatus) {
-        return "not-found";
-    }
-
-    return parseRegistryPackageSkillInfo(await response.text());
-}
-
-export async function downloadRegistryPackageTarball(
-    packageName: string,
-    packageVersion: string,
-    account: Pick<AuthAccount, "apiKey" | "endpoint">,
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-    packageShareId?: string,
-): Promise<Uint8Array<ArrayBuffer>> {
-    const requestUrl = packageShareId === undefined
-        ? createRegistryPackageTarballRequestUrl(
-                account.endpoint,
-                packageName,
-                packageVersion,
-            )
-        : createRegistryPackageShareDownloadMetaRequestUrl(
-                account.endpoint,
-                packageShareId,
-            );
-    const response = await performLoggedRequest({
-        context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.skills.install.packageDownloadFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.skills.install.packageDownloadError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
-            common: withPackageIdentity(packageName, packageVersion),
-        },
-        init: {
-            headers: {
-                Authorization: account.apiKey,
-            },
-        },
-        requestLabel: "Skills install package download",
-        requestUrl,
-    });
-
-    return new Uint8Array(await response.arrayBuffer());
-}
-
-export async function tryReportRegistryPackageDownload(
-    packageName: string,
-    packageVersion: string,
-    account: Pick<AuthAccount, "apiKey" | "endpoint">,
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<void> {
-    const requestUrl = createRegistryPackageDownloadCountRequestUrl(
-        account.endpoint,
-        packageName,
-        packageVersion,
-    );
-
-    try {
-        await performLoggedRequest({
-            context,
-            createRequestFailedError: status => new CliUserError(
-                "errors.skills.install.packageDownloadFailed",
-                1,
-                {
-                    status,
-                },
-            ),
-            createUnexpectedError: error => new CliUserError(
-                "errors.skills.install.packageDownloadError",
-                1,
-                {
-                    message: error instanceof Error ? error.message : String(error),
-                },
-            ),
-            fields: {
-                common: withPackageIdentity(packageName, packageVersion),
-            },
-            init: {
-                headers: {
-                    "Authorization": account.apiKey,
-                    "Content-Type": "application/json",
-                },
-                method: "POST",
-            },
-            requestLabel: "Skills install package download count",
-            requestUrl,
-        });
-    }
-    catch {
-    }
-}
-
-function parseRegistryPackageSkillInfo(
-    rawResponse: string,
-): RegistryPackageSkillInfo {
-    try {
-        const parsedResponse = registryPackageSkillInfoSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        );
+// Decodes the package-info body: zod shape plus the version-presence rule the
+// schema alone cannot express. Throws raw on any mismatch, so requestOo maps
+// it to the invalidPackageInfo key like any other decode failure.
+const registryPackageSkillInfoResponse = {
+    parse(input: unknown): RegistryPackageSkillInfo {
+        const parsedResponse = registryPackageSkillInfoSchema.parse(input);
         const packageVersion = parsedResponse.packageVersion?.trim()
             || parsedResponse.version?.trim()
             || "";
@@ -285,9 +101,121 @@ function parseRegistryPackageSkillInfo(
                 title: skill.title === "" ? skill.name : skill.title,
             })),
         };
+    },
+};
+
+export async function loadRegistryPackageSkillInfo(
+    packageName: string,
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+    packageVersion = "latest",
+): Promise<RegistryPackageSkillInfo> {
+    return await requestOo({
+        authorization: account.apiKey,
+        context,
+        errors: registryPackageInfoErrors,
+        host: { endpoint: account.endpoint, service: "registry" },
+        label: "Skills install package info",
+        logFields: {
+            common: withPackageIdentity(packageName, packageVersion),
+        },
+        path: createRegistryPackageInfoPath(packageName, packageVersion),
+        schema: registryPackageSkillInfoResponse,
+    });
+}
+
+// Like loadRegistryPackageSkillInfo, but unauthenticated and 404-aware: the
+// package-info endpoint is public, so no Authorization header is sent, and a
+// 404 is treated as a definitive "the package does not exist" signal instead of
+// an error. Used to confirm a derived `oo-<service>` package is published before
+// recommending it. Other non-success statuses and network errors still throw.
+export async function loadRegistryPackageSkillInfoAllowingMissing(
+    packageName: string,
+    endpoint: string,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+    packageVersion = "latest",
+): Promise<RegistryPackageSkillInfo | "not-found"> {
+    const response = await requestOoResponse({
+        allowedStatuses: [registryPackageNotFoundStatus],
+        context,
+        errors: registryPackageInfoErrors,
+        host: { endpoint, service: "registry" },
+        label: "Skills recommend package info",
+        logFields: {
+            common: withPackageIdentity(packageName, packageVersion),
+        },
+        path: createRegistryPackageInfoPath(packageName, packageVersion),
+    });
+
+    if (response.status === registryPackageNotFoundStatus) {
+        return "not-found";
+    }
+
+    return parseRegistryPackageSkillInfo(await response.text());
+}
+
+export async function downloadRegistryPackageTarball(
+    packageName: string,
+    packageVersion: string,
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+    packageShareId?: string,
+): Promise<Uint8Array<ArrayBuffer>> {
+    const response = await requestOoResponse({
+        authorization: account.apiKey,
+        context,
+        errors: registryPackageDownloadErrors,
+        host: { endpoint: account.endpoint, service: "registry" },
+        label: "Skills install package download",
+        logFields: {
+            common: withPackageIdentity(packageName, packageVersion),
+        },
+        path: packageShareId === undefined
+            ? createRegistryPackageTarballPath(packageName, packageVersion)
+            : createRegistryPackageShareDownloadMetaPath(packageShareId),
+    });
+
+    return new Uint8Array(await response.arrayBuffer());
+}
+
+export async function tryReportRegistryPackageDownload(
+    packageName: string,
+    packageVersion: string,
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<void> {
+    try {
+        await requestOoResponse({
+            authorization: account.apiKey,
+            context,
+            errors: registryPackageDownloadErrors,
+            // The historical wire shape sends a JSON content type with no body.
+            headers: {
+                "Content-Type": "application/json",
+            },
+            host: { endpoint: account.endpoint, service: "registry" },
+            label: "Skills install package download count",
+            logFields: {
+                common: withPackageIdentity(packageName, packageVersion),
+            },
+            method: "POST",
+            path: createRegistryPackageDownloadCountPath(packageName, packageVersion),
+        });
     }
     catch {
-        throw new CliUserError("errors.skills.install.invalidPackageInfo", 1);
+    }
+}
+
+function parseRegistryPackageSkillInfo(
+    rawResponse: string,
+): RegistryPackageSkillInfo {
+    try {
+        return registryPackageSkillInfoResponse.parse(
+            JSON.parse(rawResponse) as unknown,
+        );
+    }
+    catch {
+        throw new CliUserError(registryPackageInfoErrors.invalidResponse, 1);
     }
 }
 

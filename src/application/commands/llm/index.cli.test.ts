@@ -386,6 +386,62 @@ describe("llm CLI", () => {
         }
     });
 
+    test("classifies rejected LLM credentials", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run([
+                "llm",
+                "json",
+                "--schema",
+                JSON.stringify(createTranslationSchema()),
+            ], {
+                fetcher: async () => new Response("unauthorized", {
+                    status: 401,
+                }),
+            });
+
+            expect(createCliSnapshot(result)).toEqual({
+                exitCode: 1,
+                stderr: "The LLM request returned HTTP 401. Check the current account credentials.\n",
+                stdout: "",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("classifies rate-limited LLM requests", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run([
+                "llm",
+                "json",
+                "--schema",
+                JSON.stringify(createTranslationSchema()),
+            ], {
+                fetcher: async () => new Response("slow down", {
+                    status: 429,
+                }),
+            });
+
+            expect(createCliSnapshot(result)).toEqual({
+                exitCode: 1,
+                stderr: "The LLM request returned HTTP 429. Retry later or reduce request frequency.\n",
+                stdout: "",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("validates required LLM JSON options", async () => {
         const sandbox = await createCliSandbox();
 

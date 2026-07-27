@@ -13,9 +13,9 @@ import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
+import { requestOo } from "../shared/oo-request.ts";
 import { writeLine } from "../shared/output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../shared/package-info.ts";
-import { requestText } from "../shared/request.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
     confirmInteractiveValue,
@@ -585,46 +585,22 @@ async function requestPrivateSkillPackageShare(
     account: AuthAccount,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<string> {
-    const rawResponse = await requestText({
+    const parsed = await requestOo({
+        authorization: account.apiKey,
         context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.skills.share.requestFailed",
-            1,
-            { status },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.skills.share.requestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
+        errors: { scope: "skills.share" },
+        host: { endpoint: account.endpoint, service: "registry" },
+        jsonBody: createPrivateSkillPackageShareRequestBody(limits),
+        label: "Skills private package share",
+        logFields: {
             common: withPackageIdentity(packageName),
         },
-        init: {
-            body: JSON.stringify(createPrivateSkillPackageShareRequestBody(limits)),
-            headers: {
-                "Authorization": account.apiKey,
-                "Content-Type": "application/json",
-            },
-            method: "POST",
-        },
-        requestLabel: "Skills private package share",
-        requestUrl: createPrivateSkillPackageShareRequestUrl(
-            account.endpoint,
-            packageName,
-        ),
+        method: "POST",
+        path: `/-/oomol/package-shares/share/${encodeURIComponent(packageName)}`,
+        schema: packageShareResponseSchema,
     });
 
-    try {
-        return packageShareResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        ).shareID;
-    }
-    catch {
-        throw new CliUserError("errors.skills.share.invalidResponse", 1);
-    }
+    return parsed.shareID;
 }
 
 function createPrivateSkillPackageShareRequestBody(
@@ -634,15 +610,6 @@ function createPrivateSkillPackageShareRequestBody(
         ...(limits.downloads === undefined ? {} : { downloads: limits.downloads }),
         days: limits.days,
     };
-}
-
-function createPrivateSkillPackageShareRequestUrl(
-    endpoint: string,
-    packageName: string,
-): URL {
-    return new URL(
-        `https://registry.${endpoint}/-/oomol/package-shares/share/${encodeURIComponent(packageName)}`,
-    );
 }
 
 async function confirmSkillShareTarget(
