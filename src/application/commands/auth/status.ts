@@ -6,10 +6,10 @@ import type { AuthAccount, AuthFile } from "../../schemas/auth.ts";
 import type { ResolvedSelfHostedConnector } from "../shared/self-hosted-connector.ts";
 
 import type {
-    DefaultTeamIdentity,
+    TeamIdentity,
     TeamIdentitySource,
     TeamNameStatus,
-} from "../team/default-identity.ts";
+} from "../team/identity.ts";
 import { z } from "zod";
 import { resolveIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
@@ -23,9 +23,9 @@ import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-conn
 import {
     appendTeamIdentityStatus,
     formatTeamIdentityValue,
-    resolveDefaultTeamIdentity,
+    resolveTeamIdentity,
     teamNameStatusForTelemetry,
-} from "../team/default-identity.ts";
+} from "../team/identity.ts";
 import {
     formatAuthStrong,
     writeAuthBlock,
@@ -94,10 +94,10 @@ interface AuthStatusJsonEnvOverride {
 // same way `oo team current` resolves it: the OO_TEAM_ID / OO_TEAM_NAME env
 // override outranks the `identity.team` config default.
 //
-// `status` reports what happened to the name lookup and is `null` when none was
-// needed — only an OO_TEAM_ID identity starts out as a bare id. `envVar` is
-// deliberately not part of this payload: it is a hint for the text renderer,
-// not a fact about the identity.
+// `status` reports how the backend lookup ended and is `null` when none was
+// attempted — only env-selected identities are looked up (both directions),
+// a config name never is. `envVar` is deliberately not part of this payload:
+// it is a hint for the text renderer, not a fact about the identity.
 interface AuthStatusJsonTeam {
     name: string | null;
     id: string | null;
@@ -172,17 +172,18 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
             }
         }
 
-        // The key validation and the team name lookup answer independent
+        // The key validation and the team lookup answer independent
         // questions, so they go out together. Sequencing them would double the
         // command's latency to report the same two facts.
         const [apiKeyStatus, teamIdentity] = await Promise.all([
             identity === undefined
                 ? undefined
                 : readApiKeyStatus(identity.account, context),
-            resolveDefaultTeamIdentity(
+            resolveTeamIdentity(
                 {
                     account: identity?.account,
                     configuredTeam: getConfiguredIdentityTeam(settings),
+                    resolveAgainstBackend: true,
                 },
                 context,
             ),
@@ -252,7 +253,7 @@ async function resolveStatusState(
 function buildAuthStatusJsonPayload(
     authFile: AuthFile,
     activeStatus: ActiveAccountStatus | undefined,
-    teamIdentity: DefaultTeamIdentity | undefined,
+    teamIdentity: TeamIdentity | undefined,
     selfHostedConnector: ResolvedSelfHostedConnector | undefined,
 ): AuthStatusJsonPayload {
     const connector: { connector?: AuthStatusJsonConnector }
@@ -363,7 +364,7 @@ function writeSelfHostedConnectorText(
 // supplies it, or the personal fallback when no default team is set.
 function formatStatusTeamDetail(
     context: CliExecutionContext,
-    teamIdentity: DefaultTeamIdentity | undefined,
+    teamIdentity: TeamIdentity | undefined,
 ): { label: string; value: string } {
     const label = context.translator.t("auth.status.team");
 
@@ -395,7 +396,7 @@ function writeAuthStatusText(
     context: CliExecutionContext,
     authFile: AuthFile,
     activeStatus: ActiveAccountStatus | undefined,
-    teamIdentity: DefaultTeamIdentity | undefined,
+    teamIdentity: TeamIdentity | undefined,
 ): void {
     if (activeStatus === undefined) {
         if (authFile.id !== "") {
