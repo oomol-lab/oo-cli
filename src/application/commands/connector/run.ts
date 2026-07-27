@@ -5,7 +5,7 @@ import type {
     ConnectorActionRunResponse,
     ConnectorConnectionSelector,
 } from "./shared.ts";
-import type { ConnectorTarget } from "./target.ts";
+import type { ConnectorRequestTarget } from "./target.ts";
 
 import { Buffer } from "node:buffer";
 import { z } from "zod";
@@ -46,10 +46,6 @@ type ConnectorRunTextContext = Pick<CliExecutionContext, "stdout" | "translator"
 type ConnectorRunTarget = Pick<ConnectorRunInput, "serviceName"> & {
     actionName: string;
 };
-type ConnectorRunRequestTarget = Pick<
-    ConnectorTarget,
-    "authorization" | "baseUrl" | "kind"
->;
 type ConnectorAsyncLifecycleProgressContext = Pick<CliExecutionContext, "stderr" | "translator">;
 type ConnectorActionAsyncSubmitLifecycle = Extract<
     ConnectorActionAsyncLifecycle,
@@ -292,9 +288,8 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             if (isConnectorActionSchemaNotFoundError(error)) {
                 deleteConnectorActionSchemaCache(
                     {
-                        accountId: target.cacheAccountId,
                         actionName: currentTarget.actionName,
-                        endpoint: target.cacheEndpoint,
+                        cacheScope: target.cacheScope,
                         serviceName: currentTarget.serviceName,
                     },
                     context,
@@ -326,7 +321,7 @@ async function runConnectorActionWithDefaultMode(
         resultLifecycle: ConnectorActionAsyncResultLifecycle | undefined;
         serviceName: string;
         submitLifecycle: ConnectorActionAsyncSubmitLifecycle | undefined;
-        target: ConnectorRunRequestTarget;
+        target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
     setCurrentTarget: (target: ConnectorRunTarget) => void,
@@ -394,7 +389,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
         resultLifecycle: ConnectorActionAsyncResultLifecycle;
         serviceName: string;
         submitLifecycle: ConnectorActionAsyncSubmitLifecycle;
-        target: ConnectorRunRequestTarget;
+        target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
     setCurrentTarget: (target: ConnectorRunTarget) => void,
@@ -462,7 +457,7 @@ async function waitForConnectorAsyncResult(
         lifecycle: ConnectorActionAsyncResultLifecycle;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         serviceName: string;
-        target: ConnectorRunRequestTarget;
+        target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
     setCurrentTarget: (target: ConnectorRunTarget) => void,

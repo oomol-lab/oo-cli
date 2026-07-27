@@ -20,6 +20,7 @@ import {
     createTextBuffer,
     expectCliUserError,
 } from "../../../../__tests__/helpers.ts";
+import { createConnectorSchemaCacheScope } from "./schema-cache.ts";
 import {
     normalizeSelfHostedConnectorToken,
     normalizeSelfHostedConnectorUrl,
@@ -190,11 +191,12 @@ describe("resolveConnectorTarget", () => {
         expect(target).toEqual({
             authorization: "Bearer oct_env",
             baseUrl: "http://localhost:3000",
-            cacheAccountId: "self-hosted",
-            cacheEndpoint: "http://localhost:3000",
             kind: "self_hosted",
+            cacheScope: createConnectorSchemaCacheScope({
+                accountId: "self-hosted",
+                endpoint: "http://localhost:3000",
+            }),
         });
-        expect(target.cacheEndpoint).toBe(target.baseUrl);
     });
 
     test("omits the authorization value when OO_CONNECTOR_TOKEN is unset", async () => {
@@ -234,9 +236,12 @@ describe("resolveConnectorTarget", () => {
         expect(target).toEqual({
             authorization: "env-key",
             baseUrl: "https://connector.oomol.dev",
-            cacheAccountId: "oo-env-override",
-            cacheEndpoint: "oomol.dev",
             kind: "oomol",
+            cacheScope: createConnectorSchemaCacheScope({
+                accountId: "oo-env-override",
+                endpoint: "oomol.dev",
+            }),
+            accountEndpoint: "oomol.dev",
         });
     });
 
@@ -256,9 +261,11 @@ describe("resolveConnectorTarget", () => {
         expect(target).toEqual({
             authorization: "Bearer oct_file",
             baseUrl: "https://connect.example.com/prefix",
-            cacheAccountId: "self-hosted",
-            cacheEndpoint: "https://connect.example.com/prefix",
             kind: "self_hosted",
+            cacheScope: createConnectorSchemaCacheScope({
+                accountId: "self-hosted",
+                endpoint: "https://connect.example.com/prefix",
+            }),
         });
     });
 
@@ -273,9 +280,12 @@ describe("resolveConnectorTarget", () => {
             // The OOMOL service expects the raw API key, not a Bearer prefix.
             authorization: "raw-api-key",
             baseUrl: "https://connector.oomol.com",
-            cacheAccountId: "user-1",
-            cacheEndpoint: "oomol.com",
             kind: "oomol",
+            cacheScope: createConnectorSchemaCacheScope({
+                accountId: "user-1",
+                endpoint: "oomol.com",
+            }),
+            accountEndpoint: "oomol.com",
         });
     });
 

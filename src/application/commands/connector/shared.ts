@@ -15,7 +15,6 @@ import {
     isNetworkRestrictedSandboxError,
     requestText,
 } from "../shared/request.ts";
-import { connectorIdentityHeaders } from "./identity.ts";
 
 export const connectorActionDefinitionSchema = z.object({
     description: z.string().optional().default(""),
@@ -693,6 +692,29 @@ function connectorAuthorizationHeaders(
     }
 
     return { Authorization: target.authorization };
+}
+
+// Builds the identity request headers (`x-oo-team-name` / `x-oo-team-id`)
+// from whichever dimensions the identity carries. Returns an empty object for
+// the personal identity so callers can spread it unconditionally.
+function connectorIdentityHeaders(
+    identity: TeamIdentity | undefined,
+): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    if (identity === undefined) {
+        return headers;
+    }
+
+    if (identity.name !== null) {
+        headers["x-oo-team-name"] = identity.name;
+    }
+
+    if (identity.id !== null) {
+        headers["x-oo-team-id"] = identity.id;
+    }
+
+    return headers;
 }
 
 // Self-hosted servers are typically local processes, so a connection failure

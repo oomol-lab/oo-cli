@@ -26,7 +26,10 @@ import {
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
-import { cacheConnectorActionSchemas } from "./schema-cache.ts";
+import {
+    cacheConnectorActionSchemas,
+    createConnectorSchemaCacheScope,
+} from "./schema-cache.ts";
 import {
     connectorSearchActionColor,
     connectorSearchServiceColor,
@@ -6240,10 +6243,10 @@ async function seedConnectorActionSchema(
     try {
         await cacheConnectorActionSchemas(
             [action],
-            {
-                cacheAccountId: "user-1",
-                cacheEndpoint: "oomol.com",
-            },
+            createConnectorSchemaCacheScope({
+                accountId: "user-1",
+                endpoint: "oomol.com",
+            }),
             {
                 cacheStore,
                 logger: pino({

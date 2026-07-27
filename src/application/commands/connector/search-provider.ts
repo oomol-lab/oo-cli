@@ -2,8 +2,11 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 
 import type { TeamIdentity } from "../team/identity.ts";
+import type {
+    ConnectorSchemaCacheScope,
+    ConnectorSchemaRequestTarget,
+} from "./schema-cache.ts";
 import type { ConnectorActionSearchResult } from "./shared.ts";
-import type { ConnectorTarget } from "./target.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { cacheConnectorActionSchemas } from "./schema-cache.ts";
 
@@ -24,10 +27,7 @@ type ConnectorSearchTextContext = Pick<CliExecutionContext, "stdout" | "translat
 export async function loadConnectorSearchResults(
     options: {
         identity?: TeamIdentity | undefined;
-        target: Pick<
-            ConnectorTarget,
-            "authorization" | "baseUrl" | "cacheAccountId" | "cacheEndpoint" | "kind"
-        >;
+        target: ConnectorSchemaRequestTarget;
         text: string;
     },
     context: Pick<
@@ -41,7 +41,7 @@ export async function loadConnectorSearchResults(
         text: options.text,
     }, context);
 
-    await warmConnectorActionSchemaCache(actions, options.target, context);
+    await warmConnectorActionSchemaCache(actions, options.target.cacheScope, context);
 
     return actions.map(action => ({
         authenticated: action.authenticated,
@@ -53,7 +53,7 @@ export async function loadConnectorSearchResults(
 
 async function warmConnectorActionSchemaCache(
     actions: readonly ConnectorActionSearchResult[],
-    target: Pick<ConnectorTarget, "cacheAccountId" | "cacheEndpoint">,
+    cacheScope: ConnectorSchemaCacheScope,
     context: Pick<CliExecutionContext, "cacheStore" | "logger" | "settingsStore">,
 ): Promise<void> {
     const cacheableActions = actions.filter(action =>
@@ -64,7 +64,7 @@ async function warmConnectorActionSchemaCache(
     }
 
     try {
-        await cacheConnectorActionSchemas(cacheableActions, target, context);
+        await cacheConnectorActionSchemas(cacheableActions, cacheScope, context);
     }
     catch (error) {
         // Cache warming is a best-effort optimization; search results must

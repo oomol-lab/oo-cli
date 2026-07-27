@@ -326,6 +326,77 @@ describe("connector shared requests", () => {
             "https://connector.oomol.com/v1/actions/gmail.send_mail",
         );
         expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
+        expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
+    });
+
+    test("runConnectorAction sends both identity headers for a completed identity", async () => {
+        const requests: Request[] = [];
+        await runConnectorAction(
+            {
+                actionName: "send_mail",
+                target: createConnectorTargetFixture(),
+                identity: {
+                    name: "acme",
+                    id: "team-1",
+                    source: "env_name",
+                    status: "valid",
+                    envVar: "OO_TEAM_NAME",
+                },
+                inputData: {},
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: {},
+                        meta: {
+                            executionId: "exec-1",
+                        },
+                    }));
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
+        expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
+    });
+
+    test("runConnectorAction sends only the id header for an id-only identity", async () => {
+        const requests: Request[] = [];
+        await runConnectorAction(
+            {
+                actionName: "send_mail",
+                target: createConnectorTargetFixture(),
+                identity: {
+                    name: null,
+                    id: "team-1",
+                    source: "env_id",
+                    status: "request_failed",
+                    envVar: "OO_TEAM_ID",
+                },
+                inputData: {},
+                serviceName: "gmail",
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        data: {},
+                        meta: {
+                            executionId: "exec-1",
+                        },
+                    }));
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+        expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
     });
 
     test("runConnectorAction sends the connection-name selector as a header without query params", async () => {
@@ -952,7 +1023,6 @@ describe("connector shared requests", () => {
             {
                 target: createSelfHostedConnectorTargetFixture({
                     baseUrl: "http://host:9000/connect",
-                    cacheEndpoint: "http://host:9000/connect",
                 }),
                 text: "send mail",
             },

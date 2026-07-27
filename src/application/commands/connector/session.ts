@@ -21,7 +21,6 @@ import {
     requireValidTeamIdentity,
     resolveTeamIdentity,
 } from "../team/identity.ts";
-import { connectorTeamAccount } from "./identity.ts";
 import { resolveConnectorTarget } from "./target.ts";
 
 export interface ConnectorSession {
@@ -88,7 +87,13 @@ export async function resolveConnectorSession(
         : requireValidTeamIdentity(
                 await resolveTeamIdentity(
                     {
-                        account: connectorTeamAccount(target),
+                        // The target lends its credential and account endpoint
+                        // to the env-team lookups; only an OOMOL target has an
+                        // account endpoint to lend.
+                        account: {
+                            apiKey: target.authorization,
+                            endpoint: target.accountEndpoint,
+                        },
                         configuredTeam: getConfiguredIdentityTeam(settings),
                         teamFlag,
                         personalFlag: options.personal === true,
