@@ -10,7 +10,6 @@ import type { ConnectorTarget } from "./target.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
@@ -18,21 +17,20 @@ import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
 import {
-    requireValidTeamIdentity,
-    resolveTeamIdentity,
-} from "../team/identity.ts";
-import { connectorTeamAccount } from "./identity.ts";
-import {
     deleteConnectorActionSchemaCache,
     isConnectorActionSchemaNotFoundError,
     loadConnectorActionSchema,
 } from "./schema-cache.ts";
 import {
+    resolveConnectorSession,
+    teamIdentityInputShape,
+    teamIdentityOptions,
+} from "./session.ts";
+import {
     connectorFormatValues,
     requireConnectorActionName,
     runConnectorAction,
 } from "./shared.ts";
-import { resolveConnectorTarget } from "./target.ts";
 import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 import { validateConnectorActionInput } from "./validation.ts";
 
@@ -127,17 +125,10 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             longFlag: "--wait-result",
             descriptionKey: "options.connectorRunWaitResult",
         },
-        {
-            name: "team",
-            longFlag: "--team",
-            valueName: "team",
-            descriptionKey: "options.connectorRunTeam",
-        },
-        {
-            name: "personal",
-            longFlag: "--personal",
-            descriptionKey: "options.connectorRunPersonal",
-        },
+        ...teamIdentityOptions({
+            personal: "options.connectorRunPersonal",
+            team: "options.connectorRunTeam",
+        }),
         ...jsonOutputOptions,
     ],
     inputSchema: z.object({
@@ -146,8 +137,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         data: z.string().optional(),
         dryRun: z.boolean().optional(),
         format: z.enum(connectorFormatValues).optional(),
-        team: z.string().optional(),
-        personal: z.boolean().optional(),
+        ...teamIdentityInputShape,
         serviceName: z.string(),
         showSchemaVersion: z.boolean().optional(),
         wait: z.boolean().optional(),
@@ -161,10 +151,6 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw new CliUserError("errors.connectorRun.waitModeConflict", 2);
         }
 
-        if (input.personal === true && input.team !== undefined) {
-            throw new CliUserError("errors.connectorRun.identityConflict", 2);
-        }
-
         const connectionName = input.connectionName?.trim();
         if (input.connectionName !== undefined && connectionName === "") {
             throw new CliUserError("errors.connectorRun.connectionNameEmpty", 2);
@@ -174,40 +160,18 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         // legacy `x-oo-connector-alias` header.
         const connectionSelector
             = connectionName === undefined ? undefined : { connectionName };
-        const teamFlag = input.team?.trim();
-        if (input.team !== undefined && teamFlag === "") {
-            throw new CliUserError("errors.connectorRun.teamEmpty", 2);
-        }
 
-        const target = await resolveConnectorTarget(context);
-
-        // The self-hosted runtime is single-user and has no team concept: an
-        // explicit --team is a hard error, while a configured `identity.team`
-        // default is silently ignored so a shared config does not break
-        // self-hosted usage.
-        if (target.kind === "self_hosted" && teamFlag !== undefined) {
-            throw new CliUserError("errors.connector.teamUnsupported", 2);
-        }
-
-        const settings = await context.settingsStore.read();
-        const identity = target.kind === "self_hosted"
-            ? undefined
-            : requireValidTeamIdentity(
-                    await resolveTeamIdentity(
-                        {
-                            account: connectorTeamAccount(target),
-                            configuredTeam: getConfiguredIdentityTeam(settings),
-                            teamFlag,
-                            personalFlag: input.personal === true,
-                            // A dry run never sends the execution request that
-                            // needs the completed identity, so it must not pay
-                            // (or fail on) the validation lookup.
-                            resolveAgainstBackend: input.dryRun !== true,
-                        },
-                        context,
-                    ),
-                    context,
-                );
+        const { identity, target } = await resolveConnectorSession(
+            {
+                personal: input.personal,
+                team: input.team,
+                // A dry run never sends the execution request that needs the
+                // completed identity, so it must not pay (or fail on) the
+                // validation lookup.
+                resolveAgainstBackend: input.dryRun !== true,
+            },
+            context,
+        );
         const inputData = await readJsonInputValue(
             input.data,
             context,
@@ -218,12 +182,10 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         context.telemetry?.recordProperties({
             action: actionName,
             connection_selector: connectionSelector === undefined ? "none" : "connectionName",
-            connector_kind: target.kind,
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(inputData)),
             ),
             dry_run: input.dryRun === true,
-            identity_source: identity?.source ?? "personal",
             service: input.serviceName,
             wait: input.wait === true,
             wait_result: input.waitResult === true,

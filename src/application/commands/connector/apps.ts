@@ -4,24 +4,21 @@ import type { TerminalColors } from "../../terminal-colors.ts";
 import type { ConnectorAppView } from "./shared.ts";
 
 import { z } from "zod";
-import { CliUserError } from "../../contracts/cli.ts";
-import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
-import {
-    requireValidTeamIdentity,
-    resolveTeamIdentity,
-} from "../team/identity.ts";
-import { connectorTeamAccount } from "./identity.ts";
 import { connectorSearchServiceColor } from "./search-provider.ts";
+import {
+    resolveConnectorSession,
+    teamIdentityInputShape,
+    teamIdentityOptions,
+} from "./session.ts";
 import {
     connectorFormatValues,
     listConnectorApps,
     listConnectorAppsByService,
 } from "./shared.ts";
-import { resolveConnectorTarget } from "./target.ts";
 
 // Connector app connection statuses (from the apps API) mapped to the terminal
 // color that conveys their health at a glance. Unknown statuses fall back to a
@@ -68,70 +65,33 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
         },
     ],
     options: [
-        {
-            name: "team",
-            longFlag: "--team",
-            valueName: "team",
-            descriptionKey: "options.connectorAppsTeam",
-        },
-        {
-            name: "personal",
-            longFlag: "--personal",
-            descriptionKey: "options.connectorAppsPersonal",
-        },
+        ...teamIdentityOptions({
+            personal: "options.connectorAppsPersonal",
+            team: "options.connectorAppsTeam",
+        }),
         ...jsonOutputOptions,
     ],
     inputSchema: z.object({
         format: z.enum(connectorFormatValues).optional(),
-        team: z.string().optional(),
-        personal: z.boolean().optional(),
+        ...teamIdentityInputShape,
         serviceName: z.string().optional(),
         showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        if (input.personal === true && input.team !== undefined) {
-            throw new CliUserError("errors.connectorRun.identityConflict", 2);
-        }
-
-        const teamFlag = input.team?.trim();
-        if (input.team !== undefined && teamFlag === "") {
-            throw new CliUserError("errors.connectorRun.teamEmpty", 2);
-        }
-
         const serviceName = input.serviceName?.trim();
         const hasService = serviceName !== undefined && serviceName !== "";
         const listScope: ConnectorAppsListScope = hasService ? "service" : "all";
 
-        const target = await resolveConnectorTarget(context);
-
-        // Mirrors `connector run`: the self-hosted runtime has no team
-        // concept, so an explicit --team is rejected and any configured
-        // default identity is ignored.
-        if (target.kind === "self_hosted" && teamFlag !== undefined) {
-            throw new CliUserError("errors.connector.teamUnsupported", 2);
-        }
-
-        const settings = await context.settingsStore.read();
-        const identity = target.kind === "self_hosted"
-            ? undefined
-            : requireValidTeamIdentity(
-                    await resolveTeamIdentity(
-                        {
-                            account: connectorTeamAccount(target),
-                            configuredTeam: getConfiguredIdentityTeam(settings),
-                            teamFlag,
-                            personalFlag: input.personal === true,
-                            resolveAgainstBackend: true,
-                        },
-                        context,
-                    ),
-                    context,
-                );
+        const { identity, target } = await resolveConnectorSession(
+            {
+                personal: input.personal,
+                team: input.team,
+            },
+            context,
+        );
 
         context.telemetry?.recordProperties({
-            connector_kind: target.kind,
-            identity_source: identity?.source ?? "personal",
             list_scope: listScope,
         });
 

@@ -50,7 +50,10 @@ export type ConnectorRequestTarget = Pick<
  *    nobody is logged in).
  */
 export async function resolveConnectorTarget(
-    context: CliExecutionContext,
+    context: Pick<
+        CliExecutionContext,
+        "authStore" | "connectorStore" | "env" | "logger"
+    >,
 ): Promise<ConnectorTarget> {
     const envSelfHosted = readEnvSelfHostedConnectorConfig(context.env);
 
