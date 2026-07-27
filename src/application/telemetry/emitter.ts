@@ -5,12 +5,10 @@ import type { AuthStore } from "../contracts/auth-store.ts";
 import type { AppSettings } from "../schemas/settings.ts";
 import type { TelemetryInvocationRecorder } from "./invocation.ts";
 import type { TelemetryAccountState } from "./payload.ts";
-import { readFile } from "node:fs/promises";
 import { arch, release } from "node:os";
 import process from "node:process";
-import { parse as parseToml } from "smol-toml";
 import { buildEnvApiKeyAccount } from "../auth/identity.ts";
-import { authTomlFileSchema, getCurrentAuthAccount } from "../schemas/auth.ts";
+import { getCurrentAuthAccount } from "../schemas/auth.ts";
 import { detectInstallationMethodFromExecPath } from "../self-update/installation.ts";
 import {
     telemetryInternalCommand,
@@ -216,25 +214,17 @@ async function resolveTelemetryAccountState(
         return "unknown";
     }
 
-    try {
-        const content = await readFile(authStore.getFilePath(), "utf8");
-        const parsed = authTomlFileSchema.safeParse(parseToml(content));
+    const { authFile, fileState } = await authStore.readTolerantState();
 
-        if (!parsed.success) {
-            return "unknown";
-        }
-
-        return getCurrentAuthAccount(parsed.data) === undefined
-            ? "anonymous"
-            : "authenticated";
+    if (fileState !== "ok") {
+        // A missing file means nobody ever logged in; an unreadable one means
+        // the account state cannot be known.
+        return fileState === "missing" ? "anonymous" : "unknown";
     }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return "anonymous";
-        }
 
-        return "unknown";
-    }
+    return getCurrentAuthAccount(authFile) === undefined
+        ? "anonymous"
+        : "authenticated";
 }
 
 function detectCiEnvironment(
@@ -253,11 +243,4 @@ function detectCiEnvironment(
         isCi: false,
         name: "none",
     };
-}
-
-function isNodeNotFoundError(error: unknown): boolean {
-    return error !== null
-        && typeof error === "object"
-        && "code" in error
-        && error.code === "ENOENT";
 }

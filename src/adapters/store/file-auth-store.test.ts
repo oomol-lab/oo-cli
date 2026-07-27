@@ -30,7 +30,7 @@ describe("FileAuthStore", () => {
         expect(await readFile(store.getFilePath(), "utf8")).toBe("id = \"\"\n");
     });
 
-    test("readTolerant returns empty auth without creating a missing file", async () => {
+    test("readTolerantState reports a missing file without creating it", async () => {
         const root = await createTemporaryDirectory("auth-store-tolerant-missing");
         const store = new FileAuthStore({
             appName: APP_NAME,
@@ -41,15 +41,18 @@ describe("FileAuthStore", () => {
             platform: "linux",
         });
 
-        expect(await store.readTolerant()).toEqual({
-            auth: [],
-            id: "",
+        expect(await store.readTolerantState()).toEqual({
+            authFile: {
+                auth: [],
+                id: "",
+            },
+            fileState: "missing",
         });
         // Unlike read(), this must leave no file behind.
         expect(await Bun.file(store.getFilePath()).exists()).toBeFalse();
     });
 
-    test("readTolerant returns empty auth for a corrupt file without rewriting it", async () => {
+    test("readTolerantState reports a corrupt file without rewriting it", async () => {
         const root = await createTemporaryDirectory("auth-store-tolerant-corrupt");
         const store = new FileAuthStore({
             appName: APP_NAME,
@@ -64,9 +67,12 @@ describe("FileAuthStore", () => {
         await mkdir(dirname(store.getFilePath()), { recursive: true });
         await writeFile(store.getFilePath(), corruptContent);
 
-        expect(await store.readTolerant()).toEqual({
-            auth: [],
-            id: "",
+        expect(await store.readTolerantState()).toEqual({
+            authFile: {
+                auth: [],
+                id: "",
+            },
+            fileState: "corrupt",
         });
         expect(await readFile(store.getFilePath(), "utf8")).toBe(corruptContent);
         // read() must still surface the corruption to callers that need the file.
@@ -75,7 +81,7 @@ describe("FileAuthStore", () => {
         } satisfies Partial<CliUserError>);
     });
 
-    test("readTolerant returns persisted accounts when the file is valid", async () => {
+    test("readTolerantState returns persisted accounts when the file is valid", async () => {
         const root = await createTemporaryDirectory("auth-store-tolerant-valid");
         const store = new FileAuthStore({
             appName: APP_NAME,
@@ -99,10 +105,13 @@ describe("FileAuthStore", () => {
 
         await store.write(authFile);
 
-        expect(await store.readTolerant()).toEqual(authFile);
+        expect(await store.readTolerantState()).toEqual({
+            authFile,
+            fileState: "ok",
+        });
     });
 
-    test("readTolerant does not hand out a shared mutable default", async () => {
+    test("readTolerantState does not hand out a shared mutable default", async () => {
         const root = await createTemporaryDirectory("auth-store-tolerant-isolation");
         const store = new FileAuthStore({
             appName: APP_NAME,
@@ -113,19 +122,22 @@ describe("FileAuthStore", () => {
             platform: "linux",
         });
 
-        const first = await store.readTolerant();
+        const first = await store.readTolerantState();
 
-        first.auth.push({
+        first.authFile.auth.push({
             apiKey: "secret-1",
             endpoint: "oomol.com",
             id: "user-1",
             name: "Alice",
         });
-        first.id = "user-1";
+        first.authFile.id = "user-1";
 
-        expect(await store.readTolerant()).toEqual({
-            auth: [],
-            id: "",
+        expect(await store.readTolerantState()).toEqual({
+            authFile: {
+                auth: [],
+                id: "",
+            },
+            fileState: "missing",
         });
     });
 
