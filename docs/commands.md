@@ -882,10 +882,11 @@ Show the stable schema contract for one or more connector actions.
   the `schemaVersion` field following the shared JSON output conventions.
 - Output: for a single requested action, the command prints a JSON object with
   the stable CLI fields `service`, `name`, `description`, `inputSchema`, and
-  `outputSchema`. For two or more requested actions, it prints a JSON array of
-  those objects in request order; with `--show-schema-version` the array is
-  wrapped as `{ "schemaVersion": "1.0.0", "items": [...] }` per the shared
-  conventions.
+  `outputSchema`; with `--show-schema-version` the object gains a top-level
+  `schemaVersion` field. For two or more requested actions, it prints a JSON
+  array of those objects in request order; with `--show-schema-version` the
+  array is wrapped as `{ "schemaVersion": "1.0.0", "items": [...] }` per the
+  shared conventions.
 - Notes: `--refresh` forces a fresh schema fetch for every selected action.
 - Notes: schemas cached by an earlier lookup or connector search are reused
   until they expire; use `--refresh` when the latest remote contract is

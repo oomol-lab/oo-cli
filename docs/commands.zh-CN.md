@@ -745,9 +745,10 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   输出 JSON。`--show-schema-version` 会按共享的 JSON 输出约定加入
   `schemaVersion` 字段。
 - 输出：当只请求一个 action 时，命令输出 JSON 对象，包含稳定 CLI 字段
-  `service`、`name`、`description`、`inputSchema` 和 `outputSchema`；当请求两个
-  或更多 action 时，则按请求顺序输出这些对象组成的 JSON 数组；指定
-  `--show-schema-version` 时，数组会按共享约定包装为
+  `service`、`name`、`description`、`inputSchema` 和 `outputSchema`，指定
+  `--show-schema-version` 时该对象会获得顶层 `schemaVersion` 字段；当请求两个
+  或更多 action 时，则按请求顺序输出这些对象组成的 JSON 数组，指定
+  `--show-schema-version` 时数组会按共享约定包装为
   `{ "schemaVersion": "1.0.0", "items": [...] }`。
 - 说明：`--refresh` 会强制为每个选中的 action 重新获取 schema。
 - 说明：此前查询或 connector 搜索缓存的 schema 会在过期前被复用；需要
