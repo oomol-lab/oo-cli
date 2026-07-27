@@ -1,7 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     mapVariablesInputError,
@@ -50,7 +50,7 @@ export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> 
             longFlag: "--stdin",
             descriptionKey: "options.variablesStdin",
         },
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         name: variableNameSchema,

@@ -12,7 +12,7 @@ import {
 } from "../../../schemas/settings.ts";
 import { compareSemver } from "../../../semver.ts";
 import { bucketTelemetryCount } from "../../../telemetry/buckets.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../../command-output.ts";
 import { createFormatInputError } from "../../shared/input-parsing.ts";
 import { writeLine } from "../../shared/output.ts";
 import {
@@ -75,7 +75,7 @@ export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPla
             longFlag: "--force",
             descriptionKey: "options.skills.recommend.plan.force",
         },
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         connectorServices: z.array(z.string()).optional(),

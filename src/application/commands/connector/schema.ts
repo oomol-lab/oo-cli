@@ -4,7 +4,7 @@ import type { ConnectorActionMetadata } from "./shared.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { writeJsonOutput } from "../json-output.ts";
+import { writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { loadConnectorActionSchema } from "./schema-cache.ts";
 import { connectorSchemaRefreshCommand } from "./schema-refresh.ts";

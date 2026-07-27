@@ -27,7 +27,7 @@ import {
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
-import { JSON_OUTPUT_SCHEMA_VERSION } from "../json-output.ts";
+import { JSON_OUTPUT_SCHEMA_VERSION } from "../command-output.ts";
 
 const loginUrlColor = "#c09ff5";
 

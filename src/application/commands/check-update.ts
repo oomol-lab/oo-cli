@@ -9,7 +9,7 @@ import {
     cliUpdateCommand,
     renderCliUpdateNotice,
 } from "../update/update-notifier.ts";
-import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "./command-output.ts";
 import { classifyTelemetryVersionKind } from "./self-update-telemetry.ts";
 import { createFormatInputError } from "./shared/input-parsing.ts";
 
@@ -40,7 +40,7 @@ export const checkUpdateCommand: CliCommandDefinition<CheckUpdateInput> = {
     name: "check-update",
     summaryKey: "commands.checkUpdate.summary",
     descriptionKey: "commands.checkUpdate.description",
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         format: z.enum(checkUpdateFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),

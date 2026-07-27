@@ -16,7 +16,7 @@ import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
@@ -133,7 +133,7 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
             valueName: "skills...",
             descriptionKey: "options.skills.skill",
         },
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         packageNames: z.array(z.string()).optional(),

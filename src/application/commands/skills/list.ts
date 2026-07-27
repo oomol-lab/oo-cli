@@ -13,7 +13,7 @@ import type { SkillListSource } from "./managed-skill-listings.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { collectSkillsInfoInventory } from "./info-inventory.ts";
 import {
     parseManagedSkillAgentOption,
@@ -51,7 +51,7 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
             valueName: "source",
             descriptionKey: "options.skillListSource",
         },
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         agent: z.string().optional(),

@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import {
@@ -95,7 +95,7 @@ export const llmJsonCommand: CliCommandDefinition<LlmJsonInput> = {
             valueName: "model",
             descriptionKey: "options.model",
         },
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         format: z.enum(llmJsonFormatValues).optional(),

@@ -1,6 +1,6 @@
 import type {
     CliCatalog,
-    CliExecutionContext,
+    CliCommandContext,
     SupportedShell,
 } from "../contracts/cli.ts";
 
@@ -37,7 +37,7 @@ describe("completion command", () => {
                     },
                 },
                 stdout: stdout.writer,
-            } as unknown as CliExecutionContext,
+            } as unknown as CliCommandContext,
         );
 
         expect(renderedShell).toBe("fish");

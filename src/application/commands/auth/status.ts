@@ -15,7 +15,7 @@ import { resolveIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { probeOo } from "../shared/oo-request.ts";
 import { writeLine } from "../shared/output.ts";
@@ -133,7 +133,7 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
     aliases: ["info"],
     summaryKey: "commands.auth.status.summary",
     descriptionKey: "commands.auth.status.description",
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         format: z.enum(authStatusFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),

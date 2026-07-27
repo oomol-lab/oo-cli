@@ -12,7 +12,7 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
@@ -124,7 +124,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             personal: "options.connectorRunPersonal",
             team: "options.connectorRunTeam",
         }),
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         action: z.string().optional(),

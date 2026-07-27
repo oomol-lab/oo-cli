@@ -10,7 +10,7 @@ import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import {
     completeMultipartFileUpload,
     createFormatInputError,
@@ -46,7 +46,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
             required: true,
         },
     ],
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         format: z.string().optional(),
         filePath: z.string(),

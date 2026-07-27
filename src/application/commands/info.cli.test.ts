@@ -9,7 +9,7 @@ import {
 } from "../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { APP_NAME } from "../config/app-config.ts";
-import { JSON_OUTPUT_SCHEMA_VERSION } from "./json-output.ts";
+import { JSON_OUTPUT_SCHEMA_VERSION } from "./command-output.ts";
 import {
     availableBundledSkillAgentNames,
     resolveManagedSkillAgentHomeDirectory,

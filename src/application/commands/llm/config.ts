@@ -2,7 +2,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 
 const llmConfigFormatValues = ["json"] as const;
@@ -25,7 +25,7 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
     excludeFromTelemetry: true,
     summaryKey: "commands.llm.config.summary",
     descriptionKey: "commands.llm.config.description",
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         format: z.enum(llmConfigFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),
