@@ -22,10 +22,8 @@ import {
     readLocalSkillPackageMetadata,
     writePublishedSkillMetadata,
 } from "./package-conversion.ts";
-import {
-    skillPackageGitAttributesTemplate,
-    skillPackageGitIgnoreTemplate,
-} from "./package-templates.ts";
+import skillPackageGitAttributesTemplate from "./package-template-files/gitattributes.template" with { type: "text" };
+import skillPackageGitIgnoreTemplate from "./package-template-files/gitignore.template" with { type: "text" };
 import {
     installedRegistrySkillCompatibility,
     ooNoticeEndMarker,

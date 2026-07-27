@@ -8,14 +8,13 @@ import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
 import {
     directoryExists,
     fileExists,
-    isManagedBundledSkillInstallation,
-    readInstalledBundledSkillMetadata,
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import {
     readManagedSkillAgent,
     resolveManagedSkillAgentHomeDirectory,
 } from "./managed-skill-agents.ts";
+import { readSkillDirectoryState } from "./skill-directory-state.ts";
 import {
     createBundledSkillMetadata,
     renderSkillMetadataJson,
@@ -44,50 +43,25 @@ describe("bundled skill observation", () => {
         }
     });
 
-    test("reads bundled skill metadata while treating missing or invalid files as undefined", async () => {
+    test("writes bundled metadata that classifies the directory as managed", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
         const skillDirectoryPath = join(rootDirectory, "skills", "oo");
         const metadataFilePath = join(skillDirectoryPath, ".oo-metadata.json");
 
         try {
             await mkdir(skillDirectoryPath, { recursive: true });
-
-            expect(await readInstalledBundledSkillMetadata(skillDirectoryPath)).toBeUndefined();
-
-            await Bun.write(metadataFilePath, "not json");
-            expect(await readInstalledBundledSkillMetadata(skillDirectoryPath)).toBeUndefined();
-
             await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
                 version: "1.2.3",
             });
-            expect(await readInstalledBundledSkillMetadata(skillDirectoryPath)).toEqual(
-                createBundledSkillMetadata("1.2.3"),
-            );
+
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson(createBundledSkillMetadata("1.2.3")),
             );
-        }
-        finally {
-            await rm(rootDirectory, { force: true, recursive: true });
-        }
-    });
-
-    test("reads managed state from metadata", async () => {
-        const rootDirectory = await createTemporaryDirectory("oo-bundled-skill");
-        const skillDirectoryPath = join(rootDirectory, "skills", "oo");
-        const metadataFilePath = join(skillDirectoryPath, ".oo-metadata.json");
-
-        try {
-            await mkdir(skillDirectoryPath, { recursive: true });
-            expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeFalse();
-
-            await Bun.write(metadataFilePath, "not json");
-            expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeFalse();
-
-            await writeInstalledBundledSkillMetadata(skillDirectoryPath, {
-                version: "1.2.3",
+            expect(await readSkillDirectoryState(skillDirectoryPath)).toEqual({
+                kind: "managed",
+                metadata: createBundledSkillMetadata("1.2.3"),
+                publicationCurrent: true,
             });
-            expect(await isManagedBundledSkillInstallation(skillDirectoryPath)).toBeTrue();
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });

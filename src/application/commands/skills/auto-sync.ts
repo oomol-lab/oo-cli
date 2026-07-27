@@ -4,28 +4,20 @@ import type {
     ManagedSkillHost,
     ManagedSkillHostInstallation,
 } from "./managed-skill-hosts.ts";
-import type { ManagedSkillMetadata } from "./managed-skill-metadata.ts";
+import type { RegistrySkillMetadata } from "./skill-metadata.ts";
 
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { pathExists } from "../../shared/fs-utils.ts";
 import {
     isNodeNotFoundError,
     publishBundledSkillInstallation,
 } from "./bundled-skill-filesystem.ts";
 import {
-    bundledSkillDevelopmentVersion,
-} from "./bundled-skill-model.ts";
-import {
-    directoryExists,
-    isManagedBundledSkillInstallation,
-    readInstalledBundledSkillMetadata,
-} from "./bundled-skill-observation.ts";
-import {
     resolveBundledSkillCanonicalDirectoryPath,
 } from "./bundled-skill-paths.ts";
 import {
     availableBundledSkillNames,
+    bundledSkillDevelopmentVersion,
 } from "./embedded-assets.ts";
 import {
     resolveAvailableManagedSkillHosts,
@@ -33,21 +25,17 @@ import {
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
 import {
-    readManagedSkillMetadata,
-} from "./managed-skill-metadata.ts";
-import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { publishManagedBundledSkill } from "./shared.ts";
-
-interface ManagedSkillTargetState<Metadata> {
-    kind: "managed" | "missing" | "unmanaged";
-    metadata?: Metadata;
-}
+import {
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 interface CanonicalRegistrySkill {
-    metadata: ManagedSkillMetadata;
+    metadata: RegistrySkillMetadata;
     name: string;
     path: string;
 }
@@ -104,12 +92,12 @@ async function synchronizeBundledSkill(
     const installation = resolveManagedSkillHostInstallation(host, skillName);
 
     try {
-        const targetState = await readManagedSkillTargetState(
+        const targetState = await readSkillDirectoryState(
             installation.installedSkillDirectoryPath,
-            readInstalledBundledSkillMetadata,
         );
+        const installedMetadata = managedMetadataOfKind(targetState, "bundled");
 
-        if (targetState.kind === "unmanaged") {
+        if (targetState.kind !== "missing" && installedMetadata === undefined) {
             context.logger.warn(
                 {
                     agentName: host.agentName,
@@ -121,17 +109,11 @@ async function synchronizeBundledSkill(
             return;
         }
 
-        if (
-            targetState.kind === "managed"
-            && targetState.metadata?.version === context.version
-        ) {
+        if (installedMetadata?.version === context.version) {
             return;
         }
 
-        if (
-            targetState.kind === "managed"
-            && targetState.metadata?.version === bundledSkillDevelopmentVersion
-        ) {
+        if (installedMetadata?.version === bundledSkillDevelopmentVersion) {
             context.logger.info(
                 {
                     agentName: host.agentName,
@@ -145,14 +127,14 @@ async function synchronizeBundledSkill(
         }
 
         if (
-            targetState.kind === "managed"
+            installedMetadata !== undefined
             && context.version === bundledSkillDevelopmentVersion
         ) {
             context.logger.info(
                 {
                     agentName: host.agentName,
                     path: installation.installedSkillDirectoryPath,
-                    previousVersion: targetState.metadata?.version,
+                    previousVersion: installedMetadata.version,
                     skillName,
                     version: context.version,
                 },
@@ -192,7 +174,7 @@ async function synchronizeBundledSkill(
                 agentName: host.agentName,
                 canonicalPath: canonicalSkillDirectoryPath,
                 path: installedSkillDirectoryPath,
-                previousVersion: targetState.metadata?.version,
+                previousVersion: installedMetadata?.version,
                 skillName,
                 version: context.version,
             },
@@ -218,13 +200,14 @@ async function canWriteBundledCanonicalSkill(
     skillName: BundledSkillName,
     context: SkillSyncContext,
 ): Promise<boolean> {
-    if (!(await pathExists(canonicalSkillDirectoryPath))) {
-        return true;
-    }
+    const canonicalState = await readSkillDirectoryState(
+        canonicalSkillDirectoryPath,
+    );
 
     if (
-        await directoryExists(canonicalSkillDirectoryPath)
-        && await isManagedBundledSkillInstallation(canonicalSkillDirectoryPath)
+        canonicalState.kind === "missing"
+        || (canonicalState.kind === "managed"
+            && canonicalState.metadata.kind === "bundled")
     ) {
         return true;
     }
@@ -280,11 +263,12 @@ async function synchronizeRegistrySkill(
             return;
         }
 
-        const targetState = await readManagedSkillTargetState(
+        const targetState = await readSkillDirectoryState(
             installation.installedSkillDirectoryPath,
-            readManagedSkillMetadata,
         );
-        if (targetState.kind === "unmanaged") {
+        const installedMetadata = managedMetadataOfKind(targetState, "registry");
+
+        if (targetState.kind !== "missing" && installedMetadata === undefined) {
             context.logger.warn(
                 {
                     agentName: installation.agentName,
@@ -296,10 +280,10 @@ async function synchronizeRegistrySkill(
             return;
         }
 
-        if (targetState.kind === "managed") {
+        if (installedMetadata !== undefined) {
             if (
-                targetState.metadata?.packageName !== skill.metadata.packageName
-                || targetState.metadata.version !== skill.metadata.version
+                installedMetadata.packageName !== skill.metadata.packageName
+                || installedMetadata.version !== skill.metadata.version
             ) {
                 context.logger.warn(
                     {
@@ -308,8 +292,8 @@ async function synchronizeRegistrySkill(
                         canonicalVersion: skill.metadata.version,
                         path: installation.installedSkillDirectoryPath,
                         skillName: skill.name,
-                        targetPackageName: targetState.metadata?.packageName,
-                        targetVersion: targetState.metadata?.version,
+                        targetPackageName: installedMetadata.packageName,
+                        targetVersion: installedMetadata.version,
                     },
                     "Registry skill startup synchronization skipped because the target metadata does not match canonical metadata.",
                 );
@@ -357,16 +341,17 @@ async function listCanonicalRegistrySkills(
             context.settingsStore.getFilePath(),
         ),
         inspect: async (entryName, canonicalSkillDirectoryPath) => {
-            const metadata = await readManagedSkillMetadata(
-                canonicalSkillDirectoryPath,
+            const canonicalMetadata = managedMetadataOfKind(
+                await readSkillDirectoryState(canonicalSkillDirectoryPath),
+                "registry",
             );
 
-            if (metadata?.packageName === undefined) {
+            if (canonicalMetadata === undefined) {
                 return undefined;
             }
 
             return {
-                metadata,
+                metadata: canonicalMetadata,
                 name: entryName,
                 path: canonicalSkillDirectoryPath,
             } satisfies CanonicalRegistrySkill;
@@ -398,10 +383,6 @@ async function listCanonicalSkills<T>(options: {
             );
 
             try {
-                if (!(await directoryExists(canonicalSkillDirectoryPath))) {
-                    return undefined;
-                }
-
                 return await options.inspect(entryName, canonicalSkillDirectoryPath);
             }
             catch (error) {
@@ -439,34 +420,4 @@ async function readCanonicalSkillEntryNames(
 
         throw error;
     }
-}
-
-async function readManagedSkillTargetState<Metadata>(
-    skillDirectoryPath: string,
-    readMetadata: (path: string) => Promise<Metadata | undefined>,
-): Promise<ManagedSkillTargetState<Metadata>> {
-    if (!(await pathExists(skillDirectoryPath))) {
-        return {
-            kind: "missing",
-        };
-    }
-
-    if (!(await directoryExists(skillDirectoryPath))) {
-        return {
-            kind: "unmanaged",
-        };
-    }
-
-    const metadata = await readMetadata(skillDirectoryPath);
-
-    if (metadata === undefined) {
-        return {
-            kind: "unmanaged",
-        };
-    }
-
-    return {
-        kind: "managed",
-        metadata,
-    };
 }

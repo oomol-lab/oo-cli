@@ -16,6 +16,7 @@ import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver } from "../../semver.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parseCommaSeparatedValues } from "../shared/list-parsing.ts";
 import { writeLine } from "../shared/output.ts";
@@ -34,8 +35,6 @@ import {
 } from "./managed-skill-paths.ts";
 import {
     computeCommandStatus,
-    skillOperationOutputOptions,
-    writeSkillOperationJson,
 } from "./operation-result.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
 
@@ -103,7 +102,7 @@ export const skillsSyncCommand: CliCommandDefinition = {
                     valueName: "patterns...",
                     descriptionKey: "options.skillSyncIgnore",
                 },
-                ...skillOperationOutputOptions,
+                ...jsonOutputOptions,
             ],
             inputSchema: z.object({
                 ignore: z.array(z.string()).optional(),
@@ -122,7 +121,7 @@ export const skillsSyncCommand: CliCommandDefinition = {
                     );
 
                     recordSyncUploadTelemetry(context, report);
-                    writeSkillOperationJson(context.stdout, report, {
+                    writeJsonOutput(context.stdout, report, {
                         showSchemaVersion: input.showSchemaVersion,
                     });
 
@@ -158,7 +157,7 @@ export const skillsSyncCommand: CliCommandDefinition = {
                     valueName: "source",
                     descriptionKey: "options.skillSyncSource",
                 },
-                ...skillOperationOutputOptions,
+                ...jsonOutputOptions,
             ],
             inputSchema: z.object({
                 source: z.string().optional(),
@@ -173,7 +172,7 @@ export const skillsSyncCommand: CliCommandDefinition = {
                     const report = await runSyncApplyJsonReport(context);
 
                     recordSyncApplyTelemetry(context, report);
-                    writeSkillOperationJson(context.stdout, report, {
+                    writeJsonOutput(context.stdout, report, {
                         showSchemaVersion: input.showSchemaVersion,
                     });
 

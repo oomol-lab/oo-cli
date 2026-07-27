@@ -30,6 +30,9 @@ export type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill", "oo-publish-skill"] as const;
 export type BundledSkillName = (typeof availableBundledSkillNames)[number];
 
+// Version recorded for bundled skills installed from a development build.
+export const bundledSkillDevelopmentVersion = "0.0.0-development";
+
 interface BundledSkillSourceFile {
     // Portable logical path used by skill references; convert it only when
     // materializing to the local filesystem.

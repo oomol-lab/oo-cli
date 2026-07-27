@@ -17,17 +17,20 @@ import { writeLine } from "../shared/output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../shared/package-info.ts";
 import { requestText } from "../shared/request.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
-import { directoryExists } from "./bundled-skill-observation.ts";
 import {
     confirmInteractiveValue,
     requestInteractiveText,
 } from "./interactive-prompts.ts";
 import { findLocalSkillSources } from "./local-skill-source.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { createSkillPackageHubUrl } from "./publish.ts";
+import {
+    isSkillDirectoryAbsent,
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 import {
     isSkillFrontmatterRecord,
     parseSkillMarkdownMatter,
@@ -351,15 +354,16 @@ async function resolveManagedSkillShareTarget(
         settingsFilePath,
         skillId,
     );
+    const canonicalState = await readSkillDirectoryState(
+        registrySkillDirectoryPath,
+    );
 
-    if (!(await directoryExists(registrySkillDirectoryPath))) {
+    if (isSkillDirectoryAbsent(canonicalState)) {
         return undefined;
     }
 
-    const metadata = await readManagedSkillMetadata(registrySkillDirectoryPath);
-
     return {
-        packageName: metadata?.packageName,
+        packageName: managedMetadataOfKind(canonicalState, "registry")?.packageName,
         packageNameFallback: skillId,
         skillId,
         sourceKind: "registry",

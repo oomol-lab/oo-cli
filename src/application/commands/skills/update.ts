@@ -11,15 +11,14 @@ import type {
 } from "./operation-result.ts";
 
 import type { PreparedRegistrySkillPublication } from "./registry-skill-publication.ts";
+import type { SkillDirectoryState } from "./skill-directory-state.ts";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
+import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
-import {
-    directoryExists,
-} from "./bundled-skill-observation.ts";
 import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
@@ -29,18 +28,12 @@ import {
     listManagedSkillInstallations,
     listManagedSkillInstallationsForHosts,
 } from "./managed-skill-listings.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
 import {
-    isManagedSkillPublicationCurrent,
-} from "./managed-skill-publication.ts";
-import {
     computeCommandStatus,
-    skillOperationOutputOptions,
-    writeSkillOperationJson,
 } from "./operation-result.ts";
 import { extractRegistryPackageArchive } from "./registry-skill-archive.ts";
 import {
@@ -57,6 +50,11 @@ import {
     tryReportRegistryPackageDownload,
 } from "./registry-skill-source.ts";
 import { isBundledSkillName } from "./shared.ts";
+import {
+    isCurrentRegistryPublication,
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 import {
     normalizeSkillFilterTokens,
     selectSkillsByFilter,
@@ -140,7 +138,7 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
             valueName: "skills...",
             descriptionKey: "options.skills.skill",
         },
-        ...skillOperationOutputOptions,
+        ...jsonOutputOptions,
     ],
     inputSchema: z.object({
         packageNames: z.array(z.string()).optional(),
@@ -166,7 +164,7 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
             );
 
             recordUpdateTelemetry(context, report);
-            writeSkillOperationJson(context.stdout, report, {
+            writeJsonOutput(context.stdout, report, {
                 showSchemaVersion: input.showSchemaVersion,
             });
 
@@ -678,26 +676,16 @@ async function isRegistrySkillCurrentInAllHosts(
         skillName,
     );
     const targetStates = await Promise.all(
-        hostInstallations.map(async (installation) => {
-            if (!(await directoryExists(installation.installedSkillDirectoryPath))) {
-                return undefined;
-            }
-
-            return {
-                metadata: await readManagedSkillMetadata(
-                    installation.installedSkillDirectoryPath,
-                ),
-                publicationCurrent: await isManagedSkillPublicationCurrent(
-                    installation.installedSkillDirectoryPath,
-                ),
-            };
-        }),
+        hostInstallations.map(installation =>
+            readSkillDirectoryState(installation.installedSkillDirectoryPath),
+        ),
     );
 
     return targetStates.every(state =>
-        state?.metadata?.packageName === packageName
-        && state.metadata.version === packageVersion
-        && state.publicationCurrent,
+        isCurrentRegistryPublication(state, {
+            packageName,
+            version: packageVersion,
+        }),
     );
 }
 
@@ -775,9 +763,7 @@ interface HostVersionState {
     agentName: BundledSkillAgentName;
     installedPath: string;
     canonicalPath: string | null;
-    previousPackageName: string | null;
-    previousVersion: string | null;
-    publicationCurrent: boolean;
+    state: SkillDirectoryState;
 }
 
 async function runUpdateJsonReport(
@@ -989,23 +975,14 @@ async function runGroupUpdateJson(
         );
         const installations = resolveManagedSkillHostInstallations(availableHosts, skill.name);
         const hostStates = await Promise.all(
-            installations.map(async (installation) => {
-                const metadata = await readManagedSkillMetadata(
+            installations.map(async installation => ({
+                agentName: installation.agentName,
+                installedPath: installation.installedSkillDirectoryPath,
+                canonicalPath,
+                state: await readSkillDirectoryState(
                     installation.installedSkillDirectoryPath,
-                );
-                const current = await isManagedSkillPublicationCurrent(
-                    installation.installedSkillDirectoryPath,
-                );
-
-                return {
-                    agentName: installation.agentName,
-                    installedPath: installation.installedSkillDirectoryPath,
-                    canonicalPath,
-                    previousPackageName: metadata?.packageName ?? null,
-                    previousVersion: metadata?.version ?? null,
-                    publicationCurrent: current,
-                } satisfies HostVersionState;
-            }),
+                ),
+            } satisfies HostVersionState)),
         );
 
         preStateBySkill.set(skill.name, hostStates);
@@ -1045,10 +1022,11 @@ async function runGroupUpdateJson(
     const allCurrentStates = group.skills.map((skill) => {
         const states = preStateBySkill.get(skill.name) ?? [];
 
-        return states.length > 0 && states.every(state =>
-            state.previousPackageName === packageInfo.packageName
-            && state.previousVersion === latestVersion
-            && state.publicationCurrent,
+        return states.length > 0 && states.every(hostState =>
+            isCurrentRegistryPublication(hostState.state, {
+                packageName: packageInfo.packageName,
+                version: latestVersion,
+            }),
         );
     });
 
@@ -1170,7 +1148,9 @@ async function runGroupUpdateJson(
                     const preState = preStates.find(
                         state => state.agentName === installation.agentName,
                     );
-                    const previousVersion = preState?.previousVersion ?? null;
+                    const previousVersion = preState === undefined
+                        ? null
+                        : readRegistryPreviousVersion(preState.state);
                     const status = previousVersion === latestVersion ? "repaired" : "updated";
 
                     return {
@@ -1233,26 +1213,36 @@ function getPreviousVersionForSkill(
     const states = preStateBySkill.get(skillName) ?? [];
 
     for (const state of states) {
-        if (state.previousVersion !== null) {
-            return state.previousVersion;
+        const previousVersion = readRegistryPreviousVersion(state.state);
+
+        if (previousVersion !== null) {
+            return previousVersion;
         }
     }
     return null;
+}
+
+function readRegistryPreviousVersion(state: SkillDirectoryState): string | null {
+    return managedMetadataOfKind(state, "registry")?.version ?? null;
 }
 
 function buildCurrentTargets(
     preStates: readonly HostVersionState[],
     version: string,
 ): SkillTargetResult[] {
-    return preStates.map(state => ({
-        agentId: state.agentName,
-        status: "current",
-        path: state.installedPath,
-        sourcePath: state.canonicalPath,
-        version,
-        previousVersion: state.previousVersion,
-        previousState: state.previousVersion === null ? "absent" : "managed",
-    }));
+    return preStates.map((state) => {
+        const previousVersion = readRegistryPreviousVersion(state.state);
+
+        return {
+            agentId: state.agentName,
+            status: "current",
+            path: state.installedPath,
+            sourcePath: state.canonicalPath,
+            version,
+            previousVersion,
+            previousState: previousVersion === null ? "absent" : "managed",
+        };
+    });
 }
 
 function mapUpdateErrorCode(error: unknown): string {
