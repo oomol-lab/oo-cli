@@ -1,9 +1,9 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
-import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { isNodeNotFoundError, removePath } from "./bundled-skill-filesystem.ts";
+import { removePath } from "./bundled-skill-filesystem.ts";
 import { resolveAvailableManagedSkillHosts } from "./managed-skill-hosts.ts";
+import { readSkillsDirectoryEntries } from "./managed-skill-listings.ts";
 import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillCanonicalRootDirectoryPath,
@@ -84,7 +84,7 @@ async function removeLegacyGptImage2SkillsInDirectory(
     skillsDirectoryPath: string,
     context: LegacyGptImage2CleanupContext,
 ): Promise<void> {
-    const entryNames = await readSkillDirectoryEntryNames(skillsDirectoryPath);
+    const entryNames = await readSkillsDirectoryEntries(skillsDirectoryPath);
 
     await Promise.all(
         entryNames.map(entryName =>
@@ -129,21 +129,4 @@ async function isLegacyGptImage2SkillDirectory(
     const metadata = await readManagedSkillMetadata(skillDirectoryPath);
 
     return metadata?.packageName === legacyGptImage2PackageName;
-}
-
-async function readSkillDirectoryEntryNames(
-    skillsDirectoryPath: string,
-): Promise<string[]> {
-    try {
-        return (await readdir(skillsDirectoryPath, { withFileTypes: true }))
-            .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
-            .map(entry => entry.name);
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return [];
-        }
-
-        throw error;
-    }
 }

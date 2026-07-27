@@ -19,7 +19,10 @@ import {
     readInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
-import { findInstalledRegistrySkillNamesForPackage } from "./installed-managed-skills.ts";
+import {
+    installedRegistrySkillNamesForPackage,
+    readInstalledSkills,
+} from "./installed-skills.ts";
 import { readLocalSkillMetadata } from "./local-skill-ownership.ts";
 import {
     findLocalSkillSources,
@@ -146,11 +149,10 @@ async function uninstallPackageSkills(
         throw createMissingManagedSkillHostError(context.env);
     }
 
-    const skillNames = await findInstalledRegistrySkillNamesForPackage({
-        availableHosts,
+    const skillNames = installedRegistrySkillNamesForPackage(
+        await readInstalledSkills(context.env, context.settingsStore.getFilePath()),
         packageName,
-        settingsFilePath: context.settingsStore.getFilePath(),
-    });
+    );
 
     if (skillNames.length === 0) {
         throw new CliUserError("errors.skills.uninstall.packageNotInstalled", 1, {

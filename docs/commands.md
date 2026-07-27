@@ -1836,6 +1836,10 @@ directory.
   - `failed` — the skill could not be checked. The entry includes
     `error.code` (machine-readable enum) and `error.message` (English
     template).
+- `currentVersion` is the highest version among the skill's installed copies
+  (the shared canonical copy and every agent host copy); copies left behind by
+  a partial update are reported through `status`, not by lowering
+  `currentVersion`. `oo skills sync upload` reports the same version.
 - Exit code: the command exits `0` even when individual entries are
   `failed`, because failure is encoded in the payload. Argument errors
   (for example `--format xml`) still exit `2`.

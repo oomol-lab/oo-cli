@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { createCliSandbox } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
-import { seedRegistrySkill } from "./__tests__/helpers.ts";
+import { seedBundledHostSkill, seedRegistrySkill } from "./__tests__/helpers.ts";
 import { resolveBundledSkillCanonicalDirectoryPath } from "./bundled-skill-paths.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
@@ -411,6 +411,53 @@ describe("skills uninstall --json", () => {
             });
             // foo belongs to a different package and must remain installed.
             await expect(stat(seeded.hostDirectory)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("a same-name bundled host copy does not hide a package's registry skill", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            // Registry copy on the claude host; the universal host holds an
+            // unrelated bundled-metadata directory under the same name.
+            const seeded = await seedRegistrySkill({
+                sandbox,
+                skillName: "demo",
+                packageName: "@alice/demo",
+                version: "1.0.0",
+                agent: "claude",
+            });
+            const { hostDirectory: shadowDirectory } = await seedBundledHostSkill({
+                sandbox,
+                skillName: "demo",
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(
+                ["skills", "uninstall", "@alice/demo", "--json"],
+                { version: TEST_CLI_VERSION },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            expect(payload.status).toBe("completed");
+            expect(skills.map(skill => skill.skillId)).toEqual(["demo"]);
+            // The registry copy and its canonical storage are removed; the
+            // bundled copy is a different skill identity and stays.
+            await expect(stat(seeded.hostDirectory)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(seeded.canonicalDirectory)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(shadowDirectory)).resolves.toMatchObject({
                 isDirectory: expect.any(Function),
             });
         }

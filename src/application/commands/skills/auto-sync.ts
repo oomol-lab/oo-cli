@@ -6,11 +6,9 @@ import type {
 } from "./managed-skill-hosts.ts";
 import type { ManagedSkillMetadata } from "./managed-skill-metadata.ts";
 
-import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathExists } from "../../shared/fs-utils.ts";
 import {
-    isNodeNotFoundError,
     publishBundledSkillInstallation,
 } from "./bundled-skill-filesystem.ts";
 import {
@@ -32,6 +30,7 @@ import {
     resolveManagedSkillHostInstallation,
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
+import { readSkillsDirectoryEntries } from "./managed-skill-listings.ts";
 import {
     readManagedSkillMetadata,
 } from "./managed-skill-metadata.ts";
@@ -386,7 +385,7 @@ async function listCanonicalSkills<T>(options: {
     inspectionFailureMessage: string;
     logger: SkillSyncContext["logger"];
 }): Promise<T[]> {
-    const entries = await readCanonicalSkillEntryNames(
+    const entries = await readSkillsDirectoryEntries(
         options.canonicalRootDirectoryPath,
     );
 
@@ -420,25 +419,6 @@ async function listCanonicalSkills<T>(options: {
     );
 
     return skills.filter(skill => skill !== undefined);
-}
-
-async function readCanonicalSkillEntryNames(
-    canonicalRootDirectoryPath: string,
-): Promise<string[]> {
-    try {
-        return (await readdir(canonicalRootDirectoryPath, {
-            withFileTypes: true,
-        }))
-            .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
-            .map(entry => entry.name);
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return [];
-        }
-
-        throw error;
-    }
 }
 
 async function readManagedSkillTargetState<Metadata>(

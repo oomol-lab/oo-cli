@@ -8,7 +8,11 @@ import {
     toRequest,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
-import { packageInfoResponse, seedRegistrySkill } from "./__tests__/helpers.ts";
+import {
+    packageInfoResponse,
+    seedBundledHostSkill,
+    seedRegistrySkill,
+} from "./__tests__/helpers.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillDirectoryPath,
@@ -17,6 +21,7 @@ import {
 import {
     createBundledSkillMetadata,
     createLocalSkillMetadata,
+    createRegistrySkillMetadata,
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
 
@@ -622,6 +627,116 @@ describe("skills check-update CLI", () => {
 
             expect(fooEntry?.status).toBe("update-available");
             expect((ooEntry?.error as Record<string, unknown>)?.code).toBe("bundled_unsupported");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--json reports the highest installed version when canonical and host copies diverge", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            const { canonicalDirectory } = await seedRegistrySkill({
+                sandbox,
+                skillName: "demo",
+                packageName: "@alice/demo",
+                version: "0.1.0",
+            });
+
+            // A partially applied update leaves the canonical copy ahead of the
+            // host copy; the installed version is the highest copy anywhere.
+            await writeFile(
+                resolveManagedSkillMetadataFilePath(canonicalDirectory),
+                renderSkillMetadataJson(createRegistrySkillMetadata({
+                    packageName: "@alice/demo",
+                    version: "0.3.0",
+                })),
+            );
+
+            const result = await sandbox.run(
+                ["skills", "check-update", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return packageInfoResponse("@alice/demo", "0.3.0", "demo");
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            // The stale host copy still needs repair, but the reported
+            // installed version is the newest copy, matching `skills sync`.
+            expect(skills).toHaveLength(1);
+            expect(skills[0]).toEqual({
+                skillId: "demo",
+                packageName: "@alice/demo",
+                currentVersion: "0.3.0",
+                latestVersion: "0.3.0",
+                status: "repair-required",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("a same-name bundled host copy does not hide a registry skill from another host", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            // Registry copy lives on the claude host; the universal host holds
+            // an unrelated bundled-metadata directory under the same name.
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "demo",
+                packageName: "@alice/demo",
+                version: "0.2.0",
+                agent: "claude",
+            });
+            await seedBundledHostSkill({
+                sandbox,
+                skillName: "demo",
+                version: "9.9.9",
+            });
+
+            const result = await sandbox.run(
+                ["skills", "check-update", "@alice/demo", "--json"],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+
+                        if (request.url.includes("/package-info/")) {
+                            return packageInfoResponse("@alice/demo", "0.2.0", "demo");
+                        }
+                        throw new Error(`Unexpected request: ${request.url}`);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+
+            // The bundled copy is a different skill identity, so the package
+            // resolves; the universal host still needs the registry publish.
+            expect(skills).toHaveLength(1);
+            expect(skills[0]).toEqual({
+                skillId: "demo",
+                packageName: "@alice/demo",
+                currentVersion: "0.2.0",
+                latestVersion: "0.2.0",
+                status: "repair-required",
+            });
         }
         finally {
             await sandbox.cleanup();
