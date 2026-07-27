@@ -108,11 +108,11 @@ function resolveStrictOutputFormat(
     return mode === "json-only" ? "json" : resolveOutputFormat(optionValues);
 }
 
-export interface WriteJsonOutputOptions {
+interface WriteJsonOutputOptions {
     showSchemaVersion?: boolean | undefined;
 }
 
-export function writeJsonOutput(
+function writeJsonOutput(
     writer: Writer,
     value: unknown,
     options: WriteJsonOutputOptions = {},

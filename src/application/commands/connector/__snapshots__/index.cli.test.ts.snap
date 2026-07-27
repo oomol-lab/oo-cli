@@ -107,7 +107,7 @@ Global Options:
 }
 `;
 
-exports[`connectorCommand CLI renders connector schema help with the json compatibility option 1`] = `
+exports[`connectorCommand CLI renders connector schema help with the standard output options 1`] = `
 {
   "exitCode": 0,
   "stderr": "",
@@ -121,7 +121,10 @@ Arguments:
 Options:
   -a, --action <action>  Specify the target action name
   --refresh              Bypass any cached response and fetch fresh data
-  --json                 Accepted for compatibility; output is always JSON
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --show-schema-version  Include schemaVersion in JSON output (no effect without
+                         --json)
   -h, --help             Show help for command
 
 Global Options:

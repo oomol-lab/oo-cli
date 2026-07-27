@@ -976,8 +976,6 @@ export const enMessages = {
     "options.json": "Alias for --format=json",
     "options.showSchemaVersion":
         "Include schemaVersion in JSON output (no effect without --json)",
-    "options.connectorSchemaJson":
-        "Accepted for compatibility; output is always JSON",
     "options.keywords":
         "Specify comma-separated keywords to refine the skill search",
     "options.maxRetries": "Maximum retry count",
@@ -2280,8 +2278,6 @@ export const zhMessages = {
     "options.json": "--format=json 的别名",
     "options.showSchemaVersion":
         "在 JSON 输出中加入 schemaVersion 字段（未指定 --json 时无效）",
-    "options.connectorSchemaJson":
-        "兼容性选项；输出始终是 JSON",
     "options.keywords":
         "指定用于细化 skill 搜索的逗号分隔关键词",
     "options.maxRetries": "最大重试次数",

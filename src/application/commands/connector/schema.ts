@@ -4,8 +4,6 @@ import type { ConnectorActionMetadata } from "./shared.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { loadConnectorActionSchema } from "./schema-cache.ts";
 import { connectorSchemaRefreshCommand } from "./schema-refresh.ts";
 import { requireConnectorActionName } from "./shared.ts";
@@ -51,18 +49,13 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
             longFlag: "--refresh",
             descriptionKey: "options.refresh",
         },
-        {
-            name: "json",
-            longFlag: "--json",
-            descriptionKey: "options.connectorSchemaJson",
-        },
     ],
+    output: "json-only",
     inputSchema: z.object({
         action: z.string().optional(),
         actionId: z.array(z.string()).optional(),
         refresh: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const actionIds = input.actionId ?? [];
         const targets = input.action === undefined
@@ -102,10 +95,7 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
 
         // A single requested action keeps the historical object shape; two or
         // more actions widen the output to an array in request order.
-        writeJsonOutput(
-            context.stdout,
-            outputs.length === 1 ? outputs[0]! : outputs,
-        );
+        context.output.emitJson(outputs.length === 1 ? outputs[0]! : outputs);
     },
 };
 
