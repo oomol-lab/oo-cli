@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
-import { performLoggedRequest } from "../shared/request.ts";
+import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
 import { readStdinToEnd } from "../shared/stdin.ts";
 
 export const MAX_VARIABLE_NAME_LENGTH = 256;
@@ -118,58 +118,27 @@ const variableListSchema = z.object({
     variables: z.array(variableSchema),
 });
 
-export function createVariablesRequestUrl(endpoint: string, name?: string): URL {
-    const base = `https://cli-api.${endpoint}/v1/variables`;
-    return new URL(name === undefined ? base : `${base}/${encodeURIComponent(name)}`);
-}
-
-function unexpectedError(error: unknown): CliUserError {
-    return new CliUserError("errors.variables.requestError", 1, {
-        message: error instanceof Error ? error.message : String(error),
-    });
-}
-
-function requestFailedError(status: number): CliUserError {
-    return new CliUserError("errors.variables.requestFailed", 1, { status });
-}
-
-async function parseVariable(response: Response): Promise<Variable> {
-    const parsed = variableSchema.safeParse(await readJson(response));
-    if (!parsed.success) {
-        throw new CliUserError("errors.variables.invalidResponse", 1);
-    }
-
-    return parsed.data;
-}
-
-async function readJson(response: Response): Promise<unknown> {
-    try {
-        return JSON.parse(await response.text()) as unknown;
-    }
-    catch {
-        throw new CliUserError("errors.variables.invalidResponse", 1);
-    }
+function variablePath(name?: string): string {
+    return name === undefined
+        ? "/v1/variables"
+        : `/v1/variables/${encodeURIComponent(name)}`;
 }
 
 export async function listVariables(
     account: VariableAccount,
     context: RequestContext,
 ): Promise<Variable[]> {
-    const response = await performLoggedRequest({
+    const parsed = await requestOo({
+        authorization: account.apiKey,
         context,
-        createRequestFailedError: requestFailedError,
-        createUnexpectedError: unexpectedError,
-        init: { headers: { Authorization: account.apiKey } },
-        requestLabel: "Variables list",
-        requestUrl: createVariablesRequestUrl(account.endpoint),
+        errors: { scope: "variables" },
+        host: { endpoint: account.endpoint, service: "cli-api" },
+        label: "Variables list",
+        path: variablePath(),
+        schema: variableListSchema,
     });
 
-    const parsed = variableListSchema.safeParse(await readJson(response));
-    if (!parsed.success) {
-        throw new CliUserError("errors.variables.invalidResponse", 1);
-    }
-
-    return parsed.data.variables;
+    return parsed.variables;
 }
 
 export async function getVariable(
@@ -177,18 +146,18 @@ export async function getVariable(
     name: string,
     context: RequestContext,
 ): Promise<Variable> {
-    const response = await performLoggedRequest({
+    return await requestOo({
+        authorization: account.apiKey,
         context,
-        createRequestFailedError: status => status === 404
+        errors: { scope: "variables" },
+        host: { endpoint: account.endpoint, service: "cli-api" },
+        label: "Variables get",
+        path: variablePath(name),
+        schema: variableSchema,
+        statusErrors: failure => failure.status === 404
             ? new CliUserError("errors.variables.notFound", 1, { name })
-            : requestFailedError(status),
-        createUnexpectedError: unexpectedError,
-        init: { headers: { Authorization: account.apiKey } },
-        requestLabel: "Variables get",
-        requestUrl: createVariablesRequestUrl(account.endpoint, name),
+            : undefined,
     });
-
-    return await parseVariable(response);
 }
 
 export async function putVariable(
@@ -197,25 +166,20 @@ export async function putVariable(
     value: string,
     context: RequestContext,
 ): Promise<Variable> {
-    const response = await performLoggedRequest({
+    return await requestOo({
+        authorization: account.apiKey,
         context,
-        createRequestFailedError: status => status === 409
+        errors: { scope: "variables" },
+        host: { endpoint: account.endpoint, service: "cli-api" },
+        jsonBody: { value },
+        label: "Variables create",
+        method: "PUT",
+        path: variablePath(name),
+        schema: variableSchema,
+        statusErrors: failure => failure.status === 409
             ? new CliUserError("errors.variables.quotaExceeded", 1)
-            : requestFailedError(status),
-        createUnexpectedError: unexpectedError,
-        init: {
-            body: JSON.stringify({ value }),
-            headers: {
-                "Authorization": account.apiKey,
-                "Content-Type": "application/json",
-            },
-            method: "PUT",
-        },
-        requestLabel: "Variables create",
-        requestUrl: createVariablesRequestUrl(account.endpoint, name),
+            : undefined,
     });
-
-    return await parseVariable(response);
 }
 
 export async function deleteVariable(
@@ -223,15 +187,13 @@ export async function deleteVariable(
     name: string,
     context: RequestContext,
 ): Promise<void> {
-    await performLoggedRequest({
+    await requestOoResponse({
+        authorization: account.apiKey,
         context,
-        createRequestFailedError: requestFailedError,
-        createUnexpectedError: unexpectedError,
-        init: {
-            headers: { Authorization: account.apiKey },
-            method: "DELETE",
-        },
-        requestLabel: "Variables delete",
-        requestUrl: createVariablesRequestUrl(account.endpoint, name),
+        errors: { scope: "variables" },
+        host: { endpoint: account.endpoint, service: "cli-api" },
+        label: "Variables delete",
+        method: "DELETE",
+        path: variablePath(name),
     });
 }

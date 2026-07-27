@@ -6,21 +6,23 @@ import {
     createInsufficientCreditError,
     isInsufficientCreditHttpStatus,
 } from "./billing.ts";
+import {
+    getUnexpectedRequestErrorMessage,
+    isNetworkRestrictedSandboxError,
+} from "./oo-request.ts";
+
+// The sandbox vocabulary now lives in oo-request.ts; these re-exports keep the
+// not-yet-migrated callers stable until this module is deleted.
+export {
+    connectionRefusedErrorCode,
+    failedToOpenSocketErrorCode,
+    getUnexpectedRequestErrorMessage,
+    isNetworkRestrictedSandboxError,
+} from "./oo-request.ts";
 
 type RequestContext = Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
 type LogFields = Record<string, unknown>;
 type LogFieldsResolver<TValue> = LogFields | ((input: TValue) => LogFields);
-
-export const failedToOpenSocketErrorCode = "FailedToOpenSocket";
-export const connectionRefusedErrorCode = "ConnectionRefused";
-
-const networkRestrictedSandboxErrorCodes = [
-    failedToOpenSocketErrorCode,
-    connectionRefusedErrorCode,
-] as const;
-
-type NetworkRestrictedSandboxErrorCode
-    = typeof networkRestrictedSandboxErrorCodes[number];
 
 interface ExecuteCliRequestOptions {
     allowedStatusCodes?: readonly number[];
@@ -160,19 +162,6 @@ function resolveLogFields<TValue>(
     return value ?? {};
 }
 
-export function getUnexpectedRequestErrorMessage(
-    error: unknown,
-    translator: Pick<CliExecutionContext["translator"], "t">,
-): string {
-    const baseMessage = error instanceof Error ? error.message : String(error);
-
-    if (!isNetworkRestrictedSandboxError(error)) {
-        return baseMessage;
-    }
-
-    return `${baseMessage}\n${translator.t("errors.shared.networkRestrictedSandboxHint")}`;
-}
-
 function enhanceUnexpectedRequestError(
     error: unknown,
     translator: Pick<CliExecutionContext["translator"], "t">,
@@ -182,21 +171,12 @@ function enhanceUnexpectedRequestError(
     }
 
     const enhanced = new Error(getUnexpectedRequestErrorMessage(error, translator)) as
-        Error & { code: NetworkRestrictedSandboxErrorCode };
+        Error & { code: string };
 
     enhanced.code = error.code;
     enhanced.stack = error.stack;
 
     return enhanced;
-}
-
-export function isNetworkRestrictedSandboxError(
-    error: unknown,
-): error is Error & { code: NetworkRestrictedSandboxErrorCode } {
-    return error instanceof Error
-        && "code" in error
-        && typeof error.code === "string"
-        && (networkRestrictedSandboxErrorCodes as readonly string[]).includes(error.code);
 }
 
 export async function performLoggedRequest(
