@@ -23,7 +23,7 @@ import { getCurrentAuthAccount } from "../schemas/auth.ts";
 // Public base endpoint used when nothing else is configured. Service URLs are
 // derived by prefixing subdomains (api./llm./connector./search./...), so a
 // single base value is enough to switch between environments.
-export const defaultOomolEndpoint = "oomol.com";
+const defaultOomolEndpoint = "oomol.com";
 
 // Environment variables that let embedded callers drive execution commands
 // without an interactive login or a persisted auth.toml.
@@ -35,7 +35,7 @@ const endpointEnvName = "OO_ENDPOINT";
 // surface in diagnostics. The id is stable so callers can recognize the env
 // override (it has no real account scope, so e.g. publish must not derive a
 // package name from it).
-export const envOverrideAccountId = "oo-env-override";
+const envOverrideAccountId = "oo-env-override";
 const envOverrideAccountName = "Environment (OO_API_KEY)";
 
 const authErrorKeys = {
@@ -222,7 +222,7 @@ export function readTrimmedEnv(
 // Returns the OO_ENDPOINT override when set to a non-empty value, otherwise
 // undefined. OO_ENDPOINT is the only endpoint override across execution,
 // login, and unauthenticated reads.
-export function readEndpointOverride(
+function readEndpointOverride(
     env: Record<string, string | undefined>,
 ): string | undefined {
     return readTrimmedEnv(env, endpointEnvName);
@@ -249,18 +249,9 @@ export function buildEnvApiKeyAccount(
     };
 }
 
-// True when the account is the in-memory identity built from OO_API_KEY rather
-// than a persisted account. Such an account has no real scope/username, so
-// scope-deriving callers (e.g. skill publish) must require explicit input.
-export function isEnvOverrideAccount(
-    account: Pick<AuthAccount, "id">,
-): boolean {
-    return account.id === envOverrideAccountId;
-}
-
 // Applies the OO_ENDPOINT override to an account resolved from auth.toml so a
 // bare OO_ENDPOINT (without OO_API_KEY) still redirects execution endpoints.
-export function applyEndpointOverride(
+function applyEndpointOverride(
     account: AuthAccount,
     env: Record<string, string | undefined>,
 ): AuthAccount {

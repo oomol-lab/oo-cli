@@ -1,9 +1,8 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { SelfHostedConnectorConfig } from "../../schemas/connector.ts";
 
+import { buildEnvApiKeyAccount, requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { buildEnvApiKeyAccount } from "../shared/auth-env-override.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     readEnvSelfHostedConnectorConfig,
     resolveSelfHostedConnector,
@@ -77,7 +76,7 @@ export async function resolveConnectorTarget(
         return createSelfHostedConnectorTarget(persistedSelfHosted.config);
     }
 
-    const account = await requireCurrentAccount(context);
+    const { account } = await requireIdentity(context);
 
     return {
         authorization: account.apiKey,

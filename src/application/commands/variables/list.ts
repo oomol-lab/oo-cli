@@ -1,7 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import { listVariables, mapVariablesInputError, variableFormatValues } from "./shared.ts";
 import { formatVariableListLine } from "./text.ts";
@@ -22,7 +22,7 @@ export const variablesListCommand: CliCommandDefinition<VariablesListInput> = {
     }),
     mapInputError: mapVariablesInputError,
     handler: async (input, context) => {
-        const account = await requireCurrentAccount(context);
+        const { account } = await requireIdentity(context);
         const variables = await listVariables(account, context);
 
         if (input.format === "json") {

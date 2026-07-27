@@ -2,6 +2,7 @@ import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/
 
 import type { TerminalColors } from "../../terminal-colors.ts";
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
     bucketTelemetryCount,
@@ -9,7 +10,6 @@ import {
 } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parseCommaSeparatedKeywords } from "../shared/keywords.ts";
 import { requestText } from "../shared/request.ts";
@@ -86,7 +86,7 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
             query_length_bucket: bucketTelemetryStringLength(input.text),
         });
 
-        const account = await requireCurrentAccount(context);
+        const { account } = await requireIdentity(context);
         const requestUrl = createSkillsSearchRequestUrl(
             account.endpoint,
             input.text,

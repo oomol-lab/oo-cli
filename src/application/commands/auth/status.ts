@@ -1,3 +1,4 @@
+import type { AuthFileState } from "../../contracts/auth-store.ts";
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
 import type { AuthAccount, AuthFile } from "../../schemas/auth.ts";
@@ -10,14 +11,11 @@ import type {
     TeamNameStatus,
 } from "../team/default-identity.ts";
 import { z } from "zod";
+import { resolveIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import {
-    applyEndpointOverride,
-    buildEnvApiKeyAccount,
-} from "../shared/auth-env-override.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import { isNetworkRestrictedSandboxError } from "../shared/request.ts";
@@ -30,7 +28,6 @@ import {
 } from "../team/default-identity.ts";
 import {
     formatAuthStrong,
-    readCurrentAuth,
     writeAuthBlock,
 } from "./shared.ts";
 
@@ -147,12 +144,33 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
         // whole status report; the block is simply omitted.
         const selfHostedConnector = await resolveSelfHostedConnectorTolerantly(context);
         // Status must describe the identity commands actually run as, which is
-        // what requireCurrentAccount() resolves — not the raw auth.toml
-        // contents. Reporting the file while OO_API_KEY/OO_ENDPOINT redirect
-        // every other command is how status ends up naming the wrong account,
-        // the wrong endpoint, and validating the wrong key.
-        const { authFile, identity } = await resolveStatusState(context);
+        // what requireIdentity() resolves — not the raw auth.toml contents.
+        // Reporting the file while OO_API_KEY/OO_ENDPOINT redirect every other
+        // command is how status ends up naming the wrong account, the wrong
+        // endpoint, and validating the wrong key.
+        const { authFile, fileState, identity } = await resolveStatusState(context);
         const settings = await context.settingsStore.read();
+
+        // Status is the first command a user runs to diagnose auth problems,
+        // so an unreadable auth.toml must not take the report down — it is
+        // reported instead, and the saved-accounts list simply stays empty.
+        if (fileState === "corrupt") {
+            const corruptWarning = context.translator.t(
+                "auth.status.authFileCorrupt",
+                { path: context.authStore.getFilePath() },
+            );
+
+            if (input.format === "json") {
+                // stdout must stay valid JSON; diagnostics go to stderr.
+                writeLine(context.stderr, corruptWarning);
+            }
+            else {
+                writeAuthBlock(context, {
+                    tone: "warning",
+                    summary: corruptWarning,
+                });
+            }
+        }
 
         // The key validation and the team name lookup answer independent
         // questions, so they go out together. Sequencing them would double the
@@ -202,39 +220,32 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
 };
 
 /**
- * Resolves what to report, mirroring requireCurrentAccount()'s precedence:
- * OO_API_KEY wins outright, then the active saved account with a bare
- * OO_ENDPOINT applied on top.
- *
- * The env branch must be decided before the store is touched. OO_API_KEY's
- * contract is that auth.toml is neither read nor required, and `read()` breaks
- * both halves of that: it creates the file when missing and fails the command
- * when it is corrupt. Under the override the file is only a display detail —
- * which saved accounts exist — so it gets the same tolerance the self-hosted
- * connector block above already gets.
+ * Resolves what to report: the identity commands actually run as, plus the
+ * full auth file for the saved-accounts list. The list is a display concern
+ * of status alone, so the file is read tolerantly here instead of widening
+ * ResolvedIdentity — status must never create a missing auth.toml or fail on
+ * a corrupt one; `fileState` says what the tolerant reads observed.
  */
 async function resolveStatusState(
     context: CliExecutionContext,
-): Promise<{ authFile: AuthFile; identity: ResolvedStatusIdentity | undefined }> {
-    const envAccount = buildEnvApiKeyAccount(context.env);
-
-    if (envAccount !== undefined) {
-        return {
-            authFile: await context.authStore.readTolerant(),
-            identity: { account: envAccount, source: "env" },
-        };
-    }
-
-    const { authFile, currentAccount } = await readCurrentAuth(context);
+): Promise<{
+    authFile: AuthFile;
+    fileState: AuthFileState;
+    identity: ResolvedStatusIdentity | undefined;
+}> {
+    // Independent reads, so they go out together; the window between them is
+    // a display-only concern (the list could lag the identity by one write).
+    const [identity, { authFile, fileState }] = await Promise.all([
+        resolveIdentity(context),
+        context.authStore.readTolerantState(),
+    ]);
 
     return {
         authFile,
-        identity: currentAccount === undefined
-            ? undefined
-            : {
-                    account: applyEndpointOverride(currentAccount, context.env),
-                    source: "file",
-                },
+        fileState,
+        identity: identity.account !== undefined && identity.source !== "none"
+            ? { account: identity.account, source: identity.source }
+            : undefined,
     };
 }
 

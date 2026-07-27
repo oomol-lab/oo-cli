@@ -118,8 +118,19 @@ export class FileAuthStore implements AuthStore {
 
     async readTolerantState(): Promise<TolerantAuthRead> {
         try {
+            const authFile = await this.readPersistedAuth();
+
+            this.logger?.debug(
+                {
+                    accountCount: authFile.auth.length,
+                    currentAuthId: authFile.id,
+                    ...withStorePath(this.filePath),
+                },
+                "Auth store tolerant read completed.",
+            );
+
             return {
-                authFile: await this.readPersistedAuth(),
+                authFile,
                 fileState: "ok",
             };
         }

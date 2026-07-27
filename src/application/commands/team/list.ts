@@ -5,11 +5,11 @@ import type { TeamEnvOverride } from "../shared/team-env-override.ts";
 import type { TeamRole, TeamView } from "./shared.ts";
 
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readTeamEnvOverride } from "../shared/team-env-override.ts";
 import { listMemberTeams, teamFormatValues } from "./shared.ts";
@@ -37,7 +37,7 @@ export const teamListCommand: CliCommandDefinition<TeamListInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentAccount(context);
+        const { account } = await requireIdentity(context);
         const settings = await context.settingsStore.read();
         const isCurrent = createCurrentTeamMatcher(
             readTeamEnvOverride(context.env),

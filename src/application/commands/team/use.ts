@@ -1,9 +1,9 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { setIdentityTeam } from "../../schemas/settings.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     readTeamEnvOverride,
@@ -40,7 +40,7 @@ export const teamUseCommand: CliCommandDefinition<TeamUseInput> = {
             throw new CliUserError("errors.team.nameEmpty", 2);
         }
 
-        const account = await requireCurrentAccount(context);
+        const { account } = await requireIdentity(context);
         const teams = await listMemberTeams(account, context);
 
         if (!teams.some(team => team.name === name)) {

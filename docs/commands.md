@@ -175,8 +175,10 @@ Show every saved auth account and validate the API key of the active one.
   text output notes that saved accounts are not in use. `auth.toml` is then
   only a source of the account list, so it is never created when missing, and
   an unreadable one leaves `accounts[]` empty instead of failing the command.
-  Without `OO_API_KEY` the file is the credential, so a corrupt one still
-  exits non-zero.
+- An unreadable `auth.toml` never fails the command: status renders the report
+  with a warning naming the unreadable file, an empty account list, and exit
+  code 0. With `--format json` the warning goes to stderr so stdout stays
+  machine-readable. A missing file is never created.
 - Text output lists all saved accounts under an `Accounts:` block. The active
   account is annotated with `[active]`; the active account additionally shows
   `API key status` resolved from a single profile request to its endpoint.

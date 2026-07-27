@@ -10,9 +10,9 @@ import { readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../shared/package-info.ts";
 import { requestText } from "../shared/request.ts";
@@ -182,7 +182,7 @@ async function shareSkill(
     context: CliExecutionContext,
 ): Promise<void> {
     const limits = parseSkillShareLimits(input);
-    const account = await requireCurrentAccount(context);
+    const { account } = await requireIdentity(context);
     const target = await resolveSkillShareTarget(input.skill, context);
     const packageInfo = await loadSharePackageInfo(target, account, context);
     const shareKind = resolveSkillShareKind(target);

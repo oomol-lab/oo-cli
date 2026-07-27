@@ -5,11 +5,11 @@ import type { ManagedSkillListItem } from "./managed-skill-listings.ts";
 import type { RegistryPackageSkillInfo } from "./registry-skill-source.ts";
 
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver } from "../../semver.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
@@ -150,7 +150,7 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
 
         const hasRegistryEntry = plan.some(entry => entry.kind === "registry");
         const account = hasRegistryEntry
-            ? await requireCurrentAccount(context)
+            ? (await requireIdentity(context)).account
             : undefined;
         const packageInfoCache = new Map<string, Promise<RegistryPackageSkillInfo | "failed">>();
 

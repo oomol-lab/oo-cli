@@ -5,9 +5,9 @@ import type {
     TeamNameStatus,
 } from "./default-identity.ts";
 import { z } from "zod";
+import { resolveIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { resolveCurrentAccountTolerantly } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
@@ -58,9 +58,9 @@ export const teamCurrentCommand: CliCommandDefinition<TeamCurrentInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const [settings, account] = await Promise.all([
+        const [settings, { account }] = await Promise.all([
             context.settingsStore.read(),
-            resolveCurrentAccountTolerantly(context),
+            resolveIdentity(context),
         ]);
         const configuredTeam = getConfiguredIdentityTeam(settings);
         const identity = await resolveDefaultTeamIdentity(
