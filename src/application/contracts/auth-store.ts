@@ -17,17 +17,11 @@ export interface AuthStore {
     read: () => Promise<AuthFile>;
     /**
      * Reads the persisted auth for display only: never creates a missing file,
-     * and never throws on a missing or unreadable one (it yields the empty auth
-     * file instead). Callers that hold a credential from somewhere else — an
-     * OO_API_KEY override — must use this instead of `read()`, which initializes
-     * the file on disk and fails the command on a corrupt one.
-     */
-    readTolerant: () => Promise<AuthFile>;
-    /**
-     * Same tolerance contract as `readTolerant()`, but also reports what the
-     * fallback hid: whether the file was missing or corrupt. For callers that
-     * must distinguish "no accounts saved" from "the file is unreadable"
-     * (identity resolution, telemetry account state).
+     * and never throws on a missing or unreadable one (it yields the empty
+     * auth file plus a `fileState` saying why). Callers that hold a credential
+     * from somewhere else — an OO_API_KEY override — must use this instead of
+     * `read()`, which initializes the file on disk and fails the command on a
+     * corrupt one.
      */
     readTolerantState: () => Promise<TolerantAuthRead>;
     write: (auth: AuthFile) => Promise<AuthFile>;

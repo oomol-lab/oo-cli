@@ -222,10 +222,6 @@ function createCommanderContext(
                 auth: [],
                 id: "",
             }),
-            readTolerant: async () => ({
-                auth: [],
-                id: "",
-            }),
             readTolerantState: async () => ({
                 authFile: {
                     auth: [],

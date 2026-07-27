@@ -110,12 +110,6 @@ export class FileAuthStore implements AuthStore {
         }
     }
 
-    async readTolerant(): Promise<AuthFile> {
-        const { authFile } = await this.readTolerantState();
-
-        return authFile;
-    }
-
     async readTolerantState(): Promise<TolerantAuthRead> {
         try {
             const authFile = await this.readPersistedAuth();
