@@ -1,9 +1,9 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
+import type { AuthAccount } from "../../schemas/auth.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
-import { CliUserError } from "../../contracts/cli.ts";
 import {
     bucketTelemetryCount,
     bucketTelemetryStringLength,
@@ -12,7 +12,7 @@ import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parseCommaSeparatedKeywords } from "../shared/keywords.ts";
-import { requestText } from "../shared/request.ts";
+import { requestOo } from "../shared/oo-request.ts";
 
 const searchFormatValues = ["json"] as const;
 const skillSearchResultLimit = 5;
@@ -87,13 +87,11 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
         });
 
         const { account } = await requireIdentity(context);
-        const requestUrl = createSkillsSearchRequestUrl(
-            account.endpoint,
+        const response = await requestSkillsSearch(
             input.text,
             keywords,
-        );
-        const response = parseSkillsSearchResponse(
-            await requestSkillsSearch(requestUrl, account.apiKey, context),
+            account,
+            context,
         );
 
         context.telemetry?.recordProperties({
@@ -117,76 +115,38 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
     },
 };
 
-function createSkillsSearchRequestUrl(
-    endpoint: string,
+async function requestSkillsSearch(
     text: string,
     keywords: readonly string[],
-): URL {
-    const requestUrl = new URL(
-        `https://search.${endpoint}/v1/packages/-/skills-search`,
-    );
-
-    requestUrl.searchParams.set("text", text);
-
-    for (const keyword of keywords) {
-        requestUrl.searchParams.append("keywords", keyword);
-    }
-
-    requestUrl.searchParams.set("size", String(skillSearchResultLimit));
-
-    return requestUrl;
-}
-
-async function requestSkillsSearch(
-    requestUrl: URL,
-    apiKey: string,
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<string> {
-    const keywordCount = requestUrl.searchParams.getAll("keywords").length;
-
-    return await requestText({
+): Promise<SkillSearchResponse> {
+    return await requestOo({
+        authorization: account.apiKey,
         context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.skillsSearch.requestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.skillsSearch.requestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
+        errors: { scope: "skillsSearch" },
+        host: { endpoint: account.endpoint, service: "search" },
+        label: "Skills search",
+        logFields: {
             common: {
-                keywordCount,
+                keywordCount: keywords.length,
             },
             start: {
-                textLength: requestUrl.searchParams.get("text")?.length ?? 0,
+                textLength: text.length,
             },
         },
-        init: {
-            headers: {
-                Authorization: apiKey,
-            },
-        },
-        requestLabel: "Skills search",
-        requestUrl,
-    });
-}
+        path: "/v1/packages/-/skills-search",
+        // Query entries are appended in insertion order; the blank line keeps
+        // the key sorter from breaking the historical wire order
+        // (text, keywords, size).
+        query: {
+            text,
 
-function parseSkillsSearchResponse(rawResponse: string): SkillSearchResponse {
-    try {
-        return skillSearchResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        );
-    }
-    catch {
-        throw new CliUserError("errors.skillsSearch.invalidResponse", 1);
-    }
+            keywords,
+            size: String(skillSearchResultLimit),
+        },
+        schema: skillSearchResponseSchema,
+    });
 }
 
 function formatSkillsSearchResponseAsText(

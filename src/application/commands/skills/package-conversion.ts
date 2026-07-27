@@ -13,7 +13,7 @@ import ignore from "ignore";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isSemver } from "../../semver.ts";
 import { isFileMissingError } from "../../shared/fs-errors.ts";
-import { getUnexpectedRequestErrorMessage } from "../shared/request.ts";
+import { getUnexpectedRequestErrorMessage } from "../shared/oo-request.ts";
 import {
     managedSkillMetadataFileName,
 } from "./managed-skill-paths.ts";

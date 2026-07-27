@@ -17,8 +17,8 @@ import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
+import { probeOo } from "../shared/oo-request.ts";
 import { writeLine } from "../shared/output.ts";
-import { isNetworkRestrictedSandboxError } from "../shared/request.ts";
 import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
 import {
     appendTeamIdentityStatus,
@@ -501,51 +501,23 @@ async function readApiKeyStatus(
     account: AuthAccount,
     context: Pick<CliExecutionContext, "fetcher" | "logger">,
 ): Promise<ApiKeyStatus> {
-    const requestStartedAt = Date.now();
-    const requestUrl = `https://api.${account.endpoint}/v1/users/profile`;
-
-    context.logger.debug(
-        {
+    const probe = await probeOo({
+        authorization: account.apiKey,
+        context,
+        host: { endpoint: account.endpoint, service: "api" },
+        label: "Auth status",
+        logFields: {
             accountId: account.id,
             endpoint: account.endpoint,
         },
-        "Auth status request started.",
-    );
+        path: "/v1/users/profile",
+    });
 
-    try {
-        const response = await context.fetcher(requestUrl, {
-            headers: {
-                Authorization: account.apiKey,
-            },
-        });
-        const apiKeyStatus = response.status === 200 ? "valid" : "invalid";
-
-        context.logger.debug(
-            {
-                accountId: account.id,
-                durationMs: Date.now() - requestStartedAt,
-                endpoint: account.endpoint,
-                status: response.status,
-                validity: apiKeyStatus,
-            },
-            "Auth status request completed.",
-        );
-
-        return apiKeyStatus;
+    if (probe.kind !== "response") {
+        return probe.kind === "failed_sandbox" ? "request_failed_sandbox" : "request_failed";
     }
-    catch (error) {
-        context.logger.warn(
-            {
-                accountId: account.id,
-                durationMs: Date.now() - requestStartedAt,
-                endpoint: account.endpoint,
-                err: error,
-            },
-            "Auth status request failed unexpectedly.",
-        );
-        if (isNetworkRestrictedSandboxError(error)) {
-            return "request_failed_sandbox";
-        }
-        return "request_failed";
-    }
+
+    // Any responding status is a verdict about the key, not the gateway: only
+    // 200 proves the key; everything else reads as rejected.
+    return probe.status === 200 ? "valid" : "invalid";
 }

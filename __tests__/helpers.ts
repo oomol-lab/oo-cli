@@ -37,7 +37,7 @@ import {
 import {
     connectionRefusedErrorCode,
     failedToOpenSocketErrorCode,
-} from "../src/application/commands/shared/request.ts";
+} from "../src/application/commands/shared/oo-request.ts";
 import { APP_NAME } from "../src/application/config/app-config.ts";
 import { CliUserError } from "../src/application/contracts/cli.ts";
 import { defaultSettings, renderSettingsFile } from "../src/application/schemas/settings.ts";

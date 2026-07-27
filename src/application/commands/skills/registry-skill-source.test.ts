@@ -8,71 +8,43 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import {
-    createRegistryPackageDownloadCountRequestUrl,
-    createRegistryPackageInfoRequestUrl,
-    createRegistryPackageShareDownloadMetaRequestUrl,
-    createRegistryPackageTarballRequestUrl,
+    createRegistryPackageDownloadCountPath,
+    createRegistryPackageInfoPath,
+    createRegistryPackageShareDownloadMetaPath,
+    createRegistryPackageTarballPath,
     downloadRegistryPackageTarball,
     loadRegistryPackageSkillInfo,
     tryReportRegistryPackageDownload,
 } from "./registry-skill-source.ts";
 
 describe("registry skill source", () => {
-    test("creates the package info URL for scoped packages", () => {
-        expect(
-            createRegistryPackageInfoRequestUrl(
-                "oomol.com",
-                "@foo/bar",
-            ).toString(),
-        ).toBe(
-            "https://registry.oomol.com/-/oomol/package-info/%40foo%2Fbar/latest",
+    test("creates the package info path for scoped packages", () => {
+        expect(createRegistryPackageInfoPath("@foo/bar")).toBe(
+            "/-/oomol/package-info/%40foo%2Fbar/latest",
         );
     });
 
-    test("creates the package tarball URL for scoped packages", () => {
-        expect(
-            createRegistryPackageTarballRequestUrl(
-                "oomol.com",
-                "@foo/bar",
-                "1.2.3",
-            ).toString(),
-        ).toBe(
-            "https://registry.oomol.com/@foo/bar/-/meta/bar-1.2.3.tgz",
+    test("creates the package tarball path for scoped packages", () => {
+        expect(createRegistryPackageTarballPath("@foo/bar", "1.2.3")).toBe(
+            "/@foo/bar/-/meta/bar-1.2.3.tgz",
         );
     });
 
-    test("creates the package tarball URL for unscoped packages", () => {
-        expect(
-            createRegistryPackageTarballRequestUrl(
-                "oomol.com",
-                "openai",
-                "1.2.3",
-            ).toString(),
-        ).toBe(
-            "https://registry.oomol.com/openai/-/meta/openai-1.2.3.tgz",
+    test("creates the package tarball path for unscoped packages", () => {
+        expect(createRegistryPackageTarballPath("openai", "1.2.3")).toBe(
+            "/openai/-/meta/openai-1.2.3.tgz",
         );
     });
 
-    test("creates the package share download meta URL", () => {
-        expect(
-            createRegistryPackageShareDownloadMetaRequestUrl(
-                "oomol.com",
-                "share/id",
-            ).toString(),
-        ).toBe(
-            "https://registry.oomol.com/-/oomol/package-shares/download-meta/share%2Fid",
+    test("creates the package share download meta path", () => {
+        expect(createRegistryPackageShareDownloadMetaPath("share/id")).toBe(
+            "/-/oomol/package-shares/download-meta/share%2Fid",
         );
     });
 
-    test("creates the package download count URL for scoped packages", () => {
-        expect(
-            createRegistryPackageDownloadCountRequestUrl(
-                "oomol.com",
-                "@foo/bar",
-                "1.2.3",
-            ).toString(),
-        ).toBe(
-            "https://registry.oomol.com/-/oomol/packages/@foo/bar/1.2.3/download-count",
+    test("creates the package download count path for scoped packages", () => {
+        expect(createRegistryPackageDownloadCountPath("@foo/bar", "1.2.3")).toBe(
+            "/-/oomol/packages/@foo/bar/1.2.3/download-count",
         );
     });
 

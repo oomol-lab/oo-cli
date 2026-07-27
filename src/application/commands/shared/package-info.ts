@@ -6,7 +6,7 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
 import { isAsciiDigit, isSemver as isValidSemver } from "../../semver.ts";
-import { requestText } from "./request.ts";
+import { requestOo } from "./oo-request.ts";
 
 const LATEST_PACKAGE_VERSION = "latest";
 
@@ -93,17 +93,32 @@ export async function loadPackageInfo(
     requestLanguage: RequestLanguage,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<PackageInfoResponse> {
-    const rawResponse = await requestPackageInfo(
-        createPackageInfoRequestUrl(
-            account.endpoint,
-            packageSpecifier,
-            requestLanguage,
-        ),
-        account.apiKey,
+    const parsedResponse = await requestOo({
+        authorization: account.apiKey,
         context,
-    );
+        errors: { scope: "packageInfo" },
+        host: { endpoint: account.endpoint, service: "registry" },
+        label: "Package info",
+        logFields: {
+            common: withPackageIdentity(
+                packageSpecifier.packageName,
+                packageSpecifier.packageVersion,
+            ),
+            start: {
+                requestLanguage,
+            },
+        },
+        path: `/-/oomol/package-info/${encodeURIComponent(packageSpecifier.packageName)}/${encodeURIComponent(packageSpecifier.packageVersion)}`,
+        query: { lang: requestLanguage },
+        schema: packageInfoResponseSchema,
+    });
 
-    return parseRawPackageInfoResponse(rawResponse);
+    return {
+        access: resolvePackageInfoAccess(parsedResponse),
+        blocks: parsedResponse.blocks,
+        packageName: parsedResponse.packageName,
+        packageVersion: parsedResponse.packageVersion,
+    };
 }
 
 function resolveVersionSeparatorIndex(
@@ -135,79 +150,6 @@ function looksLikePackageVersion(version: string): boolean {
     }
 
     return Array.from(version).some(character => isAsciiDigit(character));
-}
-
-function createPackageInfoRequestUrl(
-    endpoint: string,
-    packageSpecifier: Pick<ParsedPackageSpecifier, "packageName" | "packageVersion">,
-    requestLanguage: RequestLanguage,
-): URL {
-    const requestUrl = new URL(
-        `https://registry.${endpoint}/-/oomol/package-info/${encodeURIComponent(packageSpecifier.packageName)}/${encodeURIComponent(packageSpecifier.packageVersion)}`,
-    );
-
-    requestUrl.searchParams.set("lang", requestLanguage);
-
-    return requestUrl;
-}
-
-async function requestPackageInfo(
-    requestUrl: URL,
-    apiKey: string,
-    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
-): Promise<string> {
-    const pathSegments = requestUrl.pathname.split("/");
-    const packageName = decodeURIComponent(pathSegments.at(-2) ?? "");
-    const packageVersion = decodeURIComponent(pathSegments.at(-1) ?? "");
-
-    return await requestText({
-        context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.packageInfo.requestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.packageInfo.requestError",
-            1,
-            {
-                message: error instanceof Error ? error.message : String(error),
-            },
-        ),
-        fields: {
-            common: withPackageIdentity(packageName, packageVersion),
-            start: {
-                requestLanguage: requestUrl.searchParams.get("lang") ?? "",
-            },
-        },
-        init: {
-            headers: {
-                Authorization: apiKey,
-            },
-        },
-        requestLabel: "Package info",
-        requestUrl,
-    });
-}
-
-function parseRawPackageInfoResponse(rawResponse: string): PackageInfoResponse {
-    try {
-        const parsedResponse = packageInfoResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        );
-
-        return {
-            access: resolvePackageInfoAccess(parsedResponse),
-            blocks: parsedResponse.blocks,
-            packageName: parsedResponse.packageName,
-            packageVersion: parsedResponse.packageVersion,
-        };
-    }
-    catch {
-        throw new CliUserError("errors.packageInfo.invalidResponse", 1);
-    }
 }
 
 function resolvePackageInfoAccess(
