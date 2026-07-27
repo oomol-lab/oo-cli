@@ -68,6 +68,7 @@ type OoResponseRequestErrors
 export interface OoRequestFailure {
     /** Non-ok body read before throwing; undefined when the read fails. */
     bodyText: string | undefined;
+    /** Headers/status only — the body is already consumed into `bodyText`. */
     response: Response;
     status: number;
 }
