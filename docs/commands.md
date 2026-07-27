@@ -53,16 +53,21 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   proxy`, `oo connector apps`, `oo connector search` / `oo search`) under the
   team with this id. It takes precedence
   over `OO_TEAM_NAME` and the `identity.team` config default; the per-run
-  `--team` and `--personal` flags still outrank it. The value is sent as-is
-  without a membership check. Ignored when the connector target is
+  `--team` and `--personal` flags still outrank it. Before execution the CLI
+  validates the id and resolves its team name (one extra request per
+  invocation), so requests carry both the name and the id; an id the account
+  cannot use — not a member, no such team, team deleted — fails with exit
+  `1`. If the lookup itself cannot complete, the id is sent on its own and
+  the backend stays the judge. Ignored when the connector target is
   self-hosted.
 - `OO_TEAM_NAME`: Same as `OO_TEAM_ID`, but selects the team by name. Before
   execution the CLI resolves the name to its team id through the account's
   team memberships (one extra request per invocation), so requests carry both
   the name and the id; a name the account cannot access fails with exit `1`.
-  `oo connector run --dry-run` sends no execution request and skips the
-  resolution, so it stays offline. Ignored when `OO_TEAM_ID` is set or the
-  connector target is self-hosted.
+  If the lookup itself cannot complete, the name is sent on its own and the
+  backend stays the judge. `oo connector run --dry-run` sends no execution
+  request and skips the lookup entirely, so it stays offline. Ignored when
+  `OO_TEAM_ID` is set or the connector target is self-hosted.
 - Connector commands resolve their team identity with this precedence:
   `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the `identity.team`
   config default > your personal identity.

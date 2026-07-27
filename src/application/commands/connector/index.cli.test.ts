@@ -763,7 +763,17 @@ describe("connectorCommand CLI", () => {
                 ],
                 {
                     fetcher: async (input, init) => {
-                        requests.push(toRequest(input, init));
+                        const request = toRequest(input, init);
+                        requests.push(request);
+
+                        if (new URL(request.url).pathname.startsWith("/v1/teams/")) {
+                            return new Response(JSON.stringify({
+                                id: "team-1",
+                                name: "acme",
+                                role: "member",
+                                system_created: false,
+                            }));
+                        }
 
                         return new Response(JSON.stringify({
                             data: {
@@ -786,10 +796,14 @@ describe("connectorCommand CLI", () => {
                 .find(payload => payload?.properties?.command_full === "connector.proxy");
 
             expect(result.exitCode).toBe(0);
-            // The id needs no resolution, so the proxy request is the only one.
-            expect(requests).toHaveLength(1);
-            expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
-            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            // The id is validated and completed first, then the proxy request
+            // carries both identity dimensions.
+            expect(requests).toHaveLength(2);
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/teams/team-1",
+            );
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("acme");
             expect(proxyTelemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "env_id",
@@ -5042,8 +5056,8 @@ describe("connectorCommand CLI", () => {
             await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
             await sandbox.run(["config", "set", "identity.team", "acme"]);
             sandbox.env.OO_TEAM_ID = "team-1";
-            // The id form outranks the name form, so no resolution request
-            // may be sent for this value.
+            // The id form outranks the name form: the lookup validates the
+            // id, and this name value is never consulted.
             sandbox.env.OO_TEAM_NAME = "beta";
 
             const requests: Request[] = [];
@@ -5060,7 +5074,17 @@ describe("connectorCommand CLI", () => {
                 ],
                 {
                     fetcher: async (input, init) => {
-                        requests.push(toRequest(input, init));
+                        const request = toRequest(input, init);
+                        requests.push(request);
+
+                        if (new URL(request.url).pathname.startsWith("/v1/teams/")) {
+                            return new Response(JSON.stringify({
+                                id: "team-1",
+                                name: "acme",
+                                role: "member",
+                                system_created: false,
+                            }));
+                        }
 
                         return new Response(JSON.stringify({
                             data: {
@@ -5080,10 +5104,15 @@ describe("connectorCommand CLI", () => {
                 .find(payload => payload?.properties?.command_full === "connector.run");
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(1);
-            expect(requests[0]?.method).toBe("POST");
-            expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
-            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            // The id is validated and completed first, then the execution
+            // request carries both identity dimensions.
+            expect(requests).toHaveLength(2);
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/teams/team-1",
+            );
+            expect(requests[1]?.method).toBe("POST");
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("acme");
             expect(runTelemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "env_id",
@@ -5227,7 +5256,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("fails the run when the OO_TEAM_NAME resolution request fails", async () => {
+    test("proceeds with the bare name when the OO_TEAM_NAME lookup cannot complete", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -5249,21 +5278,138 @@ describe("connectorCommand CLI", () => {
                 ],
                 {
                     fetcher: async (input, init) => {
-                        requests.push(toRequest(input, init));
+                        const request = toRequest(input, init);
+                        requests.push(request);
 
-                        return new Response("boom", { status: 500 });
+                        if (new URL(request.url).pathname === "/v1/me/teams") {
+                            return new Response("boom", { status: 500 });
+                        }
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
                     },
                 },
             );
 
+            // The backend could not answer, so the CLI does not turn its own
+            // connectivity problem into a verdict: the run proceeds with the
+            // name header only and the gateway stays the final judge.
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(2);
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/me/teams",
+            );
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("acme");
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBeNull();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("fails the run when OO_TEAM_ID is refused by the backend", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            sandbox.env.OO_TEAM_ID = "team-9";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response("{}", { status: 403 });
+                    },
+                },
+            );
+
+            // A definite backend refusal blocks the run before any execution
+            // request, with the reason spelled out.
             expect(result.exitCode).toBe(1);
-            expect(result.stderr).toContain("HTTP 500");
-            // The failed resolution aborts the run: every request went to the
-            // membership endpoint and no action execution was attempted.
-            expect(requests.length).toBeGreaterThan(0);
-            expect(requests.every(request =>
-                request.url === "https://relation-control.oomol.com/v1/me/teams",
-            )).toBe(true);
+            expect(result.stderr).toContain("OO_TEAM_ID");
+            expect(result.stderr).toContain("team-9");
+            expect(result.stderr).toContain(
+                "the active account is not a member of this team",
+            );
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/teams/team-9",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("proceeds with the bare id when the OO_TEAM_ID lookup cannot complete", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture());
+            sandbox.env.OO_TEAM_ID = "team-1";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"foo@bar.com\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        const request = toRequest(input, init);
+                        requests.push(request);
+
+                        if (new URL(request.url).pathname.startsWith("/v1/teams/")) {
+                            return new Response("boom", { status: 500 });
+                        }
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                messageId: "message-1",
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            // The backend could not answer, so the run proceeds with the id
+            // header only and the gateway stays the final judge.
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(2);
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/teams/team-1",
+            );
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBeNull();
         }
         finally {
             await sandbox.cleanup();
@@ -5485,7 +5631,17 @@ describe("connectorCommand CLI", () => {
                 ["connector", "apps", "--json"],
                 {
                     fetcher: async (input, init) => {
-                        requests.push(toRequest(input, init));
+                        const request = toRequest(input, init);
+                        requests.push(request);
+
+                        if (new URL(request.url).pathname.startsWith("/v1/teams/")) {
+                            return new Response(JSON.stringify({
+                                id: "team-1",
+                                name: "acme",
+                                role: "member",
+                                system_created: false,
+                            }));
+                        }
 
                         return new Response(JSON.stringify({ data: [] }));
                     },
@@ -5498,9 +5654,14 @@ describe("connectorCommand CLI", () => {
                 .find(payload => payload?.properties?.command_full === "connector.apps");
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(1);
-            expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
-            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            // The id is validated and completed first, then the listing
+            // carries both identity dimensions.
+            expect(requests).toHaveLength(2);
+            expect(requests[0]?.url).toBe(
+                "https://relation-control.oomol.com/v1/teams/team-1",
+            );
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("acme");
             expect(appsTelemetryPayload).toMatchObject({
                 properties: {
                     identity_source: "env_id",

@@ -9,7 +9,11 @@ import {
 } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
-import { resolveConnectorIdentityWithEnv } from "./identity.ts";
+import {
+    requireValidTeamIdentity,
+    resolveTeamIdentity,
+} from "../team/identity.ts";
+import { connectorTeamAccount } from "./identity.ts";
 import {
     formatConnectorSearchResultsAsText,
     loadConnectorSearchResults,
@@ -83,21 +87,25 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
         }
 
         const settings = await context.settingsStore.read();
-        const { identity, source: identitySource } = target.kind === "self_hosted"
-            ? { identity: {}, source: "personal" as const }
-            : await resolveConnectorIdentityWithEnv(
-                    {
-                        configTeam: getConfiguredIdentityTeam(settings),
-                        target,
-                        teamFlag,
-                        personalFlag: input.personal === true,
-                    },
+        const identity = target.kind === "self_hosted"
+            ? undefined
+            : requireValidTeamIdentity(
+                    await resolveTeamIdentity(
+                        {
+                            account: connectorTeamAccount(target),
+                            configuredTeam: getConfiguredIdentityTeam(settings),
+                            teamFlag,
+                            personalFlag: input.personal === true,
+                            resolveAgainstBackend: true,
+                        },
+                        context,
+                    ),
                     context,
                 );
 
         context.telemetry?.recordProperties({
             connector_kind: target.kind,
-            identity_source: identitySource,
+            identity_source: identity?.source ?? "personal",
         });
 
         const results = await loadConnectorSearchResults(

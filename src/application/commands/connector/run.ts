@@ -1,5 +1,5 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
-import type { ConnectorIdentity } from "./identity.ts";
+import type { TeamIdentity } from "../team/identity.ts";
 import type {
     ConnectorActionAsyncLifecycle,
     ConnectorActionRunResponse,
@@ -17,7 +17,11 @@ import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
-import { resolveConnectorIdentityWithEnv } from "./identity.ts";
+import {
+    requireValidTeamIdentity,
+    resolveTeamIdentity,
+} from "../team/identity.ts";
+import { connectorTeamAccount } from "./identity.ts";
 import {
     deleteConnectorActionSchemaCache,
     isConnectorActionSchemaNotFoundError,
@@ -186,19 +190,22 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         }
 
         const settings = await context.settingsStore.read();
-        const { identity, source: identitySource } = target.kind === "self_hosted"
-            ? { identity: {}, source: "personal" as const }
-            : await resolveConnectorIdentityWithEnv(
-                    {
-                        configTeam: getConfiguredIdentityTeam(settings),
-                        // A dry run never sends the execution request that
-                        // needs the team id, so it must not pay (or fail on)
-                        // the OO_TEAM_NAME membership request.
-                        resolveEnvTeamId: input.dryRun !== true,
-                        target,
-                        teamFlag,
-                        personalFlag: input.personal === true,
-                    },
+        const identity = target.kind === "self_hosted"
+            ? undefined
+            : requireValidTeamIdentity(
+                    await resolveTeamIdentity(
+                        {
+                            account: connectorTeamAccount(target),
+                            configuredTeam: getConfiguredIdentityTeam(settings),
+                            teamFlag,
+                            personalFlag: input.personal === true,
+                            // A dry run never sends the execution request that
+                            // needs the completed identity, so it must not pay
+                            // (or fail on) the validation lookup.
+                            resolveAgainstBackend: input.dryRun !== true,
+                        },
+                        context,
+                    ),
                     context,
                 );
         const inputData = await readJsonInputValue(
@@ -216,7 +223,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
                 Buffer.byteLength(JSON.stringify(inputData)),
             ),
             dry_run: input.dryRun === true,
-            identity_source: identitySource,
+            identity_source: identity?.source ?? "personal",
             service: input.serviceName,
             wait: input.wait === true,
             wait_result: input.waitResult === true,
@@ -351,7 +358,7 @@ async function runConnectorActionWithDefaultMode(
     options: {
         actionName: string;
         connectionSelector: ConnectorConnectionSelector | undefined;
-        identity: ConnectorIdentity;
+        identity: TeamIdentity | undefined;
         inputData: unknown;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         resultLifecycle: ConnectorActionAsyncResultLifecycle | undefined;
@@ -419,7 +426,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
     options: {
         actionName: string;
         connectionSelector: ConnectorConnectionSelector | undefined;
-        identity: ConnectorIdentity;
+        identity: TeamIdentity | undefined;
         inputData: unknown;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         resultLifecycle: ConnectorActionAsyncResultLifecycle;
@@ -488,7 +495,7 @@ async function waitForConnectorAsyncResult(
     options: {
         actionName: string;
         connectionSelector: ConnectorConnectionSelector | undefined;
-        identity: ConnectorIdentity;
+        identity: TeamIdentity | undefined;
         inputData: unknown;
         lifecycle: ConnectorActionAsyncResultLifecycle;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;

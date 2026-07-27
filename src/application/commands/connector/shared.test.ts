@@ -295,7 +295,10 @@ describe("connector shared requests", () => {
                 actionName: "send_mail",
                 target: createConnectorTargetFixture(),
                 identity: {
-                    team: "acme",
+                    name: "acme",
+                    id: null,
+                    source: "config",
+                    status: null,
                 },
                 inputData: {
                     to: "foo@bar.com",
@@ -436,7 +439,10 @@ describe("connector shared requests", () => {
             {
                 target: createConnectorTargetFixture(),
                 identity: {
-                    team: "acme",
+                    name: "acme",
+                    id: null,
+                    source: "config",
+                    status: null,
                 },
                 proxyRequest: {
                     endpoint: "/search",

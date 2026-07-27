@@ -8,7 +8,7 @@ import {
     bucketTelemetryCount,
     bucketTelemetryStringLength,
 } from "../telemetry/buckets.ts";
-import { resolveConnectorIdentityWithEnv } from "./connector/identity.ts";
+import { connectorTeamAccount } from "./connector/identity.ts";
 import {
     formatConnectorSearchResultsAsText,
     loadConnectorSearchResults,
@@ -16,6 +16,10 @@ import {
 import { resolveConnectorTarget } from "./connector/target.ts";
 import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
 import { createFormatInputError } from "./shared/input-parsing.ts";
+import {
+    requireValidTeamIdentity,
+    resolveTeamIdentity,
+} from "./team/identity.ts";
 
 const searchFormatValues = ["json"] as const;
 
@@ -85,21 +89,25 @@ export const searchCommand: CliCommandDefinition<SearchInput> = {
         }
 
         const settings = await context.settingsStore.read();
-        const { identity, source: identitySource } = target.kind === "self_hosted"
-            ? { identity: {}, source: "personal" as const }
-            : await resolveConnectorIdentityWithEnv(
-                    {
-                        configTeam: getConfiguredIdentityTeam(settings),
-                        target,
-                        teamFlag,
-                        personalFlag: input.personal === true,
-                    },
+        const identity = target.kind === "self_hosted"
+            ? undefined
+            : requireValidTeamIdentity(
+                    await resolveTeamIdentity(
+                        {
+                            account: connectorTeamAccount(target),
+                            configuredTeam: getConfiguredIdentityTeam(settings),
+                            teamFlag,
+                            personalFlag: input.personal === true,
+                            resolveAgainstBackend: true,
+                        },
+                        context,
+                    ),
                     context,
                 );
 
         context.telemetry?.recordProperties({
             connector_kind: target.kind,
-            identity_source: identitySource,
+            identity_source: identity?.source ?? "personal",
         });
 
         const results = await loadConnectorSearchResults(

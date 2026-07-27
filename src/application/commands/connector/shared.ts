@@ -1,6 +1,6 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
-import type { ConnectorIdentity } from "./identity.ts";
+import type { TeamIdentity } from "../team/identity.ts";
 import type { ConnectorRequestTarget } from "./target.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
@@ -196,7 +196,7 @@ type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResp
 
 export async function searchConnectorActions(
     options: {
-        identity?: ConnectorIdentity;
+        identity?: TeamIdentity | undefined;
         target: ConnectorRequestTarget;
         text: string;
     },
@@ -262,7 +262,7 @@ export async function searchConnectorActions(
 // envelope; the self-hosted runtime simply ignores the `status` filter.
 export async function listConnectorApps(
     options: {
-        identity?: ConnectorIdentity;
+        identity?: TeamIdentity | undefined;
         target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
@@ -293,7 +293,7 @@ export async function listConnectorApps(
 
 export async function listConnectorAppsByService(
     options: {
-        identity?: ConnectorIdentity;
+        identity?: TeamIdentity | undefined;
         serviceName: string;
         target: ConnectorRequestTarget;
     },
@@ -412,7 +412,7 @@ export async function runConnectorAction(
     options: {
         actionName: string;
         connectionSelector?: ConnectorConnectionSelector;
-        identity?: ConnectorIdentity;
+        identity?: TeamIdentity | undefined;
         inputData: unknown;
         serviceName: string;
         target: ConnectorRequestTarget;
@@ -541,7 +541,7 @@ export async function runConnectorAction(
 
 export async function runConnectorProxy(
     options: {
-        identity?: ConnectorIdentity;
+        identity?: TeamIdentity | undefined;
         proxyRequest: unknown;
         serviceName: string;
         target: ConnectorRequestTarget;
