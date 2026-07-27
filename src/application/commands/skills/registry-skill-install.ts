@@ -10,7 +10,6 @@ import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
 import { writeLine } from "../shared/output.ts";
-import { directoryExists } from "./bundled-skill-observation.ts";
 import { writeManagedSkillInstallSummary } from "./install-output.ts";
 import {
     confirmInteractiveValue,
@@ -20,9 +19,6 @@ import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
-import {
-    readManagedSkillMetadata,
-} from "./managed-skill-metadata.ts";
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
@@ -38,6 +34,10 @@ import {
     loadRegistryPackageSkillInfo,
     tryReportRegistryPackageDownload,
 } from "./registry-skill-source.ts";
+import {
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 import {
     normalizeSkillFilterTokens,
     selectSkillsByFilter,
@@ -490,7 +490,9 @@ async function readRegistrySkillInstallStatus(
 async function readManagedSkillPathState(
     skillDirectoryPath: string,
 ): Promise<ManagedSkillPathState> {
-    if (!(await directoryExists(skillDirectoryPath))) {
+    const state = await readSkillDirectoryState(skillDirectoryPath);
+
+    if (state.kind === "missing" || state.kind === "not-directory") {
         return {
             exists: false,
             metadataPackageName: undefined,
@@ -499,8 +501,7 @@ async function readManagedSkillPathState(
 
     return {
         exists: true,
-        metadataPackageName: (await readManagedSkillMetadata(skillDirectoryPath))
-            ?.packageName,
+        metadataPackageName: managedMetadataOfKind(state, "registry")?.packageName,
     };
 }
 

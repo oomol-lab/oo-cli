@@ -12,9 +12,7 @@ import {
 } from "./bundled-skill-filesystem.ts";
 import { resolveRequestedManagedSkillHost } from "./check.ts";
 import {
-    isForeignManagedMetadataState,
     readSkillFileContent,
-    readSkillMetadataFileState,
     writeLocalSkillMetadata,
 } from "./local-skill-ownership.ts";
 import {
@@ -30,6 +28,7 @@ import {
     readSkillFrontmatterName,
     writeAdoptedSkillContract,
 } from "./skill-authoring.ts";
+import { readSkillDirectoryState } from "./skill-directory-state.ts";
 import { normalizeSkillName } from "./skill-id.ts";
 import { validateSkillDirectory } from "./validate.ts";
 
@@ -327,9 +326,12 @@ function isCopyTargetAlreadyExistsError(
 async function validateAdoptMetadata(
     skillDirectoryPath: string,
 ): Promise<void> {
-    const metadataState = await readSkillMetadataFileState(skillDirectoryPath);
+    const state = await readSkillDirectoryState(skillDirectoryPath);
+    const foreign
+        = (state.kind === "managed" && state.metadata.kind !== "local")
+            || (state.kind === "unmanaged" && state.metadataFilePresent);
 
-    if (!isForeignManagedMetadataState(metadataState)) {
+    if (!foreign) {
         return;
     }
 

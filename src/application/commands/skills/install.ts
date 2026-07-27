@@ -18,9 +18,9 @@ import { join, resolve } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
+import { writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parsePackageSpecifier } from "../shared/package-info.ts";
-import { directoryExists } from "./bundled-skill-observation.ts";
 import {
     availableBundledSkillNames,
     materializeBundledSkillToDirectory,
@@ -30,16 +30,13 @@ import {
     writeSkillExportSummary,
 } from "./install-output.ts";
 import { migrateLegacyCanonicalSkillLayout } from "./legacy-canonical-migration.ts";
-import { readSkillMetadataFileState } from "./local-skill-ownership.ts";
 import { parseAgentFormatOption } from "./managed-skill-agents.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
 } from "./managed-skill-paths.ts";
 import {
     computeCommandStatus,
     skillOperationOutputOptions,
-    writeSkillOperationJson,
 } from "./operation-result.ts";
 import { exportRegistrySkills } from "./registry-skill-export.ts";
 import { installRegistrySkills } from "./registry-skill-install.ts";
@@ -48,6 +45,10 @@ import {
     isBundledSkillName,
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
+import {
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 import {
     normalizeSkillFilterTokens,
     skillMatchesFilterTokens,
@@ -186,7 +187,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             const report = await runInstallJsonReport(input, context, { force });
 
             recordInstallTelemetry(context, report, force);
-            writeSkillOperationJson(context.stdout, report, {
+            writeJsonOutput(context.stdout, report, {
                 showSchemaVersion: input.showSchemaVersion,
             });
 
@@ -568,7 +569,7 @@ async function runSkillExport(
             outputDirectoryPath,
         );
 
-        writeSkillOperationJson(context.stdout, report, {
+        writeJsonOutput(context.stdout, report, {
             showSchemaVersion: input.showSchemaVersion,
         });
 
@@ -1015,7 +1016,8 @@ async function buildRegistrySkillResult(
         settingsFilePath,
         summary.name,
     );
-    const canonicalMetadata = await readManagedSkillMetadata(canonicalDirectoryPath);
+    const canonicalState = await readSkillDirectoryState(canonicalDirectoryPath);
+    const canonicalMetadata = managedMetadataOfKind(canonicalState, "registry");
     const version = canonicalMetadata?.version ?? null;
     const resolvedPackageName = canonicalMetadata?.packageName ?? packageName;
 
@@ -1038,15 +1040,13 @@ async function buildRegistrySkillResult(
 }
 
 async function resolvePreviousState(installedDirectoryPath: string): Promise<PreviousState> {
-    if (!(await directoryExists(installedDirectoryPath))) {
+    const state = await readSkillDirectoryState(installedDirectoryPath);
+
+    if (state.kind === "missing" || state.kind === "not-directory") {
         return "absent";
     }
-    const state = await readSkillMetadataFileState(installedDirectoryPath);
 
-    if (state.metadata === undefined) {
-        return "unmanaged";
-    }
-    return "managed";
+    return state.kind === "managed" ? "managed" : "unmanaged";
 }
 
 function mapInstallErrorCode(error: unknown): string {

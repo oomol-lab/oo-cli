@@ -94,6 +94,17 @@ async function isCurrentPublicationPath(
     }
 }
 
+export function managedMetadataOfKind<Kind extends SkillMetadata["kind"]>(
+    state: SkillDirectoryState,
+    kind: Kind,
+): Extract<SkillMetadata, { kind: Kind }> | undefined {
+    if (state.kind !== "managed" || state.metadata.kind !== kind) {
+        return undefined;
+    }
+
+    return state.metadata as Extract<SkillMetadata, { kind: Kind }>;
+}
+
 export function isCurrentRegistryPublication(
     state: SkillDirectoryState,
     expected: { packageName: string; version: string },

@@ -18,23 +18,17 @@ import type {
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
+import { writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { removePath } from "./bundled-skill-filesystem.ts";
-import { canUninstallManagedBundledSkillInstallation } from "./bundled-skill-model.ts";
-import {
-    directoryExists,
-    readInstalledBundledSkillMetadata,
-} from "./bundled-skill-observation.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { findInstalledRegistrySkillNamesForPackage } from "./installed-managed-skills.ts";
-import { readLocalSkillMetadata } from "./local-skill-ownership.ts";
 import { findLocalSkillSources } from "./local-skill-source.ts";
 import { parseManagedSkillAgentOption } from "./managed-skill-agents.ts";
 import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
@@ -43,13 +37,16 @@ import { uninstallRequestedSkills } from "./managed-skill-uninstall.ts";
 import {
     computeCommandStatus,
     skillOperationOutputOptions,
-    writeSkillOperationJson,
 } from "./operation-result.ts";
 import {
     isBundledSkillName,
     isScopedPackageName,
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
+import {
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 interface SkillsUninstallInput {
     agent?: string;
@@ -120,7 +117,7 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
                 format: "json",
                 hasPackageTarget,
             });
-            writeSkillOperationJson(context.stdout, report, {
+            writeJsonOutput(context.stdout, report, {
                 showSchemaVersion: input.showSchemaVersion,
             });
 
@@ -355,19 +352,16 @@ async function uninstallBundledSkillForJson(
     let lastRemovedVersion: string | undefined;
 
     for (const installation of installations) {
-        const installedDirectoryExists = await directoryExists(
+        const targetState = await readSkillDirectoryState(
             installation.installedSkillDirectoryPath,
         );
-        const installedMetadata = installedDirectoryExists
-            ? await readInstalledBundledSkillMetadata(installation.installedSkillDirectoryPath)
-            : undefined;
-        const managed = installedMetadata !== undefined;
+        const installedMetadata = managedMetadataOfKind(targetState, "bundled");
 
-        if (!canUninstallManagedBundledSkillInstallation({
-            installedDirectoryExists,
-            installedDirectoryManaged: managed,
-        })) {
-            if (!installedDirectoryExists) {
+        if (installedMetadata === undefined) {
+            if (
+                targetState.kind === "missing"
+                || targetState.kind === "not-directory"
+            ) {
                 targets.push({
                     agentId: installation.agentName,
                     status: "absent",
@@ -404,14 +398,14 @@ async function uninstallBundledSkillForJson(
             ]);
 
             removedCount += 1;
-            lastRemovedVersion = installedMetadata?.version ?? lastRemovedVersion;
+            lastRemovedVersion = installedMetadata.version;
             targets.push({
                 agentId: installation.agentName,
                 status: "removed",
                 path: installation.installedSkillDirectoryPath,
                 sourcePath: installation.canonicalSkillDirectoryPath,
                 version: null,
-                previousVersion: installedMetadata?.version ?? null,
+                previousVersion: installedMetadata.version,
                 previousState: "managed",
             });
         }
@@ -422,8 +416,8 @@ async function uninstallBundledSkillForJson(
                 path: installation.installedSkillDirectoryPath,
                 sourcePath: installation.canonicalSkillDirectoryPath,
                 version: null,
-                previousVersion: installedMetadata?.version ?? null,
-                previousState: managed ? "managed" : "unknown",
+                previousVersion: installedMetadata.version,
+                previousState: "managed",
                 error: {
                     code: "remove_failed",
                     message: uninstallErrorMessages.remove_failed,
@@ -554,24 +548,28 @@ async function uninstallRegistrySkillForJson(
     let previousVersion: string | undefined;
 
     for (const installation of hostInstallations) {
-        if (!(await directoryExists(installation.installedSkillDirectoryPath))) {
-            targets.push({
-                agentId: installation.agentName,
-                status: "absent",
-                path: installation.installedSkillDirectoryPath,
-                sourcePath: canonicalDirectoryPath,
-                version: null,
-                previousVersion: null,
-                previousState: "absent",
-            });
-            continue;
-        }
-
-        const metadata = await readManagedSkillMetadata(
+        const targetState = await readSkillDirectoryState(
             installation.installedSkillDirectoryPath,
         );
+        const metadata = managedMetadataOfKind(targetState, "registry");
 
         if (metadata === undefined) {
+            if (
+                targetState.kind === "missing"
+                || targetState.kind === "not-directory"
+            ) {
+                targets.push({
+                    agentId: installation.agentName,
+                    status: "absent",
+                    path: installation.installedSkillDirectoryPath,
+                    sourcePath: canonicalDirectoryPath,
+                    version: null,
+                    previousVersion: null,
+                    previousState: "absent",
+                });
+                continue;
+            }
+
             hasUnmanaged = true;
             targets.push({
                 agentId: installation.agentName,
@@ -590,8 +588,8 @@ async function uninstallRegistrySkillForJson(
         }
 
         hasManaged = true;
-        packageName = metadata.packageName ?? packageName;
-        previousVersion = metadata.version ?? previousVersion;
+        packageName = metadata.packageName;
+        previousVersion = metadata.version;
 
         try {
             await removePath(installation.installedSkillDirectoryPath);
@@ -738,8 +736,12 @@ async function uninstallLocalSkillForJson(
     }
 
     const source = sources[0]!;
+    const sourceState = await readSkillDirectoryState(source.path);
 
-    if (await readLocalSkillMetadata(source.path) === undefined) {
+    if (
+        sourceState.kind !== "managed"
+        || sourceState.metadata.kind !== "local"
+    ) {
         return undefined;
     }
 

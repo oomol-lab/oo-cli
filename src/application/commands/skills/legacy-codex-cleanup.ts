@@ -1,15 +1,14 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { resolveHomeDirectory } from "../../path/home-directory.ts";
 import { isNodeNotFoundError, removePath } from "./bundled-skill-filesystem.ts";
 import {
-    bundledSkillMetadataFileName,
     canonicalBundledSkillsDirectoryName,
     managedSkillsDirectoryName,
 } from "./bundled-skill-paths.ts";
-import { parseSkillMetadataContent } from "./skill-metadata.ts";
+import { readSkillDirectoryState } from "./skill-directory-state.ts";
 
 // Home directory name and environment override of the now-removed Codex agent.
 const legacyCodexHomeDirectoryName = ".codex";
@@ -140,25 +139,11 @@ async function removeLegacyCodexCanonicalBundledStorage(
 async function isOoManagedSkillDirectory(
     skillDirectoryPath: string,
 ): Promise<boolean> {
-    let content: string;
+    const state = await readSkillDirectoryState(skillDirectoryPath);
 
-    try {
-        content = await readFile(
-            join(skillDirectoryPath, bundledSkillMetadataFileName),
-            "utf8",
-        );
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
-
-    const metadata = parseSkillMetadataContent(content);
-
-    return metadata?.kind === "bundled" || metadata?.kind === "registry";
+    return state.kind === "managed"
+        && (state.metadata.kind === "bundled"
+            || state.metadata.kind === "registry");
 }
 
 async function readSkillDirectoryEntryNames(

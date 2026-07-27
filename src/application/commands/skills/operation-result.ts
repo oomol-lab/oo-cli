@@ -1,7 +1,7 @@
-import type { CliOptionDefinition, Writer } from "../../contracts/cli.ts";
+import type { CliOptionDefinition } from "../../contracts/cli.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
 
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { jsonOutputOptions } from "../json-output.ts";
 
 export const skillOperationOutputOptions
     = jsonOutputOptions satisfies readonly CliOptionDefinition[];
@@ -140,22 +140,6 @@ export interface SyncApplyReport {
     };
     skills: SkillResult[];
     errors: SkillOperationError[];
-}
-
-export type SkillOperationReport
-    = | InstallReport
-        | ExportReport
-        | UninstallReport
-        | UpdateReport
-        | SyncUploadReport
-        | SyncApplyReport;
-
-export function writeSkillOperationJson(
-    writer: Writer,
-    report: SkillOperationReport,
-    options: { showSchemaVersion?: boolean | undefined } = {},
-): void {
-    writeJsonOutput(writer, report, { showSchemaVersion: options.showSchemaVersion });
 }
 
 export function computeCommandStatus(args: {

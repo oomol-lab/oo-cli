@@ -23,7 +23,6 @@ import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
 } from "./managed-skill-hosts.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
@@ -33,6 +32,7 @@ import {
     isBundledSkillName,
     publishManagedBundledSkill,
 } from "./shared.ts";
+import { readSkillDirectoryState } from "./skill-directory-state.ts";
 
 interface SkillsRepairInput {
     agent?: string[];
@@ -235,21 +235,27 @@ async function resolveRepairSources(
             settingsFilePath,
             skillName,
         );
-        const metadata = (await directoryExists(canonicalDirectoryPath))
-            ? await readManagedSkillMetadata(canonicalDirectoryPath)
-            : undefined;
+        const canonicalState = await readSkillDirectoryState(
+            canonicalDirectoryPath,
+        );
 
-        if (metadata !== undefined) {
+        if (
+            canonicalState.kind === "managed"
+            && canonicalState.metadata.kind === "registry"
+        ) {
             sources.push({
                 kind: "registry",
                 skillName,
                 canonicalDirectoryPath,
-                version: metadata.version,
+                version: canonicalState.metadata.version,
             });
             continue;
         }
 
-        if (await directoryExists(canonicalDirectoryPath)) {
+        if (
+            canonicalState.kind === "unmanaged"
+            || canonicalState.kind === "managed"
+        ) {
             // Canonical directory exists but metadata is missing/invalid for a
             // registry source: surface as per-pair failure rather than aborting
             // the whole run.

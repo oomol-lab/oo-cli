@@ -18,16 +18,12 @@ import {
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { readBundledSkillSourceContent, seedRegistrySkill } from "./__tests__/helpers.ts";
-import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     canonicalLocalSkillsDirectoryName,
     resolveBundledSkillCanonicalDirectoryPath,
     resolveBundledSkillMetadataFilePath,
 } from "./bundled-skill-paths.ts";
-import {
-    getBundledSkillFiles,
-    readBundledSkillFileContent,
-} from "./embedded-assets.ts";
+import { bundledSkillDevelopmentVersion, getBundledSkillFiles, readBundledSkillFileContent } from "./embedded-assets.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,

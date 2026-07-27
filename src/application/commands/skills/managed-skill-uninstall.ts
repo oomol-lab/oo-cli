@@ -11,16 +11,8 @@ import { writeLine } from "../shared/output.ts";
 import {
     removePath,
 } from "./bundled-skill-filesystem.ts";
-import {
-    canUninstallManagedBundledSkillInstallation,
-} from "./bundled-skill-model.ts";
-import {
-    directoryExists,
-    readInstalledBundledSkillMetadata,
-} from "./bundled-skill-observation.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import { findInstalledRegistrySkillNamesForPackage } from "./installed-managed-skills.ts";
-import { readLocalSkillMetadata } from "./local-skill-ownership.ts";
 import {
     findLocalSkillSources,
 } from "./local-skill-source.ts";
@@ -29,7 +21,6 @@ import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     isManagedSkillPathContained,
     resolveManagedSkillCanonicalDirectoryPath,
@@ -39,6 +30,10 @@ import {
     isScopedPackageName,
     resolveAvailableBundledSkillHostInstallations,
 } from "./shared.ts";
+import {
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 interface RegistrySkillUninstallTarget extends ManagedSkillHostInstallation {
     packageName: string | undefined;
@@ -197,20 +192,16 @@ export async function uninstallBundledSkill(
     > = [];
 
     for (const installation of installations) {
-        const installedSkillDirectoryExists = await directoryExists(
+        const targetState = await readSkillDirectoryState(
             installation.installedSkillDirectoryPath,
         );
-        const installedSkillMetadata = installedSkillDirectoryExists
-            ? await readInstalledBundledSkillMetadata(
-                    installation.installedSkillDirectoryPath,
-                )
-            : undefined;
+        const installedMetadata = managedMetadataOfKind(targetState, "bundled");
 
-        if (!canUninstallManagedBundledSkillInstallation({
-            installedDirectoryExists: installedSkillDirectoryExists,
-            installedDirectoryManaged: installedSkillMetadata !== undefined,
-        })) {
-            if (!installedSkillDirectoryExists) {
+        if (installedMetadata === undefined) {
+            if (
+                targetState.kind === "missing"
+                || targetState.kind === "not-directory"
+            ) {
                 continue;
             }
 
@@ -231,7 +222,7 @@ export async function uninstallBundledSkill(
 
         uninstallTargets.push({
             ...installation,
-            previousVersion: installedSkillMetadata?.version,
+            previousVersion: installedMetadata.version,
         });
     }
 
@@ -304,15 +295,8 @@ export async function uninstallRegistrySkill(
         settingsFilePath,
         skillName,
     );
-    const uninstallTargets = await resolveRegistrySkillUninstallTargets(
-        hostInstallations,
-    );
-    const unmanagedInstallations = await resolveUnmanagedSkillUninstallInstallations({
-        hostInstallations,
-        managedTargetPaths: uninstallTargets.map(
-            target => target.installedSkillDirectoryPath,
-        ),
-    });
+    const { targets: uninstallTargets, unmanagedInstallations }
+        = await resolveRegistrySkillUninstallTargets(hostInstallations);
 
     if (uninstallTargets.length === 0) {
         return {
@@ -419,8 +403,12 @@ async function uninstallLocalSkillFromSources(
     }
 
     const source = sources[0]!;
+    const sourceState = await readSkillDirectoryState(source.path);
 
-    if (await readLocalSkillMetadata(source.path) === undefined) {
+    if (
+        sourceState.kind !== "managed"
+        || sourceState.metadata.kind !== "local"
+    ) {
         return undefined;
     }
 
@@ -485,51 +473,41 @@ export function createManagedSkillUninstallResultError(options: {
 
 async function resolveRegistrySkillUninstallTargets(
     hostInstallations: readonly ManagedSkillHostInstallation[],
-): Promise<RegistrySkillUninstallTarget[]> {
+): Promise<{
+    targets: RegistrySkillUninstallTarget[];
+    unmanagedInstallations: ManagedSkillHostInstallation[];
+}> {
     const targets: RegistrySkillUninstallTarget[] = [];
+    const unmanagedInstallations: ManagedSkillHostInstallation[] = [];
 
     for (const installation of hostInstallations) {
-        if (!(await directoryExists(installation.installedSkillDirectoryPath))) {
-            continue;
-        }
-
-        const metadata = await readManagedSkillMetadata(
+        const targetState = await readSkillDirectoryState(
             installation.installedSkillDirectoryPath,
         );
 
-        if (metadata === undefined) {
+        if (
+            targetState.kind === "missing"
+            || targetState.kind === "not-directory"
+        ) {
             continue;
         }
 
-        targets.push({
-            ...installation,
-            packageName: metadata.packageName,
-            previousVersion: metadata.version,
-        });
-    }
-
-    return targets;
-}
-
-async function resolveUnmanagedSkillUninstallInstallations(options: {
-    hostInstallations: readonly ManagedSkillHostInstallation[];
-    managedTargetPaths: readonly string[];
-}): Promise<ManagedSkillHostInstallation[]> {
-    const targetPaths = new Set(options.managedTargetPaths);
-    const unmanagedInstallations: ManagedSkillHostInstallation[] = [];
-
-    for (const installation of options.hostInstallations) {
         if (
-            targetPaths.has(installation.installedSkillDirectoryPath)
-            || !(await directoryExists(installation.installedSkillDirectoryPath))
+            targetState.kind === "managed"
+            && targetState.metadata.kind === "registry"
         ) {
+            targets.push({
+                ...installation,
+                packageName: targetState.metadata.packageName,
+                previousVersion: targetState.metadata.version,
+            });
             continue;
         }
 
         unmanagedInstallations.push(installation);
     }
 
-    return unmanagedInstallations;
+    return { targets, unmanagedInstallations };
 }
 
 function renderLocalSkillSourceAgents(

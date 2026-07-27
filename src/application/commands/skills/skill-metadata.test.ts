@@ -55,6 +55,16 @@ describe("skill metadata", () => {
         }))).toBeUndefined();
     });
 
+    test("rejects legacy metadata with blank identity fields", () => {
+        expect(parseSkillMetadataContent(JSON.stringify({
+            version: "",
+        }))).toBeUndefined();
+        expect(parseSkillMetadataContent(JSON.stringify({
+            packageName: "  ",
+            version: "1.2.3",
+        }))).toBeUndefined();
+    });
+
     test("renders metadata as formatted JSON with a trailing newline", () => {
         expect(renderSkillMetadataJson({ version: "1.2.3" })).toBe(
             "{\n  \"version\": \"1.2.3\"\n}\n",

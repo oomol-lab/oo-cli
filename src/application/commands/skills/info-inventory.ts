@@ -4,7 +4,6 @@ import type { SkillMetadata } from "./skill-metadata.ts";
 import { createHash } from "node:crypto";
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, relative } from "node:path";
-import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
     directoryExists,
 } from "./bundled-skill-observation.ts";
@@ -26,21 +25,18 @@ import {
 import {
     resolveManagedSkillCanonicalDirectoryPath,
     resolveManagedSkillDirectoryPath,
-    resolveManagedSkillMetadataFilePath,
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
 import {
     isBundledSkillName,
 } from "./shared.ts";
+import { readSkillDirectoryState } from "./skill-directory-state.ts";
 import {
     hasFrontmatter,
     isSkillFrontmatterRecord,
     parseSkillMarkdownMatter,
     toNonBlankString,
 } from "./skill-frontmatter.ts";
-import {
-    parseSkillMetadataContent,
-} from "./skill-metadata.ts";
 
 export type SkillInventoryKind = "bundled" | "registry" | "local";
 
@@ -168,25 +164,29 @@ async function readHostScan(
     skillName: string,
 ): Promise<RawHostScan> {
     const path = resolveManagedSkillDirectoryPath(homeDirectory, skillName);
-    const metadataPath = resolveManagedSkillMetadataFilePath(path);
     let metadataPresent = false;
     let metadataParseable = false;
     let metadata: SkillMetadata | undefined;
 
     try {
-        const content = await readFile(metadataPath, "utf8");
+        const state = await readSkillDirectoryState(path);
 
-        metadataPresent = true;
-        metadata = parseSkillMetadataContent(content);
-        metadataParseable = metadata !== undefined;
-    }
-    catch (error) {
-        if (!isNodeNotFoundError(error)) {
-            // IO error → "present but unreadable" so the host falls into the
-            // `unknown` bucket instead of being read as non-managed.
+        if (state.kind === "managed") {
             metadataPresent = true;
-            metadataParseable = false;
+            metadataParseable = true;
+            metadata = state.metadata;
         }
+        else if (
+            state.kind === "not-directory"
+            || (state.kind === "unmanaged" && state.metadataFilePresent)
+        ) {
+            metadataPresent = true;
+        }
+    }
+    catch {
+        // IO error → "present but unreadable" so the host falls into the
+        // `unknown` bucket instead of being read as non-managed.
+        metadataPresent = true;
     }
 
     return {

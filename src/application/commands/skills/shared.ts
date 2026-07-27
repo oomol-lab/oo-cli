@@ -16,10 +16,7 @@ import {
     publishBundledSkillInstallation,
     removePath,
 } from "./bundled-skill-filesystem.ts";
-import { resolveBundledSkillInstallConflict } from "./bundled-skill-model.ts";
 import {
-    directoryExists,
-    isManagedBundledSkillInstallation,
     writeInstalledBundledSkillMetadata,
 } from "./bundled-skill-observation.ts";
 import {
@@ -36,6 +33,7 @@ import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallation,
 } from "./managed-skill-hosts.ts";
+import { readSkillDirectoryState } from "./skill-directory-state.ts";
 
 export interface BundledSkillHostInstallation extends ManagedSkillHostInstallation {
     canonicalSkillDirectoryPath: string;
@@ -193,53 +191,27 @@ async function validateBundledSkillInstallationTarget(
     context: Pick<CliExecutionContext, "logger">,
     force: boolean,
 ): Promise<void> {
-    const installedSkillDirectoryExists = await directoryExists(
-        installation.installedSkillDirectoryPath,
-    );
-
-    if (installedSkillDirectoryExists) {
-        const installedSkillDirectoryManaged
-            = await isManagedBundledSkillInstallation(
-                installation.installedSkillDirectoryPath,
-            );
-
-        if (resolveBundledSkillInstallConflict({
-            canonicalDirectoryExists: false,
-            canonicalDirectoryManaged: false,
-            installedDirectoryExists: true,
-            installedDirectoryManaged: installedSkillDirectoryManaged,
-        }) === "nameConflict") {
-            reportUnmanagedBundledSkillConflict(context.logger, {
-                agentName: installation.agentName,
-                blockedMessage: "Bundled skill install was blocked by an unmanaged directory.",
-                errorKey: "errors.skills.nameConflict",
-                force,
-                forcedMessage: "Forcefully overwriting unmanaged skill directory because --force was set.",
-                path: installation.installedSkillDirectoryPath,
-                skillName,
-            });
-        }
+    if (
+        await isUnmanagedBundledSkillDirectory(
+            installation.installedSkillDirectoryPath,
+        )
+    ) {
+        reportUnmanagedBundledSkillConflict(context.logger, {
+            agentName: installation.agentName,
+            blockedMessage: "Bundled skill install was blocked by an unmanaged directory.",
+            errorKey: "errors.skills.nameConflict",
+            force,
+            forcedMessage: "Forcefully overwriting unmanaged skill directory because --force was set.",
+            path: installation.installedSkillDirectoryPath,
+            skillName,
+        });
     }
 
-    const canonicalSkillDirectoryExists = await directoryExists(
-        installation.canonicalSkillDirectoryPath,
-    );
-
-    if (!canonicalSkillDirectoryExists) {
-        return;
-    }
-
-    const canonicalSkillDirectoryManaged
-        = await isManagedBundledSkillInstallation(
+    if (
+        !(await isUnmanagedBundledSkillDirectory(
             installation.canonicalSkillDirectoryPath,
-        );
-
-    if (resolveBundledSkillInstallConflict({
-        canonicalDirectoryExists: true,
-        canonicalDirectoryManaged: canonicalSkillDirectoryManaged,
-        installedDirectoryExists: false,
-        installedDirectoryManaged: false,
-    }) !== "storageConflict") {
+        ))
+    ) {
         return;
     }
 
@@ -252,6 +224,17 @@ async function validateBundledSkillInstallationTarget(
         path: installation.canonicalSkillDirectoryPath,
         skillName,
     });
+}
+
+// A directory is present at the path but does not carry bundled oo metadata,
+// so installing over it would clobber content oo does not own.
+async function isUnmanagedBundledSkillDirectory(
+    skillDirectoryPath: string,
+): Promise<boolean> {
+    const state = await readSkillDirectoryState(skillDirectoryPath);
+
+    return state.kind === "unmanaged"
+        || (state.kind === "managed" && state.metadata.kind !== "bundled");
 }
 
 function reportUnmanagedBundledSkillConflict(

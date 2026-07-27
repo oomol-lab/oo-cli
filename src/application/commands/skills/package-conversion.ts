@@ -17,10 +17,8 @@ import { getUnexpectedRequestErrorMessage } from "../shared/request.ts";
 import {
     managedSkillMetadataFileName,
 } from "./managed-skill-paths.ts";
-import {
-    skillPackageGitAttributesTemplate,
-    skillPackageGitIgnoreTemplate,
-} from "./package-templates.ts";
+import skillPackageGitAttributesTemplate from "./package-template-files/gitattributes.template" with { type: "text" };
+import skillPackageGitIgnoreTemplate from "./package-template-files/gitignore.template" with { type: "text" };
 import { removeManagedOoSkillArtifacts } from "./registry-skill-markdown.ts";
 import {
     hasFrontmatter,

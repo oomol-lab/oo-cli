@@ -12,17 +12,18 @@ import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
-import { directoryExists } from "./bundled-skill-observation.ts";
 import { readKnownManagedSkillInstallations } from "./installed-managed-skills.ts";
 import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
-import { isManagedSkillPublicationCurrent } from "./managed-skill-publication.ts";
 import { loadRegistryPackageSkillInfo } from "./registry-skill-source.ts";
 import { isBundledSkillName } from "./shared.ts";
+import {
+    isCurrentRegistryPublication,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 import {
     normalizeSkillFilterTokens,
     skillMatchesFilterTokens,
@@ -404,23 +405,16 @@ async function isEverythingCurrent(
     latestVersion: string,
 ): Promise<boolean> {
     const targetStates = await Promise.all(
-        hostInstallations.map(async (installation) => {
-            if (!(await directoryExists(installation.installedSkillDirectoryPath))) {
-                return { kind: "missing" as const };
-            }
-            const [metadata, publicationCurrent] = await Promise.all([
-                readManagedSkillMetadata(installation.installedSkillDirectoryPath),
-                isManagedSkillPublicationCurrent(installation.installedSkillDirectoryPath),
-            ]);
-            return { kind: "present" as const, metadata, publicationCurrent };
-        }),
+        hostInstallations.map(installation =>
+            readSkillDirectoryState(installation.installedSkillDirectoryPath),
+        ),
     );
 
     return targetStates.every(state =>
-        state.kind === "present"
-        && state.metadata?.packageName === packageName
-        && state.metadata.version === latestVersion
-        && state.publicationCurrent,
+        isCurrentRegistryPublication(state, {
+            packageName,
+            version: latestVersion,
+        }),
     );
 }
 

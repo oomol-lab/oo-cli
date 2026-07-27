@@ -1,8 +1,3 @@
-import type {
-    LocalSkillMetadata,
-    SkillMetadata,
-} from "./skill-metadata.ts";
-
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
@@ -28,55 +23,6 @@ export async function readSkillFileContent(
 
         throw error;
     }
-}
-
-export async function readSkillMetadataFileState(
-    skillDirectoryPath: string,
-): Promise<{
-    exists: boolean;
-    metadata: SkillMetadata | undefined;
-}> {
-    try {
-        const content = await readFile(
-            resolveManagedSkillMetadataFilePath(skillDirectoryPath),
-            "utf8",
-        );
-
-        return {
-            exists: true,
-            metadata: parseSkillMetadataContent(content),
-        };
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return {
-                exists: false,
-                metadata: undefined,
-            };
-        }
-
-        throw error;
-    }
-}
-
-export async function readLocalSkillMetadata(
-    skillDirectoryPath: string,
-): Promise<LocalSkillMetadata | undefined> {
-    const metadata = (await readSkillMetadataFileState(skillDirectoryPath)).metadata;
-
-    return metadata?.kind === "local" ? metadata : undefined;
-}
-
-// True when the metadata at the target identifies an oo-managed source
-// other than a local skill (bundled, registry, or a metadata file present
-// but unparseable).
-export function isForeignManagedMetadataState(state: {
-    exists: boolean;
-    metadata: SkillMetadata | undefined;
-}): boolean {
-    return state.metadata?.kind === "bundled"
-        || state.metadata?.kind === "registry"
-        || (state.exists && state.metadata === undefined);
 }
 
 export async function writeLocalSkillMetadata(

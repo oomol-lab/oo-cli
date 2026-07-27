@@ -13,13 +13,11 @@ import {
     publishBundledSkillInstallation,
 } from "./bundled-skill-filesystem.ts";
 import {
-    bundledSkillDevelopmentVersion,
-} from "./bundled-skill-model.ts";
-import {
     resolveBundledSkillCanonicalDirectoryPath,
 } from "./bundled-skill-paths.ts";
 import {
     availableBundledSkillNames,
+    bundledSkillDevelopmentVersion,
 } from "./embedded-assets.ts";
 import {
     resolveAvailableManagedSkillHosts,
@@ -31,7 +29,10 @@ import {
     resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { publishManagedBundledSkill } from "./shared.ts";
-import { readSkillDirectoryState } from "./skill-directory-state.ts";
+import {
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 interface CanonicalRegistrySkill {
     metadata: RegistrySkillMetadata;
@@ -94,11 +95,7 @@ async function synchronizeBundledSkill(
         const targetState = await readSkillDirectoryState(
             installation.installedSkillDirectoryPath,
         );
-        const installedMetadata
-            = targetState.kind === "managed"
-                && targetState.metadata.kind === "bundled"
-                ? targetState.metadata
-                : undefined;
+        const installedMetadata = managedMetadataOfKind(targetState, "bundled");
 
         if (targetState.kind !== "missing" && installedMetadata === undefined) {
             context.logger.warn(
@@ -269,11 +266,7 @@ async function synchronizeRegistrySkill(
         const targetState = await readSkillDirectoryState(
             installation.installedSkillDirectoryPath,
         );
-        const installedMetadata
-            = targetState.kind === "managed"
-                && targetState.metadata.kind === "registry"
-                ? targetState.metadata
-                : undefined;
+        const installedMetadata = managedMetadataOfKind(targetState, "registry");
 
         if (targetState.kind !== "missing" && installedMetadata === undefined) {
             context.logger.warn(
