@@ -5,7 +5,7 @@ import type {
     ConnectorActionDefinition,
     ConnectorActionMetadata,
 } from "./shared.ts";
-import type { ConnectorTarget } from "./target.ts";
+import type { ConnectorRequestTarget } from "./target.ts";
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -20,10 +20,37 @@ const connectorActionSchemaCacheTtlMs = 60 * 60 * 1000;
 const connectorActionSchemaCacheMaxEntries = 1000;
 const legacyConnectorActionSchemaCacheDirectoryName = "connector-actions";
 
-interface ConnectorActionSchemaIdentity {
+declare const connectorSchemaCacheScopeBrand: unique symbol;
+
+/**
+ * The account+endpoint dimension of the action schema cache key, opaque to
+ * everyone but this module: targets carry it, callers pass it through, and
+ * only the schema cache creates the brand and decomposes the encoding. This
+ * is what keeps cache-key fields from being misread as live URLs.
+ */
+export type ConnectorSchemaCacheScope = string & {
+    readonly [connectorSchemaCacheScopeBrand]: "ConnectorSchemaCacheScope";
+};
+
+export function createConnectorSchemaCacheScope(dimensions: {
     accountId: string;
-    actionName: string;
     endpoint: string;
+}): ConnectorSchemaCacheScope {
+    return JSON.stringify({
+        accountId: dimensions.accountId,
+        endpoint: dimensions.endpoint,
+    }) as ConnectorSchemaCacheScope;
+}
+
+// What the schema loader needs from a connector target: the wire fields for
+// the metadata fetch on a cache miss, plus the cache scope.
+export interface ConnectorSchemaRequestTarget extends ConnectorRequestTarget {
+    cacheScope: ConnectorSchemaCacheScope;
+}
+
+interface ConnectorActionSchemaIdentity {
+    actionName: string;
+    cacheScope: ConnectorSchemaCacheScope;
     serviceName: string;
 }
 
@@ -58,10 +85,7 @@ export async function loadConnectorActionSchema(
          */
         requireAsyncLifecycle?: boolean;
         serviceName: string;
-        target: Pick<
-            ConnectorTarget,
-            "authorization" | "baseUrl" | "cacheAccountId" | "cacheEndpoint" | "kind"
-        >;
+        target: ConnectorSchemaRequestTarget;
     },
     context: ConnectorActionSchemaLoaderContext,
 ): Promise<ConnectorActionMetadata> {
@@ -69,9 +93,8 @@ export async function loadConnectorActionSchema(
 
     const cache = openConnectorActionSchemaCache(context);
     const cacheKey = createConnectorActionSchemaCacheKey({
-        accountId: options.target.cacheAccountId,
         actionName: options.actionName,
-        endpoint: options.target.cacheEndpoint,
+        cacheScope: options.target.cacheScope,
         serviceName: options.serviceName,
     });
 
@@ -86,9 +109,8 @@ export async function loadConnectorActionSchema(
 
             context.logger.debug(
                 {
-                    accountId: options.target.cacheAccountId,
                     actionName: options.actionName,
-                    endpoint: options.target.cacheEndpoint,
+                    cacheScope: options.target.cacheScope,
                     serviceName: options.serviceName,
                 },
                 "Connector action schema cache entry lacks an async lifecycle; fetching metadata.",
@@ -98,9 +120,8 @@ export async function loadConnectorActionSchema(
     else {
         context.logger.debug(
             {
-                accountId: options.target.cacheAccountId,
                 actionName: options.actionName,
-                endpoint: options.target.cacheEndpoint,
+                cacheScope: options.target.cacheScope,
                 serviceName: options.serviceName,
             },
             "Connector action schema cache bypassed for refresh.",
@@ -120,9 +141,8 @@ export async function loadConnectorActionSchema(
         cache.set(cacheKey, metadata);
         context.logger.debug(
             {
-                accountId: options.target.cacheAccountId,
                 actionName: options.actionName,
-                endpoint: options.target.cacheEndpoint,
+                cacheScope: options.target.cacheScope,
                 serviceName: options.serviceName,
             },
             "Connector action schema response cached.",
@@ -147,7 +167,7 @@ export async function loadConnectorActionSchema(
  */
 export async function cacheConnectorActionSchemas(
     actions: readonly ConnectorActionDefinition[],
-    target: Pick<ConnectorTarget, "cacheAccountId" | "cacheEndpoint">,
+    cacheScope: ConnectorSchemaCacheScope,
     context: ConnectorActionSchemaCacheContext,
 ): Promise<void> {
     await cleanupLegacyConnectorActionSchemaCache(context);
@@ -157,9 +177,8 @@ export async function cacheConnectorActionSchemas(
     for (const action of actions) {
         cache.set(
             createConnectorActionSchemaCacheKey({
-                accountId: target.cacheAccountId,
                 actionName: action.name,
-                endpoint: target.cacheEndpoint,
+                cacheScope,
                 serviceName: action.service,
             }),
             connectorActionMetadataSchema.parse(action),
@@ -201,8 +220,7 @@ export function createConnectorActionSchemaCacheKey(
     identity: ConnectorActionSchemaIdentity,
 ): string {
     return JSON.stringify({
-        accountId: identity.accountId,
-        endpoint: identity.endpoint,
+        scope: identity.cacheScope,
         serviceName: identity.serviceName,
         actionName: identity.actionName,
     });

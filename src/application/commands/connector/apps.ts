@@ -95,7 +95,7 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
             list_scope: listScope,
         });
 
-        const apps = serviceName !== undefined && serviceName !== ""
+        const apps = hasService
             ? await listConnectorAppsByService(
                     { identity, serviceName, target },
                     context,

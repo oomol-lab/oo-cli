@@ -1,5 +1,6 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { SelfHostedConnectorConfig } from "../../schemas/connector.ts";
+import type { ConnectorSchemaCacheScope } from "./schema-cache.ts";
 
 import { buildEnvApiKeyAccount, requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -7,6 +8,7 @@ import {
     readEnvSelfHostedConnectorConfig,
     resolveSelfHostedConnector,
 } from "../shared/self-hosted-connector.ts";
+import { createConnectorSchemaCacheScope } from "./schema-cache.ts";
 
 // Stable cache identity for self-hosted targets. The self-hosted runtime has
 // no account concept, so the schema cache keys on this marker plus the
@@ -15,26 +17,45 @@ const selfHostedCacheAccountId = "self-hosted";
 
 export type ConnectorTargetKind = "oomol" | "self_hosted";
 
-export interface ConnectorTarget {
-    /**
-     * Header value sent as `Authorization`. The OOMOL service expects the raw
-     * API key; a self-hosted server expects `Bearer <token>`. Undefined means
-     * no header is sent (a self-hosted server with authentication disabled).
-     */
-    authorization?: string;
-    /** Normalized base URL without a trailing slash, e.g. `http://localhost:3000` or `https://connector.oomol.com`. */
+export interface OomolConnectorTarget {
+    /** Raw API key sent as `Authorization`. Always present for OOMOL targets. */
+    authorization: string;
+    /** Normalized base URL without a trailing slash, e.g. `https://connector.oomol.com`. */
     baseUrl: string;
-    /** Account dimension of the action schema cache key. */
-    cacheAccountId: string;
-    /** Endpoint dimension of the action schema cache key. */
-    cacheEndpoint: string;
-    kind: ConnectorTargetKind;
+    kind: "oomol";
+    /** Opaque schema-cache scope; only the schema cache can decompose it. */
+    cacheScope: ConnectorSchemaCacheScope;
+    /**
+     * Bare OOMOL endpoint domain (e.g. `oomol.com`) the target lends to
+     * account-scoped APIs such as the team lookups. Deliberately absent from
+     * self-hosted targets, so a self-hosted URL can never reach them.
+     */
+    accountEndpoint: string;
 }
 
-export type ConnectorRequestTarget = Pick<
-    ConnectorTarget,
-    "authorization" | "baseUrl" | "kind"
->;
+export interface SelfHostedConnectorTarget {
+    /**
+     * Header value sent as `Authorization` (`Bearer <token>`). Undefined
+     * means no header is sent (a server with authentication disabled).
+     */
+    authorization?: string;
+    /** Normalized base URL without a trailing slash, e.g. `http://localhost:3000`. */
+    baseUrl: string;
+    kind: "self_hosted";
+    /** Opaque schema-cache scope; only the schema cache can decompose it. */
+    cacheScope: ConnectorSchemaCacheScope;
+}
+
+export type ConnectorTarget = OomolConnectorTarget | SelfHostedConnectorTarget;
+
+// What the request layer needs from any target: where to send the request and
+// how to authenticate it. Declared structurally (not a Pick over the union) so
+// both members assign cleanly.
+export interface ConnectorRequestTarget {
+    authorization?: string;
+    baseUrl: string;
+    kind: ConnectorTargetKind;
+}
 
 /**
  * Resolves which connector server a connector-family command talks to.
@@ -64,13 +85,7 @@ export async function resolveConnectorTarget(
     const envAccount = buildEnvApiKeyAccount(context.env);
 
     if (envAccount !== undefined) {
-        return {
-            authorization: envAccount.apiKey,
-            baseUrl: `https://connector.${envAccount.endpoint}`,
-            cacheAccountId: envAccount.id,
-            cacheEndpoint: envAccount.endpoint,
-            kind: "oomol",
-        };
+        return createOomolConnectorTarget(envAccount);
     }
 
     const persistedSelfHosted = await resolveSelfHostedConnector(context);
@@ -81,13 +96,7 @@ export async function resolveConnectorTarget(
 
     const { account } = await requireIdentity(context);
 
-    return {
-        authorization: account.apiKey,
-        baseUrl: `https://connector.${account.endpoint}`,
-        cacheAccountId: account.id,
-        cacheEndpoint: account.endpoint,
-        kind: "oomol",
-    };
+    return createOomolConnectorTarget(account);
 }
 
 /**
@@ -162,9 +171,24 @@ export function normalizeSelfHostedConnectorToken(rawToken: string): string {
     return trimmed;
 }
 
+function createOomolConnectorTarget(
+    account: { apiKey: string; endpoint: string; id: string },
+): OomolConnectorTarget {
+    return {
+        authorization: account.apiKey,
+        baseUrl: `https://connector.${account.endpoint}`,
+        kind: "oomol",
+        cacheScope: createConnectorSchemaCacheScope({
+            accountId: account.id,
+            endpoint: account.endpoint,
+        }),
+        accountEndpoint: account.endpoint,
+    };
+}
+
 function createSelfHostedConnectorTarget(
     config: SelfHostedConnectorConfig,
-): ConnectorTarget {
+): SelfHostedConnectorTarget {
     const baseUrl = normalizeSelfHostedConnectorUrl(config.url);
 
     return {
@@ -172,9 +196,11 @@ function createSelfHostedConnectorTarget(
             ? {}
             : { authorization: `Bearer ${config.token}` }),
         baseUrl,
-        cacheAccountId: selfHostedCacheAccountId,
-        cacheEndpoint: baseUrl,
         kind: "self_hosted",
+        cacheScope: createConnectorSchemaCacheScope({
+            accountId: selfHostedCacheAccountId,
+            endpoint: baseUrl,
+        }),
     };
 }
 

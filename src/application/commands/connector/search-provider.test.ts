@@ -13,7 +13,10 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 
-import { createConnectorActionSchemaCacheKey } from "./schema-cache.ts";
+import {
+    createConnectorActionSchemaCacheKey,
+    createConnectorSchemaCacheScope,
+} from "./schema-cache.ts";
 import { loadConnectorSearchResults } from "./search-provider.ts";
 
 describe("connector search provider", () => {
@@ -71,9 +74,11 @@ describe("connector search provider", () => {
             "https://connector.oomol.com/v1/actions/search?q=send+mail",
         ]);
         expect(cache.get(createConnectorActionSchemaCacheKey({
-            accountId: "user-1",
             actionName: "send_mail",
-            endpoint: "oomol.com",
+            cacheScope: createConnectorSchemaCacheScope({
+                accountId: "user-1",
+                endpoint: "oomol.com",
+            }),
             serviceName: "gmail",
         }))).toMatchObject({
             description: "Send a Gmail message.",
@@ -115,9 +120,11 @@ describe("connector search provider", () => {
 
         expect(results).toHaveLength(1);
         expect(cache.get(createConnectorActionSchemaCacheKey({
-            accountId: "user-1",
             actionName: "send_mail",
-            endpoint: "oomol.com",
+            cacheScope: createConnectorSchemaCacheScope({
+                accountId: "user-1",
+                endpoint: "oomol.com",
+            }),
             serviceName: "gmail",
         }))).toBeNull();
     });

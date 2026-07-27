@@ -1,4 +1,4 @@
-import type { CliTelemetryPropertyValue, Fetcher } from "../../contracts/cli.ts";
+import type { Fetcher } from "../../contracts/cli.ts";
 import type { AuthFile } from "../../schemas/auth.ts";
 import type { ConnectorFile } from "../../schemas/connector.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
@@ -9,10 +9,12 @@ import pino from "pino";
 import {
     createAuthStore,
     createInMemoryConnectorStore,
+    createRecordingTelemetry,
     createSettingsStore,
     expectCliUserError,
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
+import { createConnectorSchemaCacheScope } from "./schema-cache.ts";
 import { resolveConnectorSession, teamIdentityOptions } from "./session.ts";
 
 const testAccount = {
@@ -98,9 +100,11 @@ describe("resolveConnectorSession on a self-hosted target", () => {
         expect(session.target).toEqual({
             authorization: "Bearer oct_1",
             baseUrl: "http://localhost:3000",
-            cacheAccountId: "self-hosted",
-            cacheEndpoint: "http://localhost:3000",
             kind: "self_hosted",
+            cacheScope: createConnectorSchemaCacheScope({
+                accountId: "self-hosted",
+                endpoint: "http://localhost:3000",
+            }),
         });
         expect(context.requests).toHaveLength(0);
         expect(context.recordedProperties).toEqual([
@@ -119,9 +123,12 @@ describe("resolveConnectorSession identity ladder", () => {
         expect(session.target).toEqual({
             authorization: "api-secret-1",
             baseUrl: "https://connector.oomol.com",
-            cacheAccountId: "user-1",
-            cacheEndpoint: "oomol.com",
             kind: "oomol",
+            cacheScope: createConnectorSchemaCacheScope({
+                accountId: "user-1",
+                endpoint: "oomol.com",
+            }),
+            accountEndpoint: "oomol.com",
         });
         expect(context.recordedProperties).toEqual([
             { connector_kind: "oomol", identity_source: "personal" },
@@ -328,7 +335,7 @@ function createSessionContext(
     } = {},
 ) {
     const requests: Array<{ url: string; authorization: string | null }> = [];
-    const recordedProperties: Array<Record<string, CliTelemetryPropertyValue>> = [];
+    const { recordedProperties, telemetry } = createRecordingTelemetry();
     const fetcher = options.fetcher ?? (async () => new Response("{}"));
 
     return {
@@ -345,15 +352,7 @@ function createSessionContext(
         }) satisfies Fetcher,
         logger: pino({ enabled: false }),
         settingsStore: createSettingsStore(options.settings ?? {}),
-        telemetry: {
-            directoryPath: "",
-            recordProperties: (
-                properties: Record<string, CliTelemetryPropertyValue>,
-            ) => {
-                recordedProperties.push(properties);
-            },
-            suppressCurrentInvocation: () => {},
-        },
+        telemetry,
         translator: createTranslator("en"),
         recordedProperties,
         requests,

@@ -1,9 +1,18 @@
 import type { Logger } from "pino";
 import type { CliInvocation } from "../src/application/bootstrap/run-cli.ts";
-import type { ConnectorTarget } from "../src/application/commands/connector/target.ts";
+import type {
+    OomolConnectorTarget,
+    SelfHostedConnectorTarget,
+} from "../src/application/commands/connector/target.ts";
 import type { AuthStore } from "../src/application/contracts/auth-store.ts";
 import type { Cache, CacheOptions, CacheStore } from "../src/application/contracts/cache.ts";
-import type { Fetcher, InteractiveInput, Writer } from "../src/application/contracts/cli.ts";
+import type {
+    CliExecutionContext,
+    CliTelemetryPropertyValue,
+    Fetcher,
+    InteractiveInput,
+    Writer,
+} from "../src/application/contracts/cli.ts";
 import type { ConnectorStore } from "../src/application/contracts/connector-store.ts";
 import type { FileDownloadSessionStore } from "../src/application/contracts/file-download-session-store.ts";
 import type { FileUploadRecordStore } from "../src/application/contracts/file-upload-store.ts";
@@ -22,6 +31,9 @@ import { resolveStorePaths } from "../src/adapters/store/store-path.ts";
 import {
     executeCli as executeCliInvocation,
 } from "../src/application/bootstrap/run-cli.ts";
+import {
+    createConnectorSchemaCacheScope,
+} from "../src/application/commands/connector/schema-cache.ts";
 import {
     connectionRefusedErrorCode,
     failedToOpenSocketErrorCode,
@@ -441,29 +453,34 @@ export async function writeAuthFile(
 }
 
 export function createConnectorTargetFixture(
-    overrides: Partial<ConnectorTarget> = {},
-): ConnectorTarget {
+    overrides: Partial<OomolConnectorTarget> = {},
+): OomolConnectorTarget {
     return {
         authorization: "secret-1",
         baseUrl: "https://connector.oomol.com",
-        cacheAccountId: "user-1",
-        cacheEndpoint: "oomol.com",
         kind: "oomol",
+        cacheScope: createConnectorSchemaCacheScope({
+            accountId: "user-1",
+            endpoint: "oomol.com",
+        }),
+        accountEndpoint: "oomol.com",
         ...overrides,
     };
 }
 
 export function createSelfHostedConnectorTargetFixture(
-    overrides: Partial<ConnectorTarget> = {},
-): ConnectorTarget {
-    return createConnectorTargetFixture({
+    overrides: Partial<SelfHostedConnectorTarget> = {},
+): SelfHostedConnectorTarget {
+    return {
         authorization: "Bearer oct_x",
         baseUrl: "http://localhost:3000",
-        cacheAccountId: "self-hosted",
-        cacheEndpoint: "http://localhost:3000",
         kind: "self_hosted",
+        cacheScope: createConnectorSchemaCacheScope({
+            accountId: "self-hosted",
+            endpoint: "http://localhost:3000",
+        }),
         ...overrides,
-    });
+    };
 }
 
 export function createInMemoryConnectorStore(
@@ -1020,6 +1037,26 @@ export function createCache<Value>(handlers: {
             return handlers.get(key) !== null;
         },
         clear: () => {},
+    };
+}
+
+// A telemetry double that records every recordProperties call in order, for
+// tests that assert what a code path reports without a real outbox.
+export function createRecordingTelemetry(): {
+    recordedProperties: Array<Record<string, CliTelemetryPropertyValue>>;
+    telemetry: NonNullable<CliExecutionContext["telemetry"]>;
+} {
+    const recordedProperties: Array<Record<string, CliTelemetryPropertyValue>> = [];
+
+    return {
+        recordedProperties,
+        telemetry: {
+            directoryPath: "",
+            recordProperties: (properties) => {
+                recordedProperties.push(properties);
+            },
+            suppressCurrentInvocation: () => {},
+        },
     };
 }
 

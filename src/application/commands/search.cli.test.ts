@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createCliSnapshot,
+    expectTelemetryFreeOfTeamIdentity,
     readLatestLogContent,
     toRequest,
     writeAuthFile,
@@ -122,67 +123,7 @@ describe("searchCommand CLI", () => {
                     identity_source: "flag",
                 },
             });
-            expect(telemetryPayload?.properties).not.toHaveProperty("team");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("validates the OO_TEAM_ID env team and sends both identity headers", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            await writeAuthFile(sandbox);
-            sandbox.env.OO_TEAM_ID = "team-1";
-
-            const requests: Request[] = [];
-            const result = await sandbox.run(
-                ["search", "send mail"],
-                {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
-
-                        requests.push(request);
-
-                        if (new URL(request.url).pathname.startsWith("/v1/teams/")) {
-                            return new Response(JSON.stringify({
-                                id: "team-1",
-                                name: "acme",
-                                role: "member",
-                                system_created: false,
-                            }));
-                        }
-
-                        return new Response(JSON.stringify({
-                            success: true,
-                            message: "ok",
-                            data: [],
-                        }));
-                    },
-                },
-            );
-            const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
-            );
-
-            expect(result.exitCode).toBe(0);
-            // The id is validated and completed first, then the search request
-            // carries both identity dimensions.
-            expect(requests).toHaveLength(2);
-            expect(requests[0]?.url).toBe(
-                "https://relation-control.oomol.com/v1/teams/team-1",
-            );
-            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-1");
-            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("acme");
-            expect(telemetryPayload).toMatchObject({
-                properties: {
-                    command_full: "search",
-                    identity_source: "env_id",
-                },
-            });
+            expectTelemetryFreeOfTeamIdentity(telemetryPayload?.properties, ["acme"]);
         }
         finally {
             await sandbox.cleanup();
