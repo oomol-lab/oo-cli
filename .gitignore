@@ -32,3 +32,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# local agent workflow (not part of the published repo)
+.scratch/
+docs/agents/
+docs/adr/
+CLAUDE.local.md
+CONTEXT.md
