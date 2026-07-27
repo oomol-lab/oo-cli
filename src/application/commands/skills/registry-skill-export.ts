@@ -3,9 +3,9 @@ import type { RegistryPackageSkillInfo, RegistrySkillSummary } from "./registry-
 
 import { cp, mkdir, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { removePath } from "./bundled-skill-filesystem.ts";
 import {
     extractRegistryPackageArchive,
@@ -65,7 +65,7 @@ export async function exportRegistrySkills(
     request: RegistrySkillExportRequest,
     context: CliExecutionContext,
 ): Promise<RegistrySkillExportOutcome> {
-    const account = await requireCurrentAccount(context);
+    const { account } = await requireIdentity(context);
     const packageInfo = await loadRegistryPackageSkillInfo(
         request.packageName,
         account,

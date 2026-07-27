@@ -12,10 +12,10 @@ import type {
 
 import ignore from "ignore";
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver } from "../../semver.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parseCommaSeparatedValues } from "../shared/list-parsing.ts";
 import { writeLine } from "../shared/output.ts";
@@ -202,7 +202,7 @@ export async function uploadRegistrySkills(
     },
     context: CliExecutionContext,
 ): Promise<void> {
-    const account = await requireCurrentAccount(context);
+    const { account } = await requireIdentity(context);
     const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
     const records = filterSkillSyncRecords(
         await collectRegistrySkillSyncRecords(
@@ -222,7 +222,7 @@ export async function uploadRegistrySkills(
 }
 
 export async function applyRegistrySkills(context: CliExecutionContext): Promise<void> {
-    const account = await requireCurrentAccount(context);
+    const { account } = await requireIdentity(context);
     const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
 
     if (availableHosts.length === 0) {
@@ -282,7 +282,7 @@ async function runSyncUploadJsonReportInner(
     let account: AuthAccount;
 
     try {
-        account = await requireCurrentAccount(context);
+        account = (await requireIdentity(context)).account;
     }
     catch (error) {
         errors.push({
@@ -401,7 +401,7 @@ async function runSyncApplyJsonReportInner(
     let account: AuthAccount;
 
     try {
-        account = await requireCurrentAccount(context);
+        account = (await requireIdentity(context)).account;
     }
     catch (error) {
         errors.push({

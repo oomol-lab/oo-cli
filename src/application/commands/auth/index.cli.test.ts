@@ -93,7 +93,7 @@ describe("auth CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
-            expect(content).toContain(`"msg":"Auth store read completed."`);
+            expect(content).toContain(`"msg":"Auth store tolerant read completed."`);
             expect(content).toContain(`"msg":"Current auth account resolved."`);
             expect(content).toContain(`"msg":"Auth status request started."`);
             expect(content).toContain(`"msg":"Auth status request completed."`);
@@ -1921,7 +1921,7 @@ describe("auth CLI OO_API_KEY override", () => {
         }
     });
 
-    test("status still fails on a corrupt auth.toml without OO_API_KEY", async () => {
+    test("status reports a corrupt auth.toml instead of failing", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -1929,10 +1929,37 @@ describe("auth CLI OO_API_KEY override", () => {
 
             const result = await sandbox.run(["auth", "status"]);
 
-            // Without the override the file IS the credential, so a corrupt one
-            // must still be an error rather than a silent empty account list.
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout + result.stderr).toContain("is not valid TOML");
+            // Status is the diagnostic command, so an unreadable file must be
+            // reported — never a command failure, and never a silent empty
+            // account list.
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("is unreadable");
+            expect(result.stdout).toContain("Not logged in");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("status --format json keeps stdout machine-readable on a corrupt auth.toml", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeCorruptAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["auth", "status", "--format", "json"],
+            );
+
+            // The corrupt-file warning must not contaminate the JSON payload;
+            // diagnostics go to stderr.
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                status: "logged-out",
+                activeAccountId: null,
+                accounts: [],
+            });
+            expect(result.stderr).toContain("is unreadable");
         }
         finally {
             await sandbox.cleanup();

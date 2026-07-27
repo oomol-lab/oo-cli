@@ -1,8 +1,8 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 
 const llmConfigFormatValues = ["json"] as const;
@@ -32,7 +32,7 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentAccount(context);
+        const { account } = await requireIdentity(context);
         const baseUrl = createLlmBaseUrl(account.endpoint);
         const config: LlmConfigOutput = {
             apiKey: account.apiKey,

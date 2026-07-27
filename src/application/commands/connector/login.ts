@@ -1,11 +1,10 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import { resolveIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withRequestTarget } from "../../logging/log-fields.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { readCurrentAuth } from "../auth/shared.ts";
-import { buildEnvApiKeyAccount } from "../shared/auth-env-override.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     normalizeSelfHostedConnectorToken,
@@ -254,13 +253,11 @@ function writeConnectorLoginOutput(
 async function writeMissingOomolAccountNote(
     context: CliExecutionContext,
 ): Promise<void> {
-    if (buildEnvApiKeyAccount(context.env) !== undefined) {
-        return;
-    }
+    // Tolerant: this note is optional enrichment, so a missing or corrupt
+    // auth.toml must not take the connector login down.
+    const { account } = await resolveIdentity(context);
 
-    const { currentAccount } = await readCurrentAuth(context);
-
-    if (currentAccount !== undefined) {
+    if (account !== undefined) {
         return;
     }
 

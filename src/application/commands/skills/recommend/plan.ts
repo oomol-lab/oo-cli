@@ -5,6 +5,7 @@ import type { RecommendationCooldownGate } from "./recommendation-cooldown.ts";
 import type { CandidateResolution, RecommendationPartition } from "./recommendation-plan.ts";
 
 import { z } from "zod";
+import { resolveIdentity } from "../../../auth/identity.ts";
 import {
     getDismissedSkillRecommendations,
     isSkillRecommendationsMuted,
@@ -12,7 +13,6 @@ import {
 import { compareSemver } from "../../../semver.ts";
 import { bucketTelemetryCount } from "../../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../../json-output.ts";
-import { resolveCurrentEndpoint } from "../../shared/auth-utils.ts";
 import { createFormatInputError } from "../../shared/input-parsing.ts";
 import { writeLine } from "../../shared/output.ts";
 import { readKnownManagedSkillInstallations } from "../installed-managed-skills.ts";
@@ -216,7 +216,7 @@ async function resolveCandidates(
     // The package-info endpoint is public, so the existence check needs only
     // the endpoint, not a logged-in account.
     const endpoint = remoteTargets.length > 0
-        ? await resolveCurrentEndpoint(context)
+        ? (await resolveIdentity(context)).endpoint
         : undefined;
 
     await mapWithConcurrency(

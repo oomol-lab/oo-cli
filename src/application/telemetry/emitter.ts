@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { arch, release } from "node:os";
 import process from "node:process";
 import { parse as parseToml } from "smol-toml";
-import { buildEnvApiKeyAccount } from "../commands/shared/auth-env-override.ts";
+import { buildEnvApiKeyAccount } from "../auth/identity.ts";
 import { authTomlFileSchema, getCurrentAuthAccount } from "../schemas/auth.ts";
 import { detectInstallationMethodFromExecPath } from "../self-update/installation.ts";
 import {

@@ -7,10 +7,10 @@ import type {
 import { stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import {
     completeMultipartFileUpload,
     createFormatInputError,
@@ -55,7 +55,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const format = parseFileFormat(input.format);
-        const account = await requireCurrentAccount(context);
+        const { account } = await requireIdentity(context);
         const sourceFile = await readSourceFile(
             input.filePath,
             context.cwd,

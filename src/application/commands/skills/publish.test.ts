@@ -382,12 +382,18 @@ describe("skills publish command", () => {
             {},
             {
                 // Simulate auth resolved from OO_API_KEY: a synthetic account
-                // with no real scope (id "oo-env-override").
-                requireCurrentAccount: async () => ({
-                    apiKey: "env-key",
+                // with no real scope, marked by source "env".
+                requireIdentity: async () => ({
+                    account: {
+                        apiKey: "env-key",
+                        endpoint: "oomol.com",
+                        id: "oo-env-override",
+                        name: "Environment (OO_API_KEY)",
+                    },
                     endpoint: "oomol.com",
-                    id: "oo-env-override",
-                    name: "Environment (OO_API_KEY)",
+                    fileState: "unread" as const,
+                    overriddenBy: "OO_API_KEY" as const,
+                    source: "env" as const,
                 }),
                 convertSkillDirectoryToPackage: () => {
                     throw new Error("Conversion should not run.");

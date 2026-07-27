@@ -1,18 +1,19 @@
+import type { RequiredIdentity } from "../../auth/identity.ts";
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 import type { PackageInfoResponse } from "../shared/package-info.ts";
-import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
 
+import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
 import type { SkillPublishVisibility } from "./package-conversion.ts";
 import { cp, lstat, mkdir, mkdtemp, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
+
 import { compareSemver, isSemver } from "../../semver.ts";
-import { isEnvOverrideAccount } from "../shared/auth-env-override.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { parseEnumOption } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../shared/package-info.ts";
@@ -118,7 +119,7 @@ interface PublishSkillPackageDependencies {
     createTemporaryPackageRoot?: () => Promise<string>;
     publishConvertedSkillPackage?: typeof publishConvertedSkillPackage;
     removeTemporaryPackageRoot?: (path: string) => Promise<void>;
-    requireCurrentAccount?: typeof requireCurrentAccount;
+    requireIdentity?: typeof requireIdentity;
     resolveFinalPublishVersion?: (
         request: ResolveSkillPublishVersionRequest,
     ) => Promise<string>;
@@ -202,10 +203,11 @@ export async function publishSkillPackage(
     const source = await resolveSkillPublishSource(skillPath, context);
     const yes = options.yes === true;
     const force = options.force === true;
-    const requireAccount = dependencies.requireCurrentAccount ?? requireCurrentAccount;
+    const resolveRequiredIdentity = dependencies.requireIdentity ?? requireIdentity;
 
-    const account = await requireAccount(context);
-    const packageName = await resolveSkillPublishPackageName(account, source);
+    const identity = await resolveRequiredIdentity(context);
+    const account = identity.account;
+    const packageName = await resolveSkillPublishPackageName(identity, source);
 
     context.telemetry?.recordProperties({
         force,
@@ -428,7 +430,7 @@ async function areSamePath(leftPath: string, rightPath: string): Promise<boolean
 }
 
 async function resolveSkillPublishPackageName(
-    account: Pick<AuthAccount, "id" | "name">,
+    identity: Pick<RequiredIdentity, "account" | "source">,
     source: SkillPublishSource,
 ): Promise<string> {
     const scopedPackageName = await readSkillPublishSourceScopedPackageName(source);
@@ -440,11 +442,11 @@ async function resolveSkillPublishPackageName(
     // The OO_API_KEY env override has no account scope, so deriving a canonical
     // package name from its synthetic account name would produce an invalid
     // identifier. Require an explicit scoped packageName instead.
-    if (isEnvOverrideAccount(account)) {
+    if (identity.source === "env") {
         throw new CliUserError("errors.skills.publish.envApiKeyPackageName", 1);
     }
 
-    return resolveCanonicalSkillPackageName(account.name, source.skillId);
+    return resolveCanonicalSkillPackageName(identity.account.name, source.skillId);
 }
 
 async function readSkillPublishSourceScopedPackageName(

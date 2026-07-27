@@ -12,9 +12,9 @@ import type {
 
 import type { PreparedRegistrySkillPublication } from "./registry-skill-publication.ts";
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
@@ -251,7 +251,7 @@ export async function updateManagedSkills(
 
     try {
         const account = registrySkillGroups.length > 0
-            ? await requireCurrentAccount(context)
+            ? (await requireIdentity(context)).account
             : undefined;
         const phaseOneResults = await Promise.all(
             registrySkillGroups.map(group =>
@@ -935,7 +935,7 @@ async function runUpdateForSkills(
 
     if (groups.length > 0) {
         try {
-            account = await requireCurrentAccount(context);
+            account = (await requireIdentity(context)).account;
         }
         catch (error) {
             const code = mapUpdateErrorCode(error);

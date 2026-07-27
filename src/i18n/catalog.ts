@@ -32,6 +32,8 @@ export const enMessages = {
         "Request failed (network-restricted sandbox, try requesting elevated permissions)",
     "auth.status.apiKeyStatus": "API key status",
     "auth.status.apiKeyValid": "Valid",
+    "auth.status.authFileCorrupt":
+        "The auth file at {path} is unreadable; saved accounts are not shown.",
     "auth.status.envOverride": "Logged in to {endpoint} with the API key from OO_API_KEY",
     "auth.status.loggedOut": "Not logged in to any OOMOL account.",
     "auth.status.savedAccountsIgnored":
@@ -1375,6 +1377,7 @@ export const zhMessages = {
         "请求失败（网络受限沙箱，请尝试提权）",
     "auth.status.apiKeyStatus": "API key 状态",
     "auth.status.apiKeyValid": "有效",
+    "auth.status.authFileCorrupt": "无法读取 {path} 的 auth 文件，已保存的账号未能展示。",
     "auth.status.envOverride": "已使用 OO_API_KEY 中的 API key 登录 {endpoint}",
     "auth.status.loggedOut": "当前没有登录任何 OOMOL 账号。",
     "auth.status.savedAccountsIgnored": "设置了 OO_API_KEY 时，保存的账号不会被使用。",

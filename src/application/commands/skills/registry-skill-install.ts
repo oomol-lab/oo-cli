@@ -6,9 +6,9 @@ import type {
 } from "./install-output.ts";
 import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import type { RegistryPackageSkillInfo, RegistrySkillSummary } from "./registry-skill-source.ts";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { writeLine } from "../shared/output.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import { writeManagedSkillInstallSummary } from "./install-output.ts";
@@ -78,7 +78,7 @@ export async function installRegistrySkills(
     request: RegistrySkillInstallRequest,
     context: CliExecutionContext,
 ): Promise<ManagedSkillInstallSummary[]> {
-    const account = await requireCurrentAccount(context);
+    const { account } = await requireIdentity(context);
     const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
     const shouldRecordTelemetry = request.recordTelemetry !== false;
     const shouldWriteOutput = request.writeOutput !== false;

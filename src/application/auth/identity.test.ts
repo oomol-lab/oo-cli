@@ -56,6 +56,17 @@ describe("resolveIdentity", () => {
         });
     });
 
+    test("trims whitespace from OO_API_KEY and OO_ENDPOINT", async () => {
+        const { context } = createIdentityContext({
+            env: { OO_API_KEY: "  env-key  ", OO_ENDPOINT: "  oomol.dev " },
+        });
+
+        const identity = await resolveIdentity(context);
+
+        expect(identity.account?.apiKey).toBe("env-key");
+        expect(identity.endpoint).toBe("oomol.dev");
+    });
+
     test("treats a blank OO_API_KEY as unset", async () => {
         const { context } = createIdentityContext({
             authFile: { auth: [activeAccount], id: "user-1" },
@@ -266,6 +277,7 @@ describe("resolveLoginEndpoint", () => {
         expected: string;
     }>([
         { case: "prefers OO_ENDPOINT", env: { OO_ENDPOINT: "oomol.dev" }, expected: "oomol.dev" },
+        { case: "trims OO_ENDPOINT", env: { OO_ENDPOINT: "  oomol.dev " }, expected: "oomol.dev" },
         { case: "defaults to the public endpoint", env: {}, expected: "oomol.com" },
         { case: "treats a blank OO_ENDPOINT as unset", env: { OO_ENDPOINT: "  " }, expected: "oomol.com" },
         {

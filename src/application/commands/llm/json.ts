@@ -3,9 +3,9 @@ import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
-import { requireCurrentAccount } from "../shared/auth-utils.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import {
@@ -108,7 +108,7 @@ export const llmJsonCommand: CliCommandDefinition<LlmJsonInput> = {
     }),
     mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const account = await requireCurrentAccount(context);
+        const { account } = await requireIdentity(context);
         const schema = await readRequiredJsonSchema(input.schema, context);
         const [validator, schemaError] = compileJsonSchema(schema);
 

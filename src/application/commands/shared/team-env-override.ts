@@ -1,4 +1,4 @@
-import { readTrimmedEnv } from "./auth-env-override.ts";
+import { readTrimmedEnv } from "../../auth/identity.ts";
 
 // Environment variables that let embedded and automated callers pin the team
 // identity without touching the `identity.team` config default. OO_TEAM_ID
