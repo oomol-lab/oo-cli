@@ -183,7 +183,6 @@ export function requireConnectorActionName(rawAction: string | undefined): strin
     return trimmed;
 }
 
-export type ConnectorActionDefinition = z.output<typeof connectorActionDefinitionSchema>;
 export type ConnectorActionSearchResult = z.output<typeof connectorActionSearchResultSchema>;
 export type ConnectorActionAsyncLifecycle = z.output<typeof connectorActionAsyncLifecycleSchema>;
 export type ConnectorActionMetadata = z.output<typeof connectorActionMetadataSchema>;

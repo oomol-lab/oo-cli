@@ -13,10 +13,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 
-import {
-    createConnectorActionSchemaCacheKey,
-    createConnectorSchemaCacheScope,
-} from "./schema-cache.ts";
+import { loadConnectorActionSchema } from "./schema-cache.ts";
 import { loadConnectorSearchResults } from "./search-provider.ts";
 
 describe("connector search provider", () => {
@@ -73,14 +70,25 @@ describe("connector search provider", () => {
         expect(requests.map(request => request.url)).toEqual([
             "https://connector.oomol.com/v1/actions/search?q=send+mail",
         ]);
-        expect(cache.get(createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
+
+        // The warmed entry serves a later schema load without a fetch (the
+        // context fetcher rejects every request), and the identity-scoped
+        // `authenticated` flag from the search response is not stored.
+        const warmed = await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createSearchContext({
+                cache,
+                fetcher: async () => {
+                    throw new Error("Unexpected fetch");
+                },
             }),
-            serviceName: "gmail",
-        }))).toMatchObject({
+        );
+
+        expect(warmed).toMatchObject({
             description: "Send a Gmail message.",
             inputSchema: {
                 type: "object",
@@ -91,42 +99,7 @@ describe("connector search provider", () => {
             },
             service: "gmail",
         });
-    });
-
-    test("skips schema cache warming for results without schema payloads", async () => {
-        const cache = createMemoryCache();
-
-        const results = await loadConnectorSearchResults(
-            {
-                target: createConnectorTargetFixture(),
-                text: "send mail",
-            },
-            createSearchContext({
-                cache,
-                fetcher: async () => new Response(JSON.stringify({
-                    success: true,
-                    message: "ok",
-                    data: [
-                        {
-                            authenticated: true,
-                            description: "Send a Gmail message.",
-                            name: "send_mail",
-                            service: "gmail",
-                        },
-                    ],
-                })),
-            }),
-        );
-
-        expect(results).toHaveLength(1);
-        expect(cache.get(createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
-            serviceName: "gmail",
-        }))).toBeNull();
+        expect("authenticated" in warmed).toBeFalse();
     });
 
     test("returns search results when schema cache warming fails", async () => {

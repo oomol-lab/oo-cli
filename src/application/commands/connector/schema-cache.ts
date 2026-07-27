@@ -2,8 +2,8 @@ import type { Cache } from "../../contracts/cache.ts";
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
 import type {
-    ConnectorActionDefinition,
     ConnectorActionMetadata,
+    ConnectorActionSearchResult,
 } from "./shared.ts";
 import type { ConnectorRequestTarget } from "./target.ts";
 import { rm } from "node:fs/promises";
@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
 
 import {
+    connectorActionDefinitionSchema,
     connectorActionMetadataSchema,
     getConnectorActionMetadata,
 } from "./shared.ts";
@@ -63,14 +64,6 @@ type ConnectorActionSchemaLoaderContext = Pick<
     CliExecutionContext,
     "cacheStore" | "fetcher" | "logger" | "settingsStore" | "translator"
 >;
-
-export interface ConnectorActionSchemaOutput {
-    description: string;
-    inputSchema: unknown;
-    name: string;
-    outputSchema: unknown;
-    service: string;
-}
 
 export async function loadConnectorActionSchema(
     options: {
@@ -160,30 +153,81 @@ export async function loadConnectorActionSchema(
 }
 
 /**
- * Bulk cache populator used to warm the connector action schema cache from
- * connector search responses (which carry `inputSchema` / `outputSchema` but
- * never an `asyncLifecycle`). `loadConnectorActionSchema` still fills the
- * cache lazily from the metadata API for anything search did not cover.
+ * Best-effort bulk populator that warms the action schema cache from connector
+ * search responses. Owns the whole warm-time policy: results without both
+ * schema payloads are not cacheable and are skipped, identity-scoped fields
+ * (notably the team-scoped `authenticated` flag, which must not enter a cache
+ * keyed without a team dimension) are stripped before storing, and failures
+ * are logged instead of surfacing — the caller's flow never fails on a cache
+ * write. `loadConnectorActionSchema` still fills the cache lazily from the
+ * metadata API for anything search did not cover.
  */
-export async function cacheConnectorActionSchemas(
-    actions: readonly ConnectorActionDefinition[],
+export async function warmConnectorActionSchemas(
+    actions: readonly ConnectorActionSearchResult[],
     cacheScope: ConnectorSchemaCacheScope,
     context: ConnectorActionSchemaCacheContext,
 ): Promise<void> {
-    await cleanupLegacyConnectorActionSchemaCache(context);
+    const cacheableActions = actions.filter(action =>
+        action.inputSchema !== undefined && action.outputSchema !== undefined);
 
-    const cache = openConnectorActionSchemaCache(context);
+    if (cacheableActions.length === 0) {
+        return;
+    }
 
-    for (const action of actions) {
-        cache.set(
-            createConnectorActionSchemaCacheKey({
-                actionName: action.name,
-                cacheScope,
-                serviceName: action.service,
-            }),
-            connectorActionMetadataSchema.parse(action),
+    try {
+        await cleanupLegacyConnectorActionSchemaCache(context);
+
+        const cache = openConnectorActionSchemaCache(context);
+
+        for (const action of cacheableActions) {
+            cache.set(
+                createConnectorActionSchemaCacheKey({
+                    actionName: action.name,
+                    cacheScope,
+                    serviceName: action.service,
+                }),
+                // The definition schema strips every non-schema field the
+                // search response carries; the metadata parse then restores
+                // the metadata defaults on the stored entry.
+                connectorActionMetadataSchema.parse(
+                    connectorActionDefinitionSchema.parse(action),
+                ),
+            );
+        }
+    }
+    catch (error) {
+        context.logger.warn(
+            {
+                err: error,
+            },
+            "Failed to warm the connector action schema cache.",
         );
     }
+}
+
+/**
+ * The single owner of the "not-found evicts" rule: when `error` reports that
+ * the action no longer exists (HTTP 404 or an `action_not_found` error code),
+ * the cached schema for that identity is deleted so the next load refetches.
+ * Any other error leaves the cache untouched.
+ */
+export function invalidateConnectorActionSchemaOnNotFound(
+    options: ConnectorActionSchemaIdentity & {
+        error: unknown;
+    },
+    context: Pick<CliExecutionContext, "cacheStore">,
+): void {
+    if (!isConnectorActionSchemaNotFoundError(options.error)) {
+        return;
+    }
+
+    openConnectorActionSchemaCache(context).delete(
+        createConnectorActionSchemaCacheKey({
+            actionName: options.actionName,
+            cacheScope: options.cacheScope,
+            serviceName: options.serviceName,
+        }),
+    );
 }
 
 export async function clearConnectorActionSchemaCache(
@@ -193,30 +237,7 @@ export async function clearConnectorActionSchemaCache(
     openConnectorActionSchemaCache(context).clear();
 }
 
-export function deleteConnectorActionSchemaCache(
-    identity: ConnectorActionSchemaIdentity,
-    context: Pick<CliExecutionContext, "cacheStore">,
-): boolean {
-    return openConnectorActionSchemaCache(context).delete(
-        createConnectorActionSchemaCacheKey(identity),
-    );
-}
-
-export function createConnectorActionSchemaOutput(
-    schema: ConnectorActionMetadata,
-): ConnectorActionSchemaOutput {
-    const output: ConnectorActionSchemaOutput = {
-        description: schema.description,
-        inputSchema: schema.inputSchema,
-        name: schema.name,
-        outputSchema: schema.outputSchema,
-        service: schema.service,
-    };
-
-    return output;
-}
-
-export function createConnectorActionSchemaCacheKey(
+function createConnectorActionSchemaCacheKey(
     identity: ConnectorActionSchemaIdentity,
 ): string {
     return JSON.stringify({
@@ -226,7 +247,7 @@ export function createConnectorActionSchemaCacheKey(
     });
 }
 
-export function isConnectorActionSchemaNotFoundError(error: unknown): boolean {
+function isConnectorActionSchemaNotFoundError(error: unknown): boolean {
     if (!(error instanceof CliUserError)) {
         return false;
     }

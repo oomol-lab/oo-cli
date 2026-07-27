@@ -17,8 +17,7 @@ import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
 import {
-    deleteConnectorActionSchemaCache,
-    isConnectorActionSchemaNotFoundError,
+    invalidateConnectorActionSchemaOnNotFound,
     loadConnectorActionSchema,
 } from "./schema-cache.ts";
 import {
@@ -285,16 +284,15 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         catch (error) {
             progressReporter?.abort();
             recordConnectorFailureTelemetry(error, context.telemetry);
-            if (isConnectorActionSchemaNotFoundError(error)) {
-                deleteConnectorActionSchemaCache(
-                    {
-                        actionName: currentTarget.actionName,
-                        cacheScope: target.cacheScope,
-                        serviceName: currentTarget.serviceName,
-                    },
-                    context,
-                );
-            }
+            invalidateConnectorActionSchemaOnNotFound(
+                {
+                    actionName: currentTarget.actionName,
+                    cacheScope: target.cacheScope,
+                    error,
+                    serviceName: currentTarget.serviceName,
+                },
+                context,
+            );
             throw error;
         }
 

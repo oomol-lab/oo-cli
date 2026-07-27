@@ -1,15 +1,12 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import type { ConnectorActionSchemaOutput } from "./schema-cache.ts";
+import type { ConnectorActionMetadata } from "./shared.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
-import {
-    createConnectorActionSchemaOutput,
-    loadConnectorActionSchema,
-} from "./schema-cache.ts";
+import { loadConnectorActionSchema } from "./schema-cache.ts";
 import { connectorSchemaRefreshCommand } from "./schema-refresh.ts";
 import { requireConnectorActionName } from "./shared.ts";
 import { resolveConnectorTarget } from "./target.ts";
@@ -137,6 +134,29 @@ function parseQualifiedActionId(rawActionId: string): QualifiedActionTarget {
     return {
         actionName: trimmed.slice(separatorIndex + 1),
         serviceName: trimmed.slice(0, separatorIndex),
+    };
+}
+
+// The stable `oo connector schema` output contract: exactly the five schema
+// fields, so cache-internal metadata (permissions, lifecycle, passthrough
+// fields) never leaks into the CLI output.
+interface ConnectorActionSchemaOutput {
+    description: string;
+    inputSchema: unknown;
+    name: string;
+    outputSchema: unknown;
+    service: string;
+}
+
+function createConnectorActionSchemaOutput(
+    schema: ConnectorActionMetadata,
+): ConnectorActionSchemaOutput {
+    return {
+        description: schema.description,
+        inputSchema: schema.inputSchema,
+        name: schema.name,
+        outputSchema: schema.outputSchema,
+        service: schema.service,
     };
 }
 
