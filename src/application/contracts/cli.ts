@@ -61,9 +61,11 @@ export interface CliArgumentDefinition {
 export type CliCommandHandler<TInput> = {
     bivarianceHack: (
         input: TInput,
-        context: CliExecutionContext,
+        context: CliCommandContext,
     ) => Promise<void> | void;
 }["bivarianceHack"];
+
+export type CliCommandOutputMode = "standard" | "json-only";
 
 export interface CliCommandDefinition<TInput = unknown> {
     name: string;
@@ -74,6 +76,12 @@ export interface CliCommandDefinition<TInput = unknown> {
     descriptionKey?: string;
     arguments?: readonly CliArgumentDefinition[];
     options?: readonly CliOptionDefinition[];
+    /**
+     * Declares the command's relationship to the JSON/text output contract.
+     * When set, the adapter attaches the shared output options and builds a
+     * strict output handle; undeclared commands get an inert text handle.
+     */
+    output?: CliCommandOutputMode;
     missingArgumentBehavior?: "error" | "showHelp";
     inputSchema?: ZodType;
     mapInputError?: (
@@ -140,6 +148,15 @@ export interface CompletionRenderer {
     render: (shell: SupportedShell, catalog: CliCatalog) => string;
 }
 
+export interface CommandOutput {
+    /** Resolved once per invocation; "json" iff --format json / --json (or json-only mode). */
+    format: "json" | "text";
+    /** Standard shape: JSON mode writes the payload (with envelope), text mode calls renderText. */
+    emit: (payload: unknown, renderText: () => void) => void;
+    /** For format-gated paths (report writers, json-only commands): write JSON with envelope. */
+    emitJson: (payload: unknown) => void;
+}
+
 export interface CliExecutionContext {
     authStore: AuthStore;
     cacheStore: CacheStore;
@@ -170,6 +187,11 @@ export interface CliExecutionContext {
     catalog: CliCatalog;
     version: string;
     versionText?: string;
+}
+
+/** The context command handlers receive: the execution context plus the output handle. */
+export interface CliCommandContext extends CliExecutionContext {
+    output: CommandOutput;
 }
 
 export type CliMessageParams = Record<string, string | number>;

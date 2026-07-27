@@ -1,4 +1,4 @@
-import type { CliExecutionContext } from "../../contracts/cli.ts";
+import type { CliCommandContext } from "../../contracts/cli.ts";
 
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
@@ -28,7 +28,7 @@ describe("file cleanup command", () => {
                 },
                 stdout: stdout.writer,
                 translator: createTranslator("en"),
-            } as unknown as CliExecutionContext,
+            } as unknown as CliCommandContext,
         );
 
         expect(typeof deletedAt).toBe("number");
@@ -55,7 +55,7 @@ describe("file cleanup command", () => {
                 },
                 stdout: stdout.writer,
                 translator: createTranslator("en"),
-            } as unknown as CliExecutionContext,
+            } as unknown as CliCommandContext,
         );
 
         expect(stdout.read()).toBe("{\"deletedCount\":2}\n");
@@ -82,7 +82,7 @@ describe("file cleanup command", () => {
                 },
                 stdout: stdout.writer,
                 translator: createTranslator("en"),
-            } as unknown as CliExecutionContext,
+            } as unknown as CliCommandContext,
         );
 
         expect(JSON.parse(stdout.read())).toEqual({
@@ -111,7 +111,7 @@ describe("file cleanup command", () => {
                 },
                 stdout: stdout.writer,
                 translator: createTranslator("en"),
-            } as unknown as CliExecutionContext,
+            } as unknown as CliCommandContext,
         );
 
         expect(stdout.read()).toBe(

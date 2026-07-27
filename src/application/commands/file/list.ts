@@ -1,7 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import {
     createFormatInputError,
     parseFileFormat,
@@ -23,7 +23,7 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
     summaryKey: "commands.file.list.summary",
     descriptionKey: "commands.file.list.description",
     options: [
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
         {
             name: "status",
             longFlag: "--status",

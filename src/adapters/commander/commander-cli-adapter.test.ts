@@ -7,6 +7,7 @@ import {
     createNoopFileUploadStore,
     createTextBuffer,
 } from "../../../__tests__/helpers.ts";
+import { JSON_OUTPUT_SCHEMA_VERSION } from "../../application/commands/command-output.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import { CommanderCliAdapter } from "./commander-cli-adapter.ts";
 
@@ -131,6 +132,127 @@ describe("CommanderCliAdapter", () => {
                 upper: true,
             },
         ]);
+    });
+
+    test("attaches the shared output options and hands the handler a working output handle", async () => {
+        const adapter = new CommanderCliAdapter();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const observedFormats: string[] = [];
+        const catalog: CliCatalog = {
+            commands: [
+                {
+                    handler: (_input, context) => {
+                        observedFormats.push(context.output.format);
+                        context.output.emit({ ok: true }, () => {
+                            context.stdout.write("text\n");
+                        });
+                    },
+                    inputSchema: z.object({}),
+                    name: "demo",
+                    output: "standard",
+                    summaryKey: "commands.help.summary",
+                },
+            ],
+            descriptionKey: "app.description",
+            globalOptions: [],
+            name: "oo",
+        };
+
+        const exitCode = await adapter.run({
+            argv: ["demo", "--json", "--show-schema-version"],
+            catalog,
+            context: createCommanderContext(catalog, stdout.writer, stderr.writer),
+        });
+
+        expect(exitCode).toBe(0);
+        expect(observedFormats).toEqual(["json"]);
+        expect(JSON.parse(stdout.read())).toEqual({
+            ok: true,
+            schemaVersion: JSON_OUTPUT_SCHEMA_VERSION,
+        });
+    });
+
+    test("rejects an invalid --format value before the handler runs", async () => {
+        const adapter = new CommanderCliAdapter();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        let handlerRan = false;
+        const failedEvents: Array<{ errorKey?: string; exitCode: number }> = [];
+        const catalog: CliCatalog = {
+            commands: [
+                {
+                    handler: () => {
+                        handlerRan = true;
+                    },
+                    inputSchema: z.object({}),
+                    name: "demo",
+                    output: "standard",
+                    summaryKey: "commands.help.summary",
+                },
+            ],
+            descriptionKey: "app.description",
+            globalOptions: [],
+            name: "oo",
+        };
+
+        const exitCode = await adapter.run({
+            argv: ["demo", "--format", "yaml"],
+            catalog,
+            context: createCommanderContext(catalog, stdout.writer, stderr.writer),
+            observer: {
+                onCommandFailed: (event) => {
+                    failedEvents.push(event);
+                },
+            },
+        });
+
+        expect(exitCode).toBe(2);
+        expect(handlerRan).toBe(false);
+        expect(failedEvents).toEqual([
+            {
+                errorKey: "errors.shared.invalidFormat",
+                exitCode: 2,
+            },
+        ]);
+    });
+
+    test("reports json output format for json-only commands without flags", async () => {
+        const adapter = new CommanderCliAdapter();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const resolvedFormats: string[] = [];
+        const catalog: CliCatalog = {
+            commands: [
+                {
+                    handler: (_input, context) => {
+                        context.output.emitJson({ ok: true });
+                    },
+                    inputSchema: z.object({}),
+                    name: "demo",
+                    output: "json-only",
+                    summaryKey: "commands.help.summary",
+                },
+            ],
+            descriptionKey: "app.description",
+            globalOptions: [],
+            name: "oo",
+        };
+
+        const exitCode = await adapter.run({
+            argv: ["demo"],
+            catalog,
+            context: createCommanderContext(catalog, stdout.writer, stderr.writer),
+            observer: {
+                onCommandResolved: (event) => {
+                    resolvedFormats.push(event.outputFormat);
+                },
+            },
+        });
+
+        expect(exitCode).toBe(0);
+        expect(resolvedFormats).toEqual(["json"]);
+        expect(stdout.read()).toBe("{\"ok\":true}\n");
     });
 
     test("maps option alias flags to the primary option name", async () => {

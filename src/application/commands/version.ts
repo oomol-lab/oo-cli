@@ -6,7 +6,7 @@ import {
     resolveCliBuildInfo,
     shortenCommitHash,
 } from "../config/build-info.ts";
-import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "./command-output.ts";
 import { createFormatInputError } from "./shared/input-parsing.ts";
 
 const versionFormatValues = ["json"] as const;
@@ -20,7 +20,7 @@ export const versionCommand: CliCommandDefinition<VersionInput> = {
     name: "version",
     summaryKey: "commands.version.summary",
     descriptionKey: "commands.version.description",
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         format: z.enum(versionFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),

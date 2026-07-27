@@ -7,7 +7,7 @@ import { z } from "zod";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { createWriterColors } from "../terminal-colors.ts";
-import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "./command-output.ts";
 import { createFormatInputError } from "./shared/input-parsing.ts";
 import { directoryExists } from "./skills/bundled-skill-observation.ts";
 import {
@@ -59,7 +59,7 @@ export const infoCommand: CliCommandDefinition<InfoInput> = {
     name: "info",
     summaryKey: "commands.info.summary",
     descriptionKey: "commands.info.description",
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         format: z.enum(infoFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),

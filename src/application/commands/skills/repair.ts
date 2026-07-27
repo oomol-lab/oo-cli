@@ -6,7 +6,7 @@ import type { BundledSkillAgentName, BundledSkillName } from "./embedded-assets.
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { writeLine } from "../shared/output.ts";
 import { publishBundledSkillInstallation } from "./bundled-skill-filesystem.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
@@ -123,7 +123,7 @@ export const skillsRepairCommand: CliCommandDefinition<SkillsRepairInput> = {
             valueName: "agents...",
             descriptionKey: "options.skills.repair.agent",
         },
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         agent: z.array(z.string()).optional(),

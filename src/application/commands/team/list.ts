@@ -9,7 +9,7 @@ import { requireIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { resolveTeamIdentity } from "./identity.ts";
 import { listMemberTeams, teamFormatValues } from "./shared.ts";
@@ -30,7 +30,7 @@ export const teamListCommand: CliCommandDefinition<TeamListInput> = {
     name: "list",
     summaryKey: "commands.team.list.summary",
     descriptionKey: "commands.team.list.description",
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         format: z.enum(teamFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),

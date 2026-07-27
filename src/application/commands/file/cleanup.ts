@@ -1,7 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError, parseFileFormat } from "./shared.ts";
 
 interface FileCleanupInput {
@@ -15,7 +15,7 @@ export const fileCleanupCommand: CliCommandDefinition<FileCleanupInput> = {
     name: "cleanup",
     summaryKey: "commands.file.cleanup.summary",
     descriptionKey: "commands.file.cleanup.description",
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         format: z.string().optional(),
         showSchemaVersion: z.boolean().optional(),

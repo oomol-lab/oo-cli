@@ -9,7 +9,7 @@ import {
     bucketTelemetryStringLength,
 } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parseCommaSeparatedKeywords } from "../shared/keywords.ts";
 import { requestOo } from "../shared/oo-request.ts";
@@ -63,7 +63,7 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
         },
     ],
     options: [
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
         {
             name: "keywords",
             longFlag: "--keywords",

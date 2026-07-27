@@ -6,6 +6,7 @@ import {
     bucketTelemetryCount,
     bucketTelemetryStringLength,
 } from "../telemetry/buckets.ts";
+import { outputFormatOptions, writeJsonOutput } from "./command-output.ts";
 import {
     formatConnectorSearchResultsAsText,
     loadConnectorSearchResults,
@@ -15,7 +16,6 @@ import {
     teamIdentityInputShape,
     teamIdentityOptions,
 } from "./connector/session.ts";
-import { jsonOutputOptions, writeJsonOutput } from "./json-output.ts";
 import { createFormatInputError } from "./shared/input-parsing.ts";
 
 const searchFormatValues = ["json"] as const;
@@ -45,7 +45,7 @@ export const searchCommand: CliCommandDefinition<SearchInput> = {
             personal: "options.searchPersonal",
             team: "options.searchTeam",
         }),
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         format: z.enum(searchFormatValues).optional(),

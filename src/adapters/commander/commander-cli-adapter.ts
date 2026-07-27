@@ -17,6 +17,11 @@ import {
     Option,
 } from "commander";
 import {
+    createCommandOutput,
+    outputFormatOptions,
+    resolveOutputFormat,
+} from "../../application/commands/command-output.ts";
+import {
     CliUserError,
 } from "../../application/contracts/cli.ts";
 import { LocalizedHelp } from "./localized-help.ts";
@@ -238,7 +243,11 @@ function configureCommand(
         );
     }
 
-    for (const option of definition.options ?? []) {
+    const options = definition.output === undefined
+        ? definition.options ?? []
+        : [...definition.options ?? [], ...outputFormatOptions];
+
+    for (const option of options) {
         for (const commanderOption of createOptions(option, translator)) {
             command.addOption(commanderOption);
         }
@@ -277,8 +286,16 @@ function bindCommandHandler<TInput>(
             commandPath: resolveCommandPath(commandInstance),
             excludeFromTelemetry: definition.excludeFromTelemetry === true,
             flagsCount: countFlagArguments(request.argv),
-            outputFormat: resolveOutputFormat(optionValues),
+            outputFormat: definition.output === "json-only"
+                ? "json"
+                : resolveOutputFormat(optionValues),
         });
+
+        const output = createCommandOutput(
+            request.context.stdout,
+            optionValues,
+            definition.output,
+        );
 
         const parsedInput = parseInput(
             definition,
@@ -286,7 +303,7 @@ function bindCommandHandler<TInput>(
             rawInput,
         );
 
-        await handler(parsedInput, request.context);
+        await handler(parsedInput, { ...request.context, output });
         request.observer?.onCommandCompleted?.({ exitCode: 0 });
     });
 }
@@ -559,12 +576,6 @@ function countRawPositionalArguments<TInput>(
 
 function countFlagArguments(argv: readonly string[]): number {
     return argv.filter(argument => argument.startsWith("-") && argument !== "--").length;
-}
-
-function resolveOutputFormat(optionValues: OptionValues): "json" | "text" {
-    return optionValues.format === "json" || optionValues.json === true
-        ? "json"
-        : "text";
 }
 
 function resolveParseErrorKind(

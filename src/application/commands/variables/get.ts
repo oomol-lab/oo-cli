@@ -1,7 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { writeLine } from "../shared/output.ts";
 import { getVariable, mapVariablesInputError, variableFormatValues, variableNameSchema } from "./shared.ts";
 
@@ -23,7 +23,7 @@ export const variablesGetCommand: CliCommandDefinition<VariablesGetInput> = {
             required: true,
         },
     ],
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         name: variableNameSchema,
         format: z.enum(variableFormatValues).optional(),

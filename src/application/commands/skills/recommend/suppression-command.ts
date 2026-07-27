@@ -7,7 +7,7 @@ import {
     getDismissedSkillRecommendations,
     isSkillRecommendationsMuted,
 } from "../../../schemas/settings.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../../command-output.ts";
 import { createFormatInputError } from "../../shared/input-parsing.ts";
 import { writeLine } from "../../shared/output.ts";
 import { createPackageNamesTelemetryProperties } from "../telemetry.ts";
@@ -55,7 +55,7 @@ export function createSuppressionCommand(
                 longFlag: "--all",
                 descriptionKey: `options.skills.recommend.${config.name}.all`,
             },
-            ...jsonOutputOptions,
+            ...outputFormatOptions,
         ],
         inputSchema: z.object({
             all: z.boolean().optional(),

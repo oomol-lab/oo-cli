@@ -6,7 +6,7 @@ import type { ConnectorAppView } from "./shared.ts";
 import { z } from "zod";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { connectorSearchServiceColor } from "./search-provider.ts";
 import {
@@ -69,7 +69,7 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
             personal: "options.connectorAppsPersonal",
             team: "options.connectorAppsTeam",
         }),
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         format: z.enum(connectorFormatValues).optional(),

@@ -1,6 +1,6 @@
 import type {
     CliCatalog,
-    CliExecutionContext,
+    CliCommandContext,
     CliTelemetryPropertyValue,
     Fetcher,
     InteractiveInput,
@@ -20,6 +20,7 @@ import {
     createTextBuffer,
     toRequest,
 } from "../../../../__tests__/helpers.ts";
+import { createCommandOutput } from "../command-output.ts";
 import { skillsSearchCommand } from "./search.ts";
 
 const searchHandler = skillsSearchCommand.handler!;
@@ -184,13 +185,14 @@ describe("skillsSearchCommand", () => {
 function createSearchContext(options: {
     fetcher: Fetcher;
     telemetryProperties?: Record<string, CliTelemetryPropertyValue>;
-}): CliExecutionContext & {
+}): CliCommandContext & {
     stdoutBuffer: ReturnType<typeof createTextBuffer>;
 } {
     const stdoutBuffer = createTextBuffer();
     const stderr = createTextBuffer();
 
     return {
+        output: createCommandOutput(stdoutBuffer.writer, {}, undefined),
         authStore: createAuthStore(activeAuthFile),
         cacheStore: {
             close() {},

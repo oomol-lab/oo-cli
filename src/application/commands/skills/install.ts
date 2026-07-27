@@ -18,7 +18,7 @@ import { join, resolve } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parsePackageSpecifier } from "../shared/package-info.ts";
 import {
@@ -137,7 +137,7 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             valueName: "agent",
             descriptionKey: "options.skills.install.agentFormat",
         },
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         force: z.boolean().optional(),

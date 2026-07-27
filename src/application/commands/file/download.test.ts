@@ -1,5 +1,6 @@
 import type {
     CliCatalog,
+    CliCommandContext,
     CliExecutionContext,
     Fetcher,
     InteractiveInput,
@@ -25,6 +26,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { SidecarFileDownloadSessionStore } from "../../../adapters/store/sidecar-file-download-session-store.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
+import { createCommandOutput } from "../command-output.ts";
 import { fileDownloadCommand } from "./download.ts";
 import {
     createDownloadSessionRecordFixture,
@@ -357,7 +359,7 @@ function createDownloadContext(options: {
     fileDownloadSessionStore: CliExecutionContext["fileDownloadSessionStore"];
     settings: AppSettings;
 }): {
-    context: CliExecutionContext;
+    context: CliCommandContext;
     stderr: ReturnType<typeof createTextBuffer>;
     stdout: ReturnType<typeof createTextBuffer>;
 } {
@@ -366,6 +368,7 @@ function createDownloadContext(options: {
 
     return {
         context: {
+            output: createCommandOutput(stdout.writer, {}, undefined),
             authStore: createAuthStore(emptyAuthFile),
             cacheStore: createCacheStore(),
             connectorStore: createInMemoryConnectorStore(),

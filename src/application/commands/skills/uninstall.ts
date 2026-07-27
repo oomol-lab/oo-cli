@@ -17,7 +17,7 @@ import type {
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { removePath } from "./bundled-skill-filesystem.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
@@ -96,7 +96,7 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
             valueName: "agent",
             descriptionKey: "options.agent",
         },
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         agent: z.string().optional(),

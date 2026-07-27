@@ -5,7 +5,7 @@ import {
     bucketTelemetryCount,
     bucketTelemetryStringLength,
 } from "../../telemetry/buckets.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import {
     formatConnectorSearchResultsAsText,
@@ -43,7 +43,7 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
             personal: "options.searchPersonal",
             team: "options.searchTeam",
         }),
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         format: z.enum(connectorFormatValues).optional(),

@@ -7,7 +7,7 @@ import type {
 import { z } from "zod";
 import { resolveIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
@@ -52,7 +52,7 @@ export const teamCurrentCommand: CliCommandDefinition<TeamCurrentInput> = {
     name: "current",
     summaryKey: "commands.team.current.summary",
     descriptionKey: "commands.team.current.description",
-    options: [...jsonOutputOptions],
+    options: [...outputFormatOptions],
     inputSchema: z.object({
         format: z.enum(teamFormatValues).optional(),
         showSchemaVersion: z.boolean().optional(),

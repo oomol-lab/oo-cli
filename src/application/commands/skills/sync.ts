@@ -13,7 +13,7 @@ import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parseCommaSeparatedValues } from "../shared/list-parsing.ts";
 import { requestOo } from "../shared/oo-request.ts";
@@ -98,7 +98,7 @@ export const skillsSyncCommand: CliCommandDefinition = {
                     valueName: "patterns...",
                     descriptionKey: "options.skillSyncIgnore",
                 },
-                ...jsonOutputOptions,
+                ...outputFormatOptions,
             ],
             inputSchema: z.object({
                 ignore: z.array(z.string()).optional(),
@@ -153,7 +153,7 @@ export const skillsSyncCommand: CliCommandDefinition = {
                     valueName: "source",
                     descriptionKey: "options.skillSyncSource",
                 },
-                ...jsonOutputOptions,
+                ...outputFormatOptions,
             ],
             inputSchema: z.object({
                 source: z.string().optional(),

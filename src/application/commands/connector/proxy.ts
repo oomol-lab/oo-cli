@@ -5,7 +5,7 @@ import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
-import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
+import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import {
@@ -116,7 +116,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             personal: "options.connectorProxyPersonal",
             team: "options.connectorProxyTeam",
         }),
-        ...jsonOutputOptions,
+        ...outputFormatOptions,
     ],
     inputSchema: z.object({
         body: z.string().optional(),
