@@ -71,12 +71,12 @@ Arguments:
   text                   Search text
 
 Options:
+  --keywords <keywords>  Specify comma-separated keywords to refine the skill
+                         search
   --format <format>      Specify output format (use json for structured output)
   --json                 Alias for --format=json
   --show-schema-version  Include schemaVersion in JSON output (no effect without
                          --json)
-  --keywords <keywords>  Specify comma-separated keywords to refine the skill
-                         search
   -h, --help             Show help for command
 
 Global Options:
@@ -96,12 +96,12 @@ Arguments:
   text                   Search text
 
 Options:
+  --keywords <keywords>  Specify comma-separated keywords to refine the skill
+                         search
   --format <format>      Specify output format (use json for structured output)
   --json                 Alias for --format=json
   --show-schema-version  Include schemaVersion in JSON output (no effect without
                          --json)
-  --keywords <keywords>  Specify comma-separated keywords to refine the skill
-                         search
   -h, --help             Show help for command
 
 Global Options:

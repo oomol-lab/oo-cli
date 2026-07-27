@@ -1,10 +1,10 @@
 import type { CliCommandContext } from "../../contracts/cli.ts";
 
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
 
 import { createTextBuffer } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
+import { createCommandOutput } from "../command-output.ts";
 import { fileCleanupCommand } from "./cleanup.ts";
 
 describe("file cleanup command", () => {
@@ -26,6 +26,7 @@ describe("file cleanup command", () => {
                         return Promise.resolve(1);
                     },
                 },
+                output: createCommandOutput(stdout.writer, {}, "standard"),
                 stdout: stdout.writer,
                 translator: createTranslator("en"),
             } as unknown as CliCommandContext,
@@ -39,9 +40,7 @@ describe("file cleanup command", () => {
         const stdout = createTextBuffer();
 
         await fileCleanupCommand.handler!(
-            {
-                format: "json",
-            },
+            {},
             {
                 fileUploadStore: {
                     deleteExpired() {
@@ -53,6 +52,11 @@ describe("file cleanup command", () => {
                         return Promise.resolve(0);
                     },
                 },
+                output: createCommandOutput(
+                    stdout.writer,
+                    { format: "json" },
+                    "standard",
+                ),
                 stdout: stdout.writer,
                 translator: createTranslator("en"),
             } as unknown as CliCommandContext,
@@ -65,10 +69,7 @@ describe("file cleanup command", () => {
         const stdout = createTextBuffer();
 
         await fileCleanupCommand.handler!(
-            {
-                format: "json",
-                showSchemaVersion: true,
-            },
+            {},
             {
                 fileUploadStore: {
                     deleteExpired() {
@@ -80,6 +81,11 @@ describe("file cleanup command", () => {
                         return Promise.resolve(0);
                     },
                 },
+                output: createCommandOutput(
+                    stdout.writer,
+                    { format: "json", showSchemaVersion: true },
+                    "standard",
+                ),
                 stdout: stdout.writer,
                 translator: createTranslator("en"),
             } as unknown as CliCommandContext,
@@ -95,9 +101,7 @@ describe("file cleanup command", () => {
         const stdout = createTextBuffer();
 
         await fileCleanupCommand.handler!(
-            {
-                showSchemaVersion: true,
-            },
+            {},
             {
                 fileUploadStore: {
                     deleteExpired() {
@@ -109,6 +113,11 @@ describe("file cleanup command", () => {
                         return Promise.resolve(0);
                     },
                 },
+                output: createCommandOutput(
+                    stdout.writer,
+                    { showSchemaVersion: true },
+                    "standard",
+                ),
                 stdout: stdout.writer,
                 translator: createTranslator("en"),
             } as unknown as CliCommandContext,
@@ -117,22 +126,5 @@ describe("file cleanup command", () => {
         expect(stdout.read()).toBe(
             "Deleted 3 expired or stale file transfer records.\n",
         );
-    });
-
-    test("maps invalid format input to a user-facing error", () => {
-        const error = fileCleanupCommand.mapInputError!(
-            new z.ZodError([]),
-            {
-                format: "yaml",
-            },
-        );
-
-        expect(error).toMatchObject({
-            exitCode: 2,
-            key: "errors.shared.invalidFormat",
-            params: {
-                value: "yaml",
-            },
-        });
     });
 });

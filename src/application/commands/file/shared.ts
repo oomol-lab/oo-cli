@@ -9,16 +9,11 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createRetryingFetcher } from "../../shared/retrying-fetcher.ts";
-import { parseEnumOption, parsePositiveIntegerOption } from "../shared/input-parsing.ts";
+import { parsePositiveIntegerOption } from "../shared/input-parsing.ts";
 import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
 
-export { createFormatInputError } from "../shared/input-parsing.ts";
-
-export const fileFormatValues = ["json"] as const;
 export const fileUploadExpiresInMs = ((7 * 24 * 60 * 60) - 1) * 1000;
 export const maxFileUploadSizeBytes = 500 * 1024 * 1024;
-
-export type FileFormat = (typeof fileFormatValues)[number];
 
 export interface FileUploadRecordView {
     downloadUrl: string;
@@ -82,12 +77,6 @@ const completeFileUploadResponseSchema = z.object({
 }).passthrough();
 
 const fileUploadPartExtraRetries = 1;
-
-export function parseFileFormat(
-    value: string | undefined,
-): FileFormat | undefined {
-    return parseEnumOption(value, fileFormatValues, "errors.shared.invalidFormat");
-}
 
 export function parseFileLimit(value: string | undefined): number | undefined {
     return parsePositiveIntegerOption(

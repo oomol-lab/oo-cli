@@ -13,7 +13,6 @@ import type { SkillListSource } from "./managed-skill-listings.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { collectSkillsInfoInventory } from "./info-inventory.ts";
 import {
     parseManagedSkillAgentOption,
@@ -27,8 +26,6 @@ const managedSkillVersionColor = "#7DD3FC";
 
 interface SkillsListInput {
     agent?: string;
-    format?: "json";
-    showSchemaVersion?: boolean;
     source?: SkillListSource;
 }
 
@@ -51,12 +48,10 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
             valueName: "source",
             descriptionKey: "options.skillListSource",
         },
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
         agent: z.string().optional(),
-        format: z.enum(["json"]).optional(),
-        showSchemaVersion: z.boolean().optional(),
         source: z.enum(skillListSourceValues).optional(),
     }),
     mapInputError: (_, rawInput) => new CliUserError(
@@ -86,14 +81,9 @@ export const skillsListCommand: CliCommandDefinition<SkillsListInput> = {
             "Skills listed.",
         );
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, inventory, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        context.stdout.write(`${formatInventoryAsText(inventory, context)}\n`);
+        context.output.emit(inventory, () => {
+            context.stdout.write(`${formatInventoryAsText(inventory, context)}\n`);
+        });
     },
 };
 

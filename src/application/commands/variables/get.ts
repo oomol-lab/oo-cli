@@ -1,14 +1,11 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { writeLine } from "../shared/output.ts";
-import { getVariable, mapVariablesInputError, variableFormatValues, variableNameSchema } from "./shared.ts";
+import { getVariable, mapVariablesInputError, variableNameSchema } from "./shared.ts";
 
 interface VariablesGetInput {
     name: string;
-    format?: (typeof variableFormatValues)[number];
-    showSchemaVersion?: boolean;
 }
 
 export const variablesGetCommand: CliCommandDefinition<VariablesGetInput> = {
@@ -23,24 +20,17 @@ export const variablesGetCommand: CliCommandDefinition<VariablesGetInput> = {
             required: true,
         },
     ],
-    options: [...outputFormatOptions],
+    output: "standard",
     inputSchema: z.object({
         name: variableNameSchema,
-        format: z.enum(variableFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: mapVariablesInputError,
     handler: async (input, context) => {
         const { account } = await requireIdentity(context);
         const variable = await getVariable(account, input.name, context);
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, variable, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        writeLine(context.stdout, variable.value);
+        context.output.emit(variable, () => {
+            writeLine(context.stdout, variable.value);
+        });
     },
 };

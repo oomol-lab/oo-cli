@@ -13,8 +13,6 @@ import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parseCommaSeparatedValues } from "../shared/list-parsing.ts";
 import { requestOo } from "../shared/oo-request.ts";
 import { writeLine } from "../shared/output.ts";
@@ -49,14 +47,10 @@ export type SkillSyncRecord = z.output<typeof skillSyncRecordSchema>;
 interface SkillsSyncUploadInput {
     ignore?: string[];
     source?: string;
-    format?: "json";
-    showSchemaVersion?: boolean;
 }
 
 interface SkillsSyncApplyInput {
     source?: string;
-    format?: "json";
-    showSchemaVersion?: boolean;
 }
 
 const syncUploadErrorMessages = {
@@ -98,28 +92,23 @@ export const skillsSyncCommand: CliCommandDefinition = {
                     valueName: "patterns...",
                     descriptionKey: "options.skillSyncIgnore",
                 },
-                ...outputFormatOptions,
             ],
+            output: "standard",
             inputSchema: z.object({
                 ignore: z.array(z.string()).optional(),
                 source: z.string().optional(),
-                format: z.enum(["json"]).optional(),
-                showSchemaVersion: z.boolean().optional(),
             }),
-            mapInputError: (_, rawInput) => createFormatInputError(rawInput),
             handler: async (input, context) => {
                 parseSkillSyncSource(input.source);
 
-                if (input.format === "json") {
+                if (context.output.format === "json") {
                     const report = await runSyncUploadJsonReport(
                         { ignorePatterns: parseCommaSeparatedValues(input.ignore) },
                         context,
                     );
 
                     recordSyncUploadTelemetry(context, report);
-                    writeJsonOutput(context.stdout, report, {
-                        showSchemaVersion: input.showSchemaVersion,
-                    });
+                    context.output.emitJson(report);
 
                     if (
                         report.status === "partial-failure"
@@ -153,24 +142,19 @@ export const skillsSyncCommand: CliCommandDefinition = {
                     valueName: "source",
                     descriptionKey: "options.skillSyncSource",
                 },
-                ...outputFormatOptions,
             ],
+            output: "standard",
             inputSchema: z.object({
                 source: z.string().optional(),
-                format: z.enum(["json"]).optional(),
-                showSchemaVersion: z.boolean().optional(),
             }),
-            mapInputError: (_, rawInput) => createFormatInputError(rawInput),
             handler: async (input, context) => {
                 parseSkillSyncSource(input.source);
 
-                if (input.format === "json") {
+                if (context.output.format === "json") {
                     const report = await runSyncApplyJsonReport(context);
 
                     recordSyncApplyTelemetry(context, report);
-                    writeJsonOutput(context.stdout, report, {
-                        showSchemaVersion: input.showSchemaVersion,
-                    });
+                    context.output.emitJson(report);
 
                     if (
                         report.status === "partial-failure"

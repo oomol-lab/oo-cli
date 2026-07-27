@@ -9,8 +9,6 @@ import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { compareSemver } from "../../semver.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     groupInstalledSkillsByPackageName,
@@ -69,11 +67,7 @@ interface CheckUpdateOutcome {
     skills: CheckUpdateResultEntry[];
 }
 
-const checkUpdateFormatValues = ["json"] as const;
-
 interface SkillsCheckUpdateInput {
-    format?: (typeof checkUpdateFormatValues)[number];
-    showSchemaVersion?: boolean;
     packageNames?: string[];
     skill?: string[];
 }
@@ -116,15 +110,12 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
             valueName: "skills...",
             descriptionKey: "options.skills.skill",
         },
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
-        format: z.enum(checkUpdateFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
         packageNames: z.array(z.string()).optional(),
         skill: z.array(z.string()).optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
 
@@ -184,14 +175,9 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
             packageNames,
         });
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, outcome, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        writeText(context, outcome);
+        context.output.emit(outcome, () => {
+            writeText(context, outcome);
+        });
     },
 };
 

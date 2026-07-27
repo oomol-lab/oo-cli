@@ -9,12 +9,9 @@ import {
     bucketTelemetryStringLength,
 } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parseCommaSeparatedKeywords } from "../shared/keywords.ts";
 import { requestOo } from "../shared/oo-request.ts";
 
-const searchFormatValues = ["json"] as const;
 const skillSearchResultLimit = 5;
 const skillSearchDisplayNameColor = "#59F78D";
 const skillSearchPackageColor = "#CAA8FA";
@@ -44,9 +41,7 @@ type SkillSearchTextContext = Pick<CliExecutionContext, "stdout" | "translator">
 
 interface SkillsSearchInput {
     text: string;
-    format?: (typeof searchFormatValues)[number];
     keywords?: string;
-    showSchemaVersion?: boolean;
 }
 
 export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
@@ -63,7 +58,6 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
         },
     ],
     options: [
-        ...outputFormatOptions,
         {
             name: "keywords",
             longFlag: "--keywords",
@@ -71,13 +65,11 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
             descriptionKey: "options.keywords",
         },
     ],
+    output: "standard",
     inputSchema: z.object({
         text: z.string(),
-        format: z.enum(searchFormatValues).optional(),
         keywords: z.string().optional(),
-        showSchemaVersion: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const keywords = parseCommaSeparatedKeywords(input.keywords);
 
@@ -98,20 +90,15 @@ export const skillsSearchCommand: CliCommandDefinition<SkillsSearchInput> = {
             result_count_bucket: bucketTelemetryCount(response.data.length),
         });
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, response.data, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
+        context.output.emit(response.data, () => {
+            const output = formatSkillsSearchResponseAsText(response, context);
 
-        const output = formatSkillsSearchResponseAsText(response, context);
-
-        context.stdout.write(
-            output === ""
-                ? `${context.translator.t("skills.search.text.noResults")}\n`
-                : `${output}\n`,
-        );
+            context.stdout.write(
+                output === ""
+                    ? `${context.translator.t("skills.search.text.noResults")}\n`
+                    : `${output}\n`,
+            );
+        });
     },
 };
 

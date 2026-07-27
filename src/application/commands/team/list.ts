@@ -9,15 +9,8 @@ import { requireIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { resolveTeamIdentity } from "./identity.ts";
-import { listMemberTeams, teamFormatValues } from "./shared.ts";
-
-interface TeamListInput {
-    format?: (typeof teamFormatValues)[number];
-    showSchemaVersion?: boolean;
-}
+import { listMemberTeams } from "./shared.ts";
 
 interface TeamListItem {
     current: boolean;
@@ -26,17 +19,13 @@ interface TeamListItem {
     role: TeamRole;
 }
 
-export const teamListCommand: CliCommandDefinition<TeamListInput> = {
+export const teamListCommand: CliCommandDefinition = {
     name: "list",
     summaryKey: "commands.team.list.summary",
     descriptionKey: "commands.team.list.description",
-    options: [...outputFormatOptions],
-    inputSchema: z.object({
-        format: z.enum(teamFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
-    }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
-    handler: async (input, context) => {
+    output: "standard",
+    inputSchema: z.object({}),
+    handler: async (_input, context) => {
         const { account } = await requireIdentity(context);
         const settings = await context.settingsStore.read();
         // The listing itself is the membership set, so the identity resolves
@@ -59,20 +48,15 @@ export const teamListCommand: CliCommandDefinition<TeamListInput> = {
             result_count_bucket: bucketTelemetryCount(output.length),
         });
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, output, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        context.stdout.write(
-            `${formatTeamsAsText(
-                output,
-                context.translator,
-                createWriterColors(context.stdout),
-            )}\n`,
-        );
+        context.output.emit(output, () => {
+            context.stdout.write(
+                `${formatTeamsAsText(
+                    output,
+                    context.translator,
+                    createWriterColors(context.stdout),
+                )}\n`,
+            );
+        });
     },
 };
 

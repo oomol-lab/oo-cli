@@ -1,10 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import {
-    createFormatInputError,
-    parseFileFormat,
     parseFileLimit,
     parseFileStatus,
     serializeFileUploadRecord,
@@ -12,9 +9,7 @@ import {
 import { formatFileUploadListAsText } from "./text.ts";
 
 interface FileListInput {
-    format?: string;
     limit?: string;
-    showSchemaVersion?: boolean;
     status?: string;
 }
 
@@ -23,7 +18,6 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
     summaryKey: "commands.file.list.summary",
     descriptionKey: "commands.file.list.description",
     options: [
-        ...outputFormatOptions,
         {
             name: "status",
             longFlag: "--status",
@@ -37,15 +31,12 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
             descriptionKey: "options.limit",
         },
     ],
+    output: "standard",
     inputSchema: z.object({
-        format: z.string().optional(),
         limit: z.string().optional(),
-        showSchemaVersion: z.boolean().optional(),
         status: z.string().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: (input, context) => {
-        const format = parseFileFormat(input.format);
         const limit = parseFileLimit(input.limit);
         const status = parseFileStatus(input.status);
         const now = Date.now();
@@ -57,26 +48,21 @@ export const fileListCommand: CliCommandDefinition<FileListInput> = {
             })
             .map(record => serializeFileUploadRecord(record, now, context.logger));
 
-        if (format === "json") {
-            writeJsonOutput(context.stdout, records, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
+        context.output.emit(records, () => {
+            if (records.length === 0) {
+                const message = status === undefined
+                    ? context.translator.t("file.list.noResults")
+                    : context.translator.t("file.list.noResultsForStatus", {
+                            status: context.translator.t(`file.status.${status}`),
+                        });
 
-        if (records.length === 0) {
-            const message = status === undefined
-                ? context.translator.t("file.list.noResults")
-                : context.translator.t("file.list.noResultsForStatus", {
-                        status: context.translator.t(`file.status.${status}`),
-                    });
+                context.stdout.write(`${message}\n`);
+                return;
+            }
 
-            context.stdout.write(`${message}\n`);
-            return;
-        }
-
-        context.stdout.write(
-            `${formatFileUploadListAsText(records, context)}\n`,
-        );
+            context.stdout.write(
+                `${formatFileUploadListAsText(records, context)}\n`,
+            );
+        });
     },
 };

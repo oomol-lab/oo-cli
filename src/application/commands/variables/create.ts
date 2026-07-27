@@ -1,13 +1,11 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     mapVariablesInputError,
     putVariable,
     resolveVariableValue,
-    variableFormatValues,
     variableNameSchema,
 } from "./shared.ts";
 
@@ -16,8 +14,6 @@ interface VariablesCreateInput {
     value?: string;
     fromFile?: string;
     stdin?: boolean;
-    format?: (typeof variableFormatValues)[number];
-    showSchemaVersion?: boolean;
 }
 
 export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> = {
@@ -50,15 +46,13 @@ export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> 
             longFlag: "--stdin",
             descriptionKey: "options.variablesStdin",
         },
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
         name: variableNameSchema,
         value: z.string().optional(),
         fromFile: z.string().optional(),
         stdin: z.boolean().optional(),
-        format: z.enum(variableFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
     }),
     mapInputError: mapVariablesInputError,
     handler: async (input, context) => {
@@ -66,16 +60,11 @@ export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> 
         const value = await resolveVariableValue(input, context);
         const variable = await putVariable(account, input.name, value, context);
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, variable, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        writeLine(context.stdout, context.translator.t("variables.create.success", {
-            name: variable.name,
-            updatedAt: variable.updatedAt,
-        }));
+        context.output.emit(variable, () => {
+            writeLine(context.stdout, context.translator.t("variables.create.success", {
+                name: variable.name,
+                updatedAt: variable.updatedAt,
+            }));
+        });
     },
 };

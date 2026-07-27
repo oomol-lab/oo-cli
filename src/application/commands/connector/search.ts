@@ -5,8 +5,6 @@ import {
     bucketTelemetryCount,
     bucketTelemetryStringLength,
 } from "../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import {
     formatConnectorSearchResultsAsText,
     loadConnectorSearchResults,
@@ -16,13 +14,10 @@ import {
     teamIdentityInputShape,
     teamIdentityOptions,
 } from "./session.ts";
-import { connectorFormatValues } from "./shared.ts";
 
 interface ConnectorSearchInput {
-    format?: (typeof connectorFormatValues)[number];
     team?: string;
     personal?: boolean;
-    showSchemaVersion?: boolean;
     text: string;
 }
 
@@ -43,15 +38,12 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
             personal: "options.searchPersonal",
             team: "options.searchTeam",
         }),
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
-        format: z.enum(connectorFormatValues).optional(),
         ...teamIdentityInputShape,
-        showSchemaVersion: z.boolean().optional(),
         text: z.string(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         context.telemetry?.recordProperties({
             query_length_bucket: bucketTelemetryStringLength(input.text),
@@ -78,29 +70,17 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
             result_count_bucket: bucketTelemetryCount(results.length),
         });
 
-        if (results.length === 0) {
-            if (input.format === "json") {
-                writeJsonOutput(context.stdout, [], {
-                    showSchemaVersion: input.showSchemaVersion,
-                });
+        context.output.emit(results, () => {
+            if (results.length === 0) {
+                context.stdout.write(
+                    `${context.translator.t("connector.search.text.noResults")}\n`,
+                );
                 return;
             }
 
             context.stdout.write(
-                `${context.translator.t("connector.search.text.noResults")}\n`,
+                `${formatConnectorSearchResultsAsText(results, context)}\n`,
             );
-            return;
-        }
-
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, results, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        context.stdout.write(
-            `${formatConnectorSearchResultsAsText(results, context)}\n`,
-        );
+        });
     },
 };

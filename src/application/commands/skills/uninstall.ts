@@ -17,8 +17,6 @@ import type {
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { removePath } from "./bundled-skill-filesystem.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
 import {
@@ -53,8 +51,6 @@ import {
 interface SkillsUninstallInput {
     agent?: string;
     skills?: string[];
-    format?: "json";
-    showSchemaVersion?: boolean;
 }
 
 type UninstallErrorCode
@@ -96,20 +92,17 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
             valueName: "agent",
             descriptionKey: "options.agent",
         },
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
         agent: z.string().optional(),
         skills: z.array(z.string()).optional(),
-        format: z.enum(["json"]).optional(),
-        showSchemaVersion: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const agentName = parseSkillsUninstallAgent(input.agent);
         const skillNames = input.skills ?? [];
 
-        if (input.format === "json") {
+        if (context.output.format === "json") {
             const { report, hasPackageTarget } = await runUninstallJsonReport(
                 { skillNames, agentName },
                 context,
@@ -119,9 +112,7 @@ export const skillsUninstallCommand: CliCommandDefinition<SkillsUninstallInput> 
                 format: "json",
                 hasPackageTarget,
             });
-            writeJsonOutput(context.stdout, report, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
+            context.output.emitJson(report);
 
             if (report.status === "partial-failure" || report.status === "failed") {
                 throw new CliUserError("errors.skills.uninstall.partialFailure", 1, {

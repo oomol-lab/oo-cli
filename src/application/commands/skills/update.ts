@@ -16,8 +16,6 @@ import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     groupInstalledSkillsByPackageName,
@@ -67,8 +65,6 @@ import { SkillsUpdateProgressReporter } from "./update-progress.ts";
 interface SkillsUpdateInput {
     packageNames?: string[];
     skill?: string[];
-    format?: "json";
-    showSchemaVersion?: boolean;
 }
 
 const updateErrorMessages: Record<string, string> = {
@@ -133,15 +129,12 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
             valueName: "skills...",
             descriptionKey: "options.skills.skill",
         },
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
         packageNames: z.array(z.string()).optional(),
         skill: z.array(z.string()).optional(),
-        format: z.enum(["json"]).optional(),
-        showSchemaVersion: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         // Record the skill-filter dimension up front so it is present on every
         // path, including the text no-results early return and the no-match
@@ -152,16 +145,14 @@ export const skillsUpdateCommand: CliCommandDefinition<SkillsUpdateInput> = {
             has_skill_filter: normalizeSkillFilterTokens(input.skill) !== undefined,
         });
 
-        if (input.format === "json") {
+        if (context.output.format === "json") {
             const report = await runUpdateJsonReport(
                 { packageNames: input.packageNames ?? [], skillFilter: input.skill },
                 context,
             );
 
             recordUpdateTelemetry(context, report);
-            writeJsonOutput(context.stdout, report, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
+            context.output.emitJson(report);
 
             if (report.status === "partial-failure" || report.status === "failed") {
                 throw new CliUserError("errors.skills.update.partialFailure", 1, {

@@ -125,12 +125,12 @@ describe("skillsSearchCommand", () => {
     test("writes json output without service-only fields", async () => {
         const context = createSearchContext({
             fetcher: async () => new Response(JSON.stringify(fullServerResponse)),
+            format: "json",
         });
 
         await searchHandler(
             {
                 text: "text generation",
-                format: "json",
             },
             context,
         );
@@ -184,6 +184,7 @@ describe("skillsSearchCommand", () => {
 
 function createSearchContext(options: {
     fetcher: Fetcher;
+    format?: "json";
     telemetryProperties?: Record<string, CliTelemetryPropertyValue>;
 }): CliCommandContext & {
     stdoutBuffer: ReturnType<typeof createTextBuffer>;
@@ -192,7 +193,11 @@ function createSearchContext(options: {
     const stderr = createTextBuffer();
 
     return {
-        output: createCommandOutput(stdoutBuffer.writer, {}, undefined),
+        output: createCommandOutput(
+            stdoutBuffer.writer,
+            { format: options.format },
+            "standard",
+        ),
         authStore: createAuthStore(activeAuthFile),
         cacheStore: {
             close() {},

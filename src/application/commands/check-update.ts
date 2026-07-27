@@ -1,4 +1,8 @@
-import type { CliCommandDefinition, CliExecutionContext } from "../contracts/cli.ts";
+import type {
+    CliCommandContext,
+    CliCommandDefinition,
+    CliExecutionContext,
+} from "../contracts/cli.ts";
 import type { CliUpdateCheckResult } from "../update/update-notifier.ts";
 
 import { z } from "zod";
@@ -9,16 +13,7 @@ import {
     cliUpdateCommand,
     renderCliUpdateNotice,
 } from "../update/update-notifier.ts";
-import { outputFormatOptions, writeJsonOutput } from "./command-output.ts";
 import { classifyTelemetryVersionKind } from "./self-update-telemetry.ts";
-import { createFormatInputError } from "./shared/input-parsing.ts";
-
-const checkUpdateFormatValues = ["json"] as const;
-
-interface CheckUpdateInput {
-    format?: (typeof checkUpdateFormatValues)[number];
-    showSchemaVersion?: boolean;
-}
 
 interface CheckUpdateJsonPayload {
     status: "update-available" | "up-to-date" | "failed";
@@ -36,17 +31,13 @@ const checkUpdateFailureMessages = {
     string
 >;
 
-export const checkUpdateCommand: CliCommandDefinition<CheckUpdateInput> = {
+export const checkUpdateCommand: CliCommandDefinition = {
     name: "check-update",
     summaryKey: "commands.checkUpdate.summary",
     descriptionKey: "commands.checkUpdate.description",
-    options: [...outputFormatOptions],
-    inputSchema: z.object({
-        format: z.enum(checkUpdateFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
-    }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
-    handler: async (input, context) => {
+    output: "standard",
+    inputSchema: z.object({}),
+    handler: async (_input, context) => {
         // OO_NO_SELF_UPDATE disables the update machinery, including the remote
         // release check that hits the hardcoded static.oomol.com source.
         if (isSelfUpdateDisabledByEnv(context.env)) {
@@ -59,8 +50,8 @@ export const checkUpdateCommand: CliCommandDefinition<CheckUpdateInput> = {
 
         const result = await checkForCliUpdate(context);
 
-        if (input.format === "json") {
-            handleCheckUpdateJson(result, context, input);
+        if (context.output.format === "json") {
+            handleCheckUpdateJson(result, context);
             return;
         }
 
@@ -70,8 +61,7 @@ export const checkUpdateCommand: CliCommandDefinition<CheckUpdateInput> = {
 
 function handleCheckUpdateJson(
     result: CliUpdateCheckResult,
-    context: CliExecutionContext,
-    input: CheckUpdateInput,
+    context: CliCommandContext,
 ): void {
     const payload = buildCheckUpdateJsonPayload(result, context.version);
 
@@ -89,9 +79,7 @@ function handleCheckUpdateJson(
         );
     }
 
-    writeJsonOutput(context.stdout, payload, {
-        showSchemaVersion: input.showSchemaVersion,
-    });
+    context.output.emitJson(payload);
 }
 
 function buildCheckUpdateJsonPayload(

@@ -7,8 +7,6 @@ import type {
 import { z } from "zod";
 import { resolveIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     appendTeamIdentityStatus,
@@ -16,12 +14,6 @@ import {
     resolveTeamIdentity,
     teamNameStatusForTelemetry,
 } from "./identity.ts";
-import { teamFormatValues } from "./shared.ts";
-
-interface TeamCurrentInput {
-    format?: (typeof teamFormatValues)[number];
-    showSchemaVersion?: boolean;
-}
 
 // `source` says which mechanism selects the team: the OO_TEAM_ID /
 // OO_TEAM_NAME env override, the `identity.team` config default, or none
@@ -48,17 +40,13 @@ interface TeamCurrentJsonPayload {
 // other dimension. The config default stays offline, as does an
 // unauthenticated run: having no account skips the lookup rather than failing
 // the command, so reading the local default never requires a login.
-export const teamCurrentCommand: CliCommandDefinition<TeamCurrentInput> = {
+export const teamCurrentCommand: CliCommandDefinition = {
     name: "current",
     summaryKey: "commands.team.current.summary",
     descriptionKey: "commands.team.current.description",
-    options: [...outputFormatOptions],
-    inputSchema: z.object({
-        format: z.enum(teamFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
-    }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
-    handler: async (input, context) => {
+    output: "standard",
+    inputSchema: z.object({}),
+    handler: async (_input, context) => {
         const [settings, { account }] = await Promise.all([
             context.settingsStore.read(),
             resolveIdentity(context),
@@ -75,67 +63,62 @@ export const teamCurrentCommand: CliCommandDefinition<TeamCurrentInput> = {
             team_status: teamNameStatusForTelemetry(identity),
         });
 
-        if (input.format === "json") {
-            const payload: TeamCurrentJsonPayload = {
-                team: identity?.name ?? null,
-                teamId: identity?.id ?? null,
-                source: identity?.source ?? null,
-                status: identity?.status ?? null,
-            };
+        const payload: TeamCurrentJsonPayload = {
+            team: identity?.name ?? null,
+            teamId: identity?.id ?? null,
+            source: identity?.source ?? null,
+            status: identity?.status ?? null,
+        };
 
-            writeJsonOutput(context.stdout, payload, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
+        context.output.emit(payload, () => {
+            if (identity === undefined) {
+                writeLine(
+                    context.stdout,
+                    context.translator.t("team.current.text.personal"),
+                );
+                return;
+            }
 
-        if (identity === undefined) {
+            const teamValue = formatTeamIdentityValue(identity, context.translator);
+
+            if (identity.source === "config") {
+                writeLine(
+                    context.stdout,
+                    context.translator.t("team.current.text.configured", {
+                        team: teamValue,
+                    }),
+                );
+                return;
+            }
+
+            // The reason is appended to the finished sentence so it lands last,
+            // where the reader looks for it, instead of mid-line.
             writeLine(
                 context.stdout,
-                context.translator.t("team.current.text.personal"),
-            );
-            return;
-        }
-
-        const teamValue = formatTeamIdentityValue(identity, context.translator);
-
-        if (identity.source === "config") {
-            writeLine(
-                context.stdout,
-                context.translator.t("team.current.text.configured", {
-                    team: teamValue,
-                }),
-            );
-            return;
-        }
-
-        // The reason is appended to the finished sentence so it lands last,
-        // where the reader looks for it, instead of mid-line.
-        writeLine(
-            context.stdout,
-            appendTeamIdentityStatus(
-                context.translator.t(
-                    identity.source === "env_id"
-                        ? "team.current.text.envId"
-                        : "team.current.text.envName",
-                    { team: teamValue },
+                appendTeamIdentityStatus(
+                    context.translator.t(
+                        identity.source === "env_id"
+                            ? "team.current.text.envId"
+                            : "team.current.text.envName",
+                        { team: teamValue },
+                    ),
+                    identity,
+                    context.translator,
                 ),
-                identity,
-                context.translator,
-            ),
-        );
-
-        // The config default is still on disk and takes over the moment the
-        // variable is unset, so saying so here heads off a later "my default
-        // did not apply" report.
-        if (configuredTeam !== undefined && identity.envVar !== undefined) {
-            writeLine(
-                context.stdout,
-                context.translator.t("team.current.text.configIgnored", {
-                    envVar: identity.envVar,
-                    team: configuredTeam,
-                }),
             );
-        }
+
+            // The config default is still on disk and takes over the moment the
+            // variable is unset, so saying so here heads off a later "my default
+            // did not apply" report.
+            if (configuredTeam !== undefined && identity.envVar !== undefined) {
+                writeLine(
+                    context.stdout,
+                    context.translator.t("team.current.text.configIgnored", {
+                        envVar: identity.envVar,
+                        team: configuredTeam,
+                    }),
+                );
+            }
+        });
     },
 };

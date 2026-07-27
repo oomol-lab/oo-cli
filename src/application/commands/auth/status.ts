@@ -15,8 +15,6 @@ import { resolveIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { probeOo } from "../shared/oo-request.ts";
 import { writeLine } from "../shared/output.ts";
 import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
@@ -58,13 +56,6 @@ interface ActiveAccountStatus {
 interface ResolvedStatusIdentity {
     account: AuthAccount;
     source: CredentialSource;
-}
-
-const authStatusFormatValues = ["json"] as const;
-
-interface AuthStatusInput {
-    format?: (typeof authStatusFormatValues)[number];
-    showSchemaVersion?: boolean;
 }
 
 interface AuthStatusJsonAccount {
@@ -128,18 +119,14 @@ type AuthStatusJsonPayload
         connector?: AuthStatusJsonConnector;
     };
 
-export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
+export const authStatusCommand: CliCommandDefinition = {
     name: "status",
     aliases: ["info"],
     summaryKey: "commands.auth.status.summary",
     descriptionKey: "commands.auth.status.description",
-    options: [...outputFormatOptions],
-    inputSchema: z.object({
-        format: z.enum(authStatusFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
-    }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
-    handler: async (input, context) => {
+    output: "standard",
+    inputSchema: z.object({}),
+    handler: async (_input, context) => {
         // Tolerant lookup: a broken connector.toml must not take down the
         // whole status report; the block is simply omitted.
         const selfHostedConnector = await resolveSelfHostedConnectorTolerantly(context);
@@ -160,7 +147,7 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
                 { path: context.authStore.getFilePath() },
             );
 
-            if (input.format === "json") {
+            if (context.output.format === "json") {
                 // stdout must stay valid JSON; diagnostics go to stderr.
                 writeLine(context.stderr, corruptWarning);
             }
@@ -201,22 +188,18 @@ export const authStatusCommand: CliCommandDefinition<AuthStatusInput> = {
                 ? undefined
                 : { ...identity, apiKeyStatus };
 
-        if (input.format === "json") {
-            writeJsonOutput(
-                context.stdout,
-                buildAuthStatusJsonPayload(
-                    authFile,
-                    activeStatus,
-                    teamIdentity,
-                    selfHostedConnector,
-                ),
-                { showSchemaVersion: input.showSchemaVersion },
-            );
-            return;
-        }
-
-        writeAuthStatusText(context, authFile, activeStatus, teamIdentity);
-        writeSelfHostedConnectorText(context, selfHostedConnector);
+        context.output.emit(
+            buildAuthStatusJsonPayload(
+                authFile,
+                activeStatus,
+                teamIdentity,
+                selfHostedConnector,
+            ),
+            () => {
+                writeAuthStatusText(context, authFile, activeStatus, teamIdentity);
+                writeSelfHostedConnectorText(context, selfHostedConnector);
+            },
+        );
     },
 };
 
