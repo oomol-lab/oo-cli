@@ -1,8 +1,8 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 import type { BundledSkillAgentName } from "./embedded-assets.ts";
+import type { InstalledSkill } from "./installed-skills.ts";
 import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
-import type { ManagedSkillListItem } from "./managed-skill-listings.ts";
 import type {
     SkillOperationError,
     SkillResult,
@@ -20,17 +20,16 @@ import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import {
+    groupInstalledSkillsByPackageName,
+    readInstalledSkills,
+} from "./installed-skills.ts";
+import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallations,
 } from "./managed-skill-hosts.ts";
 import {
-    listManagedSkillInstallations,
-    listManagedSkillInstallationsForHosts,
-} from "./managed-skill-listings.ts";
-import {
     resolveManagedSkillCanonicalDirectoryPath,
-    resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
 import {
     computeCommandStatus,
@@ -88,11 +87,7 @@ const updateErrorMessages: Record<string, string> = {
 
 interface RegistrySkillGroup {
     packageName: string;
-    skills: ManagedSkillUpdateItem[];
-}
-
-interface ManagedSkillUpdateItem extends ManagedSkillListItem {
-    hostNames: BundledSkillAgentName[];
+    skills: InstalledSkill[];
 }
 
 interface CurrentSkillUpdate {
@@ -200,10 +195,7 @@ export async function updateManagedSkills(
     }
 
     const settingsFilePath = context.settingsStore.getFilePath();
-    const installedSkills = await readKnownManagedSkillInstallations(
-        availableHosts,
-        settingsFilePath,
-    );
+    const installedSkills = await readInstalledSkills(context.env, settingsFilePath);
     const selectedByPackage = resolveSelectedManagedSkillsByPackage(
         request.packageNames,
         installedSkills,
@@ -354,75 +346,6 @@ export async function updateManagedSkills(
     }
 }
 
-async function readKnownManagedSkillInstallations(
-    availableHosts: readonly ManagedSkillHost[],
-    settingsFilePath: string,
-): Promise<ManagedSkillUpdateItem[]> {
-    const [canonicalSkills, hostSkills] = await Promise.all([
-        listManagedSkillInstallations(
-            resolveManagedSkillCanonicalRootDirectoryPath(settingsFilePath),
-        ),
-        listManagedSkillInstallationsForHosts(availableHosts),
-    ]);
-
-    return mergeManagedSkillInstallationsByName([
-        ...hostSkills.map(skill => ({
-            metadata: skill.metadata,
-            name: skill.name,
-            path: skill.path,
-            hostNames: [skill.hostName],
-        } satisfies ManagedSkillUpdateItem)),
-        ...canonicalSkills.map(skill => ({
-            ...skill,
-            hostNames: [],
-        } satisfies ManagedSkillUpdateItem)),
-    ]);
-}
-
-function mergeManagedSkillInstallationsByName(
-    skills: readonly ManagedSkillUpdateItem[],
-): ManagedSkillUpdateItem[] {
-    const skillsByName = new Map<string, ManagedSkillUpdateItem>();
-
-    for (const skill of skills) {
-        if (skill.metadata?.kind !== "registry") {
-            continue;
-        }
-
-        const existingSkill = skillsByName.get(skill.name);
-
-        if (existingSkill === undefined) {
-            skillsByName.set(skill.name, skill);
-            continue;
-        }
-
-        const hostNames = mergeManagedSkillHostNames(
-            existingSkill.hostNames,
-            skill.hostNames,
-        );
-
-        skillsByName.set(skill.name, {
-            ...existingSkill,
-            hostNames,
-        });
-    }
-
-    return Array.from(skillsByName.values());
-}
-
-function mergeManagedSkillHostNames(
-    left: readonly BundledSkillAgentName[],
-    right: readonly BundledSkillAgentName[],
-): BundledSkillAgentName[] {
-    const hostNames = new Set(left);
-
-    for (const hostName of right) {
-        hostNames.add(hostName);
-    }
-
-    return Array.from(hostNames);
-}
-
 // Resolve the requested package names to their installed registry skills.
 // The positional arguments are package names: each package contributes every
 // installed skill that carries that package identity. When no package name is
@@ -430,16 +353,16 @@ function mergeManagedSkillHostNames(
 // names and packages with no installed skill fail fast in text mode.
 function resolveSelectedManagedSkillsByPackage(
     requestedPackageNames: readonly string[],
-    installedSkills: readonly ManagedSkillUpdateItem[],
-): ManagedSkillUpdateItem[] {
+    installedSkills: readonly InstalledSkill[],
+): InstalledSkill[] {
     if (requestedPackageNames.length === 0) {
         return installedSkills.filter(
-            skill => !isBundledSkillName(skill.name),
+            skill => skill.kind === "registry" && !isBundledSkillName(skill.name),
         );
     }
 
-    const skillsByPackageName = groupSkillsByPackageName(installedSkills);
-    const selectedSkills: ManagedSkillUpdateItem[] = [];
+    const skillsByPackageName = groupInstalledSkillsByPackageName(installedSkills);
+    const selectedSkills: InstalledSkill[] = [];
     const seenPackageNames = new Set<string>();
 
     for (const requestedPackageName of requestedPackageNames) {
@@ -477,9 +400,9 @@ function resolveSelectedManagedSkillsByPackage(
 // every skill when no filter is active, and throws a listing error when the
 // filter matches nothing.
 function filterManagedSkillsOrThrow(
-    skills: readonly ManagedSkillUpdateItem[],
+    skills: readonly InstalledSkill[],
     skillFilter: readonly string[] | undefined,
-): ManagedSkillUpdateItem[] {
+): InstalledSkill[] {
     const tokens = normalizeSkillFilterTokens(skillFilter);
 
     if (tokens === undefined) {
@@ -497,57 +420,16 @@ function filterManagedSkillsOrThrow(
     return matched;
 }
 
-// Index installed registry skills by their package name, preserving the input
-// order within each package so output ordering stays deterministic.
-function groupSkillsByPackageName(
-    skills: readonly ManagedSkillUpdateItem[],
-): Map<string, ManagedSkillUpdateItem[]> {
-    const skillsByPackageName = new Map<string, ManagedSkillUpdateItem[]>();
-
-    for (const skill of skills) {
-        if (skill.metadata?.kind !== "registry") {
-            continue;
-        }
-
-        const packageName = skill.metadata.packageName;
-        const existing = skillsByPackageName.get(packageName);
-
-        if (existing === undefined) {
-            skillsByPackageName.set(packageName, [skill]);
-            continue;
-        }
-
-        existing.push(skill);
-    }
-
-    return skillsByPackageName;
-}
-
 function groupRegistrySkills(
-    skills: readonly ManagedSkillUpdateItem[],
+    skills: readonly InstalledSkill[],
 ): RegistrySkillGroup[] {
-    const groups = new Map<string, ManagedSkillUpdateItem[]>();
-
-    for (const skill of skills) {
-        if (skill.metadata?.kind !== "registry") {
-            continue;
-        }
-
-        const packageName = skill.metadata.packageName;
-        const group = groups.get(packageName);
-
-        if (group === undefined) {
-            groups.set(packageName, [skill]);
-            continue;
-        }
-
-        group.push(skill);
-    }
-
-    return Array.from(groups.entries(), ([packageName, groupedSkills]) => ({
-        packageName,
-        skills: groupedSkills,
-    }));
+    return Array.from(
+        groupInstalledSkillsByPackageName(skills).entries(),
+        ([packageName, groupedSkills]) => ({
+            packageName,
+            skills: groupedSkills,
+        }),
+    );
 }
 
 async function prepareRegistrySkillGroupUpdate(
@@ -783,13 +665,10 @@ async function runUpdateJsonReport(
     }
 
     const settingsFilePath = context.settingsStore.getFilePath();
-    let installedSkills: ManagedSkillUpdateItem[];
+    let installedSkills: InstalledSkill[];
 
     try {
-        installedSkills = await readKnownManagedSkillInstallations(
-            availableHosts,
-            settingsFilePath,
-        );
+        installedSkills = await readInstalledSkills(context.env, settingsFilePath);
     }
     catch (error) {
         context.logger.warn({ err: error }, "Update --json failed to list installed skills.");
@@ -804,7 +683,8 @@ async function runUpdateJsonReport(
     const skills: SkillResult[] = [];
 
     if (requestedPackageNames.length === 0) {
-        const selected = installedSkills.filter(skill => !isBundledSkillName(skill.name));
+        const selected = installedSkills.filter(skill =>
+            skill.kind === "registry" && !isBundledSkillName(skill.name));
 
         if (selected.length === 0) {
             return buildUpdateReport([], errors);
@@ -827,7 +707,7 @@ async function runUpdateJsonReport(
         return buildUpdateReport(skills, errors);
     }
 
-    const skillsByPackageName = groupSkillsByPackageName(installedSkills);
+    const skillsByPackageName = groupInstalledSkillsByPackageName(installedSkills);
     const seenPackageNames = new Set<string>();
     let anyCandidate = false;
     let anyMatched = false;
@@ -907,7 +787,7 @@ async function runUpdateJsonReport(
 }
 
 async function runUpdateForSkills(
-    selectedSkills: readonly ManagedSkillUpdateItem[],
+    selectedSkills: readonly InstalledSkill[],
     availableHosts: readonly ManagedSkillHost[],
     context: CliExecutionContext,
 ): Promise<SkillResult[]> {
@@ -930,9 +810,7 @@ async function runUpdateForSkills(
             return selectedSkills.map(skill => ({
                 skillId: skill.name,
                 kind: "registry",
-                packageName: skill.metadata?.kind === "registry"
-                    ? skill.metadata.packageName
-                    : null,
+                packageName: skill.packageName ?? null,
                 previousVersion: null,
                 version: null,
                 status: "failed",

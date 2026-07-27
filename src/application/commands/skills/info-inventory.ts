@@ -1,36 +1,23 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { BundledSkillAgentName, BundledSkillName } from "./embedded-assets.ts";
-import type { SkillMetadata } from "./skill-metadata.ts";
+import type {
+    InstalledSkill,
+    InstalledSkillAgentCopy,
+    InstalledSkillKind,
+} from "./installed-skills.ts";
 import { createHash } from "node:crypto";
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, relative } from "node:path";
 import {
-    directoryExists,
-} from "./bundled-skill-observation.ts";
-import {
     resolveBundledSkillCanonicalDirectoryPath,
 } from "./bundled-skill-paths.ts";
-import {
-    availableBundledSkillNames,
-} from "./embedded-assets.ts";
-import {
-    availableBundledSkillAgentNames,
-    compareManagedSkillAgentNames,
-    resolveManagedSkillAgentHomeDirectory,
-} from "./managed-skill-agents.ts";
-import {
-    readManagedSkillListSource,
-    readSkillsDirectoryEntries,
-} from "./managed-skill-listings.ts";
+import { readInstalledSkills } from "./installed-skills.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
-    resolveManagedSkillDirectoryPath,
-    resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
 import {
     isBundledSkillName,
 } from "./shared.ts";
-import { readSkillDirectoryState } from "./skill-directory-state.ts";
 import {
     hasFrontmatter,
     isSkillFrontmatterRecord,
@@ -38,7 +25,7 @@ import {
     toNonBlankString,
 } from "./skill-frontmatter.ts";
 
-export type SkillInventoryKind = "bundled" | "registry" | "local";
+export type SkillInventoryKind = InstalledSkillKind;
 
 export type SkillHostStatus = "installed";
 
@@ -85,15 +72,6 @@ export interface CollectSkillsInfoInventoryOptions {
 
 type InventoryContext = Pick<CliExecutionContext, "env" | "settingsStore">;
 
-interface RawHostScan {
-    agentId: BundledSkillAgentName;
-    skillName: string;
-    path: string;
-    metadata: SkillMetadata | undefined;
-    metadataPresent: boolean;
-    metadataParseable: boolean;
-}
-
 /**
  * `summary` always reflects the unfiltered inventory; `skills` reflects the
  * requested view. Default view hides local skills; pass `source: "local"` to
@@ -117,262 +95,86 @@ async function scanFullInventory(
     context: InventoryContext,
 ): Promise<SkillInventoryEntry[]> {
     const settingsFilePath = context.settingsStore.getFilePath();
-    const installedHostScans = await scanInstalledHosts(context);
-    const grouped = groupHostScansBySkillIdentity(installedHostScans);
+    const installedSkills = await readInstalledSkills(context.env, settingsFilePath);
     const builtEntries = await Promise.all(
-        grouped.map(group =>
-            buildSkillInventoryEntry(group, settingsFilePath, context.env),
+        installedSkills.map(skill =>
+            buildSkillInventoryEntry(skill, settingsFilePath, context.env),
         ),
     );
 
-    return builtEntries
-        .filter(entry => entry !== undefined)
-        .sort(compareSkillInventoryEntries);
-}
-
-async function scanInstalledHosts(
-    context: InventoryContext,
-): Promise<RawHostScan[]> {
-    const scans = await Promise.all(
-        availableBundledSkillAgentNames.map(async (agentId) => {
-            const homeDirectory = resolveManagedSkillAgentHomeDirectory(
-                context.env,
-                agentId,
-            );
-
-            if (!(await directoryExists(homeDirectory))) {
-                return [];
-            }
-
-            const skillsDirectory = resolveManagedSkillsDirectoryPath(homeDirectory);
-            const skillNames = await readSkillsDirectoryEntries(skillsDirectory);
-
-            return await Promise.all(
-                skillNames.map(skillName =>
-                    readHostScan(homeDirectory, agentId, skillName),
-                ),
-            );
-        }),
-    );
-
-    return scans.flat();
-}
-
-async function readHostScan(
-    homeDirectory: string,
-    agentId: BundledSkillAgentName,
-    skillName: string,
-): Promise<RawHostScan> {
-    const path = resolveManagedSkillDirectoryPath(homeDirectory, skillName);
-    let metadataPresent = false;
-    let metadataParseable = false;
-    let metadata: SkillMetadata | undefined;
-
-    try {
-        const state = await readSkillDirectoryState(path);
-
-        if (state.kind === "managed") {
-            metadataPresent = true;
-            metadataParseable = true;
-            metadata = state.metadata;
-        }
-        else if (
-            state.kind === "not-directory"
-            || (state.kind === "unmanaged" && state.metadataFilePresent)
-        ) {
-            metadataPresent = true;
-        }
-    }
-    catch {
-        // IO error → "present but unreadable" so the host falls into the
-        // `unknown` bucket instead of being read as non-managed.
-        metadataPresent = true;
-    }
-
-    return {
-        agentId,
-        skillName,
-        path,
-        metadata,
-        metadataPresent,
-        metadataParseable,
-    };
-}
-
-interface SkillIdentityGroup {
-    identityKey: string;
-    name: string;
-    kind: SkillInventoryKind;
-    packageName: string | null;
-    hostScans: RawHostScan[];
-}
-
-function groupHostScansBySkillIdentity(
-    scans: readonly RawHostScan[],
-): SkillIdentityGroup[] {
-    const managedGroups = new Map<string, SkillIdentityGroup>();
-    // Shadow hosts (no metadata / unparseable metadata) are buffered and
-    // attached in a second pass because their matching managed group may not
-    // have been seen yet at scan time.
-    const shadowCandidatesByName = new Map<string, RawHostScan[]>();
-
-    for (const scan of scans) {
-        if (scan.metadata !== undefined) {
-            const identityKey = computeSkillIdentityKey(scan);
-            const existing = managedGroups.get(identityKey);
-
-            if (existing === undefined) {
-                managedGroups.set(identityKey, {
-                    identityKey,
-                    name: scan.skillName,
-                    kind: resolveKindFromMetadata(scan),
-                    packageName: resolvePackageNameFromMetadata(scan),
-                    hostScans: [scan],
-                });
-            }
-            else {
-                existing.hostScans.push(scan);
-            }
-            continue;
-        }
-
-        const existing = shadowCandidatesByName.get(scan.skillName) ?? [];
-
-        existing.push(scan);
-        shadowCandidatesByName.set(scan.skillName, existing);
-    }
-
-    // Shadow scans with no matching managed name are dropped to avoid noise.
-    for (const [skillName, shadowScans] of shadowCandidatesByName) {
-        const matched = findManagedGroupByName(managedGroups, skillName);
-
-        if (matched !== undefined) {
-            matched.hostScans.push(...shadowScans);
-        }
-    }
-
-    return [...managedGroups.values()];
-}
-
-function findManagedGroupByName(
-    managedGroups: Map<string, SkillIdentityGroup>,
-    skillName: string,
-): SkillIdentityGroup | undefined {
-    for (const group of managedGroups.values()) {
-        if (group.name === skillName) {
-            return group;
-        }
-    }
-
-    return undefined;
-}
-
-function computeSkillIdentityKey(scan: RawHostScan): string {
-    const kind = resolveKindFromMetadata(scan);
-    const packageName = resolvePackageNameFromMetadata(scan) ?? "";
-
-    // Version is intentionally excluded so version-divergent installs of the
-    // same skill collapse into one entry, with per-host versions in hosts[].
-    return `${kind}\x00${scan.skillName}\x00${packageName}`;
-}
-
-function resolveKindFromMetadata(scan: RawHostScan): SkillInventoryKind {
-    return readManagedSkillListSource({
-        metadata: scan.metadata,
-        name: scan.skillName,
-    });
-}
-
-function resolvePackageNameFromMetadata(scan: RawHostScan): string | null {
-    if (scan.metadata?.kind === "registry") {
-        return scan.metadata.packageName;
-    }
-
-    return null;
+    // Rows arrive in the documented inventory order (bundled in embedded
+    // order, then registry, then local, names sorted within each kind), so no
+    // re-sort is needed here.
+    return builtEntries.filter(entry => entry !== undefined);
 }
 
 async function buildSkillInventoryEntry(
-    group: SkillIdentityGroup,
+    skill: InstalledSkill,
     settingsFilePath: string,
     env: Record<string, string | undefined>,
 ): Promise<SkillInventoryEntry | undefined> {
-    const sourcePathLookup = resolveSourcePathLookup(group, settingsFilePath);
+    // Canonical-only rows have no host copy and stay out of the inventory
+    // view; update/check-update/sync still see them through the shared rows.
+    if (skill.agents.length === 0) {
+        return undefined;
+    }
+
+    const sourcePathLookup = resolveSourcePathLookup(skill, settingsFilePath);
     const hosts = await Promise.all(
-        group.hostScans.map(async (scan): Promise<SkillInventoryHostEntry> => {
+        skill.agents.map(async (copy): Promise<SkillInventoryHostEntry> => {
             // Hosts without metadata shadow the managed skill name but are not
             // tied to its canonical source, so they surface sourcePath=null.
-            const sourcePath = scan.metadataPresent
-                ? sourcePathLookup(scan.agentId)
-                : null;
+            const sourcePath = copy.state === "unmanaged"
+                ? null
+                : sourcePathLookup(copy.agentName);
             const controlState = await resolveHostControlState({
-                scan,
+                copy,
                 sourcePath,
-                kind: group.kind,
+                kind: skill.kind,
             });
 
             return {
-                agentId: scan.agentId,
+                agentId: copy.agentName,
                 status: "installed",
-                path: scan.path,
+                path: copy.path,
                 sourcePath,
-                version: readHostVersion(scan),
+                version: copy.version ?? null,
                 controlState,
             };
         }),
     );
 
-    if (hosts.length === 0) {
-        return undefined;
-    }
-
-    hosts.sort(compareSkillInventoryHostEntries);
-
     const description = await readSkillDescription({
-        kind: group.kind,
-        skillName: group.name,
+        kind: skill.kind,
+        skillName: skill.name,
         settingsFilePath,
         env,
         hosts,
     });
-    const topLevelVersion = pickTopLevelVersion(group.kind, hosts);
 
     return {
-        id: group.name,
-        name: group.name,
-        kind: group.kind,
-        packageName: group.packageName,
-        version: topLevelVersion,
+        id: skill.name,
+        name: skill.name,
+        kind: skill.kind,
+        packageName: skill.packageName ?? null,
+        version: skill.version ?? null,
         description,
         hosts,
     };
 }
 
-function readHostVersion(scan: RawHostScan): string | null {
-    const metadata = scan.metadata;
-
-    if (metadata === undefined) {
-        return null;
-    }
-
-    if (metadata.kind === "bundled" || metadata.kind === "registry") {
-        return metadata.version;
-    }
-
-    return null;
-}
-
 function resolveSourcePathLookup(
-    group: SkillIdentityGroup,
+    skill: Pick<InstalledSkill, "kind" | "name">,
     settingsFilePath: string,
 ): (agentId: BundledSkillAgentName) => string | null {
-    switch (group.kind) {
+    switch (skill.kind) {
         case "bundled": {
             // Bundled skills have per-agent canonical source paths.
-            if (!isBundledSkillName(group.name)) {
+            if (!isBundledSkillName(skill.name)) {
                 return () => null;
             }
 
-            const bundledName: BundledSkillName = group.name;
+            const bundledName: BundledSkillName = skill.name;
 
             return agentId => resolveBundledSkillCanonicalDirectoryPath(
                 settingsFilePath,
@@ -383,7 +185,7 @@ function resolveSourcePathLookup(
         case "registry": {
             const sharedSourcePath = resolveManagedSkillCanonicalDirectoryPath(
                 settingsFilePath,
-                group.name,
+                skill.name,
             );
 
             return () => sharedSourcePath;
@@ -395,7 +197,7 @@ function resolveSourcePathLookup(
 }
 
 interface ResolveHostControlStateInput {
-    scan: RawHostScan;
+    copy: Pick<InstalledSkillAgentCopy, "path" | "state">;
     sourcePath: string | null;
     kind: SkillInventoryKind;
 }
@@ -403,11 +205,11 @@ interface ResolveHostControlStateInput {
 export async function resolveHostControlState(
     input: ResolveHostControlStateInput,
 ): Promise<SkillHostControlState> {
-    if (!input.scan.metadataPresent) {
+    if (input.copy.state === "unmanaged") {
         return "non-managed";
     }
 
-    if (!input.scan.metadataParseable) {
+    if (input.copy.state === "unparseable") {
         return "unknown";
     }
 
@@ -422,7 +224,7 @@ export async function resolveHostControlState(
     // Symlink fast path: equal realpaths short-circuit the content compare.
     try {
         const [hostReal, sourceReal] = await Promise.all([
-            realpath(input.scan.path),
+            realpath(input.copy.path),
             realpath(input.sourcePath),
         ]);
 
@@ -436,7 +238,7 @@ export async function resolveHostControlState(
     }
 
     const verdict = await compareSkillDirectoryContent(
-        input.scan.path,
+        input.copy.path,
         input.sourcePath,
     );
 
@@ -660,23 +462,6 @@ async function readSkillDescriptionFromSkillMd(
     return toNonBlankString(parsed.data.description);
 }
 
-function pickTopLevelVersion(
-    kind: SkillInventoryKind,
-    hosts: readonly SkillInventoryHostEntry[],
-): string | null {
-    if (kind === "local") {
-        return null;
-    }
-
-    for (const host of hosts) {
-        if (host.version !== null) {
-            return host.version;
-        }
-    }
-
-    return null;
-}
-
 function computeSummary(entries: readonly SkillInventoryEntry[]): SkillInventorySummary {
     const summary: SkillInventorySummary = {
         bundledSkills: 0,
@@ -738,48 +523,4 @@ function applyFilters(
     }
 
     return result;
-}
-
-const inventoryKindOrder: Record<SkillInventoryKind, number> = {
-    bundled: 0,
-    registry: 1,
-    local: 2,
-};
-
-function compareSkillInventoryEntries(
-    left: SkillInventoryEntry,
-    right: SkillInventoryEntry,
-): number {
-    const kindDifference
-        = inventoryKindOrder[left.kind] - inventoryKindOrder[right.kind];
-
-    if (kindDifference !== 0) {
-        return kindDifference;
-    }
-
-    if (left.kind === "bundled" && right.kind === "bundled") {
-        const leftIndex = bundledSkillOrderIndex(left.name);
-        const rightIndex = bundledSkillOrderIndex(right.name);
-
-        if (leftIndex !== undefined && rightIndex !== undefined) {
-            return leftIndex - rightIndex;
-        }
-    }
-
-    return left.name.localeCompare(right.name);
-}
-
-function bundledSkillOrderIndex(name: string): number | undefined {
-    if (!isBundledSkillName(name)) {
-        return undefined;
-    }
-
-    return availableBundledSkillNames.indexOf(name);
-}
-
-function compareSkillInventoryHostEntries(
-    left: SkillInventoryHostEntry,
-    right: SkillInventoryHostEntry,
-): number {
-    return compareManagedSkillAgentNames(left.agentId, right.agentId);
 }

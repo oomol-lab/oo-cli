@@ -1,7 +1,7 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type { InstalledSkill } from "./installed-skills.ts";
 import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
-import type { ManagedSkillListItem } from "./managed-skill-listings.ts";
 import type { RegistryPackageSkillInfo } from "./registry-skill-source.ts";
 
 import { z } from "zod";
@@ -12,7 +12,11 @@ import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { writeLine } from "../shared/output.ts";
-import { readKnownManagedSkillInstallations } from "./installed-managed-skills.ts";
+import {
+    groupInstalledSkillsByPackageName,
+    isInstalledRegistrySkill,
+    readInstalledSkills,
+} from "./installed-skills.ts";
 import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
@@ -128,10 +132,9 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
             throw createMissingManagedSkillHostError(context.env);
         }
 
-        const settingsFilePath = context.settingsStore.getFilePath();
-        const installedSkills = await readKnownManagedSkillInstallations(
-            availableHosts,
-            settingsFilePath,
+        const installedSkills = await readInstalledSkills(
+            context.env,
+            context.settingsStore.getFilePath(),
         );
         const packageNames = dedupePreserveOrder(input.packageNames ?? []);
         // Record the skill-filter dimension before the no-match check can throw,
@@ -215,7 +218,7 @@ type CheckUpdatePlanEntry = CheckUpdatePlanEntryFailed | CheckUpdatePlanEntryReg
 // packages with no installed skill become failed entries.
 function resolveCheckUpdatePlan(
     requestedPackageNames: readonly string[],
-    installedSkills: readonly ManagedSkillListItem[],
+    installedSkills: readonly InstalledSkill[],
 ): CheckUpdatePlanEntry[] {
     if (requestedPackageNames.length === 0) {
         const entries: CheckUpdatePlanEntry[] = [];
@@ -231,7 +234,7 @@ function resolveCheckUpdatePlan(
         return entries;
     }
 
-    const targetsByPackageName = groupRegistrySkillTargetsByPackageName(installedSkills);
+    const skillsByPackageName = groupInstalledSkillsByPackageName(installedSkills);
     const entries: CheckUpdatePlanEntry[] = [];
 
     for (const packageName of requestedPackageNames) {
@@ -240,7 +243,9 @@ function resolveCheckUpdatePlan(
             continue;
         }
 
-        const targets = targetsByPackageName.get(packageName) ?? [];
+        const targets = (skillsByPackageName.get(packageName) ?? [])
+            .map(toRegistrySkillTarget)
+            .filter(target => target !== undefined);
 
         if (targets.length === 0) {
             entries.push(makeFailedPlanEntry(packageName, "package_not_installed"));
@@ -290,42 +295,17 @@ function applyCheckUpdateSkillFilter(
     return plan.filter(entry => entry.kind !== "registry" || matched.has(entry));
 }
 
-function groupRegistrySkillTargetsByPackageName(
-    installedSkills: readonly ManagedSkillListItem[],
-): Map<string, RegistrySkillTarget[]> {
-    const targetsByPackageName = new Map<string, RegistrySkillTarget[]>();
-
-    for (const skill of installedSkills) {
-        const target = toRegistrySkillTarget(skill);
-
-        if (target === undefined) {
-            continue;
-        }
-
-        const existing = targetsByPackageName.get(target.packageName);
-
-        if (existing === undefined) {
-            targetsByPackageName.set(target.packageName, [target]);
-            continue;
-        }
-
-        existing.push(target);
-    }
-
-    return targetsByPackageName;
-}
-
 function toRegistrySkillTarget(
-    skill: ManagedSkillListItem,
+    skill: InstalledSkill,
 ): RegistrySkillTarget | undefined {
-    if (skill.metadata?.kind !== "registry") {
+    if (!isInstalledRegistrySkill(skill)) {
         return undefined;
     }
 
     return {
         skillId: skill.name,
-        packageName: skill.metadata.packageName,
-        currentVersion: skill.metadata.version,
+        packageName: skill.packageName,
+        currentVersion: skill.version,
     };
 }
 

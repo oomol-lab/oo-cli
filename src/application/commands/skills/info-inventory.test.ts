@@ -105,20 +105,11 @@ describe("compareSkillDirectoryContent", () => {
 });
 
 describe("resolveHostControlState", () => {
-    const baseScan = {
-        agentId: "universal" as const,
-        skillName: "test-skill",
-        path: "/tmp/host/path",
-    };
+    const basePath = "/tmp/host/path";
 
     test("returns non-managed when metadata file is absent", async () => {
         const verdict = await resolveHostControlState({
-            scan: {
-                ...baseScan,
-                metadata: undefined,
-                metadataPresent: false,
-                metadataParseable: false,
-            },
+            copy: { path: basePath, state: "unmanaged" },
             sourcePath: null,
             kind: "registry",
         });
@@ -128,12 +119,7 @@ describe("resolveHostControlState", () => {
 
     test("returns unknown when metadata is present but unparseable", async () => {
         const verdict = await resolveHostControlState({
-            scan: {
-                ...baseScan,
-                metadata: undefined,
-                metadataPresent: true,
-                metadataParseable: false,
-            },
+            copy: { path: basePath, state: "unparseable" },
             sourcePath: null,
             kind: "registry",
         });
@@ -143,12 +129,7 @@ describe("resolveHostControlState", () => {
 
     test("returns controlled for local skill with metadata regardless of sourcePath", async () => {
         const verdict = await resolveHostControlState({
-            scan: {
-                ...baseScan,
-                metadata: { kind: "local", schemaVersion: 1 },
-                metadataPresent: true,
-                metadataParseable: true,
-            },
+            copy: { path: basePath, state: "managed" },
             sourcePath: null,
             kind: "local",
         });
@@ -158,17 +139,7 @@ describe("resolveHostControlState", () => {
 
     test("returns unknown when sourcePath is null for non-local kind", async () => {
         const verdict = await resolveHostControlState({
-            scan: {
-                ...baseScan,
-                metadata: {
-                    kind: "registry",
-                    schemaVersion: 1,
-                    packageName: "@oomol/x",
-                    version: "1.0.0",
-                },
-                metadataPresent: true,
-                metadataParseable: true,
-            },
+            copy: { path: basePath, state: "managed" },
             sourcePath: null,
             kind: "registry",
         });
@@ -178,17 +149,7 @@ describe("resolveHostControlState", () => {
 
     test("returns unknown when sourcePath directory does not exist", async () => {
         const verdict = await resolveHostControlState({
-            scan: {
-                ...baseScan,
-                metadata: {
-                    kind: "registry",
-                    schemaVersion: 1,
-                    packageName: "@oomol/x",
-                    version: "1.0.0",
-                },
-                metadataPresent: true,
-                metadataParseable: true,
-            },
+            copy: { path: basePath, state: "managed" },
             sourcePath: "/nonexistent/source/path",
             kind: "registry",
         });
@@ -207,18 +168,7 @@ describe("resolveHostControlState", () => {
         await writeFile(join(sourcePath, "SKILL.md"), "hello\n");
 
         const verdict = await resolveHostControlState({
-            scan: {
-                ...baseScan,
-                path: hostPath,
-                metadata: {
-                    kind: "registry",
-                    schemaVersion: 1,
-                    packageName: "@oomol/x",
-                    version: "1.0.0",
-                },
-                metadataPresent: true,
-                metadataParseable: true,
-            },
+            copy: { path: hostPath, state: "managed" },
             sourcePath,
             kind: "registry",
         });
@@ -237,18 +187,7 @@ describe("resolveHostControlState", () => {
         await writeFile(join(sourcePath, "SKILL.md"), "original\n");
 
         const verdict = await resolveHostControlState({
-            scan: {
-                ...baseScan,
-                path: hostPath,
-                metadata: {
-                    kind: "registry",
-                    schemaVersion: 1,
-                    packageName: "@oomol/x",
-                    version: "1.0.0",
-                },
-                metadataPresent: true,
-                metadataParseable: true,
-            },
+            copy: { path: hostPath, state: "managed" },
             sourcePath,
             kind: "registry",
         });
@@ -270,18 +209,7 @@ describe("resolveHostControlState", () => {
         await symlink(target, join(hostPath, "extra.txt"));
 
         const verdict = await resolveHostControlState({
-            scan: {
-                ...baseScan,
-                path: hostPath,
-                metadata: {
-                    kind: "registry",
-                    schemaVersion: 1,
-                    packageName: "@oomol/x",
-                    version: "1.0.0",
-                },
-                metadataPresent: true,
-                metadataParseable: true,
-            },
+            copy: { path: hostPath, state: "managed" },
             sourcePath,
             kind: "registry",
         });
@@ -299,18 +227,7 @@ describe("resolveHostControlState", () => {
         await symlink(realPath, linkPath, "dir");
 
         const verdict = await resolveHostControlState({
-            scan: {
-                ...baseScan,
-                path: linkPath,
-                metadata: {
-                    kind: "registry",
-                    schemaVersion: 1,
-                    packageName: "@oomol/x",
-                    version: "1.0.0",
-                },
-                metadataPresent: true,
-                metadataParseable: true,
-            },
+            copy: { path: linkPath, state: "managed" },
             sourcePath: realPath,
             kind: "registry",
         });

@@ -1,7 +1,5 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
-import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
-import type { ManagedSkillListItem } from "./managed-skill-listings.ts";
 import type {
     SkillOperationError,
     SkillResult,
@@ -14,7 +12,6 @@ import ignore from "ignore";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { compareSemver } from "../../semver.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
@@ -22,16 +19,15 @@ import { parseCommaSeparatedValues } from "../shared/list-parsing.ts";
 import { writeLine } from "../shared/output.ts";
 import { requestText } from "../shared/request.ts";
 import {
+    isInstalledRegistrySkill,
+    readInstalledSkills,
+} from "./installed-skills.ts";
+import {
     createMissingManagedSkillHostError,
     resolveAvailableManagedSkillHosts,
 } from "./managed-skill-hosts.ts";
 import {
-    listManagedSkillInstallations,
-    listManagedSkillInstallationsForHosts,
-} from "./managed-skill-listings.ts";
-import {
     resolveManagedSkillCanonicalDirectoryPath,
-    resolveManagedSkillCanonicalRootDirectoryPath,
 } from "./managed-skill-paths.ts";
 import {
     computeCommandStatus,
@@ -202,10 +198,9 @@ export async function uploadRegistrySkills(
     context: CliExecutionContext,
 ): Promise<void> {
     const { account } = await requireIdentity(context);
-    const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
     const records = filterSkillSyncRecords(
         await collectRegistrySkillSyncRecords(
-            availableHosts,
+            context.env,
             context.settingsStore.getFilePath(),
         ),
         request.ignorePatterns,
@@ -303,7 +298,7 @@ async function runSyncUploadJsonReportInner(
     }
 
     const allRecords = await collectRegistrySkillSyncRecords(
-        availableHosts,
+        context.env,
         context.settingsStore.getFilePath(),
     );
     const filteredRecords = filterSkillSyncRecords(allRecords, request.ignorePatterns);
@@ -661,67 +656,23 @@ export function filterSkillSyncRecords(
     );
 }
 
+// One sync record per installed registry skill. The inventory already merged
+// duplicate copies and picked the installed version, so this is a pure
+// projection plus the documented package-then-skill upload ordering.
 async function collectRegistrySkillSyncRecords(
-    availableHosts: readonly ManagedSkillHost[],
+    env: Record<string, string | undefined>,
     settingsFilePath: string,
 ): Promise<SkillSyncRecord[]> {
-    const [canonicalSkills, hostSkills] = await Promise.all([
-        listManagedSkillInstallations(
-            resolveManagedSkillCanonicalRootDirectoryPath(settingsFilePath),
-        ),
-        listManagedSkillInstallationsForHosts(availableHosts),
-    ]);
+    const installedSkills = await readInstalledSkills(env, settingsFilePath);
 
-    return deduplicateSkillSyncRecords(
-        [...canonicalSkills, ...hostSkills].map(createSkillSyncRecord),
-    );
-}
-
-function createSkillSyncRecord(
-    skill: Pick<ManagedSkillListItem, "metadata" | "name">,
-): SkillSyncRecord | undefined {
-    if (skill.metadata?.kind !== "registry") {
-        return undefined;
-    }
-
-    return {
-        packageName: skill.metadata.packageName,
-        skillName: skill.name,
-        version: skill.metadata.version,
-    };
-}
-
-function deduplicateSkillSyncRecords(
-    records: readonly (SkillSyncRecord | undefined)[],
-): SkillSyncRecord[] {
-    const recordsByIdentity = new Map<string, SkillSyncRecord>();
-
-    for (const record of records) {
-        if (record === undefined) {
-            continue;
-        }
-
-        const key = createSkillSyncRecordIdentity(record);
-        const existingRecord = recordsByIdentity.get(key);
-
-        if (
-            existingRecord === undefined
-            || compareSemver(record.version, existingRecord.version) > 0
-        ) {
-            recordsByIdentity.set(key, record);
-        }
-    }
-
-    return Array.from(recordsByIdentity.values()).sort(compareSkillSyncRecords);
-}
-
-function createSkillSyncRecordIdentity(
-    record: Pick<SkillSyncRecord, "packageName" | "skillName">,
-): string {
-    return JSON.stringify({
-        packageName: record.packageName,
-        skillName: record.skillName,
-    });
+    return installedSkills
+        .filter(isInstalledRegistrySkill)
+        .map(skill => ({
+            packageName: skill.packageName,
+            skillName: skill.name,
+            version: skill.version,
+        }))
+        .sort(compareSkillSyncRecords);
 }
 
 function compareSkillSyncRecords(

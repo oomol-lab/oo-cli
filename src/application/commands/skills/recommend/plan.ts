@@ -1,6 +1,6 @@
 import type { Cache } from "../../../contracts/cache.ts";
 import type { CliCommandDefinition, CliExecutionContext } from "../../../contracts/cli.ts";
-import type { ManagedSkillListItem } from "../managed-skill-listings.ts";
+import type { InstalledSkill } from "../installed-skills.ts";
 import type { RecommendationCooldownGate } from "./recommendation-cooldown.ts";
 import type { CandidateResolution, RecommendationPartition } from "./recommendation-plan.ts";
 
@@ -15,8 +15,10 @@ import { bucketTelemetryCount } from "../../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../../json-output.ts";
 import { createFormatInputError } from "../../shared/input-parsing.ts";
 import { writeLine } from "../../shared/output.ts";
-import { readKnownManagedSkillInstallations } from "../installed-managed-skills.ts";
-import { resolveAvailableManagedSkillHosts } from "../managed-skill-hosts.ts";
+import {
+    groupInstalledSkillsByPackageName,
+    readInstalledSkills,
+} from "../installed-skills.ts";
 import { loadRegistryPackageSkillInfoAllowingMissing } from "../registry-skill-source.ts";
 import { createPackageNamesTelemetryProperties } from "../telemetry.ts";
 import { applyRecommendationCooldown } from "./recommendation-cooldown.ts";
@@ -194,9 +196,8 @@ async function resolveCandidates(
     dismissed: ReadonlySet<string>,
     context: CliExecutionContext,
 ): Promise<{ packageName: string; resolution: CandidateResolution }[]> {
-    const availableHosts = await resolveAvailableManagedSkillHosts(context.env);
-    const installedSkills = await readKnownManagedSkillInstallations(
-        availableHosts,
+    const installedSkills = await readInstalledSkills(
+        context.env,
         context.settingsStore.getFilePath(),
     );
     const installedVersionByPackage = collectInstalledRegistryVersions(installedSkills);
@@ -300,19 +301,15 @@ async function resolveRemotePackageStatus(
 // Maps each installed registry package to its installed version. The first
 // installed skill of a package wins when several skills share one package.
 function collectInstalledRegistryVersions(
-    installedSkills: readonly ManagedSkillListItem[],
+    installedSkills: readonly InstalledSkill[],
 ): Map<string, string> {
     const installedVersionByPackage = new Map<string, string>();
 
-    for (const skill of installedSkills) {
-        if (
-            skill.metadata?.kind === "registry"
-            && !installedVersionByPackage.has(skill.metadata.packageName)
-        ) {
-            installedVersionByPackage.set(
-                skill.metadata.packageName,
-                skill.metadata.version,
-            );
+    for (const [packageName, skills] of groupInstalledSkillsByPackageName(installedSkills)) {
+        const version = skills[0]?.version;
+
+        if (version !== undefined) {
+            installedVersionByPackage.set(packageName, version);
         }
     }
 

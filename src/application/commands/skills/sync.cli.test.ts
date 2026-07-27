@@ -67,6 +67,61 @@ describe("skills sync upload --json", () => {
         }
     });
 
+    test("uploads the highest installed version when canonical and host copies diverge", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedRegistrySkill({
+                sandbox,
+                skillName: "demo",
+                packageName: "@alice/demo",
+                version: "0.1.0",
+            });
+
+            // A partially applied update leaves the canonical copy ahead; the
+            // uploaded record carries the highest copy, matching check-update.
+            const storePaths = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            });
+            const canonicalDirectory = resolveManagedSkillCanonicalDirectoryPath(
+                storePaths.settingsFilePath,
+                "demo",
+            );
+            await writeFile(
+                resolveManagedSkillMetadataFilePath(canonicalDirectory),
+                renderSkillMetadataJson(createRegistrySkillMetadata({
+                    packageName: "@alice/demo",
+                    version: "0.3.0",
+                })),
+            );
+
+            const result = await sandbox.run(
+                ["skills", "sync", "upload", "--json"],
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async () => new Response("[]"),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const records = payload.records as Array<Record<string, unknown>>;
+
+            expect(records).toHaveLength(1);
+            expect(records[0]).toMatchObject({
+                skillId: "demo",
+                packageName: "@alice/demo",
+                version: "0.3.0",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("upload request failure still emits JSON with errors", async () => {
         const sandbox = await createCliSandbox();
 

@@ -7,7 +7,6 @@ import type {
     BundledSkillName,
 } from "./embedded-assets.ts";
 
-import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import type {
     SkillKind,
     SkillOperationError,
@@ -22,7 +21,10 @@ import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { removePath } from "./bundled-skill-filesystem.ts";
 import { availableBundledSkillNames } from "./embedded-assets.ts";
-import { findInstalledRegistrySkillNamesForPackage } from "./installed-managed-skills.ts";
+import {
+    installedRegistrySkillNamesForPackage,
+    readInstalledSkills,
+} from "./installed-skills.ts";
 import { findLocalSkillSources } from "./local-skill-source.ts";
 import { parseManagedSkillAgentOption } from "./managed-skill-agents.ts";
 import {
@@ -183,7 +185,6 @@ async function runUninstallJsonReport(
 
     for (const name of request.skillNames) {
         const resolution = await uninstallNameForJson(name, request.agentName, context, {
-            availableHosts,
             settingsFilePath,
         });
 
@@ -215,7 +216,7 @@ async function uninstallNameForJson(
     name: string,
     agentName: BundledSkillAgentName | undefined,
     context: CliExecutionContext,
-    options: { availableHosts: readonly ManagedSkillHost[]; settingsFilePath: string },
+    options: { settingsFilePath: string },
 ): Promise<UninstallNameResolution> {
     if (isScopedPackageName(name)) {
         return {
@@ -276,13 +277,12 @@ async function uninstallNameForJson(
 async function uninstallPackageForJson(
     packageName: string,
     context: CliExecutionContext,
-    options: { availableHosts: readonly ManagedSkillHost[]; settingsFilePath: string },
+    options: { settingsFilePath: string },
 ): Promise<SkillResult[]> {
-    const skillNames = await findInstalledRegistrySkillNamesForPackage({
-        availableHosts: options.availableHosts,
+    const skillNames = installedRegistrySkillNamesForPackage(
+        await readInstalledSkills(context.env, options.settingsFilePath),
         packageName,
-        settingsFilePath: options.settingsFilePath,
-    });
+    );
 
     if (skillNames.length === 0) {
         return [buildNotInstalledSkillResult(packageName)];

@@ -1540,6 +1540,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
     drift，请用 `oo skills info --json` 查看 host 的 `controlState`。
   - `failed` —— 该 skill 无法完成检查；entry 含 `error.code`（机器可读枚举）
     与 `error.message`（英文模板）。
+- `currentVersion` 是该 skill 所有已安装副本（共享的 canonical 副本与每个
+  agent host 副本）中的最高版本；部分更新遗留的落后副本通过 `status` 表达，
+  不会拉低 `currentVersion`。`oo skills sync upload` 上报同一版本。
 - 退出码：即使 entry 含 `failed`，命令仍以 0 退出（失败由 payload 字段表达）。
   参数错误（如 `--format xml`）仍以 2 退出。
 - `error.code` 枚举：`bundled_unsupported` / `package_not_installed` /
