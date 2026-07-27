@@ -2,11 +2,13 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import type { AuthAccount, AuthFile } from "../../schemas/auth.ts";
 
 import { z } from "zod";
+import {
+    buildEnvApiKeyAccount,
+    reportOverriddenWrite,
+} from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { getNextAuthAccount, setCurrentAuthId } from "../../schemas/auth.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { buildEnvApiKeyAccount } from "../shared/auth-env-override.ts";
-import { writeLine } from "../shared/output.ts";
 import {
     formatAuthStrong,
     writeAuthBlock,
@@ -39,22 +41,10 @@ export const authSwitchCommand: CliCommandDefinition<AuthSwitchInput> = {
         // OO_API_KEY is set, so rewriting auth.toml here would report a switch
         // that no later command honors.
         if (buildEnvApiKeyAccount(context.env) !== undefined) {
-            context.telemetry?.recordProperties({
-                credential_source: "env",
-                has_user_filter: input.user !== undefined,
+            reportOverriddenWrite(context, {
+                extraTelemetry: { has_user_filter: input.user !== undefined },
+                summaryKey: "auth.switch.envOverrideNoop",
             });
-            context.logger.info(
-                {},
-                "Auth switch did nothing: OO_API_KEY provides the active credential.",
-            );
-            writeAuthBlock(context, {
-                tone: "warning",
-                summary: context.translator.t("auth.switch.envOverrideNoop"),
-            });
-            writeLine(
-                context.stdout,
-                context.translator.t("auth.envOverride.unsetHint"),
-            );
             return;
         }
 

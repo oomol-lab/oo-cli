@@ -226,6 +226,13 @@ function createCommanderContext(
                 auth: [],
                 id: "",
             }),
+            readTolerantState: async () => ({
+                authFile: {
+                    auth: [],
+                    id: "",
+                },
+                fileState: "ok",
+            }),
             update: async updater => updater({
                 auth: [],
                 id: "",

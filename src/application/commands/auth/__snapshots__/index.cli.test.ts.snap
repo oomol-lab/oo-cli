@@ -105,22 +105,6 @@ Default team identity: alice-team
 }
 `;
 
-exports[`auth CLI supports auth login with a custom OOMOL_ENDPOINT 1`] = `
-{
-  "exitCode": 0,
-  "stderr": "",
-  "stdout": 
-"Open this login URL in your browser:
-<LOGIN_URL>
-Waiting for the device login to complete...
-✓ Logged in to staging.oomol.test account Alice
-  - Active account: true
-Default team identity: alice-team
-"
-,
-}
-`;
-
 exports[`auth CLI supports login as an alias for auth login 1`] = `
 {
   "exitCode": 0,
