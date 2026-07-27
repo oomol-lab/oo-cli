@@ -164,6 +164,43 @@ describe("resolveTeamIdentity precedence", () => {
             ),
         )).toMatchObject({ source: "env_id", name: "platform", id: "team-1" });
     });
+
+    test("treats blank env variables as unset and falls through to config", async () => {
+        expect(await resolveTeamIdentity(
+            {
+                account: testAccount,
+                configuredTeam: "acme",
+                resolveAgainstBackend: true,
+            },
+            createContext({ OO_TEAM_ID: "   ", OO_TEAM_NAME: "" }),
+        )).toMatchObject({ source: "config", name: "acme" });
+    });
+
+    test("trims the env-supplied value", async () => {
+        expect(await resolveTeamIdentity(
+            {
+                account: testAccount,
+                configuredTeam: undefined,
+                resolveAgainstBackend: false,
+            },
+            createContext({ OO_TEAM_ID: " team-1 " }),
+        )).toMatchObject({ source: "env_id", id: "team-1" });
+    });
+
+    test("falls back to OO_TEAM_NAME when OO_TEAM_ID is blank", async () => {
+        expect(await resolveTeamIdentity(
+            {
+                account: testAccount,
+                configuredTeam: undefined,
+                resolveAgainstBackend: false,
+            },
+            createContext({ OO_TEAM_ID: "  ", OO_TEAM_NAME: "acme" }),
+        )).toMatchObject({
+            source: "env_name",
+            name: "acme",
+            envVar: "OO_TEAM_NAME",
+        });
+    });
 });
 
 // Both env directions get the same policy: complete the missing dimension,

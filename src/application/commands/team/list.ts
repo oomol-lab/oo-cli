@@ -1,7 +1,7 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
-import type { TeamEnvOverride } from "../shared/team-env-override.ts";
 
+import type { TeamIdentity } from "./identity.ts";
 import type { TeamRole, TeamView } from "./shared.ts";
 
 import { z } from "zod";
@@ -11,7 +11,7 @@ import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
-import { readTeamEnvOverride } from "../shared/team-env-override.ts";
+import { resolveTeamIdentity } from "./identity.ts";
 import { listMemberTeams, teamFormatValues } from "./shared.ts";
 
 interface TeamListInput {
@@ -39,10 +39,18 @@ export const teamListCommand: CliCommandDefinition<TeamListInput> = {
     handler: async (input, context) => {
         const { account } = await requireIdentity(context);
         const settings = await context.settingsStore.read();
-        const isCurrent = createCurrentTeamMatcher(
-            readTeamEnvOverride(context.env),
-            getConfiguredIdentityTeam(settings),
+        // The listing itself is the membership set, so the identity resolves
+        // offline and each row is matched against the record locally.
+        const identity = await resolveTeamIdentity(
+            {
+                account,
+                configuredTeam: getConfiguredIdentityTeam(settings),
+                resolveAgainstBackend: false,
+            },
+            context,
         );
+        const isCurrent = (team: TeamView): boolean =>
+            isCurrentTeamRow(team, identity);
 
         const teams = await listMemberTeams(account, context);
         const output = teams.map(team => createTeamListItem(team, isCurrent));
@@ -68,21 +76,21 @@ export const teamListCommand: CliCommandDefinition<TeamListInput> = {
     },
 };
 
-// Decides which row is the effective default for connector commands: the
-// OO_TEAM_ID / OO_TEAM_NAME env override when set (matched by id or name
-// respectively), otherwise the `identity.team` config default (matched by
-// name).
-function createCurrentTeamMatcher(
-    envOverride: TeamEnvOverride | undefined,
-    configuredTeam: string | undefined,
-): (team: TeamView) => boolean {
-    if (envOverride !== undefined) {
-        return envOverride.kind === "id"
-            ? team => team.id === envOverride.value
-            : team => team.name === envOverride.value;
+// Decides which row is the effective default for connector commands. An
+// offline identity carries exactly the dimension its source supplies — the id
+// under OO_TEAM_ID, the name under OO_TEAM_NAME or the config default — so
+// the row is matched on whichever one is known.
+function isCurrentTeamRow(
+    team: TeamView,
+    identity: TeamIdentity | undefined,
+): boolean {
+    if (identity === undefined) {
+        return false;
     }
 
-    return team => configuredTeam !== undefined && team.name === configuredTeam;
+    return identity.id !== null
+        ? team.id === identity.id
+        : team.name === identity.name;
 }
 
 function createTeamListItem(

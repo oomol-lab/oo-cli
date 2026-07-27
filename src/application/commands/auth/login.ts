@@ -26,10 +26,7 @@ import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { writeLine } from "../shared/output.ts";
 import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
-import {
-    readTeamEnvOverride,
-    teamEnvOverrideVariableName,
-} from "../shared/team-env-override.ts";
+import { resolveTeamIdentity } from "../team/identity.ts";
 import { listMemberTeams } from "../team/shared.ts";
 import {
     formatAuthStrong,
@@ -306,14 +303,23 @@ async function applyLoginTeamIdentity(
 
     // Mirrors `oo team use`: the default is saved, but OO_TEAM_ID /
     // OO_TEAM_NAME keeps outranking it, so say so instead of letting the tip
-    // above imply the new default is in effect.
-    const envOverride = readTeamEnvOverride(context.env);
+    // above imply the new default is in effect. The offline resolution
+    // answers "which identity is actually in effect now" — `envVar` is set
+    // exactly when an env override won over the saved default.
+    const effectiveIdentity = await resolveTeamIdentity(
+        {
+            account: undefined,
+            configuredTeam: selection.team,
+            resolveAgainstBackend: false,
+        },
+        context,
+    );
 
-    if (selection.team !== undefined && envOverride !== undefined) {
+    if (selection.team !== undefined && effectiveIdentity?.envVar !== undefined) {
         writeLine(
             context.stdout,
             context.translator.t("team.use.envOverrideHint", {
-                envVar: teamEnvOverrideVariableName(envOverride),
+                envVar: effectiveIdentity.envVar,
             }),
         );
     }

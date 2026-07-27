@@ -14,14 +14,10 @@
 
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
-import type { TeamEnvOverride } from "../shared/team-env-override.ts";
 
 import type { TeamLookupStatus } from "./shared.ts";
+import { readTrimmedEnv } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import {
-    readTeamEnvOverride,
-    teamEnvOverrideVariableName,
-} from "../shared/team-env-override.ts";
 import { fetchTeamById, fetchTeamByName } from "./shared.ts";
 
 // Which mechanism selects the identity. `flag` is a per-run `--team`; `env_id`
@@ -267,4 +263,51 @@ function normalizeTeamValue(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
 
     return trimmed === undefined || trimmed === "" ? undefined : trimmed;
+}
+
+// ---------------------------------------------------------------------------
+// The env override tier. OO_TEAM_ID carries the stable team id, OO_TEAM_NAME
+// the team name, for embedded and automated callers that pin the team without
+// touching the `identity.team` config default. Private to the resolver: which
+// variable won, and what it means, surfaces only through the TeamIdentity
+// record (`source`, `envVar`).
+// ---------------------------------------------------------------------------
+
+const teamIdEnvName = "OO_TEAM_ID";
+const teamNameEnvName = "OO_TEAM_NAME";
+
+// The env-selected team, discriminated by which variable supplied it. An `id`
+// override still needs the name direction of the lookup, a `name` override the
+// id direction.
+type TeamEnvOverride
+    = | { kind: "id"; value: string }
+        | { kind: "name"; value: string };
+
+// Reads the team env override. OO_TEAM_ID outranks OO_TEAM_NAME when both are
+// set because the id form is exact.
+function readTeamEnvOverride(
+    env: Record<string, string | undefined>,
+): TeamEnvOverride | undefined {
+    const teamId = readTrimmedEnv(env, teamIdEnvName);
+
+    if (teamId !== undefined) {
+        return { kind: "id", value: teamId };
+    }
+
+    const teamName = readTrimmedEnv(env, teamNameEnvName);
+
+    if (teamName !== undefined) {
+        return { kind: "name", value: teamName };
+    }
+
+    return undefined;
+}
+
+// Names the env variable that supplies the override, for user-facing hints
+// ("unset {envVar} ..."). Kept next to the reader so messages never drift from
+// the actual precedence.
+function teamEnvOverrideVariableName(
+    override: TeamEnvOverride,
+): string {
+    return override.kind === "id" ? teamIdEnvName : teamNameEnvName;
 }
