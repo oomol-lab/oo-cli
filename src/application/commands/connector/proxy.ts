@@ -9,7 +9,11 @@ import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { jsonOutputOptions, writeJsonOutput } from "../json-output.ts";
 import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
-import { resolveConnectorIdentityWithEnv } from "./identity.ts";
+import {
+    requireValidTeamIdentity,
+    resolveTeamIdentity,
+} from "../team/identity.ts";
+import { connectorTeamAccount } from "./identity.ts";
 import {
     connectorFormatValues,
     runConnectorProxy,
@@ -158,15 +162,19 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         }
 
         const settings = await context.settingsStore.read();
-        const { identity, source: identitySource } = target.kind === "self_hosted"
-            ? { identity: {}, source: "personal" as const }
-            : await resolveConnectorIdentityWithEnv(
-                    {
-                        configTeam: getConfiguredIdentityTeam(settings),
-                        target,
-                        teamFlag,
-                        personalFlag: input.personal === true,
-                    },
+        const identity = target.kind === "self_hosted"
+            ? undefined
+            : requireValidTeamIdentity(
+                    await resolveTeamIdentity(
+                        {
+                            account: connectorTeamAccount(target),
+                            configuredTeam: getConfiguredIdentityTeam(settings),
+                            teamFlag,
+                            personalFlag: input.personal === true,
+                            resolveAgainstBackend: true,
+                        },
+                        context,
+                    ),
                     context,
                 );
 
@@ -176,7 +184,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
                 Buffer.byteLength(JSON.stringify(proxyRequest)),
             ),
             has_body: hasProxyBody(proxyRequest),
-            identity_source: identitySource,
+            identity_source: identity?.source ?? "personal",
             method: readProxyMethod(proxyRequest),
         });
 

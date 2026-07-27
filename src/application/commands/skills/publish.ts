@@ -25,7 +25,7 @@ import {
     confirmInteractiveValue,
     selectInteractiveValue,
 } from "./interactive-prompts.ts";
-import { readSkillMetadataFileState, writeLocalSkillMetadata } from "./local-skill-ownership.ts";
+import { writeLocalSkillMetadata } from "./local-skill-ownership.ts";
 import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallations,
@@ -46,6 +46,7 @@ import {
     publishPreparedRegistrySkillPublication,
     validateRegistrySkillPublicationTargets,
 } from "./registry-skill-publication.ts";
+import { readSkillDirectoryState } from "./skill-directory-state.ts";
 import { isSkillIdReference } from "./skill-id.ts";
 
 interface SkillsPublishInput {
@@ -554,15 +555,19 @@ async function resolvePathSkillPublishSource(
         return undefined;
     }
 
-    const metadataState = await readSkillMetadataFileState(skillDirectoryPath);
+    const directoryState = await readSkillDirectoryState(skillDirectoryPath);
 
-    if (metadataState.exists && metadataState.metadata === undefined) {
+    if (directoryState.kind === "unmanaged" && directoryState.metadataFilePresent) {
         throw new CliUserError("errors.skills.publish.invalidOwnershipMetadata", 1, {
             path: resolveManagedSkillMetadataFilePath(skillDirectoryPath),
         });
     }
 
-    switch (metadataState.metadata?.kind) {
+    const metadata = directoryState.kind === "managed"
+        ? directoryState.metadata
+        : undefined;
+
+    switch (metadata?.kind) {
         case "bundled":
             throw createBundledSkillPublishError(skillId);
         case "local":
@@ -574,7 +579,7 @@ async function resolvePathSkillPublishSource(
         case "registry":
             return {
                 kind: "registry",
-                packageName: metadataState.metadata.packageName,
+                packageName: metadata.packageName,
                 skillDirectoryPath,
                 skillId,
             };

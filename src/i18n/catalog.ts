@@ -360,6 +360,8 @@ export const enMessages = {
         "The connector apps request failed: {message}",
     "errors.connectorApps.requestFailed":
         "The connector apps request returned HTTP {status}.",
+    "errors.team.envIdNotAccessible":
+        "The team id \"{teamId}\" from OO_TEAM_ID cannot be used: {reason}. Run `oo team list` to see the teams you can use.",
     "errors.team.envNameNotAccessible":
         "The active account cannot access the team \"{team}\" from OO_TEAM_NAME. Run `oo team list` to see the teams you can use.",
     "errors.team.invalidResponse":
@@ -1253,11 +1255,11 @@ export const enMessages = {
         "the active account is not a member of this team",
     "team.identity.status.notFound": "no team exists with this id",
     "team.identity.status.deleted": "this team has been deleted",
-    "team.identity.status.requestFailed": "could not look up the team name",
+    "team.identity.status.requestFailed": "could not look up the team",
     "team.identity.status.requestFailedSandbox":
-        "could not look up the team name; the sandbox blocked the request",
+        "could not look up the team; the sandbox blocked the request",
     "team.identity.status.noCredential":
-        "log in to look up the team name",
+        "log in to look up the team",
     "team.use.success": "Set the default team identity to {team}.",
     "team.use.envOverrideHint":
         "Connector commands keep using the team from {envVar}, not this default. Unset {envVar} to use the saved default.",
@@ -1669,6 +1671,8 @@ export const zhMessages = {
         "获取 connector app 列表失败：{message}",
     "errors.connectorApps.requestFailed":
         "获取 connector app 列表返回了 HTTP {status}。",
+    "errors.team.envIdNotAccessible":
+        "无法使用 OO_TEAM_ID 指定的团队 id “{teamId}”：{reason}。运行 `oo team list` 查看可用的团队。",
     "errors.team.envNameNotAccessible":
         "当前活动账号无法访问 OO_TEAM_NAME 指定的团队 “{team}”。运行 `oo team list` 查看可用的团队。",
     "errors.team.invalidResponse":
@@ -2552,10 +2556,10 @@ export const zhMessages = {
     "team.identity.status.notAMember": "当前账号不是该团队的成员",
     "team.identity.status.notFound": "不存在该 id 对应的团队",
     "team.identity.status.deleted": "该团队已被删除",
-    "team.identity.status.requestFailed": "无法查询团队名称",
+    "team.identity.status.requestFailed": "无法查询团队信息",
     "team.identity.status.requestFailedSandbox":
-        "无法查询团队名称：沙箱拦截了该请求",
-    "team.identity.status.noCredential": "登录后才能查询团队名称",
+        "无法查询团队信息：沙箱拦截了该请求",
+    "team.identity.status.noCredential": "登录后才能查询团队信息",
     "team.use.success": "已将默认团队身份设置为 {team}。",
     "team.use.envOverrideHint":
         "connector 命令仍会使用 {envVar} 指定的团队，而不是这个默认值。取消 {envVar} 后保存的默认值才会生效。",

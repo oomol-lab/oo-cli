@@ -3,7 +3,7 @@ import type { ManagedSkillHost } from "./managed-skill-hosts.ts";
 import type {
     SkillMetadata,
 } from "./skill-metadata.ts";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
@@ -13,12 +13,14 @@ import {
     compareManagedSkillAgentNames,
 } from "./managed-skill-agents.ts";
 import {
-    resolveManagedSkillMetadataFilePath,
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
 import { isBundledSkillName } from "./shared.ts";
 
-import { parseSkillMetadataContent } from "./skill-metadata.ts";
+import {
+    isSkillDirectoryAbsent,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 export const skillListSourceValues = ["bundled", "registry", "local"] as const;
 export type SkillListSource = (typeof skillListSourceValues)[number];
@@ -74,24 +76,16 @@ export async function listManagedSkillInstallations(
     const skills: Array<ManagedSkillListItem | undefined> = await Promise.all(
         entries.map(async (entryName) => {
             const skillDirectoryPath = join(skillsDirectoryPath, entryName);
-            const metadataFilePath = resolveManagedSkillMetadataFilePath(
-                skillDirectoryPath,
-            );
+            const state = await readSkillDirectoryState(skillDirectoryPath);
 
-            let metadataContent: string;
-
-            try {
-                metadataContent = await readFile(metadataFilePath, "utf8");
-            }
-            catch (error) {
-                if (isNodeNotFoundError(error)) {
-                    return undefined;
-                }
-
-                throw error;
+            if (
+                isSkillDirectoryAbsent(state)
+                || (state.kind === "unmanaged" && !state.metadataFilePresent)
+            ) {
+                return undefined;
             }
 
-            const metadata = parseSkillMetadataContent(metadataContent);
+            const metadata = state.kind === "managed" ? state.metadata : undefined;
 
             return {
                 metadata,

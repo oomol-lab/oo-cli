@@ -3,7 +3,7 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import type {
     TeamIdentitySource,
     TeamNameStatus,
-} from "./default-identity.ts";
+} from "./identity.ts";
 import { z } from "zod";
 import { resolveIdentity } from "../../auth/identity.ts";
 import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
@@ -13,9 +13,9 @@ import { writeLine } from "../shared/output.ts";
 import {
     appendTeamIdentityStatus,
     formatTeamIdentityValue,
-    resolveDefaultTeamIdentity,
+    resolveTeamIdentity,
     teamNameStatusForTelemetry,
-} from "./default-identity.ts";
+} from "./identity.ts";
 import { teamFormatValues } from "./shared.ts";
 
 interface TeamCurrentInput {
@@ -27,9 +27,9 @@ interface TeamCurrentInput {
 // OO_TEAM_NAME env override, the `identity.team` config default, or none
 // (personal). `team` carries the name and `teamId` the id.
 //
-// `status` reports what happened to the name lookup and is `null` whenever none
-// was needed — only an OO_TEAM_ID identity starts out as a bare id, so the
-// other sources never spend a request.
+// `status` reports how the backend lookup ended and is `null` whenever none
+// was attempted — env-selected identities are looked up in whichever
+// direction they are missing, a config name never is.
 interface TeamCurrentJsonPayload {
     team: string | null;
     teamId: string | null;
@@ -41,10 +41,11 @@ interface TeamCurrentJsonPayload {
 // `--personal` flag is given: the OO_TEAM_ID / OO_TEAM_NAME env override when
 // set, otherwise the `identity.team` config default.
 //
-// Under OO_TEAM_ID the identity is a bare id, which tells a reader nothing and
-// hides the most common misconfiguration there is — an id the account has no
-// membership in. That case, and only that case, spends one request to resolve
-// the name. Every other source already knows it and stays offline, as does an
+// An env-selected identity starts out with only the dimension the variable
+// supplies, which tells a reader nothing about the most common
+// misconfiguration there is — a team the account cannot actually use. Those
+// identities, and only those, spend one request to complete and validate the
+// other dimension. The config default stays offline, as does an
 // unauthenticated run: having no account skips the lookup rather than failing
 // the command, so reading the local default never requires a login.
 export const teamCurrentCommand: CliCommandDefinition<TeamCurrentInput> = {
@@ -63,8 +64,8 @@ export const teamCurrentCommand: CliCommandDefinition<TeamCurrentInput> = {
             resolveIdentity(context),
         ]);
         const configuredTeam = getConfiguredIdentityTeam(settings);
-        const identity = await resolveDefaultTeamIdentity(
-            { account, configuredTeam },
+        const identity = await resolveTeamIdentity(
+            { account, configuredTeam, resolveAgainstBackend: true },
             context,
         );
 

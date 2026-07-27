@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { removePath } from "./bundled-skill-filesystem.ts";
 import { resolveAvailableManagedSkillHosts } from "./managed-skill-hosts.ts";
 import { readSkillsDirectoryEntries } from "./managed-skill-listings.ts";
-import { readManagedSkillMetadata } from "./managed-skill-metadata.ts";
 import {
     resolveManagedSkillCanonicalRootDirectoryPath,
     resolveManagedSkillsDirectoryPath,
 } from "./managed-skill-paths.ts";
+import {
+    managedMetadataOfKind,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 // Registry skill package the CLI used to ship as a built-in preset.
 const legacyGptImage2PackageName = "@alwaysmavs/gpt-image-2";
@@ -124,9 +127,12 @@ async function removeLegacyGptImage2Skill(
 async function isLegacyGptImage2SkillDirectory(
     skillDirectoryPath: string,
 ): Promise<boolean> {
-    // `readManagedSkillMetadata` only returns registry metadata, so bundled and
-    // local skills (and directories without `.oo-metadata.json`) never match.
-    const metadata = await readManagedSkillMetadata(skillDirectoryPath);
+    // Only registry metadata is matched, so bundled and local skills (and
+    // directories without `.oo-metadata.json`) never match.
+    const metadata = managedMetadataOfKind(
+        await readSkillDirectoryState(skillDirectoryPath),
+        "registry",
+    );
 
     return metadata?.packageName === legacyGptImage2PackageName;
 }

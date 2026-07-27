@@ -11,9 +11,7 @@ import {
     publishBundledSkillInstallation,
     removePath,
 } from "./bundled-skill-filesystem.ts";
-import { directoryExists } from "./bundled-skill-observation.ts";
 import {
-    readManagedSkillMetadata,
     writeManagedSkillMetadata,
 } from "./managed-skill-metadata.ts";
 import {
@@ -21,6 +19,7 @@ import {
 } from "./managed-skill-paths.ts";
 import { requireExtractedRegistrySkillDirectory } from "./registry-skill-archive.ts";
 import { rewriteInstalledRegistrySkillMarkdown } from "./registry-skill-markdown.ts";
+import { readSkillDirectoryState } from "./skill-directory-state.ts";
 
 export interface PreparedRegistrySkillPublication {
     canonicalSkillDirectoryPath: string;
@@ -111,24 +110,17 @@ export async function validateRegistrySkillPublicationTargets(options: {
     skillName: string;
 }): Promise<void> {
     const targetStates = await Promise.all(
-        options.hostInstallations.map(async (installation) => {
-            const installedDirectoryExists = await directoryExists(
+        options.hostInstallations.map(async installation => ({
+            installation,
+            state: await readSkillDirectoryState(
                 installation.installedSkillDirectoryPath,
-            );
-
-            return {
-                installation,
-                installedDirectoryExists,
-                metadata: installedDirectoryExists
-                    ? await readManagedSkillMetadata(
-                            installation.installedSkillDirectoryPath,
-                        )
-                    : undefined,
-            };
-        }),
+            ),
+        })),
     );
     const unmanagedTargets = targetStates.filter(
-        target => target.installedDirectoryExists && target.metadata === undefined,
+        target => target.state.kind === "unmanaged"
+            || (target.state.kind === "managed"
+                && target.state.metadata.kind !== "registry"),
     );
 
     if (unmanagedTargets.length === 0) {

@@ -419,7 +419,7 @@ describe("teamCommand CLI", () => {
         }
     });
 
-    test("reports the OO_TEAM_NAME env override via current without resolving it", async () => {
+    test("resolves the OO_TEAM_NAME env override to its id via current", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -427,15 +427,19 @@ describe("teamCommand CLI", () => {
             await sandbox.run(["config", "set", "identity.team", "acme"]);
             sandbox.env.OO_TEAM_NAME = "beta";
 
-            let requested = false;
-            const jsonResult = await sandbox.run(["team", "current", "--json"], {
-                fetcher: async () => {
-                    requested = true;
+            const requests: Request[] = [];
+            const fetcher = async (
+                input: Parameters<Fetcher>[0],
+                init: Parameters<Fetcher>[1],
+            ): Promise<Response> => {
+                requests.push(toRequest(input, init));
 
-                    return new Response(JSON.stringify(teamsResponse));
-                },
+                return new Response(JSON.stringify(teamsResponse));
+            };
+            const jsonResult = await sandbox.run(["team", "current", "--json"], {
+                fetcher,
             });
-            const textResult = await sandbox.run(["team", "current"]);
+            const textResult = await sandbox.run(["team", "current"], { fetcher });
             const telemetryPayload = readTelemetryRowsForTest(
                 join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
             )
@@ -443,23 +447,28 @@ describe("teamCommand CLI", () => {
                 .find(payload => payload?.properties?.command_full === "team.current");
 
             expect(jsonResult.exitCode).toBe(0);
+            // The name is completed and validated through the memberships, the
+            // same lookup connector commands gate on, so what current reports
+            // is what a run would use.
             expect(JSON.parse(jsonResult.stdout)).toEqual({
                 team: "beta",
-                teamId: null,
+                teamId: "team-2",
                 source: "env_name",
-                status: null,
+                status: "valid",
             });
-            // A name-shaped identity already knows its name, so it stays
-            // offline; only OO_TEAM_ID costs a request.
-            expect(requested).toBe(false);
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.com/v1/me/teams",
+                "https://relation-control.oomol.com/v1/me/teams",
+            ]);
             expect(textResult.stdout).toContain("OO_TEAM_NAME");
-            expect(textResult.stdout).toContain("beta");
+            expect(textResult.stdout).toContain("beta (team-2)");
             // The ignored config default is reported alongside.
             expect(textResult.stdout).toContain("acme");
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     has_configured_team: true,
                     team_source: "env_name",
+                    team_status: "valid",
                 },
             });
             expectTelemetryFreeOfTeamIdentity(

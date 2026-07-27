@@ -11,11 +11,10 @@ import {
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import { readBundledSkillSourceContent } from "./__tests__/helpers.ts";
-import { bundledSkillDevelopmentVersion } from "./bundled-skill-model.ts";
 import {
     resolveBundledSkillMetadataFilePath,
 } from "./bundled-skill-paths.ts";
-import { availableBundledSkillNames } from "./embedded-assets.ts";
+import { availableBundledSkillNames, bundledSkillDevelopmentVersion } from "./embedded-assets.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
     resolveManagedSkillCanonicalDirectoryPath,
