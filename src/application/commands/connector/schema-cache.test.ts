@@ -1,7 +1,12 @@
+import type { Logger } from "pino";
 import type { Cache, CacheOptions } from "../../contracts/cache.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
 
-import type { ConnectorActionMetadata } from "./shared.ts";
+import type { ConnectorSchemaCacheScope } from "./schema-cache.ts";
+import type {
+    ConnectorActionMetadata,
+    ConnectorActionSearchResult,
+} from "./shared.ts";
 import { mkdir, rm } from "node:fs/promises";
 
 import { join } from "node:path";
@@ -12,6 +17,7 @@ import {
     createCacheStore,
     createConnectorActionFixture,
     createConnectorTargetFixture,
+    createLogCapture,
     createMemoryCache,
     createTemporaryDirectory,
 } from "../../../../__tests__/helpers.ts";
@@ -19,105 +25,26 @@ import { createTranslator } from "../../../i18n/translator.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 
 import {
-    cacheConnectorActionSchemas,
     clearConnectorActionSchemaCache,
-    createConnectorActionSchemaCacheKey,
-    createConnectorActionSchemaOutput,
     createConnectorSchemaCacheScope,
-    deleteConnectorActionSchemaCache,
-    isConnectorActionSchemaNotFoundError,
+    invalidateConnectorActionSchemaOnNotFound,
     loadConnectorActionSchema,
+    warmConnectorActionSchemas,
 } from "./schema-cache.ts";
 
 // The scope every fixture-backed test shares; variant scopes are built
-// inline where a test exists to prove key divergence.
+// inline where a test exists to prove entry isolation.
 const userScope = createConnectorSchemaCacheScope({
     accountId: "user-1",
     endpoint: "oomol.com",
 });
 
 describe("connector schema cache", () => {
-    test("createConnectorActionSchemaCacheKey includes scope, service, and action identity", () => {
-        const baseKey = createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: userScope,
-            serviceName: "gmail",
-        });
-
-        expect(JSON.parse(baseKey)).toEqual({
-            scope: userScope,
-            actionName: "send_mail",
-            serviceName: "gmail",
-        });
-        expect(baseKey).not.toBe(createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-2",
-                endpoint: "oomol.com",
-            }),
-            serviceName: "gmail",
-        }));
-        expect(baseKey).not.toBe(createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "staging.oomol.com",
-            }),
-            serviceName: "gmail",
-        }));
-        expect(baseKey).not.toBe(createConnectorActionSchemaCacheKey({
-            actionName: "get_message",
-            cacheScope: userScope,
-            serviceName: "gmail",
-        }));
-    });
-
-    test("cacheConnectorActionSchemas stores search results in the SQLite cache namespace shape", async () => {
+    test("loadConnectorActionSchema caches fetched metadata and reuses it without a second fetch", async () => {
         const cache = createMemoryCache();
-        const cacheOptions: CacheOptions[] = [];
-
-        await cacheConnectorActionSchemas(
-            [createConnectorActionFixture()],
-            userScope,
-            createCacheContext({
-                cache,
-                cacheOptions,
-            }),
-        );
-
-        expect(cacheOptions).toEqual([
-            {
-                defaultTtlMs: 60 * 60 * 1000,
-                id: "connector-action-schema",
-                maxEntries: 1000,
-            },
-        ]);
-        expect(cache.get(createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: userScope,
-            serviceName: "gmail",
-        }))).toEqual({
-            ...createConnectorActionFixture(),
-            providerPermissions: [],
-            requiredScopes: [],
-        });
-    });
-
-    test("loadConnectorActionSchema reuses a cached schema without fetching", async () => {
-        const cache = createMemoryCache();
-        cache.set(
-            createConnectorActionSchemaCacheKey({
-                actionName: "send_mail",
-                cacheScope: userScope,
-                serviceName: "gmail",
-            }),
-            createConnectorActionFixture({
-                description: "Cached schema.",
-            }),
-        );
-
         let fetchCount = 0;
-        const schema = await loadConnectorActionSchema(
+
+        const fetched = await loadConnectorActionSchema(
             {
                 target: createConnectorTargetFixture(),
                 actionName: "send_mail",
@@ -128,38 +55,50 @@ describe("connector schema cache", () => {
                 fetcher: async () => {
                     fetchCount += 1;
 
-                    return new Response("unexpected");
+                    return createMetadataResponse({
+                        description: "Fetched schema.",
+                    });
                 },
             }),
         );
 
-        expect(schema).toEqual({
-            description: "Cached schema.",
-            inputSchema: {
-                type: "object",
-            },
-            name: "send_mail",
-            outputSchema: {
-                type: "object",
-            },
-            providerPermissions: [],
-            requiredScopes: [],
-            service: "gmail",
+        expect(fetched).toMatchObject({
+            description: "Fetched schema.",
         });
-        expect(fetchCount).toBe(0);
+        expect(fetchCount).toBe(1);
+
+        // The second load must be served from the cache: the default context
+        // fetcher rejects every request.
+        const cached = await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+            }),
+        );
+
+        expect(cached).toMatchObject({
+            description: "Fetched schema.",
+        });
     });
 
     test("loadConnectorActionSchema refetches lifecycle-less cache entries when the async lifecycle is required", async () => {
         const cache = createMemoryCache();
-        const cacheKey = createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: userScope,
-            serviceName: "gmail",
-        });
 
-        cache.set(cacheKey, createConnectorActionFixture({
-            description: "Search-seeded schema.",
-        }));
+        // Warm from a search result: warmed entries never carry an async
+        // lifecycle, which is exactly what this test needs.
+        await warmConnectorActionSchemas(
+            [createSearchResultFixture({
+                description: "Search-seeded schema.",
+            })],
+            userScope,
+            createCacheContext({
+                cache,
+            }),
+        );
 
         const schema = await loadConnectorActionSchema(
             {
@@ -190,7 +129,21 @@ describe("connector schema cache", () => {
             },
             description: "Fresh schema.",
         });
-        expect(cache.get(cacheKey)).toMatchObject({
+
+        // The refetched metadata replaced the lifecycle-less entry.
+        const cached = await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                requireAsyncLifecycle: true,
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+            }),
+        );
+
+        expect(cached).toMatchObject({
             description: "Fresh schema.",
         });
     });
@@ -198,29 +151,29 @@ describe("connector schema cache", () => {
     test("loadConnectorActionSchema reuses cached entries with an async lifecycle when it is required", async () => {
         const cache = createMemoryCache();
 
-        cache.set(
-            createConnectorActionSchemaCacheKey({
-                actionName: "openai_image_async_submit",
-                cacheScope: userScope,
-                serviceName: "fusion-api",
-            }),
+        await loadConnectorActionSchema(
             {
-                ...createConnectorActionFixture({
+                target: createConnectorTargetFixture(),
+                actionName: "openai_image_async_submit",
+                serviceName: "fusion-api",
+            },
+            createCacheContext({
+                cache,
+                fetcher: async () => createMetadataResponse({
+                    asyncLifecycle: {
+                        role: "submit",
+                        resultAction: "openai_image_async_result",
+                        handle: {
+                            inputField: "sessionID",
+                            outputField: "sessionId",
+                        },
+                    },
                     name: "openai_image_async_submit",
                     service: "fusion-api",
                 }),
-                asyncLifecycle: {
-                    role: "submit",
-                    resultAction: "openai_image_async_result",
-                    handle: {
-                        inputField: "sessionID",
-                        outputField: "sessionId",
-                    },
-                },
-            },
+            }),
         );
 
-        let fetchCount = 0;
         const schema = await loadConnectorActionSchema(
             {
                 target: createConnectorTargetFixture(),
@@ -230,11 +183,6 @@ describe("connector schema cache", () => {
             },
             createCacheContext({
                 cache,
-                fetcher: async () => {
-                    fetchCount += 1;
-
-                    return new Response("unexpected");
-                },
             }),
         );
 
@@ -244,20 +192,21 @@ describe("connector schema cache", () => {
             },
             name: "openai_image_async_submit",
         });
-        expect(fetchCount).toBe(0);
     });
 
     test("loadConnectorActionSchema refreshes invalid cache content from metadata", async () => {
         const cache = createMemoryCache();
-        const cacheKey = createConnectorActionSchemaCacheKey({
-            actionName: "get_message",
-            cacheScope: userScope,
-            serviceName: "gmail",
-        });
 
-        cache.set(cacheKey, {
-            name: "",
-        });
+        cache.set(
+            createRawCacheKey({
+                actionName: "get_message",
+                cacheScope: userScope,
+                serviceName: "gmail",
+            }),
+            {
+                name: "",
+            },
+        );
 
         const schema = await loadConnectorActionSchema(
             {
@@ -279,24 +228,40 @@ describe("connector schema cache", () => {
             name: "get_message",
             service: "gmail",
         });
-        expect(cache.get(cacheKey)).toMatchObject({
+
+        // The corrupt entry was replaced, so the next load needs no fetch.
+        const cached = await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "get_message",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+            }),
+        );
+
+        expect(cached).toMatchObject({
             description: "Get one Gmail message.",
-            name: "get_message",
-            service: "gmail",
         });
     });
 
     test("loadConnectorActionSchema refresh bypasses cache and preserves metadata fields", async () => {
         const cache = createMemoryCache();
-        const cacheKey = createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: userScope,
-            serviceName: "gmail",
-        });
 
-        cache.set(cacheKey, createConnectorActionFixture({
-            description: "Cached schema.",
-        }));
+        await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+                fetcher: async () => createMetadataResponse({
+                    description: "Cached schema.",
+                }),
+            }),
+        );
 
         const schema = await loadConnectorActionSchema(
             {
@@ -330,7 +295,19 @@ describe("connector schema cache", () => {
             providerPermissions: ["gmail.send"],
             requiredScopes: ["gmail.send"],
         });
-        expect(cache.get(cacheKey)).toMatchObject({
+
+        const cached = await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+            }),
+        );
+
+        expect(cached).toMatchObject({
             description: "Fresh schema.",
             providerPermissions: ["gmail.send"],
             requiredScopes: ["gmail.send"],
@@ -373,13 +350,18 @@ describe("connector schema cache", () => {
 
     test("loadConnectorActionSchema deletes stale entries when metadata reports not found", async () => {
         const cache = createMemoryCache();
-        const cacheKey = createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: userScope,
-            serviceName: "gmail",
-        });
 
-        cache.set(cacheKey, createConnectorActionFixture());
+        await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+                fetcher: async () => createMetadataResponse(),
+            }),
+        );
 
         await expect(loadConnectorActionSchema(
             {
@@ -395,260 +377,188 @@ describe("connector schema cache", () => {
                 }),
             }),
         )).rejects.toThrow("errors.connectorMetadata.requestFailed");
-        expect(cache.get(cacheKey)).toBeNull();
+
+        // The stale entry is gone, so the next load must fetch again.
+        let fetchCount = 0;
+
+        await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+                fetcher: async () => {
+                    fetchCount += 1;
+
+                    return createMetadataResponse();
+                },
+            }),
+        );
+
+        expect(fetchCount).toBe(1);
     });
 
-    test("deleteConnectorActionSchemaCache removes only the selected identity", () => {
+    test("warmConnectorActionSchemas populates entries a later load serves without fetching", async () => {
         const cache = createMemoryCache();
-        const firstKey = createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: userScope,
-            serviceName: "gmail",
-        });
-        const secondKey = createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-2",
-                endpoint: "oomol.com",
+        const cacheOptions: CacheOptions[] = [];
+
+        await warmConnectorActionSchemas(
+            [createSearchResultFixture()],
+            userScope,
+            createCacheContext({
+                cache,
+                cacheOptions,
             }),
-            serviceName: "gmail",
-        });
+        );
 
-        cache.set(firstKey, createConnectorActionFixture());
-        cache.set(secondKey, createConnectorActionFixture({
-            description: "Second account schema.",
-        }));
-
-        expect(deleteConnectorActionSchemaCache(
+        expect(cacheOptions).toEqual([
             {
+                defaultTtlMs: 60 * 60 * 1000,
+                id: "connector-action-schema",
+                maxEntries: 1000,
+            },
+        ]);
+
+        const schema = await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
                 actionName: "send_mail",
-                cacheScope: userScope,
                 serviceName: "gmail",
             },
             createCacheContext({
                 cache,
             }),
-        )).toBeTrue();
-        expect(cache.get(firstKey)).toBeNull();
-        expect(cache.get(secondKey)).toMatchObject({
-            description: "Second account schema.",
+        );
+
+        expect(schema).toEqual({
+            description: "Send a Gmail message.",
+            inputSchema: {
+                type: "object",
+            },
+            name: "send_mail",
+            outputSchema: {
+                type: "object",
+            },
+            providerPermissions: [],
+            requiredScopes: [],
+            service: "gmail",
         });
     });
 
-    test("clearConnectorActionSchemaCache clears the schema namespace and legacy directory", async () => {
-        const rootPath = await createTemporaryDirectory("connector-schema-cache-clear");
+    test("warmConnectorActionSchemas strips identity-scoped fields from cached entries", async () => {
         const cache = createMemoryCache();
-        const firstKey = createConnectorActionSchemaCacheKey({
-            actionName: "send_mail",
-            cacheScope: userScope,
-            serviceName: "gmail",
-        });
-        const secondKey = createConnectorActionSchemaCacheKey({
-            actionName: "get_message",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-2",
-                endpoint: "oomol.com",
+
+        await warmConnectorActionSchemas(
+            [createSearchResultFixture({
+                authenticated: true,
+            })],
+            userScope,
+            createCacheContext({
+                cache,
             }),
-            serviceName: "gmail",
+        );
+
+        // `authenticated` is scoped to the effective identity while the cache
+        // key carries no team dimension, so the flag must never be stored.
+        const schema = await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+            }),
+        );
+
+        expect("authenticated" in schema).toBeFalse();
+    });
+
+    test("warmConnectorActionSchemas caches only actions carrying both schema payloads", async () => {
+        const cache = createMemoryCache();
+
+        await warmConnectorActionSchemas(
+            [
+                createSearchResultFixture(),
+                createSearchResultFixture({
+                    inputSchema: undefined,
+                    name: "get_message",
+                }),
+            ],
+            userScope,
+            createCacheContext({
+                cache,
+            }),
+        );
+
+        const cacheable = await loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+            }),
+        );
+
+        expect(cacheable).toMatchObject({
+            name: "send_mail",
         });
+        await expect(isSchemaCacheMiss(cache, {
+            actionName: "get_message",
+            serviceName: "gmail",
+        })).resolves.toBeTrue();
+    });
+
+    test("warmConnectorActionSchemas never touches the cache store when nothing is cacheable", async () => {
+        const cacheOptions: CacheOptions[] = [];
+
+        await warmConnectorActionSchemas(
+            [createSearchResultFixture({
+                inputSchema: undefined,
+                outputSchema: undefined,
+            })],
+            userScope,
+            createCacheContext({
+                cacheOptions,
+            }),
+        );
+
+        expect(cacheOptions).toEqual([]);
+    });
+
+    test("warmConnectorActionSchemas resolves and warns when the cache write fails", async () => {
+        const cache = createMemoryCache();
+        const logCapture = createLogCapture();
+
+        cache.set = () => {
+            throw new Error("cache write failed");
+        };
 
         try {
-            const legacyDirectoryPath = join(rootPath, "connector-actions");
+            // Warming is best-effort: the returned promise must not reject.
+            await warmConnectorActionSchemas(
+                [createSearchResultFixture()],
+                userScope,
+                createCacheContext({
+                    cache,
+                    logger: logCapture.logger,
+                }),
+            );
 
-            await mkdir(legacyDirectoryPath, { recursive: true });
-            await Bun.write(join(legacyDirectoryPath, "old.json"), "{}");
-            cache.set(firstKey, createConnectorActionFixture());
-            cache.set(secondKey, createConnectorActionFixture({
-                description: "Second schema.",
-            }));
-
-            await clearConnectorActionSchemaCache(createCacheContext({
-                cache,
-                settingsFilePath: join(rootPath, "settings.toml"),
-            }));
-
-            expect(cache.get(firstKey)).toBeNull();
-            expect(cache.get(secondKey)).toBeNull();
-            await expect(Bun.file(legacyDirectoryPath).exists()).resolves.toBeFalse();
+            expect(logCapture.read()).toContain(
+                "Failed to warm the connector action schema cache.",
+            );
         }
         finally {
-            await rm(rootPath, { force: true, recursive: true });
+            logCapture.close();
         }
     });
 
-    test("createConnectorActionSchemaOutput exposes only the stable schema contract", () => {
-        const schema = {
-            description: "Fresh schema.",
-            inputSchema: {
-                type: "object",
-            },
-            name: "send_mail",
-            outputSchema: {
-                type: "object",
-            },
-            providerPermissions: ["gmail.send"],
-            requiredScopes: ["gmail.send"],
-            service: "gmail",
-        } satisfies ConnectorActionMetadata;
-
-        expect(createConnectorActionSchemaOutput(schema)).toEqual({
-            description: "Fresh schema.",
-            inputSchema: {
-                type: "object",
-            },
-            name: "send_mail",
-            outputSchema: {
-                type: "object",
-            },
-            service: "gmail",
-        });
-    });
-
-    test("createConnectorActionSchemaOutput preserves async submit output schema", () => {
-        const schema = {
-            asyncLifecycle: {
-                role: "submit",
-                resultAction: "openai_image_async_result",
-                handle: {
-                    inputField: "sessionID",
-                    outputField: "sessionId",
-                },
-            },
-            description: "Submit OpenAI image generation.",
-            inputSchema: {
-                type: "object",
-            },
-            name: "openai_image_async_submit",
-            outputSchema: {
-                properties: {
-                    sessionId: {
-                        type: "string",
-                    },
-                },
-                type: "object",
-            },
-            providerPermissions: [],
-            requiredScopes: [],
-            service: "fusion-api",
-        } satisfies ConnectorActionMetadata;
-
-        expect(createConnectorActionSchemaOutput(schema)).toEqual({
-            description: "Submit OpenAI image generation.",
-            inputSchema: {
-                type: "object",
-            },
-            name: "openai_image_async_submit",
-            outputSchema: {
-                properties: {
-                    sessionId: {
-                        type: "string",
-                    },
-                },
-                type: "object",
-            },
-            service: "fusion-api",
-        });
-    });
-
-    test("createConnectorActionSchemaOutput preserves async result output schema", () => {
-        const schema = {
-            asyncLifecycle: {
-                role: "result",
-                wait: {
-                    intervalSeconds: 3,
-                    resultField: "data",
-                    state: {
-                        failure: ["not_found"],
-                        field: "state",
-                        running: ["processing"],
-                        success: ["completed"],
-                    },
-                },
-            },
-            description: "Get OpenAI image generation result.",
-            inputSchema: {
-                type: "object",
-            },
-            name: "openai_image_async_result",
-            outputSchema: {
-                anyOf: [
-                    {
-                        properties: {
-                            data: {
-                                properties: {
-                                    images: {
-                                        items: {
-                                            type: "string",
-                                        },
-                                        type: "array",
-                                    },
-                                },
-                                type: "object",
-                            },
-                            state: {
-                                enum: ["completed"],
-                                type: "string",
-                            },
-                        },
-                        required: ["state", "data"],
-                        type: "object",
-                    },
-                    {
-                        properties: {
-                            progress: {
-                                type: "number",
-                            },
-                            state: {
-                                enum: ["processing"],
-                                type: "string",
-                            },
-                        },
-                        required: ["state", "progress"],
-                        type: "object",
-                    },
-                ],
-            },
-            providerPermissions: [],
-            requiredScopes: [],
-            service: "fusion-api",
-        } satisfies ConnectorActionMetadata;
-
-        expect(createConnectorActionSchemaOutput(schema)).toEqual({
-            description: "Get OpenAI image generation result.",
-            inputSchema: {
-                type: "object",
-            },
-            name: "openai_image_async_result",
-            outputSchema: schema.outputSchema,
-            service: "fusion-api",
-        });
-    });
-
-    test("isConnectorActionSchemaNotFoundError detects 404 and action_not_found failures", () => {
-        expect(isConnectorActionSchemaNotFoundError(new Error("nope"))).toBeFalse();
-        expect(isConnectorActionSchemaNotFoundError({
-            params: {
-                status: 404,
-            },
-        })).toBeFalse();
-        expect(isConnectorActionSchemaNotFoundError(new CliUserError(
-            "errors.connectorMetadata.requestFailed",
-            1,
-            {
-                status: 404,
-            },
-        ))).toBeTrue();
-        expect(isConnectorActionSchemaNotFoundError(new CliUserError(
-            "errors.connectorRun.requestFailedWithCode",
-            1,
-            {
-                errorCode: "action_not_found",
-                status: 400,
-            },
-        ))).toBeTrue();
-    });
-
-    test("cache writes clean up the legacy connector-actions directory without failing command flow", async () => {
+    test("warmConnectorActionSchemas cleans up the legacy connector-actions directory without failing command flow", async () => {
         const rootPath = await createTemporaryDirectory("connector-schema-cache");
 
         try {
@@ -657,8 +567,8 @@ describe("connector schema cache", () => {
             await mkdir(legacyDirectoryPath, { recursive: true });
             await Bun.write(join(legacyDirectoryPath, "old.json"), "{}");
 
-            await cacheConnectorActionSchemas(
-                [createConnectorActionFixture()],
+            await warmConnectorActionSchemas(
+                [createSearchResultFixture()],
                 userScope,
                 createCacheContext({
                     cache: createMemoryCache(),
@@ -672,7 +582,299 @@ describe("connector schema cache", () => {
             await rm(rootPath, { force: true, recursive: true });
         }
     });
+
+    const invalidateCases: {
+        error: unknown;
+        evicted: boolean;
+        name: string;
+    }[] = [
+        {
+            error: new CliUserError("errors.connectorMetadata.requestFailed", 1, {
+                status: 404,
+            }),
+            evicted: true,
+            name: "deletes the entry on an http 404 failure",
+        },
+        {
+            error: new CliUserError("errors.connectorRun.requestFailedWithCode", 1, {
+                errorCode: "action_not_found",
+                status: 400,
+            }),
+            evicted: true,
+            name: "deletes the entry on an action_not_found failure",
+        },
+        {
+            error: new Error("nope"),
+            evicted: false,
+            name: "keeps the entry on unrelated errors",
+        },
+        {
+            error: {
+                params: {
+                    status: 404,
+                },
+            },
+            evicted: false,
+            name: "keeps the entry on non-CliUserError 404 shapes",
+        },
+    ];
+
+    for (const invalidateCase of invalidateCases) {
+        test(`invalidateConnectorActionSchemaOnNotFound ${invalidateCase.name}`, async () => {
+            const cache = createMemoryCache();
+
+            await warmConnectorActionSchemas(
+                [createSearchResultFixture()],
+                userScope,
+                createCacheContext({
+                    cache,
+                }),
+            );
+
+            invalidateConnectorActionSchemaOnNotFound(
+                {
+                    actionName: "send_mail",
+                    cacheScope: userScope,
+                    error: invalidateCase.error,
+                    serviceName: "gmail",
+                },
+                createCacheContext({
+                    cache,
+                }),
+            );
+
+            await expect(isSchemaCacheMiss(cache, {
+                actionName: "send_mail",
+                serviceName: "gmail",
+            })).resolves.toBe(invalidateCase.evicted);
+        });
+    }
+
+    test("invalidateConnectorActionSchemaOnNotFound removes only the selected identity", async () => {
+        const cache = createMemoryCache();
+        // Every cache-key dimension gets a neighbor differing in exactly that
+        // dimension: account, endpoint, and service.
+        const otherAccountScope = createConnectorSchemaCacheScope({
+            accountId: "user-2",
+            endpoint: "oomol.com",
+        });
+        const otherEndpointScope = createConnectorSchemaCacheScope({
+            accountId: "user-1",
+            endpoint: "staging.oomol.com",
+        });
+
+        await warmConnectorActionSchemas(
+            [
+                createSearchResultFixture(),
+                createSearchResultFixture({
+                    description: "Same account Slack schema.",
+                    service: "slack",
+                }),
+            ],
+            userScope,
+            createCacheContext({
+                cache,
+            }),
+        );
+        await warmConnectorActionSchemas(
+            [createSearchResultFixture({
+                description: "Second account schema.",
+            })],
+            otherAccountScope,
+            createCacheContext({
+                cache,
+            }),
+        );
+        await warmConnectorActionSchemas(
+            [createSearchResultFixture({
+                description: "Staging endpoint schema.",
+            })],
+            otherEndpointScope,
+            createCacheContext({
+                cache,
+            }),
+        );
+
+        invalidateConnectorActionSchemaOnNotFound(
+            {
+                actionName: "send_mail",
+                cacheScope: userScope,
+                error: new CliUserError("errors.connectorMetadata.requestFailed", 1, {
+                    status: 404,
+                }),
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+            }),
+        );
+
+        await expect(isSchemaCacheMiss(cache, {
+            actionName: "send_mail",
+            serviceName: "gmail",
+        })).resolves.toBeTrue();
+        await expect(loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture(),
+                actionName: "send_mail",
+                serviceName: "slack",
+            },
+            createCacheContext({
+                cache,
+            }),
+        )).resolves.toMatchObject({
+            description: "Same account Slack schema.",
+        });
+        await expect(loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture({
+                    cacheScope: otherAccountScope,
+                }),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+            }),
+        )).resolves.toMatchObject({
+            description: "Second account schema.",
+        });
+        await expect(loadConnectorActionSchema(
+            {
+                target: createConnectorTargetFixture({
+                    cacheScope: otherEndpointScope,
+                }),
+                actionName: "send_mail",
+                serviceName: "gmail",
+            },
+            createCacheContext({
+                cache,
+            }),
+        )).resolves.toMatchObject({
+            description: "Staging endpoint schema.",
+        });
+    });
+
+    test("clearConnectorActionSchemaCache clears the schema namespace and legacy directory", async () => {
+        const rootPath = await createTemporaryDirectory("connector-schema-cache-clear");
+        const cache = createMemoryCache();
+        const otherScope = createConnectorSchemaCacheScope({
+            accountId: "user-2",
+            endpoint: "oomol.com",
+        });
+
+        try {
+            const legacyDirectoryPath = join(rootPath, "connector-actions");
+
+            await mkdir(legacyDirectoryPath, { recursive: true });
+            await Bun.write(join(legacyDirectoryPath, "old.json"), "{}");
+            await warmConnectorActionSchemas(
+                [createSearchResultFixture()],
+                userScope,
+                createCacheContext({
+                    cache,
+                }),
+            );
+            await warmConnectorActionSchemas(
+                [createSearchResultFixture({
+                    name: "get_message",
+                })],
+                otherScope,
+                createCacheContext({
+                    cache,
+                }),
+            );
+
+            await clearConnectorActionSchemaCache(createCacheContext({
+                cache,
+                settingsFilePath: join(rootPath, "settings.toml"),
+            }));
+
+            await expect(isSchemaCacheMiss(cache, {
+                actionName: "send_mail",
+                serviceName: "gmail",
+            })).resolves.toBeTrue();
+            await expect(isSchemaCacheMiss(cache, {
+                actionName: "get_message",
+                cacheScope: otherScope,
+                serviceName: "gmail",
+            })).resolves.toBeTrue();
+            await expect(Bun.file(legacyDirectoryPath).exists()).resolves.toBeFalse();
+        }
+        finally {
+            await rm(rootPath, { force: true, recursive: true });
+        }
+    });
 });
+
+// Probes whether the cache misses for the given identity through the public
+// loader: a miss reaches the metadata fetcher, a hit never does. The probe
+// serves a real metadata response, so a missed identity is cached afterwards —
+// call it only once per identity, after the assertions that need a cold entry.
+async function isSchemaCacheMiss(
+    cache: Cache<unknown>,
+    identity: {
+        actionName: string;
+        cacheScope?: ConnectorSchemaCacheScope;
+        serviceName: string;
+    },
+): Promise<boolean> {
+    let fetched = false;
+
+    await loadConnectorActionSchema(
+        {
+            target: createConnectorTargetFixture(
+                identity.cacheScope === undefined
+                    ? {}
+                    : {
+                            cacheScope: identity.cacheScope,
+                        },
+            ),
+            actionName: identity.actionName,
+            serviceName: identity.serviceName,
+        },
+        createCacheContext({
+            cache,
+            fetcher: async () => {
+                fetched = true;
+
+                return createMetadataResponse({
+                    name: identity.actionName,
+                    service: identity.serviceName,
+                });
+            },
+        }),
+    );
+
+    return fetched;
+}
+
+function createSearchResultFixture(
+    overrides: Partial<ConnectorActionSearchResult> = {},
+): ConnectorActionSearchResult {
+    return {
+        authenticated: true,
+        ...createConnectorActionFixture(),
+        ...overrides,
+    };
+}
+
+// Deliberate replica of the module's private cache-key encoding. The cache
+// contract cannot enumerate or address entries, and a corrupt entry is the one
+// cache state the public interface can never produce, so the parse-failure
+// test seeds it at the raw key. Keep in sync with the encoding in
+// schema-cache.ts; every other test goes through the public operations.
+function createRawCacheKey(identity: {
+    actionName: string;
+    cacheScope: ConnectorSchemaCacheScope;
+    serviceName: string;
+}): string {
+    return JSON.stringify({
+        scope: identity.cacheScope,
+        serviceName: identity.serviceName,
+        actionName: identity.actionName,
+    });
+}
 
 function createMetadataResponse(overrides: {
     asyncLifecycle?: ConnectorActionMetadata["asyncLifecycle"];
@@ -710,6 +912,7 @@ function createCacheContext(options: {
     cache?: Cache<unknown>;
     cacheOptions?: CacheOptions[];
     fetcher?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+    logger?: Logger;
     settingsFilePath?: string;
 } = {}) {
     const emptySettings = {} as AppSettings;
@@ -719,7 +922,7 @@ function createCacheContext(options: {
         fetcher: options.fetcher ?? (async () => {
             throw new Error("Unexpected fetch");
         }),
-        logger: pino({
+        logger: options.logger ?? pino({
             enabled: false,
         }),
         settingsStore: {

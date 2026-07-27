@@ -1,8 +1,5 @@
 import type { AppSettings } from "../../schemas/settings.ts";
-import type {
-    ConnectorActionDefinition,
-    ConnectorActionMetadata,
-} from "./shared.ts";
+import type { ConnectorActionMetadata } from "./shared.ts";
 
 import { join } from "node:path";
 
@@ -20,6 +17,7 @@ import {
     writeConnectorFile,
 } from "../../../../__tests__/helpers.ts";
 import { SqliteCacheStore } from "../../../adapters/cache/sqlite-cache.ts";
+import { createTranslator } from "../../../i18n/translator.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
@@ -27,8 +25,8 @@ import {
 } from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import {
-    cacheConnectorActionSchemas,
     createConnectorSchemaCacheScope,
+    loadConnectorActionSchema,
 } from "./schema-cache.ts";
 import {
     connectorSearchActionColor,
@@ -3976,7 +3974,13 @@ describe("connectorCommand CLI", () => {
             );
 
             expect(result.exitCode).toBe(0);
-            expect(JSON.parse(result.stdout)).toMatchObject({
+            // Exact equality: the async lifecycle steering the submit flow
+            // must never leak into the five-field schema output.
+            expect(JSON.parse(result.stdout)).toEqual({
+                description: "Submit OpenAI image generation.",
+                inputSchema: {
+                    type: "object",
+                },
                 name: "openai_image_async_submit",
                 outputSchema: {
                     properties: {
@@ -3991,6 +3995,104 @@ describe("connectorCommand CLI", () => {
             expect(requests.map(request => request.url)).toEqual([
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
             ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("preserves an anyOf output schema for async result actions in connector schema output", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            // No top-level `type`: a state-machine result contract that only a
+            // byte-identical passthrough keeps intact.
+            const anyOfOutputSchema = {
+                anyOf: [
+                    {
+                        properties: {
+                            data: {
+                                properties: {
+                                    images: {
+                                        items: {
+                                            type: "string",
+                                        },
+                                        type: "array",
+                                    },
+                                },
+                                type: "object",
+                            },
+                            state: {
+                                enum: ["completed"],
+                                type: "string",
+                            },
+                        },
+                        required: ["state", "data"],
+                        type: "object",
+                    },
+                    {
+                        properties: {
+                            progress: {
+                                type: "number",
+                            },
+                            state: {
+                                enum: ["processing"],
+                                type: "string",
+                            },
+                        },
+                        required: ["state", "progress"],
+                        type: "object",
+                    },
+                ],
+            };
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "schema",
+                    "fusion-api.openai_image_async_result",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            asyncLifecycle: {
+                                role: "result",
+                                wait: {
+                                    intervalSeconds: 3,
+                                    resultField: "data",
+                                    state: {
+                                        failure: ["not_found"],
+                                        field: "state",
+                                        running: ["processing"],
+                                        success: ["completed"],
+                                    },
+                                },
+                            },
+                            description: "Get OpenAI image generation result.",
+                            inputSchema: {
+                                type: "object",
+                            },
+                            name: "openai_image_async_result",
+                            outputSchema: anyOfOutputSchema,
+                            providerPermissions: [],
+                            requiredScopes: [],
+                            service: "fusion-api",
+                        },
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                description: "Get OpenAI image generation result.",
+                inputSchema: {
+                    type: "object",
+                },
+                name: "openai_image_async_result",
+                outputSchema: anyOfOutputSchema,
+                service: "fusion-api",
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -5241,7 +5343,10 @@ describe("connectorCommand CLI", () => {
     });
 });
 
-type SeedConnectorAction = ConnectorActionDefinition & Partial<Pick<
+type SeedConnectorAction = Pick<
+    ConnectorActionMetadata,
+    "description" | "inputSchema" | "name" | "outputSchema" | "service"
+> & Partial<Pick<
     ConnectorActionMetadata,
     "asyncLifecycle" | "providerPermissions" | "requiredScopes"
 >>;
@@ -5369,18 +5474,33 @@ async function seedConnectorActionSchema(
     );
 
     try {
-        await cacheConnectorActionSchemas(
-            [action],
-            createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+        // Seed through the loader's real write path with a stub metadata
+        // response: unlike warming from search results, this keeps async
+        // lifecycle fields on the seeded entry.
+        await loadConnectorActionSchema(
+            {
+                actionName: action.name,
+                serviceName: action.service,
+                target: {
+                    authorization: "secret-1",
+                    baseUrl: "https://connector.oomol.com",
+                    kind: "oomol",
+                    cacheScope: createConnectorSchemaCacheScope({
+                        accountId: "user-1",
+                        endpoint: "oomol.com",
+                    }),
+                },
+            },
             {
                 cacheStore,
+                fetcher: async () => new Response(JSON.stringify({
+                    data: action,
+                })),
                 logger: pino({
                     enabled: false,
                 }),
                 settingsStore: createSettingsStoreForSandbox(sandbox),
+                translator: createTranslator("en"),
             },
         );
     }

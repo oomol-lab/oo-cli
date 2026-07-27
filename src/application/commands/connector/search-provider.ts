@@ -2,13 +2,9 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 
 import type { TeamIdentity } from "../team/identity.ts";
-import type {
-    ConnectorSchemaCacheScope,
-    ConnectorSchemaRequestTarget,
-} from "./schema-cache.ts";
-import type { ConnectorActionSearchResult } from "./shared.ts";
+import type { ConnectorSchemaRequestTarget } from "./schema-cache.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { cacheConnectorActionSchemas } from "./schema-cache.ts";
+import { warmConnectorActionSchemas } from "./schema-cache.ts";
 
 import { searchConnectorActions } from "./shared.ts";
 
@@ -41,7 +37,7 @@ export async function loadConnectorSearchResults(
         text: options.text,
     }, context);
 
-    await warmConnectorActionSchemaCache(actions, options.target.cacheScope, context);
+    await warmConnectorActionSchemas(actions, options.target.cacheScope, context);
 
     return actions.map(action => ({
         authenticated: action.authenticated,
@@ -49,33 +45,6 @@ export async function loadConnectorSearchResults(
         name: action.name,
         service: action.service,
     }));
-}
-
-async function warmConnectorActionSchemaCache(
-    actions: readonly ConnectorActionSearchResult[],
-    cacheScope: ConnectorSchemaCacheScope,
-    context: Pick<CliExecutionContext, "cacheStore" | "logger" | "settingsStore">,
-): Promise<void> {
-    const cacheableActions = actions.filter(action =>
-        action.inputSchema !== undefined && action.outputSchema !== undefined);
-
-    if (cacheableActions.length === 0) {
-        return;
-    }
-
-    try {
-        await cacheConnectorActionSchemas(cacheableActions, cacheScope, context);
-    }
-    catch (error) {
-        // Cache warming is a best-effort optimization; search results must
-        // still be returned when the local cache cannot be written.
-        context.logger.warn(
-            {
-                err: error,
-            },
-            "Failed to warm connector action schemas during search.",
-        );
-    }
 }
 
 export function formatConnectorSearchResultsAsText(
