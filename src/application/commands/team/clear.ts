@@ -6,10 +6,7 @@ import {
     unsetIdentityTeam,
 } from "../../schemas/settings.ts";
 import { writeLine } from "../shared/output.ts";
-import {
-    readTeamEnvOverride,
-    teamEnvOverrideVariableName,
-} from "../shared/team-env-override.ts";
+import { resolveTeamIdentity } from "./identity.ts";
 
 // Clears the default team identity (config `identity.team`), returning
 // connector commands to the personal identity. Offline: it only rewrites local
@@ -25,17 +22,27 @@ export const teamClearCommand: CliCommandDefinition = {
         const settings = await context.settingsStore.read();
         const hadConfiguredTeam
             = getConfiguredIdentityTeam(settings) !== undefined;
-        const envOverride = readTeamEnvOverride(context.env);
+        // Offline resolution with no config default: what remains is exactly
+        // the env override that would keep selecting a team after the clear,
+        // with `envVar` naming it for the hint.
+        const envIdentity = await resolveTeamIdentity(
+            {
+                account: undefined,
+                configuredTeam: undefined,
+                resolveAgainstBackend: false,
+            },
+            context,
+        );
 
         if (!hadConfiguredTeam) {
             writeLine(
                 context.stdout,
-                envOverride === undefined
+                envIdentity?.envVar === undefined
                     ? context.translator.t("team.clear.alreadyPersonal")
                     : context.translator.t(
                             "team.clear.alreadyPersonalEnvHint",
                             {
-                                envVar: teamEnvOverrideVariableName(envOverride),
+                                envVar: envIdentity.envVar,
                             },
                         ),
             );
@@ -54,10 +61,10 @@ export const teamClearCommand: CliCommandDefinition = {
         // follow-up hint that contradicts the line above it.
         writeLine(
             context.stdout,
-            envOverride === undefined
+            envIdentity?.envVar === undefined
                 ? context.translator.t("team.clear.success")
                 : context.translator.t("team.clear.successEnvOverride", {
-                        envVar: teamEnvOverrideVariableName(envOverride),
+                        envVar: envIdentity.envVar,
                     }),
         );
     },

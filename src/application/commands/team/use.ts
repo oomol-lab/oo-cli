@@ -5,10 +5,7 @@ import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { setIdentityTeam } from "../../schemas/settings.ts";
 import { writeLine } from "../shared/output.ts";
-import {
-    readTeamEnvOverride,
-    teamEnvOverrideVariableName,
-} from "../shared/team-env-override.ts";
+import { resolveTeamIdentity } from "./identity.ts";
 import { listMemberTeams } from "./shared.ts";
 
 interface TeamUseInput {
@@ -64,13 +61,22 @@ export const teamUseCommand: CliCommandDefinition<TeamUseInput> = {
 
         // Mirrors `oo auth login` under OO_API_KEY: the default is saved, but
         // the env override keeps outranking it, so say so instead of letting
-        // the success line imply the new default is in effect.
-        const envOverride = readTeamEnvOverride(context.env);
-        if (envOverride !== undefined) {
+        // the success line imply the new default is in effect. The offline
+        // resolution answers "which identity is actually in effect now" —
+        // `envVar` is set exactly when an env override won over the default.
+        const effectiveIdentity = await resolveTeamIdentity(
+            {
+                account: undefined,
+                configuredTeam: name,
+                resolveAgainstBackend: false,
+            },
+            context,
+        );
+        if (effectiveIdentity?.envVar !== undefined) {
             writeLine(
                 context.stdout,
                 context.translator.t("team.use.envOverrideHint", {
-                    envVar: teamEnvOverrideVariableName(envOverride),
+                    envVar: effectiveIdentity.envVar,
                 }),
             );
         }
