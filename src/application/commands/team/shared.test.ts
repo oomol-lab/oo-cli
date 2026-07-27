@@ -162,6 +162,23 @@ describe("listMemberTeams", () => {
 
         expect(error.key).toBe("errors.team.requestFailed");
     });
+
+    test("appends the sandbox hint to a network-restricted failure exactly once", async () => {
+        const error = await expectCliUserError(listMemberTeams(
+            testAccount,
+            createRequestContext({
+                fetcher: async () => {
+                    throw createFailedToOpenSocketError("network down");
+                },
+            }),
+        ));
+
+        expect(error.key).toBe("errors.team.requestError");
+        expect(error.params).toEqual({
+            message: "network down\nCurrent environment may be running in a "
+                + "network-restricted sandbox. Try requesting elevated permissions.",
+        });
+    });
 });
 
 describe("fetchTeamById", () => {

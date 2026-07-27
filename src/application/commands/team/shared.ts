@@ -2,12 +2,7 @@ import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
-import { CliUserError } from "../../contracts/cli.ts";
-import {
-    getUnexpectedRequestErrorMessage,
-    isNetworkRestrictedSandboxError,
-    requestText,
-} from "../shared/request.ts";
+import { probeOo, requestOo } from "../shared/oo-request.ts";
 
 export const teamFormatValues = ["json"] as const;
 
@@ -50,40 +45,17 @@ export async function listMemberTeams(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<TeamView[]> {
-    const requestUrl = new URL(
-        `https://relation-control.${account.endpoint}/v1/me/teams`,
-    );
-
-    const rawResponse = await requestText({
+    const parsed = await requestOo({
+        authorization: account.apiKey,
         context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.team.requestFailed",
-            1,
-            { status },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.team.requestError",
-            1,
-            { message: getUnexpectedRequestErrorMessage(error, context.translator) },
-        ),
-        init: {
-            headers: {
-                Authorization: account.apiKey,
-            },
-        },
-        requestLabel: "Team list",
-        requestUrl,
+        errors: { scope: "team" },
+        host: { endpoint: account.endpoint, service: "relation-control" },
+        label: "Team list",
+        path: "/v1/me/teams",
+        schema: teamsResponseSchema,
     });
 
-    try {
-        return teamsResponseSchema
-            .parse(JSON.parse(rawResponse) as unknown)
-            .teams
-            .map(toTeamView);
-    }
-    catch {
-        throw new CliUserError("errors.team.invalidResponse", 1);
-    }
+    return parsed.teams.map(toTeamView);
 }
 
 // How a team-id lookup ended. Only `valid` carries a team; every other value
@@ -125,25 +97,26 @@ export async function fetchTeamById(
     teamId: string,
     context: Pick<CliExecutionContext, "fetcher" | "logger">,
 ): Promise<TeamLookupResult> {
-    const requestUrl = new URL(
-        `https://relation-control.${account.endpoint}/v1/teams/${encodeURIComponent(teamId)}`,
-    );
+    return lookupTeam(
+        account,
+        "id",
+        `/v1/teams/${encodeURIComponent(teamId)}`,
+        (bodyText, status) => {
+            if (status !== 200) {
+                return {
+                    status: teamLookupStatusByHttpStatus[status] ?? "request_failed",
+                };
+            }
 
-    return runTeamLookup(account, requestUrl, "id", async (response) => {
-        if (response.status !== 200) {
             return {
-                status: teamLookupStatusByHttpStatus[response.status]
-                    ?? "request_failed",
+                status: "valid",
+                team: toTeamView(
+                    teamResponseItemSchema.parse(parseLookupBody(bodyText)),
+                ),
             };
-        }
-
-        return {
-            status: "valid",
-            team: toTeamView(
-                teamResponseItemSchema.parse(await response.json() as unknown),
-            ),
-        };
-    }, context);
+        },
+        context,
+    );
 }
 
 // Resolves one team name to its team through the account's membership listing —
@@ -156,81 +129,75 @@ export async function fetchTeamByName(
     teamName: string,
     context: Pick<CliExecutionContext, "fetcher" | "logger">,
 ): Promise<TeamLookupResult> {
-    const requestUrl = new URL(
-        `https://relation-control.${account.endpoint}/v1/me/teams`,
+    return lookupTeam(
+        account,
+        "name",
+        "/v1/me/teams",
+        (bodyText, status) => {
+            if (status !== 200) {
+                return { status: "request_failed" };
+            }
+
+            const teams = teamsResponseSchema
+                .parse(parseLookupBody(bodyText))
+                .teams
+                .map(toTeamView);
+            const match = teams.find(team => team.name === teamName);
+
+            return match === undefined
+                ? { status: "not_a_member" }
+                : { status: "valid", team: match };
+        },
+        context,
     );
-
-    return runTeamLookup(account, requestUrl, "name", async (response) => {
-        if (response.status !== 200) {
-            return { status: "request_failed" };
-        }
-
-        const teams = teamsResponseSchema
-            .parse(await response.json() as unknown)
-            .teams
-            .map(toTeamView);
-        const match = teams.find(team => team.name === teamName);
-
-        return match === undefined
-            ? { status: "not_a_member" }
-            : { status: "valid", team: match };
-    }, context);
 }
 
-// Shared fetch/log/catch skeleton of the two team lookups. Any failure the
-// handler does not classify — network errors, non-JSON bodies, schema
-// mismatches — comes back as a request-failed status instead of an error,
-// which is what keeps the lookups' never-throw contract honest.
-async function runTeamLookup(
+// Shared interpretation skeleton of the two team lookups, on top of the probe
+// seam. Any failure the interpreter does not classify — non-JSON bodies,
+// schema mismatches, an unreadable body — comes back as a request-failed
+// status instead of an error, which is what keeps the lookups' never-throw
+// contract honest.
+async function lookupTeam(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
-    requestUrl: URL,
     direction: "id" | "name",
-    toResult: (response: Response) => Promise<TeamLookupResult>,
+    path: string,
+    interpret: (bodyText: string | undefined, status: number) => TeamLookupResult,
     context: Pick<CliExecutionContext, "fetcher" | "logger">,
 ): Promise<TeamLookupResult> {
-    const requestStartedAt = Date.now();
+    const probe = await probeOo({
+        authorization: account.apiKey,
+        context,
+        host: { endpoint: account.endpoint, service: "relation-control" },
+        label: "Team lookup",
+        logFields: { direction, endpoint: account.endpoint },
+        path,
+    });
 
-    context.logger.debug(
-        { direction, endpoint: account.endpoint },
-        "Team lookup request started.",
-    );
-
-    try {
-        const response = await context.fetcher(requestUrl, {
-            headers: {
-                Authorization: account.apiKey,
-            },
-        });
-
-        context.logger.debug(
-            {
-                direction,
-                durationMs: Date.now() - requestStartedAt,
-                endpoint: account.endpoint,
-                status: response.status,
-            },
-            "Team lookup request completed.",
-        );
-
-        return await toResult(response);
-    }
-    catch (error) {
-        context.logger.warn(
-            {
-                direction,
-                durationMs: Date.now() - requestStartedAt,
-                endpoint: account.endpoint,
-                err: error,
-            },
-            "Team lookup request failed unexpectedly.",
-        );
-
+    if (probe.kind !== "response") {
         return {
-            status: isNetworkRestrictedSandboxError(error)
+            status: probe.kind === "failed_sandbox"
                 ? "request_failed_sandbox"
                 : "request_failed",
         };
     }
+
+    try {
+        return interpret(probe.bodyText, probe.status);
+    }
+    catch (error) {
+        context.logger.warn(
+            { direction, endpoint: account.endpoint, err: error },
+            "Team lookup request failed unexpectedly.",
+        );
+
+        return { status: "request_failed" };
+    }
+}
+
+// An unreadable body parses as no JSON at all, so both lookups classify it
+// through their interpreter's failure path.
+function parseLookupBody(bodyText: string | undefined): unknown {
+    return JSON.parse(bodyText ?? "") as unknown;
 }
 
 function toTeamView(
