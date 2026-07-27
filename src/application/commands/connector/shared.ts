@@ -1,20 +1,19 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
+import type { OoRequestFailure } from "../shared/oo-request.ts";
 import type { TeamIdentity } from "../team/identity.ts";
 import type { ConnectorRequestTarget } from "./target.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { withRequestTarget } from "../../logging/log-fields.ts";
 import {
     createInsufficientCreditError,
     isInsufficientCreditFailure,
 } from "../shared/billing.ts";
 import {
-    getUnexpectedRequestErrorMessage,
     isNetworkRestrictedSandboxError,
-    requestText,
-} from "../shared/request.ts";
+    requestOo,
+} from "../shared/oo-request.ts";
 
 export const connectorActionDefinitionSchema = z.object({
     description: z.string().optional().default(""),
@@ -201,58 +200,32 @@ export async function searchConnectorActions(
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorActionSearchResult[]> {
-    const requestUrl = new URL(
-        `${options.target.baseUrl}/v1/actions/search`,
-    );
-
-    requestUrl.searchParams.set("q", options.text);
-
-    const rawResponse = await requestText({
+    const parsed = await requestOo({
+        authorization: options.target.authorization,
         context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.connectorSearch.requestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.connectorSearch.requestError",
-            1,
-            {
-                message: createConnectorUnexpectedErrorMessage(
-                    error,
-                    options.target,
-                    context.translator,
-                ),
-            },
-        ),
-        fields: {
+        errors: { scope: "connectorSearch" },
+        // The action list itself is identity-independent, but each result's
+        // `authenticated` flag reflects the effective identity's connected
+        // apps, so the identity headers are forwarded like `apps`/`run`.
+        headers: connectorIdentityHeaders(options.identity),
+        host: { baseUrl: options.target.baseUrl },
+        label: "Connector action search",
+        logFields: {
             start: {
                 textLength: options.text.length,
             },
         },
-        init: {
-            // The action list itself is identity-independent, but each result's
-            // `authenticated` flag reflects the effective identity's connected
-            // apps, so the identity headers are forwarded like `apps`/`run`.
-            headers: {
-                ...connectorAuthorizationHeaders(options.target),
-                ...connectorIdentityHeaders(options.identity),
-            },
-        },
-        requestLabel: "Connector action search",
-        requestUrl,
+        path: "/v1/actions/search",
+        query: { q: options.text },
+        schema: connectorActionSearchResponseSchema,
+        unexpectedMessage: error => selfHostedConnectorUnreachableMessage(
+            error,
+            options.target,
+            context.translator,
+        ),
     });
 
-    try {
-        return connectorActionSearchResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        ).data;
-    }
-    catch {
-        throw new CliUserError("errors.connectorSearch.invalidResponse", 1);
-    }
+    return parsed.data;
 }
 
 // Lists every connected app under the effective identity. Backed by
@@ -266,28 +239,24 @@ export async function listConnectorApps(
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorAppView[]> {
-    const requestUrl = new URL(`${options.target.baseUrl}/v1/apps`);
+    const parsed = await requestOo({
+        authorization: options.target.authorization,
+        context,
+        errors: { scope: "connectorApps" },
+        headers: connectorIdentityHeaders(options.identity),
+        host: { baseUrl: options.target.baseUrl },
+        label: "Connector apps list",
+        path: "/v1/apps",
+        query: { status: "active" },
+        schema: connectorAppsResponseSchema,
+        unexpectedMessage: error => selfHostedConnectorUnreachableMessage(
+            error,
+            options.target,
+            context.translator,
+        ),
+    });
 
-    requestUrl.searchParams.set("status", "active");
-
-    return parseConnectorAppsResponse(
-        await requestText({
-            context,
-            createRequestFailedError: createConnectorAppsRequestFailedError,
-            createUnexpectedError: createConnectorAppsUnexpectedError(
-                options.target,
-                context.translator,
-            ),
-            init: {
-                headers: {
-                    ...connectorAuthorizationHeaders(options.target),
-                    ...connectorIdentityHeaders(options.identity),
-                },
-            },
-            requestLabel: "Connector apps list",
-            requestUrl,
-        }),
-    );
+    return parsed.data;
 }
 
 export async function listConnectorAppsByService(
@@ -298,57 +267,28 @@ export async function listConnectorAppsByService(
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorAppView[]> {
-    const requestUrl = new URL(
-        `${options.target.baseUrl}/v1/apps/services/${encodeURIComponent(options.serviceName)}`,
-    );
-
-    return parseConnectorAppsResponse(
-        await requestText({
-            context,
-            createRequestFailedError: createConnectorAppsRequestFailedError,
-            createUnexpectedError: createConnectorAppsUnexpectedError(
-                options.target,
-                context.translator,
-            ),
-            fields: {
-                start: {
-                    serviceName: options.serviceName,
-                },
+    const parsed = await requestOo({
+        authorization: options.target.authorization,
+        context,
+        errors: { scope: "connectorApps" },
+        headers: connectorIdentityHeaders(options.identity),
+        host: { baseUrl: options.target.baseUrl },
+        label: "Connector apps list",
+        logFields: {
+            start: {
+                serviceName: options.serviceName,
             },
-            init: {
-                headers: {
-                    ...connectorAuthorizationHeaders(options.target),
-                    ...connectorIdentityHeaders(options.identity),
-                },
-            },
-            requestLabel: "Connector apps list",
-            requestUrl,
-        }),
-    );
-}
-
-function parseConnectorAppsResponse(rawResponse: string): ConnectorAppView[] {
-    try {
-        return connectorAppsResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        ).data;
-    }
-    catch {
-        throw new CliUserError("errors.connectorApps.invalidResponse", 1);
-    }
-}
-
-function createConnectorAppsRequestFailedError(status: number): CliUserError {
-    return new CliUserError("errors.connectorApps.requestFailed", 1, { status });
-}
-
-function createConnectorAppsUnexpectedError(
-    target: ConnectorRequestTarget,
-    translator: Pick<CliExecutionContext["translator"], "t">,
-): (error: unknown) => CliUserError {
-    return error => new CliUserError("errors.connectorApps.requestError", 1, {
-        message: createConnectorUnexpectedErrorMessage(error, target, translator),
+        },
+        path: `/v1/apps/services/${encodeURIComponent(options.serviceName)}`,
+        schema: connectorAppsResponseSchema,
+        unexpectedMessage: error => selfHostedConnectorUnreachableMessage(
+            error,
+            options.target,
+            context.translator,
+        ),
     });
+
+    return parsed.data;
 }
 
 export async function getConnectorActionMetadata(
@@ -359,53 +299,58 @@ export async function getConnectorActionMetadata(
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorActionMetadata> {
-    const requestUrl = createConnectorActionRequestUrl(
-        options.target.baseUrl,
-        options.serviceName,
-        options.actionName,
-    );
-    const rawResponse = await requestText({
+    const parsed = await requestOo({
+        // Metadata is identity-independent (the schema cache is deliberately
+        // not keyed by org), so no identity headers are forwarded here.
+        authorization: options.target.authorization,
         context,
-        createRequestFailedError: status => new CliUserError(
-            "errors.connectorMetadata.requestFailed",
-            1,
-            {
-                status,
-            },
-        ),
-        createUnexpectedError: error => new CliUserError(
-            "errors.connectorMetadata.requestError",
-            1,
-            {
-                message: createConnectorUnexpectedErrorMessage(
-                    error,
-                    options.target,
-                    context.translator,
-                ),
-            },
-        ),
-        fields: {
+        errors: { scope: "connectorMetadata" },
+        host: { baseUrl: options.target.baseUrl },
+        label: "Connector action metadata",
+        logFields: {
             start: {
                 actionName: options.actionName,
                 serviceName: options.serviceName,
             },
         },
-        init: {
-            headers: connectorAuthorizationHeaders(options.target),
-        },
-        requestLabel: "Connector action metadata",
-        requestUrl,
+        path: connectorActionPath(options.serviceName, options.actionName),
+        schema: connectorActionMetadataResponseSchema,
+        unexpectedMessage: error => selfHostedConnectorUnreachableMessage(
+            error,
+            options.target,
+            context.translator,
+        ),
     });
 
-    try {
-        return connectorActionMetadataResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        ).data;
-    }
-    catch {
-        throw new CliUserError("errors.connectorMetadata.invalidResponse", 1);
-    }
+    return parsed.data;
 }
+
+// The five requestFailed* keys of one connector POST namespace. The two
+// namespaces differ only here and in the subject param, so one ladder serves
+// both.
+interface ConnectorFailureKeys {
+    requestFailed: string;
+    requestFailedWithBody: string;
+    requestFailedWithCode: string;
+    requestFailedWithMessage: string;
+    requestFailedWithMessageAndCode: string;
+}
+
+const connectorRunFailureKeys: ConnectorFailureKeys = {
+    requestFailed: "errors.connectorRun.requestFailed",
+    requestFailedWithBody: "errors.connectorRun.requestFailedWithBody",
+    requestFailedWithCode: "errors.connectorRun.requestFailedWithCode",
+    requestFailedWithMessage: "errors.connectorRun.requestFailedWithMessage",
+    requestFailedWithMessageAndCode: "errors.connectorRun.requestFailedWithMessageAndCode",
+};
+
+const connectorProxyFailureKeys: ConnectorFailureKeys = {
+    requestFailed: "errors.connectorProxy.requestFailed",
+    requestFailedWithBody: "errors.connectorProxy.requestFailedWithBody",
+    requestFailedWithCode: "errors.connectorProxy.requestFailedWithCode",
+    requestFailedWithMessage: "errors.connectorProxy.requestFailedWithMessage",
+    requestFailedWithMessageAndCode: "errors.connectorProxy.requestFailedWithMessageAndCode",
+};
 
 export async function runConnectorAction(
     options: {
@@ -418,124 +363,38 @@ export async function runConnectorAction(
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorActionRunResponse> {
-    const requestUrl = createConnectorActionRequestUrl(
-        options.target.baseUrl,
-        options.serviceName,
-        options.actionName,
-    );
-    const requestBody = JSON.stringify({
-        input: options.inputData,
-    });
-    const requestStartedAt = Date.now();
-
-    context.logger.debug(
-        {
-            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            actionName: options.actionName,
-            bodyLength: requestBody.length,
-            method: "POST",
-            serviceName: options.serviceName,
+    return await requestOo({
+        authorization: options.target.authorization,
+        context,
+        errors: { scope: "connectorRun" },
+        headers: {
+            ...connectorConnectionSelectorHeaders(options.connectionSelector),
+            ...connectorIdentityHeaders(options.identity),
         },
-        "Connector action run request started.",
-    );
-
-    let rawResponse: string;
-
-    try {
-        const response = await context.fetcher(requestUrl, {
-            body: requestBody,
-            headers: {
-                ...connectorAuthorizationHeaders(options.target),
-                "Content-Type": "application/json",
-                ...connectorConnectionSelectorHeaders(options.connectionSelector),
-                ...connectorIdentityHeaders(options.identity),
-            },
-            method: "POST",
-        });
-        const durationMs = Date.now() - requestStartedAt;
-
-        rawResponse = await response.text();
-
-        if (!response.ok) {
-            const failureResponse = parseConnectorFailureResponse(rawResponse);
-            const responseDiagnostics = collectSafeConnectorFailureDiagnostics(
-                response,
-                rawResponse,
-                failureResponse,
-            );
-
-            context.logger.warn(
-                {
-                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                    ...responseDiagnostics,
-                    actionName: options.actionName,
-                    durationMs,
-                    errorCode: failureResponse?.errorCode,
-                    executionId: failureResponse?.meta?.executionId,
-                    method: "POST",
-                    responseMessage: sanitizeConnectorFailureMessage(
-                        failureResponse?.message,
-                    ),
-                    serviceName: options.serviceName,
-                    status: response.status,
-                },
-                "Connector action run request returned a non-success status.",
-            );
-
-            throw createConnectorRunRequestFailedError({
+        host: { baseUrl: options.target.baseUrl },
+        jsonBody: { input: options.inputData },
+        label: "Connector action run",
+        logFields: {
+            common: {
                 actionName: options.actionName,
-                failureResponse,
-                rawResponse,
-                status: response.status,
-            });
-        }
-
-        context.logger.debug(
-            {
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                actionName: options.actionName,
-                durationMs,
-                method: "POST",
-                serviceName: options.serviceName,
-                status: response.status,
-            },
-            "Connector action run request completed.",
-        );
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            throw error;
-        }
-
-        context.logger.warn(
-            {
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                actionName: options.actionName,
-                durationMs: Date.now() - requestStartedAt,
-                err: error,
-                method: "POST",
                 serviceName: options.serviceName,
             },
-            "Connector action run request failed unexpectedly.",
-        );
-
-        throw new CliUserError("errors.connectorRun.requestError", 1, {
-            message: createConnectorPostUnexpectedErrorMessage(
-                error,
-                options.target,
-                context.translator,
-            ),
-        });
-    }
-
-    try {
-        return connectorActionRunResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        );
-    }
-    catch {
-        throw new CliUserError("errors.connectorRun.invalidResponse", 1);
-    }
+            nonSuccess: connectorFailureLogFields,
+        },
+        method: "POST",
+        path: connectorActionPath(options.serviceName, options.actionName),
+        schema: connectorActionRunResponseSchema,
+        statusErrors: failure => createConnectorFailureError({
+            failure,
+            keys: connectorRunFailureKeys,
+            subject: { action: options.actionName },
+        }),
+        unexpectedMessage: error => selfHostedConnectorUnreachableMessage(
+            error,
+            options.target,
+            context.translator,
+        ),
+    });
 }
 
 export async function runConnectorProxy(
@@ -547,151 +406,38 @@ export async function runConnectorProxy(
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<ConnectorProxyResponse> {
-    const requestUrl = createConnectorProxyRequestUrl(
-        options.target.baseUrl,
-        options.serviceName,
-    );
-    const requestBody = JSON.stringify(options.proxyRequest);
-    const requestStartedAt = Date.now();
-
-    context.logger.debug(
-        {
-            ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-            bodyLength: requestBody.length,
-            method: "POST",
-            serviceName: options.serviceName,
+    return await requestOo({
+        authorization: options.target.authorization,
+        context,
+        errors: { scope: "connectorProxy" },
+        headers: connectorIdentityHeaders(options.identity),
+        host: { baseUrl: options.target.baseUrl },
+        jsonBody: options.proxyRequest,
+        label: "Connector proxy",
+        logFields: {
+            common: {
+                serviceName: options.serviceName,
+            },
+            nonSuccess: connectorFailureLogFields,
         },
-        "Connector proxy request started.",
-    );
-
-    let rawResponse: string;
-
-    try {
-        const response = await context.fetcher(requestUrl, {
-            body: requestBody,
-            headers: {
-                ...connectorAuthorizationHeaders(options.target),
-                "Content-Type": "application/json",
-                ...connectorIdentityHeaders(options.identity),
-            },
-            method: "POST",
-        });
-        const durationMs = Date.now() - requestStartedAt;
-
-        rawResponse = await response.text();
-
-        if (!response.ok) {
-            const failureResponse = parseConnectorFailureResponse(rawResponse);
-            const responseDiagnostics = collectSafeConnectorFailureDiagnostics(
-                response,
-                rawResponse,
-                failureResponse,
-            );
-
-            context.logger.warn(
-                {
-                    ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                    ...responseDiagnostics,
-                    durationMs,
-                    errorCode: failureResponse?.errorCode,
-                    executionId: failureResponse?.meta?.executionId,
-                    method: "POST",
-                    responseMessage: sanitizeConnectorFailureMessage(
-                        failureResponse?.message,
-                    ),
-                    serviceName: options.serviceName,
-                    status: response.status,
-                },
-                "Connector proxy request returned a non-success status.",
-            );
-
-            throw createConnectorProxyRequestFailedError({
-                failureResponse,
-                rawResponse,
-                serviceName: options.serviceName,
-                status: response.status,
-            });
-        }
-
-        context.logger.debug(
-            {
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                durationMs,
-                method: "POST",
-                serviceName: options.serviceName,
-                status: response.status,
-            },
-            "Connector proxy request completed.",
-        );
-    }
-    catch (error) {
-        if (error instanceof CliUserError) {
-            throw error;
-        }
-
-        context.logger.warn(
-            {
-                ...withRequestTarget(requestUrl.host, requestUrl.pathname),
-                durationMs: Date.now() - requestStartedAt,
-                err: error,
-                method: "POST",
-                serviceName: options.serviceName,
-            },
-            "Connector proxy request failed unexpectedly.",
-        );
-
-        throw new CliUserError("errors.connectorProxy.requestError", 1, {
-            message: createConnectorPostUnexpectedErrorMessage(
-                error,
-                options.target,
-                context.translator,
-            ),
-        });
-    }
-
-    try {
-        return connectorProxyResponseSchema.parse(
-            JSON.parse(rawResponse) as unknown,
-        );
-    }
-    catch {
-        throw new CliUserError("errors.connectorProxy.invalidResponse", 1);
-    }
+        method: "POST",
+        path: `/v1/proxy/${encodeURIComponent(options.serviceName)}`,
+        schema: connectorProxyResponseSchema,
+        statusErrors: failure => createConnectorFailureError({
+            failure,
+            keys: connectorProxyFailureKeys,
+            subject: { service: options.serviceName },
+        }),
+        unexpectedMessage: error => selfHostedConnectorUnreachableMessage(
+            error,
+            options.target,
+            context.translator,
+        ),
+    });
 }
 
-// Request URLs are built by string concatenation on the normalized base URL
-// (never `new URL(path, base)`) so a self-hosted server behind a path prefix
-// keeps that prefix.
-function createConnectorActionRequestUrl(
-    baseUrl: string,
-    serviceName: string,
-    actionName: string,
-): URL {
-    const qualifiedActionName
-        = `${encodeURIComponent(serviceName)}.${encodeURIComponent(actionName)}`;
-
-    return new URL(
-        `${baseUrl}/v1/actions/${qualifiedActionName}`,
-    );
-}
-
-function createConnectorProxyRequestUrl(
-    baseUrl: string,
-    serviceName: string,
-): URL {
-    return new URL(
-        `${baseUrl}/v1/proxy/${encodeURIComponent(serviceName)}`,
-    );
-}
-
-function connectorAuthorizationHeaders(
-    target: Pick<ConnectorRequestTarget, "authorization">,
-): Record<string, string> {
-    if (target.authorization === undefined) {
-        return {};
-    }
-
-    return { Authorization: target.authorization };
+function connectorActionPath(serviceName: string, actionName: string): string {
+    return `/v1/actions/${encodeURIComponent(serviceName)}.${encodeURIComponent(actionName)}`;
 }
 
 // Builds the identity request headers (`x-oo-team-name` / `x-oo-team-id`)
@@ -732,28 +478,6 @@ function selfHostedConnectorUnreachableMessage(
     }
 
     return undefined;
-}
-
-// For GET-style calls routed through the shared request layer, which already
-// enhanced sandbox network errors with the hint — the message is used as-is.
-function createConnectorUnexpectedErrorMessage(
-    error: unknown,
-    target: Pick<ConnectorRequestTarget, "baseUrl" | "kind">,
-    translator: Pick<CliExecutionContext["translator"], "t">,
-): string {
-    return selfHostedConnectorUnreachableMessage(error, target, translator)
-        ?? (error instanceof Error ? error.message : String(error));
-}
-
-// For the direct-fetch POST paths (run/proxy), which see the raw fetch error
-// and still need the sandbox hint appended for OOMOL targets.
-function createConnectorPostUnexpectedErrorMessage(
-    error: unknown,
-    target: Pick<ConnectorRequestTarget, "baseUrl" | "kind">,
-    translator: Pick<CliExecutionContext["translator"], "t">,
-): string {
-    return selfHostedConnectorUnreachableMessage(error, target, translator)
-        ?? getUnexpectedRequestErrorMessage(error, translator);
 }
 
 function connectorConnectionSelectorHeaders(
@@ -952,132 +676,84 @@ function sanitizeConnectorFailureMessage(
     return `${singleLineMessage.slice(0, maxLength)}...`;
 }
 
-function createConnectorProxyRequestFailedError(input: {
-    failureResponse: ConnectorActionFailureResponse | undefined;
-    rawResponse: string;
-    serviceName: string;
-    status: number;
+// Extra warn-log fields for a failed connector POST: bounded safe diagnostics
+// plus the structured failure fields. Parses the failure body independently of
+// the error ladder — both parses are pure and cheap.
+function connectorFailureLogFields(failure: OoRequestFailure): Record<string, unknown> {
+    const rawResponse = failure.bodyText ?? "";
+    const failureResponse = parseConnectorFailureResponse(rawResponse);
+
+    return {
+        ...collectSafeConnectorFailureDiagnostics(
+            failure.response,
+            rawResponse,
+            failureResponse,
+        ),
+        errorCode: failureResponse?.errorCode,
+        executionId: failureResponse?.meta?.executionId,
+        responseMessage: sanitizeConnectorFailureMessage(failureResponse?.message),
+    };
+}
+
+// The five-branch failure ladder shared by run and proxy: credit detection,
+// then message+code / message / code / bounded body preview / status-only.
+// Total by construction — every non-success status maps to an error, so the
+// generic requestFailed default (which lacks the subject param) is unreachable.
+function createConnectorFailureError(input: {
+    failure: OoRequestFailure;
+    keys: ConnectorFailureKeys;
+    subject: Record<string, string>;
 }): CliUserError {
-    const responseMessage = input.failureResponse?.message;
-    const errorCode = input.failureResponse?.errorCode;
+    const rawResponse = input.failure.bodyText ?? "";
+    const failureResponse = parseConnectorFailureResponse(rawResponse);
+    const responseMessage = failureResponse?.message;
+    const errorCode = failureResponse?.errorCode;
+    const status = input.failure.status;
 
     if (isInsufficientCreditFailure({
         errorCode,
         message: responseMessage,
-        status: input.status,
+        status,
     })) {
         return createInsufficientCreditError();
     }
 
-    if (responseMessage !== undefined && responseMessage !== "") {
-        if (errorCode !== undefined && errorCode !== "") {
-            return new CliUserError("errors.connectorProxy.requestFailedWithMessageAndCode", 1, {
+    if (isNonEmptyString(responseMessage)) {
+        if (isNonEmptyString(errorCode)) {
+            return new CliUserError(input.keys.requestFailedWithMessageAndCode, 1, {
+                ...input.subject,
                 errorCode,
                 message: responseMessage,
-                service: input.serviceName,
-                status: input.status,
+                status,
             });
         }
 
-        return new CliUserError("errors.connectorProxy.requestFailedWithMessage", 1, {
+        return new CliUserError(input.keys.requestFailedWithMessage, 1, {
+            ...input.subject,
             message: responseMessage,
-            service: input.serviceName,
-            status: input.status,
+            status,
         });
     }
 
-    if (errorCode !== undefined && errorCode !== "") {
-        return new CliUserError("errors.connectorProxy.requestFailedWithCode", 1, {
+    if (isNonEmptyString(errorCode)) {
+        return new CliUserError(input.keys.requestFailedWithCode, 1, {
+            ...input.subject,
             errorCode,
-            service: input.serviceName,
-            status: input.status,
+            status,
         });
     }
 
-    const responseBody = createConnectorFailureBodyPreview(input.rawResponse);
+    const responseBody = createConnectorFailureBodyPreview(rawResponse);
     if (responseBody !== undefined) {
-        return new CliUserError("errors.connectorProxy.requestFailedWithBody", 1, {
+        return new CliUserError(input.keys.requestFailedWithBody, 1, {
+            ...input.subject,
             body: responseBody,
-            service: input.serviceName,
-            status: input.status,
+            status,
         });
     }
 
-    return new CliUserError("errors.connectorProxy.requestFailed", 1, {
-        service: input.serviceName,
-        status: input.status,
-    });
-}
-
-function createConnectorRunRequestFailedError(options: {
-    actionName: string;
-    failureResponse: ConnectorActionFailureResponse | undefined;
-    rawResponse: string;
-    status: number;
-}): CliUserError {
-    const responseMessage = options.failureResponse?.message;
-    const errorCode = options.failureResponse?.errorCode;
-
-    if (isInsufficientCreditFailure({
-        errorCode,
-        message: responseMessage,
-        status: options.status,
-    })) {
-        return createInsufficientCreditError();
-    }
-
-    if (responseMessage !== undefined && responseMessage !== "") {
-        if (errorCode !== undefined && errorCode !== "") {
-            return new CliUserError(
-                "errors.connectorRun.requestFailedWithMessageAndCode",
-                1,
-                {
-                    action: options.actionName,
-                    errorCode,
-                    message: responseMessage,
-                    status: options.status,
-                },
-            );
-        }
-
-        return new CliUserError(
-            "errors.connectorRun.requestFailedWithMessage",
-            1,
-            {
-                action: options.actionName,
-                message: responseMessage,
-                status: options.status,
-            },
-        );
-    }
-
-    if (errorCode !== undefined && errorCode !== "") {
-        return new CliUserError(
-            "errors.connectorRun.requestFailedWithCode",
-            1,
-            {
-                action: options.actionName,
-                errorCode,
-                status: options.status,
-            },
-        );
-    }
-
-    const responseBody = createConnectorFailureBodyPreview(options.rawResponse);
-    if (responseBody !== undefined) {
-        return new CliUserError(
-            "errors.connectorRun.requestFailedWithBody",
-            1,
-            {
-                action: options.actionName,
-                body: responseBody,
-                status: options.status,
-            },
-        );
-    }
-
-    return new CliUserError("errors.connectorRun.requestFailed", 1, {
-        action: options.actionName,
-        status: options.status,
+    return new CliUserError(input.keys.requestFailed, 1, {
+        ...input.subject,
+        status,
     });
 }
