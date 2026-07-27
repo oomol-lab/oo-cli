@@ -906,6 +906,10 @@ export function createAuthStore(authFile: AuthFile): AuthStore {
         getFilePath: () => "",
         read: async () => currentAuthFile,
         readTolerant: async () => currentAuthFile,
+        readTolerantState: async () => ({
+            authFile: currentAuthFile,
+            fileState: "ok",
+        }),
         write: async (nextAuthFile) => {
             currentAuthFile = nextAuthFile;
 

@@ -1,5 +1,17 @@
 import type { AuthFile } from "../schemas/auth.ts";
 
+/**
+ * Condition of the persisted auth file as observed by a tolerant read:
+ * "missing" when it does not exist, "corrupt" when it exists but cannot be
+ * read or parsed, "ok" otherwise.
+ */
+export type AuthFileState = "corrupt" | "missing" | "ok";
+
+export interface TolerantAuthRead {
+    authFile: AuthFile;
+    fileState: AuthFileState;
+}
+
 export interface AuthStore {
     getFilePath: () => string;
     read: () => Promise<AuthFile>;
@@ -11,6 +23,13 @@ export interface AuthStore {
      * the file on disk and fails the command on a corrupt one.
      */
     readTolerant: () => Promise<AuthFile>;
+    /**
+     * Same tolerance contract as `readTolerant()`, but also reports what the
+     * fallback hid: whether the file was missing or corrupt. For callers that
+     * must distinguish "no accounts saved" from "the file is unreadable"
+     * (identity resolution, telemetry account state).
+     */
+    readTolerantState: () => Promise<TolerantAuthRead>;
     write: (auth: AuthFile) => Promise<AuthFile>;
     update: (
         updater: (auth: AuthFile) => AuthFile,

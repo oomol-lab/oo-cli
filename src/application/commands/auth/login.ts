@@ -8,6 +8,10 @@ import type { TeamView } from "../team/shared.ts";
 
 import { z } from "zod";
 import {
+    buildEnvApiKeyAccount,
+    resolveLoginEndpoint,
+} from "../../auth/identity.ts";
+import {
     requestAuthAccountWithApiKey,
     requestAuthAccountWithSessionToken,
     startAuthLoginSession,
@@ -20,11 +24,6 @@ import {
 } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import {
-    buildEnvApiKeyAccount,
-    readEndpointOverride,
-    readTrimmedEnv,
-} from "../shared/auth-env-override.ts";
 import { writeLine } from "../shared/output.ts";
 import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
 import {
@@ -38,10 +37,6 @@ import {
 } from "./shared.ts";
 
 const loginUrlColor = "#c09ff5";
-const defaultAuthEndpoint = "oomol.com";
-// Legacy endpoint override, kept only as a fallback below OO_ENDPOINT. Slated
-// for removal once callers have migrated to OO_ENDPOINT.
-const legacyEndpointEnvName = "OOMOL_ENDPOINT";
 
 type LoginMethod = "api_key" | "device_login" | "session_token";
 
@@ -100,7 +95,7 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
     inputSchema: authLoginCommandInputSchema,
     mapInputError: (_error, rawInput) => mapLoginInputError(rawInput),
     handler: async (input: AuthLoginCommandInput, context) => {
-        const authEndpoint = readAuthEndpoint(context.env);
+        const authEndpoint = resolveLoginEndpoint(context.env);
         const loginMethod = resolveLoginMethod(input);
 
         context.telemetry?.recordProperties({ auth_method: loginMethod });
@@ -426,17 +421,4 @@ async function runDeviceLogin(
     );
 
     return session.waitForAccount();
-}
-
-// Resolves the endpoint the login flow authenticates against. OO_ENDPOINT wins
-// so `oo auth login` targets the same host execution commands use, matching the
-// precedence in resolveCurrentEndpoint(). The legacy OOMOL_ENDPOINT stays only
-// as a fallback and is slated for removal, after which OO_ENDPOINT and the
-// public default are the only sources.
-function readAuthEndpoint(
-    env: CliExecutionContext["env"],
-): string {
-    return readEndpointOverride(env)
-        ?? readTrimmedEnv(env, legacyEndpointEnvName)
-        ?? defaultAuthEndpoint;
 }

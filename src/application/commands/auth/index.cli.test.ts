@@ -213,31 +213,6 @@ describe("auth CLI", () => {
         }
     });
 
-    test("supports auth login with a custom OOMOL_ENDPOINT", async () => {
-        const sandbox = await createCliSandbox();
-
-        sandbox.env.OOMOL_ENDPOINT = "staging.oomol.test";
-
-        try {
-            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
-                accountEndpoint: sandbox.env.OOMOL_ENDPOINT,
-            });
-            const loginUrl = findLoginUrl(result.stdout);
-
-            expect(result.exitCode).toBe(0);
-            expect(new URL(loginUrl!).searchParams.get("user_code")).toBe(
-                "M0KO41",
-            );
-            expect(loginUrl).toStartWith(
-                readAuthLoginUrlPrefix("staging.oomol.test"),
-            );
-            expect(createAuthLoginSnapshot(result)).toMatchSnapshot();
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
     test("supports auth login with a custom OO_ENDPOINT", async () => {
         const sandbox = await createCliSandbox();
 
@@ -259,24 +234,21 @@ describe("auth CLI", () => {
         }
     });
 
-    test("prefers OO_ENDPOINT over OOMOL_ENDPOINT for auth login", async () => {
+    test("ignores the removed legacy OOMOL_ENDPOINT variable", async () => {
         const sandbox = await createCliSandbox();
 
         // runPrintedAuthLogin only answers api.${accountEndpoint}; if login
-        // resolved the legacy host instead, the request would hit the unmocked
-        // host and throw, so a green run proves OO_ENDPOINT wins the precedence.
-        sandbox.env.OO_ENDPOINT = "override.oomol.test";
+        // still resolved the legacy host, the request would hit the unmocked
+        // host and throw, so a green run proves OOMOL_ENDPOINT has no effect.
         sandbox.env.OOMOL_ENDPOINT = "legacy.oomol.test";
 
         try {
-            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
-                accountEndpoint: sandbox.env.OO_ENDPOINT,
-            });
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {});
             const loginUrl = findLoginUrl(result.stdout);
 
             expect(result.exitCode).toBe(0);
             expect(loginUrl).toStartWith(
-                readAuthLoginUrlPrefix("override.oomol.test"),
+                readAuthLoginUrlPrefix("oomol.com"),
             );
         }
         finally {

@@ -1,5 +1,8 @@
 import type { Logger } from "pino";
-import type { AuthStore } from "../../application/contracts/auth-store.ts";
+import type {
+    AuthStore,
+    TolerantAuthRead,
+} from "../../application/contracts/auth-store.ts";
 import type { AuthFile } from "../../application/schemas/auth.ts";
 import type { FileStoreLocationOptions } from "./store-path.ts";
 
@@ -108,8 +111,17 @@ export class FileAuthStore implements AuthStore {
     }
 
     async readTolerant(): Promise<AuthFile> {
+        const { authFile } = await this.readTolerantState();
+
+        return authFile;
+    }
+
+    async readTolerantState(): Promise<TolerantAuthRead> {
         try {
-            return await this.readPersistedAuth();
+            return {
+                authFile: await this.readPersistedAuth(),
+                fileState: "ok",
+            };
         }
         catch (error) {
             // A caller reaching for this already has its credential elsewhere,
@@ -125,7 +137,10 @@ export class FileAuthStore implements AuthStore {
 
             // A fresh copy: defaultAuthFile is a shared module-level value and
             // must not be handed out where a caller could mutate it.
-            return { ...defaultAuthFile, auth: [] };
+            return {
+                authFile: { ...defaultAuthFile, auth: [] },
+                fileState: isFileMissingError(error) ? "missing" : "corrupt",
+            };
         }
     }
 

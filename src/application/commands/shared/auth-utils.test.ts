@@ -252,6 +252,7 @@ function createThrowingAuthStore(): AuthStore {
         getFilePath: () => "/should-not-be-read/auth.toml",
         read: async () => fail(),
         readTolerant: async () => fail(),
+        readTolerantState: async () => fail(),
         write: async () => fail(),
         update: async () => fail(),
     };
