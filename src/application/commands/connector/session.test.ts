@@ -1,4 +1,4 @@
-import type { CliTelemetryPropertyValue, Fetcher } from "../../contracts/cli.ts";
+import type { Fetcher } from "../../contracts/cli.ts";
 import type { AuthFile } from "../../schemas/auth.ts";
 import type { ConnectorFile } from "../../schemas/connector.ts";
 import type { AppSettings } from "../../schemas/settings.ts";
@@ -9,6 +9,7 @@ import pino from "pino";
 import {
     createAuthStore,
     createInMemoryConnectorStore,
+    createRecordingTelemetry,
     createSettingsStore,
     expectCliUserError,
 } from "../../../../__tests__/helpers.ts";
@@ -334,7 +335,7 @@ function createSessionContext(
     } = {},
 ) {
     const requests: Array<{ url: string; authorization: string | null }> = [];
-    const recordedProperties: Array<Record<string, CliTelemetryPropertyValue>> = [];
+    const { recordedProperties, telemetry } = createRecordingTelemetry();
     const fetcher = options.fetcher ?? (async () => new Response("{}"));
 
     return {
@@ -351,15 +352,7 @@ function createSessionContext(
         }) satisfies Fetcher,
         logger: pino({ enabled: false }),
         settingsStore: createSettingsStore(options.settings ?? {}),
-        telemetry: {
-            directoryPath: "",
-            recordProperties: (
-                properties: Record<string, CliTelemetryPropertyValue>,
-            ) => {
-                recordedProperties.push(properties);
-            },
-            suppressCurrentInvocation: () => {},
-        },
+        telemetry,
         translator: createTranslator("en"),
         recordedProperties,
         requests,

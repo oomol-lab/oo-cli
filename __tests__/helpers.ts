@@ -6,7 +6,13 @@ import type {
 } from "../src/application/commands/connector/target.ts";
 import type { AuthStore } from "../src/application/contracts/auth-store.ts";
 import type { Cache, CacheOptions, CacheStore } from "../src/application/contracts/cache.ts";
-import type { Fetcher, InteractiveInput, Writer } from "../src/application/contracts/cli.ts";
+import type {
+    CliExecutionContext,
+    CliTelemetryPropertyValue,
+    Fetcher,
+    InteractiveInput,
+    Writer,
+} from "../src/application/contracts/cli.ts";
 import type { ConnectorStore } from "../src/application/contracts/connector-store.ts";
 import type { FileDownloadSessionStore } from "../src/application/contracts/file-download-session-store.ts";
 import type { FileUploadRecordStore } from "../src/application/contracts/file-upload-store.ts";
@@ -1031,6 +1037,26 @@ export function createCache<Value>(handlers: {
             return handlers.get(key) !== null;
         },
         clear: () => {},
+    };
+}
+
+// A telemetry double that records every recordProperties call in order, for
+// tests that assert what a code path reports without a real outbox.
+export function createRecordingTelemetry(): {
+    recordedProperties: Array<Record<string, CliTelemetryPropertyValue>>;
+    telemetry: NonNullable<CliExecutionContext["telemetry"]>;
+} {
+    const recordedProperties: Array<Record<string, CliTelemetryPropertyValue>> = [];
+
+    return {
+        recordedProperties,
+        telemetry: {
+            directoryPath: "",
+            recordProperties: (properties) => {
+                recordedProperties.push(properties);
+            },
+            suppressCurrentInvocation: () => {},
+        },
     };
 }
 

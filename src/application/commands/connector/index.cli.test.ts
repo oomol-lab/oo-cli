@@ -687,8 +687,8 @@ describe("connectorCommand CLI", () => {
             expect(telemetryPayload?.properties).not.toHaveProperty("body");
             expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
             expect(telemetryPayload?.properties).not.toHaveProperty("headers");
-            expect(telemetryPayload?.properties).not.toHaveProperty("team");
             expect(telemetryPayload?.properties).not.toHaveProperty("service");
+            expectTelemetryFreeOfTeamIdentity(telemetryPayload?.properties, ["acme"]);
         }
         finally {
             await sandbox.cleanup();
@@ -1370,6 +1370,7 @@ describe("connectorCommand CLI", () => {
                 "https://connector.oomol.com/v1/apps?status=active",
             );
             expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
             expect(JSON.parse(result.stdout)).toEqual([
                 {
                     accountLabel: "user@example.com",
@@ -1498,7 +1499,7 @@ describe("connectorCommand CLI", () => {
                     list_scope: "all",
                 },
             });
-            expect(telemetryPayload?.properties).not.toHaveProperty("team");
+            expectTelemetryFreeOfTeamIdentity(telemetryPayload?.properties, ["acme"]);
         }
         finally {
             await sandbox.cleanup();
@@ -1612,6 +1613,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.url).toBe("http://localhost:3000/v1/apps?status=active");
             expect(requests[0]?.headers.get("Authorization")).toBe("Bearer oct_test");
             expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     connector_kind: "self_hosted",
@@ -4655,6 +4657,7 @@ describe("connectorCommand CLI", () => {
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
             expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
             // The run POST carries the team identity.
             expect(requests[1]?.method).toBe("POST");
             expect(requests[1]?.url).toBe(

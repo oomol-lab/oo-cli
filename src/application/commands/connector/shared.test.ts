@@ -467,6 +467,7 @@ describe("connector shared requests", () => {
             "https://connector.oomol.com/v1/actions/gmail.send_mail",
         );
         expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+        expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
     });
 
     test("getConnectorActionMetadata never sends a team query or header", async () => {
@@ -502,6 +503,7 @@ describe("connector shared requests", () => {
             "https://connector.oomol.com/v1/actions/gmail.get_message",
         );
         expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+        expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
     });
 
     test("runConnectorProxy sends proxy requests with identity headers", async () => {

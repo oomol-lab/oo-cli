@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createCliSnapshot,
+    expectTelemetryFreeOfTeamIdentity,
     readLatestLogContent,
     toRequest,
     writeAuthFile,
@@ -122,7 +123,7 @@ describe("searchCommand CLI", () => {
                     identity_source: "flag",
                 },
             });
-            expect(telemetryPayload?.properties).not.toHaveProperty("team");
+            expectTelemetryFreeOfTeamIdentity(telemetryPayload?.properties, ["acme"]);
         }
         finally {
             await sandbox.cleanup();

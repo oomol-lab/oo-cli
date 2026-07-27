@@ -29,22 +29,23 @@ import {
     loadConnectorActionSchema,
 } from "./schema-cache.ts";
 
+// The scope every fixture-backed test shares; variant scopes are built
+// inline where a test exists to prove key divergence.
+const userScope = createConnectorSchemaCacheScope({
+    accountId: "user-1",
+    endpoint: "oomol.com",
+});
+
 describe("connector schema cache", () => {
     test("createConnectorActionSchemaCacheKey includes scope, service, and action identity", () => {
         const baseKey = createConnectorActionSchemaCacheKey({
             actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            cacheScope: userScope,
             serviceName: "gmail",
         });
 
         expect(JSON.parse(baseKey)).toEqual({
-            scope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            scope: userScope,
             actionName: "send_mail",
             serviceName: "gmail",
         });
@@ -66,10 +67,7 @@ describe("connector schema cache", () => {
         }));
         expect(baseKey).not.toBe(createConnectorActionSchemaCacheKey({
             actionName: "get_message",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            cacheScope: userScope,
             serviceName: "gmail",
         }));
     });
@@ -80,10 +78,7 @@ describe("connector schema cache", () => {
 
         await cacheConnectorActionSchemas(
             [createConnectorActionFixture()],
-            createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            userScope,
             createCacheContext({
                 cache,
                 cacheOptions,
@@ -99,10 +94,7 @@ describe("connector schema cache", () => {
         ]);
         expect(cache.get(createConnectorActionSchemaCacheKey({
             actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            cacheScope: userScope,
             serviceName: "gmail",
         }))).toEqual({
             ...createConnectorActionFixture(),
@@ -116,10 +108,7 @@ describe("connector schema cache", () => {
         cache.set(
             createConnectorActionSchemaCacheKey({
                 actionName: "send_mail",
-                cacheScope: createConnectorSchemaCacheScope({
-                    accountId: "user-1",
-                    endpoint: "oomol.com",
-                }),
+                cacheScope: userScope,
                 serviceName: "gmail",
             }),
             createConnectorActionFixture({
@@ -164,10 +153,7 @@ describe("connector schema cache", () => {
         const cache = createMemoryCache();
         const cacheKey = createConnectorActionSchemaCacheKey({
             actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            cacheScope: userScope,
             serviceName: "gmail",
         });
 
@@ -215,10 +201,7 @@ describe("connector schema cache", () => {
         cache.set(
             createConnectorActionSchemaCacheKey({
                 actionName: "openai_image_async_submit",
-                cacheScope: createConnectorSchemaCacheScope({
-                    accountId: "user-1",
-                    endpoint: "oomol.com",
-                }),
+                cacheScope: userScope,
                 serviceName: "fusion-api",
             }),
             {
@@ -268,10 +251,7 @@ describe("connector schema cache", () => {
         const cache = createMemoryCache();
         const cacheKey = createConnectorActionSchemaCacheKey({
             actionName: "get_message",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            cacheScope: userScope,
             serviceName: "gmail",
         });
 
@@ -310,10 +290,7 @@ describe("connector schema cache", () => {
         const cache = createMemoryCache();
         const cacheKey = createConnectorActionSchemaCacheKey({
             actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            cacheScope: userScope,
             serviceName: "gmail",
         });
 
@@ -398,10 +375,7 @@ describe("connector schema cache", () => {
         const cache = createMemoryCache();
         const cacheKey = createConnectorActionSchemaCacheKey({
             actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            cacheScope: userScope,
             serviceName: "gmail",
         });
 
@@ -428,10 +402,7 @@ describe("connector schema cache", () => {
         const cache = createMemoryCache();
         const firstKey = createConnectorActionSchemaCacheKey({
             actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            cacheScope: userScope,
             serviceName: "gmail",
         });
         const secondKey = createConnectorActionSchemaCacheKey({
@@ -451,10 +422,7 @@ describe("connector schema cache", () => {
         expect(deleteConnectorActionSchemaCache(
             {
                 actionName: "send_mail",
-                cacheScope: createConnectorSchemaCacheScope({
-                    accountId: "user-1",
-                    endpoint: "oomol.com",
-                }),
+                cacheScope: userScope,
                 serviceName: "gmail",
             },
             createCacheContext({
@@ -472,10 +440,7 @@ describe("connector schema cache", () => {
         const cache = createMemoryCache();
         const firstKey = createConnectorActionSchemaCacheKey({
             actionName: "send_mail",
-            cacheScope: createConnectorSchemaCacheScope({
-                accountId: "user-1",
-                endpoint: "oomol.com",
-            }),
+            cacheScope: userScope,
             serviceName: "gmail",
         });
         const secondKey = createConnectorActionSchemaCacheKey({
@@ -694,10 +659,7 @@ describe("connector schema cache", () => {
 
             await cacheConnectorActionSchemas(
                 [createConnectorActionFixture()],
-                createConnectorSchemaCacheScope({
-                    accountId: "user-1",
-                    endpoint: "oomol.com",
-                }),
+                userScope,
                 createCacheContext({
                     cache: createMemoryCache(),
                     settingsFilePath: join(rootPath, "settings.toml"),

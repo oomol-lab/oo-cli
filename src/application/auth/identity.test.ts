@@ -18,6 +18,7 @@ import {
     createInMemoryConnectorStore,
     createNoopFileDownloadSessionStore,
     createNoopFileUploadStore,
+    createRecordingTelemetry,
     createSettingsStore,
     createTextBuffer,
 } from "../../../__tests__/helpers.ts";
@@ -415,7 +416,7 @@ function createIdentityContext(
     };
     const stdout = createTextBuffer();
     const stderr = createTextBuffer();
-    const recordedProperties: Record<string, CliTelemetryPropertyValue>[] = [];
+    const { recordedProperties, telemetry } = createRecordingTelemetry();
 
     const context: CliExecutionContext = {
         authStore: overrides.authStore
@@ -441,17 +442,7 @@ function createIdentityContext(
         },
         catalog: emptyCatalog,
         version: "0.1.0",
-        ...(overrides.telemetry === false
-            ? {}
-            : {
-                    telemetry: {
-                        directoryPath: "",
-                        recordProperties: (properties) => {
-                            recordedProperties.push(properties);
-                        },
-                        suppressCurrentInvocation: () => {},
-                    },
-                }),
+        ...(overrides.telemetry === false ? {} : { telemetry }),
     };
 
     return {
