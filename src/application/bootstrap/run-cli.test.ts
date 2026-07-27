@@ -52,6 +52,56 @@ describe("runCli bootstrap", () => {
         }
     });
 
+    test("keeps presigned URL query values out of the argv log", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await sandbox.run(
+                [
+                    "file",
+                    "download",
+                    "https://download.example.com/report.txt?signature=argv-secret",
+                ],
+                {
+                    fetcher: async () => {
+                        throw new Error("offline");
+                    },
+                },
+            );
+
+            const logContent = await readLatestLogContent(sandbox);
+
+            expect(logContent).toContain("\"msg\":\"CLI command received.\"");
+            expect(logContent).not.toContain("argv-secret");
+            expect(logContent).toContain("signature=REDACTED");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps secret positional values out of the argv log", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await sandbox.run(
+                ["variables", "create", "MY_VAR", "positional-secret-value"],
+                {
+                    fetcher: async () => new Response("{}", { status: 500 }),
+                },
+            );
+
+            const logContent = await readLatestLogContent(sandbox);
+
+            expect(logContent).toContain("\"msg\":\"CLI command received.\"");
+            expect(logContent).not.toContain("positional-secret-value");
+            expect(logContent).toContain("<redacted>");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("executes published skill installation", async () => {
         const sandbox = await createCliSandbox();
         const originalCwd = process.cwd;

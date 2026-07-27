@@ -11,6 +11,7 @@ import { basename, dirname, isAbsolute, join, normalize, relative, sep } from "n
 import process from "node:process";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
+import { sanitizeUrlForLogging } from "../logging/url-sanitizer.ts";
 import { isSemver } from "../semver.ts";
 import { isFileMissingError, isPathMissingError } from "../shared/fs-errors.ts";
 import { pathExists, writeChunk } from "../shared/fs-utils.ts";
@@ -536,7 +537,7 @@ async function fetchBinaryResponse(options: {
             if (attempt === options.maxStallRetries) {
                 options.logger.warn(
                     {
-                        requestUrl: options.url,
+                        requestUrl: sanitizeUrlForLogging(options.url),
                         stallTimeoutMs: options.stallTimeoutMs,
                         totalAttempts: attempt + 1,
                     },
@@ -550,7 +551,7 @@ async function fetchBinaryResponse(options: {
 
             options.logger.warn(
                 {
-                    requestUrl: options.url,
+                    requestUrl: sanitizeUrlForLogging(options.url),
                     retryAttempt: attempt + 1,
                     stallTimeoutMs: options.stallTimeoutMs,
                 },
@@ -595,7 +596,7 @@ async function downloadBinaryResponseOnce(options: {
             if (abortReason === "timeout") {
                 options.logger.warn(
                     {
-                        requestUrl: options.url,
+                        requestUrl: sanitizeUrlForLogging(options.url),
                         timeoutMs: options.timeoutMs,
                     },
                     "CLI self-update binary download timed out.",
@@ -605,7 +606,7 @@ async function downloadBinaryResponseOnce(options: {
             options.logger.warn(
                 {
                     err: error,
-                    requestUrl: options.url,
+                    requestUrl: sanitizeUrlForLogging(options.url),
                 },
                 "CLI self-update binary download failed.",
             );
@@ -617,7 +618,7 @@ async function downloadBinaryResponseOnce(options: {
         if (!response.ok) {
             options.logger.warn(
                 {
-                    requestUrl: options.url,
+                    requestUrl: sanitizeUrlForLogging(options.url),
                     status: response.status,
                 },
                 "CLI self-update binary download returned a non-success status.",
@@ -642,7 +643,7 @@ async function downloadBinaryResponseOnce(options: {
             if (abortReason === "timeout") {
                 options.logger.warn(
                     {
-                        requestUrl: options.url,
+                        requestUrl: sanitizeUrlForLogging(options.url),
                         timeoutMs: options.timeoutMs,
                     },
                     "CLI self-update binary download timed out.",

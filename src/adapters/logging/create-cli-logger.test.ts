@@ -25,6 +25,31 @@ describe("createCliLogger", () => {
         expect(content).toContain(`"msg":"file-only log"`);
     });
 
+    test("sanitizes URL-bearing error paths before writing", async () => {
+        const logDirectoryPath = await createTemporaryDirectory("oo-log-err-url");
+        const loggerHandle = createCliLogger({
+            appName: APP_NAME,
+            env: {},
+            logDirectoryPath,
+        });
+
+        loggerHandle.logger.warn(
+            {
+                err: Object.assign(new Error("Unable to connect."), {
+                    code: "ConnectionRefused",
+                    path: "https://download.example.com/file?signature=secret123",
+                }),
+            },
+            "request failed",
+        );
+        loggerHandle.close();
+
+        const content = await readFile(loggerHandle.logFilePath, "utf8");
+
+        expect(content).not.toContain("secret123");
+        expect(content).toContain("signature=REDACTED");
+    });
+
     test("exposes the created log file path", async () => {
         const logDirectoryPath = await createTemporaryDirectory("oo-log-path");
         const loggerHandle = createCliLogger({

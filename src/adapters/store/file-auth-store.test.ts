@@ -288,6 +288,41 @@ describe("FileAuthStore", () => {
         } satisfies Partial<CliUserError>);
     });
 
+    test("keeps auth file content out of invalid TOML logs", async () => {
+        const root = await createTemporaryDirectory("auth-store-toml-log");
+        const logCapture = createLogCapture();
+        const store = new FileAuthStore({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            logger: logCapture.logger,
+            platform: "linux",
+        });
+
+        await mkdir(dirname(store.getFilePath()), { recursive: true });
+        await writeFile(
+            store.getFilePath(),
+            [
+                "[[auth]]",
+                "api_key = \"top-secret-key\"",
+                "broken = [",
+            ].join("\n"),
+            "utf8",
+        );
+
+        await expect(store.read()).rejects.toMatchObject({
+            key: "errors.authStore.invalidToml",
+        } satisfies Partial<CliUserError>);
+
+        const logs = logCapture.read();
+
+        expect(logs).toContain(`"msg":"Auth store file contained invalid TOML."`);
+        expect(logs).not.toContain("top-secret-key");
+        logCapture.close();
+    });
+
     test("rejects unsupported auth schema", async () => {
         const root = await createTemporaryDirectory("auth-store-invalid-schema");
         const logCapture = createLogCapture();

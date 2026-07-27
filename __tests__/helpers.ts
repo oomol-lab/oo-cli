@@ -40,6 +40,7 @@ import {
 } from "../src/application/commands/shared/oo-request.ts";
 import { APP_NAME } from "../src/application/config/app-config.ts";
 import { CliUserError } from "../src/application/contracts/cli.ts";
+import { serializeErrorForLogging } from "../src/application/logging/url-sanitizer.ts";
 import { defaultSettings, renderSettingsFile } from "../src/application/schemas/settings.ts";
 import { isPathMissingError } from "../src/application/shared/fs-errors.ts";
 import { createTerminalColors } from "../src/application/terminal-colors.ts";
@@ -345,6 +346,11 @@ export function createLogCapture(): LogCapture {
                     },
                 },
                 level: "debug",
+                // Mirrors the production logger so captured output reflects
+                // the same err sanitization (create-cli-logger.ts).
+                serializers: {
+                    err: serializeErrorForLogging,
+                },
             },
             stream,
         ),

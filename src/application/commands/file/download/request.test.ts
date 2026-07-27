@@ -41,6 +41,70 @@ describe("requestFreshDownload", () => {
         }
     });
 
+    test("keeps presigned query values out of the request logs", async () => {
+        const logCapture = createLogCapture();
+        const requestUrl = new URL(
+            "https://download.example.com/files/report.txt?signature=start-secret&expires=1700000000",
+        );
+
+        try {
+            const response = setResponseUrl(
+                new Response("payload", {
+                    status: 200,
+                }),
+                "https://cdn.example.com/files/report.txt?signature=redirect-secret",
+            );
+
+            await requestFreshDownload(requestUrl, {
+                fetcher: async () => response,
+                logger: logCapture.logger,
+                translator: createTranslator("en"),
+            });
+
+            const logContent = logCapture.read();
+
+            expect(logContent).not.toContain("start-secret");
+            expect(logContent).not.toContain("redirect-secret");
+            expect(logContent).toContain(
+                "\"url\":\"https://download.example.com/files/report.txt?signature=REDACTED&expires=REDACTED\"",
+            );
+            expect(logContent).toContain(
+                "\"finalUrl\":\"https://cdn.example.com/files/report.txt?signature=REDACTED\"",
+            );
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("keeps presigned query values out of transport-failure logs", async () => {
+        const logCapture = createLogCapture();
+        const requestUrl = new URL(
+            "https://download.example.com/files/report.txt?signature=transport-secret",
+        );
+
+        try {
+            await expectCliUserError(requestFreshDownload(requestUrl, {
+                fetcher: async () => {
+                    throw Object.assign(new Error("Unable to connect."), {
+                        code: "ConnectionRefused",
+                        path: requestUrl.toString(),
+                    });
+                },
+                logger: logCapture.logger,
+                translator: createTranslator("en"),
+            }));
+
+            const logContent = logCapture.read();
+
+            expect(logContent).not.toContain("transport-secret");
+            expect(logContent).toContain("signature=REDACTED");
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
     test("rejects non-success statuses that are not explicitly allowed", async () => {
         const logCapture = createLogCapture();
 

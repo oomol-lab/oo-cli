@@ -3,6 +3,7 @@ import type { ConnectorFile } from "../../schemas/connector.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { sanitizeUrlForLogging } from "../../logging/url-sanitizer.ts";
 import { getSelfHostedConnectorConfig } from "../../schemas/connector.ts";
 import { writeLine } from "../shared/output.ts";
 
@@ -42,7 +43,9 @@ export const connectorLogoutCommand: CliCommandDefinition = {
 
         context.logger.info(
             {
-                url: selfHosted.url,
+                // The stored value is normalized at login, but a hand-edited
+                // file can carry query values or userinfo — sanitize anyway.
+                url: sanitizeUrlForLogging(selfHosted.url),
             },
             "Self-hosted connector configuration removed.",
         );

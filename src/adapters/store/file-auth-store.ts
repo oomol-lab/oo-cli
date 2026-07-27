@@ -267,12 +267,14 @@ export class FileAuthStore implements AuthStore {
         try {
             parsedContent = parseToml(content);
         }
-        catch (error) {
+        catch {
+            // The TOML parse error is deliberately not logged: its message and
+            // codeblock embed the offending document lines, which may contain
+            // raw API keys.
             this.logger?.error(
                 {
                     ...withCategory(logCategory.systemError),
                     contentBytes: content.length,
-                    err: error,
                     ...withStorePath(this.filePath),
                 },
                 "Auth store file contained invalid TOML.",
