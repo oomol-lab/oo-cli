@@ -1,4 +1,5 @@
 import type {
+    CliCommandContext,
     CliCommandDefinition,
     CliExecutionContext,
 } from "../../contracts/cli.ts";
@@ -18,8 +19,6 @@ import { join, resolve } from "node:path";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { parsePackageSpecifier } from "../shared/package-info.ts";
 import {
     availableBundledSkillNames,
@@ -64,8 +63,6 @@ interface SkillsInstallInput {
     skill?: string[];
     outDir?: string;
     agentFormat?: string;
-    format?: "json";
-    showSchemaVersion?: boolean;
 }
 
 type SkillsInstallPackageKind = "bundled" | "registry";
@@ -137,18 +134,15 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             valueName: "agent",
             descriptionKey: "options.skills.install.agentFormat",
         },
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
         force: z.boolean().optional(),
         packageNames: z.array(z.string()).optional(),
         skill: z.array(z.string()).optional(),
         outDir: z.string().optional(),
         agentFormat: z.string().optional(),
-        format: z.enum(["json"]).optional(),
-        showSchemaVersion: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         // `--agent-format` only shapes the `--out-dir` export; on the normal
         // install path it would be ignored, so reject the combination loudly
@@ -183,13 +177,11 @@ export const skillsInstallCommand: CliCommandDefinition<SkillsInstallInput> = {
             has_skill_filter: skillFilterActive,
         });
 
-        if (input.format === "json") {
+        if (context.output.format === "json") {
             const report = await runInstallJsonReport(input, context, { force });
 
             recordInstallTelemetry(context, report, force);
-            writeJsonOutput(context.stdout, report, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
+            context.output.emitJson(report);
 
             if (report.status === "partial-failure" || report.status === "failed") {
                 throw new CliUserError("errors.skills.install.partialFailure", 1, {
@@ -450,7 +442,7 @@ function resolveBundledSkillSelection(
 // packages are downloaded, extracted, and written in their published form.
 async function runSkillExport(
     input: SkillsInstallInput,
-    context: CliExecutionContext,
+    context: CliCommandContext,
 ): Promise<void> {
     // Reject a blank `--out-dir` before resolving: `resolve("")` would silently
     // fall back to the working directory and the per-skill removePath/cp would
@@ -468,7 +460,7 @@ async function runSkillExport(
         "errors.skills.install.invalidAgentFormat",
     );
     const skillFilterActive = normalizeSkillFilterTokens(input.skill) !== undefined;
-    const wantJson = input.format === "json";
+    const wantJson = context.output.format === "json";
     const packageNames = input.packageNames ?? [];
 
     // Parse every specifier up front so a malformed package name fails the whole
@@ -569,9 +561,7 @@ async function runSkillExport(
             outputDirectoryPath,
         );
 
-        writeJsonOutput(context.stdout, report, {
-            showSchemaVersion: input.showSchemaVersion,
-        });
+        context.output.emitJson(report);
 
         if (report.status === "partial-failure" || report.status === "failed") {
             throw new CliUserError("errors.skills.install.partialFailure", 1, {

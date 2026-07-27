@@ -167,8 +167,6 @@ const connectorActionFailureResponseSchema = z.object({
     }).partial().optional(),
 }).passthrough();
 
-export const connectorFormatValues = ["json"] as const;
-
 export interface ConnectorConnectionSelector {
     connectionName?: string;
 }

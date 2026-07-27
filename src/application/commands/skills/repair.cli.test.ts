@@ -22,6 +22,22 @@ import {
 const TEST_CLI_VERSION = "9.9.9";
 
 describe("skills repair CLI", () => {
+    test("--format xml exits 2 with the invalid-format error", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(
+                ["skills", "repair", "--skill", "oo", "--format", "xml"],
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain("Invalid format: xml");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("rejects when --skill is not provided", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");

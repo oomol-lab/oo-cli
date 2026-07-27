@@ -6,7 +6,6 @@ import type { BundledSkillAgentName, BundledSkillName } from "./embedded-assets.
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import { writeLine } from "../shared/output.ts";
 import { publishBundledSkillInstallation } from "./bundled-skill-filesystem.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
@@ -39,8 +38,6 @@ import {
 
 interface SkillsRepairInput {
     agent?: string[];
-    format?: "json";
-    showSchemaVersion?: boolean;
     skill?: string[];
 }
 
@@ -123,12 +120,10 @@ export const skillsRepairCommand: CliCommandDefinition<SkillsRepairInput> = {
             valueName: "agents...",
             descriptionKey: "options.skills.repair.agent",
         },
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
         agent: z.array(z.string()).optional(),
-        format: z.enum(["json"]).optional(),
-        showSchemaVersion: z.boolean().optional(),
         skill: z.array(z.string()).optional(),
     }),
     handler: async (input, context) => {
@@ -153,10 +148,8 @@ export const skillsRepairCommand: CliCommandDefinition<SkillsRepairInput> = {
             hasAgentFilter: (input.agent?.length ?? 0) > 0,
         });
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, outcome, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
+        if (context.output.format === "json") {
+            context.output.emitJson(outcome);
         }
         else {
             writeText(context, outcome);

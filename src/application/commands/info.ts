@@ -7,18 +7,12 @@ import { z } from "zod";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { createWriterColors } from "../terminal-colors.ts";
-import { outputFormatOptions, writeJsonOutput } from "./command-output.ts";
-import { createFormatInputError } from "./shared/input-parsing.ts";
 import { directoryExists } from "./skills/bundled-skill-observation.ts";
 import {
     availableBundledSkillAgentNames,
     resolveManagedSkillAgentHomeDirectory,
 } from "./skills/managed-skill-agents.ts";
 import { resolveManagedSkillsDirectoryPath } from "./skills/managed-skill-paths.ts";
-
-const infoFormatValues = ["json"] as const;
-
-type InfoFormat = (typeof infoFormatValues)[number];
 
 type InfoAgentStatus = "available" | "no_skills" | "not_installed";
 
@@ -27,11 +21,6 @@ const infoAgentStatusOrder: Record<InfoAgentStatus, number> = {
     no_skills: 1,
     not_installed: 2,
 };
-
-interface InfoInput {
-    format?: InfoFormat;
-    showSchemaVersion?: boolean;
-}
 
 export interface InfoAgentEntry {
     id: BundledSkillAgentName;
@@ -55,27 +44,16 @@ interface InfoOutput {
     features: readonly string[];
 }
 
-export const infoCommand: CliCommandDefinition<InfoInput> = {
+export const infoCommand: CliCommandDefinition = {
     name: "info",
     summaryKey: "commands.info.summary",
     descriptionKey: "commands.info.description",
-    options: [...outputFormatOptions],
-    inputSchema: z.object({
-        format: z.enum(infoFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
-    }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
-    handler: async (input, context) => {
+    output: "standard",
+    inputSchema: z.object({}),
+    handler: async (_input, context) => {
         const info = await collectInfo(context);
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, info, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        writeInfoAsText(info, context);
+        context.output.emit(info, () => writeInfoAsText(info, context));
     },
 };
 

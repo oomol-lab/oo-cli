@@ -4,8 +4,6 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import { z } from "zod";
 import { probeOo, requestOo } from "../shared/oo-request.ts";
 
-export const teamFormatValues = ["json"] as const;
-
 // One team the current account belongs to. The membership listing always
 // carries `role` (exactly `creator` or `member`; any other value is treated as
 // a plain membership) and `system_created`, which marks the team the backend

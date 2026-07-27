@@ -6,8 +6,6 @@ import type { ConnectorAppView } from "./shared.ts";
 import { z } from "zod";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { connectorSearchServiceColor } from "./search-provider.ts";
 import {
     resolveConnectorSession,
@@ -15,7 +13,6 @@ import {
     teamIdentityOptions,
 } from "./session.ts";
 import {
-    connectorFormatValues,
     listConnectorApps,
     listConnectorAppsByService,
 } from "./shared.ts";
@@ -35,11 +32,9 @@ const connectorAppStatusColors = {
 type ConnectorAppsListScope = "all" | "service";
 
 interface ConnectorAppsInput {
-    format?: (typeof connectorFormatValues)[number];
     team?: string;
     personal?: boolean;
     serviceName?: string;
-    showSchemaVersion?: boolean;
 }
 
 interface ConnectorAppListItem {
@@ -69,15 +64,12 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
             personal: "options.connectorAppsPersonal",
             team: "options.connectorAppsTeam",
         }),
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
-        format: z.enum(connectorFormatValues).optional(),
         ...teamIdentityInputShape,
         serviceName: z.string().optional(),
-        showSchemaVersion: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const serviceName = input.serviceName?.trim();
         const hasService = serviceName !== undefined && serviceName !== "";
@@ -107,21 +99,16 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
             result_count_bucket: bucketTelemetryCount(output.length),
         });
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, output, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        context.stdout.write(
-            `${formatConnectorAppsAsText(
-                output,
-                listScope,
-                context.translator,
-                createWriterColors(context.stdout),
-            )}\n`,
-        );
+        context.output.emit(output, () => {
+            context.stdout.write(
+                `${formatConnectorAppsAsText(
+                    output,
+                    listScope,
+                    context.translator,
+                    createWriterColors(context.stdout),
+                )}\n`,
+            );
+        });
     },
 };
 

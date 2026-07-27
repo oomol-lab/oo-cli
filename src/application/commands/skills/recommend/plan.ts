@@ -12,8 +12,6 @@ import {
 } from "../../../schemas/settings.ts";
 import { compareSemver } from "../../../semver.ts";
 import { bucketTelemetryCount } from "../../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../../command-output.ts";
-import { createFormatInputError } from "../../shared/input-parsing.ts";
 import { writeLine } from "../../shared/output.ts";
 import {
     groupInstalledSkillsByPackageName,
@@ -28,7 +26,6 @@ import {
     partitionRecommendations,
 } from "./recommendation-plan.ts";
 
-const planFormatValues = ["json"] as const;
 // The package-info endpoint has no rate limit, so a small fixed fan-out keeps
 // the wrap-up snappy without hammering the registry.
 const packageExistenceConcurrency = 3;
@@ -53,8 +50,6 @@ type RemotePackageStatus
 interface SkillsRecommendPlanInput {
     connectorServices?: string[];
     force?: boolean;
-    format?: (typeof planFormatValues)[number];
-    showSchemaVersion?: boolean;
 }
 
 export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPlanInput> = {
@@ -75,15 +70,12 @@ export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPla
             longFlag: "--force",
             descriptionKey: "options.skills.recommend.plan.force",
         },
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
         connectorServices: z.array(z.string()).optional(),
         force: z.boolean().optional(),
-        format: z.enum(planFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         // Each connector service maps to one published `oo-<service>` package.
         const packageNames = dedupePreserveOrder(
@@ -127,14 +119,9 @@ export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPla
             cooldownSuppressedCount,
         });
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, plan, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        writeText(context, plan);
+        context.output.emit(plan, () => {
+            writeText(context, plan);
+        });
     },
 };
 

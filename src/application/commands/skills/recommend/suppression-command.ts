@@ -7,19 +7,13 @@ import {
     getDismissedSkillRecommendations,
     isSkillRecommendationsMuted,
 } from "../../../schemas/settings.ts";
-import { outputFormatOptions, writeJsonOutput } from "../../command-output.ts";
-import { createFormatInputError } from "../../shared/input-parsing.ts";
 import { writeLine } from "../../shared/output.ts";
 import { createPackageNamesTelemetryProperties } from "../telemetry.ts";
 import { dedupePreserveOrder } from "./recommendation-plan.ts";
 
-const suppressionFormatValues = ["json"] as const;
-
 interface SuppressionCommandInput {
     all?: boolean;
     packageNames?: string[];
-    format?: (typeof suppressionFormatValues)[number];
-    showSchemaVersion?: boolean;
 }
 
 interface SuppressionCommandConfig {
@@ -55,15 +49,12 @@ export function createSuppressionCommand(
                 longFlag: "--all",
                 descriptionKey: `options.skills.recommend.${config.name}.all`,
             },
-            ...outputFormatOptions,
         ],
+        output: "standard",
         inputSchema: z.object({
             all: z.boolean().optional(),
             packageNames: z.array(z.string()).optional(),
-            format: z.enum(suppressionFormatValues).optional(),
-            showSchemaVersion: z.boolean().optional(),
         }),
-        mapInputError: (_, rawInput) => createFormatInputError(rawInput),
         handler: async (input, context) => {
             const all = input.all === true;
             const packageNames = dedupePreserveOrder(input.packageNames ?? []);
@@ -92,23 +83,18 @@ export function createSuppressionCommand(
                 dismissed: [...getDismissedSkillRecommendations(next)],
             };
 
-            if (input.format === "json") {
-                writeJsonOutput(context.stdout, state, {
-                    showSchemaVersion: input.showSchemaVersion,
-                });
-                return;
-            }
-
-            writeLine(
-                context.stdout,
-                context.translator.t(
-                    `skills.recommend.${config.name}.success.${all ? "all" : "packages"}`,
-                    {
-                        count: packageNames.length,
-                        packages: packageNames.join(", "),
-                    },
-                ),
-            );
+            context.output.emit(state, () => {
+                writeLine(
+                    context.stdout,
+                    context.translator.t(
+                        `skills.recommend.${config.name}.success.${all ? "all" : "packages"}`,
+                        {
+                            count: packageNames.length,
+                            packages: packageNames.join(", "),
+                        },
+                    ),
+                );
+            });
         },
     };
 }

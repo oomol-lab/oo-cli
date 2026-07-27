@@ -5,7 +5,6 @@ import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
 import { readStdinToEnd } from "../shared/stdin.ts";
 
@@ -37,19 +36,15 @@ export const variableNameSchema = z.string()
     .refine(name => !name.includes("/"), "Variable name must not contain '/'")
     .refine(name => !hasControlCharacter(name), "Variable name must not contain control characters");
 
-export const variableFormatValues = ["json"] as const;
-
+// Name is the only fallible field in the variables schemas, so every zod
+// failure maps to the invalid-name error.
 export function mapVariablesInputError(
-    error: ZodError,
+    _error: ZodError,
     rawInput: Record<string, unknown>,
 ): CliUserError {
-    if (error.issues.some(issue => issue.path[0] === "name")) {
-        return new CliUserError("errors.variables.invalidName", 2, {
-            value: String(rawInput.name ?? ""),
-        });
-    }
-
-    return createFormatInputError(rawInput);
+    return new CliUserError("errors.variables.invalidName", 2, {
+        value: String(rawInput.name ?? ""),
+    });
 }
 
 // MARK: - Value source resolution (exactly one of: positional / --from-file / --stdin)

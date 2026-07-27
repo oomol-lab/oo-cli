@@ -5,18 +5,13 @@ import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import {
     resolveConnectorSession,
     teamIdentityInputShape,
     teamIdentityOptions,
 } from "./session.ts";
-import {
-    connectorFormatValues,
-    runConnectorProxy,
-} from "./shared.ts";
+import { runConnectorProxy } from "./shared.ts";
 import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 
 const connectorProxyDataErrorKeys = {
@@ -51,14 +46,12 @@ interface ConnectorProxyInput {
     body?: string;
     data?: string;
     endpoint?: string;
-    format?: (typeof connectorFormatValues)[number];
     headers?: string;
     method?: string;
     team?: string;
     personal?: boolean;
     query?: string;
     serviceName: string;
-    showSchemaVersion?: boolean;
 }
 
 export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = {
@@ -116,21 +109,18 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             personal: "options.connectorProxyPersonal",
             team: "options.connectorProxyTeam",
         }),
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
         body: z.string().optional(),
         data: z.string().optional(),
         endpoint: z.string().optional(),
-        format: z.enum(connectorFormatValues).optional(),
         headers: z.string().optional(),
         method: z.string().optional(),
         ...teamIdentityInputShape,
         query: z.string().optional(),
         serviceName: z.string(),
-        showSchemaVersion: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         // Payload parsing must stay ahead of the session: proxy usage errors
         // are reported before any login requirement.
@@ -168,14 +158,9 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             throw error;
         }
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, response, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
-
-        context.stdout.write(`${formatConnectorProxyResponseAsText(response, context)}\n`);
+        context.output.emit(response, () => {
+            context.stdout.write(`${formatConnectorProxyResponseAsText(response, context)}\n`);
+        });
     },
 };
 

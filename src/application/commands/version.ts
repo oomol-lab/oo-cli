@@ -6,39 +6,22 @@ import {
     resolveCliBuildInfo,
     shortenCommitHash,
 } from "../config/build-info.ts";
-import { outputFormatOptions, writeJsonOutput } from "./command-output.ts";
-import { createFormatInputError } from "./shared/input-parsing.ts";
 
-const versionFormatValues = ["json"] as const;
-
-interface VersionInput {
-    format?: (typeof versionFormatValues)[number];
-    showSchemaVersion?: boolean;
-}
-
-export const versionCommand: CliCommandDefinition<VersionInput> = {
+export const versionCommand: CliCommandDefinition = {
     name: "version",
     summaryKey: "commands.version.summary",
     descriptionKey: "commands.version.description",
-    options: [...outputFormatOptions],
-    inputSchema: z.object({
-        format: z.enum(versionFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
-    }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
-    handler: (input, context) => {
-        if (input.format === "json") {
+    output: "standard",
+    inputSchema: z.object({}),
+    handler: (_input, context) => {
+        if (context.output.format === "json") {
             const buildInfo = resolveCliBuildInfo(context.version);
 
-            writeJsonOutput(
-                context.stdout,
-                {
-                    version: buildInfo.version,
-                    buildTime: formatBuildTimestampIso(buildInfo.buildTimestamp) ?? null,
-                    commit: shortenCommitHash(buildInfo.commitHash) ?? null,
-                },
-                { showSchemaVersion: input.showSchemaVersion },
-            );
+            context.output.emitJson({
+                version: buildInfo.version,
+                buildTime: formatBuildTimestampIso(buildInfo.buildTimestamp) ?? null,
+                commit: shortenCommitHash(buildInfo.commitHash) ?? null,
+            });
             return;
         }
 

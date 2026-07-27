@@ -10,24 +10,19 @@ import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
 import {
     completeMultipartFileUpload,
-    createFormatInputError,
     createMultipartFileUpload,
     fileUploadExpiresInMs,
     generatePresignedFileUploadPartUrls,
     maxFileUploadSizeBytes,
-    parseFileFormat,
     serializeFileUploadRecord,
     uploadFileParts,
 } from "./shared.ts";
 import { formatFileUploadRecordDetailsAsText } from "./text.ts";
 
 interface FileUploadInput {
-    format?: string;
     filePath: string;
-    showSchemaVersion?: boolean;
 }
 
 type RecordTelemetryProperties = NonNullable<
@@ -46,15 +41,11 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
             required: true,
         },
     ],
-    options: [...outputFormatOptions],
+    output: "standard",
     inputSchema: z.object({
-        format: z.string().optional(),
         filePath: z.string(),
-        showSchemaVersion: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
-        const format = parseFileFormat(input.format);
         const { account } = await requireIdentity(context);
         const sourceFile = await readSourceFile(
             input.filePath,
@@ -106,21 +97,16 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
 
         const view = serializeFileUploadRecord(record, uploadedAtMs, context.logger);
 
-        if (format === "json") {
-            writeJsonOutput(context.stdout, view, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
-            return;
-        }
+        context.output.emit(view, () => {
+            const lines = [
+                context.translator.t("file.upload.success", {
+                    fileName: sourceFile.fileName,
+                }),
+                ...formatFileUploadRecordDetailsAsText(view, context),
+            ];
 
-        const lines = [
-            context.translator.t("file.upload.success", {
-                fileName: sourceFile.fileName,
-            }),
-            ...formatFileUploadRecordDetailsAsText(view, context),
-        ];
-
-        context.stdout.write(`${lines.join("\n")}\n`);
+            context.stdout.write(`${lines.join("\n")}\n`);
+        });
     },
 };
 

@@ -12,8 +12,6 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
 import {
@@ -26,7 +24,6 @@ import {
     teamIdentityOptions,
 } from "./session.ts";
 import {
-    connectorFormatValues,
     requireConnectorActionName,
     runConnectorAction,
 } from "./shared.ts";
@@ -62,11 +59,9 @@ interface ConnectorRunInput {
     connectionName?: string;
     data?: string;
     dryRun?: boolean;
-    format?: (typeof connectorFormatValues)[number];
     team?: string;
     personal?: boolean;
     serviceName: string;
-    showSchemaVersion?: boolean;
     wait?: boolean;
     waitResult?: boolean;
 }
@@ -124,21 +119,18 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             personal: "options.connectorRunPersonal",
             team: "options.connectorRunTeam",
         }),
-        ...outputFormatOptions,
     ],
+    output: "standard",
     inputSchema: z.object({
         action: z.string().optional(),
         connectionName: z.string().optional(),
         data: z.string().optional(),
         dryRun: z.boolean().optional(),
-        format: z.enum(connectorFormatValues).optional(),
         ...teamIdentityInputShape,
         serviceName: z.string(),
-        showSchemaVersion: z.boolean().optional(),
         wait: z.boolean().optional(),
         waitResult: z.boolean().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const actionName = requireConnectorActionName(input.action);
 
@@ -217,12 +209,10 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         validateConnectorActionInput(inputData, actionSchema.inputSchema, context.translator);
 
         if (input.dryRun === true) {
-            if (input.format === "json") {
-                writeJsonOutput(context.stdout, {
+            if (context.output.format === "json") {
+                context.output.emitJson({
                     dryRun: true,
                     ok: true,
-                }, {
-                    showSchemaVersion: input.showSchemaVersion,
                 });
                 return;
             }
@@ -258,7 +248,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             resultLifecycle = resultActionSchema.asyncLifecycle;
         }
 
-        const progressReporter = resultLifecycle === undefined || input.format === "json"
+        const progressReporter = resultLifecycle === undefined || context.output.format === "json"
             ? undefined
             : createConnectorAsyncLifecycleProgressReporter(context);
 
@@ -296,10 +286,8 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw error;
         }
 
-        if (input.format === "json") {
-            writeJsonOutput(context.stdout, response, {
-                showSchemaVersion: input.showSchemaVersion,
-            });
+        if (context.output.format === "json") {
+            context.output.emitJson(response);
             return;
         }
 
