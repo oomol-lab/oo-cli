@@ -496,15 +496,16 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("renders connector schema help with the json compatibility option", async () => {
+    test("renders connector schema help with the standard output options", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             const result = await sandbox.run(["connector", "schema", "--help"]);
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
-            expect(result.stdout).not.toContain("--format");
+            expect(result.stdout).toContain("--format");
             expect(result.stdout).toContain("--json");
+            expect(result.stdout).toContain("--show-schema-version");
         }
         finally {
             await sandbox.cleanup();

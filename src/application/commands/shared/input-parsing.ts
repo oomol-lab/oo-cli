@@ -53,11 +53,3 @@ export function parsePositiveIntegerOption(
 
     return parsedValue;
 }
-
-export function createFormatInputError(
-    rawInput: Record<string, unknown>,
-): CliUserError {
-    return new CliUserError("errors.shared.invalidFormat", 2, {
-        value: String(rawInput.format ?? ""),
-    });
-}

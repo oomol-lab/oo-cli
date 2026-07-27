@@ -2,16 +2,8 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 
-const llmConfigFormatValues = ["json"] as const;
 export const defaultLlmModel = "oomol-chat";
-
-interface LlmConfigInput {
-    format?: (typeof llmConfigFormatValues)[number];
-    showSchemaVersion?: boolean;
-}
 
 interface LlmConfigOutput {
     apiKey: string;
@@ -20,18 +12,14 @@ interface LlmConfigOutput {
     model: string;
 }
 
-export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
+export const llmConfigCommand: CliCommandDefinition = {
     name: "config",
     excludeFromTelemetry: true,
     summaryKey: "commands.llm.config.summary",
     descriptionKey: "commands.llm.config.description",
-    options: [...outputFormatOptions],
-    inputSchema: z.object({
-        format: z.enum(llmConfigFormatValues).optional(),
-        showSchemaVersion: z.boolean().optional(),
-    }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
-    handler: async (input, context) => {
+    output: "json-only",
+    inputSchema: z.object({}),
+    handler: async (_input, context) => {
         const { account } = await requireIdentity(context);
         const baseUrl = createLlmBaseUrl(account.endpoint);
         const config: LlmConfigOutput = {
@@ -41,9 +29,7 @@ export const llmConfigCommand: CliCommandDefinition<LlmConfigInput> = {
             model: defaultLlmModel,
         };
 
-        writeJsonOutput(context.stdout, config, {
-            showSchemaVersion: input.showSchemaVersion,
-        });
+        context.output.emitJson(config);
     },
 };
 

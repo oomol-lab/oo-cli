@@ -5,8 +5,6 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { outputFormatOptions, writeJsonOutput } from "../command-output.ts";
-import { createFormatInputError } from "../shared/input-parsing.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import {
     compileJsonSchema,
@@ -19,7 +17,6 @@ import {
     defaultLlmModel,
 } from "./config.ts";
 
-const llmJsonFormatValues = ["json"] as const;
 const defaultMaxRetries = 2;
 const maxAllowedRetries = 5;
 
@@ -44,12 +41,10 @@ const chatCompletionResponseSchema = z.object({
 }).passthrough();
 
 interface LlmJsonInput {
-    format?: (typeof llmJsonFormatValues)[number];
     input?: string;
     maxRetries?: string;
     model?: string;
     schema?: string;
-    showSchemaVersion?: boolean;
     system?: string;
 }
 
@@ -95,18 +90,15 @@ export const llmJsonCommand: CliCommandDefinition<LlmJsonInput> = {
             valueName: "model",
             descriptionKey: "options.model",
         },
-        ...outputFormatOptions,
     ],
+    output: "json-only",
     inputSchema: z.object({
-        format: z.enum(llmJsonFormatValues).optional(),
         input: z.string().optional(),
         maxRetries: z.string().optional(),
         model: z.string().optional(),
         schema: z.string().optional(),
-        showSchemaVersion: z.boolean().optional(),
         system: z.string().optional(),
     }),
-    mapInputError: (_, rawInput) => createFormatInputError(rawInput),
     handler: async (input, context) => {
         const { account } = await requireIdentity(context);
         const schema = await readRequiredJsonSchema(input.schema, context);
@@ -147,9 +139,7 @@ export const llmJsonCommand: CliCommandDefinition<LlmJsonInput> = {
             ok: true,
         };
 
-        writeJsonOutput(context.stdout, output, {
-            showSchemaVersion: input.showSchemaVersion,
-        });
+        context.output.emitJson(output);
     },
 };
 

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
+import { createTextBuffer } from "../../../__tests__/helpers.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import {
     createCommandOutput,
     JSON_OUTPUT_SCHEMA_VERSION,
     resolveOutputFormat,
-    writeJsonOutput,
 } from "./command-output.ts";
 
 describe("resolveOutputFormat", () => {
@@ -33,7 +33,7 @@ describe("createCommandOutput", () => {
     describe("without an output mode (inert handle)", () => {
         test("resolves to text and never validates", () => {
             const output = createCommandOutput(
-                createCollectingWriter([]),
+                createTextBuffer().writer,
                 { format: "yaml", json: true },
                 undefined,
             );
@@ -49,7 +49,7 @@ describe("createCommandOutput", () => {
             { expected: "json", optionValues: { json: true }, title: "--json" },
         ])("$title -> $expected", ({ expected, optionValues }) => {
             const output = createCommandOutput(
-                createCollectingWriter([]),
+                createTextBuffer().writer,
                 optionValues,
                 "standard",
             );
@@ -59,13 +59,13 @@ describe("createCommandOutput", () => {
 
         test("rejects an invalid --format value with the shared error", () => {
             expect(() => createCommandOutput(
-                createCollectingWriter([]),
+                createTextBuffer().writer,
                 { format: "yaml" },
                 "standard",
             )).toThrow(CliUserError);
 
             try {
-                createCommandOutput(createCollectingWriter([]), { format: "yaml" }, "standard");
+                createCommandOutput(createTextBuffer().writer, { format: "yaml" }, "standard");
             }
             catch (error) {
                 expect(error).toBeInstanceOf(CliUserError);
@@ -78,14 +78,14 @@ describe("createCommandOutput", () => {
 
     describe("json-only mode", () => {
         test("pins format to json without any flags", () => {
-            const output = createCommandOutput(createCollectingWriter([]), {}, "json-only");
+            const output = createCommandOutput(createTextBuffer().writer, {}, "json-only");
 
             expect(output.format).toBe("json");
         });
 
         test("accepts --format json", () => {
             const output = createCommandOutput(
-                createCollectingWriter([]),
+                createTextBuffer().writer,
                 { format: "json" },
                 "json-only",
             );
@@ -95,7 +95,7 @@ describe("createCommandOutput", () => {
 
         test("still rejects an invalid --format value", () => {
             expect(() => createCommandOutput(
-                createCollectingWriter([]),
+                createTextBuffer().writer,
                 { format: "yaml" },
                 "json-only",
             )).toThrow(CliUserError);
@@ -104,9 +104,9 @@ describe("createCommandOutput", () => {
 
     describe("emit", () => {
         test("writes the JSON payload and skips renderText in json mode", () => {
-            const chunks: string[] = [];
+            const stdout = createTextBuffer();
             const output = createCommandOutput(
-                createCollectingWriter(chunks),
+                stdout.writer,
                 { format: "json" },
                 "standard",
             );
@@ -116,14 +116,14 @@ describe("createCommandOutput", () => {
                 textRendered = true;
             });
 
-            expect(chunks.join("")).toBe(`{"ok":true}\n`);
+            expect(stdout.read()).toBe(`{"ok":true}\n`);
             expect(textRendered).toBe(false);
         });
 
         test("calls renderText and writes no JSON in text mode", () => {
-            const chunks: string[] = [];
+            const stdout = createTextBuffer();
             const output = createCommandOutput(
-                createCollectingWriter(chunks),
+                stdout.writer,
                 {},
                 "standard",
             );
@@ -133,163 +133,86 @@ describe("createCommandOutput", () => {
                 textRendered = true;
             });
 
-            expect(chunks).toEqual([]);
+            expect(stdout.read()).toBe("");
             expect(textRendered).toBe(true);
         });
     });
 
     describe("emitJson", () => {
         test("applies the schemaVersion envelope captured from the options", () => {
-            const chunks: string[] = [];
-            const output = createCommandOutput(
-                createCollectingWriter(chunks),
-                { format: "json", showSchemaVersion: true },
-                "standard",
-            );
-
-            output.emitJson({ taskID: "task-1" });
-
-            expect(JSON.parse(chunks.join(""))).toEqual({
+            expect(JSON.parse(emitJsonThrough({ taskID: "task-1" }, {
+                showSchemaVersion: true,
+            }))).toEqual({
                 schemaVersion: JSON_OUTPUT_SCHEMA_VERSION,
                 taskID: "task-1",
             });
         });
 
         test("wraps array payloads under items when the envelope is on", () => {
-            const chunks: string[] = [];
-            const output = createCommandOutput(
-                createCollectingWriter(chunks),
-                { json: true, showSchemaVersion: true },
-                "standard",
-            );
-
-            output.emitJson([1, 2]);
-
-            expect(JSON.parse(chunks.join(""))).toEqual({
+            expect(JSON.parse(emitJsonThrough([1, 2], {
+                json: true,
+                showSchemaVersion: true,
+            }))).toEqual({
                 schemaVersion: JSON_OUTPUT_SCHEMA_VERSION,
                 items: [1, 2],
             });
         });
 
         test("writes bare JSON without --show-schema-version", () => {
-            const chunks: string[] = [];
-            const output = createCommandOutput(
-                createCollectingWriter(chunks),
-                { format: "json" },
-                "standard",
-            );
-
-            output.emitJson([1, 2]);
-
-            expect(chunks.join("")).toBe(`[1,2]\n`);
+            expect(emitJsonThrough([1, 2])).toBe(`[1,2]\n`);
         });
 
         test("ignores a non-boolean showSchemaVersion value", () => {
-            const chunks: string[] = [];
-            const output = createCommandOutput(
-                createCollectingWriter(chunks),
-                { format: "json", showSchemaVersion: "yes" },
-                "standard",
-            );
-
-            output.emitJson({ ok: true });
-
-            expect(chunks.join("")).toBe(`{"ok":true}\n`);
+            expect(emitJsonThrough({ ok: true }, { showSchemaVersion: "yes" }))
+                .toBe(`{"ok":true}\n`);
         });
     });
 });
 
-describe("writeJsonOutput", () => {
+describe("emitJson envelope", () => {
     test("emits compact JSON with a trailing newline by default", () => {
-        const chunks: string[] = [];
-        const writer = createCollectingWriter(chunks);
-
-        writeJsonOutput(writer, { taskID: "task-1" });
-
-        expect(chunks.join("")).toBe(`{"taskID":"task-1"}\n`);
+        expect(emitJsonThrough({ taskID: "task-1" })).toBe(`{"taskID":"task-1"}\n`);
     });
 
-    test("omits schemaVersion when showSchemaVersion is not set", () => {
-        const chunks: string[] = [];
-        const writer = createCollectingWriter(chunks);
-
-        writeJsonOutput(writer, { taskID: "task-1" }, {
-            showSchemaVersion: false,
-        });
-
-        expect(chunks.join("")).toBe(`{"taskID":"task-1"}\n`);
-    });
-
-    test("merges schemaVersion into object payloads", () => {
-        const chunks: string[] = [];
-        const writer = createCollectingWriter(chunks);
-
-        writeJsonOutput(writer, { taskID: "task-1" }, {
-            showSchemaVersion: true,
-        });
-
-        expect(JSON.parse(chunks.join(""))).toEqual({
-            schemaVersion: JSON_OUTPUT_SCHEMA_VERSION,
-            taskID: "task-1",
-        });
+    test("omits schemaVersion when showSchemaVersion is false", () => {
+        expect(emitJsonThrough({ taskID: "task-1" }, { showSchemaVersion: false }))
+            .toBe(`{"taskID":"task-1"}\n`);
     });
 
     test("places schemaVersion before object properties", () => {
-        const chunks: string[] = [];
-        const writer = createCollectingWriter(chunks);
-
-        writeJsonOutput(writer, { taskID: "task-1" }, {
-            showSchemaVersion: true,
-        });
-
-        expect(chunks.join("")).toBe(
+        expect(emitJsonThrough({ taskID: "task-1" }, { showSchemaVersion: true })).toBe(
             `{"schemaVersion":"${JSON_OUTPUT_SCHEMA_VERSION}","taskID":"task-1"}\n`,
         );
     });
 
-    test("wraps array payloads under items", () => {
-        const chunks: string[] = [];
-        const writer = createCollectingWriter(chunks);
-
-        writeJsonOutput(writer, [1, 2, 3], { showSchemaVersion: true });
-
-        expect(JSON.parse(chunks.join(""))).toEqual({
-            schemaVersion: JSON_OUTPUT_SCHEMA_VERSION,
-            items: [1, 2, 3],
-        });
-    });
-
     test("forces schemaVersion to override any existing field on objects", () => {
-        const chunks: string[] = [];
-        const writer = createCollectingWriter(chunks);
-
-        writeJsonOutput(writer, { schemaVersion: "2.0.0", value: 1 }, {
+        expect(JSON.parse(emitJsonThrough({ schemaVersion: "2.0.0", value: 1 }, {
             showSchemaVersion: true,
-        });
-
-        expect(JSON.parse(chunks.join(""))).toEqual({
+        }))).toEqual({
             schemaVersion: JSON_OUTPUT_SCHEMA_VERSION,
             value: 1,
         });
     });
 
     test("wraps primitive payloads under value", () => {
-        const chunks: string[] = [];
-        const writer = createCollectingWriter(chunks);
-
-        writeJsonOutput(writer, null, { showSchemaVersion: true });
-
-        expect(JSON.parse(chunks.join(""))).toEqual({
+        expect(JSON.parse(emitJsonThrough(null, { showSchemaVersion: true }))).toEqual({
             schemaVersion: JSON_OUTPUT_SCHEMA_VERSION,
             value: null,
         });
     });
 });
 
-function createCollectingWriter(chunks: string[]): { write: (chunk: string) => void } {
-    return {
-        write: (chunk: string) => {
-            chunks.push(chunk);
-        },
-    };
+function emitJsonThrough(
+    payload: unknown,
+    optionValues: { json?: unknown; showSchemaVersion?: unknown } = {},
+): string {
+    const stdout = createTextBuffer();
+
+    createCommandOutput(
+        stdout.writer,
+        { format: "json", ...optionValues },
+        "standard",
+    ).emitJson(payload);
+
+    return stdout.read();
 }

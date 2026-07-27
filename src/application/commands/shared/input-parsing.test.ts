@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { CliUserError } from "../../contracts/cli.ts";
 import {
-    createFormatInputError,
     parseEnumOption,
     parsePositiveIntegerOption,
 } from "./input-parsing.ts";
@@ -76,22 +74,5 @@ describe("parsePositiveIntegerOption", () => {
         expect(
             parsePositiveIntegerOption("100", "err", { min: 1, max: 100, optionName: "--n" }),
         ).toBe(100);
-    });
-});
-
-describe("createFormatInputError", () => {
-    test("returns a CliUserError with the format value", () => {
-        const error = createFormatInputError({ format: "yaml" });
-
-        expect(error).toBeInstanceOf(CliUserError);
-        expect(error.exitCode).toBe(2);
-        expect(error.key).toBe("errors.shared.invalidFormat");
-        expect(error.params).toEqual({ value: "yaml" });
-    });
-
-    test("uses empty string when format is missing", () => {
-        const error = createFormatInputError({});
-
-        expect(error.params).toEqual({ value: "" });
     });
 });
