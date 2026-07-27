@@ -154,12 +154,14 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   相同：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时显示 env 覆盖值（并标注来源
   变量），否则显示 `identity.team` 配置默认值，都未设置时显示个人身份
   （未设置默认团队）。
-- 当身份来自 `OO_TEAM_ID` 时，会查询团队名称，该行显示为 `<名称>（<id>）`。
-  查询未成功时仍会显示 id，并附上原因：当前账号不是该团队的成员、不存在该 id
-  对应的团队、该团队已被删除、或无法完成查询。查询失败既不会改变退出码，也不会
-  影响所报告的 `API key status`。其它身份来源本身就带名称，因此不会发起查询。
-- 因此 `oo auth status` 最多发送 2 次请求：API key 校验，以及 `OO_TEAM_ID`
-  生效时的团队名称查询。两者相互独立，并发发出。
+- 当身份来自 `OO_TEAM_ID` 或 `OO_TEAM_NAME` 时，会查询补全缺失的那一半——id
+  解析出名称，名称通过账号的团队成员关系解析出 id——该行显示为
+  `<名称>（<id>）`。查询未成功时仍会显示 env 提供的值，并附上原因：当前账号
+  不是该团队的成员、不存在该 id 对应的团队、该团队已被删除、或无法完成查询。
+  查询失败既不会改变退出码，也不会影响所报告的 `API key status`。
+  `identity.team` 配置默认值本身就带名称，不会发起查询。
+- 因此 `oo auth status` 最多发送 2 次请求：API key 校验，以及 `OO_TEAM_ID` /
+  `OO_TEAM_NAME` 生效时的团队查询。两者相互独立，并发发出。
 - 文本和 JSON 输出都永远不会包含 API key 实际内容。
 - 当配置了自部署 Connector（`oo connector login` 或 `OO_CONNECTOR_URL`）时，
   文本输出会额外显示一个自部署 Connector 区块，包含服务地址、是否已配置令牌
@@ -205,7 +207,7 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 
 - 当存在默认团队身份时，`oo auth status --json` 的输出——即上面的 `logged-in`
   形态——会携带一个可选的顶层 `team` 字段。`source` 表示由哪种机制选中
-  （`env_id`、`env_name` 或 `config`），`status` 报告团队名称查询的结果：
+  （`env_id`、`env_name` 或 `config`），`status` 报告团队查询的结果：
 
   ```json
   {
@@ -224,10 +226,11 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   }
   ```
 
-  无需查询时 `status` 为 `null`，即除 `env_id` 以外的所有来源。`env_id` 身份下
-  取值为 `valid`、`not_a_member`、`not_found`、`deleted`、`request_failed`、
+  未尝试查询时 `status` 为 `null`（`config` 来源）。env 选定的身份下取值为
+  `valid`、`not_a_member`、`not_found`、`deleted`、`request_failed`、
   `request_failed_sandbox` 或 `no_credential` 之一。只有 `status` 为 `valid`
-  时 `name` 才有值。
+  时查询补全的那一半才有值——`env_id` 下补全名称，`env_name` 下补全 id——
+  env 提供的那一半则始终存在。
 
 - 当由 `OO_API_KEY` 提供凭证时，`oo auth status --json` 的输出恒为 `logged-in`
   形态，并携带一个可选的顶层 `envOverride` 字段：
@@ -261,12 +264,12 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   - `accounts[].endpoint` 是 `auth.toml` 中保存的 endpoint。单独设置
     `OO_ENDPOINT`（不设 `OO_API_KEY`）会重定向文本输出与 API key 校验所用的
     endpoint，但不会改写该字段。
-  - `team` 仅在 `logged-in` 形态且存在默认团队身份时出现。它由本地 env/config
-    的默认团队身份解析而来，绝不来自任何 login 或后端接口响应。`source` 为
+  - `team` 仅在 `logged-in` 形态且存在默认团队身份时出现。`source` 为
     `config`（`identity.team` 默认值）、`env_id`（`OO_TEAM_ID`）或
-    `env_name`（`OO_TEAM_NAME`）。`name` 在来源已知名称时携带团队名称
-    （`config` / `env_name`），`id` 仅在 `env_id` 时携带团队 id；该命令不会
-    发起网络请求在两种形式之间互相解析（因此 `config` 来源下 `id` 恒为 `null`）。
+    `env_name`（`OO_TEAM_NAME`）。env 选定的身份会发送 1 次请求补全并校验
+    缺失的那一半，因此成功时同时携带 `name` 与 `id`；查询未成功时保留 env
+    提供的那一半，并由 `status` 说明原因。`config` 来源保持离线，其 `id`
+    恒为 `null`。
   - `missingAccountId` 仅在 auth file 记录的 active id 已不存在于
     `accounts[]` 时出现。
   - `connector` 仅在配置了自部署 Connector 时出现，报告已配置的自部署
@@ -341,18 +344,22 @@ apps`）以某个团队身份运行，而非个人账号：既可用每次运行
 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时为 env 指定的团队，否则为
 `identity.team` 配置默认值。
 
-- 仅当身份来自 `OO_TEAM_ID` 时才发送 1 次请求，把 id 解析为团队名称。其它来源
-  本身就带名称，保持离线；`OO_TEAM_NAME` 的值按原样展示，不解析其 id。
-- 无 OOMOL 账号时同样可用：此时跳过名称查询而不是让命令失败，只单独展示 id。
+- 仅当身份来自 `OO_TEAM_ID` 或 `OO_TEAM_NAME` 时才发送 1 次请求，补全并校验
+  缺失的那一半：id 解析出团队名称，名称通过账号的团队成员关系解析出 id——这
+  与 connector 命令执行前的检查相同，因此该命令报告的身份就是实际运行会使用
+  的身份。配置默认值本身就带名称，保持离线。
+- 无 OOMOL 账号时同样可用：此时跳过查询而不是让命令失败，只单独展示 env
+  提供的值。
 - 选项：`--format=json` 与 `--json` 输出 JSON 对象。
 - 输出：JSON 为 `{ "team": <name|null>, "teamId": <id|null>, "source":
   <"env_id"|"env_name"|"config"|null>, "status": <status|null> }`。`source`
   表示团队由哪种机制选定；connector 命令以个人身份运行时为 `null`。`status`
-  报告团队名称查询的结果：无需查询时为 `null`（即除 `env_id` 以外的所有来源），
-  否则为 `valid`、`not_a_member`、`not_found`、`deleted`、`request_failed`、
-  `request_failed_sandbox` 或 `no_credential` 之一。
-- 输出：`OO_TEAM_ID` 生效时，文本输出显示 `<名称>（<id>）`。查询未成功时仍会
-  显示 id 并附上原因，命令依然以 `0` 退出。
+  报告团队查询的结果：未尝试查询时为 `null`（config 来源，或 `--dry-run` 这类
+  离线路径），否则为 `valid`、`not_a_member`、`not_found`、`deleted`、
+  `request_failed`、`request_failed_sandbox` 或 `no_credential` 之一。
+- 输出：`OO_TEAM_ID` / `OO_TEAM_NAME` 生效且两项信息都已知时，文本输出显示
+  `<名称>（<id>）`。查询未成功时仍会显示 env 提供的值并附上原因，命令依然以
+  `0` 退出。
 - 输出：设置了环境变量时，文本输出会指明变量名，并说明已配置的
   `identity.team` 默认值在覆盖生效期间不会被使用。
 

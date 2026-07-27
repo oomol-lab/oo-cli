@@ -2869,7 +2869,7 @@ describe("auth CLI status default team", () => {
         {
             httpStatus: 500,
             status: "request_failed",
-            reason: "could not look up the team name",
+            reason: "could not look up the team",
         },
     ])(
         "reports OO_TEAM_ID lookup status $status for HTTP $httpStatus",
@@ -2914,7 +2914,7 @@ describe("auth CLI status default team", () => {
         },
     );
 
-    test("reports the OO_TEAM_NAME override by name", async () => {
+    test("resolves the OO_TEAM_NAME override to its id through the memberships", async () => {
         const sandbox = await createCliSandbox();
 
         sandbox.env.OO_TEAM_NAME = "acme";
@@ -2931,20 +2931,56 @@ describe("auth CLI status default team", () => {
             );
 
             expect(textResult.stdout).toContain(
-                "- Default team: acme (via OO_TEAM_NAME)",
+                "- Default team: acme (team-7) (via OO_TEAM_NAME)",
             );
             expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
                 name: "acme",
+                id: "team-7",
+                source: "env_name",
+                status: "valid",
+            });
+            // Both env directions cost the same: the key check plus one team
+            // lookup, sent concurrently, so the order is not part of the
+            // contract.
+            expect(requests.map(request => request.url).sort()).toEqual([
+                "https://api.oomol.com/v1/users/profile",
+                "https://api.oomol.com/v1/users/profile",
+                "https://relation-control.oomol.com/v1/me/teams",
+                "https://relation-control.oomol.com/v1/me/teams",
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports an OO_TEAM_NAME missing from the memberships without failing", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_TEAM_NAME = "ghost";
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const fetcher = createAuthStatusFetcher([]);
+            const textResult = await sandbox.run(["auth", "status"], { fetcher });
+            const jsonResult = await sandbox.run(
+                ["auth", "status", "--json"],
+                { fetcher },
+            );
+
+            // Status keeps vouching only for identities connector commands
+            // would accept: an inaccessible name is reported, not endorsed.
+            expect(textResult.exitCode).toBe(0);
+            expect(textResult.stdout).toContain(
+                "- Default team: ghost (via OO_TEAM_NAME) — the active account is not a member of this team",
+            );
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
+                name: "ghost",
                 id: null,
                 source: "env_name",
-                status: null,
+                status: "not_a_member",
             });
-            // A name-shaped identity has nothing to resolve, so the command
-            // keeps its single-request cost.
-            expect(requests.map(request => request.url)).toEqual([
-                "https://api.oomol.com/v1/users/profile",
-                "https://api.oomol.com/v1/users/profile",
-            ]);
         }
         finally {
             await sandbox.cleanup();
@@ -2976,9 +3012,10 @@ describe("auth CLI status default team", () => {
     });
 });
 
-// Answers both requests `auth status` can make: the API key check and the
-// singular team lookup. Recording every request is what lets a test assert the
-// command's request count, which is part of its documented contract.
+// Answers every request `auth status` can make: the API key check and the
+// team lookup in either direction. Recording every request is what lets a test
+// assert the command's request count, which is part of its documented
+// contract.
 function createAuthStatusFetcher(
     requests: Request[],
     options: { teamHttpStatus?: number } = {},
@@ -2986,8 +3023,22 @@ function createAuthStatusFetcher(
     return async (input, init) => {
         const request = toRequest(input, init);
         requests.push(request);
+        const pathname = new URL(request.url).pathname;
 
-        if (!new URL(request.url).pathname.startsWith("/v1/teams/")) {
+        if (pathname === "/v1/me/teams") {
+            return new Response(JSON.stringify({
+                teams: [
+                    {
+                        id: "team-7",
+                        name: "acme",
+                        role: "member",
+                        system_created: false,
+                    },
+                ],
+            }));
+        }
+
+        if (!pathname.startsWith("/v1/teams/")) {
             return new Response(null, { status: 200 });
         }
 

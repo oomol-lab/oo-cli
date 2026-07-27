@@ -9,7 +9,7 @@ import {
     toRequest,
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
-import { fetchTeamById, listMemberTeams } from "./shared.ts";
+import { fetchTeamById, fetchTeamByName, listMemberTeams } from "./shared.ts";
 
 const testAccount = {
     apiKey: "api-secret-1",
@@ -261,6 +261,92 @@ describe("fetchTeamById", () => {
             "team-1",
             createRequestContext({
                 fetcher: async () => new Response(JSON.stringify({ id: "team-1" })),
+            }),
+        );
+
+        expect(result).toEqual({ status: "request_failed" });
+    });
+});
+
+describe("fetchTeamByName", () => {
+    test("matches the name against the membership listing", async () => {
+        const requests: Request[] = [];
+        const result = await fetchTeamByName(
+            testAccount,
+            "beta",
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        teams: [
+                            { id: "team-1", name: "acme", role: "creator", system_created: false },
+                            { id: "team-2", name: "beta", role: "member", system_created: false },
+                        ],
+                    }));
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.url).toBe(
+            "https://relation-control.oomol.com/v1/me/teams",
+        );
+        expect(requests[0]?.headers.get("authorization")).toBe("api-secret-1");
+        expect(result).toEqual({
+            status: "valid",
+            team: { id: "team-2", name: "beta", role: "member", systemCreated: false },
+        });
+    });
+
+    // The listing cannot tell "no such team" from "not yours", so every miss
+    // is a membership answer rather than an existence claim.
+    test("reports a name missing from the memberships as not_a_member", async () => {
+        const result = await fetchTeamByName(
+            testAccount,
+            "ghost",
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({ teams: [] })),
+            }),
+        );
+
+        expect(result).toEqual({ status: "not_a_member" });
+    });
+
+    test("reports a non-success status as a failed lookup rather than throwing", async () => {
+        const result = await fetchTeamByName(
+            testAccount,
+            "beta",
+            createRequestContext({
+                fetcher: async () => new Response("nope", { status: 500 }),
+            }),
+        );
+
+        expect(result).toEqual({ status: "request_failed" });
+    });
+
+    test("reports a sandbox-blocked request separately from a plain failure", async () => {
+        const result = await fetchTeamByName(
+            testAccount,
+            "beta",
+            createRequestContext({
+                fetcher: async () => {
+                    throw createFailedToOpenSocketError("network is restricted");
+                },
+            }),
+        );
+
+        expect(result).toEqual({ status: "request_failed_sandbox" });
+    });
+
+    test("treats a malformed success body as a failed lookup rather than throwing", async () => {
+        const result = await fetchTeamByName(
+            testAccount,
+            "beta",
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({
+                    teams: [{ name: "beta" }],
+                })),
             }),
         );
 

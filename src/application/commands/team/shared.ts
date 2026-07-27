@@ -128,29 +128,8 @@ export async function fetchTeamById(
     const requestUrl = new URL(
         `https://relation-control.${account.endpoint}/v1/teams/${encodeURIComponent(teamId)}`,
     );
-    const requestStartedAt = Date.now();
 
-    context.logger.debug(
-        { endpoint: account.endpoint },
-        "Team lookup request started.",
-    );
-
-    try {
-        const response = await context.fetcher(requestUrl, {
-            headers: {
-                Authorization: account.apiKey,
-            },
-        });
-
-        context.logger.debug(
-            {
-                durationMs: Date.now() - requestStartedAt,
-                endpoint: account.endpoint,
-                status: response.status,
-            },
-            "Team lookup request completed.",
-        );
-
+    return runTeamLookup(account, requestUrl, "id", async (response) => {
         if (response.status !== 200) {
             return {
                 status: teamLookupStatusByHttpStatus[response.status]
@@ -164,10 +143,81 @@ export async function fetchTeamById(
                 teamResponseItemSchema.parse(await response.json() as unknown),
             ),
         };
+    }, context);
+}
+
+// Resolves one team name to its team through the account's membership listing —
+// the name-direction counterpart of fetchTeamById, with the same never-throw
+// contract. A name that is not among the memberships comes back as
+// `not_a_member`: the listing cannot tell "no such team" from "not yours", and
+// only the backend could.
+export async function fetchTeamByName(
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    teamName: string,
+    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+): Promise<TeamLookupResult> {
+    const requestUrl = new URL(
+        `https://relation-control.${account.endpoint}/v1/me/teams`,
+    );
+
+    return runTeamLookup(account, requestUrl, "name", async (response) => {
+        if (response.status !== 200) {
+            return { status: "request_failed" };
+        }
+
+        const teams = teamsResponseSchema
+            .parse(await response.json() as unknown)
+            .teams
+            .map(toTeamView);
+        const match = teams.find(team => team.name === teamName);
+
+        return match === undefined
+            ? { status: "not_a_member" }
+            : { status: "valid", team: match };
+    }, context);
+}
+
+// Shared fetch/log/catch skeleton of the two team lookups. Any failure the
+// handler does not classify — network errors, non-JSON bodies, schema
+// mismatches — comes back as a request-failed status instead of an error,
+// which is what keeps the lookups' never-throw contract honest.
+async function runTeamLookup(
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    requestUrl: URL,
+    direction: "id" | "name",
+    toResult: (response: Response) => Promise<TeamLookupResult>,
+    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+): Promise<TeamLookupResult> {
+    const requestStartedAt = Date.now();
+
+    context.logger.debug(
+        { direction, endpoint: account.endpoint },
+        "Team lookup request started.",
+    );
+
+    try {
+        const response = await context.fetcher(requestUrl, {
+            headers: {
+                Authorization: account.apiKey,
+            },
+        });
+
+        context.logger.debug(
+            {
+                direction,
+                durationMs: Date.now() - requestStartedAt,
+                endpoint: account.endpoint,
+                status: response.status,
+            },
+            "Team lookup request completed.",
+        );
+
+        return await toResult(response);
     }
     catch (error) {
         context.logger.warn(
             {
+                direction,
                 durationMs: Date.now() - requestStartedAt,
                 endpoint: account.endpoint,
                 err: error,

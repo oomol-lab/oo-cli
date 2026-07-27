@@ -188,16 +188,18 @@ Show every saved auth account and validate the API key of the active one.
   way `oo team current` resolves it: the `OO_TEAM_ID` / `OO_TEAM_NAME` env
   override when set (annotated with the variable that supplies it), otherwise
   the `identity.team` config default, otherwise `personal (no default team)`.
-- When `OO_TEAM_ID` supplies the identity, the team name is looked up and the
-  line shows `<name> (<id>)`. If the lookup does not succeed, the id is still
-  shown and the reason is appended: the active account is not a member of the
-  team, no team exists with that id, the team has been deleted, or the lookup
-  could not be completed. A failed lookup never changes the exit code and never
-  affects the reported `API key status`. Every other identity source already
-  knows its name, so no lookup is made for it.
+- When `OO_TEAM_ID` or `OO_TEAM_NAME` supplies the identity, the missing half
+  is looked up — the id resolves to its name, the name to its id through the
+  account's team memberships — and the line shows `<name> (<id>)`. If the
+  lookup does not succeed, the value is still shown and the reason is appended:
+  the active account is not a member of the team, no team exists with that id,
+  the team has been deleted, or the lookup could not be completed. A failed
+  lookup never changes the exit code and never affects the reported `API key
+  status`. The `identity.team` config default already names its team and is
+  never looked up.
 - `oo auth status` therefore sends at most two requests: the API key check, plus
-  the team name lookup when `OO_TEAM_ID` is in effect. The two are independent
-  and are sent concurrently.
+  the team lookup when `OO_TEAM_ID` / `OO_TEAM_NAME` is in effect. The two are
+  independent and are sent concurrently.
 - API key values are never written to stdout in text or JSON output.
 - When a self-hosted connector is configured (`oo connector login` or
   `OO_CONNECTOR_URL`), text output adds a self-hosted connector block showing
@@ -245,7 +247,7 @@ Show every saved auth account and validate the API key of the active one.
 - When a default team identity is in effect, the `oo auth status --json` output
   — specifically its `logged-in` shape above — carries an optional top-level
   `team` field. `source` says which mechanism selected it (`env_id`, `env_name`
-  or `config`), and `status` reports the team name lookup:
+  or `config`), and `status` reports the team lookup:
 
   ```json
   {
@@ -264,10 +266,12 @@ Show every saved auth account and validate the API key of the active one.
   }
   ```
 
-  `status` is `null` whenever no lookup was needed, which is every source other
-  than `env_id`. For an `env_id` identity it is one of `valid`, `not_a_member`,
+  `status` is `null` whenever no lookup was attempted (the `config` source).
+  For an env-selected identity it is one of `valid`, `not_a_member`,
   `not_found`, `deleted`, `request_failed`, `request_failed_sandbox`, or
-  `no_credential`. `name` is filled only when `status` is `valid`.
+  `no_credential`. The looked-up half is filled only when `status` is `valid`
+  — the name under `env_id`, the id under `env_name` — while the env-supplied
+  half is always present.
 
 - When `OO_API_KEY` supplies the credential, the `oo auth status --json` output
   is always the `logged-in` shape and carries an optional top-level
@@ -306,13 +310,12 @@ Show every saved auth account and validate the API key of the active one.
     `OO_ENDPOINT` (without `OO_API_KEY`) redirects the endpoint used for text
     output and API key validation, but does not rewrite this field.
   - `team` is present only on the `logged-in` shape and only when a default
-    team identity is in effect. It is resolved locally from the env/config
-    default-team identity, never from a login or backend response. `source` is
-    `config` (the `identity.team` default), `env_id` (`OO_TEAM_ID`), or
-    `env_name` (`OO_TEAM_NAME`). `name` carries the team name when the source
-    knows it (`config` / `env_name`) and `id` the team id (`env_id` only); the
-    command never spends a network request resolving one form into the other
-    (so `id` stays `null` for the `config` source).
+    team identity is in effect. `source` is `config` (the `identity.team`
+    default), `env_id` (`OO_TEAM_ID`), or `env_name` (`OO_TEAM_NAME`). An
+    env-selected identity spends one request to complete and validate its
+    missing half, so on success it carries both `name` and `id`; when the
+    lookup does not succeed, the env-supplied half is kept and `status` says
+    why. The `config` source stays offline, so its `id` is always `null`.
   - `missingAccountId` appears only when the auth file records an active id
     that is no longer present in `accounts[]`.
   - `connector` is present only when a self-hosted connector is configured
@@ -401,23 +404,25 @@ Show the team identity used by connector commands when no `--team` /
 `--personal` flag is given: the `OO_TEAM_ID` / `OO_TEAM_NAME` environment
 override when set, otherwise the `identity.team` config default.
 
-- Sends one request only when `OO_TEAM_ID` supplies the identity, to resolve the
-  id to its team name. Every other source already knows the name and stays
-  offline, including an `OO_TEAM_NAME` value, which is reported as-is without
-  resolving its id.
-- Works without an OOMOL account. When no account is configured the name lookup
-  is skipped rather than failing, and the id is reported on its own.
+- Sends one request only when `OO_TEAM_ID` or `OO_TEAM_NAME` supplies the
+  identity, to complete and validate the missing half: an id resolves to its
+  team name, a name to its id through the account's team memberships — the
+  same check connector commands apply, so what this command reports is what a
+  run would use. A config default already names its team and stays offline.
+- Works without an OOMOL account. When no account is configured the lookup is
+  skipped rather than failing, and the env-supplied value is reported on its
+  own.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON is `{ "team": <name|null>, "teamId": <id|null>, "source":
   <"env_id"|"env_name"|"config"|null>, "status": <status|null> }`. `source` says
   which mechanism selects the team, and is `null` when connector commands run
-  under your personal identity. `status` reports the team name lookup: `null`
-  whenever none was needed (every source other than `env_id`), otherwise one of
-  `valid`, `not_a_member`, `not_found`, `deleted`, `request_failed`,
-  `request_failed_sandbox`, or `no_credential`.
-- Output: under `OO_TEAM_ID` text output shows `<name> (<id>)`. If the lookup
-  does not succeed the id is still shown and the reason is appended; the command
-  still exits `0`.
+  under your personal identity. `status` reports the team lookup: `null`
+  whenever none was attempted (the config source, or `--dry-run`-style offline
+  paths), otherwise one of `valid`, `not_a_member`, `not_found`, `deleted`,
+  `request_failed`, `request_failed_sandbox`, or `no_credential`.
+- Output: under `OO_TEAM_ID` / `OO_TEAM_NAME` text output shows `<name> (<id>)`
+  once both halves are known. If the lookup does not succeed the env-supplied
+  value is still shown and the reason is appended; the command still exits `0`.
 - Output: text output names the environment variable when one is set, and
   notes that a configured `identity.team` default is not in use while the
   override is active.
