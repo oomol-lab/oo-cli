@@ -611,133 +611,217 @@ describe("connector shared requests", () => {
         });
     });
 
-    test("runConnectorProxy maps insufficient credit responses to the billing error", async () => {
-        const error = await expectCliUserError(runConnectorProxy(
-            createProxyRunInput(),
-            createProxyRequestContext(async () => new Response(JSON.stringify({
-                errorCode: insufficientCreditErrorCode,
-                message: "insufficient credit",
-                success: false,
-            }), {
-                status: 402,
-            })),
-        ));
+    // The run/proxy failure ladder is one shared implementation
+    // (createConnectorFailureError); every case runs against both subjects so
+    // the two key namespaces and their subject params cannot drift. The
+    // status-only fallback also proves the ladder is total: no non-success
+    // response escapes to a subject-less generic requestFailed.
+    describe.each<{
+        invoke: (fetcher: Fetcher) => Promise<unknown>;
+        keyPrefix: string;
+        subjectParams: Record<string, string>;
+        title: string;
+    }>([
+        {
+            invoke: fetcher => runConnectorAction(
+                {
+                    actionName: "send_mail",
+                    inputData: {},
+                    serviceName: "gmail",
+                    target: createConnectorTargetFixture(),
+                },
+                createRequestContext({ fetcher }),
+            ),
+            keyPrefix: "errors.connectorRun",
+            subjectParams: { action: "send_mail" },
+            title: "runConnectorAction",
+        },
+        {
+            invoke: fetcher => runConnectorProxy(
+                createProxyRunInput(),
+                createProxyRequestContext(fetcher),
+            ),
+            keyPrefix: "errors.connectorProxy",
+            subjectParams: { service: "tavily" },
+            title: "runConnectorProxy",
+        },
+    ])("$title failure ladder", ({ invoke, keyPrefix, subjectParams }) => {
+        test("maps insufficient credit responses to the billing error", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                JSON.stringify({
+                    errorCode: insufficientCreditErrorCode,
+                    message: "insufficient credit",
+                    success: false,
+                }),
+                { status: 402 },
+            )));
 
-        expect(error.key).toBe("errors.billing.insufficientCredit");
-        expect(error.params).toEqual({
-            url: billingTokenRechargeUrl,
+            expect(error.key).toBe("errors.billing.insufficientCredit");
+            expect(error.params).toEqual({
+                url: billingTokenRechargeUrl,
+            });
         });
-    });
 
-    test("runConnectorProxy surfaces message and errorCode on failed proxy responses", async () => {
-        const error = await expectCliUserError(runConnectorProxy(
-            createProxyRunInput(),
-            createProxyRequestContext(async () => new Response(JSON.stringify({
+        test("surfaces message and errorCode on a failed response", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                JSON.stringify({
+                    errorCode: "invalid_input",
+                    message: "bad query",
+                    success: false,
+                }),
+                { status: 400 },
+            )));
+
+            expect(error.key).toBe(`${keyPrefix}.requestFailedWithMessageAndCode`);
+            expect(error.params).toEqual({
+                ...subjectParams,
                 errorCode: "invalid_input",
                 message: "bad query",
-                success: false,
-            }), {
                 status: 400,
-            })),
-        ));
-
-        expect(error.key).toBe("errors.connectorProxy.requestFailedWithMessageAndCode");
-        expect(error.params).toEqual({
-            errorCode: "invalid_input",
-            message: "bad query",
-            service: "tavily",
-            status: 400,
+            });
         });
-    });
 
-    test("runConnectorProxy surfaces message when the failure response omits an errorCode", async () => {
-        const error = await expectCliUserError(runConnectorProxy(
-            createProxyRunInput(),
-            createProxyRequestContext(async () => new Response(JSON.stringify({
-                message: "proxy disabled",
-                success: false,
-            }), {
+        test("surfaces message when the failure response omits an errorCode", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                JSON.stringify({
+                    message: "denied by policy",
+                    success: false,
+                }),
+                { status: 403 },
+            )));
+
+            expect(error.key).toBe(`${keyPrefix}.requestFailedWithMessage`);
+            expect(error.params).toEqual({
+                ...subjectParams,
+                message: "denied by policy",
                 status: 403,
-            })),
-        ));
-
-        expect(error.key).toBe("errors.connectorProxy.requestFailedWithMessage");
-        expect(error.params).toEqual({
-            message: "proxy disabled",
-            service: "tavily",
-            status: 403,
+            });
         });
-    });
 
-    test("runConnectorProxy surfaces errorCode when the failure response omits a message", async () => {
-        const error = await expectCliUserError(runConnectorProxy(
-            createProxyRunInput(),
-            createProxyRequestContext(async () => new Response(JSON.stringify({
+        test("surfaces errorCode when the failure response omits a message", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                JSON.stringify({
+                    errorCode: "invalid_input",
+                    success: false,
+                }),
+                { status: 400 },
+            )));
+
+            expect(error.key).toBe(`${keyPrefix}.requestFailedWithCode`);
+            expect(error.params).toEqual({
+                ...subjectParams,
                 errorCode: "invalid_input",
-                success: false,
-            }), {
                 status: 400,
-            })),
-        ));
-
-        expect(error.key).toBe("errors.connectorProxy.requestFailedWithCode");
-        expect(error.params).toEqual({
-            errorCode: "invalid_input",
-            service: "tavily",
-            status: 400,
+            });
         });
-    });
 
-    test("runConnectorProxy surfaces the raw body when the failure response has no message or errorCode", async () => {
-        const error = await expectCliUserError(runConnectorProxy(
-            createProxyRunInput(),
-            createProxyRequestContext(async () => new Response(JSON.stringify({
-                success: false,
-            }), {
-                status: 500,
-            })),
-        ));
+        test("maps the code and error aliases to errorCode and message", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                JSON.stringify({
+                    code: "POLICY_DENIED",
+                    error: "access denied by policy",
+                }),
+                { status: 403 },
+            )));
 
-        expect(error.key).toBe("errors.connectorProxy.requestFailedWithBody");
-        expect(error.params).toEqual({
-            body: "{\"success\":false}",
-            service: "tavily",
-            status: 500,
-        });
-    });
-
-    test("runConnectorProxy maps the code and error aliases to errorCode and message", async () => {
-        const error = await expectCliUserError(runConnectorProxy(
-            createProxyRunInput(),
-            createProxyRequestContext(async () => new Response(JSON.stringify({
-                code: "POLICY_DENIED",
-                error: "access denied by policy",
-            }), {
+            expect(error.key).toBe(`${keyPrefix}.requestFailedWithMessageAndCode`);
+            expect(error.params).toEqual({
+                ...subjectParams,
+                errorCode: "POLICY_DENIED",
+                message: "access denied by policy",
                 status: 403,
-            })),
-        ));
-
-        expect(error.key).toBe("errors.connectorProxy.requestFailedWithMessageAndCode");
-        expect(error.params).toEqual({
-            errorCode: "POLICY_DENIED",
-            message: "access denied by policy",
-            service: "tavily",
-            status: 403,
+            });
         });
-    });
 
-    test("runConnectorProxy surfaces status when the failure response body is empty", async () => {
-        const error = await expectCliUserError(runConnectorProxy(
-            createProxyRunInput(),
-            createProxyRequestContext(async () => new Response("", {
+        test("keeps the canonical message when an alias field is not a string", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                JSON.stringify({
+                    error: {
+                        nested: true,
+                    },
+                    message: "access denied by policy",
+                }),
+                { status: 403 },
+            )));
+
+            expect(error.key).toBe(`${keyPrefix}.requestFailedWithMessage`);
+            expect(error.params).toEqual({
+                ...subjectParams,
+                message: "access denied by policy",
+                status: 403,
+            });
+        });
+
+        test("surfaces the raw body when the failure response is not a recognized envelope", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                "Forbidden by gateway",
+                { status: 403 },
+            )));
+
+            expect(error.key).toBe(`${keyPrefix}.requestFailedWithBody`);
+            expect(error.params).toEqual({
+                ...subjectParams,
+                body: "Forbidden by gateway",
+                status: 403,
+            });
+        });
+
+        test("surfaces the raw body when the failure envelope has no message or errorCode", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                JSON.stringify({
+                    success: false,
+                }),
+                { status: 500 },
+            )));
+
+            expect(error.key).toBe(`${keyPrefix}.requestFailedWithBody`);
+            expect(error.params).toEqual({
+                ...subjectParams,
+                body: "{\"success\":false}",
+                status: 500,
+            });
+        });
+
+        test("surfaces status when the failure response body is empty", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                "",
+                { status: 502 },
+            )));
+
+            expect(error.key).toBe(`${keyPrefix}.requestFailed`);
+            expect(error.params).toEqual({
+                ...subjectParams,
                 status: 502,
-            })),
-        ));
+            });
+        });
 
-        expect(error.key).toBe("errors.connectorProxy.requestFailed");
-        expect(error.params).toEqual({
-            service: "tavily",
-            status: 502,
+        test("surfaces status when the failure response body is unreadable", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                new ReadableStream<Uint8Array>({
+                    start(controller) {
+                        controller.error(new Error("body stream failed"));
+                    },
+                }),
+                { status: 500 },
+            )));
+
+            expect(error.key).toBe(`${keyPrefix}.requestFailed`);
+            expect(error.params).toEqual({
+                ...subjectParams,
+                status: 500,
+            });
+        });
+
+        test("appends the sandbox hint when the fetcher cannot open a socket", async () => {
+            const error = await expectCliUserError(invoke(async () => {
+                throw createFailedToOpenSocketError("network down");
+            }));
+
+            expect(error.key).toBe(`${keyPrefix}.requestError`);
+            expect(error.params).toEqual({
+                message:
+                    "network down\nCurrent environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
+            });
         });
     });
 
@@ -756,198 +840,6 @@ describe("connector shared requests", () => {
         ));
 
         expect(error.key).toBe("errors.connectorProxy.invalidResponse");
-    });
-
-    test("runConnectorProxy appends the sandbox hint when the fetcher cannot open a socket", async () => {
-        const error = await expectCliUserError(runConnectorProxy(
-            createProxyRunInput(),
-            createProxyRequestContext(async () => {
-                throw createFailedToOpenSocketError("network down");
-            }),
-        ));
-
-        expect(error.key).toBe("errors.connectorProxy.requestError");
-        expect(error.params).toEqual({
-            message:
-                "network down\nCurrent environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
-        });
-    });
-
-    test("runConnectorAction surfaces errorCode when the failure response omits a message", async () => {
-        const error = await expectCliUserError(runConnectorAction(
-            {
-                actionName: "send_mail",
-                target: createConnectorTargetFixture(),
-                inputData: {
-                    to: "foo@bar.com",
-                },
-                serviceName: "gmail",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    errorCode: "invalid_input",
-                    success: false,
-                }), {
-                    status: 400,
-                }),
-            }),
-        ));
-
-        expect(error.key).toBe("errors.connectorRun.requestFailedWithCode");
-        expect(error.params).toEqual({
-            action: "send_mail",
-            errorCode: "invalid_input",
-            status: 400,
-        });
-    });
-
-    test("runConnectorAction maps the code and error aliases to errorCode and message", async () => {
-        const error = await expectCliUserError(runConnectorAction(
-            {
-                actionName: "assume_role",
-                target: createConnectorTargetFixture(),
-                inputData: {},
-                serviceName: "aws_sts",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    code: "POLICY_DENIED",
-                    error: "access denied by policy",
-                }), {
-                    status: 403,
-                }),
-            }),
-        ));
-
-        expect(error.key).toBe("errors.connectorRun.requestFailedWithMessageAndCode");
-        expect(error.params).toEqual({
-            action: "assume_role",
-            errorCode: "POLICY_DENIED",
-            message: "access denied by policy",
-            status: 403,
-        });
-    });
-
-    test("runConnectorAction keeps the canonical message when an alias field is not a string", async () => {
-        const error = await expectCliUserError(runConnectorAction(
-            {
-                actionName: "assume_role",
-                target: createConnectorTargetFixture(),
-                inputData: {},
-                serviceName: "aws_sts",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    error: {
-                        nested: true,
-                    },
-                    message: "access denied by policy",
-                }), {
-                    status: 403,
-                }),
-            }),
-        ));
-
-        expect(error.key).toBe("errors.connectorRun.requestFailedWithMessage");
-        expect(error.params).toEqual({
-            action: "assume_role",
-            message: "access denied by policy",
-            status: 403,
-        });
-    });
-
-    test("runConnectorAction surfaces the raw body when the failure response is not a recognized envelope", async () => {
-        const error = await expectCliUserError(runConnectorAction(
-            {
-                actionName: "assume_role",
-                target: createConnectorTargetFixture(),
-                inputData: {},
-                serviceName: "aws_sts",
-            },
-            createRequestContext({
-                fetcher: async () => new Response("Forbidden by gateway", {
-                    status: 403,
-                }),
-            }),
-        ));
-
-        expect(error.key).toBe("errors.connectorRun.requestFailedWithBody");
-        expect(error.params).toEqual({
-            action: "assume_role",
-            body: "Forbidden by gateway",
-            status: 403,
-        });
-    });
-
-    test("runConnectorAction surfaces status when the failure response body is empty", async () => {
-        const error = await expectCliUserError(runConnectorAction(
-            {
-                actionName: "assume_role",
-                target: createConnectorTargetFixture(),
-                inputData: {},
-                serviceName: "aws_sts",
-            },
-            createRequestContext({
-                fetcher: async () => new Response("", {
-                    status: 403,
-                }),
-            }),
-        ));
-
-        expect(error.key).toBe("errors.connectorRun.requestFailed");
-        expect(error.params).toEqual({
-            action: "assume_role",
-            status: 403,
-        });
-    });
-
-    test("runConnectorAction maps insufficient credit responses to the billing error", async () => {
-        const error = await expectCliUserError(runConnectorAction(
-            {
-                actionName: "send_mail",
-                target: createConnectorTargetFixture(),
-                inputData: {
-                    to: "foo@bar.com",
-                },
-                serviceName: "gmail",
-            },
-            createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
-                    errorCode: insufficientCreditErrorCode,
-                    message: "insufficient credit",
-                    success: false,
-                }), {
-                    status: 402,
-                }),
-            }),
-        ));
-
-        expect(error.key).toBe("errors.billing.insufficientCredit");
-        expect(error.params).toEqual({
-            url: billingTokenRechargeUrl,
-        });
-    });
-
-    test("runConnectorAction appends the sandbox hint when the fetcher cannot open a socket", async () => {
-        const error = await expectCliUserError(runConnectorAction(
-            {
-                actionName: "send_mail",
-                target: createConnectorTargetFixture(),
-                inputData: {},
-                serviceName: "gmail",
-            },
-            createRequestContext({
-                fetcher: async () => {
-                    throw createFailedToOpenSocketError("network down");
-                },
-            }),
-        ));
-
-        expect(error.key).toBe("errors.connectorRun.requestError");
-        expect(error.params).toEqual({
-            message:
-                "network down\nCurrent environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
-        });
     });
 
     test("searchConnectorActions sends the Bearer token to a self-hosted target", async () => {
