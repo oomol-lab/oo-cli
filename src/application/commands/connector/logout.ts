@@ -41,11 +41,13 @@ export const connectorLogoutCommand: CliCommandDefinition = {
             ...rest
         }) => rest);
 
+        // The stored value is normalized at login, but a hand-edited file can
+        // carry query values or userinfo — sanitize before logging or printing.
+        const sanitizedUrl = sanitizeUrlForLogging(selfHosted.url);
+
         context.logger.info(
             {
-                // The stored value is normalized at login, but a hand-edited
-                // file can carry query values or userinfo — sanitize anyway.
-                url: sanitizeUrlForLogging(selfHosted.url),
+                url: sanitizedUrl,
             },
             "Self-hosted connector configuration removed.",
         );
@@ -53,7 +55,7 @@ export const connectorLogoutCommand: CliCommandDefinition = {
         writeLine(
             context.stdout,
             context.translator.t("connector.logout.success", {
-                url: selfHosted.url,
+                url: sanitizedUrl,
             }),
         );
     },

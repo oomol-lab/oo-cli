@@ -102,6 +102,27 @@ describe("runCli bootstrap", () => {
         }
     });
 
+    test("redacts secret positionals passed after a double dash", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await sandbox.run(
+                ["variables", "create", "MY_VAR", "--", "-dash-secret-value"],
+                {
+                    fetcher: async () => new Response("{}", { status: 500 }),
+                },
+            );
+
+            const logContent = await readLatestLogContent(sandbox);
+
+            expect(logContent).toContain("\"msg\":\"CLI command received.\"");
+            expect(logContent).not.toContain("dash-secret-value");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("executes published skill installation", async () => {
         const sandbox = await createCliSandbox();
         const originalCwd = process.cwd;

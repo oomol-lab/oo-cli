@@ -126,8 +126,9 @@ const sensitiveCliOptionLongFlags = [
     "--token",
 ] as const;
 // Commands whose positional arguments carry secret values. Every positional
-// beyond `keptPositionals` (counted after the command words) is redacted;
-// option values may be over-redacted by this rule, which errs on the safe side.
+// beyond `keptPositionals` (counted after the command words) is redacted, and
+// a bare `--` makes every later argument count as positional; option values
+// may be over-redacted by this rule, which errs on the safe side.
 const sensitiveCliPositionalRules = [
     { commandPath: ["variables", "create"], keptPositionals: 1 },
 ] as const;
@@ -672,6 +673,7 @@ function redactSensitiveCliArguments(argv: readonly string[]): string[] {
     );
     const redactedArguments: string[] = [];
     let shouldRedactNextValue = false;
+    let pastOptionTerminator = false;
     let positionalCount = 0;
 
     for (const [index, argument] of argv.entries()) {
@@ -688,10 +690,16 @@ function redactSensitiveCliArguments(argv: readonly string[]): string[] {
             continue;
         }
 
+        if (argument === "--" && !pastOptionTerminator) {
+            pastOptionTerminator = true;
+            redactedArguments.push(argument);
+            continue;
+        }
+
         if (
             positionalRule !== undefined
             && index >= positionalRule.commandPath.length
-            && !argument.startsWith("-")
+            && (pastOptionTerminator || !argument.startsWith("-"))
         ) {
             positionalCount += 1;
 
