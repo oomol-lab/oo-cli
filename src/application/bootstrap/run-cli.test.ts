@@ -312,6 +312,12 @@ describe("runCli bootstrap", () => {
             // Legacy cleanup is part of the guarded block, so the managed skill
             // must remain untouched.
             expect((await stat(managedRegistryPath)).isDirectory()).toBe(true);
+            expect(
+                (await stat(join(managedRegistryPath, "SKILL.md"))).isFile(),
+            ).toBe(true);
+            expect(
+                (await stat(join(managedRegistryPath, ".oo-metadata.json"))).isFile(),
+            ).toBe(true);
         }
         finally {
             await sandbox.cleanup();
