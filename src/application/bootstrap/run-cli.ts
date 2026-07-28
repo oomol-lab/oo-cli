@@ -36,7 +36,6 @@ import {
 import { createTranslator } from "../../i18n/translator.ts";
 import { createCliCatalog } from "../commands/catalog.ts";
 import { synchronizeManagedSkillsForAvailableHosts } from "../commands/skills/auto-sync.ts";
-import { removeLegacyCodexManagedSkills } from "../commands/skills/legacy-codex-cleanup.ts";
 import { removeLegacyGptImage2ManagedSkills } from "../commands/skills/legacy-gpt-image-2-cleanup.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import {
@@ -305,10 +304,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         // and legacy-cleanup side effects so embedded callers never write skill
         // files into other agents' home directories (e.g. ~/.agents, ~/.claude).
         if (readEnvBoolean(invocation.env.OO_SKILLS_SYNC_DISABLED) !== true) {
-            // TODO(codex-removal): Temporary compatibility cleanup. Remove this call
-            // and `legacy-codex-cleanup.ts` once enough releases have shipped that no
-            // user still has oo-managed skills under the legacy Codex home.
-            await removeLegacyCodexManagedSkills(context);
             // TODO(gpt-image-2-removal): Temporary compatibility cleanup. Remove this
             // call and `legacy-gpt-image-2-cleanup.ts` once enough releases have
             // shipped that no user still has the oo-managed `@alwaysmavs/gpt-image-2`
