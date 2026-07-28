@@ -91,7 +91,18 @@ describe("readSkillDirectoryState", () => {
         },
         {
             content: renderSkillMetadataJson({ version: 1 }),
-            title: "legacy metadata with a non-string version",
+            title: "untyped metadata with a non-string version",
+        },
+        {
+            content: renderSkillMetadataJson({
+                packageName: "@scope/package",
+                version: "1.2.3",
+            }),
+            title: "legacy untyped registry metadata",
+        },
+        {
+            content: renderSkillMetadataJson({ version: "1.2.3" }),
+            title: "legacy untyped bundled metadata",
         },
     ] as const;
 
@@ -128,22 +139,6 @@ describe("readSkillDirectoryState", () => {
             content: renderSkillMetadataJson(createLocalSkillMetadata()),
             metadata: createLocalSkillMetadata(),
             title: "local metadata",
-        },
-        {
-            content: renderSkillMetadataJson({
-                packageName: "@scope/package",
-                version: "1.2.3",
-            }),
-            metadata: createRegistrySkillMetadata({
-                packageName: "@scope/package",
-                version: "1.2.3",
-            }),
-            title: "legacy untyped registry metadata",
-        },
-        {
-            content: renderSkillMetadataJson({ version: "1.2.3" }),
-            metadata: createBundledSkillMetadata("1.2.3"),
-            title: "legacy untyped bundled metadata",
         },
     ] as const;
 

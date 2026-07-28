@@ -200,7 +200,7 @@ describe("readInstalledSkills", () => {
         ]);
     });
 
-    test("parses legacy metadata without a schema version", async () => {
+    test("ignores legacy metadata without a schema version", async () => {
         const sandbox = await createInventorySandbox();
 
         await sandbox.seedHost("universal", "old-registry", `${JSON.stringify({
@@ -213,11 +213,7 @@ describe("readInstalledSkills", () => {
 
         const skills = await readInstalledSkills(sandbox.env, sandbox.settingsFilePath);
 
-        expect(skills.map(skill => [skill.kind, skill.name, skill.packageName, skill.version]))
-            .toEqual([
-                ["bundled", "old-bundled", undefined, "0.2.0"],
-                ["registry", "old-registry", "@scope/old", "0.9.0"],
-            ]);
+        expect(skills).toEqual([]);
     });
 
     test("ignores non-registry entries under the canonical registry root", async () => {

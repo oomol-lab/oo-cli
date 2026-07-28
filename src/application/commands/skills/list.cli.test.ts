@@ -19,6 +19,7 @@ import {
 } from "./managed-skill-paths.ts";
 import {
     createLocalSkillMetadata,
+    createRegistrySkillMetadata,
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
 
@@ -44,10 +45,10 @@ describe("skills info CLI", () => {
             await mkdir(alphaSkillDirectoryPath, { recursive: true });
             await writeFile(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
-                }),
+                })),
             );
 
             const result = await sandbox.run(["skills", "info"], {
@@ -91,10 +92,10 @@ describe("skills info CLI", () => {
             await mkdir(alphaSkillDirectoryPath, { recursive: true });
             await writeFile(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
-                }),
+                })),
             );
 
             const result = await sandbox.run(["skills", "info"], {
@@ -181,10 +182,10 @@ describe("skills info CLI", () => {
             await mkdir(alphaSkillDirectoryPath, { recursive: true });
             await writeFile(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
-                }),
+                })),
             );
 
             const infoResult = await sandbox.run(["skills", "info"], { version: "9.9.9" });
@@ -244,10 +245,10 @@ describe("skills info CLI", () => {
             await mkdir(alphaSkillDirectoryPath, { recursive: true });
             await writeFile(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
-                }),
+                })),
             );
             await writeLocalSkillDirectory(localSkillDirectoryPath, "campaign-writer");
 
@@ -354,10 +355,10 @@ describe("skills info CLI", () => {
             await mkdir(alphaSkillDirectoryPath, { recursive: true });
             await writeFile(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
-                }),
+                })),
             );
 
             const result = await sandbox.run(["skills", "info", "--json"], {
@@ -680,17 +681,17 @@ describe("skills info CLI", () => {
             await mkdir(claudeAlphaSkillDirectory, { recursive: true });
             await writeFile(
                 join(universalAlphaSkillDirectory, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
-                }),
+                })),
             );
             await writeFile(
                 join(claudeAlphaSkillDirectory, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.5.0",
-                }),
+                })),
             );
 
             const result = await sandbox.run(["skills", "info", "--json"]);
@@ -727,10 +728,10 @@ describe("skills info CLI", () => {
             await mkdir(alphaSkillDirectoryPath, { recursive: true });
             await writeFile(
                 join(alphaSkillDirectoryPath, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
-                }),
+                })),
             );
 
             const fullResult = await sandbox.run(["skills", "info", "--json"], {
@@ -789,17 +790,17 @@ describe("skills info CLI", () => {
             );
             await writeFile(
                 resolveManagedSkillMetadataFilePath(canonicalDirectory),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
-                }),
+                })),
             );
             await writeFile(
                 join(hostDirectory, ".oo-metadata.json"),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@oomol/alpha",
                     version: "1.2.3",
-                }),
+                })),
             );
 
             const result = await sandbox.run(["skills", "info", "--json"]);

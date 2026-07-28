@@ -422,9 +422,9 @@ describe("skills commands", () => {
             await mkdir(join(skillDirectoryPath, "agents"), { recursive: true });
             await Bun.write(
                 metadataFilePath,
-                renderSkillMetadataJson({
-                    version: bundledSkillDevelopmentVersion,
-                }),
+                renderSkillMetadataJson(
+                    createBundledSkillMetadata(bundledSkillDevelopmentVersion),
+                ),
             );
             await Bun.write(skillFilePath, "stale\n");
 
@@ -2864,23 +2864,21 @@ describe("skills commands", () => {
             await Bun.write(join(registryCanonicalSkillDirectoryPath, "SKILL.md"), "# ChatGPT\n");
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(registrySkillDirectoryPath),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "openai",
                     version: "0.0.3",
-                }),
+                })),
             );
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(registryCanonicalSkillDirectoryPath),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "openai",
                     version: "0.0.4",
-                }),
+                })),
             );
             await Bun.write(
                 resolveBundledSkillMetadataFilePath(bundledSkillDirectoryPath),
-                renderSkillMetadataJson({
-                    version: "9.9.9",
-                }),
+                renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
             await Bun.write(
                 join(localSkillDirectoryPath, "SKILL.md"),
@@ -2952,17 +2950,17 @@ describe("skills commands", () => {
             await writeAuthFile(sandbox);
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(chatSkillDirectoryPath),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "openai",
                     version: "0.0.3",
-                }),
+                })),
             );
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(captionSkillDirectoryPath),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "@private/vision",
                     version: "1.0.0",
-                }),
+                })),
             );
 
             const result = await sandbox.run([

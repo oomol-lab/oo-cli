@@ -1540,8 +1540,8 @@ Install bundled or published skills into supported local skill directories.
   that follow `--skill` are read as skill names, not package names, until the
   next option such as `--json`.
 - Options: `-f, --force` overrides install when the target directory exists
-  with the same skill name but is **not** managed by oo (no readable
-  `.oo-metadata.json`). The previous directory contents are removed before the
+  with the same skill name but is **not** managed by oo (no valid `oo`
+  metadata). The previous directory contents are removed before the
   new skill is written; a `warn` log records the overwrite. `--force` does
   **not** bypass path containment, package validation, auth, or download
   validation; and it does **not** affect startup auto-sync, `oo skills update`,
@@ -1624,8 +1624,9 @@ Install bundled or published skills into supported local skill directories.
 - Metadata: new bundled and registry writes include a hidden
   `.oo-metadata.json` file with an oo source marker and schema version.
   Bundled metadata records the current `oo` version; registry metadata records
-  the source package and package version. Existing legacy bundled and registry
-  metadata remains readable.
+  the source package and package version. Metadata files from older releases
+  that lack the schema version marker are no longer recognized as `oo`
+  metadata.
 - Notes: all registry requests for published skills send the active account's
   `Authorization` header.
 - Notes: a same-name target directory without valid `oo` metadata is treated as a

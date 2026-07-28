@@ -66,15 +66,7 @@ export function parseSkillMetadataContent(
         return undefined;
     }
 
-    const typedMetadata = parseTypedSkillMetadata(fields);
-
-    if (typedMetadata !== undefined) {
-        return typedMetadata;
-    }
-
-    // TODO: Remove legacy untyped metadata parsing after existing installs have migrated.
-    return parseRegistrySkillMetadataFields(fields)
-        ?? parseLegacyBundledSkillMetadata(fields);
+    return parseTypedSkillMetadata(fields);
 }
 
 export function renderSkillMetadataJson(
@@ -158,14 +150,4 @@ function parseRegistrySkillMetadataFields(
     }
 
     return createRegistrySkillMetadata({ packageName, version });
-}
-
-function parseLegacyBundledSkillMetadata(
-    fields: Readonly<Record<string, unknown>>,
-): BundledSkillMetadata | undefined {
-    if (fields.packageName !== undefined) {
-        return undefined;
-    }
-
-    return parseBundledSkillMetadataFields(fields);
 }

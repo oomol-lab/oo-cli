@@ -30,17 +30,53 @@ describe("skill metadata", () => {
         }))).toEqual(createLocalSkillMetadata());
     });
 
-    test("parses legacy untyped metadata at the parser boundary", () => {
-        expect(parseSkillMetadataContent("{\"version\":\" 1.2.3 \"}\n")).toEqual(
-            createBundledSkillMetadata("1.2.3"),
-        );
+    test("trims surrounding whitespace from typed identity fields", () => {
         expect(parseSkillMetadataContent(JSON.stringify({
-            packageName: "@foo/bar",
-            version: "2.0.0",
+            kind: "bundled",
+            schemaVersion: 1,
+            version: " 1.2.3 ",
+        }))).toEqual(createBundledSkillMetadata("1.2.3"));
+        expect(parseSkillMetadataContent(JSON.stringify({
+            icon: " star ",
+            kind: "registry",
+            packageName: " @foo/bar ",
+            schemaVersion: 1,
+            version: " 2.0.0 ",
         }))).toEqual(createRegistrySkillMetadata({
+            icon: "star",
             packageName: "@foo/bar",
             version: "2.0.0",
         }));
+    });
+
+    test("rejects typed metadata with blank identity fields", () => {
+        expect(parseSkillMetadataContent(JSON.stringify({
+            kind: "bundled",
+            schemaVersion: 1,
+            version: "",
+        }))).toBeUndefined();
+        expect(parseSkillMetadataContent(JSON.stringify({
+            kind: "registry",
+            packageName: "  ",
+            schemaVersion: 1,
+            version: "1.2.3",
+        }))).toBeUndefined();
+        expect(parseSkillMetadataContent(JSON.stringify({
+            icon: "  ",
+            kind: "registry",
+            packageName: "@foo/bar",
+            schemaVersion: 1,
+            version: "1.2.3",
+        }))).toBeUndefined();
+    });
+
+    test("rejects legacy untyped metadata", () => {
+        expect(parseSkillMetadataContent("{\"version\":\" 1.2.3 \"}\n"))
+            .toBeUndefined();
+        expect(parseSkillMetadataContent(JSON.stringify({
+            packageName: "@foo/bar",
+            version: "2.0.0",
+        }))).toBeUndefined();
     });
 
     test("rejects unsupported typed metadata", () => {
@@ -52,16 +88,6 @@ describe("skill metadata", () => {
             kind: "registry",
             packageName: "@foo/bar",
             schemaVersion: 1,
-        }))).toBeUndefined();
-    });
-
-    test("rejects legacy metadata with blank identity fields", () => {
-        expect(parseSkillMetadataContent(JSON.stringify({
-            version: "",
-        }))).toBeUndefined();
-        expect(parseSkillMetadataContent(JSON.stringify({
-            packageName: "  ",
-            version: "1.2.3",
         }))).toBeUndefined();
     });
 
