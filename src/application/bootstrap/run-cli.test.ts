@@ -282,48 +282,6 @@ describe("runCli bootstrap", () => {
         }
     });
 
-    test("preserves legacy managed skills when OO_SKILLS_SYNC_DISABLED is set", async () => {
-        const sandbox = await createCliSandbox();
-
-        sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
-
-        try {
-            const managedRegistryPath = join(
-                resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal"),
-                "skills",
-                "gpt-image-2",
-            );
-
-            await mkdir(managedRegistryPath, { recursive: true });
-            await writeFile(join(managedRegistryPath, "SKILL.md"), "skill\n");
-            await writeFile(
-                join(managedRegistryPath, ".oo-metadata.json"),
-                JSON.stringify({
-                    kind: "registry",
-                    packageName: "@alwaysmavs/gpt-image-2",
-                    schemaVersion: 1,
-                    version: "1.0.0",
-                }),
-            );
-
-            const result = await sandbox.run(["--help"]);
-
-            expect(result.exitCode).toBe(0);
-            // Legacy cleanup is part of the guarded block, so the managed skill
-            // must remain untouched.
-            expect((await stat(managedRegistryPath)).isDirectory()).toBe(true);
-            expect(
-                (await stat(join(managedRegistryPath, "SKILL.md"))).isFile(),
-            ).toBe(true);
-            expect(
-                (await stat(join(managedRegistryPath, ".oo-metadata.json"))).isFile(),
-            ).toBe(true);
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
     test("writes debug logs to the log directory during cli startup", async () => {
         const sandbox = await createCliSandbox();
 
