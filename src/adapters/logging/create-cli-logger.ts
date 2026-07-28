@@ -1,6 +1,7 @@
 import type { LevelWithSilentOrString, Logger } from "pino";
 
 import pino from "pino";
+import { serializeErrorForLogging } from "../../application/logging/url-sanitizer.ts";
 import { RollingFileDestination } from "./rolling-file-destination.ts";
 
 export interface CliLoggerOptions {
@@ -34,6 +35,9 @@ export function createCliLogger(options: CliLoggerOptions): CliLoggerHandle {
                 name: options.appName,
                 level,
                 timestamp: pino.stdTimeFunctions.isoTime,
+                serializers: {
+                    err: serializeErrorForLogging,
+                },
                 formatters: {
                     level(label) {
                         return { level: label };

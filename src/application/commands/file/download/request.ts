@@ -1,6 +1,7 @@
 import type { CliExecutionContext } from "../../../contracts/cli.ts";
 import type { FileDownloadSessionRecord } from "../../../contracts/file-download-session-store.ts";
 
+import { sanitizeUrlForLogging } from "../../../logging/url-sanitizer.ts";
 import { requestOoResponse } from "../../shared/oo-request.ts";
 
 type DownloadRequestContext = Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
@@ -43,12 +44,13 @@ async function requestFileDownload(
         label: "File download",
         logFields: {
             start: {
-                query: requestUrl.searchParams.toString(),
-                url: urlString,
+                url: sanitizeUrlForLogging(requestUrl),
             },
             success: response => ({
-                finalUrl: response.url === "" ? urlString : response.url,
-                url: urlString,
+                finalUrl: sanitizeUrlForLogging(
+                    response.url === "" ? urlString : response.url,
+                ),
+                url: sanitizeUrlForLogging(requestUrl),
             }),
         },
     });

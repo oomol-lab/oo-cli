@@ -34,6 +34,26 @@ describe("connector logout CLI", () => {
         }
     });
 
+    test("keeps hand-edited URL secrets out of the logout output", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeConnectorFile(sandbox, {
+                token: "oct_test",
+                url: "http://localhost:3000/?token=hand-edited-secret",
+            });
+
+            const result = await sandbox.run(["connector", "logout"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).not.toContain("hand-edited-secret");
+            expect(result.stdout).toContain("token=REDACTED");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("clears a corrupt connector file instead of failing", async () => {
         const sandbox = await createCliSandbox();
 

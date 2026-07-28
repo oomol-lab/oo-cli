@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 import pino from "pino";
 
 import {
+    createLogCapture,
     toRequest,
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
@@ -150,6 +151,37 @@ describe("registry skill source", () => {
         expect(requests[0]!.url).toBe(
             "https://registry.oomol.com/-/oomol/package-shares/download-meta/share-1",
         );
+    });
+
+    test("keeps the share id out of shared tarball download logs", async () => {
+        const logCapture = createLogCapture();
+
+        try {
+            await downloadRegistryPackageTarball(
+                "openai",
+                "0.0.3",
+                {
+                    apiKey: "secret-1",
+                    endpoint: "oomol.com",
+                },
+                {
+                    fetcher: async () => new Response(new Uint8Array([7])),
+                    logger: logCapture.logger,
+                    translator: createTranslator("en"),
+                },
+                "share-credential-1",
+            );
+
+            const logContent = logCapture.read();
+
+            expect(logContent).not.toContain("share-credential-1");
+            expect(logContent).toContain(
+                "\"path\":\"/-/oomol/package-shares/download-meta/REDACTED\"",
+            );
+        }
+        finally {
+            logCapture.close();
+        }
     });
 
     test("reports package download count with authorization", async () => {

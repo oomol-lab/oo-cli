@@ -3,10 +3,15 @@ import type { Logger } from "pino";
 import type { Fetcher } from "../contracts/cli.ts";
 import { z } from "zod";
 import { APP_NAME } from "../config/app-config.ts";
+import { sanitizeUrlForLogging } from "../logging/url-sanitizer.ts";
 import { isSemver } from "../semver.ts";
 
 export const cliReleaseBaseUrl = "https://static.oomol.com/release/apps/oo-cli";
 export const cliLatestReleaseMetadataUrl = `${cliReleaseBaseUrl}/latest.json`;
+
+// Static today, but logged through the shared policy so a future query-bearing
+// release URL cannot leak values into the log.
+const sanitizedReleaseMetadataUrlLogValue = sanitizeUrlForLogging(cliLatestReleaseMetadataUrl);
 export const cliReleaseRequestTimeoutMs = 2000;
 
 const latestReleaseVersionSchema = z.object({
@@ -30,7 +35,7 @@ export async function fetchLatestCliReleaseVersion(options: {
 
     options.logger.debug(
         {
-            requestUrl: cliLatestReleaseMetadataUrl,
+            requestUrl: sanitizedReleaseMetadataUrlLogValue,
             timeoutMs,
         },
         "CLI update latest-release request started.",
@@ -52,7 +57,7 @@ export async function fetchLatestCliReleaseVersion(options: {
         options.logger.warn(
             {
                 durationMs: Date.now() - requestStartedAt,
-                requestUrl: cliLatestReleaseMetadataUrl,
+                requestUrl: sanitizedReleaseMetadataUrlLogValue,
                 timeoutMs,
             },
             "CLI update latest-release request timed out or failed.",
@@ -64,7 +69,7 @@ export async function fetchLatestCliReleaseVersion(options: {
         options.logger.warn(
             {
                 durationMs: Date.now() - requestStartedAt,
-                requestUrl: cliLatestReleaseMetadataUrl,
+                requestUrl: sanitizedReleaseMetadataUrlLogValue,
                 status: response.status,
             },
             "CLI update latest-release request returned a non-success status.",
@@ -81,7 +86,7 @@ export async function fetchLatestCliReleaseVersion(options: {
         options.logger.warn(
             {
                 durationMs: Date.now() - requestStartedAt,
-                requestUrl: cliLatestReleaseMetadataUrl,
+                requestUrl: sanitizedReleaseMetadataUrlLogValue,
                 status: response.status,
             },
             "CLI update latest-release response did not include a valid version.",
@@ -95,7 +100,7 @@ export async function fetchLatestCliReleaseVersion(options: {
         options.logger.warn(
             {
                 durationMs: Date.now() - requestStartedAt,
-                requestUrl: cliLatestReleaseMetadataUrl,
+                requestUrl: sanitizedReleaseMetadataUrlLogValue,
                 status: response.status,
             },
             "CLI update latest-release response did not include a valid version.",
@@ -107,7 +112,7 @@ export async function fetchLatestCliReleaseVersion(options: {
         {
             durationMs: Date.now() - requestStartedAt,
             latestVersion,
-            requestUrl: cliLatestReleaseMetadataUrl,
+            requestUrl: sanitizedReleaseMetadataUrlLogValue,
             status: response.status,
         },
         "CLI update latest-release request completed.",

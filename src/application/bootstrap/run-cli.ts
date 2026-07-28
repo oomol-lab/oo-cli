@@ -46,6 +46,7 @@ import {
 import { CliUserError } from "../contracts/cli.ts";
 import { logCategory } from "../logging/log-categories.ts";
 import { withCategory, withErrorKey, withStorePath } from "../logging/log-fields.ts";
+import { sanitizeIfHttpUrl } from "../logging/url-sanitizer.ts";
 import { initializeCurrentVersionActiveMarker } from "../self-update/core.ts";
 import { readEnvBoolean } from "../shared/env-boolean.ts";
 import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
@@ -112,7 +113,25 @@ interface CreateCliExecutionContextOptions {
 }
 
 const redactedCliArgumentValue = "<redacted>";
-const sensitiveCliOptionLongFlags = ["--api-key", "--session-token", "--token"] as const;
+// Credential flags plus free-form request/payload flags whose values can
+// embed tokens (proxy headers/body/query, action data, LLM input).
+const sensitiveCliOptionLongFlags = [
+    "--api-key",
+    "--body",
+    "--data",
+    "--headers",
+    "--input",
+    "--query",
+    "--session-token",
+    "--token",
+] as const;
+// Commands whose positional arguments carry secret values. Every positional
+// beyond `keptPositionals` (counted after the command words) is redacted, and
+// a bare `--` makes every later argument count as positional; option values
+// may be over-redacted by this rule, which errs on the safe side.
+const sensitiveCliPositionalRules = [
+    { commandPath: ["variables", "create"], keptPositionals: 1 },
+] as const;
 
 export async function runCli(argv: string[]): Promise<number> {
     return executeCli({
@@ -649,10 +668,15 @@ function getSystemLocale(): string | undefined {
 }
 
 function redactSensitiveCliArguments(argv: readonly string[]): string[] {
+    const positionalRule = sensitiveCliPositionalRules.find(rule =>
+        rule.commandPath.every((word, index) => argv[index] === word),
+    );
     const redactedArguments: string[] = [];
     let shouldRedactNextValue = false;
+    let pastOptionTerminator = false;
+    let positionalCount = 0;
 
-    for (const argument of argv) {
+    for (const [index, argument] of argv.entries()) {
         if (shouldRedactNextValue) {
             redactedArguments.push(redactedCliArgumentValue);
             shouldRedactNextValue = false;
@@ -666,7 +690,26 @@ function redactSensitiveCliArguments(argv: readonly string[]): string[] {
             continue;
         }
 
-        redactedArguments.push(argument);
+        if (argument === "--" && !pastOptionTerminator) {
+            pastOptionTerminator = true;
+            redactedArguments.push(argument);
+            continue;
+        }
+
+        if (
+            positionalRule !== undefined
+            && index >= positionalRule.commandPath.length
+            && (pastOptionTerminator || !argument.startsWith("-"))
+        ) {
+            positionalCount += 1;
+
+            if (positionalCount > positionalRule.keptPositionals) {
+                redactedArguments.push(redactedCliArgumentValue);
+                continue;
+            }
+        }
+
+        redactedArguments.push(sanitizeUrlCliArgument(argument));
 
         if (sensitiveCliOptionLongFlags.includes(argument as typeof sensitiveCliOptionLongFlags[number])) {
             shouldRedactNextValue = true;
@@ -674,6 +717,32 @@ function redactSensitiveCliArguments(argv: readonly string[]): string[] {
     }
 
     return redactedArguments;
+}
+
+// Presigned/signed URLs arrive as positional arguments or option values
+// (`oo file download <url>`); their query values are credentials and must not
+// reach the argv log fields.
+function sanitizeUrlCliArgument(argument: string): string {
+    const sanitizedArgument = sanitizeIfHttpUrl(argument);
+
+    if (sanitizedArgument !== argument) {
+        return sanitizedArgument;
+    }
+
+    const assignmentIndex = argument.indexOf("=");
+
+    if (assignmentIndex === -1) {
+        return argument;
+    }
+
+    const value = argument.slice(assignmentIndex + 1);
+    const sanitizedValue = sanitizeIfHttpUrl(value);
+
+    if (sanitizedValue === value) {
+        return argument;
+    }
+
+    return `${argument.slice(0, assignmentIndex + 1)}${sanitizedValue}`;
 }
 
 function readSensitiveOptionAssignmentFlag(argument: string): string | undefined {

@@ -4,6 +4,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { withPackageIdentity } from "../../logging/log-fields.ts";
+import { redactedLogValue } from "../../logging/url-sanitizer.ts";
 import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
 
 const registryPackageNotFoundStatus = 404;
@@ -168,7 +169,14 @@ export async function downloadRegistryPackageTarball(
         host: { endpoint: account.endpoint, service: "registry" },
         label: "Skills install package download",
         logFields: {
-            common: withPackageIdentity(packageName, packageVersion),
+            common: {
+                ...withPackageIdentity(packageName, packageVersion),
+                // The share id is a download credential embedded in the path;
+                // override the request-target path field with a redacted form.
+                ...(packageShareId === undefined
+                    ? {}
+                    : { path: createRegistryPackageShareDownloadMetaPath(redactedLogValue) }),
+            },
         },
         path: packageShareId === undefined
             ? createRegistryPackageTarballPath(packageName, packageVersion)
