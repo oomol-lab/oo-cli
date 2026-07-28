@@ -1286,8 +1286,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：由于 `-s, --skill` 接受多个值，请把所有 package 名称放在它**之前**
   （例如 `oo skills install @scope/pkg -s foo bar`）。`--skill` 之后、直到下一个
   选项（如 `--json`）之前的 token 都会被当作 skill 名称，而非 package 名称。
-- 选项：`-f, --force` 在目标目录存在同名 skill 但**不受 oo 管理**（缺少可读
-  `.oo-metadata.json`）时，允许覆盖安装。覆盖会先移除原目录内容再写入新
+- 选项：`-f, --force` 在目标目录存在同名 skill 但**不受 oo 管理**（没有有效的
+  `oo` 元数据）时，允许覆盖安装。覆盖会先移除原目录内容再写入新
   skill，并以 `warn` 日志记录此事件。`--force` **不会**绕过路径校验、
   package 校验、auth 或下载校验；**不影响**启动自动同步、`oo skills update`、
   `oo skills sync`、`oo skills uninstall`、`oo skills publish`。
@@ -1351,8 +1351,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   oo-managed 软链接目标，会在显式安装、刷新或更新该 skill 时替换为复制目录。
 - 元数据：新写入的 bundled 和 registry skill 都会包含隐藏的
   `.oo-metadata.json` 文件，记录 oo 来源标记和 schema version。bundled metadata
-  记录当前 `oo` 版本；registry metadata 记录来源 package 与 package 版本。已有的
-  legacy bundled 和 registry metadata 仍可读取。
+  记录当前 `oo` 版本；registry metadata 记录来源 package 与 package 版本。旧版本
+  留下的、缺少 schema version 标记的 metadata 文件不再被识别为 `oo` metadata。
 - 说明：安装已发布 skill 时，所有 registry 请求都会携带当前激活账号的
   `Authorization` header。
 - 说明：如果同名目标目录没有有效的 `oo` 元数据，会被视为非 OOMOL skill；该

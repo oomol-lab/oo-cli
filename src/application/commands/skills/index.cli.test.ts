@@ -24,6 +24,7 @@ import {
 import {
     createBundledSkillMetadata,
     createLocalSkillMetadata,
+    createRegistrySkillMetadata,
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
 
@@ -106,9 +107,7 @@ describe("skills CLI", () => {
             await mkdir(skillDirectoryPath, { recursive: true });
             await Bun.write(
                 metadataFilePath,
-                renderSkillMetadataJson({
-                    version: "0.0.1",
-                }),
+                renderSkillMetadataJson(createBundledSkillMetadata("0.0.1")),
             );
             await Bun.write(skillFilePath, "stale\n");
 
@@ -149,9 +148,9 @@ describe("skills CLI", () => {
                 await mkdir(skillTarget.directoryPath, { recursive: true });
                 await Bun.write(
                     resolveBundledSkillMetadataFilePath(skillTarget.directoryPath),
-                    renderSkillMetadataJson({
-                        version: installedVersion,
-                    }),
+                    renderSkillMetadataJson(
+                        createBundledSkillMetadata(installedVersion),
+                    ),
                 );
                 await Bun.write(
                     join(skillTarget.directoryPath, "SKILL.md"),
@@ -178,9 +177,9 @@ describe("skills CLI", () => {
                         resolveBundledSkillMetadataFilePath(skillTarget.directoryPath),
                         "utf8",
                     ),
-                ).toBe(renderSkillMetadataJson({
-                    version: installedVersion,
-                }));
+                ).toBe(renderSkillMetadataJson(
+                    createBundledSkillMetadata(installedVersion),
+                ));
             }
             expect(content).toContain(
                 `"msg":"Bundled skill startup synchronization skipped because the current CLI version is a development version."`,
@@ -207,9 +206,9 @@ describe("skills CLI", () => {
                 await mkdir(skillTarget.directoryPath, { recursive: true });
                 await Bun.write(
                     resolveBundledSkillMetadataFilePath(skillTarget.directoryPath),
-                    renderSkillMetadataJson({
-                        version: bundledSkillDevelopmentVersion,
-                    }),
+                    renderSkillMetadataJson(
+                        createBundledSkillMetadata(bundledSkillDevelopmentVersion),
+                    ),
                 );
                 await Bun.write(
                     join(skillTarget.directoryPath, "SKILL.md"),
@@ -236,9 +235,9 @@ describe("skills CLI", () => {
                         resolveBundledSkillMetadataFilePath(skillTarget.directoryPath),
                         "utf8",
                     ),
-                ).toBe(renderSkillMetadataJson({
-                    version: bundledSkillDevelopmentVersion,
-                }));
+                ).toBe(renderSkillMetadataJson(
+                    createBundledSkillMetadata(bundledSkillDevelopmentVersion),
+                ));
             }
             expect(content).toContain(
                 `"msg":"Bundled skill startup synchronization skipped because the installed skill is a development version."`,
@@ -275,10 +274,10 @@ describe("skills CLI", () => {
             );
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "openai",
                     version: "0.0.3",
-                }),
+                })),
             );
 
             const result = await sandbox.run(["--help"], {
@@ -332,10 +331,10 @@ describe("skills CLI", () => {
             );
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "openai",
                     version: "0.0.3",
-                }),
+                })),
             );
             // The universal host is always provisioned, so it must already hold a
             // correct symlink for the registry skill to stay unchanged at startup.
@@ -452,10 +451,10 @@ describe("skills CLI", () => {
             );
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(registryCanonicalSkillDirectoryPath),
-                renderSkillMetadataJson({
+                renderSkillMetadataJson(createRegistrySkillMetadata({
                     packageName: "openai",
                     version: "0.0.3",
-                }),
+                })),
             );
             await Bun.write(
                 join(codeBuddySkillDirectoryPath, "SKILL.md"),
@@ -481,10 +480,10 @@ describe("skills CLI", () => {
             expect(await readFile(
                 resolveManagedSkillMetadataFilePath(universalSkillDirectoryPath),
                 "utf8",
-            )).toBe(renderSkillMetadataJson({
+            )).toBe(renderSkillMetadataJson(createRegistrySkillMetadata({
                 packageName: "openai",
                 version: "0.0.3",
-            }));
+            })));
             expect(content).toContain(
                 `"msg":"Registry skill synchronized during CLI startup."`,
             );

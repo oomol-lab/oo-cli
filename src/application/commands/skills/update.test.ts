@@ -26,6 +26,7 @@ import {
     resolveManagedSkillMetadataFilePath,
 } from "./managed-skill-paths.ts";
 import {
+    createBundledSkillMetadata,
     createRegistrySkillMetadata,
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
@@ -53,11 +54,11 @@ describe("skills update command", () => {
             await Bun.write(join(ooInstalledDirectoryPath, "SKILL.md"), "# oo\n");
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(ooCanonicalDirectoryPath),
-                renderSkillMetadataJson({ version: "1.0.0" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("1.0.0")),
             );
             await Bun.write(
                 resolveManagedSkillMetadataFilePath(ooInstalledDirectoryPath),
-                renderSkillMetadataJson({ version: "1.0.0" }),
+                renderSkillMetadataJson(createBundledSkillMetadata("1.0.0")),
             );
 
             const result = await sandbox.run(["skills", "update"]);
