@@ -454,6 +454,34 @@ const commandTelemetryDecisions = {
         ],
         reason: "Records bucketed counts, package- and skill-filter usage, and bounded package-name samples; never records skill names, versions, or paths.",
     },
+    "skills.auto-trigger": {
+        kind: "generic",
+        reason: "Command group; child commands record safe auto-trigger dimensions.",
+    },
+    "skills.auto-trigger.off": {
+        kind: "properties",
+        properties: [
+            "target_scope",
+            "skill_count_bucket",
+        ],
+        reason: "Records whether the standing or per-skill scope was used and a bucketed count; the bundled skill names themselves are not recorded.",
+    },
+    "skills.auto-trigger.on": {
+        kind: "properties",
+        properties: [
+            "target_scope",
+            "skill_count_bucket",
+        ],
+        reason: "Records whether the standing or per-skill scope was used and a bucketed count; the bundled skill names themselves are not recorded.",
+    },
+    "skills.auto-trigger.status": {
+        kind: "properties",
+        properties: [
+            "disabled_all",
+            "disabled_count_bucket",
+        ],
+        reason: "Records the standing auto-trigger policy flag and a bucketed count of per-skill overrides; never records skill names or paths.",
+    },
     "skills.recommend": {
         kind: "generic",
         reason: "Command group; child commands record safe suggestion dimensions.",

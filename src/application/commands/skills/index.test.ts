@@ -667,11 +667,12 @@ describe("skills commands", () => {
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
-            await expect(
-                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(
+                await readFile(
+                    join(skillDirectoryPath, "agents", "openai.yaml"),
+                    "utf8",
+                ),
+            ).toContain("allow_implicit_invocation: true");
         }
         finally {
             await sandbox.cleanup();
@@ -726,11 +727,12 @@ describe("skills commands", () => {
             expect(installedSkillMarkdown).toBe(
                 await readBundledSkillFileContent(hermesSkillFile),
             );
-            await expect(
-                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(
+                await readFile(
+                    join(skillDirectoryPath, "agents", "openai.yaml"),
+                    "utf8",
+                ),
+            ).toContain("allow_implicit_invocation: true");
         }
         finally {
             await sandbox.cleanup();
@@ -773,11 +775,12 @@ describe("skills commands", () => {
             expect(await readFile(metadataFilePath, "utf8")).toBe(
                 renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")),
             );
-            await expect(
-                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(
+                await readFile(
+                    join(skillDirectoryPath, "agents", "openai.yaml"),
+                    "utf8",
+                ),
+            ).toContain("allow_implicit_invocation: true");
         }
         finally {
             await sandbox.cleanup();
@@ -838,11 +841,12 @@ describe("skills commands", () => {
                 await readBundledSkillFileContent(qoderWorkSkillFile),
             );
             expect(installedSkillMarkdown).not.toContain("allowed-tools");
-            await expect(
-                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(
+                await readFile(
+                    join(skillDirectoryPath, "agents", "openai.yaml"),
+                    "utf8",
+                ),
+            ).toContain("allow_implicit_invocation: true");
         }
         finally {
             await sandbox.cleanup();
@@ -895,11 +899,12 @@ describe("skills commands", () => {
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await readBundledSkillFileContent(codeBuddySkillFile),
             );
-            await expect(
-                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(
+                await readFile(
+                    join(skillDirectoryPath, "agents", "openai.yaml"),
+                    "utf8",
+                ),
+            ).toContain("allow_implicit_invocation: true");
         }
         finally {
             await sandbox.cleanup();
@@ -957,11 +962,12 @@ describe("skills commands", () => {
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await readBundledSkillFileContent(deepSeekTuiSkillFile),
             );
-            await expect(
-                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(
+                await readFile(
+                    join(skillDirectoryPath, "agents", "openai.yaml"),
+                    "utf8",
+                ),
+            ).toContain("allow_implicit_invocation: true");
         }
         finally {
             await sandbox.cleanup();
@@ -1014,11 +1020,12 @@ describe("skills commands", () => {
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await readBundledSkillFileContent(workBuddySkillFile),
             );
-            await expect(
-                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(
+                await readFile(
+                    join(skillDirectoryPath, "agents", "openai.yaml"),
+                    "utf8",
+                ),
+            ).toContain("allow_implicit_invocation: true");
         }
         finally {
             await sandbox.cleanup();
@@ -1076,11 +1083,12 @@ describe("skills commands", () => {
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await readBundledSkillFileContent(traeSkillFile),
             );
-            await expect(
-                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(
+                await readFile(
+                    join(skillDirectoryPath, "agents", "openai.yaml"),
+                    "utf8",
+                ),
+            ).toContain("allow_implicit_invocation: true");
         }
         finally {
             await sandbox.cleanup();
@@ -1138,11 +1146,12 @@ describe("skills commands", () => {
             expect(await readFile(skillFilePath, "utf8")).toBe(
                 await readBundledSkillFileContent(traeCnSkillFile),
             );
-            await expect(
-                stat(join(skillDirectoryPath, "agents", "openai.yaml")),
-            ).rejects.toMatchObject({
-                code: "ENOENT",
-            });
+            expect(
+                await readFile(
+                    join(skillDirectoryPath, "agents", "openai.yaml"),
+                    "utf8",
+                ),
+            ).toContain("allow_implicit_invocation: true");
         }
         finally {
             await sandbox.cleanup();

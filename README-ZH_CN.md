@@ -81,6 +81,10 @@ QoderWork、DeepSeek TUI。
 内置 skill 会随 `oo` 每次发布同步更新。具体的 skill 安装位置和手动管理方式见
 [命令参考](./docs/commands.zh-CN.md)。
 
+当请求与内置 skill 匹配时，Agent 可能会自行使用它。若希望必须由你点名后才触发，
+运行 `oo skills auto-trigger off --all`（也可只指定其中几个）。skill 仍然安装
+着、仍可调用——在 Claude Code 中用 `/oo`，在 Codex 中用 `$oo`。
+
 ## 隐私
 
 `oo` 默认记录受隐私约束的 telemetry，事件不包含自由文本输入、路径、用户名、

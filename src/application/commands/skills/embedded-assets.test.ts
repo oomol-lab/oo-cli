@@ -22,6 +22,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "universal").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -30,6 +31,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "claude").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -38,6 +40,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "hermes").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -46,6 +49,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "codebuddy").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -54,6 +58,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "workbuddy").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -62,6 +67,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "trae").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -70,6 +76,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "trae-cn").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -78,6 +85,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "openclaw").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -86,6 +94,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "qoderwork").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -94,6 +103,7 @@ describe("embedded skill assets", () => {
         ]);
         expect(getBundledSkillFiles("oo", "deepseek-tui").map(file => file.relativePath)).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
             "references/search-and-selection.md",
@@ -106,6 +116,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -114,6 +125,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -122,6 +134,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -130,6 +143,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -138,6 +152,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -146,6 +161,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -154,6 +170,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -162,6 +179,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -170,6 +188,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         expect(
@@ -178,6 +197,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
             "references/oo-cli-contract.md",
         ]);
         for (const agentName of availableBundledSkillAgentNames) {
@@ -187,6 +207,7 @@ describe("embedded skill assets", () => {
                 ),
             ).toEqual([
                 "SKILL.md",
+                posix.join("agents", "openai.yaml"),
                 posix.join("references", "skill-authoring.md"),
                 posix.join("references", "existing-workflow.md"),
                 posix.join("references", "oo-powered.md"),
@@ -198,6 +219,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "claude").map(
@@ -205,6 +227,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "hermes").map(
@@ -212,6 +235,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "codebuddy").map(
@@ -219,6 +243,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "workbuddy").map(
@@ -226,6 +251,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "trae").map(
@@ -233,6 +259,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "trae-cn").map(
@@ -240,6 +267,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "openclaw").map(
@@ -247,6 +275,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "qoderwork").map(
@@ -254,6 +283,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
         expect(
             getBundledSkillFiles("oo-publish-skill", "deepseek-tui").map(
@@ -261,6 +291,7 @@ describe("embedded skill assets", () => {
             ),
         ).toEqual([
             "SKILL.md",
+            "agents/openai.yaml",
         ]);
     });
 

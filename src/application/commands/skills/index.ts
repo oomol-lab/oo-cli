@@ -1,6 +1,7 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { skillsAdoptCommand } from "./adopt.ts";
+import { skillsAutoTriggerCommand } from "./auto-trigger/index.ts";
 import { skillsCheckUpdateCommand } from "./check-update.ts";
 import { skillsCheckCommand } from "./check.ts";
 import { skillsInitCommand } from "./init.ts";
@@ -37,6 +38,7 @@ export const skillsCommand: CliCommandDefinition = {
         skillsUninstallCommand,
         skillsRepairCommand,
         skillsCheckUpdateCommand,
+        skillsAutoTriggerCommand,
         skillsRecommendCommand,
     ],
 };

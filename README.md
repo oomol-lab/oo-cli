@@ -88,6 +88,11 @@ Bundled skills are kept in sync with each `oo` release. See the
 [command reference](./docs/commands.md) for the exact skill targets and how to
 manage them manually.
 
+Agents may use a bundled skill on their own when a request matches it. To make
+them wait until you ask by name, run `oo skills auto-trigger off --all` (or name
+individual skills). The skills stay installed and invocable — `/oo` in Claude
+Code, `$oo` in Codex.
+
 ## Privacy
 
 `oo` records privacy-constrained telemetry by default. Events do not include
