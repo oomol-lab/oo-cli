@@ -1,3 +1,4 @@
+import type { CliSandbox } from "../../../../__tests__/helpers.ts";
 import type { Fetcher } from "../../contracts/cli.ts";
 
 import { join } from "node:path";
@@ -9,6 +10,7 @@ import {
     expectTelemetryFreeOfTeamIdentity,
     toRequest,
     writeAuthFile,
+    writeAuthFileWithDefaultTeam,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
@@ -40,8 +42,7 @@ describe("teamCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
 
             const requests: Request[] = [];
             const result = await sandbox.run(["team", "list", "--json"], {
@@ -145,8 +146,7 @@ describe("teamCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
 
             const jsonResult = await sandbox.run(["team", "current", "--json"]);
             const textResult = await sandbox.run(["team", "current"]);
@@ -155,7 +155,7 @@ describe("teamCommand CLI", () => {
             expect(JSON.parse(jsonResult.stdout)).toEqual({
                 team: "acme",
                 teamId: null,
-                source: "config",
+                source: "account",
                 status: null,
             });
             expect(textResult.stdout).toContain("acme");
@@ -206,10 +206,12 @@ describe("teamCommand CLI", () => {
 
             expect(useResult.exitCode).toBe(0);
             expect(requests).toHaveLength(1);
+            // `oo team use` holds the membership listing, so the stored
+            // default carries the team id and `current` reports it offline.
             expect(JSON.parse(currentResult.stdout)).toEqual({
                 team: "beta",
-                teamId: null,
-                source: "config",
+                teamId: "team-2",
+                source: "account",
                 status: null,
             });
         }
@@ -246,8 +248,7 @@ describe("teamCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
 
             const clearResult = await sandbox.run(["team", "clear"]);
             const currentResult = await sandbox.run(["team", "current", "--json"]);
@@ -285,8 +286,7 @@ describe("teamCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "beta"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "beta");
             sandbox.env.OO_TEAM_ID = "team-1";
 
             const requests: Request[] = [];
@@ -423,8 +423,7 @@ describe("teamCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
             sandbox.env.OO_TEAM_NAME = "beta";
 
             const requests: Request[] = [];
@@ -485,8 +484,7 @@ describe("teamCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
             sandbox.env.OO_TEAM_ID = "team-2";
 
             const result = await sandbox.run(["team", "list", "--json"], {
@@ -530,8 +528,7 @@ describe("teamCommand CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
             sandbox.env.OO_TEAM_ID = "team-1";
 
             const clearResult = await sandbox.run(["team", "clear"]);
@@ -556,7 +553,212 @@ describe("teamCommand CLI", () => {
             await sandbox.cleanup();
         }
     });
+
+    test("backfills the team id of a default that only has a name", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
+
+            const listResult = await sandbox.run(["team", "list"], {
+                fetcher: async () => new Response(JSON.stringify(teamsResponse)),
+            });
+            const currentResult = await sandbox.run(["team", "current", "--json"]);
+
+            expect(listResult.exitCode).toBe(0);
+            // Listing already fetched the memberships, so the stored default
+            // gains its id without any extra request.
+            expect(JSON.parse(currentResult.stdout)).toMatchObject({
+                team: "acme",
+                teamId: "team-1",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("refuses to save a default team under OO_API_KEY", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            await writeAuthFile(sandbox);
+
+            let requested = false;
+            const useResult = await sandbox.run(["team", "use", "beta"], {
+                fetcher: async () => {
+                    requested = true;
+
+                    return new Response(JSON.stringify(teamsResponse));
+                },
+            });
+            const authContent = await readAuthFileContent(sandbox);
+
+            expect(useResult.exitCode).toBe(0);
+            expect(useResult.stdout).toContain("OO_API_KEY");
+            // No membership request and no write: there is no account under
+            // OO_API_KEY that could hold the default.
+            expect(requested).toBe(false);
+            expect(authContent).not.toContain("\nteam = ");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports that clearing does nothing under OO_API_KEY", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
+
+            const result = await sandbox.run(["team", "clear"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("OO_API_KEY");
+            // The saved account keeps its default; it simply does not apply
+            // while OO_API_KEY supplies the credential.
+            expect(await readAuthFileContent(sandbox)).toContain("team = \"acme\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
 });
+
+describe("legacy default team migration", () => {
+    test("moves the legacy setting onto the account on any command", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await writeLegacySettingsTeam(sandbox, "acme");
+
+            // A command with nothing to do with identity still migrates,
+            // because the migration runs in the bootstrap.
+            const versionResult = await sandbox.run(["--version"]);
+            const currentResult = await sandbox.run(["team", "current", "--json"]);
+
+            expect(versionResult.exitCode).toBe(0);
+            expect(await readAuthFileContent(sandbox)).toContain("team = \"acme\"");
+            expect(await readSettingsFileContent(sandbox)).not.toContain(
+                "\nteam = ",
+            );
+            expect(JSON.parse(currentResult.stdout)).toEqual({
+                team: "acme",
+                teamId: null,
+                source: "account",
+                status: null,
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps honouring the legacy setting while no account can hold it", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeLegacySettingsTeam(sandbox, "acme");
+
+            const currentResult = await sandbox.run(["team", "current", "--json"]);
+
+            // Nothing to migrate onto, so the value stays put and still
+            // resolves rather than silently becoming a personal identity.
+            expect(await readSettingsFileContent(sandbox)).toContain(
+                "team = \"acme\"",
+            );
+            expect(JSON.parse(currentResult.stdout)).toMatchObject({
+                team: "acme",
+                source: "account",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("leaves the legacy setting alone under OO_API_KEY", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            await writeAuthFile(sandbox);
+            await writeLegacySettingsTeam(sandbox, "acme");
+
+            const currentResult = await sandbox.run(["team", "current", "--json"]);
+
+            // OO_API_KEY runs as a personal identity, and the untouched value
+            // still applies the moment the variable is unset.
+            expect(JSON.parse(currentResult.stdout)).toEqual({
+                team: null,
+                teamId: null,
+                source: null,
+                status: null,
+            });
+            expect(await readSettingsFileContent(sandbox)).toContain(
+                "team = \"acme\"",
+            );
+            expect(await readAuthFileContent(sandbox)).not.toContain("\nteam = ");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("survives an unrelated settings write before migrating", async () => {
+        const sandbox = await createCliSandbox();
+
+        sandbox.env.OO_API_KEY = "env-key-1";
+
+        try {
+            await writeAuthFile(sandbox);
+            await writeLegacySettingsTeam(sandbox, "acme");
+
+            // Under OO_API_KEY the migration is skipped, so this write is the
+            // one that would otherwise erase a value nothing has moved yet.
+            const configResult = await sandbox.run(["config", "set", "lang", "zh"]);
+
+            expect(configResult.exitCode).toBe(0);
+            expect(await readSettingsFileContent(sandbox)).toContain(
+                "team = \"acme\"",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
+
+// Writes a settings.toml carrying the retired global default team, the state
+// an installation that predates the account-scoped default starts from.
+async function writeLegacySettingsTeam(
+    sandbox: CliSandbox,
+    team: string,
+): Promise<void> {
+    await Bun.write(
+        resolveStoreFilePath(sandbox, "settings.toml"),
+        `[identity]\nteam = "${team}"\n`,
+    );
+}
+
+async function readAuthFileContent(sandbox: CliSandbox): Promise<string> {
+    return await Bun.file(resolveStoreFilePath(sandbox, "auth.toml")).text();
+}
+
+async function readSettingsFileContent(sandbox: CliSandbox): Promise<string> {
+    return await Bun.file(resolveStoreFilePath(sandbox, "settings.toml")).text();
+}
+
+function resolveStoreFilePath(sandbox: CliSandbox, fileName: string): string {
+    return join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, fileName);
+}
 
 // Answers the singular team route with the first fixture team and records what
 // was asked, so a test can assert both the resolved name and the route used.

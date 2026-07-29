@@ -65,6 +65,14 @@ const forbiddenTelemetryDecisionPropertySuffixes = [
     "_username",
 ] as const;
 
+// Properties recorded outside any single command handler. The bootstrap runs
+// ahead of every command, so a property it records can land on any command
+// event and cannot be declared per command; it is documented here once and
+// held to the same privacy rules.
+const globalTelemetryDecisionProperties = {
+    team_default_migrated: "Records that this invocation moved the retired global default team onto the active account, so the compatibility layer can be removed once the value stops appearing. A boolean only, never the team name or id.",
+} as const;
+
 const commandTelemetryDecisions = {
     "auth": {
         kind: "generic",
@@ -150,7 +158,7 @@ const commandTelemetryDecisions = {
             "list_scope",
             "result_count_bucket",
         ],
-        reason: "Records bounded connector app list size, the connector target kind (oomol/self_hosted), the identity source (personal/flag/env_id/env_name/config), and whether the listing was scoped to all apps or one service, without app ids, connection names, account labels, team names or ids, or server URLs.",
+        reason: "Records bounded connector app list size, the connector target kind (oomol/self_hosted), the identity source (personal/flag/env_id/env_name/account), and whether the listing was scoped to all apps or one service, without app ids, connection names, account labels, team names or ids, or server URLs.",
     },
     "connector.login": {
         kind: "properties",
@@ -176,7 +184,7 @@ const commandTelemetryDecisions = {
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/env_id/env_name/config), and none/connectionName selector mode without the team name/id or connection name value.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/env_id/env_name/account), and none/connectionName selector mode without the team name/id or connection name value.",
     },
     "connector.proxy": {
         kind: "properties",
@@ -189,7 +197,7 @@ const commandTelemetryDecisions = {
             "identity_source",
             "method",
         ],
-        reason: "Records connector proxy bucketed payload size, method enum, identity source (personal/flag/env_id/env_name/config), stable error code, and HTTP status without service name, endpoint, headers, body, or team name/id.",
+        reason: "Records connector proxy bucketed payload size, method enum, identity source (personal/flag/env_id/env_name/account), stable error code, and HTTP status without service name, endpoint, headers, body, or team name/id.",
     },
     "connector.search": {
         kind: "properties",
@@ -199,7 +207,7 @@ const commandTelemetryDecisions = {
             "query_length_bucket",
             "result_count_bucket",
         ],
-        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (personal/flag/env_id/env_name/config) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
+        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (personal/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
     },
     "connector.schema": {
         kind: "properties",
@@ -298,15 +306,17 @@ const commandTelemetryDecisions = {
     "team.current": {
         kind: "properties",
         properties: ["has_configured_team", "team_source", "team_status"],
-        reason: "Records whether a default team identity is configured, which mechanism selects the effective team (env_id/env_name/config/none), and how the team name lookup ended (valid/not_a_member/not_found/deleted/request_failed/request_failed_sandbox/no_credential/none), without the team name or id.",
+        reason: "Records whether the account has a saved default team, which mechanism selects the effective team (env_id/env_name/account/none), and how the team name lookup ended (valid/not_a_member/not_found/deleted/request_failed/request_failed_sandbox/no_credential/none), without the team name or id.",
     },
     "team.use": {
-        kind: "generic",
-        reason: "Generic command telemetry is enough; the team name is never recorded.",
+        kind: "properties",
+        properties: ["credential_source"],
+        reason: "Records whether OO_API_KEY made the command a no-op (it has no saved account to hold a default team); the team name is never recorded.",
     },
     "team.clear": {
-        kind: "generic",
-        reason: "Generic command telemetry is enough; no team details are recorded.",
+        kind: "properties",
+        properties: ["credential_source"],
+        reason: "Records whether OO_API_KEY made the command a no-op; no team details are recorded.",
     },
     "search": {
         kind: "properties",
@@ -316,7 +326,7 @@ const commandTelemetryDecisions = {
             "query_length_bucket",
             "result_count_bucket",
         ],
-        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (personal/flag/env_id/env_name/config) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
+        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (personal/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
     },
     "skills": {
         kind: "generic",
@@ -615,6 +625,39 @@ describe("command telemetry decisions", () => {
                 decision.properties.length,
                 `${path} should document at least one telemetry property.`,
             ).toBeGreaterThan(0);
+        }
+    });
+
+    test("keeps globally recorded telemetry properties privacy-safe", () => {
+        const baseTelemetryPropertyNames = createBaseTelemetryPropertyNames();
+
+        for (const property of Object.keys(globalTelemetryDecisionProperties)) {
+            expect(
+                readForbiddenTelemetryDecisionPropertyReason(
+                    property,
+                    baseTelemetryPropertyNames,
+                ),
+                `global telemetry property ${property} must be privacy-safe.`,
+            ).toBeUndefined();
+        }
+    });
+
+    test("never documents a global property as a command-specific one", () => {
+        const globalProperties = new Set(
+            Object.keys(globalTelemetryDecisionProperties),
+        );
+
+        for (const [path, decision] of Object.entries(commandTelemetryDecisions)) {
+            if (decision.kind !== "properties") {
+                continue;
+            }
+
+            for (const property of decision.properties) {
+                expect(
+                    globalProperties.has(property),
+                    `${path} must not redeclare the globally recorded ${property}.`,
+                ).toBe(false);
+            }
         }
     });
 

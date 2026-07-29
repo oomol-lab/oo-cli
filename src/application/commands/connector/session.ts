@@ -6,17 +6,17 @@
 // ladder with its execution gate, and the identity telemetry.
 //
 // The self-hosted runtime is single-user and has no team concept: an explicit
-// --team is a hard error, while a configured `identity.team` default or a
-// team env override is silently ignored so a shared config does not break
-// self-hosted usage. This module is the only place that rule exists.
+// --team is a hard error, while the account's default team or a team env
+// override is silently ignored so a shared config does not break self-hosted
+// usage. This module is the only place that rule exists.
 
 import type { CliExecutionContext, CliOptionDefinition } from "../../contracts/cli.ts";
 import type { TeamIdentity } from "../team/identity.ts";
 import type { ConnectorTarget } from "./target.ts";
 
 import { z } from "zod";
+import { readDefaultTeam } from "../../auth/default-team.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import {
     requireValidTeamIdentity,
     resolveTeamIdentity,
@@ -49,8 +49,8 @@ export type ConnectorSessionContext = Pick<
  * Guards fire before any resolution: combining the two flags or passing a
  * blank `--team` is a usage error, and a self-hosted target rejects `--team`
  * outright. The team identity then resolves through the one ladder
- * (`--personal` > `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > `identity.team` >
- * personal) with the target's credential backing the env lookups, and
+ * (`--personal` > `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the account
+ * default > personal) with the target's credential backing the env lookups, and
  * `requireValidTeamIdentity` gates execution on the outcome.
  *
  * `resolveAgainstBackend: false` (a dry run) keeps the resolution fully
@@ -81,7 +81,6 @@ export async function resolveConnectorSession(
         throw new CliUserError("errors.connector.teamUnsupported", 2);
     }
 
-    const settings = await context.settingsStore.read();
     const identity = target.kind === "self_hosted"
         ? undefined
         : requireValidTeamIdentity(
@@ -94,7 +93,7 @@ export async function resolveConnectorSession(
                             apiKey: target.authorization,
                             endpoint: target.accountEndpoint,
                         },
-                        configuredTeam: getConfiguredIdentityTeam(settings),
+                        defaultTeam: await readDefaultTeam(context),
                         teamFlag,
                         personalFlag: options.personal === true,
                         resolveAgainstBackend: options.resolveAgainstBackend !== false,

@@ -19,6 +19,7 @@ import {
     runPrintedAuthLogin,
     toRequest,
     writeAuthFile,
+    writeAuthFileWithDefaultTeam,
     writeConnectorFile,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
@@ -2215,20 +2216,18 @@ function readCommandTelemetryProperties(
 }
 
 describe("auth CLI login default team", () => {
-    function readSettingsFilePath(sandbox: {
+    // The default team is stored on the saved account, so every assertion in
+    // this block reads auth.toml rather than settings.toml.
+    function readAuthFilePath(sandbox: {
         env: Record<string, string | undefined>;
     }): string {
-        return join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "settings.toml");
+        return join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "auth.toml");
     }
 
-    // The settings file may not exist yet when login never persisted a
-    // default team; treat a missing file as empty content.
-    async function readOptionalSettingsContent(sandbox: {
+    async function readAuthContent(sandbox: {
         env: Record<string, string | undefined>;
     }): Promise<string> {
-        const settingsFile = Bun.file(readSettingsFilePath(sandbox));
-
-        return (await settingsFile.exists()) ? await settingsFile.text() : "";
+        return await readFile(readAuthFilePath(sandbox), "utf8");
     }
 
     test("adopts the system-created team and persists it as the default", async () => {
@@ -2236,10 +2235,7 @@ describe("auth CLI login default team", () => {
 
         try {
             const result = await runPrintedAuthLogin(sandbox, "secret-1");
-            const settingsContent = await readFile(
-                readSettingsFilePath(sandbox),
-                "utf8",
-            );
+            const authContent = await readAuthContent(sandbox);
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
@@ -2247,7 +2243,8 @@ describe("auth CLI login default team", () => {
                 "Default team identity: alice-team",
             );
             expect(result.stdout).not.toContain("You belong to");
-            expect(settingsContent).toContain("team = \"alice-team\"");
+            expect(authContent).toContain("team = \"alice-team\"");
+            expect(authContent).toContain("team_id = \"team-system-1\"");
 
             // Only the selection enum and the bounded count reach telemetry.
             const telemetryProperties = readCommandTelemetryProperties(
@@ -2323,10 +2320,7 @@ describe("auth CLI login default team", () => {
                     ],
                 },
             });
-            const settingsContent = await readFile(
-                readSettingsFilePath(sandbox),
-                "utf8",
-            );
+            const authContent = await readAuthContent(sandbox);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toContain("Default team identity: beta");
@@ -2334,7 +2328,7 @@ describe("auth CLI login default team", () => {
                 "You belong to 2 teams: alice-team, beta. Switch with `oo team use <name>`.",
             );
             expect(result.stdout).not.toContain("…");
-            expect(settingsContent).toContain("team = \"beta\"");
+            expect(authContent).toContain("team = \"beta\"");
 
             const telemetryProperties = readCommandTelemetryProperties(
                 sandbox,
@@ -2377,9 +2371,7 @@ describe("auth CLI login default team", () => {
             expect(await readFile(authFilePath, "utf8")).toContain(
                 "id = \"user-1\"",
             );
-            expect(await readOptionalSettingsContent(sandbox))
-                .not
-                .toContain("\nteam = ");
+            expect(await readAuthContent(sandbox)).not.toContain("\nteam = ");
         }
         finally {
             await sandbox.cleanup();
@@ -2407,11 +2399,7 @@ describe("auth CLI login default team", () => {
             expect(await readFile(authFilePath, "utf8")).toContain(
                 "id = \"user-1\"",
             );
-            // The commented settings template mentions `# team = ...`, so only
-            // an uncommented assignment counts as a persisted default.
-            expect(await readOptionalSettingsContent(sandbox))
-                .not
-                .toContain("\nteam = ");
+            expect(await readAuthContent(sandbox)).not.toContain("\nteam = ");
         }
         finally {
             await sandbox.cleanup();
@@ -2439,11 +2427,11 @@ describe("auth CLI login default team", () => {
         }
     });
 
-    test("keeps a still-valid configured team on re-login", async () => {
+    test("keeps the account's still-valid default team on re-login", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await sandbox.run(["config", "set", "identity.team", "beta"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "beta");
 
             const result = await runPrintedAuthLogin(sandbox, "secret-1", {
                 teamsResponse: {
@@ -2458,14 +2446,14 @@ describe("auth CLI login default team", () => {
                     ],
                 },
             });
-            const settingsContent = await readFile(
-                readSettingsFilePath(sandbox),
-                "utf8",
-            );
+            const authContent = await readAuthContent(sandbox);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toContain("Default team identity: beta");
-            expect(settingsContent).toContain("team = \"beta\"");
+            expect(authContent).toContain("team = \"beta\"");
+            // The kept default gains the id it was missing, because this
+            // login already fetched the membership listing.
+            expect(authContent).toContain("team_id = \"team-2\"");
 
             const telemetryProperties = readCommandTelemetryProperties(
                 sandbox,
@@ -2473,7 +2461,7 @@ describe("auth CLI login default team", () => {
             );
             expect(telemetryProperties).toMatchObject({
                 team_count_bucket: "1-5",
-                team_selection: "kept_config",
+                team_selection: "kept_existing",
             });
         }
         finally {
@@ -2485,23 +2473,20 @@ describe("auth CLI login default team", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await sandbox.run(["config", "set", "identity.team", "ghost"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "ghost");
 
             const result = await runPrintedAuthLogin(sandbox, "secret-1", {
                 teamsResponse: {
                     teams: [{ id: "team-2", name: "beta", role: "member", system_created: false }],
                 },
             });
-            const settingsContent = await readFile(
-                readSettingsFilePath(sandbox),
-                "utf8",
-            );
+            const authContent = await readAuthContent(sandbox);
 
-            // No membership carries system_created, so the stale configured
+            // No membership carries system_created, so the stale stored
             // default is left alone instead of being replaced or cleared.
             expect(result.exitCode).toBe(0);
             expect(result.stdout).not.toContain("Default team identity:");
-            expect(settingsContent).toContain("team = \"ghost\"");
+            expect(authContent).toContain("team = \"ghost\"");
             expect(readCommandTelemetryProperties(sandbox, "auth.login"))
                 .toMatchObject({ team_selection: "none" });
         }
@@ -2521,9 +2506,7 @@ describe("auth CLI login default team", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).not.toContain("Default team identity:");
             expect(result.stdout).not.toContain("You belong to");
-            expect(await readOptionalSettingsContent(sandbox))
-                .not
-                .toContain("\nteam = ");
+            expect(await readAuthContent(sandbox)).not.toContain("\nteam = ");
             expect(readCommandTelemetryProperties(sandbox, "auth.login"))
                 .toMatchObject({
                     team_count_bucket: "0",
@@ -2535,24 +2518,21 @@ describe("auth CLI login default team", () => {
         }
     });
 
-    test("replaces a stale configured team with the system-created default", async () => {
+    test("replaces a stale stored team with the system-created default", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await sandbox.run(["config", "set", "identity.team", "ghost"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "ghost");
 
             const result = await runPrintedAuthLogin(sandbox, "secret-1");
-            const settingsContent = await readFile(
-                readSettingsFilePath(sandbox),
-                "utf8",
-            );
+            const authContent = await readAuthContent(sandbox);
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toContain(
                 "Default team identity: alice-team",
             );
-            expect(settingsContent).toContain("team = \"alice-team\"");
-            expect(settingsContent).not.toContain("team = \"ghost\"");
+            expect(authContent).toContain("team = \"alice-team\"");
+            expect(authContent).not.toContain("team = \"ghost\"");
         }
         finally {
             await sandbox.cleanup();
@@ -2571,9 +2551,7 @@ describe("auth CLI login default team", () => {
             expect(result.stdout).toContain(
                 "Could not load your teams, so the default team identity is unchanged.",
             );
-            expect(await readOptionalSettingsContent(sandbox))
-                .not
-                .toContain("\nteam = ");
+            expect(await readAuthContent(sandbox)).not.toContain("\nteam = ");
 
             // No membership data resolved, so no count bucket is recorded.
             const telemetryProperties = readCommandTelemetryProperties(
@@ -2607,8 +2585,7 @@ describe("auth CLI login default team", () => {
             );
             // The default is still persisted; only its effect is deferred
             // while the env override is set.
-            expect(await readFile(readSettingsFilePath(sandbox), "utf8"))
-                .toContain("team = \"alice-team\"");
+            expect(await readAuthContent(sandbox)).toContain("team = \"alice-team\"");
         }
         finally {
             await sandbox.cleanup();
@@ -2683,8 +2660,7 @@ describe("auth CLI login default team", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toContain("Default team identity: beta");
-            expect(await readFile(readSettingsFilePath(sandbox), "utf8"))
-                .toContain("team = \"beta\"");
+            expect(await readAuthContent(sandbox)).toContain("team = \"beta\"");
         }
         finally {
             await sandbox.cleanup();
@@ -2729,8 +2705,7 @@ describe("auth CLI status default team", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
 
             const fetcher = async (): Promise<Response> =>
                 new Response(null, { status: 200 });
@@ -2742,12 +2717,12 @@ describe("auth CLI status default team", () => {
             expect(textResult.exitCode).toBe(0);
             expect(textResult.stdout).toContain("- Default team: acme");
             expect(jsonResult.exitCode).toBe(0);
-            // A config default already carries its name, so no lookup runs and
-            // there is no status to report.
+            // The account default already carries its name, so no lookup runs
+            // and there is no status to report.
             expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
                 name: "acme",
                 id: null,
-                source: "config",
+                source: "account",
                 status: null,
             });
 
@@ -2757,7 +2732,7 @@ describe("auth CLI status default team", () => {
                 "auth.status",
             );
             expect(telemetryProperties).toMatchObject({
-                team_source: "config",
+                team_source: "account",
                 team_status: "none",
             });
             expectTelemetryFreeOfTeamIdentity(telemetryProperties, ["acme"]);
@@ -2767,13 +2742,13 @@ describe("auth CLI status default team", () => {
         }
     });
 
-    test("reports the default team alongside the OO_API_KEY identity", async () => {
+    test("reports the personal identity under OO_API_KEY despite a saved default", async () => {
         const sandbox = await createCliSandbox();
 
         sandbox.env.OO_API_KEY = "env-key-1";
 
         try {
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
 
             const fetcher = async (): Promise<Response> =>
                 new Response(null, { status: 200 });
@@ -2787,18 +2762,19 @@ describe("auth CLI status default team", () => {
                 envOverride?: unknown;
             };
 
-            // The team default is orthogonal to the credential source, so the
-            // env-credential block reports it too.
+            // OO_API_KEY may be a different account's credential, so no saved
+            // default applies to it; pinning a team there means OO_TEAM_ID /
+            // OO_TEAM_NAME.
             expect(textResult.exitCode).toBe(0);
-            expect(textResult.stdout).toContain("- Default team: acme");
+            expect(textResult.stdout).toContain(
+                "- Default team: personal (no default team)",
+            );
             expect(payload.status).toBe("logged-in");
             expect(payload.envOverride).toBeDefined();
-            expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
-                name: "acme",
-                id: null,
-                source: "config",
-                status: null,
-            });
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toBeUndefined();
+
+            expect(readCommandTelemetryProperties(sandbox, "auth.status"))
+                .toMatchObject({ team_source: "none", team_status: "none" });
         }
         finally {
             await sandbox.cleanup();
@@ -2811,8 +2787,7 @@ describe("auth CLI status default team", () => {
         sandbox.env.OO_TEAM_ID = "team-42";
 
         try {
-            await writeAuthFile(sandbox);
-            await sandbox.run(["config", "set", "identity.team", "acme"]);
+            await writeAuthFileWithDefaultTeam(sandbox, "acme");
 
             const requests: Request[] = [];
             const fetcher = createAuthStatusFetcher(requests);

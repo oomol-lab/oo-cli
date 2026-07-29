@@ -32,8 +32,11 @@ const telemetrySettingsShape = {
 const telemetrySettingsReadSchema = z.object(telemetrySettingsShape);
 const telemetrySettingsSchema = z.object(telemetrySettingsShape).strict();
 
+// Legacy home of the default team identity, kept readable so an installation
+// that predates the account-scoped default still resolves one. Nothing writes
+// it any more: it is migrated into the active account on the next run and
+// deleted from here (see auth/default-team.ts, which owns both halves).
 const identitySettingsShape = {
-    // The default team used to authenticate `oo connector run`.
     team: z.string().trim().min(1).optional(),
 };
 
@@ -109,14 +112,6 @@ const defaultSettingsCommentBlocks = [
         "# muted = false",
         "# dismissed = [\"oo-gmail\"]",
     ],
-    [
-        "# identity.team sets the default team used to authenticate `oo connector run`.",
-        "# Default: unset (runs under your personal identity).",
-        "# Supported values: any non-empty team name.",
-        "# Override per run with `--team <name>`, or force personal with `--personal`.",
-        "# [identity]",
-        "# team = \"acme\"",
-    ],
 ] as const;
 
 export function renderSettingsFile(settings: AppSettings): string {
@@ -143,6 +138,10 @@ export function renderSettingsFile(settings: AppSettings): string {
         };
     }
 
+    // Written back verbatim rather than dropped: the value is legacy, but
+    // until the migration has moved it into an account it is still the only
+    // record of the user's default team, and an unrelated settings write
+    // (`oo config set lang`, `oo telemetry disable`) must not erase it.
     if (parsedSettings.identity?.team !== undefined) {
         persistedSettings.identity = {
             team: parsedSettings.identity.team,
@@ -243,26 +242,18 @@ export function unsetTelemetryEnabled(
     return deleteNestedProperty(settings, ["telemetry", "enabled"]);
 }
 
-export function getConfiguredIdentityTeam(
+/**
+ * Reads the legacy global default team. Only the migration consumes this;
+ * every other caller asks the account for its default team.
+ */
+export function getLegacyIdentityTeam(
     settings: AppSettings,
 ): string | undefined {
     return settings.identity?.team;
 }
 
-export function setIdentityTeam(
-    settings: AppSettings,
-    value: string,
-): AppSettings {
-    return {
-        ...settings,
-        identity: {
-            ...settings.identity,
-            team: value,
-        },
-    };
-}
-
-export function unsetIdentityTeam(
+/** Drops the legacy global default team once it has been migrated. */
+export function unsetLegacyIdentityTeam(
     settings: AppSettings,
 ): AppSettings {
     if (settings.identity?.team === undefined) {

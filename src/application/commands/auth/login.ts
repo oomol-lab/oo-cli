@@ -7,6 +7,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import type { TeamView } from "../team/shared.ts";
 
 import { z } from "zod";
+import { writeDefaultTeam } from "../../auth/default-team.ts";
 import {
     buildEnvApiKeyAccount,
     resolveLoginEndpoint,
@@ -17,11 +18,7 @@ import {
     startAuthLoginSession,
 } from "../../auth/login-flow.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { upsertAuthAccount } from "../../schemas/auth.ts";
-import {
-    getConfiguredIdentityTeam,
-    setIdentityTeam,
-} from "../../schemas/settings.ts";
+import { getCurrentAuthAccount, upsertAuthAccount } from "../../schemas/auth.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { writeLine } from "../shared/output.ts";
@@ -53,11 +50,11 @@ const authLoginCommandInputSchema = z.object({
 );
 
 // Which mechanism decided the default team after login. `flag` is an explicit
-// `--team`, `kept_config` preserves a still-valid `identity.team`,
+// `--team`, `kept_existing` preserves the account's still-valid default,
 // `system_default` adopts the backend-provisioned team, `none` found nothing
 // to adopt, and `unresolved` means the membership request failed.
 type LoginTeamSelection
-    = "flag" | "kept_config" | "none" | "system_default" | "unresolved";
+    = "flag" | "kept_existing" | "none" | "system_default" | "unresolved";
 
 // How many team names the multi-team hint spells out before truncating with
 // an ellipsis.
@@ -147,7 +144,12 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
             );
         }
 
-        await applyLoginTeamIdentity(account, input.team, context);
+        await applyLoginTeamIdentity(
+            account,
+            getCurrentAuthAccount(nextAuthFile)?.team,
+            input.team,
+            context,
+        );
 
         // Connector routing does not change with this login: a configured
         // self-hosted connector keeps handling connector commands, which is
@@ -237,13 +239,14 @@ function mapLoginInputError(
     return new CliUserError("errors.auth.sessionTokenRequired", 2);
 }
 
-// Persists the default team identity (`identity.team`) right after login so
-// later commands run as a team by default. An explicit `--team` must fail
-// loudly (the caller asked for exactly that team), while the implicit flow is
+// Persists the account's default team identity right after login so later
+// commands run as a team by default. An explicit `--team` must fail loudly
+// (the caller asked for exactly that team), while the implicit flow is
 // tolerant: login already succeeded, so a failed membership request only
 // prints a hint instead of flipping the exit code.
 async function applyLoginTeamIdentity(
     account: AuthAccount,
+    storedTeam: string | undefined,
     requestedTeam: string | undefined,
     context: CliExecutionContext,
 ): Promise<void> {
@@ -272,6 +275,7 @@ async function applyLoginTeamIdentity(
     }
 
     const selection = await resolveLoginTeamSelection(
+        storedTeam,
         requestedTeam,
         teams,
         context,
@@ -309,7 +313,9 @@ async function applyLoginTeamIdentity(
     const effectiveIdentity = await resolveTeamIdentity(
         {
             account: undefined,
-            configuredTeam: selection.team,
+            defaultTeam: selection.team === undefined
+                ? undefined
+                : { id: null, name: selection.team },
             resolveAgainstBackend: false,
         },
         context,
@@ -326,35 +332,36 @@ async function applyLoginTeamIdentity(
 }
 
 // Picks the default team and persists it when it changes. Precedence:
-// an explicit `--team` (must be a membership), then a still-valid configured
-// `identity.team` (a re-login must not clobber a deliberate `oo team use`),
-// then the backend-provisioned `system_created` team. A stale configured team
-// is replaced rather than kept: after switching accounts the old name is not
-// usable anyway.
+// an explicit `--team` (must be a membership), then the account's still-valid
+// stored default (a re-login must not clobber a deliberate `oo team use`),
+// then the backend-provisioned `system_created` team. A stale stored team is
+// replaced rather than kept: it is not usable on this account anyway.
 async function resolveLoginTeamSelection(
+    storedTeam: string | undefined,
     requestedTeam: string | undefined,
     teams: readonly TeamView[],
     context: CliExecutionContext,
 ): Promise<{ kind: LoginTeamSelection; team?: string }> {
     if (requestedTeam !== undefined) {
-        if (!teams.some(team => team.name === requestedTeam)) {
+        const team = teams.find(candidate => candidate.name === requestedTeam);
+
+        if (team === undefined) {
             throw new CliUserError("errors.team.notAccessible", 1, {
                 team: requestedTeam,
             });
         }
 
-        await persistLoginTeamIdentity(requestedTeam, context);
-        return { kind: "flag", team: requestedTeam };
+        await persistLoginTeamIdentity(team, context);
+        return { kind: "flag", team: team.name };
     }
 
-    const settings = await context.settingsStore.read();
-    const configuredTeam = getConfiguredIdentityTeam(settings);
+    const keptTeam = teams.find(team => team.name === storedTeam);
 
-    if (
-        configuredTeam !== undefined
-        && teams.some(team => team.name === configuredTeam)
-    ) {
-        return { kind: "kept_config", team: configuredTeam };
+    if (keptTeam !== undefined) {
+        // Already stored, but possibly without its id — this login has the
+        // membership listing in hand, so it completes the record for free.
+        await persistLoginTeamIdentity(keptTeam, context);
+        return { kind: "kept_existing", team: keptTeam.name };
     }
 
     const systemTeam = teams.find(team => team.systemCreated);
@@ -363,17 +370,15 @@ async function resolveLoginTeamSelection(
         return { kind: "none" };
     }
 
-    await persistLoginTeamIdentity(systemTeam.name, context);
+    await persistLoginTeamIdentity(systemTeam, context);
     return { kind: "system_default", team: systemTeam.name };
 }
 
 async function persistLoginTeamIdentity(
-    teamName: string,
+    team: TeamView,
     context: CliExecutionContext,
 ): Promise<void> {
-    await context.settingsStore.update(settings =>
-        setIdentityTeam(settings, teamName),
-    );
+    await writeDefaultTeam(context, { id: team.id, name: team.name });
     context.logger.info(
         { teamConfigured: true },
         "Default team identity persisted after login.",

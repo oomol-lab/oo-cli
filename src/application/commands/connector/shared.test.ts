@@ -297,7 +297,7 @@ describe("connector shared requests", () => {
                 identity: {
                     name: "acme",
                     id: null,
-                    source: "config",
+                    source: "account",
                     status: null,
                 },
                 inputData: {
@@ -514,7 +514,7 @@ describe("connector shared requests", () => {
                 identity: {
                     name: "acme",
                     id: null,
-                    source: "config",
+                    source: "account",
                     status: null,
                 },
                 proxyRequest: {

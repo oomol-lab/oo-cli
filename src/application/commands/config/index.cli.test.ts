@@ -125,63 +125,29 @@ describe("config CLI", () => {
         }
     });
 
-    test("supports the identity team config key", async () => {
+    test("no longer accepts the retired identity team config key", async () => {
         const sandbox = await createCliSandbox();
 
         try {
+            // The default team moved onto the account (auth.toml), so this key
+            // is gone rather than redirected: writing it here would record a
+            // default that belongs to no account in particular.
             const setResult = await sandbox.run([
                 "config",
                 "set",
                 "identity.team",
                 "acme",
             ]);
-            const listResult = await sandbox.run(["config", "list"]);
             const getResult = await sandbox.run([
                 "config",
                 "get",
                 "identity.team",
             ]);
-            const unsetResult = await sandbox.run([
-                "config",
-                "unset",
-                "identity.team",
-            ]);
-            const getAfterUnsetResult = await sandbox.run([
-                "config",
-                "get",
-                "identity.team",
-            ]);
+            const listResult = await sandbox.run(["config", "list"]);
 
-            expect({
-                get: createCliSnapshot(getResult),
-                getAfterUnset: createCliSnapshot(getAfterUnsetResult),
-                list: createCliSnapshot(listResult),
-                set: createCliSnapshot(setResult),
-                unset: createCliSnapshot(unsetResult),
-            }).toMatchSnapshot();
-            expect(setResult.stdout).toContain("Set identity.team to acme.");
-            expect(listResult.stdout).toContain("identity.team=acme");
-            expect(getResult.stdout).toContain("acme");
-            expect(getAfterUnsetResult.stdout).not.toContain("acme");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("rejects an empty identity team config value", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            const result = await sandbox.run([
-                "config",
-                "set",
-                "identity.team",
-                "   ",
-            ]);
-
-            expect(result.exitCode).toBe(2);
-            expect(result.stderr).toContain("Invalid identity.team value");
+            expect(setResult.exitCode).toBe(2);
+            expect(getResult.exitCode).toBe(2);
+            expect(listResult.stdout).not.toContain("identity.team");
         }
         finally {
             await sandbox.cleanup();

@@ -5,8 +5,8 @@ import type {
     TeamNameStatus,
 } from "./identity.ts";
 import { z } from "zod";
+import { readDefaultTeam } from "../../auth/default-team.ts";
 import { resolveIdentity } from "../../auth/identity.ts";
-import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { writeLine } from "../shared/output.ts";
 import {
     appendTeamIdentityStatus,
@@ -16,12 +16,12 @@ import {
 } from "./identity.ts";
 
 // `source` says which mechanism selects the team: the OO_TEAM_ID /
-// OO_TEAM_NAME env override, the `identity.team` config default, or none
+// OO_TEAM_NAME env override, the account's saved default, or none
 // (personal). `team` carries the name and `teamId` the id.
 //
 // `status` reports how the backend lookup ended and is `null` whenever none
 // was attempted — env-selected identities are looked up in whichever
-// direction they are missing, a config name never is.
+// direction they are missing, a saved default never is.
 interface TeamCurrentJsonPayload {
     team: string | null;
     teamId: string | null;
@@ -31,13 +31,13 @@ interface TeamCurrentJsonPayload {
 
 // Reports the team identity that connector commands use when no `--team` /
 // `--personal` flag is given: the OO_TEAM_ID / OO_TEAM_NAME env override when
-// set, otherwise the `identity.team` config default.
+// set, otherwise the active account's saved default team.
 //
 // An env-selected identity starts out with only the dimension the variable
 // supplies, which tells a reader nothing about the most common
 // misconfiguration there is — a team the account cannot actually use. Those
 // identities, and only those, spend one request to complete and validate the
-// other dimension. The config default stays offline, as does an
+// other dimension. The account default stays offline, as does an
 // unauthenticated run: having no account skips the lookup rather than failing
 // the command, so reading the local default never requires a login.
 export const teamCurrentCommand: CliCommandDefinition = {
@@ -47,18 +47,17 @@ export const teamCurrentCommand: CliCommandDefinition = {
     output: "standard",
     inputSchema: z.object({}),
     handler: async (_input, context) => {
-        const [settings, { account }] = await Promise.all([
-            context.settingsStore.read(),
+        const [defaultTeam, { account }] = await Promise.all([
+            readDefaultTeam(context),
             resolveIdentity(context),
         ]);
-        const configuredTeam = getConfiguredIdentityTeam(settings);
         const identity = await resolveTeamIdentity(
-            { account, configuredTeam, resolveAgainstBackend: true },
+            { account, defaultTeam, resolveAgainstBackend: true },
             context,
         );
 
         context.telemetry?.recordProperties({
-            has_configured_team: configuredTeam !== undefined,
+            has_configured_team: defaultTeam !== undefined,
             team_source: identity?.source ?? "none",
             team_status: teamNameStatusForTelemetry(identity),
         });
@@ -81,10 +80,10 @@ export const teamCurrentCommand: CliCommandDefinition = {
 
             const teamValue = formatTeamIdentityValue(identity, context.translator);
 
-            if (identity.source === "config") {
+            if (identity.source === "account") {
                 writeLine(
                     context.stdout,
-                    context.translator.t("team.current.text.configured", {
+                    context.translator.t("team.current.text.accountDefault", {
                         team: teamValue,
                     }),
                 );
@@ -107,15 +106,15 @@ export const teamCurrentCommand: CliCommandDefinition = {
                 ),
             );
 
-            // The config default is still on disk and takes over the moment the
+            // The saved default is still on disk and takes over the moment the
             // variable is unset, so saying so here heads off a later "my default
             // did not apply" report.
-            if (configuredTeam !== undefined && identity.envVar !== undefined) {
+            if (defaultTeam !== undefined && identity.envVar !== undefined) {
                 writeLine(
                     context.stdout,
-                    context.translator.t("team.current.text.configIgnored", {
+                    context.translator.t("team.current.text.accountDefaultIgnored", {
                         envVar: identity.envVar,
-                        team: configuredTeam,
+                        team: defaultTeam.name,
                     }),
                 );
             }
