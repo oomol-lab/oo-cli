@@ -75,8 +75,8 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the active account's
   default team > your personal identity.
 - `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
-  synchronization and legacy-cleanup side effects, so the CLI writes no skill
-  files into agent home directories such as `~/.agents` or `~/.claude`.
+  synchronization, so the CLI writes no skill files into agent home directories
+  such as `~/.agents` or `~/.claude`.
 - `OO_NO_SELF_UPDATE`: A truthy value disables `oo update`, `oo install`, and
   `oo check-update` and forces self-update PATH modification off.
 
