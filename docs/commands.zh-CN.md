@@ -60,9 +60,8 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - Connector 相关命令按以下优先级解析团队身份：
   `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` >
   当前账号保存的默认团队 > 个人身份。
-- `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步与 legacy
-  清理副作用，使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill
-  文件。
+- `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步，
+  使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill 文件。
 - `OO_NO_SELF_UPDATE`：设为真值会禁用 `oo update`、`oo install` 和
   `oo check-update`，并强制关闭 self-update 的 PATH 改写。
 

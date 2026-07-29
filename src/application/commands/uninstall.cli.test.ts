@@ -281,7 +281,7 @@ describe("oo uninstall", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            // No bundled/preset skills present, so the plan is empty. A
+            // No bundled skills present, so the plan is empty. A
             // package-manager install must still surface binary guidance + exit 1.
             const homeDirectory = sandbox.env.HOME!;
 
