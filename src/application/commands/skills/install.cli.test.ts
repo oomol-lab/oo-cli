@@ -505,7 +505,17 @@ describe("skills install --out-dir export", () => {
         const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
 
         try {
-            await sandbox.run(["skills", "auto-trigger", "off", "--all"]);
+            // Asserted rather than fire-and-forget: this test proves the export
+            // ignores the local policy, so a setup run that silently failed
+            // would leave it green while proving nothing.
+            const disableResult = await sandbox.run([
+                "skills",
+                "auto-trigger",
+                "off",
+                "--all",
+            ]);
+
+            expect(disableResult.exitCode).toBe(0);
             sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
 
             const result = await sandbox.run(["skills", "add", "--out-dir", outDir]);

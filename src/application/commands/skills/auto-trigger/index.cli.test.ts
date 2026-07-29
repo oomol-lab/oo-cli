@@ -108,8 +108,15 @@ describe("skills auto-trigger CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await sandbox.run(["skills", "auto-trigger", "off", "oo-create-skill"]);
-            await sandbox.run(["skills", "auto-trigger", "off", "--all"]);
+            // Both setup runs are asserted: this test's expectations are the
+            // cleared state, so setup that silently failed would leave it green
+            // without ever having built the state it claims to clear.
+            for (const argv of [
+                ["skills", "auto-trigger", "off", "oo-create-skill"],
+                ["skills", "auto-trigger", "off", "--all"],
+            ]) {
+                expect((await sandbox.run(argv)).exitCode).toBe(0);
+            }
 
             const result = await sandbox.run(
                 ["skills", "auto-trigger", "on", "--all", "--json"],

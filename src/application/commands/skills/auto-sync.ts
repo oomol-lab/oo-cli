@@ -57,11 +57,7 @@ export async function synchronizeManagedSkillsForAvailableHosts(
         }
 
         await Promise.all([
-            synchronizeBundledSkills(
-                hosts,
-                context,
-                await readSkillAutoTriggerPolicy(context.settingsStore),
-            ),
+            synchronizeBundledSkills(hosts, context),
             synchronizeRegistrySkills(hosts, context),
         ]);
     }
@@ -75,11 +71,18 @@ export async function synchronizeManagedSkillsForAvailableHosts(
     }
 }
 
+// The policy is read here rather than by the caller so that a settings file
+// this run cannot parse fails only the bundled half. Registry synchronization
+// does not depend on the policy, and awaiting the read while the caller builds
+// its `Promise.all` array would stop it from ever being started.
 async function synchronizeBundledSkills(
     hosts: readonly ManagedSkillHost[],
     context: SkillSyncContext,
-    autoTriggerPolicy: SkillAutoTriggerPolicy,
 ): Promise<void> {
+    const autoTriggerPolicy = await readSkillAutoTriggerPolicy(
+        context.settingsStore,
+    );
+
     await Promise.all(
         hosts.flatMap(host =>
             availableBundledSkillNames.map(skillName =>
