@@ -1,8 +1,9 @@
+import type { AccountDefaultTeam } from "../../auth/default-team.ts";
 import type {
     CliCommandDefinition,
     CliExecutionContext,
 } from "../../contracts/cli.ts";
-import type { AuthAccount } from "../../schemas/auth.ts";
+import type { AuthAccount, AuthFile } from "../../schemas/auth.ts";
 
 import type { TeamView } from "../team/shared.ts";
 
@@ -146,7 +147,7 @@ export const authLoginCommand: CliCommandDefinition<AuthLoginCommandInput> = {
 
         await applyLoginTeamIdentity(
             account,
-            getCurrentAuthAccount(nextAuthFile)?.team,
+            readStoredDefaultTeam(nextAuthFile),
             input.team,
             context,
         );
@@ -246,7 +247,7 @@ function mapLoginInputError(
 // prints a hint instead of flipping the exit code.
 async function applyLoginTeamIdentity(
     account: AuthAccount,
-    storedTeam: string | undefined,
+    storedTeam: AccountDefaultTeam | undefined,
     requestedTeam: string | undefined,
     context: CliExecutionContext,
 ): Promise<void> {
@@ -334,10 +335,11 @@ async function applyLoginTeamIdentity(
 // Picks the default team and persists it when it changes. Precedence:
 // an explicit `--team` (must be a membership), then the account's still-valid
 // stored default (a re-login must not clobber a deliberate `oo team use`),
-// then the backend-provisioned `system_created` team. A stale stored team is
-// replaced rather than kept: it is not usable on this account anyway.
+// then the backend-provisioned `system_created` team. A stored default the
+// account can no longer use is replaced rather than kept; a renamed one is
+// not stale, which is why the match runs on the stored id.
 async function resolveLoginTeamSelection(
-    storedTeam: string | undefined,
+    storedTeam: AccountDefaultTeam | undefined,
     requestedTeam: string | undefined,
     teams: readonly TeamView[],
     context: CliExecutionContext,
@@ -355,11 +357,12 @@ async function resolveLoginTeamSelection(
         return { kind: "flag", team: team.name };
     }
 
-    const keptTeam = teams.find(team => team.name === storedTeam);
+    const keptTeam = findStoredTeam(teams, storedTeam);
 
     if (keptTeam !== undefined) {
-        // Already stored, but possibly without its id — this login has the
-        // membership listing in hand, so it completes the record for free.
+        // Re-persisted because the stored record may be incomplete or stale:
+        // this login has the membership listing in hand, so it backfills a
+        // missing id and refreshes a name the team has since changed.
         await persistLoginTeamIdentity(keptTeam, context);
         return { kind: "kept_existing", team: keptTeam.name };
     }
@@ -372,6 +375,38 @@ async function resolveLoginTeamSelection(
 
     await persistLoginTeamIdentity(systemTeam, context);
     return { kind: "system_default", team: systemTeam.name };
+}
+
+// The account's stored default, as the selection needs it. Reads the account
+// the upsert just saved, which carries the team fields forward from before the
+// login.
+function readStoredDefaultTeam(
+    authFile: AuthFile,
+): AccountDefaultTeam | undefined {
+    const account = getCurrentAuthAccount(authFile);
+
+    return account?.team === undefined
+        ? undefined
+        : { id: account.teamId ?? null, name: account.team };
+}
+
+// Finds the stored default among the memberships, by id whenever one is
+// stored. A renamed team keeps its id, so matching the stale name instead
+// would read a team the account still belongs to as gone and silently replace
+// a deliberate `oo team use` with the system-created default. Only a default
+// that never had an id — one migrated from the legacy global setting — falls
+// back to matching by name.
+function findStoredTeam(
+    teams: readonly TeamView[],
+    storedTeam: AccountDefaultTeam | undefined,
+): TeamView | undefined {
+    if (storedTeam === undefined) {
+        return undefined;
+    }
+
+    return storedTeam.id === null
+        ? teams.find(team => team.name === storedTeam.name)
+        : teams.find(team => team.id === storedTeam.id);
 }
 
 async function persistLoginTeamIdentity(

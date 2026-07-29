@@ -214,11 +214,11 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 
 - 当存在默认团队身份时，`oo auth status --json` 的输出——即上面的 `logged-in`
   形态——会携带一个可选的顶层 `team` 字段。`source` 表示由哪种机制选中
-  （`env_id`、`env_name` 或 `config`），`status` 报告团队查询的结果：
+  （`env_id`、`env_name` 或 `account`），`status` 报告团队查询的结果：
 
   ```json
   {
-    "team": { "name": "acme", "id": null, "source": "config", "status": null }
+    "team": { "name": "acme", "id": null, "source": "account", "status": null }
   }
   ```
 
@@ -233,7 +233,7 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   }
   ```
 
-  未尝试查询时 `status` 为 `null`（`config` 来源）。env 选定的身份下取值为
+  未尝试查询时 `status` 为 `null`（`account` 来源）。env 选定的身份下取值为
   `valid`、`not_a_member`、`not_found`、`deleted`、`request_failed`、
   `request_failed_sandbox` 或 `no_credential` 之一。只有 `status` 为 `valid`
   时查询补全的那一半才有值——`env_id` 下补全名称，`env_name` 下补全 id——
@@ -318,9 +318,10 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 ## 团队
 
 团队身份让 connector 命令（`oo connector run`、`oo connector proxy`、`oo connector
-apps`）以某个团队身份运行，而非个人账号：既可用每次运行的 `--team <name>`
-指定，也可用环境变量 `OO_TEAM_ID` / `OO_TEAM_NAME` 指定，还可保存在当前账号上
-作为默认值（优先级依此排序）。下列命令用于发现当前账号可用的团队并管理该默认值。
+apps`）以某个团队身份运行，而非个人账号。它由同一条优先级阶梯选出：先是每次运行的
+`--personal`（强制个人身份）或 `--team <name>`，其次是环境变量 `OO_TEAM_ID` /
+`OO_TEAM_NAME`，最后是保存在当前账号上的默认团队。下列命令用于发现当前账号可用的
+团队并管理该默认值。
 
 默认团队属于已保存的账号：用 `oo auth switch` 切换账号时默认团队随之切换，
 `oo auth logout` 会连同账号一起移除它。旧版本把默认团队保存在全局配置项

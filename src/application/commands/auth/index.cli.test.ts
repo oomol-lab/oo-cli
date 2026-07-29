@@ -2469,6 +2469,46 @@ describe("auth CLI login default team", () => {
         }
     });
 
+    test("keeps a renamed default team by its stored id on re-login", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "beta", {
+                teamId: "team-2",
+            });
+
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                teamsResponse: {
+                    teams: [
+                        {
+                            id: "team-system-1",
+                            name: "alice-team",
+                            role: "creator",
+                            system_created: true,
+                        },
+                        // Same team, renamed since it was chosen.
+                        { id: "team-2", name: "beta-corp", role: "member", system_created: false },
+                    ],
+                },
+            });
+            const authContent = await readAuthContent(sandbox);
+
+            // Matching on the stale name would read this as "no longer a
+            // membership" and silently replace a deliberate `oo team use` with
+            // the system-created default.
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Default team identity: beta-corp");
+            expect(authContent).toContain("team = \"beta-corp\"");
+            expect(authContent).toContain("team_id = \"team-2\"");
+            expect(authContent).not.toContain("alice-team");
+            expect(readCommandTelemetryProperties(sandbox, "auth.login"))
+                .toMatchObject({ team_selection: "kept_existing" });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("changes nothing when no system-created team matches", async () => {
         const sandbox = await createCliSandbox();
 

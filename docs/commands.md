@@ -258,11 +258,11 @@ Show every saved auth account and validate the API key of the active one.
 - When a default team identity is in effect, the `oo auth status --json` output
   — specifically its `logged-in` shape above — carries an optional top-level
   `team` field. `source` says which mechanism selected it (`env_id`, `env_name`
-  or `config`), and `status` reports the team lookup:
+  or `account`), and `status` reports the team lookup:
 
   ```json
   {
-    "team": { "name": "acme", "id": null, "source": "config", "status": null }
+    "team": { "name": "acme", "id": null, "source": "account", "status": null }
   }
   ```
 
@@ -277,7 +277,7 @@ Show every saved auth account and validate the API key of the active one.
   }
   ```
 
-  `status` is `null` whenever no lookup was attempted (the `config` source).
+  `status` is `null` whenever no lookup was attempted (the `account` source).
   For an env-selected identity it is one of `valid`, `not_a_member`,
   `not_found`, `deleted`, `request_failed`, `request_failed_sandbox`, or
   `no_credential`. The looked-up half is filled only when `status` is `valid`
@@ -377,11 +377,11 @@ Alias for `oo auth logout`.
 ## Teams
 
 Team identity lets connector commands (`oo connector run`, `oo connector proxy`,
-`oo connector apps`) act as a team instead of your personal account, selected
-per run with `--team <name>`, per environment with `OO_TEAM_ID` /
-`OO_TEAM_NAME`, or as a default saved on the active account (precedence in that
-order). These commands help discover which teams your account can use and
-manage that default.
+`oo connector apps`) act as a team instead of your personal account. One ladder
+selects it: the per-run `--personal` (force your personal identity) or `--team
+<name>` first, then the `OO_TEAM_ID` / `OO_TEAM_NAME` environment overrides,
+then the default saved on the active account. These commands help discover
+which teams your account can use and manage that default.
 
 The default team belongs to the saved account, so switching accounts with
 `oo auth switch` switches the default with it, and `oo auth logout` removes it
