@@ -14,6 +14,7 @@ import {
     readLatestLogContent,
     toRequest,
     writeAuthFile,
+    writeAuthFileWithDefaultTeam,
     writeConnectorFile,
 } from "../../../../__tests__/helpers.ts";
 import { SqliteCacheStore } from "../../../adapters/cache/sqlite-cache.ts";
@@ -56,6 +57,37 @@ describe("connectorCommand CLI", () => {
             expect(requests).toHaveLength(1);
             expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
             expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("connector search sends both headers for an account default carrying an id", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "acme", {
+                teamId: "team-1",
+            });
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["connector", "search", "send mail"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return createConnectorSearchResponse([]);
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            // A stored id reaches the gateway on the default path, matching
+            // what an OO_TEAM_NAME run already sends once its lookup resolves.
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
         }
         finally {
             await sandbox.cleanup();

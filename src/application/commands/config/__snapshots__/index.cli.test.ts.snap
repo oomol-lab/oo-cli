@@ -201,48 +201,6 @@ exports[`config CLI supports the file download output directory config key 1`] =
 }
 `;
 
-exports[`config CLI supports the identity team config key 1`] = `
-{
-  "get": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"acme
-"
-,
-  },
-  "getAfterUnset": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": "",
-  },
-  "list": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"identity.team=acme
-"
-,
-  },
-  "set": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"Set identity.team to acme.
-"
-,
-  },
-  "unset": {
-    "exitCode": 0,
-    "stderr": "",
-    "stdout": 
-"Removed identity.team.
-"
-,
-  },
-}
-`;
-
 exports[`config CLI renders config list help with configured wording 1`] = `
 {
   "chineseConfigHelp": {

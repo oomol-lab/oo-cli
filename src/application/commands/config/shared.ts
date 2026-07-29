@@ -4,14 +4,11 @@ import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
     getConfiguredFileDownloadOutDir,
-    getConfiguredIdentityTeam,
     getConfiguredTelemetryEnabled,
     localeSchema,
     setFileDownloadOutDir,
-    setIdentityTeam,
     setTelemetryEnabled,
     unsetFileDownloadOutDir,
-    unsetIdentityTeam,
     unsetTelemetryEnabled,
 } from "../../schemas/settings.ts";
 
@@ -36,7 +33,6 @@ function createValueErrorFactory(translationKey: string) {
 }
 
 const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
-const identityTeamConfigKey = "identity.team" as const;
 export const telemetryEnabledConfigKey = "telemetry.enabled" as const;
 
 export const configDefinitions = {
@@ -114,27 +110,6 @@ export const configDefinitions = {
         },
         unsetValue(settings: AppSettings): AppSettings {
             return unsetTelemetryEnabled(settings);
-        },
-    } satisfies ConfigDefinition,
-    [identityTeamConfigKey]: {
-        createInvalidValueError: createValueErrorFactory("errors.config.invalidIdentityTeamValue"),
-        getValue(settings: AppSettings): string | undefined {
-            return getConfiguredIdentityTeam(settings);
-        },
-        parseRawValue(rawValue: string): ParsedConfigValue | undefined {
-            const value = rawValue.trim();
-
-            if (value === "") {
-                return undefined;
-            }
-
-            return {
-                apply: settings => setIdentityTeam(settings, value),
-                renderedValue: value,
-            };
-        },
-        unsetValue(settings: AppSettings): AppSettings {
-            return unsetIdentityTeam(settings);
         },
     } satisfies ConfigDefinition,
 } as const;

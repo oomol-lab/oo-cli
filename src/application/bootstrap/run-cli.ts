@@ -34,6 +34,7 @@ import {
     resolvePreferredLocale,
 } from "../../i18n/locale.ts";
 import { createTranslator } from "../../i18n/translator.ts";
+import { migrateLegacyDefaultTeam } from "../auth/default-team.ts";
 import { createCliCatalog } from "../commands/catalog.ts";
 import { synchronizeManagedSkillsForAvailableHosts } from "../commands/skills/auto-sync.ts";
 import { APP_NAME } from "../config/app-config.ts";
@@ -238,6 +239,25 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         fileDownloadSessionStore = initializedStores.fileDownloadSessionStore;
         const settings = await initializedStores.settingsStore.read();
         settingsForTelemetry = settings;
+
+        // Every command runs behind this, not a hand-maintained list of the
+        // team-aware ones, so no future command can be added that quietly
+        // skips it. It is handed the settings already read above and returns
+        // immediately when there is nothing to move.
+        await migrateLegacyDefaultTeam(
+            {
+                authStore: initializedStores.authStore,
+                env: invocation.env,
+                logger,
+                settingsStore: initializedStores.settingsStore,
+                telemetry: {
+                    directoryPath: storePaths.telemetryDirectory,
+                    recordProperties: telemetryRecorder.recordProperties,
+                    suppressCurrentInvocation: telemetryRecorder.suppress,
+                },
+            },
+            settings,
+        );
 
         translator = createTranslator(
             resolvePreferredLocale({

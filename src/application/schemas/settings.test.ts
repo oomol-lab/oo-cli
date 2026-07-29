@@ -4,11 +4,13 @@ import { parse as parseToml } from "smol-toml";
 import {
     addDismissedSkillRecommendations,
     getDismissedSkillRecommendations,
+    getLegacyIdentityTeam,
     isSkillRecommendationsMuted,
     removeDismissedSkillRecommendations,
     renderSettingsFile,
     setSkillRecommendationsMuted,
     settingsFileReadSchema,
+    unsetLegacyIdentityTeam,
 } from "./settings.ts";
 
 describe("skill recommendation settings", () => {
@@ -80,5 +82,34 @@ describe("skill recommendation settings", () => {
         const parsed = settingsFileReadSchema.parse(parseToml(rendered));
 
         expect(parsed.skills).toBeUndefined();
+    });
+});
+
+describe("legacy identity.team setting", () => {
+    test("leaves no trace in a fresh settings file", () => {
+        expect(renderSettingsFile({})).not.toContain("identity");
+    });
+
+    test("preserves a legacy value across an unrelated settings write", () => {
+        const rendered = renderSettingsFile({
+            identity: { team: "acme" },
+            lang: "zh",
+        });
+        const parsed = settingsFileReadSchema.parse(parseToml(rendered));
+
+        expect(getLegacyIdentityTeam(parsed)).toBe("acme");
+    });
+
+    test("unsetting prunes the whole identity section", () => {
+        const settings = unsetLegacyIdentityTeam({ identity: { team: "acme" } });
+
+        expect(getLegacyIdentityTeam(settings)).toBeUndefined();
+        expect(renderSettingsFile(settings)).not.toContain("identity");
+    });
+
+    test("unsetting an absent value returns the same settings", () => {
+        const settings = { lang: "en" } as const;
+
+        expect(unsetLegacyIdentityTeam(settings)).toBe(settings);
     });
 });

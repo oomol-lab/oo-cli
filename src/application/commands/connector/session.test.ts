@@ -183,7 +183,7 @@ describe("resolveConnectorSession identity ladder", () => {
         expect(session.identity).toEqual({
             name: "acme",
             id: null,
-            source: "config",
+            source: "account",
             status: null,
         });
         expect(context.requests).toHaveLength(0);

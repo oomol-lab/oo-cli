@@ -125,6 +125,8 @@ export interface AuthAccountFixture {
     readonly name: string;
     readonly apiKey: string;
     readonly endpoint: string;
+    readonly team?: string;
+    readonly teamId?: string;
 }
 
 export interface PrintedAuthLoginOptions {
@@ -449,6 +451,10 @@ export async function writeAuthFile(
             `name = "${account.name}"`,
             `api_key = "${account.apiKey}"`,
             `endpoint = "${account.endpoint}"`,
+            ...(account.team === undefined ? [] : [`team = "${account.team}"`]),
+            ...(account.teamId === undefined
+                ? []
+                : [`team_id = "${account.teamId}"`]),
             "",
         ]),
     ].join("\n");
@@ -456,6 +462,29 @@ export async function writeAuthFile(
     await Bun.write(filePath, content);
 
     return filePath;
+}
+
+// Seeds a saved account whose default team is already chosen — the state
+// every team-aware command reads. Written straight into auth.toml because the
+// commands that would otherwise set it (`oo team use`, `oo auth login`) need a
+// membership request of their own.
+export async function writeAuthFileWithDefaultTeam(
+    sandbox: CliSandbox,
+    team: string,
+    options: { teamId?: string } = {},
+): Promise<string> {
+    return await writeAuthFile(sandbox, {
+        accounts: [
+            {
+                id: "user-1",
+                name: "Alice",
+                apiKey: "secret-1",
+                endpoint: defaultAuthEndpoint,
+                team,
+                ...(options.teamId === undefined ? {} : { teamId: options.teamId }),
+            },
+        ],
+    });
 }
 
 export function createConnectorTargetFixture(

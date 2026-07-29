@@ -179,7 +179,7 @@ adapts as follows:
 
 - **Team identity is not supported.** `--team` is rejected with exit code `2` on
   `oo connector run`, `oo connector proxy`, and `oo connector apps`, and any
-  configured `identity.team` default and the `OO_TEAM_ID` / `OO_TEAM_NAME`
+  saved account default team and the `OO_TEAM_ID` / `OO_TEAM_NAME`
   environment variables are ignored. `--personal` is accepted (it is already
   the effective behavior).
 - **Async lifecycle waiting is unavailable.** `--wait` and `--wait-result` fail

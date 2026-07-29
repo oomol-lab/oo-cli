@@ -28,10 +28,13 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
 - `OO_API_KEY`: Run execution commands with this API key without an interactive
   login. When set, the CLI builds an in-memory account and does not read,
   require, or write `auth.toml`, and it takes precedence over any saved account.
-  Because no saved account can be in effect while it is set, `oo auth logout`
-  and `oo auth switch` become no-ops that leave `auth.toml` untouched, and
-  `oo auth login` still saves the account but reports that this variable
-  outranks it. `oo auth status` reports the identity this variable provides.
+  Because no saved account can be in effect while it is set, `oo auth logout`,
+  `oo auth switch`, `oo team use`, and `oo team clear` become no-ops that leave
+  `auth.toml` untouched, and `oo auth login` still saves the account but reports
+  that this variable outranks it. `oo auth status` reports the identity this
+  variable provides. No saved default team applies either: the key may belong to
+  a different account, so commands run under the personal identity unless
+  `OO_TEAM_ID` or `OO_TEAM_NAME` selects a team.
 - `OO_ENDPOINT`: Base endpoint domain (for example `oomol.com` or `oomol.dev`)
   used to derive every service URL for execution commands. It pairs with
   `OO_API_KEY`, overrides the endpoint of a saved account (including the
@@ -52,7 +55,7 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
 - `OO_TEAM_ID`: Run connector commands (`oo connector run`, `oo connector
   proxy`, `oo connector apps`, `oo connector search` / `oo search`) under the
   team with this id. It takes precedence
-  over `OO_TEAM_NAME` and the `identity.team` config default; the per-run
+  over `OO_TEAM_NAME` and the account's default team; the per-run
   `--team` and `--personal` flags still outrank it. Before execution the CLI
   validates the id and resolves its team name (one extra request per
   invocation), so requests carry both the name and the id; an id the account
@@ -69,8 +72,8 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   request and skips the lookup entirely, so it stays offline. Ignored when
   `OO_TEAM_ID` is set or the connector target is self-hosted.
 - Connector commands resolve their team identity with this precedence:
-  `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the `identity.team`
-  config default > your personal identity.
+  `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the active account's
+  default team > your personal identity.
 - `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
   synchronization and legacy-cleanup side effects, so the CLI writes no skill
   files into agent home directories such as `~/.agents` or `~/.claude`.
@@ -129,13 +132,14 @@ with an existing API key, then save the authenticated account.
     validates the key against the account profile and saves the account without
     a device-login URL or polling. Exits with an error if the key is invalid or
     expired. `--api-key` and `--session-token` cannot be combined.
-  - `--team <name>`: Set the default team identity (the `identity.team` config
-    key) to the named team after login. The name must be one of the account's
+  - `--team <name>`: Set the account's default team identity to the named team
+    after login. The name must be one of the account's
     team memberships; otherwise the command exits `1` (the account itself is
     still saved). Works with all three login methods.
 - Default team: after a successful login the CLI fetches the account's team
-  memberships and persists a default team identity. Without `--team`, a
-  configured `identity.team` that is still one of the memberships is kept;
+  memberships and persists a default team identity on the saved account.
+  Without `--team`, a stored default that is still one of the memberships is
+  kept (and gains its team id);
   otherwise the backend-provisioned default team (`system_created`) is
   adopted. When neither exists — the membership list carries no
   `system_created` team (an older backend) or is empty — nothing is persisted,
@@ -192,7 +196,9 @@ Show every saved auth account and validate the API key of the active one.
 - The active-identity block also shows a `Default team` line, resolved the same
   way `oo team current` resolves it: the `OO_TEAM_ID` / `OO_TEAM_NAME` env
   override when set (annotated with the variable that supplies it), otherwise
-  the `identity.team` config default, otherwise `personal (no default team)`.
+  the active account's default team, otherwise `personal (no default team)`.
+  With `OO_API_KEY` set the line always reads `personal (no default team)`
+  unless an `OO_TEAM_*` variable selects one.
 - When `OO_TEAM_ID` or `OO_TEAM_NAME` supplies the identity, the missing half
   is looked up — the id resolves to its name, the name to its id through the
   account's team memberships — and the line shows `<name> (<id>)`. If the
@@ -200,8 +206,8 @@ Show every saved auth account and validate the API key of the active one.
   the active account is not a member of the team, no team exists with that id,
   the team has been deleted, or the lookup could not be completed. A failed
   lookup never changes the exit code and never affects the reported `API key
-  status`. The `identity.team` config default already names its team and is
-  never looked up.
+  status`. The account's default team already names its team and is never
+  looked up.
 - `oo auth status` therefore sends at most two requests: the API key check, plus
   the team lookup when `OO_TEAM_ID` / `OO_TEAM_NAME` is in effect. The two are
   independent and are sent concurrently.
@@ -252,11 +258,11 @@ Show every saved auth account and validate the API key of the active one.
 - When a default team identity is in effect, the `oo auth status --json` output
   — specifically its `logged-in` shape above — carries an optional top-level
   `team` field. `source` says which mechanism selected it (`env_id`, `env_name`
-  or `config`), and `status` reports the team lookup:
+  or `account`), and `status` reports the team lookup:
 
   ```json
   {
-    "team": { "name": "acme", "id": null, "source": "config", "status": null }
+    "team": { "name": "acme", "id": null, "source": "account", "status": null }
   }
   ```
 
@@ -271,7 +277,7 @@ Show every saved auth account and validate the API key of the active one.
   }
   ```
 
-  `status` is `null` whenever no lookup was attempted (the `config` source).
+  `status` is `null` whenever no lookup was attempted (the `account` source).
   For an env-selected identity it is one of `valid`, `not_a_member`,
   `not_found`, `deleted`, `request_failed`, `request_failed_sandbox`, or
   `no_credential`. The looked-up half is filled only when `status` is `valid`
@@ -315,12 +321,14 @@ Show every saved auth account and validate the API key of the active one.
     `OO_ENDPOINT` (without `OO_API_KEY`) redirects the endpoint used for text
     output and API key validation, but does not rewrite this field.
   - `team` is present only on the `logged-in` shape and only when a default
-    team identity is in effect. `source` is `config` (the `identity.team`
-    default), `env_id` (`OO_TEAM_ID`), or `env_name` (`OO_TEAM_NAME`). An
-    env-selected identity spends one request to complete and validate its
-    missing half, so on success it carries both `name` and `id`; when the
-    lookup does not succeed, the env-supplied half is kept and `status` says
-    why. The `config` source stays offline, so its `id` is always `null`.
+    team identity is in effect. `source` is `account` (the saved default),
+    `env_id` (`OO_TEAM_ID`), or `env_name` (`OO_TEAM_NAME`). An env-selected
+    identity spends one request to complete and validate its missing half, so
+    on success it carries both `name` and `id`; when the lookup does not
+    succeed, the env-supplied half is kept and `status` says why. The `account`
+    source stays offline; its `id` is `null` until a command that already holds
+    the membership listing (`oo team list`, `oo team use`, `oo auth login`)
+    fills it in.
   - `missingAccountId` appears only when the auth file records an active id
     that is no longer present in `accounts[]`.
   - `connector` is present only when a self-hosted connector is configured
@@ -369,20 +377,27 @@ Alias for `oo auth logout`.
 ## Teams
 
 Team identity lets connector commands (`oo connector run`, `oo connector proxy`,
-`oo connector apps`) act as a team instead of your personal account, selected
-per run with `--team <name>`, per environment with `OO_TEAM_ID` /
-`OO_TEAM_NAME`, or as a default with the `identity.team` config key
-(precedence in that order). These commands help discover which teams your
-account can use and manage that default.
+`oo connector apps`) act as a team instead of your personal account. One ladder
+selects it: the per-run `--personal` (force your personal identity) or `--team
+<name>` first, then the `OO_TEAM_ID` / `OO_TEAM_NAME` environment overrides,
+then the default saved on the active account. These commands help discover
+which teams your account can use and manage that default.
+
+The default team belongs to the saved account, so switching accounts with
+`oo auth switch` switches the default with it, and `oo auth logout` removes it
+along with the account. An installation that predates account-scoped defaults
+carried a single global `identity.team` setting; the CLI moves that value onto
+the active account on the next run and removes the setting. Under `OO_API_KEY`
+no saved default applies at all — use `OO_TEAM_ID` / `OO_TEAM_NAME` there.
 
 `oo team list` and `oo team use` query OOMOL for your team memberships, so they
 require an OOMOL account and are unavailable when only a self-hosted connector
 is configured. `oo team current` and `oo team clear` work regardless: they read
-and write local settings, and `oo team current` only enriches its output with a
+and write local state, and `oo team current` only enriches its output with a
 team name when an account is available to look one up.
 
 `oo auth login` (and its `oo login` alias) persists the default automatically:
-it keeps a still-valid configured `identity.team`, otherwise adopts the
+it keeps the account's still-valid stored default, otherwise adopts the
 backend-provisioned `system_created` team (when one exists), and accepts
 `--team <name>` to pick one explicitly.
 
@@ -396,41 +411,45 @@ read-only.
   `current`. `role` is `creator` or `member`. `current` is `true` for the team
   connector commands use by default: the team selected by `OO_TEAM_ID`
   (matched by id) or `OO_TEAM_NAME` (matched by name) when set, otherwise the
-  team matching the `identity.team` default.
+  team matching the account's default.
 - Output: pass the `name` value to `--team <name>` (or `oo team use <name>`),
   and the `id` value to `OO_TEAM_ID`.
 - Output: text output prints one column-aligned row per team and marks the
   current default. When the account has no teams, it reports that connector
   commands run under your personal identity.
+- Behavior: when the account's default team was stored without its id, this
+  command fills the id in from the listing it already fetched. No extra
+  request is sent, and a failure to write is ignored.
 
 ### `oo team current`
 
 Show the team identity used by connector commands when no `--team` /
 `--personal` flag is given: the `OO_TEAM_ID` / `OO_TEAM_NAME` environment
-override when set, otherwise the `identity.team` config default.
+override when set, otherwise the active account's default team.
 
 - Sends one request only when `OO_TEAM_ID` or `OO_TEAM_NAME` supplies the
   identity, to complete and validate the missing half: an id resolves to its
   team name, a name to its id through the account's team memberships — the
   same check connector commands apply, so what this command reports is what a
-  run would use. A config default already names its team and stays offline.
+  run would use. The account's default already names its team and stays
+  offline.
 - Works without an OOMOL account. When no account is configured the lookup is
   skipped rather than failing, and the env-supplied value is reported on its
   own.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON is `{ "team": <name|null>, "teamId": <id|null>, "source":
-  <"env_id"|"env_name"|"config"|null>, "status": <status|null> }`. `source` says
-  which mechanism selects the team, and is `null` when connector commands run
-  under your personal identity. `status` reports the team lookup: `null`
-  whenever none was attempted (the config source, or `--dry-run`-style offline
-  paths), otherwise one of `valid`, `not_a_member`, `not_found`, `deleted`,
-  `request_failed`, `request_failed_sandbox`, or `no_credential`.
+  <"env_id"|"env_name"|"account"|null>, "status": <status|null> }`. `source`
+  says which mechanism selects the team, and is `null` when connector commands
+  run under your personal identity. `status` reports the team lookup: `null`
+  whenever none was attempted (the `account` source, or `--dry-run`-style
+  offline paths), otherwise one of `valid`, `not_a_member`, `not_found`,
+  `deleted`, `request_failed`, `request_failed_sandbox`, or `no_credential`.
 - Output: under `OO_TEAM_ID` / `OO_TEAM_NAME` text output shows `<name> (<id>)`
   once both halves are known. If the lookup does not succeed the env-supplied
   value is still shown and the reason is appended; the command still exits `0`.
 - Output: text output names the environment variable when one is set, and
-  notes that a configured `identity.team` default is not in use while the
-  override is active.
+  notes that the account's default team is not in use while the override is
+  active.
 
 ### `oo team use <name>`
 
@@ -440,21 +459,25 @@ access it.
 - Arguments: `<name>` is the team name, as shown by `oo team list`.
 - Behavior: the name is validated against the teams the account can access; an
   inaccessible name is rejected with exit `1` and the default is left unchanged.
-  On success it is persisted to the `identity.team` config key.
+  On success the team name and id are saved on the active account.
 - Behavior: when `OO_TEAM_ID` / `OO_TEAM_NAME` is set, the default is still
   saved, but the output reports that the environment variable keeps outranking
   it until unset.
+- Behavior: with `OO_API_KEY` set the command saves nothing, exits `0`, and
+  reports that this variable has no saved default team.
 
 ### `oo team clear`
 
-Clear the persisted default team identity (`identity.team`). Connector commands
-then run under your personal identity, unless `OO_TEAM_ID` / `OO_TEAM_NAME`
-still selects a team — this command removes only the config default and does
-not affect the environment override. This command is offline.
+Clear the active account's default team identity. Connector commands then run
+under your personal identity, unless `OO_TEAM_ID` / `OO_TEAM_NAME` still
+selects a team — this command removes only the saved default and does not
+affect the environment override. This command is offline.
 
-- Behavior: removes the `identity.team` config key. When no default is
-  configured it reports that connector commands already run under your personal
+- Behavior: removes the default team from the active account. When no default
+  is saved it reports that connector commands already run under your personal
   identity.
+- Behavior: with `OO_API_KEY` set the command clears nothing, exits `0`, and
+  reports that this variable already runs under your personal identity.
 - Behavior: when `OO_TEAM_ID` / `OO_TEAM_NAME` is set, the output reports that
   the environment variable still selects a team for connector commands, so
   clearing the default does not switch them to your personal identity. Unset
@@ -524,7 +547,7 @@ List persisted configuration values that are currently set.
 Read one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.team`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`.
 
 ### `oo config path`
 
@@ -535,7 +558,7 @@ Print the path to the persisted configuration file.
 Persist one configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.team`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
 - Value rules: for `file.download.out_dir`, use any non-empty path string. Relative
@@ -546,18 +569,13 @@ Persist one configuration value.
   are rejected. Setting `telemetry.enabled` to `false` also attempts to purge
   pending telemetry events immediately and the current `config set` invocation is
   not recorded as telemetry.
-- Value rules: for `identity.team`, use any non-empty team name.
-  It sets the default team identity used by `oo connector run`,
-  `oo connector proxy`, `oo connector apps`, and `oo connector search` /
-  `oo search` when neither `--team` nor `--personal` is passed and no
-  `OO_TEAM_ID` / `OO_TEAM_NAME` environment variable is set.
 
 ### `oo config unset <key>`
 
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`, `identity.team`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`.
 
 ## Telemetry
 
@@ -847,7 +865,7 @@ Search connector actions with free-form text.
 - Options: `--team <name>` reports each result's `authenticated` state under the
   given team identity instead of your personal identity. When omitted, the
   effective identity follows `OO_TEAM_ID` / `OO_TEAM_NAME`, then the
-  `identity.team` config default, otherwise your personal identity.
+  active account's default team, otherwise your personal identity.
 - Options: `--personal` reports `authenticated` under your personal identity and
   ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
   configured default team. It cannot be combined with `--team`.
@@ -923,7 +941,7 @@ Validate input data and run one connector action.
 - Options: `--team <name>` runs the action under the given team identity
   instead of your personal identity. When omitted, the action runs under the
   team selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the
-  `identity.team` config default, otherwise your personal identity.
+  active account's default team, otherwise your personal identity.
 - Options: `--personal` runs the action under your personal identity and
   ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
   configured default team. It cannot be combined with `--team`.
@@ -948,7 +966,7 @@ Validate input data and run one connector action.
 - Notes: while waiting for an async result action in text mode, interactive
   terminals show progress on stderr. JSON output does not include progress text.
 - Notes: against a self-hosted connector, `--team` is rejected with
-  exit `2`, a configured `identity.team` default and the `OO_TEAM_ID` /
+  exit `2`, the account's default team and the `OO_TEAM_ID` /
   `OO_TEAM_NAME` environment variables are ignored, and `--personal` is
   accepted. `--wait` and `--wait-result` fail with the existing unsupported
   errors because the self-hosted runtime does not expose the async lifecycle
@@ -964,8 +982,8 @@ read-only.
   that one service.
 - Options: `--team <name>` lists connected apps under the given team identity
   instead of your personal identity. When omitted, the listing uses the team
-  selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the `identity.team`
-  config default, otherwise your personal identity.
+  selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the account's default
+  team, otherwise your personal identity.
 - Options: `--personal` lists connected apps under your personal identity and
   ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
   configured default team. It cannot be combined with `--team`.
@@ -983,7 +1001,7 @@ read-only.
 - Notes: use the listed `connectionName` value with
   `oo connector run <serviceName> --connection-name <connection-name>`.
 - Notes: against a self-hosted connector, `--team` is rejected with exit
-  `2`, a configured `identity.team` default and the `OO_TEAM_ID` /
+  `2`, the account's default team and the `OO_TEAM_ID` /
   `OO_TEAM_NAME` environment variables are ignored, and `--personal` is
   accepted.
 
@@ -1015,7 +1033,7 @@ Proxy a provider API request through a connected connector app.
 - Options: `--team <name>` runs the proxy request under the given team identity
   instead of your personal identity. When omitted, the request runs under the
   team selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the
-  `identity.team` config default, otherwise your personal identity.
+  active account's default team, otherwise your personal identity.
 - Options: `--personal` runs the proxy request under your personal identity and
   ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
   configured default team. It cannot be combined with `--team`.
@@ -1030,7 +1048,7 @@ Proxy a provider API request through a connected connector app.
   cache. Use it when the selected connector supports proxy execution and no
   purpose-built connector action is available.
 - Notes: against a self-hosted connector, `--team` is rejected with
-  exit `2` and a configured `identity.team` default and the `OO_TEAM_ID` /
+  exit `2` and the account's default team and the `OO_TEAM_ID` /
   `OO_TEAM_NAME` environment variables are ignored. Proxy execution depends on
   server support; the open-source runtime currently returns an error.
 
@@ -1089,7 +1107,7 @@ Search connector actions with one free-form query.
 - Options: `--team <name>` reports each result's `authenticated` state under the
   given team identity instead of your personal identity. When omitted, the
   effective identity follows `OO_TEAM_ID` / `OO_TEAM_NAME`, then the
-  `identity.team` config default, otherwise your personal identity.
+  active account's default team, otherwise your personal identity.
 - Options: `--personal` reports `authenticated` under your personal identity and
   ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
   configured default team. It cannot be combined with `--team`.

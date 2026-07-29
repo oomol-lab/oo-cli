@@ -2,7 +2,7 @@
 // is real.
 //
 // Three modules used to each encode the "--personal > --team > OO_TEAM_ID >
-// OO_TEAM_NAME > identity.team > personal" ladder and validate only the
+// OO_TEAM_NAME > the account default > personal" ladder and validate only the
 // direction they happened to resolve, which is how `oo auth status` could
 // vouch for an identity `oo connector run` rejected — and vice versa. Every
 // team-aware command now resolves through this module, so the ladder, the
@@ -12,6 +12,7 @@
 // resolveTeamIdentity returns undefined for it, whether it was picked
 // explicitly (`--personal`) or by nothing else selecting a team.
 
+import type { AccountDefaultTeam } from "../../auth/default-team.ts";
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 
@@ -21,10 +22,10 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { fetchTeamById, fetchTeamByName } from "./shared.ts";
 
 // Which mechanism selects the identity. `flag` is a per-run `--team`; `env_id`
-// and `env_name` name the variable that won; `config` is the persisted
-// `identity.team` default. Recorded as privacy-safe telemetry; it never
+// and `env_name` name the variable that won; `account` is the default team
+// saved on the active account. Recorded as privacy-safe telemetry; it never
 // carries the team name or id itself.
-export type TeamIdentitySource = "config" | "env_id" | "env_name" | "flag";
+export type TeamIdentitySource = "account" | "env_id" | "env_name" | "flag";
 
 // `no_credential` is the one status the backend cannot produce: it means the
 // lookup never ran because no account was available to authenticate it.
@@ -35,11 +36,11 @@ export interface TeamIdentity {
     id: string | null;
     source: TeamIdentitySource;
     // How the backend lookup ended; `null` when no lookup was attempted.
-    // Only env-selected identities are ever looked up — a flag or config name
-    // is the gateway's to judge, so those stay `null` on every path.
+    // Only env-selected identities are ever looked up — a flag or a stored
+    // name is the gateway's to judge, so those stay `null` on every path.
     status: TeamNameStatus | null;
     // The env variable supplying the override, for user-facing hints; absent
-    // for the flag and config sources.
+    // for the flag and account sources.
     envVar?: string;
 }
 
@@ -50,10 +51,10 @@ type ResolveTeamIdentityContext = Pick<
 
 /**
  * Resolves the team identity from the per-run flags, the env override, and
- * the configured default — one ladder for every team-aware command:
- * `--personal` > `--team` > OO_TEAM_ID > OO_TEAM_NAME > `identity.team` >
+ * the account default — one ladder for every team-aware command:
+ * `--personal` > `--team` > OO_TEAM_ID > OO_TEAM_NAME > the account default >
  * personal (undefined). A higher tier fully replaces the lower ones, and a
- * trimmed-empty flag or config value counts as unset.
+ * trimmed-empty flag or stored name counts as unset.
  *
  * With `resolveAgainstBackend: true`, an env-selected identity is completed
  * and validated through the lookup matching its direction (id-to-name via the
@@ -69,7 +70,7 @@ type ResolveTeamIdentityContext = Pick<
 export async function resolveTeamIdentity(
     input: {
         account: Pick<AuthAccount, "apiKey" | "endpoint"> | undefined;
-        configuredTeam: string | undefined;
+        defaultTeam: AccountDefaultTeam | undefined;
         teamFlag?: string;
         personalFlag?: boolean;
         resolveAgainstBackend: boolean;
@@ -92,10 +93,18 @@ export async function resolveTeamIdentity(
         return resolveEnvTeamIdentity(envOverride, input, context);
     }
 
-    const configuredTeam = normalizeTeamValue(input.configuredTeam);
+    const defaultTeamName = normalizeTeamValue(input.defaultTeam?.name);
 
-    if (configuredTeam !== undefined) {
-        return { name: configuredTeam, id: null, source: "config", status: null };
+    if (defaultTeamName !== undefined) {
+        return {
+            name: defaultTeamName,
+            // The stored id, when the default was saved by a command that had
+            // the membership listing in hand. A default migrated from the
+            // legacy global setting carries the name alone.
+            id: input.defaultTeam?.id ?? null,
+            source: "account",
+            status: null,
+        };
     }
 
     return undefined;
@@ -256,7 +265,7 @@ async function resolveEnvTeamIdentity(
     };
 }
 
-// One empty-value policy for the flag and config tiers: a trimmed-empty team
+// One empty-value policy for the flag and account tiers: a trimmed-empty team
 // name behaves exactly like an unset one, matching how the env readers treat
 // blank variables.
 function normalizeTeamValue(value: string | undefined): string | undefined {
@@ -268,7 +277,7 @@ function normalizeTeamValue(value: string | undefined): string | undefined {
 // ---------------------------------------------------------------------------
 // The env override tier. OO_TEAM_ID carries the stable team id, OO_TEAM_NAME
 // the team name, for embedded and automated callers that pin the team without
-// touching the `identity.team` config default. Private to the resolver: which
+// touching the account default. Private to the resolver: which
 // variable won, and what it means, surfaces only through the TeamIdentity
 // record (`source`, `envVar`).
 // ---------------------------------------------------------------------------

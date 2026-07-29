@@ -170,9 +170,9 @@ the user said:
 
 - If the user does not mention any team, add nothing extra. The run then uses
   the team selected by the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables
-  when set, then the `identity.team` config default when one is set, and their
-  personal identity otherwise — omitting the flags does not force a personal
-  run. Check `oo team current` when you need to know which one applies.
+  when set, then the default team saved on their account when one is set, and
+  their personal identity otherwise — omitting the flags does not force a
+  personal run. Check `oo team current` when you need to know which one applies.
 - If the user asks to run as a specific team (for example "run this as Acme" or
   "use my Acme team"), add `--team "<name>"`, using the team name the user gave:
 

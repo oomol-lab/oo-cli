@@ -1,12 +1,13 @@
+import type { AccountDefaultTeam } from "../../auth/default-team.ts";
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+
 import type { TerminalColors } from "../../terminal-colors.ts";
-
 import type { TeamIdentity } from "./identity.ts";
-import type { TeamRole, TeamView } from "./shared.ts";
 
+import type { TeamRole, TeamView } from "./shared.ts";
 import { z } from "zod";
+import { readDefaultTeam, writeDefaultTeam } from "../../auth/default-team.ts";
 import { requireIdentity } from "../../auth/identity.ts";
-import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { resolveTeamIdentity } from "./identity.ts";
@@ -27,21 +28,20 @@ export const teamListCommand: CliCommandDefinition = {
     inputSchema: z.object({}),
     handler: async (_input, context) => {
         const { account } = await requireIdentity(context);
-        const settings = await context.settingsStore.read();
+        const defaultTeam = await readDefaultTeam(context);
         // The listing itself is the membership set, so the identity resolves
         // offline and each row is matched against the record locally.
         const identity = await resolveTeamIdentity(
-            {
-                account,
-                configuredTeam: getConfiguredIdentityTeam(settings),
-                resolveAgainstBackend: false,
-            },
+            { account, defaultTeam, resolveAgainstBackend: false },
             context,
         );
         const isCurrent = (team: TeamView): boolean =>
             isCurrentTeamRow(team, identity);
 
         const teams = await listMemberTeams(account, context);
+
+        await backfillDefaultTeamId(context, defaultTeam, teams);
+
         const output = teams.map(team => createTeamListItem(team, isCurrent));
 
         context.telemetry?.recordProperties({
@@ -60,10 +60,47 @@ export const teamListCommand: CliCommandDefinition = {
     },
 };
 
+// Completes a default team that only has a name. This command already holds
+// the membership listing, so the id costs nothing here — which is the whole
+// reason the backfill lives in this command rather than in a lookup of its
+// own. A default migrated from the legacy global setting is the case that
+// needs it.
+//
+// Best effort: listing teams is a read, and it must not start failing because
+// the file happens to be unwritable.
+async function backfillDefaultTeamId(
+    context: Pick<
+        CliExecutionContext,
+        "authStore" | "logger" | "settingsStore" | "telemetry"
+    >,
+    defaultTeam: AccountDefaultTeam | undefined,
+    teams: readonly TeamView[],
+): Promise<void> {
+    if (defaultTeam === undefined || defaultTeam.id !== null) {
+        return;
+    }
+
+    const match = teams.find(team => team.name === defaultTeam.name);
+
+    if (match === undefined) {
+        return;
+    }
+
+    try {
+        await writeDefaultTeam(context, { id: match.id, name: match.name });
+    }
+    catch (error) {
+        context.logger.debug(
+            { err: error },
+            "Default team id backfill did not complete.",
+        );
+    }
+}
+
 // Decides which row is the effective default for connector commands. An
 // offline identity carries exactly the dimension its source supplies — the id
-// under OO_TEAM_ID, the name under OO_TEAM_NAME or the config default — so
-// the row is matched on whichever one is known.
+// under OO_TEAM_ID, the name under OO_TEAM_NAME, and whichever the account
+// default stored — so the row is matched on whichever one is known.
 function isCurrentTeamRow(
     team: TeamView,
     identity: TeamIdentity | undefined,
@@ -97,9 +134,9 @@ interface TeamListColumn {
 }
 
 // Renders the team listing as a color-coded, column-aligned table. The
-// effective default (the OO_TEAM_ID / OO_TEAM_NAME env override, or
-// `identity.team`) is marked so callers can see at a glance which team
-// `oo connector run` uses without `--team`.
+// effective default (the OO_TEAM_ID / OO_TEAM_NAME env override, or the
+// account's saved default) is marked so callers can see at a glance which
+// team `oo connector run` uses without `--team`.
 export function formatTeamsAsText(
     teams: readonly TeamListItem[],
     translator: TeamListTranslator,

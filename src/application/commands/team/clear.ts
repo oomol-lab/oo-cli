@@ -1,40 +1,48 @@
 import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
 import { z } from "zod";
+import { clearDefaultTeam } from "../../auth/default-team.ts";
 import {
-    getConfiguredIdentityTeam,
-    unsetIdentityTeam,
-} from "../../schemas/settings.ts";
+    buildEnvApiKeyAccount,
+    reportOverriddenWrite,
+} from "../../auth/identity.ts";
 import { writeLine } from "../shared/output.ts";
 import { resolveTeamIdentity } from "./identity.ts";
 
-// Clears the default team identity (config `identity.team`), returning
-// connector commands to the personal identity. Offline: it only rewrites local
-// settings. When OO_TEAM_ID / OO_TEAM_NAME is set, the env override keeps
-// selecting a team regardless of the cleared default, so the output says so
-// instead of promising a personal identity.
+// Clears the active account's default team identity, returning connector
+// commands to the personal identity. Offline: it only rewrites local state.
+// When OO_TEAM_ID / OO_TEAM_NAME is set, the env override keeps selecting a
+// team regardless of the cleared default, so the output says so instead of
+// promising a personal identity.
 export const teamClearCommand: CliCommandDefinition = {
     name: "clear",
     summaryKey: "commands.team.clear.summary",
     descriptionKey: "commands.team.clear.description",
     inputSchema: z.object({}),
     handler: async (_input, context) => {
-        const settings = await context.settingsStore.read();
-        const hadConfiguredTeam
-            = getConfiguredIdentityTeam(settings) !== undefined;
-        // Offline resolution with no config default: what remains is exactly
+        // Nothing persisted is in effect under OO_API_KEY, so there is nothing
+        // this command could clear that a later command would notice.
+        if (buildEnvApiKeyAccount(context.env) !== undefined) {
+            reportOverriddenWrite(context, {
+                summaryKey: "team.clear.envOverrideNoop",
+            });
+            return;
+        }
+
+        // Offline resolution with no account default: what remains is exactly
         // the env override that would keep selecting a team after the clear,
         // with `envVar` naming it for the hint.
         const envIdentity = await resolveTeamIdentity(
             {
                 account: undefined,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: false,
             },
             context,
         );
+        const hadDefaultTeam = await clearDefaultTeam(context);
 
-        if (!hadConfiguredTeam) {
+        if (!hadDefaultTeam) {
             writeLine(
                 context.stdout,
                 envIdentity?.envVar === undefined
@@ -48,8 +56,6 @@ export const teamClearCommand: CliCommandDefinition = {
             );
             return;
         }
-
-        await context.settingsStore.update(unsetIdentityTeam);
 
         context.logger.info(
             { teamConfigured: false },

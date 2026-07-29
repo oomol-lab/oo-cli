@@ -42,7 +42,7 @@ describe("resolveTeamIdentity precedence", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: true,
             },
             createContext({}),
@@ -55,7 +55,7 @@ describe("resolveTeamIdentity precedence", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: "config-team",
+                defaultTeam: { id: null, name: "config-team" },
                 teamFlag: "flag-team",
                 personalFlag: true,
                 resolveAgainstBackend: true,
@@ -78,7 +78,7 @@ describe("resolveTeamIdentity precedence", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: "config-team",
+                defaultTeam: { id: null, name: "config-team" },
                 teamFlag: "flag-team",
                 resolveAgainstBackend: true,
             },
@@ -104,7 +104,7 @@ describe("resolveTeamIdentity precedence", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: "config-team",
+                defaultTeam: { id: null, name: "config-team" },
                 teamFlag,
                 resolveAgainstBackend: true,
             },
@@ -112,7 +112,7 @@ describe("resolveTeamIdentity precedence", () => {
         )).toEqual({
             name: "config-team",
             id: null,
-            source: "config",
+            source: "account",
             status: null,
         });
     });
@@ -121,7 +121,7 @@ describe("resolveTeamIdentity precedence", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: "   ",
+                defaultTeam: { id: null, name: "   " },
                 resolveAgainstBackend: true,
             },
             createContext({}),
@@ -134,7 +134,7 @@ describe("resolveTeamIdentity precedence", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: "acme",
+                defaultTeam: { id: null, name: "acme" },
                 resolveAgainstBackend: true,
             },
             createContext({}, async () => {
@@ -145,7 +145,7 @@ describe("resolveTeamIdentity precedence", () => {
         )).toEqual({
             name: "acme",
             id: null,
-            source: "config",
+            source: "account",
             status: null,
         });
         expect(requested).toBe(false);
@@ -155,7 +155,7 @@ describe("resolveTeamIdentity precedence", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: "acme",
+                defaultTeam: { id: null, name: "acme" },
                 resolveAgainstBackend: true,
             },
             createContext(
@@ -169,18 +169,18 @@ describe("resolveTeamIdentity precedence", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: "acme",
+                defaultTeam: { id: null, name: "acme" },
                 resolveAgainstBackend: true,
             },
             createContext({ OO_TEAM_ID: "   ", OO_TEAM_NAME: "" }),
-        )).toMatchObject({ source: "config", name: "acme" });
+        )).toMatchObject({ source: "account", name: "acme" });
     });
 
     test("trims the env-supplied value", async () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: false,
             },
             createContext({ OO_TEAM_ID: " team-1 " }),
@@ -191,7 +191,7 @@ describe("resolveTeamIdentity precedence", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: false,
             },
             createContext({ OO_TEAM_ID: "  ", OO_TEAM_NAME: "acme" }),
@@ -211,7 +211,7 @@ describe("resolveTeamIdentity env validation", () => {
         const identity = await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: "acme",
+                defaultTeam: { id: null, name: "acme" },
                 resolveAgainstBackend: true,
             },
             createContext({ OO_TEAM_ID: "team-1" }, async (input, init) => {
@@ -240,7 +240,7 @@ describe("resolveTeamIdentity env validation", () => {
         const identity = await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: true,
             },
             createContext({ OO_TEAM_NAME: "beta" }, async (input, init) => {
@@ -268,7 +268,7 @@ describe("resolveTeamIdentity env validation", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: true,
             },
             createContext(
@@ -288,7 +288,7 @@ describe("resolveTeamIdentity env validation", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: true,
             },
             createContext(
@@ -308,7 +308,7 @@ describe("resolveTeamIdentity env validation", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: true,
             },
             createContext(
@@ -322,7 +322,7 @@ describe("resolveTeamIdentity env validation", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: true,
             },
             createContext(
@@ -342,7 +342,7 @@ describe("resolveTeamIdentity env validation", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: true,
             },
             createContext({ OO_TEAM_NAME: "beta" }, async () => {
@@ -381,7 +381,7 @@ describe("resolveTeamIdentity env validation", () => {
         expect(await resolveTeamIdentity(
             {
                 account: undefined,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: true,
             },
             createContext(env, async () => {
@@ -423,7 +423,7 @@ describe("resolveTeamIdentity env validation", () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
-                configuredTeam: undefined,
+                defaultTeam: undefined,
                 resolveAgainstBackend: false,
             },
             createContext(env, async () => {
@@ -445,7 +445,7 @@ describe("requireValidTeamIdentity", () => {
         },
         {
             case: "a config identity",
-            identity: { name: "acme", id: null, source: "config", status: null },
+            identity: { name: "acme", id: null, source: "account", status: null },
         },
         {
             case: "a validated env identity",
@@ -606,7 +606,7 @@ describe("formatTeamIdentityValue", () => {
         },
     ])("falls back to the $case", ({ expected, identity }) => {
         expect(formatTeamIdentityValue(
-            { ...identity, source: "config", status: null },
+            { ...identity, source: "account", status: null },
             translator,
         )).toBe(expected);
     });
@@ -652,7 +652,7 @@ describe("teamNameStatusForTelemetry", () => {
             identity: {
                 name: "acme",
                 id: null,
-                source: "config" as const,
+                source: "account" as const,
                 status: null,
             },
             expected: "none",

@@ -11,8 +11,8 @@ import type {
     TeamNameStatus,
 } from "../team/identity.ts";
 import { z } from "zod";
+import { readDefaultTeam } from "../../auth/default-team.ts";
 import { resolveIdentity } from "../../auth/identity.ts";
-import { getConfiguredIdentityTeam } from "../../schemas/settings.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { probeOo } from "../shared/oo-request.ts";
@@ -83,11 +83,11 @@ interface AuthStatusJsonEnvOverride {
 
 // The default team identity in effect for team-scoped commands, resolved the
 // same way `oo team current` resolves it: the OO_TEAM_ID / OO_TEAM_NAME env
-// override outranks the `identity.team` config default.
+// override outranks the account's saved default.
 //
 // `status` reports how the backend lookup ended and is `null` when none was
 // attempted — only env-selected identities are looked up (both directions),
-// a config name never is. `envVar` is deliberately not part of this payload:
+// a saved name never is. `envVar` is deliberately not part of this payload:
 // it is a hint for the text renderer, not a fact about the identity.
 interface AuthStatusJsonTeam {
     name: string | null;
@@ -136,7 +136,7 @@ export const authStatusCommand: CliCommandDefinition = {
         // command is how status ends up naming the wrong account, the wrong
         // endpoint, and validating the wrong key.
         const { authFile, fileState, identity } = await resolveStatusState(context);
-        const settings = await context.settingsStore.read();
+        const defaultTeam = await readDefaultTeam(context);
 
         // Status is the first command a user runs to diagnose auth problems,
         // so an unreadable auth.toml must not take the report down — it is
@@ -169,7 +169,7 @@ export const authStatusCommand: CliCommandDefinition = {
             resolveTeamIdentity(
                 {
                     account: identity?.account,
-                    configuredTeam: getConfiguredIdentityTeam(settings),
+                    defaultTeam,
                     resolveAgainstBackend: true,
                 },
                 context,
@@ -343,7 +343,7 @@ function writeSelfHostedConnectorText(
 }
 
 // Renders the default-team detail row. The value spells out the identity in
-// effect: the config default by name, an env override with the variable that
+// effect: the account default by name, an env override with the variable that
 // supplies it, or the personal fallback when no default team is set.
 function formatStatusTeamDetail(
     context: CliExecutionContext,
