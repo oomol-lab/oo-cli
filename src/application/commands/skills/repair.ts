@@ -2,11 +2,13 @@ import type {
     CliCommandDefinition,
     CliExecutionContext,
 } from "../../contracts/cli.ts";
+import type { SkillAutoTriggerPolicy } from "./auto-trigger-policy.ts";
 import type { BundledSkillAgentName, BundledSkillName } from "./embedded-assets.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { writeLine } from "../shared/output.ts";
+import { readSkillAutoTriggerPolicy } from "./auto-trigger-policy.ts";
 import { publishBundledSkillInstallation } from "./bundled-skill-filesystem.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import { resolveBundledSkillCanonicalDirectoryPath } from "./bundled-skill-paths.ts";
@@ -290,10 +292,15 @@ interface RunRepairOptions {
 
 async function runRepair(options: RunRepairOptions): Promise<RepairOutcome> {
     const pairs: Array<Promise<RepairResultEntry>> = [];
+    const autoTriggerPolicy = await readSkillAutoTriggerPolicy(
+        options.context.settingsStore,
+    );
 
     for (const source of options.sources) {
         for (const agentId of options.agents) {
-            pairs.push(repairPair(source, agentId, options.context));
+            pairs.push(
+                repairPair(source, agentId, options.context, autoTriggerPolicy),
+            );
         }
     }
 
@@ -325,6 +332,7 @@ async function repairPair(
     source: RepairSource,
     agentId: BundledSkillAgentName,
     context: CliExecutionContext,
+    autoTriggerPolicy: SkillAutoTriggerPolicy,
 ): Promise<RepairResultEntry> {
     const homeDirectory = resolveManagedSkillAgentHomeDirectory(context.env, agentId);
     const settingsFilePath = context.settingsStore.getFilePath();
@@ -369,6 +377,7 @@ async function repairPair(
         if (source.kind === "bundled") {
             await publishManagedBundledSkill({
                 agentName: agentId,
+                autoTriggerPolicy,
                 homeDirectory,
                 settingsFilePath,
                 skillName: source.skillName,

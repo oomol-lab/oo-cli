@@ -1,5 +1,6 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
+import type { SkillAutoTriggerPolicy } from "./auto-trigger-policy.ts";
 import type {
     BundledSkillAgentName,
     BundledSkillName,
@@ -12,6 +13,7 @@ import type { ManagedSkillHostInstallation } from "./managed-skill-hosts.ts";
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
+import { readSkillAutoTriggerPolicy } from "./auto-trigger-policy.ts";
 import {
     publishBundledSkillInstallation,
     removePath,
@@ -64,10 +66,14 @@ export async function installBundledSkill(
     }
 
     const publications: ManagedSkillInstallPublication[] = [];
+    const autoTriggerPolicy = await readSkillAutoTriggerPolicy(
+        context.settingsStore,
+    );
 
     for (const installation of installations) {
         const installedSkillDirectoryPath = await publishManagedBundledSkill({
             agentName: installation.agentName,
+            autoTriggerPolicy,
             homeDirectory: installation.homeDirectory,
             settingsFilePath: context.settingsStore.getFilePath(),
             skillName,
@@ -96,8 +102,13 @@ export async function installBundledSkill(
     };
 }
 
+// Rewrites the canonical copy and republishes it into the agent home. The
+// auto-trigger policy is required rather than defaulted: this is the only path
+// by which a policy change reaches disk, so a caller that forgets it would
+// silently publish skills that ignore the user's configuration.
 export async function publishManagedBundledSkill(options: {
     agentName: BundledSkillAgentName;
+    autoTriggerPolicy: SkillAutoTriggerPolicy;
     homeDirectory: string;
     settingsFilePath: string;
     skillName: BundledSkillName;
@@ -141,6 +152,7 @@ export function isScopedPackageName(value: string): boolean {
 
 async function writeBundledSkillCanonicalInstallation(options: {
     agentName: BundledSkillAgentName;
+    autoTriggerPolicy: SkillAutoTriggerPolicy;
     homeDirectory: string;
     settingsFilePath: string;
     skillName: BundledSkillName;
@@ -169,7 +181,10 @@ async function writeBundledSkillCanonicalInstallation(options: {
         );
 
         await mkdir(dirname(destinationPath), { recursive: true });
-        await Bun.write(destinationPath, await readBundledSkillFileContent(file));
+        await Bun.write(
+            destinationPath,
+            await readBundledSkillFileContent(file, options.autoTriggerPolicy),
+        );
     }
 
     await writeInstalledBundledSkillMetadata(
@@ -228,7 +243,7 @@ async function validateBundledSkillInstallationTarget(
 
 // A directory is present at the path but does not carry bundled oo metadata,
 // so installing over it would clobber content oo does not own.
-async function isUnmanagedBundledSkillDirectory(
+export async function isUnmanagedBundledSkillDirectory(
     skillDirectoryPath: string,
 ): Promise<boolean> {
     const state = await readSkillDirectoryState(skillDirectoryPath);

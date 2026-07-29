@@ -852,6 +852,58 @@ export const enMessages = {
     "skills.checkUpdate.failuresHeader": "Failures:",
     "skills.checkUpdate.failuresLine":
         "  {skillId}: {message}",
+    "commands.skills.autoTrigger.description":
+        "Control whether agents may load a bundled skill on their own. Turning auto-trigger off leaves the skill installed and invocable by name, and republishes the bundled skills so the change reaches every agent.",
+    "commands.skills.autoTrigger.summary": "Control bundled skill auto-trigger",
+    "commands.skills.autoTrigger.off.description":
+        "Make the given bundled skills manual-only, or use --all to make every bundled skill manual-only, including ones added by later releases.",
+    "commands.skills.autoTrigger.off.summary": "Turn auto-trigger off",
+    "commands.skills.autoTrigger.on.description":
+        "Let agents load the given bundled skills on their own again, or use --all to restore the default for every bundled skill.",
+    "commands.skills.autoTrigger.on.summary": "Turn auto-trigger on",
+    "commands.skills.autoTrigger.status.description":
+        "Show the auto-trigger state of every bundled skill.",
+    "commands.skills.autoTrigger.status.summary": "Show auto-trigger state",
+    "arguments.skills.autoTrigger.off.skillName":
+        "Bundled skill name(s) to make manual-only",
+    "arguments.skills.autoTrigger.on.skillName":
+        "Bundled skill name(s) to allow auto-trigger for again",
+    "options.skills.autoTrigger.off.all":
+        "Make every bundled skill manual-only instead of specific skills",
+    "options.skills.autoTrigger.on.all":
+        "Restore the default for every bundled skill instead of specific skills",
+    "errors.skills.autoTrigger.conflictingScope":
+        "Pass bundled skill names or --all, not both.",
+    "errors.skills.autoTrigger.missingScope":
+        "Pass at least one bundled skill name, or --all.",
+    "errors.skills.autoTrigger.unknownSkill":
+        "Unknown bundled skill: {value}. Supported skills: {skills}.",
+    "errors.skills.autoTrigger.publishFailed":
+        "Saved the setting, but {count} skill target(s) could not be republished: {targets}. Run `oo skills repair {repairArguments}` to finish applying it.",
+    "skills.autoTrigger.off.success.all":
+        "Every bundled skill is now manual-only.",
+    "skills.autoTrigger.off.success.skills":
+        "{count} bundled skill(s) are now manual-only: {skills}",
+    "skills.autoTrigger.on.success.all":
+        "Every bundled skill can auto-trigger again.",
+    "skills.autoTrigger.on.success.skills":
+        "{count} bundled skill(s) can auto-trigger again: {skills}",
+    "skills.autoTrigger.standingPolicyNote":
+        "  Note: every bundled skill stays manual-only until `oo skills auto-trigger on --all` lifts the standing policy.",
+    "skills.autoTrigger.publishedLine":
+        "  republished {count} skill target(s) across {agents} agent(s)",
+    "skills.autoTrigger.skippedLine":
+        "  skipped {count} target(s) not managed by oo: {targets}",
+    "skills.autoTrigger.status.headerAll":
+        "Auto-trigger is off for every bundled skill.",
+    "skills.autoTrigger.status.headerSkills":
+        "Auto-trigger is off for {count} bundled skill(s).",
+    "skills.autoTrigger.status.headerDefault":
+        "Auto-trigger is on for every bundled skill.",
+    "skills.autoTrigger.status.line": "  {name}: {state}",
+    "skills.autoTrigger.state.all": "manual (all)",
+    "skills.autoTrigger.state.default": "auto",
+    "skills.autoTrigger.state.skill": "manual",
     "commands.skills.recommend.description":
         "Plan end-of-session skill suggestions for the bundled oo skill and manage which packages are never suggested.",
     "commands.skills.recommend.summary": "Manage skill suggestions",
@@ -2158,6 +2210,58 @@ export const zhMessages = {
     "skills.checkUpdate.failuresHeader": "失败：",
     "skills.checkUpdate.failuresLine":
         "  {skillId}：{message}",
+    "commands.skills.autoTrigger.description":
+        "控制 agent 能否自行加载内置 skill。关闭自动触发后 skill 仍然安装着、仍可按名调用，同时会重新发布内置 skill，使改动对每个 agent 生效。",
+    "commands.skills.autoTrigger.summary": "控制内置 skill 的自动触发",
+    "commands.skills.autoTrigger.off.description":
+        "把指定的内置 skill 改为仅手动触发；使用 --all 把所有内置 skill 改为仅手动触发，包括后续版本新增的。",
+    "commands.skills.autoTrigger.off.summary": "关闭自动触发",
+    "commands.skills.autoTrigger.on.description":
+        "重新允许 agent 自行加载指定的内置 skill；使用 --all 把所有内置 skill 恢复为默认。",
+    "commands.skills.autoTrigger.on.summary": "开启自动触发",
+    "commands.skills.autoTrigger.status.description":
+        "显示每个内置 skill 的自动触发状态。",
+    "commands.skills.autoTrigger.status.summary": "显示自动触发状态",
+    "arguments.skills.autoTrigger.off.skillName":
+        "要改为仅手动触发的内置 skill 名称（可指定多个）",
+    "arguments.skills.autoTrigger.on.skillName":
+        "要恢复自动触发的内置 skill 名称（可指定多个）",
+    "options.skills.autoTrigger.off.all":
+        "把所有内置 skill 改为仅手动触发，而非指定的 skill",
+    "options.skills.autoTrigger.on.all":
+        "把所有内置 skill 恢复为默认，而非指定的 skill",
+    "errors.skills.autoTrigger.conflictingScope":
+        "请传入内置 skill 名称或 --all，不能同时使用。",
+    "errors.skills.autoTrigger.missingScope":
+        "请至少传入一个内置 skill 名称，或使用 --all。",
+    "errors.skills.autoTrigger.unknownSkill":
+        "未知的内置 skill：{value}。支持的 skill：{skills}。",
+    "errors.skills.autoTrigger.publishFailed":
+        "设置已保存，但有 {count} 个 skill 目标未能重新发布：{targets}。请运行 `oo skills repair {repairArguments}` 完成应用。",
+    "skills.autoTrigger.off.success.all":
+        "所有内置 skill 现在仅手动触发。",
+    "skills.autoTrigger.off.success.skills":
+        "{count} 个内置 skill 现在仅手动触发：{skills}",
+    "skills.autoTrigger.on.success.all":
+        "所有内置 skill 已恢复自动触发。",
+    "skills.autoTrigger.on.success.skills":
+        "{count} 个内置 skill 已恢复自动触发：{skills}",
+    "skills.autoTrigger.standingPolicyNote":
+        "  注意：在 `oo skills auto-trigger on --all` 解除全局策略之前，所有内置 skill 仍然仅手动触发。",
+    "skills.autoTrigger.publishedLine":
+        "  已在 {agents} 个 agent 上重新发布 {count} 个 skill 目标",
+    "skills.autoTrigger.skippedLine":
+        "  跳过 {count} 个非 oo 管理的目标：{targets}",
+    "skills.autoTrigger.status.headerAll":
+        "所有内置 skill 的自动触发已关闭。",
+    "skills.autoTrigger.status.headerSkills":
+        "有 {count} 个内置 skill 的自动触发已关闭。",
+    "skills.autoTrigger.status.headerDefault":
+        "所有内置 skill 的自动触发均已开启。",
+    "skills.autoTrigger.status.line": "  {name}：{state}",
+    "skills.autoTrigger.state.all": "手动（全部关闭）",
+    "skills.autoTrigger.state.default": "自动",
+    "skills.autoTrigger.state.skill": "手动",
     "commands.skills.recommend.description":
         "为内置 oo skill 规划收尾阶段的 skill 推荐，并管理哪些包永不推荐。",
     "commands.skills.recommend.summary": "管理 skill 推荐",

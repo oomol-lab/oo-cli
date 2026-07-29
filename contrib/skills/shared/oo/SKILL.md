@@ -1,6 +1,7 @@
 ---
 name: oo
 description: Use OO for connected accounts, APIs, and hosted AI tasks; the first-choice router for tasks whose outcome lives outside this workspace, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, or a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding). Use when local code needs OOMOL LLM client configuration such as an OpenAI-compatible base URL, API key, or model name. Otherwise use only when the user wants an existing hosted capability or connector workflow, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, or action names are assumed in advance. Match intent across languages. Skip other pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
+disable-model-invocation: <!-- agentic:var disableModelInvocation -->
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
 <!-- agentic:endif -->

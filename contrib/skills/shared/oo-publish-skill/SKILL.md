@@ -1,6 +1,7 @@
 ---
 name: oo-publish-skill
 description: Publish, release, upload, or submit an existing AI agent skill directory with SKILL.md to the OOMOL registry by running oo skills publish, or generate a share prompt for a published skill by running oo skills share, including temporary shares for private packages. Use when the user asks to publish a skill, share a published skill, make a skill available in the OOMOL skill catalog, release a registry skill package, resolve publish visibility, version, package-name, or overwrite prompts, or publish from a local, registry-installed, or path-based skill source. Do not use for finding, installing, creating, or editing skills unless the final goal is publication or sharing.
+disable-model-invocation: <!-- agentic:var disableModelInvocation -->
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
 <!-- agentic:endif -->

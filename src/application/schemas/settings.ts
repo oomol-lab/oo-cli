@@ -51,11 +51,26 @@ const skillsRecommendSettingsShape = {
 const skillsRecommendSettingsReadSchema = z.object(skillsRecommendSettingsShape);
 const skillsRecommendSettingsSchema = z.object(skillsRecommendSettingsShape).strict();
 
+// Standing policy for whether bundled skills may be loaded by an agent without
+// the user naming them. `disabled_all` covers every bundled skill, including
+// ones added by a later release; `disabled` names individual ones. This is an
+// input to skill materialization, not a runtime switch: the effective value is
+// baked into the published skill files (see skills/auto-trigger-policy.ts).
+const skillsAutoTriggerSettingsShape = {
+    disabled_all: z.boolean().optional(),
+    disabled: z.array(z.string()).optional(),
+};
+
+const skillsAutoTriggerSettingsReadSchema = z.object(skillsAutoTriggerSettingsShape);
+const skillsAutoTriggerSettingsSchema = z.object(skillsAutoTriggerSettingsShape).strict();
+
 const skillsSettingsReadSchema = z.object({
+    auto_trigger: skillsAutoTriggerSettingsReadSchema.optional(),
     recommend: skillsRecommendSettingsReadSchema.optional(),
 });
 
 const skillsSettingsSchema = z.object({
+    auto_trigger: skillsAutoTriggerSettingsSchema.optional(),
     recommend: skillsRecommendSettingsSchema.optional(),
 }).strict();
 
@@ -112,6 +127,17 @@ const defaultSettingsCommentBlocks = [
         "# muted = false",
         "# dismissed = [\"oo-gmail\"]",
     ],
+    [
+        "# skills.auto_trigger controls whether agents may load a bundled skill without being asked to.",
+        "# disabled_all: when true, every bundled skill is manual-only, including ones added later. Default: false.",
+        "# disabled: bundled skill names that are manual-only. Default: none.",
+        "# Manage these with `oo skills auto-trigger off` and `oo skills auto-trigger on`.",
+        "# Editing this section by hand does not republish the skill files. To apply a hand-edited value, run:",
+        "#   oo skills repair --skill oo --skill oo-find-skills --skill oo-create-skill --skill oo-publish-skill",
+        "# [skills.auto_trigger]",
+        "# disabled_all = false",
+        "# disabled = [\"oo-create-skill\"]",
+    ],
 ] as const;
 
 export function renderSettingsFile(settings: AppSettings): string {
@@ -148,21 +174,10 @@ export function renderSettingsFile(settings: AppSettings): string {
         };
     }
 
-    const recommend = parsedSettings.skills?.recommend;
-    const persistedRecommend: Record<string, unknown> = {};
+    const persistedSkills = buildPersistedSkillsSection(parsedSettings.skills);
 
-    // Only persist the global mute when it is on; `false` is the implicit
-    // default and is left out to keep the file at its default shape.
-    if (recommend?.muted === true) {
-        persistedRecommend.muted = true;
-    }
-
-    if (recommend?.dismissed !== undefined && recommend.dismissed.length > 0) {
-        persistedRecommend.dismissed = recommend.dismissed;
-    }
-
-    if (Object.keys(persistedRecommend).length > 0) {
-        persistedSettings.skills = { recommend: persistedRecommend };
+    if (persistedSkills !== undefined) {
+        persistedSettings.skills = persistedSkills;
     }
 
     const serializedSettings = stringifyToml(persistedSettings).trimEnd();
@@ -172,6 +187,51 @@ export function renderSettingsFile(settings: AppSettings): string {
     }
 
     return `${lines.join("\n")}\n`;
+}
+
+// Both `[skills]` subsections drop keys that hold their implicit default, so an
+// installation that never changed them keeps the file at its default shape. A
+// subsection with nothing left to say is omitted, and so is `[skills]` itself.
+function buildPersistedSkillsSection(
+    skills: AppSettings["skills"],
+): Record<string, unknown> | undefined {
+    const persistedRecommend: Record<string, unknown> = {};
+    const recommend = skills?.recommend;
+
+    if (recommend?.muted === true) {
+        persistedRecommend.muted = true;
+    }
+
+    if (recommend?.dismissed !== undefined && recommend.dismissed.length > 0) {
+        persistedRecommend.dismissed = recommend.dismissed;
+    }
+
+    const persistedAutoTrigger: Record<string, unknown> = {};
+    const autoTrigger = skills?.auto_trigger;
+
+    if (autoTrigger?.disabled_all === true) {
+        persistedAutoTrigger.disabled_all = true;
+    }
+
+    if (autoTrigger?.disabled !== undefined && autoTrigger.disabled.length > 0) {
+        persistedAutoTrigger.disabled = autoTrigger.disabled;
+    }
+
+    const persistedSkills: Record<string, unknown> = {};
+
+    if (Object.keys(persistedRecommend).length > 0) {
+        persistedSkills.recommend = persistedRecommend;
+    }
+
+    if (Object.keys(persistedAutoTrigger).length > 0) {
+        persistedSkills.auto_trigger = persistedAutoTrigger;
+    }
+
+    if (Object.keys(persistedSkills).length === 0) {
+        return undefined;
+    }
+
+    return persistedSkills;
 }
 
 export function collectUnknownSettingsFileKeyPaths(
@@ -348,6 +408,91 @@ export function removeDismissedSkillRecommendations(
             recommend: {
                 ...settings.skills?.recommend,
                 dismissed: next,
+            },
+        },
+    };
+}
+
+export function isSkillAutoTriggerDisabledForAll(settings: AppSettings): boolean {
+    return settings.skills?.auto_trigger?.disabled_all ?? false;
+}
+
+export function getAutoTriggerDisabledSkills(
+    settings: AppSettings,
+): readonly string[] {
+    return settings.skills?.auto_trigger?.disabled ?? [];
+}
+
+// Writing the standing policy always clears the per-skill list: `--all` in
+// either direction is the whole answer, so leaving a list behind would keep a
+// second, contradictory record of the same state.
+export function setSkillAutoTriggerDisabledForAll(
+    settings: AppSettings,
+    disabledAll: boolean,
+): AppSettings {
+    const cleared = deleteNestedProperty(settings, ["skills", "auto_trigger"]);
+
+    if (!disabledAll) {
+        return cleared;
+    }
+
+    return {
+        ...cleared,
+        skills: {
+            ...cleared.skills,
+            auto_trigger: { disabled_all: true },
+        },
+    };
+}
+
+// Adds skill names to the per-skill list, keeping the result de-duplicated and
+// sorted for a stable settings file. A standing `disabled_all` is left alone;
+// it already covers these names, and clearing it here would silently widen the
+// command from "these skills" to "all skills".
+export function addAutoTriggerDisabledSkills(
+    settings: AppSettings,
+    skillNames: readonly string[],
+): AppSettings {
+    const next = sortUnique([
+        ...getAutoTriggerDisabledSkills(settings),
+        ...skillNames,
+    ]);
+
+    return {
+        ...settings,
+        skills: {
+            ...settings.skills,
+            auto_trigger: {
+                ...settings.skills?.auto_trigger,
+                disabled: next,
+            },
+        },
+    };
+}
+
+export function removeAutoTriggerDisabledSkills(
+    settings: AppSettings,
+    skillNames: readonly string[],
+): AppSettings {
+    const removal = new Set(skillNames);
+    const current = getAutoTriggerDisabledSkills(settings);
+    const next = current.filter(name => !removal.has(name));
+
+    if (next.length === current.length) {
+        return settings;
+    }
+
+    if (next.length === 0) {
+        return deleteNestedProperty(settings, ["skills", "auto_trigger", "disabled"]);
+    }
+
+    return {
+        ...settings,
+        skills: {
+            ...settings.skills,
+            auto_trigger: {
+                ...settings.skills?.auto_trigger,
+                disabled: next,
             },
         },
     };

@@ -497,6 +497,33 @@ describe("skills install --out-dir export", () => {
         "oo-publish-skill",
     ];
 
+    // The export is a portable artifact that none of the auto-trigger commands
+    // can reach afterwards, so it must not carry this installation's policy to
+    // whoever consumes the directory.
+    test("exports at the shipped auto-trigger default even when it is turned off locally", async () => {
+        const sandbox = await createCliSandbox();
+        const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));
+
+        try {
+            await sandbox.run(["skills", "auto-trigger", "off", "--all"]);
+            sandbox.env.OO_SKILLS_SYNC_DISABLED = "1";
+
+            const result = await sandbox.run(["skills", "add", "--out-dir", outDir]);
+
+            expect(result.exitCode).toBe(0);
+            expect(await readFile(join(outDir, "oo", "SKILL.md"), "utf8")).toContain(
+                "disable-model-invocation: false",
+            );
+            expect(
+                await readFile(join(outDir, "oo", "agents", "openai.yaml"), "utf8"),
+            ).toContain("allow_implicit_invocation: true");
+        }
+        finally {
+            await rm(outDir, { force: true, recursive: true });
+            await sandbox.cleanup();
+        }
+    });
+
     test("exports all bundled skills into the directory without touching agent homes", async () => {
         const sandbox = await createCliSandbox();
         const outDir = await mkdtemp(join(tmpdir(), "oo-out-"));

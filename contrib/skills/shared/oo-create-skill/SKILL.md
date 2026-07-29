@@ -1,6 +1,7 @@
 ---
 name: oo-create-skill
 description: Create, adopt, review, or update local AI agent skills, including ordinary knowledge or workflow skills and skills powered by oo connectors or hosted capabilities. Use when the user asks to create or improve a skill, turn existing files or scripts into a skill, check a skill against modern authoring practices, or build a reusable skill that calls oo at runtime.
+disable-model-invocation: <!-- agentic:var disableModelInvocation -->
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
 <!-- agentic:endif -->

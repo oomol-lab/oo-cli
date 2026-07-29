@@ -1,4 +1,5 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
+import type { SkillAutoTriggerPolicy } from "./auto-trigger-policy.ts";
 import type { BundledSkillName } from "./embedded-assets.ts";
 import type {
     ManagedSkillHost,
@@ -7,6 +8,7 @@ import type {
 import type { RegistrySkillMetadata } from "./skill-metadata.ts";
 
 import { join } from "node:path";
+import { readSkillAutoTriggerPolicy } from "./auto-trigger-policy.ts";
 import {
     publishBundledSkillInstallation,
 } from "./bundled-skill-filesystem.ts";
@@ -55,7 +57,11 @@ export async function synchronizeManagedSkillsForAvailableHosts(
         }
 
         await Promise.all([
-            synchronizeBundledSkills(hosts, context),
+            synchronizeBundledSkills(
+                hosts,
+                context,
+                await readSkillAutoTriggerPolicy(context.settingsStore),
+            ),
             synchronizeRegistrySkills(hosts, context),
         ]);
     }
@@ -72,11 +78,12 @@ export async function synchronizeManagedSkillsForAvailableHosts(
 async function synchronizeBundledSkills(
     hosts: readonly ManagedSkillHost[],
     context: SkillSyncContext,
+    autoTriggerPolicy: SkillAutoTriggerPolicy,
 ): Promise<void> {
     await Promise.all(
         hosts.flatMap(host =>
             availableBundledSkillNames.map(skillName =>
-                synchronizeBundledSkill(host, skillName, context),
+                synchronizeBundledSkill(host, skillName, context, autoTriggerPolicy),
             ),
         ),
     );
@@ -86,6 +93,7 @@ async function synchronizeBundledSkill(
     host: ManagedSkillHost,
     skillName: BundledSkillName,
     context: SkillSyncContext,
+    autoTriggerPolicy: SkillAutoTriggerPolicy,
 ): Promise<void> {
     const settingsFilePath = context.settingsStore.getFilePath();
     const installation = resolveManagedSkillHostInstallation(host, skillName);
@@ -162,6 +170,7 @@ async function synchronizeBundledSkill(
 
         const installedSkillDirectoryPath = await publishManagedBundledSkill({
             agentName: host.agentName,
+            autoTriggerPolicy,
             homeDirectory: host.homeDirectory,
             settingsFilePath,
             skillName,

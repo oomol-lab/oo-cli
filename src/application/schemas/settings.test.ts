@@ -2,16 +2,138 @@ import { describe, expect, test } from "bun:test";
 import { parse as parseToml } from "smol-toml";
 
 import {
+    addAutoTriggerDisabledSkills,
     addDismissedSkillRecommendations,
+    getAutoTriggerDisabledSkills,
     getDismissedSkillRecommendations,
     getLegacyIdentityTeam,
+    isSkillAutoTriggerDisabledForAll,
     isSkillRecommendationsMuted,
+    removeAutoTriggerDisabledSkills,
     removeDismissedSkillRecommendations,
     renderSettingsFile,
+    setSkillAutoTriggerDisabledForAll,
     setSkillRecommendationsMuted,
     settingsFileReadSchema,
     unsetLegacyIdentityTeam,
 } from "./settings.ts";
+
+describe("skill auto-trigger settings", () => {
+    test("defaults to auto-trigger enabled with no per-skill entries", () => {
+        expect(isSkillAutoTriggerDisabledForAll({})).toBe(false);
+        expect(getAutoTriggerDisabledSkills({})).toEqual([]);
+    });
+
+    test("clears the per-skill list when the standing policy is set", () => {
+        const named = addAutoTriggerDisabledSkills({}, ["oo-create-skill"]);
+        const all = setSkillAutoTriggerDisabledForAll(named, true);
+
+        expect(isSkillAutoTriggerDisabledForAll(all)).toBe(true);
+        expect(getAutoTriggerDisabledSkills(all)).toEqual([]);
+    });
+
+    test("clears the whole section when the standing policy is lifted", () => {
+        const all = setSkillAutoTriggerDisabledForAll(
+            addAutoTriggerDisabledSkills({}, ["oo-create-skill"]),
+            true,
+        );
+        const cleared = setSkillAutoTriggerDisabledForAll(all, false);
+
+        expect(isSkillAutoTriggerDisabledForAll(cleared)).toBe(false);
+        expect(getAutoTriggerDisabledSkills(cleared)).toEqual([]);
+        expect(cleared.skills?.auto_trigger).toBeUndefined();
+    });
+
+    test("sorts and de-duplicates per-skill entries", () => {
+        const settings = addAutoTriggerDisabledSkills({}, [
+            "oo-publish-skill",
+            "oo-create-skill",
+            "oo-publish-skill",
+        ]);
+
+        expect(getAutoTriggerDisabledSkills(settings)).toEqual([
+            "oo-create-skill",
+            "oo-publish-skill",
+        ]);
+    });
+
+    test("prunes the per-skill list once the last entry is removed", () => {
+        const settings = addAutoTriggerDisabledSkills({}, ["oo-create-skill"]);
+        const cleared = removeAutoTriggerDisabledSkills(settings, ["oo-create-skill"]);
+
+        expect(getAutoTriggerDisabledSkills(cleared)).toEqual([]);
+        expect(cleared.skills?.auto_trigger?.disabled).toBeUndefined();
+    });
+
+    test("keeps a standing policy while a per-skill entry is added", () => {
+        const settings = addAutoTriggerDisabledSkills(
+            setSkillAutoTriggerDisabledForAll({}, true),
+            ["oo-create-skill"],
+        );
+
+        expect(isSkillAutoTriggerDisabledForAll(settings)).toBe(true);
+        expect(getAutoTriggerDisabledSkills(settings)).toEqual(["oo-create-skill"]);
+    });
+
+    // `[skills]` is shared with `[skills.recommend]`, and lifting the standing
+    // policy is the one mutation here that deletes a whole subsection. If the
+    // empty-parent pruning ever over-reaches it would wipe an unrelated mute
+    // and dismissal list from a command that never mentions recommendations.
+    test("leaves skills.recommend intact when the standing policy is lifted", () => {
+        const settings = setSkillAutoTriggerDisabledForAll(
+            addDismissedSkillRecommendations(
+                setSkillRecommendationsMuted({}, true),
+                ["oo-gmail"],
+            ),
+            true,
+        );
+        const cleared = setSkillAutoTriggerDisabledForAll(settings, false);
+
+        expect(cleared.skills?.auto_trigger).toBeUndefined();
+        expect(isSkillRecommendationsMuted(cleared)).toBe(true);
+        expect(getDismissedSkillRecommendations(cleared)).toEqual(["oo-gmail"]);
+
+        const rendered = renderSettingsFile(cleared);
+
+        expect(rendered).toContain("\n[skills.recommend]");
+        expect(rendered).not.toContain("\n[skills.auto_trigger]");
+    });
+
+    test("renders and round-trips the skills.auto_trigger section", () => {
+        const settings = addAutoTriggerDisabledSkills(
+            setSkillAutoTriggerDisabledForAll({}, true),
+            ["oo-create-skill"],
+        );
+        const rendered = renderSettingsFile(settings);
+
+        expect(rendered).toContain("[skills.auto_trigger]");
+
+        const parsed = settingsFileReadSchema.parse(parseToml(rendered));
+
+        expect(parsed.skills?.auto_trigger?.disabled_all).toBe(true);
+        expect(parsed.skills?.auto_trigger?.disabled).toEqual(["oo-create-skill"]);
+    });
+
+    test("does not render an active skills.auto_trigger section by default", () => {
+        const rendered = renderSettingsFile({});
+
+        expect(rendered).not.toContain("\n[skills.auto_trigger]");
+        expect(rendered).not.toContain("\n[skills]");
+    });
+
+    test("keeps both skills subsections when each holds a value", () => {
+        const settings = addAutoTriggerDisabledSkills(
+            setSkillRecommendationsMuted({}, true),
+            ["oo-create-skill"],
+        );
+        const parsed = settingsFileReadSchema.parse(
+            parseToml(renderSettingsFile(settings)),
+        );
+
+        expect(parsed.skills?.recommend?.muted).toBe(true);
+        expect(parsed.skills?.auto_trigger?.disabled).toEqual(["oo-create-skill"]);
+    });
+});
 
 describe("skill recommendation settings", () => {
     test("defaults to not muted with no dismissals", () => {

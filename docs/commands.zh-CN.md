@@ -1623,6 +1623,97 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - JSON 输出永远不会包含 `apiKey`、原始 HTTP 请求 / 响应体、stack trace 或未
   脱敏的 endpoint secret。
 
+### `oo skills auto-trigger`
+
+控制 agent 能否在用户未点名的情况下自行加载内置 skill。这是一个命令组，包含三个
+子命令，仅作用于四个内置 skill（`oo`、`oo-find-skills`、`oo-create-skill`、
+`oo-publish-skill`），registry skill 与本地 skill 不受影响。
+
+关闭自动触发后，skill 仍然安装着、仍可按名调用——在 Claude Code 及兼容 agent 中
+使用 `/oo`，在 Codex 中使用 `$oo`。改变的只是 agent 不再主动使用它。
+
+- 维度：设置按 skill 生效，不按 agent。一次执行即应用到所有受支持的 agent 宿主，
+  各自使用该 agent 能识别的机制。
+- 持久化：选择存储在 CLI 设置文件的 `[skills.auto_trigger]` 下，跨会话保留。
+- 生效时机：该设置是 skill 发布时的输入，不是运行时开关。`off`/`on` 会立即重新
+  发布内置 skill。启动同步不会检测手工修改的 `[skills.auto_trigger]`；手改后请用
+  `oo skills repair --skill oo --skill oo-find-skills --skill oo-create-skill
+  --skill oo-publish-skill` 应用（`--skill` 是必填项）。
+- `--all` 是常驻策略而非快照：后续版本新增的内置 skill 也会被它覆盖，无需再次
+  执行命令。该策略生效期间，针对单个 skill 的 `off`/`on` 仍会更新持久化列表，但
+  对 agent 而言没有任何变化，文本输出会明确提示这一点。
+- 连带影响：自动触发关闭后，会把 skill 描述从自身上下文中移除的 agent 将无法再
+  主动使用它。内置 `oo` skill 的收尾阶段推荐即属于此类行为，在重新开启自动触发
+  之前不会再发生。
+
+#### `oo skills auto-trigger off [skillName...]`
+
+把内置 skill 改为仅手动触发。
+
+- 参数：`[skillName...]` 要改为仅手动触发的内置 skill 名称；会写入持久化列表，
+  去重并排序。
+- 选项：`--all` 把所有内置 skill 改为仅手动触发（含后续版本新增的），并清空
+  per-skill 列表，因为它已被覆盖。`--json` / `--format json` /
+  `--show-schema-version` 控制输出。
+- 校验：传入 skill 名称**或** `--all`，不能同时传、也不能都不传，两种误用均以
+  `2` 退出。不属于内置 skill 的名称以 `2` 退出并列出可用名称。
+- 安全性：非 `oo` 管理的同名 skill 目录不会被覆盖，会在输出中报告为已跳过。这与
+  `oo skills install` 不同——后者遇到此类目录会让整次运行失败；而修改偏好设置必须
+  仍然能对其他 agent 生效。
+- 退出码：设置已保存但有 skill 目标未能重新发布时退出 `1`，消息会点名这些目标，
+  并给出用于完成应用的 `oo skills repair` 命令。
+
+#### `oo skills auto-trigger on [skillName...]`
+
+重新允许 agent 自行加载内置 skill。
+
+- 参数：`[skillName...]` 要从列表中移除的内置 skill 名称。
+- 选项：`--all` 把所有内置 skill 恢复为出厂默认，同时清除常驻策略和 per-skill
+  列表，不会遗留任何仍处于仅手动状态的 skill。输出选项与 `off` 相同。
+- 校验：与 `off` 相同，但 `on` 额外接受已存在于 `disabled` 列表中的名称，即使它
+  在当前版本中已不是内置 skill。移除条目本就是该命令的职责；否则后续版本删除的
+  内置 skill 将只能用 `--all` 清除。
+- 安全性与退出码同 `off`。
+
+#### `oo skills auto-trigger status`
+
+显示每个内置 skill 已配置的自动触发策略。
+
+- 选项：`--json` / `--format json` / `--show-schema-version`。
+- 文本输出：先输出一行整体状态，再为每个内置 skill 输出一行，取值为 `自动`、
+  `手动` 或 `手动（全部关闭）`。
+- 范围：显示的是已保存的设置，而非当前已发布到磁盘的内容。除非手改了设置文件却
+  没有重新发布，两者一致——参见上文「生效时机」。
+
+#### JSON 输出
+
+`status` 输出状态；`off` 与 `on` 输出同样的状态，外加本次发布的结果。
+
+```json
+{
+  "disabled": ["oo-create-skill"],
+  "disabledAll": false,
+  "skills": [
+    { "autoTrigger": true, "name": "oo", "reason": "default" },
+    { "autoTrigger": true, "name": "oo-find-skills", "reason": "default" },
+    { "autoTrigger": false, "name": "oo-create-skill", "reason": "skill" },
+    { "autoTrigger": true, "name": "oo-publish-skill", "reason": "default" }
+  ],
+  "publications": [
+    { "agent": "universal", "skill": "oo", "status": "published" },
+    { "agent": "claude", "skill": "oo", "status": "skipped" }
+  ]
+}
+```
+
+- `disabled` 原样回显持久化的 per-skill 列表，包括在当前版本中已不对应任何内置
+  skill 的名称。此类条目不产生任何效果；用 `on <name>` 即可清除——`on` 接受列表
+  中已存在的名称。
+- `reason` 取值为 `default`（自动触发开启）、`skill`（该 skill 被单独指定）或
+  `all`（被常驻策略覆盖）。`all` 优先于 `skill`。
+- `publications` 仅出现在 `off` 与 `on` 中。`status` 取值为 `published`、
+  `skipped`（目标不由 `oo` 管理）或 `failed`。
+
 ### `oo skills recommend`
 
 为内置 `oo` skill 提供收尾阶段的 skill 推荐，并提供静音控制。内置 `oo` skill 会

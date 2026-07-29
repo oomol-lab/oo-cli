@@ -1,0 +1,5 @@
+# Managed by oo. Change this through `oo skills auto-trigger`, not by hand.
+# `allow_implicit_invocation: false` stops Codex from loading this skill from a
+# user prompt; explicit `$oo` invocation keeps working.
+policy:
+  allow_implicit_invocation: <!-- agentic:var allowImplicitInvocation -->

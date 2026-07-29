@@ -1934,6 +1934,111 @@ Common rules:
 - The JSON payload never includes `apiKey`, raw HTTP request/response bodies,
   stack traces, or unredacted endpoint secrets.
 
+### `oo skills auto-trigger`
+
+Control whether agents may load a bundled skill without being asked to. This is
+a command group with three subcommands, and it applies only to the four bundled
+skills (`oo`, `oo-find-skills`, `oo-create-skill`, `oo-publish-skill`). Registry
+and local skills are unaffected.
+
+Turning auto-trigger off leaves the skill installed and still invocable by name
+— `/oo` in Claude Code and Claude-compatible agents, `$oo` in Codex. What
+changes is that the agent no longer offers to use it on its own.
+
+- Scope: the setting is per skill, not per agent. One run applies it to every
+  supported agent host, using whichever mechanism that agent understands.
+- Persistence: the choice is stored in the CLI settings file under
+  `[skills.auto_trigger]` and survives across sessions.
+- Application: the setting is an input to skill publication, not a runtime
+  switch. `off`/`on` republish the bundled skills immediately. Startup
+  synchronization does not detect a hand-edited `[skills.auto_trigger]`; apply
+  one with `oo skills repair --skill oo --skill oo-find-skills --skill
+  oo-create-skill --skill oo-publish-skill` (`--skill` is required).
+- `--all` is a standing policy, not a snapshot: bundled skills added by later
+  releases are covered by it without a further command. While it is in force, a
+  per-skill `off`/`on` still updates the stored list but changes nothing an
+  agent can see, and the text output says so.
+- Consequence: with auto-trigger off, an agent that hides a skill's description
+  from its own context can no longer act on it unprompted. The bundled `oo`
+  skill's end-of-session suggestions are one such behavior and stop happening
+  until auto-trigger is turned back on.
+
+#### `oo skills auto-trigger off [skillName...]`
+
+Make bundled skills manual-only.
+
+- Arguments: `[skillName...]` bundled skill names to make manual-only; they are
+  added to a persisted list, de-duplicated and sorted.
+- Options: `--all` makes every bundled skill manual-only, now and in future
+  releases, and clears the per-skill list because it supersedes it.
+  `--json` / `--format json` / `--show-schema-version` control output.
+- Validation: pass skill names **or** `--all`, not both and not neither; either
+  misuse exits `2`. A name that is not a bundled skill exits `2` and lists the
+  accepted names.
+- Safety: a same-name skill directory that `oo` does not manage is left
+  untouched and reported as skipped. This differs from `oo skills install`,
+  which fails the run on such a directory: changing a preference must still
+  reach the other agents.
+- Exit code: `1` when the setting was saved but one or more skill targets could
+  not be republished; the message names them and gives the `oo skills repair`
+  command to finish applying it.
+
+#### `oo skills auto-trigger on [skillName...]`
+
+Let agents load bundled skills on their own again.
+
+- Arguments: `[skillName...]` bundled skill names to remove from the list.
+- Options: `--all` restores the shipped default for every bundled skill,
+  clearing both the standing policy and the per-skill list, so nothing is left
+  silently manual-only. Output options match `off`.
+- Validation: as `off`, except that `on` also accepts a name the stored
+  `disabled` list already holds even when it is not a bundled skill in this
+  release. Removing an entry is the command's job, and a bundled skill dropped
+  by a later release would otherwise be unclearable except with `--all`.
+- Safety and exit codes match `off`.
+
+#### `oo skills auto-trigger status`
+
+Show the configured auto-trigger policy for every bundled skill.
+
+- Options: `--json` / `--format json` / `--show-schema-version`.
+- Text output: a headline stating the overall state, then one line per bundled
+  skill reading `auto`, `manual`, or `manual (all)`.
+- Scope: this reports the stored setting, not what is currently published. The
+  two agree unless the settings file was edited by hand without republishing —
+  see Application above.
+
+#### JSON output
+
+`status` emits the state; `off` and `on` emit the same state plus what they
+published.
+
+```json
+{
+  "disabled": ["oo-create-skill"],
+  "disabledAll": false,
+  "skills": [
+    { "autoTrigger": true, "name": "oo", "reason": "default" },
+    { "autoTrigger": true, "name": "oo-find-skills", "reason": "default" },
+    { "autoTrigger": false, "name": "oo-create-skill", "reason": "skill" },
+    { "autoTrigger": true, "name": "oo-publish-skill", "reason": "default" }
+  ],
+  "publications": [
+    { "agent": "universal", "skill": "oo", "status": "published" },
+    { "agent": "claude", "skill": "oo", "status": "skipped" }
+  ]
+}
+```
+
+- `disabled` echoes the persisted per-skill list verbatim, including a name that
+  no longer matches a bundled skill in this release. Such an entry has no
+  effect; clear it with `on <name>`, which accepts a name the list already
+  holds.
+- `reason` is `default` (auto-trigger on), `skill` (this skill was named), or
+  `all` (the standing policy covers it). `all` outranks `skill`.
+- `publications` is present on `off` and `on` only. `status` is one of
+  `published`, `skipped` (target not managed by `oo`), or `failed`.
+
 ### `oo skills recommend`
 
 End-of-session skill suggestions for the bundled `oo` skill, plus controls to
