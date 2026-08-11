@@ -1381,7 +1381,10 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   skill 的安装会以 `name_conflict` 失败，除非使用 `--force`（会覆盖它）。如果同名
   skill 已由 `oo` 管理，则会被覆盖，即使它来自另一个 package。空目录里没有任何
   skill，因此不构成冲突：安装会直接写入，并报告 `previousState: "absent"`。
-- 说明：通用 `~/.agents` host 始终可用（缺失时自动创建），因此命令始终至少有一个安装目标。
+- 说明：只要通用 `~/.agents` host 的 skill 目录能被创建，它就始终可用（该目录缺失
+  时自动创建），因此命令通常至少有一个安装目标。只有当 `~/.agents/skills` 被
+  `oo` 无法在其上创建目录的东西占用时它才会被排除；如果因此没有任何可用 host，
+  命令会报告 `no_supported_hosts`。
 - 说明：只有当 bundled 或 registry skill 的 `.oo-metadata.json` 能识别对应来源
   时，`oo` 才会认为这是自己管理的安装；否则会视为其他 skill，并拒绝覆盖。
 - 选项：`--json` / `--format json` 输出结构化 payload（见下方"mutation 命令的

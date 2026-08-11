@@ -1663,8 +1663,11 @@ Install bundled or published skills into supported local skill directories.
   `oo` is overwritten, including when it was installed from a different package.
   An empty target directory holds no skill, so it never conflicts: the install
   writes into it and reports `previousState: "absent"`.
-- Notes: the universal `~/.agents` host is always available (created when
-  missing), so the command always has at least one install target.
+- Notes: the universal `~/.agents` host is available whenever its skill
+  directory can be created (the directory itself is created when missing), so
+  the command normally has at least one install target. It drops out only when
+  something `oo` cannot create a directory at occupies `~/.agents/skills`, and
+  the command reports `no_supported_hosts` when that leaves no usable host.
 - Notes: an existing bundled or registry skill installation is considered
   managed by `oo` only when its `.oo-metadata.json` identifies that source.
   Otherwise `oo` treats it as a different skill and will not overwrite it.
