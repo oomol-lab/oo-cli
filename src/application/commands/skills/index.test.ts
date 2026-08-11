@@ -17,7 +17,11 @@ import {
     parseTelemetryRowPayload,
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
-import { readBundledSkillSourceContent, seedRegistrySkill } from "./__tests__/helpers.ts";
+import {
+    createDirectorySymbolicLinkForTest,
+    readBundledSkillSourceContent,
+    seedRegistrySkill,
+} from "./__tests__/helpers.ts";
 import {
     canonicalLocalSkillsDirectoryName,
     resolveBundledSkillCanonicalDirectoryPath,
@@ -348,39 +352,7 @@ describe("skills commands", () => {
 
             const result = await sandbox.run(
                 ["skills", "install", "oo@0.0.2"],
-                {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
-
-                        requests.push(request);
-
-                        if (request.url.includes("/package-info/")) {
-                            return new Response(JSON.stringify({
-                                packageName: "oo",
-                                version: "0.0.2",
-                                skills: [
-                                    {
-                                        description: "Run OO workflows",
-                                        name: "runtime",
-                                        title: "Runtime",
-                                    },
-                                ],
-                            }));
-                        }
-
-                        if (request.url.endsWith("/oo/-/meta/oo-0.0.2.tgz")) {
-                            return new Response(await createRegistrySkillArchiveBytes({
-                                "package/package/skills/runtime/SKILL.md": "# Runtime\n",
-                            }));
-                        }
-
-                        if (isRegistryPackageDownloadCountRequest(request)) {
-                            return new Response(null, { status: 204 });
-                        }
-
-                        throw new Error(`Unexpected request: ${request.url}`);
-                    },
-                },
+                { fetcher: createRuntimeRegistryFetcher(requests) },
             );
 
             expect(result.exitCode).toBe(0);
@@ -393,6 +365,51 @@ describe("skills commands", () => {
                 "https://registry.oomol.com/-/oomol/packages/oo/0.0.2/download-count",
                 "https://registry.oomol.com/oo/-/meta/oo-0.0.2.tgz",
             ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs a registry skill once when two agent homes share a skills directory", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const sharedSkillsDirectoryPath = join(sandbox.env.HOME!, ".shared", "skills");
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            claudeHomeDirectory,
+            "runtime",
+        );
+
+        try {
+            await mkdir(sharedSkillsDirectoryPath, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await mkdir(claudeHomeDirectory, { recursive: true });
+            await createDirectorySymbolicLinkForTest(
+                sharedSkillsDirectoryPath,
+                join(universalHomeDirectory, "skills"),
+            );
+            await createDirectorySymbolicLinkForTest(
+                sharedSkillsDirectoryPath,
+                join(claudeHomeDirectory, "skills"),
+            );
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "oo@0.0.2"],
+                { fetcher: createRuntimeRegistryFetcher() },
+            );
+
+            // Both homes publish into the same directory: publishing them as two
+            // hosts copied into the same path concurrently and failed with EEXIST.
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Skill: runtime\nInstalled skill runtime to ${skillDirectoryPath}.\n`,
+            );
+            expect(
+                await readFile(join(sharedSkillsDirectoryPath, "runtime", "SKILL.md"), "utf8"),
+            ).toContain("# Runtime");
         }
         finally {
             await sandbox.cleanup();
@@ -3818,6 +3835,45 @@ function isRegistryPackageDownloadCountRequest(request: Request): boolean {
     return request.method === "POST"
         && request.url.includes("/-/oomol/packages/")
         && request.url.endsWith("/download-count");
+}
+
+// Serves the `oo@0.0.2` registry package that publishes a single `runtime`
+// skill. Pass a request sink to assert the request sequence.
+function createRuntimeRegistryFetcher(requests?: Request[]): (
+    input: string | URL | Request,
+    init?: RequestInit,
+) => Promise<Response> {
+    return async (input, init) => {
+        const request = toRequest(input, init);
+
+        requests?.push(request);
+
+        if (request.url.includes("/package-info/")) {
+            return new Response(JSON.stringify({
+                packageName: "oo",
+                version: "0.0.2",
+                skills: [
+                    {
+                        description: "Run OO workflows",
+                        name: "runtime",
+                        title: "Runtime",
+                    },
+                ],
+            }));
+        }
+
+        if (request.url.endsWith("/oo/-/meta/oo-0.0.2.tgz")) {
+            return new Response(await createRegistrySkillArchiveBytes({
+                "package/package/skills/runtime/SKILL.md": "# Runtime\n",
+            }));
+        }
+
+        if (isRegistryPackageDownloadCountRequest(request)) {
+            return new Response(null, { status: 204 });
+        }
+
+        throw new Error(`Unexpected request: ${request.url}`);
+    };
 }
 
 function createMultiPackageRegistryFetcher(): (
