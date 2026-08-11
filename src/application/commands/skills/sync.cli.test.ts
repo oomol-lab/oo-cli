@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
@@ -282,7 +282,7 @@ describe("skills sync upload --json", () => {
         }
     });
 
-    test("unexpected filesystem throw is normalized to unknown error JSON", async () => {
+    test("a host skills path occupied by a file reports no supported hosts", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -290,13 +290,61 @@ describe("skills sync upload --json", () => {
             const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
 
             await mkdir(homeDirectory, { recursive: true });
-            // Make <home>/skills be a regular file rather than a directory.
-            // readSkillsDirectoryEntries on it will throw ENOTDIR (not ENOENT),
-            // which is *not* covered by any inner try/catch in the upload path.
-            // The outer safety net must convert it to a stable JSON payload.
-            const skillsPath = join(homeDirectory, "skills");
+            await writeFile(join(homeDirectory, "skills"), "not a directory\n");
 
-            await writeFile(skillsPath, "not a directory\n");
+            const result = await sandbox.run(
+                ["skills", "sync", "upload", "--json"],
+                {
+                    version: TEST_CLI_VERSION,
+                    fetcher: async () => new Response("[]"),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const errors = payload.errors as Array<Record<string, unknown>>;
+
+            // No skill directory can be created at that path, so the host is
+            // dropped and the command reports the defined error instead of
+            // failing on the raw ENOTDIR later on.
+            expect(payload.status).toBe("failed");
+            expect(errors).toHaveLength(1);
+            expect(errors[0]).toMatchObject({ code: "no_supported_hosts" });
+            expect(result.stdout).not.toContain("ENOTDIR");
+            expect(result.stdout).not.toContain("not a directory");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("unexpected filesystem throw is normalized to unknown error JSON", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+            const storePaths = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            });
+
+            await mkdir(join(homeDirectory, "skills"), { recursive: true });
+            // Make the canonical registry root a regular file rather than a
+            // directory. readSkillsDirectoryEntries on it will throw ENOTDIR
+            // (not ENOENT), which is *not* covered by any inner try/catch in the
+            // upload path. The outer safety net must convert it to a stable JSON
+            // payload.
+            const canonicalRootPath = dirname(
+                resolveManagedSkillCanonicalDirectoryPath(
+                    storePaths.settingsFilePath,
+                    "demo",
+                ),
+            );
+
+            await mkdir(dirname(canonicalRootPath), { recursive: true });
+            await writeFile(canonicalRootPath, "not a directory\n");
 
             const result = await sandbox.run(
                 ["skills", "sync", "upload", "--json"],

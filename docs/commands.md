@@ -1145,6 +1145,11 @@ missing), and for every other supported host directory that already exists.
   any newly detected supported host that is missing it.
 - Local skills: agent-native local skills are not synchronized during startup.
   A local skill belongs to the agent skill directory where it was created.
+- Unusable host directories: a supported host is skipped when its skill
+  directory path is occupied by something `oo` cannot create a directory at,
+  such as a symbolic link whose target has been removed or a regular file. The
+  remaining hosts still install, and `oo info` keeps reporting the host so the
+  broken path stays visible.
 - Shared host directories: supported hosts whose skill directories resolve to
   the same location — for example `~/.claude/skills` symlinked to
   `~/.agents/skills` — are one host. The skill is installed there once and is
@@ -1656,8 +1661,13 @@ Install bundled or published skills into supported local skill directories.
   non-OOMOL skill; the install fails with `name_conflict` for that skill unless
   `--force` is used (which overwrites it). A same-name skill already managed by
   `oo` is overwritten, including when it was installed from a different package.
-- Notes: the universal `~/.agents` host is always available (created when
-  missing), so the command always has at least one install target.
+  An empty target directory holds no skill, so it never conflicts: the install
+  writes into it and reports `previousState: "absent"`.
+- Notes: the universal `~/.agents` host is available whenever its skill
+  directory can be created (the directory itself is created when missing), so
+  the command normally has at least one install target. It drops out only when
+  something `oo` cannot create a directory at occupies `~/.agents/skills`, and
+  the command reports `no_supported_hosts` when that leaves no usable host.
 - Notes: an existing bundled or registry skill installation is considered
   managed by `oo` only when its `.oo-metadata.json` identifies that source.
   Otherwise `oo` treats it as a different skill and will not overwrite it.

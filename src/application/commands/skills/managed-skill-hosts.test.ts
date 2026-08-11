@@ -119,6 +119,50 @@ describe("resolveAvailableManagedSkillHosts", () => {
             await hostSandbox.cleanup();
         }
     });
+
+    test("drops a host whose skills directory is a symbolic link to a removed target", async () => {
+        const hostSandbox = await createManagedSkillHostSandbox();
+        const rootDirectory = hostSandbox.rootDirectory;
+
+        try {
+            const removedSkillsDirectory = join(rootDirectory, ".removed", "skills");
+
+            await mkdir(removedSkillsDirectory, { recursive: true });
+            await mkdir(join(rootDirectory, ".agents"), { recursive: true });
+            await mkdir(join(rootDirectory, ".claude", "skills"), { recursive: true });
+            await createDirectorySymbolicLinkForTest(
+                removedSkillsDirectory,
+                join(rootDirectory, ".agents", "skills"),
+            );
+            await rm(join(rootDirectory, ".removed"), { force: true, recursive: true });
+
+            const hosts = await resolveAvailableManagedSkillHosts(hostSandbox.env);
+
+            // The dangling link can never be created, so publishing through it
+            // would fail with EEXIST; the intact host still installs.
+            expect(hosts.map(host => host.agentName)).toEqual(["claude"]);
+        }
+        finally {
+            await hostSandbox.cleanup();
+        }
+    });
+
+    test("drops a host whose skills path is occupied by a file", async () => {
+        const hostSandbox = await createManagedSkillHostSandbox();
+        const rootDirectory = hostSandbox.rootDirectory;
+
+        try {
+            await mkdir(join(rootDirectory, ".agents"), { recursive: true });
+            await Bun.write(join(rootDirectory, ".agents", "skills"), "not a directory\n");
+
+            const hosts = await resolveAvailableManagedSkillHosts(hostSandbox.env);
+
+            expect(hosts).toEqual([]);
+        }
+        finally {
+            await hostSandbox.cleanup();
+        }
+    });
 });
 
 // Every host test needs an empty home directory tree plus the environment that

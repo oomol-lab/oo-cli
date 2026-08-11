@@ -9,6 +9,7 @@ import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
 import { resolveManagedSkillMetadataFilePath } from "./managed-skill-paths.ts";
 import {
     isCurrentRegistryPublication,
+    isSkillDirectoryAbsent,
     readSkillDirectoryState,
 } from "./skill-directory-state.ts";
 import {
@@ -71,10 +72,21 @@ describe("readSkillDirectoryState", () => {
         ).resolves.toEqual({ kind: "not-directory" });
     });
 
+    test("classifies an empty directory as empty", async () => {
+        const skillDirectoryPath = join(rootDirectoryPath, "skill");
+
+        await mkdir(skillDirectoryPath);
+
+        await expect(
+            readSkillDirectoryState(skillDirectoryPath),
+        ).resolves.toEqual({ kind: "empty" });
+    });
+
     test("classifies a directory without metadata as unmanaged", async () => {
         const skillDirectoryPath = join(rootDirectoryPath, "skill");
 
         await mkdir(skillDirectoryPath);
+        await writeFile(join(skillDirectoryPath, "SKILL.md"), "# skill\n");
 
         await expect(
             readSkillDirectoryState(skillDirectoryPath),
@@ -207,6 +219,7 @@ describe("isCurrentRegistryPublication", () => {
     const rejectedCases = [
         { state: { kind: "missing" }, title: "a missing state" },
         { state: { kind: "not-directory" }, title: "a not-directory state" },
+        { state: { kind: "empty" }, title: "an empty state" },
         {
             state: { kind: "unmanaged", metadataFilePresent: true },
             title: "an unmanaged state",
@@ -256,6 +269,41 @@ describe("isCurrentRegistryPublication", () => {
     for (const { state, title } of rejectedCases) {
         test(`rejects ${title}`, () => {
             expect(isCurrentRegistryPublication(state, expected)).toBeFalse();
+        });
+    }
+});
+
+describe("isSkillDirectoryAbsent", () => {
+    const absentCases = [
+        { state: { kind: "missing" }, title: "a missing state" },
+        { state: { kind: "not-directory" }, title: "a not-directory state" },
+        { state: { kind: "empty" }, title: "an empty state" },
+    ] satisfies readonly { state: SkillDirectoryState; title: string }[];
+
+    const presentCases = [
+        {
+            state: { kind: "unmanaged", metadataFilePresent: false },
+            title: "an unmanaged state",
+        },
+        {
+            state: {
+                kind: "managed",
+                metadata: createBundledSkillMetadata("1.2.3"),
+                publicationCurrent: true,
+            },
+            title: "a managed state",
+        },
+    ] satisfies readonly { state: SkillDirectoryState; title: string }[];
+
+    for (const { state, title } of absentCases) {
+        test(`reports ${title} as absent`, () => {
+            expect(isSkillDirectoryAbsent(state)).toBeTrue();
+        });
+    }
+
+    for (const { state, title } of presentCases) {
+        test(`reports ${title} as present`, () => {
+            expect(isSkillDirectoryAbsent(state)).toBeFalse();
         });
     }
 });

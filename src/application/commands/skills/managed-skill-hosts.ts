@@ -1,7 +1,9 @@
+import type { Stats } from "node:fs";
 import type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 
-import { realpath } from "node:fs/promises";
+import { lstat, realpath } from "node:fs/promises";
 import { CliUserError } from "../../contracts/cli.ts";
+import { isFileMissingError, isPathMissingError } from "../../shared/fs-errors.ts";
 import { directoryExists } from "./bundled-skill-observation.ts";
 import {
     availableBundledSkillAgentNames,
@@ -40,6 +42,10 @@ export async function resolveAvailableManagedSkillHosts(
                 return undefined;
             }
 
+            if (!(await isManagedSkillsDirectoryProvisionable(homeDirectory))) {
+                return undefined;
+            }
+
             return {
                 agentName,
                 homeDirectory,
@@ -50,6 +56,42 @@ export async function resolveAvailableManagedSkillHosts(
     return collapseAliasedManagedSkillHosts(
         hosts.filter(host => host !== undefined),
     );
+}
+
+// Every publication starts by creating the host's skills directory, so a host
+// is only usable while that path is a directory or free to become one. A path
+// occupied by anything else — most often a symlink whose target has since been
+// removed, but a regular file too — can never be created: `mkdir` reports
+// EEXIST for the entry that is already there, and the recursive mode cannot
+// treat it as an existing directory either. Such a host is dropped rather than
+// left to fail mid-install; `oo info` still reports its skill directory so the
+// broken path stays visible.
+async function isManagedSkillsDirectoryProvisionable(
+    homeDirectory: string,
+): Promise<boolean> {
+    const skillsDirectoryPath = resolveManagedSkillsDirectoryPath(homeDirectory);
+    let entry: Stats;
+
+    try {
+        entry = await lstat(skillsDirectoryPath);
+    }
+    catch (error) {
+        if (isFileMissingError(error)) {
+            // Nothing occupies the path: it is created on demand.
+            return true;
+        }
+
+        // ENOTDIR means an ancestor is a file, which no publication can fix.
+        if (isPathMissingError(error)) {
+            return false;
+        }
+
+        throw error;
+    }
+
+    return entry.isSymbolicLink()
+        ? await directoryExists(skillsDirectoryPath)
+        : entry.isDirectory();
 }
 
 // Several supported agents can share one physical skills directory: a
