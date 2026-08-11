@@ -352,39 +352,7 @@ describe("skills commands", () => {
 
             const result = await sandbox.run(
                 ["skills", "install", "oo@0.0.2"],
-                {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
-
-                        requests.push(request);
-
-                        if (request.url.includes("/package-info/")) {
-                            return new Response(JSON.stringify({
-                                packageName: "oo",
-                                version: "0.0.2",
-                                skills: [
-                                    {
-                                        description: "Run OO workflows",
-                                        name: "runtime",
-                                        title: "Runtime",
-                                    },
-                                ],
-                            }));
-                        }
-
-                        if (request.url.endsWith("/oo/-/meta/oo-0.0.2.tgz")) {
-                            return new Response(await createRegistrySkillArchiveBytes({
-                                "package/package/skills/runtime/SKILL.md": "# Runtime\n",
-                            }));
-                        }
-
-                        if (isRegistryPackageDownloadCountRequest(request)) {
-                            return new Response(null, { status: 204 });
-                        }
-
-                        throw new Error(`Unexpected request: ${request.url}`);
-                    },
-                },
+                { fetcher: createRuntimeRegistryFetcher(requests) },
             );
 
             expect(result.exitCode).toBe(0);
@@ -429,37 +397,7 @@ describe("skills commands", () => {
 
             const result = await sandbox.run(
                 ["skills", "install", "oo@0.0.2"],
-                {
-                    fetcher: async (input, init) => {
-                        const request = toRequest(input, init);
-
-                        if (request.url.includes("/package-info/")) {
-                            return new Response(JSON.stringify({
-                                packageName: "oo",
-                                version: "0.0.2",
-                                skills: [
-                                    {
-                                        description: "Run OO workflows",
-                                        name: "runtime",
-                                        title: "Runtime",
-                                    },
-                                ],
-                            }));
-                        }
-
-                        if (request.url.endsWith("/oo/-/meta/oo-0.0.2.tgz")) {
-                            return new Response(await createRegistrySkillArchiveBytes({
-                                "package/package/skills/runtime/SKILL.md": "# Runtime\n",
-                            }));
-                        }
-
-                        if (isRegistryPackageDownloadCountRequest(request)) {
-                            return new Response(null, { status: 204 });
-                        }
-
-                        throw new Error(`Unexpected request: ${request.url}`);
-                    },
-                },
+                { fetcher: createRuntimeRegistryFetcher() },
             );
 
             // Both homes publish into the same directory: publishing them as two
@@ -3897,6 +3835,45 @@ function isRegistryPackageDownloadCountRequest(request: Request): boolean {
     return request.method === "POST"
         && request.url.includes("/-/oomol/packages/")
         && request.url.endsWith("/download-count");
+}
+
+// Serves the `oo@0.0.2` registry package that publishes a single `runtime`
+// skill. Pass a request sink to assert the request sequence.
+function createRuntimeRegistryFetcher(requests?: Request[]): (
+    input: string | URL | Request,
+    init?: RequestInit,
+) => Promise<Response> {
+    return async (input, init) => {
+        const request = toRequest(input, init);
+
+        requests?.push(request);
+
+        if (request.url.includes("/package-info/")) {
+            return new Response(JSON.stringify({
+                packageName: "oo",
+                version: "0.0.2",
+                skills: [
+                    {
+                        description: "Run OO workflows",
+                        name: "runtime",
+                        title: "Runtime",
+                    },
+                ],
+            }));
+        }
+
+        if (request.url.endsWith("/oo/-/meta/oo-0.0.2.tgz")) {
+            return new Response(await createRegistrySkillArchiveBytes({
+                "package/package/skills/runtime/SKILL.md": "# Runtime\n",
+            }));
+        }
+
+        if (isRegistryPackageDownloadCountRequest(request)) {
+            return new Response(null, { status: 204 });
+        }
+
+        throw new Error(`Unexpected request: ${request.url}`);
+    };
 }
 
 function createMultiPackageRegistryFetcher(): (
