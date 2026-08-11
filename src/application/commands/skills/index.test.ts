@@ -1,4 +1,4 @@
-import { lstat, mkdir, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, rm, stat } from "node:fs/promises";
 
 import { dirname, join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
@@ -410,6 +410,81 @@ describe("skills commands", () => {
             expect(
                 await readFile(join(sharedSkillsDirectoryPath, "runtime", "SKILL.md"), "utf8"),
             ).toContain("# Runtime");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs a registry skill over an empty target directory without --force", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            universalHomeDirectory,
+            "runtime",
+        );
+
+        try {
+            // An install interrupted after the target directory was created but
+            // before its files were written leaves exactly this state.
+            await mkdir(skillDirectoryPath, { recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "oo@0.0.2"],
+                { fetcher: createRuntimeRegistryFetcher() },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Skill: runtime\nInstalled skill runtime to ${skillDirectoryPath}.\n`,
+            );
+            expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toContain(
+                "# Runtime",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("installs a registry skill when one agent skills directory is a dangling symbolic link", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const removedSkillsDirectoryPath = join(sandbox.env.HOME!, ".removed", "skills");
+        const skillDirectoryPath = resolveManagedSkillDirectoryPath(
+            claudeHomeDirectory,
+            "runtime",
+        );
+
+        try {
+            await mkdir(removedSkillsDirectoryPath, { recursive: true });
+            await mkdir(universalHomeDirectory, { recursive: true });
+            await mkdir(join(claudeHomeDirectory, "skills"), { recursive: true });
+            await createDirectorySymbolicLinkForTest(
+                removedSkillsDirectoryPath,
+                join(universalHomeDirectory, "skills"),
+            );
+            await rm(join(sandbox.env.HOME!, ".removed"), { force: true, recursive: true });
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["skills", "install", "oo@0.0.2"],
+                { fetcher: createRuntimeRegistryFetcher() },
+            );
+
+            // The universal skills directory cannot be created through the
+            // dangling link, which used to fail the whole install with EEXIST.
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toBe(
+                `Skill: runtime\nInstalled skill runtime to ${skillDirectoryPath}.\n`,
+            );
+            expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toContain(
+                "# Runtime",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -2171,6 +2246,7 @@ describe("skills commands", () => {
 
         try {
             await mkdir(skillDirectoryPath, { recursive: true });
+            await Bun.write(join(skillDirectoryPath, "SKILL.md"), "# system\n");
 
             const result = await sandbox.run(["skills", "remove", ".system"]);
 
@@ -2178,6 +2254,30 @@ describe("skills commands", () => {
             expect(result.stdout).toBe("");
             expect(result.stderr).toBe(
                 ".system is not managed by oo and cannot be removed.\n",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports an empty skill directory as nothing to remove", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+
+        try {
+            await mkdir(join(universalHomeDirectory, "skills", ".system"), {
+                recursive: true,
+            });
+
+            const result = await sandbox.run(["skills", "remove", ".system"]);
+
+            // An empty directory holds no skill, so it is reported as absent
+            // rather than as an unmanaged skill oo refuses to touch.
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toBe(
+                "No installed oo-managed skill belongs to .system.\n",
             );
         }
         finally {

@@ -215,8 +215,11 @@ async function canWriteBundledCanonicalSkill(
         canonicalSkillDirectoryPath,
     );
 
+    // A path occupied by a non-directory is not writable, so "absent" is too
+    // wide here; an empty directory is reclaimable like a missing one.
     if (
         canonicalState.kind === "missing"
+        || canonicalState.kind === "empty"
         || (canonicalState.kind === "managed"
             && canonicalState.metadata.kind === "bundled")
     ) {
