@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
+import { createDirectorySymbolicLinkForTest } from "./__tests__/helpers.ts";
 import { resolveAvailableManagedSkillHosts } from "./managed-skill-hosts.ts";
 
 describe("resolveAvailableManagedSkillHosts", () => {
@@ -37,6 +38,82 @@ describe("resolveAvailableManagedSkillHosts", () => {
             expect(agentNames).toContain("universal");
             expect(agentNames).toContain("claude");
             expect(agentNames).not.toContain("hermes");
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("collapses hosts whose skills directories resolve to the same path", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-managed-hosts");
+        const env = { HOME: rootDirectory, USERPROFILE: rootDirectory };
+
+        try {
+            const sharedSkillsDirectory = join(rootDirectory, ".shared", "skills");
+
+            await mkdir(sharedSkillsDirectory, { recursive: true });
+            await mkdir(join(rootDirectory, ".agents"), { recursive: true });
+            await mkdir(join(rootDirectory, ".claude"), { recursive: true });
+            await createDirectorySymbolicLinkForTest(
+                sharedSkillsDirectory,
+                join(rootDirectory, ".agents", "skills"),
+            );
+            await createDirectorySymbolicLinkForTest(
+                sharedSkillsDirectory,
+                join(rootDirectory, ".claude", "skills"),
+            );
+
+            const hosts = await resolveAvailableManagedSkillHosts(env);
+
+            // Both homes publish into the same directory, so they are one host;
+            // the universal fallback yields to the concrete agent.
+            expect(hosts.map(host => host.agentName)).toEqual(["claude"]);
+            expect(hosts[0]!.homeDirectory).toBe(join(rootDirectory, ".claude"));
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("keeps the first concrete agent when two concrete agents share a skills directory", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-managed-hosts");
+        const env = { HOME: rootDirectory, USERPROFILE: rootDirectory };
+
+        try {
+            const claudeSkillsDirectory = join(rootDirectory, ".claude", "skills");
+
+            await mkdir(claudeSkillsDirectory, { recursive: true });
+            await mkdir(join(rootDirectory, ".trae-cn"), { recursive: true });
+            await createDirectorySymbolicLinkForTest(
+                claudeSkillsDirectory,
+                join(rootDirectory, ".trae-cn", "skills"),
+            );
+
+            const hosts = await resolveAvailableManagedSkillHosts(env);
+
+            // The universal host has its own (still missing) skills directory, so
+            // only the two aliased concrete agents collapse.
+            expect(hosts.map(host => host.agentName)).toEqual(["universal", "claude"]);
+        }
+        finally {
+            await rm(rootDirectory, { force: true, recursive: true });
+        }
+    });
+
+    test("collapses hosts whose home directories are aliased before any skills directory exists", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-managed-hosts");
+        const env = { HOME: rootDirectory, USERPROFILE: rootDirectory };
+
+        try {
+            await mkdir(join(rootDirectory, ".agents"), { recursive: true });
+            await createDirectorySymbolicLinkForTest(
+                join(rootDirectory, ".agents"),
+                join(rootDirectory, ".claude"),
+            );
+
+            const hosts = await resolveAvailableManagedSkillHosts(env);
+
+            expect(hosts.map(host => host.agentName)).toEqual(["claude"]);
         }
         finally {
             await rm(rootDirectory, { force: true, recursive: true });

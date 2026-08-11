@@ -963,6 +963,10 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   到且尚未安装它的受支持 Agent。
 - 本地 skill：agent-native local skill 不会在启动时同步。本地 skill 归属于创建它
   的 Agent skill 目录。
+- 共享 Agent 目录：如果多个受支持 Agent 的 skill 目录指向同一个位置（例如
+  `~/.claude/skills` 软链接到 `~/.agents/skills`），它们会被视为同一个 host：
+  skill 只安装一次，并归属到更具体的 Agent，即通用 `~/.agents` host 让位于与
+  它共享目录的已检测 Agent。
 - 迁移：启动同步不会改写同版本的历史软链接目标。请用 `oo skills add` 刷新内置
   skill，用 `oo skills update` 刷新 registry skill，从而显式替换历史软链接。成功
   的 `oo install` / `oo update` 会运行这两个维护步骤。

@@ -62,6 +62,20 @@ export async function readBundledSkillSourceContent(
     return await readBundledSkillFileContent(file);
 }
 
+// Links an existing directory without touching its contents. Windows CI does
+// not grant directory symlink privileges; junctions resolve through realpath()
+// the same way.
+export async function createDirectorySymbolicLinkForTest(
+    targetPath: string,
+    linkPath: string,
+): Promise<void> {
+    await symlink(
+        targetPath,
+        linkPath,
+        process.platform === "win32" ? "junction" : "dir",
+    );
+}
+
 export async function createSymbolicLinkForTest(
     targetPath: string,
     linkPath: string,

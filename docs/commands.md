@@ -1145,6 +1145,11 @@ missing), and for every other supported host directory that already exists.
   any newly detected supported host that is missing it.
 - Local skills: agent-native local skills are not synchronized during startup.
   A local skill belongs to the agent skill directory where it was created.
+- Shared host directories: supported hosts whose skill directories resolve to
+  the same location — for example `~/.claude/skills` symlinked to
+  `~/.agents/skills` — are one host. The skill is installed there once and is
+  reported under the more specific agent: the universal `~/.agents` host yields
+  to a detected agent that shares its directory.
 - Migration: startup synchronization does not rewrite same-version legacy
   symlink targets. Use `oo skills add` for bundled skills and
   `oo skills update` for registry skills to replace legacy symlinks explicitly.
