@@ -365,20 +365,10 @@ Switch the active auth account.
   the no-saved-accounts error.
 - API key values are never written to stdout or stderr in any output path.
 
-### `oo login`
-
-Alias for `oo auth login`. Supports the same `--session-token <session-token>`,
-`--api-key <api-key>`, and `--team <name>` options.
-
-### `oo logout`
-
-Alias for `oo auth logout`.
-
-### `oo open`
+### `oo auth web`
 
 Create a short-lived URL that signs the current account in to the OOMOL
-website in a browser. The command prints the URL and never launches a
-browser itself.
+website in a browser.
 
 - Requires a credential: the active saved account or `OO_API_KEY`. The URL is
   issued by the backend for that credential, so opening it signs the browser
@@ -403,6 +393,15 @@ browser itself.
   "url": "https://api.oomol.com/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.com%2F&session_code=..."
 }
 ```
+
+### `oo login`
+
+Alias for `oo auth login`. Supports the same `--session-token <session-token>`,
+`--api-key <api-key>`, and `--team <name>` options.
+
+### `oo logout`
+
+Alias for `oo auth logout`.
 
 ## Teams
 

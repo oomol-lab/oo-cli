@@ -305,19 +305,9 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   账号。该行为在传与不传 `--user` 时一致，且优先于「没有已保存账号」的报错。
 - 任何输出路径都不会将 API key 写入 stdout/stderr。
 
-### `oo login`
-
-`oo auth login` 的别名。支持相同的 `--session-token <session-token>`、
-`--api-key <api-key>` 与 `--team <name>` 选项。
-
-### `oo logout`
-
-`oo auth logout` 的别名。
-
-### `oo open`
+### `oo auth web`
 
 生成一个短期有效的 URL，在浏览器中打开后即以当前账号登录 OOMOL 网站。
-命令只打印 URL，不会自动拉起浏览器。
 
 - 需要凭证：当前激活的已保存账号或 `OO_API_KEY`。URL 由后端基于该凭证签发，
   在浏览器中打开即可直接登录同一账号，无需再次输入凭证。
@@ -337,6 +327,15 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   "url": "https://api.oomol.com/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.com%2F&session_code=..."
 }
 ```
+
+### `oo login`
+
+`oo auth login` 的别名。支持相同的 `--session-token <session-token>`、
+`--api-key <api-key>` 与 `--team <name>` 选项。
+
+### `oo logout`
+
+`oo auth logout` 的别名。
 
 ## 团队
 

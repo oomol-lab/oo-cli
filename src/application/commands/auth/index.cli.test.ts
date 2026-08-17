@@ -15,7 +15,6 @@ import {
     expectTelemetryFreeOfTeamIdentity,
     findLoginUrl,
     readAuthLoginUrlPrefix,
-    readCommandTelemetryProperties,
     readLatestLogContent,
     runPrintedAuthLogin,
     toRequest,
@@ -24,6 +23,10 @@ import {
     writeConnectorFile,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import { JSON_OUTPUT_SCHEMA_VERSION } from "../command-output.ts";
 import { loginUrlColor } from "./login.ts";
@@ -2199,6 +2202,18 @@ function expectForbiddenDeviceLoginPhrases(output: string): void {
 // Reads the command-specific telemetry properties recorded for the given
 // command path, so tests can pin the safe property shape (enums/buckets only)
 // and assert raw team identity never reaches telemetry.
+function readCommandTelemetryProperties(
+    sandbox: { env: Record<string, string | undefined> },
+    commandFull: string,
+): Record<string, unknown> | undefined {
+    return readTelemetryRowsForTest(
+        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+    )
+        .map(row => parseTelemetryRowPayload(row))
+        .find(payload => payload?.properties?.command_full === commandFull)
+        ?.properties;
+}
+
 describe("auth CLI login default team", () => {
     // The default team is stored on the saved account, so every assertion in
     // this block reads auth.toml rather than settings.toml.
@@ -3004,6 +3019,147 @@ describe("auth CLI status default team", () => {
 
             expect(jsonResult.exitCode).toBe(0);
             expect(payload.team).toBeUndefined();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
+
+describe("auth web CLI", () => {
+    test("prints a sign-in URL embedding the session code and default redirect", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(["auth", "web"], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        expires_in: 300,
+                        session_code: "code-1",
+                    }));
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.method).toBe("POST");
+            expect(requests[0]?.url).toBe(
+                "https://api.oomol.com/v1/auth/session_code",
+            );
+            expect(requests[0]?.headers.get("authorization")).toBe("Bearer secret-1");
+            expect(result.stdout).toContain(
+                "https://api.oomol.com/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.com%2F&session_code=code-1",
+            );
+            expect(result.stdout).toContain("300");
+            expect(result.stdout).not.toContain("secret-1");
+            expect(readCommandTelemetryProperties(sandbox, "auth.web"))
+                .toMatchObject({
+                    command_full: "auth.web",
+                    has_custom_redirect: false,
+                });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("emits JSON output and honors --redirect", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                ["auth", "web", "--redirect", "https://flow.oomol.com/apps?tab=1", "--json"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        expires_in: 300,
+                        session_code: "code-2",
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                expiresIn: 300,
+                url: "https://api.oomol.com/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fflow.oomol.com%2Fapps%3Ftab%3D1&session_code=code-2",
+            });
+
+            // This invocation is the one that holds a raw redirect value, so
+            // the no-raw-values telemetry guard has to live here.
+            const telemetryProperties = readCommandTelemetryProperties(sandbox, "auth.web");
+
+            expect(telemetryProperties).toMatchObject({
+                command_full: "auth.web",
+                has_custom_redirect: true,
+            });
+            expect(telemetryProperties).not.toHaveProperty("redirect");
+            expect(JSON.stringify(telemetryProperties)).not.toContain("flow.oomol.com");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects a redirect outside the allow-list before contacting the backend", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                ["auth", "web", "--redirect", "https://example.com/"],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response("{}");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(requests).toHaveLength(0);
+            expect(result.stderr).toContain("https://example.com/");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("requires a logged-in account", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["auth", "web"]);
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("You must log in");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports a non-success backend status", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["auth", "web"], {
+                fetcher: async () => new Response("{}", { status: 500 }),
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("HTTP 500");
         }
         finally {
             await sandbox.cleanup();

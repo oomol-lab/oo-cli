@@ -13,7 +13,6 @@ import { llmCommand } from "./llm/index.ts";
 import { logCommand } from "./log/index.ts";
 import { loginCommand } from "./login.ts";
 import { logoutCommand } from "./logout.ts";
-import { openCommand } from "./open.ts";
 import { searchCommand } from "./search.ts";
 import { skillsCommand } from "./skills/index.ts";
 import { teamCommand } from "./team/index.ts";
@@ -54,7 +53,6 @@ export function createCliCatalog(): CliCatalog {
             llmCommand,
             loginCommand,
             logoutCommand,
-            openCommand,
             teamCommand,
             completionCommand,
             configCommand,
