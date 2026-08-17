@@ -368,7 +368,9 @@ Switch the active auth account.
 ### `oo auth web`
 
 Create a short-lived URL that signs the current account in to the OOMOL
-website in a browser.
+website in a browser. The command writes the URL to stdout together with a
+usage hint, the expiry, and a do-not-share warning; it never launches a
+browser itself.
 
 - Requires a credential: the active saved account or `OO_API_KEY`. The URL is
   issued by the backend for that credential, so opening it signs the browser
