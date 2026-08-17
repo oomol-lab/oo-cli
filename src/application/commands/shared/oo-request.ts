@@ -396,7 +396,7 @@ function createOoTransportError(
     return new CliUserError(requestErrorKey, 1, { message });
 }
 
-function buildOoRequestUrl(
+export function buildOoRequestUrl(
     options: Pick<OoRequestBaseOptions, "host" | "path" | "query">,
 ): URL {
     const base = "baseUrl" in options.host

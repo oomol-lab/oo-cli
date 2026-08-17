@@ -49,6 +49,9 @@ export const enMessages = {
     "auth.switch.envOverrideNoop":
         "Nothing was switched: the active credential comes from OO_API_KEY, not from a saved account.",
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
+    "auth.web.doNotShare": "Anyone who opens this URL is signed in to your account. Do not share it.",
+    "auth.web.expires": "The URL expires in {seconds} seconds.",
+    "auth.web.open": "Open this URL in your browser to sign in to OOMOL:",
     "commands.auth.description": "Manage CLI authentication accounts.",
     "commands.auth.login.description":
         "Log in with an OOMOL account using device login, a session token, or an API key.",
@@ -61,6 +64,11 @@ export const enMessages = {
     "commands.auth.switch.description": "Switch to the next saved auth account, or to a specific account with --user.",
     "commands.auth.switch.summary": "Switch to the next auth account",
     "options.auth.switch.user": "Switch to the account whose id or unique name matches the given value",
+    "commands.auth.web.description":
+        "Create a short-lived URL that signs the current account in to the OOMOL website in a browser.",
+    "commands.auth.web.summary": "Create a browser sign-in URL",
+    "options.auth.web.redirect":
+        "Browser destination after the sign-in completes; an http(s) URL on the account endpoint's domain or a subdomain of it (defaults to the endpoint's console)",
     "commands.checkUpdate.description":
         "Check whether a newer CLI release is available.",
     "commands.checkUpdate.summary": "Check for CLI updates",
@@ -314,6 +322,14 @@ export const enMessages = {
         "Multiple saved accounts have the name {value}. Pass --user <account-id> to disambiguate.",
     "errors.auth.switch.userNotFound":
         "No saved account matches {value}.",
+    "errors.auth.web.invalidResponse":
+        "The session code service returned an unsupported response body.",
+    "errors.auth.web.redirectInvalid":
+        "The redirect target {value} is not allowed. Use an http(s) URL on {endpoint} or one of its subdomains.",
+    "errors.auth.web.requestError":
+        "The session code request failed: {message}",
+    "errors.auth.web.requestFailed":
+        "The session code request returned HTTP {status}.",
     "errors.authStore.invalidToml":
         "The auth file at {path} is not valid TOML.",
     "errors.authStore.invalidSchema":
@@ -1441,6 +1457,9 @@ export const zhMessages = {
     "auth.switch.envOverrideNoop":
         "没有切换任何账号：当前生效的凭证来自 OO_API_KEY，而不是保存的账号。",
     "auth.switch.success": "已将 {endpoint} 的当前激活账号切换为 {name}",
+    "auth.web.doNotShare": "任何打开此 URL 的人都会登录你的账号，请勿分享。",
+    "auth.web.expires": "该 URL 将在 {seconds} 秒后失效。",
+    "auth.web.open": "在浏览器中打开此 URL 即可登录 OOMOL：",
     "commands.auth.description": "管理 CLI 的认证账号。",
     "commands.auth.login.description": "通过 device login、session token 或 API key 登录 OOMOL 账号。",
     "commands.auth.login.summary": "登录 OOMOL 账号",
@@ -1452,6 +1471,10 @@ export const zhMessages = {
     "commands.auth.switch.description": "切换到下一个已保存的认证账号，或通过 --user 切换到指定账号。",
     "commands.auth.switch.summary": "切换到下一个认证账号",
     "options.auth.switch.user": "切换到 id 或唯一 name 与该值匹配的账号",
+    "commands.auth.web.description": "生成一个短期有效的 URL，在浏览器中打开后即以当前账号登录 OOMOL 网站。",
+    "commands.auth.web.summary": "生成浏览器登录 URL",
+    "options.auth.web.redirect":
+        "登录完成后浏览器跳转的地址；必须是当前 endpoint 域名或其子域名下的 http(s) URL（默认为当前 endpoint 的控制台）",
     "commands.checkUpdate.description": "检查是否有新的 CLI 版本可用。",
     "commands.checkUpdate.summary": "检查 CLI 更新",
     "commands.connector.description":
@@ -1685,6 +1708,11 @@ export const zhMessages = {
         "存在多个 name 为 {value} 的账号。请通过 --user <account-id> 进行消歧。",
     "errors.auth.switch.userNotFound":
         "没有匹配 {value} 的已保存账号。",
+    "errors.auth.web.invalidResponse": "session code 服务返回了不受支持的响应内容。",
+    "errors.auth.web.redirectInvalid":
+        "不允许跳转到 {value}。请使用 {endpoint} 或其子域名下的 http(s) URL。",
+    "errors.auth.web.requestError": "session code 请求失败：{message}",
+    "errors.auth.web.requestFailed": "session code 请求返回了 HTTP {status}。",
     "errors.billing.insufficientCredit":
         "你的 OOMOL 账户余额不足。请充值后再重试：{url}",
     "errors.authStore.invalidToml": "认证文件 {path} 不是有效的 TOML。",

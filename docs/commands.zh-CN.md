@@ -305,6 +305,30 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   账号。该行为在传与不传 `--user` 时一致，且优先于「没有已保存账号」的报错。
 - 任何输出路径都不会将 API key 写入 stdout/stderr。
 
+### `oo auth web`
+
+生成一个短期有效的 URL，在浏览器中打开后即以当前账号登录 OOMOL 网站。
+命令会在标准输出打印该 URL 以及使用提示、有效期和安全提醒，不会自动拉起浏览器。
+
+- 需要凭证：当前激活的已保存账号或 `OO_API_KEY`。URL 由后端基于该凭证签发，
+  在浏览器中打开即可直接登录同一账号，无需再次输入凭证。
+- 选项：
+  - `--redirect <url>`：登录完成后浏览器跳转的地址。必须是主机为当前账号
+    endpoint 域名或其子域名的 `http(s)` URL（默认 endpoint 下即 `oomol.com`
+    与 `*.oomol.com`）。跨环境地址会被拒绝：endpoint 为 `oomol.dev` 时，
+    跳转到 `oomol.com` 会以 `2` 退出。默认为该 endpoint 的控制台
+    `https://console.<endpoint>/`。不允许的值会以 `2` 退出，且不会请求后端。
+- URL 中携带一个短期有效的登录码，会在后端返回的秒数（当前为 300）后失效。
+  失效前任何打开它的人都会登录该账号，请将此 URL 视为机密信息。
+- JSON 输出（`--json`）：
+
+```json
+{
+  "expiresIn": 300,
+  "url": "https://api.oomol.com/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.com%2F&session_code=..."
+}
+```
+
 ### `oo login`
 
 `oo auth login` 的别名。支持相同的 `--session-token <session-token>`、
