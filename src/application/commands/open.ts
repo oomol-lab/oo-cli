@@ -1,14 +1,14 @@
-import type { CliCommandDefinition } from "../../contracts/cli.ts";
+import type { CliCommandDefinition } from "../contracts/cli.ts";
 
 import { z } from "zod";
-import { requireIdentity } from "../../auth/identity.ts";
-import { CliUserError } from "../../contracts/cli.ts";
-import { createWriterColors } from "../../terminal-colors.ts";
-import { buildOoRequestUrl, requestOo } from "../shared/oo-request.ts";
-import { writeLine } from "../shared/output.ts";
-import { loginUrlColor } from "./login.ts";
+import { requireIdentity } from "../auth/identity.ts";
+import { CliUserError } from "../contracts/cli.ts";
+import { createWriterColors } from "../terminal-colors.ts";
+import { loginUrlColor } from "./auth/login.ts";
+import { buildOoRequestUrl, requestOo } from "./shared/oo-request.ts";
+import { writeLine } from "./shared/output.ts";
 
-interface AuthWebInput {
+interface OpenInput {
     redirect?: string;
 }
 
@@ -17,17 +17,17 @@ const sessionCodeResponseSchema = z.object({
     session_code: z.string().min(1),
 });
 
-export const authWebCommand: CliCommandDefinition<AuthWebInput> = {
-    name: "web",
-    summaryKey: "commands.auth.web.summary",
-    descriptionKey: "commands.auth.web.description",
+export const openCommand: CliCommandDefinition<OpenInput> = {
+    name: "open",
+    summaryKey: "commands.open.summary",
+    descriptionKey: "commands.open.description",
     output: "standard",
     options: [
         {
             name: "redirect",
             longFlag: "--redirect",
             valueName: "url",
-            descriptionKey: "options.auth.web.redirect",
+            descriptionKey: "options.open.redirect",
         },
     ],
     inputSchema: z.object({
@@ -42,9 +42,9 @@ export const authWebCommand: CliCommandDefinition<AuthWebInput> = {
         const session = await requestOo({
             authorization: `Bearer ${account.apiKey}`,
             context,
-            errors: { scope: "auth.web" },
+            errors: { scope: "open" },
             host: { endpoint: account.endpoint, service: "api" },
-            label: "Auth web sign-in",
+            label: "Open sign-in",
             method: "POST",
             path: "/v1/auth/session_code",
             schema: sessionCodeResponseSchema,
@@ -69,15 +69,15 @@ export const authWebCommand: CliCommandDefinition<AuthWebInput> = {
             () => {
                 const colors = createWriterColors(context.stdout);
 
-                writeLine(context.stdout, context.translator.t("auth.web.open"));
+                writeLine(context.stdout, context.translator.t("open.hint"));
                 writeLine(context.stdout, colors.hex(loginUrlColor)(signInUrl));
                 writeLine(
                     context.stdout,
-                    context.translator.t("auth.web.expires", {
+                    context.translator.t("open.expires", {
                         seconds: session.expires_in,
                     }),
                 );
-                writeLine(context.stdout, context.translator.t("auth.web.doNotShare"));
+                writeLine(context.stdout, context.translator.t("open.doNotShare"));
             },
         );
     },
@@ -103,7 +103,7 @@ export function resolveRedirectTarget(
     const parsed = URL.parse(redirect);
 
     if (parsed === null || !isAllowedRedirectTarget(parsed, endpointHostname)) {
-        throw new CliUserError("errors.auth.web.redirectInvalid", 2, {
+        throw new CliUserError("errors.open.redirectInvalid", 2, {
             endpoint: endpointHostname,
             value: redirect,
         });

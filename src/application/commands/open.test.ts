@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { expectCliUserError } from "../../../../__tests__/helpers.ts";
-import { resolveRedirectTarget } from "./web.ts";
+import { expectCliUserError } from "../../../__tests__/helpers.ts";
+import { resolveRedirectTarget } from "./open.ts";
 
 describe("resolveRedirectTarget", () => {
     test("defaults to the console of the account endpoint", () => {
@@ -44,7 +44,7 @@ describe("resolveRedirectTarget", () => {
             () => resolveRedirectTarget("https://example.com/", "oomol.com"),
         );
 
-        expect(error.key).toBe("errors.auth.web.redirectInvalid");
+        expect(error.key).toBe("errors.open.redirectInvalid");
         expect(error.exitCode).toBe(2);
         // The suffix match requires the separating dot, so a lookalike domain
         // that merely ends with the endpoint name stays rejected.

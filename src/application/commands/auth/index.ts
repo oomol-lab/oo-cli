@@ -4,7 +4,6 @@ import { authLoginCommand } from "./login.ts";
 import { authLogoutCommand } from "./logout.ts";
 import { authStatusCommand } from "./status.ts";
 import { authSwitchCommand } from "./switch.ts";
-import { authWebCommand } from "./web.ts";
 
 export const authCommand: CliCommandDefinition = {
     name: "auth",
@@ -15,6 +14,5 @@ export const authCommand: CliCommandDefinition = {
         authLogoutCommand,
         authStatusCommand,
         authSwitchCommand,
-        authWebCommand,
     ],
 };

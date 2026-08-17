@@ -43,6 +43,10 @@ import { CliUserError } from "../src/application/contracts/cli.ts";
 import { serializeErrorForLogging } from "../src/application/logging/url-sanitizer.ts";
 import { defaultSettings, renderSettingsFile } from "../src/application/schemas/settings.ts";
 import { isPathMissingError } from "../src/application/shared/fs-errors.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../src/application/telemetry/outbox.ts";
 import { createTerminalColors } from "../src/application/terminal-colors.ts";
 
 export interface TextBuffer {
@@ -1116,4 +1120,18 @@ export function expectTelemetryFreeOfTeamIdentity(
             expect(`${key}=${JSON.stringify(value)}`).not.toContain(rawValue);
         }
     }
+}
+
+// Reads the telemetry properties one command invocation recorded into the
+// sandbox's outbox, or undefined when no event matched the command path.
+export function readCommandTelemetryProperties(
+    sandbox: { env: Record<string, string | undefined> },
+    commandFull: string,
+): Record<string, unknown> | undefined {
+    return readTelemetryRowsForTest(
+        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+    )
+        .map(row => parseTelemetryRowPayload(row))
+        .find(payload => payload?.properties?.command_full === commandFull)
+        ?.properties;
 }

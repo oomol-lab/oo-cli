@@ -109,11 +109,6 @@ const commandTelemetryDecisions = {
         properties: ["account_count_bucket", "credential_source", "has_user_filter"],
         reason: "Records bounded saved-account count, which credential source is in effect, and whether --user was used, without account identity.",
     },
-    "auth.web": {
-        kind: "properties",
-        properties: ["has_custom_redirect"],
-        reason: "Records whether --redirect overrode the default console target, never the target URL or the session code.",
-    },
     "check-update": {
         kind: "properties",
         properties: ["version_kind", "update_available"],
@@ -298,6 +293,11 @@ const commandTelemetryDecisions = {
         kind: "properties",
         properties: ["account_count_bucket", "credential_source"],
         reason: "Top-level auth alias records the same safe auth dimensions as auth.logout.",
+    },
+    "open": {
+        kind: "properties",
+        properties: ["has_custom_redirect"],
+        reason: "Records whether --redirect overrode the default console target, never the target URL or the session code.",
     },
     "team": {
         kind: "generic",
