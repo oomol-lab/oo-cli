@@ -31,7 +31,7 @@ import {
     writeAuthBlock,
 } from "./shared.ts";
 
-const loginUrlColor = "#c09ff5";
+export const loginUrlColor = "#c09ff5";
 
 type LoginMethod = "api_key" | "device_login" | "session_token";
 

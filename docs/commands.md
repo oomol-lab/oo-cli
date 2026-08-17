@@ -365,6 +365,35 @@ Switch the active auth account.
   the no-saved-accounts error.
 - API key values are never written to stdout or stderr in any output path.
 
+### `oo auth web`
+
+Create a short-lived URL that signs the current account in to the OOMOL
+website in a browser.
+
+- Requires a credential: the active saved account or `OO_API_KEY`. The URL is
+  issued by the backend for that credential, so opening it signs the browser
+  in as the same account without a separate login.
+- Options:
+  - `--redirect <url>`: where the browser lands after the sign-in completes.
+    Must be an `http(s)` URL whose host is the account's endpoint domain or a
+    subdomain of it (with the default endpoint: `oomol.com` and
+    `*.oomol.com`). Targets on another environment are rejected, so an
+    `oomol.com` redirect exits `2` while the endpoint is `oomol.dev`.
+    Defaults to the endpoint's console, `https://console.<endpoint>/`. A
+    disallowed value exits `2` without contacting the backend.
+- The URL embeds a short-lived sign-in code and expires after the number of
+  seconds reported by the backend (300 at the time of writing). Anyone who
+  opens it before then is signed in to the account, so treat the URL as a
+  secret.
+- JSON output (`--json`):
+
+```json
+{
+  "expiresIn": 300,
+  "url": "https://api.oomol.com/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.com%2F&session_code=..."
+}
+```
+
 ### `oo login`
 
 Alias for `oo auth login`. Supports the same `--session-token <session-token>`,
