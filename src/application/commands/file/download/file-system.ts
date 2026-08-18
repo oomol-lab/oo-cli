@@ -1,6 +1,6 @@
 import type { FileHandle } from "node:fs/promises";
 import type { CliExecutionContext } from "../../../contracts/cli.ts";
-import type { DownloadProgressReporter } from "./progress.ts";
+import type { DownloadProgressReporter } from "../../shared/download-progress.ts";
 import type { ExistingDownloadSession, WriteDownloadPlan } from "./types.ts";
 
 import { link, lstat, open, rm, unlink } from "node:fs/promises";

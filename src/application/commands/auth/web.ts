@@ -1,4 +1,5 @@
-import type { CliCommandDefinition } from "../../contracts/cli.ts";
+import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type { AuthAccount } from "../../schemas/auth.ts";
 
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
@@ -16,6 +17,11 @@ const sessionCodeResponseSchema = z.object({
     expires_in: z.number(),
     session_code: z.string().min(1),
 });
+
+interface BrowserSignIn {
+    readonly expiresIn: number;
+    readonly url: string;
+}
 
 export const authWebCommand: CliCommandDefinition<AuthWebInput> = {
     name: "web",
@@ -35,46 +41,23 @@ export const authWebCommand: CliCommandDefinition<AuthWebInput> = {
     }),
     handler: async (input, context) => {
         const { account } = await requireIdentity(context);
-        const redirectTarget = resolveRedirectTarget(
-            input.redirect,
-            account.endpoint,
-        );
-        const session = await requestOo({
-            authorization: `Bearer ${account.apiKey}`,
-            context,
-            errors: { scope: "auth.web" },
-            host: { endpoint: account.endpoint, service: "api" },
-            label: "Auth web sign-in",
-            method: "POST",
-            path: "/v1/auth/session_code",
-            schema: sessionCodeResponseSchema,
-        });
-        // The session code signs its opener in to the account, so the URL may
-        // reach stdout only, never a log field.
-        const signInUrl = buildOoRequestUrl({
-            host: { endpoint: account.endpoint, service: "api" },
-            path: "/v1/auth/session_code/exchange",
-            query: {
-                redirect: redirectTarget,
-                session_code: session.session_code,
-            },
-        }).toString();
+        const signIn = await createBrowserSignIn(account, input.redirect, context);
 
         context.telemetry?.recordProperties({
             has_custom_redirect: input.redirect !== undefined,
         });
 
         context.output.emit(
-            { expiresIn: session.expires_in, url: signInUrl },
+            signIn,
             () => {
                 const colors = createWriterColors(context.stdout);
 
                 writeLine(context.stdout, context.translator.t("auth.web.open"));
-                writeLine(context.stdout, colors.hex(loginUrlColor)(signInUrl));
+                writeLine(context.stdout, colors.hex(loginUrlColor)(signIn.url));
                 writeLine(
                     context.stdout,
                     context.translator.t("auth.web.expires", {
-                        seconds: session.expires_in,
+                        seconds: signIn.expiresIn,
                     }),
                 );
                 writeLine(context.stdout, context.translator.t("auth.web.doNotShare"));
@@ -82,6 +65,36 @@ export const authWebCommand: CliCommandDefinition<AuthWebInput> = {
         );
     },
 };
+
+export async function createBrowserSignIn(
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    redirect: string | undefined,
+    context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
+): Promise<BrowserSignIn> {
+    const redirectTarget = resolveRedirectTarget(redirect, account.endpoint);
+    const session = await requestOo({
+        authorization: `Bearer ${account.apiKey}`,
+        context,
+        errors: { scope: "auth.web" },
+        host: { endpoint: account.endpoint, service: "api" },
+        label: "Auth web sign-in",
+        method: "POST",
+        path: "/v1/auth/session_code",
+        schema: sessionCodeResponseSchema,
+    });
+    // The returned URL signs its opener in to the account. Callers may emit or
+    // open it, but must never put it in a log field.
+    const url = buildOoRequestUrl({
+        host: { endpoint: account.endpoint, service: "api" },
+        path: "/v1/auth/session_code/exchange",
+        query: {
+            redirect: redirectTarget,
+            session_code: session.session_code,
+        },
+    }).toString();
+
+    return { expiresIn: session.expires_in, url };
+}
 
 // Resolves where the browser lands after the sign-in completes. Without
 // --redirect the account endpoint's console is used as-is; an explicit target

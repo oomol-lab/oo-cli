@@ -7,6 +7,7 @@ import {
     createTemporaryDirectory,
     createTextBuffer,
 } from "../../../../../__tests__/helpers.ts";
+import { createDownloadProgressReporter } from "../../shared/download-progress.ts";
 import {
     createDownloadSessionRecordFixture,
     createDownloadSessionStoreSpy,
@@ -20,7 +21,6 @@ import {
     resolveTemporaryDownloadFileName,
     writeDownloadToTemporaryFile,
 } from "./file-system.ts";
-import { createDownloadProgressReporter } from "./progress.ts";
 
 describe("resolveTemporaryDownloadFileName", () => {
     test("skips reserved and existing temporary file names", async () => {

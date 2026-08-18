@@ -19,6 +19,7 @@ import ooOpenAiPolicyPath from "../../../../contrib/skills/shared/oo/agents/open
 import ooAuthAndBillingReferencePath from "../../../../contrib/skills/shared/oo/references/auth-and-billing.md" with { type: "file" };
 import ooConnectorExecutionReferencePath from "../../../../contrib/skills/shared/oo/references/connector-execution.md" with { type: "file" };
 import ooFileTransferReferencePath from "../../../../contrib/skills/shared/oo/references/file-transfer.md" with { type: "file" };
+import ooFlowAuthoringReferencePath from "../../../../contrib/skills/shared/oo/references/flow-authoring.md" with { type: "file" };
 import ooLlmClientReferencePath from "../../../../contrib/skills/shared/oo/references/llm-client.md" with { type: "file" };
 import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/shared/oo/references/search-and-selection.md" with { type: "file" };
 import ooSkillPath from "../../../../contrib/skills/shared/oo/SKILL.md" with { type: "file" };
@@ -73,6 +74,7 @@ const bundledSkillRegistry = {
             authAndBilling: ooAuthAndBillingReferencePath,
             connectorExecution: ooConnectorExecutionReferencePath,
             fileTransfer: ooFileTransferReferencePath,
+            flowAuthoring: ooFlowAuthoringReferencePath,
             llmClient: ooLlmClientReferencePath,
             searchAndSelection: ooSearchAndSelectionReferencePath,
         }),
@@ -188,12 +190,14 @@ function createOoReferenceFiles(sourcePaths: {
     authAndBilling: string;
     connectorExecution: string;
     fileTransfer: string;
+    flowAuthoring: string;
     llmClient: string;
     searchAndSelection: string;
 }): readonly BundledSkillSourceFile[] {
     return [
         createRenderedBundledSkillFile("references/auth-and-billing.md", sourcePaths.authAndBilling),
         createRenderedBundledSkillFile("references/llm-client.md", sourcePaths.llmClient),
+        createRenderedBundledSkillFile("references/flow-authoring.md", sourcePaths.flowAuthoring),
         createRenderedBundledSkillFile("references/search-and-selection.md", sourcePaths.searchAndSelection),
         createRenderedBundledSkillFile("references/connector-execution.md", sourcePaths.connectorExecution),
         createRenderedBundledSkillFile("references/file-transfer.md", sourcePaths.fileTransfer),

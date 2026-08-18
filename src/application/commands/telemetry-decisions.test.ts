@@ -245,6 +245,10 @@ const commandTelemetryDecisions = {
         properties: ["bytes_total_bucket", "rejected_too_large"],
         reason: "Records upload size bucket and rejection state without path or filename.",
     },
+    "flow": {
+        kind: "generic",
+        reason: "Generic command telemetry records only the delegated flow command and its exit code; Open Flow arguments, flags, paths, project, account, and team identities, and tokens are not inspected.",
+    },
     "info": {
         kind: "generic",
         reason: "Generic command telemetry is enough; environment paths and agent presence are not recorded.",

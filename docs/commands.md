@@ -23,6 +23,19 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   `XDG_CONFIG_HOME`.
 - `OO_DATA_DIR`: Override the data directory that holds the local cache,
   uploads, and download-session state. Defaults to `<config-root>/data`.
+- `OO_OPEN_FLOW_COMMAND_DIR`: During local Open Flow integration testing, point
+  `oo flow` at an expanded Open Flow command artifact directory. The directory
+  must contain `entry.js`; the standard repository build writes it to
+  `packages/open-flow/dist/command/open-flow-command`. When this variable is
+  unset, `oo flow` uses the Open Flow release bundled with the current `oo`
+  release.
+- `OO_FLOW_PROJECT`: Select an Open Flow Cloud Project for the current
+  invocation. It takes precedence over the account-and-Team-scoped Project
+  saved by `oo flow project use` and is not persisted.
+- `OO_FLOW_ACCOUNT`: Select a saved account for the current `oo flow`
+  invocation without changing the active account in `auth.toml`. Use the exact
+  account ID or `endpoint/name`; an ambiguous `endpoint/name` must be replaced
+  with the account ID. `OO_API_KEY` still takes precedence when both are set.
 - `OO_LOG_DIR`: Override the debug-log directory. Takes precedence over every
   platform default.
 - `OO_API_KEY`: Run execution commands with this API key without an interactive
@@ -79,6 +92,126 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   such as `~/.agents` or `~/.claude`.
 - `OO_NO_SELF_UPDATE`: A truthy value disables `oo update`, `oo install`, and
   `oo check-update` and forces self-update PATH modification off.
+
+## Open Flow
+
+### `oo flow [args...]`
+
+Run the Open Flow CLI release pinned by the current `oo` release. The first
+invocation downloads and verifies its immutable command archive. Later
+invocations reuse the verified local cache without checking for updates or
+requiring network access.
+
+- Every argument after `flow` is passed to Open Flow unchanged. The main `oo`
+  CLI does not parse, reorder, or log these arguments.
+- The effective `oo --lang` locale is passed to Open Flow as `en` or
+  `zh-CN`. Open Flow owns and versions its translated command text.
+- `oo flow --help` and `oo flow --version` are therefore Open Flow commands.
+  Use `oo help flow` to show the host-side command description without loading
+  Open Flow.
+- Root help and generated shell completions list `flow` only when
+  `OO_ENDPOINT=oomol.dev`. Other endpoints hide it without disabling direct
+  `oo flow` or `oo help flow` invocations.
+- Main `oo` global options such as `--lang` and `--debug` must appear before
+  `flow`. Options after `flow` belong to Open Flow.
+- Open Flow uses the current process's working directory, standard streams,
+  environment, and signals. Its exit code becomes the `oo` exit code.
+- With no delegated arguments, Open Flow shows a Project → Flow → action menu
+  only when both stdin and stdout are TTYs. Non-interactive invocations print
+  help and never wait for input. The menu can select or create Projects and
+  Flows, then call the same stateless view, rename, check, Draft Run, publish,
+  and Workbench handlers used by non-interactive commands.
+- The downloaded archive is accepted only when its length, SHA-256 digest,
+  internal manifest, complete file set, and Bun version match the release
+  pinned by `oo`.
+- Command Artifact v2 contains only the Cloud CLI entry and license files. It
+  does not contain Workbench assets, a Deployment Runtime, skills, or a local
+  Project implementation.
+- On a cache miss, interactive terminals show in-place byte progress on stderr;
+  non-interactive streams receive one start and one completion line. Cache hits
+  remain silent.
+- `OO_OPEN_FLOW_COMMAND_DIR` bypasses download and cache resolution for local
+  repository integration testing.
+- Open Flow Cloud commands use the current `oo` credential and effective Team.
+  The Cloud gateway is derived from the current endpoint as
+  `https://open-flow.<endpoint>`; for example, `OO_ENDPOINT=oomol.dev` uses
+  `https://open-flow.oomol.dev`.
+- `OO_FLOW_ACCOUNT=<account-id|endpoint/name>` selects a saved account only for
+  the current Flow invocation, including that account's endpoint, Team, and
+  saved Project context. It does not mutate the globally active account.
+- The `oo` credential and Team identity are attached only to `/v1/` requests
+  for that gateway. Identity headers supplied by the command artifact are
+  removed before the host writes the current credential and Team selector.
+  Connector and Trigger operations remain Cloud API operations; the artifact
+  does not connect to their backing services directly.
+- `oo flow project use <project>` verifies the Project through Cloud and saves
+  its ID for the current account and Team. Switching account or Team ignores a
+  Project saved in another scope. An `OO_API_KEY` identity has no persistent
+  account scope, so use `OO_FLOW_PROJECT` instead. Once a current Project is
+  selected, later Flow commands can omit `--project`; use that option only for
+  a per-command override.
+- The Cloud-only command surface covers Project and Flow authoring, Nodes,
+  Edges, CodeModules, Connector Tasks, Triggers, checks, Draft/Live Runs,
+  Publications, rollback, and Workbench deep links. Use `--json` for versioned
+  machine output and `--project <id-or-exact-name>` for a per-command Project.
+- `oo flow inspect <flow>` reads one immutable Draft Revision and reports its
+  Nodes, Task/CodeModule details, Edges, Triggers, and authoritative Revision
+  check together. `--summary` keeps the same structural Edge/check/Revision
+  view but returns compact Node and Trigger identities without Code source or
+  complete Task and Trigger objects. Neither form executes user code or calls
+  external services.
+- `oo flow apply <flow> --file <path|-> [--expected-revision <revision>]`
+  accepts a version-1 one-shot JSON authoring request and commits all new Nodes,
+  Triggers, and Edges with one Draft CAS write. `nodes` and `triggers` are keyed
+  by request-local references. Trigger kinds are `webhook`, `cron`, and
+  `provider`; provider Triggers use `key`, optional `connection`, `config`,
+  `every` or `cron`, and `timezone`. Code Nodes use `code` with inline
+  JavaScript or `@path`; Connector Nodes use `action`, optional `connection`
+  (`default` is accepted), and optional `inputs`. Each Edge contains `source`,
+  `output`, `target`, and `input`; a request-local Trigger can be its source with
+  output `payload`. The request is not a local Project or import format. A
+  successful apply checks the new Revision but never runs or publishes it.
+  Connector add and apply choose the action's active default connection when
+  `connection` is omitted or set to `default`; when none exists, the Connector
+  Node remains unbound and JSON output omits its `connectionId`. Provider
+  Triggers require an active Connection. If the write succeeds but that final
+  check is unavailable, output still reports the accepted Revision and
+  explicitly tells callers not to retry the apply.
+- `oo flow node add <flow> code <name> --code <javascript|@file|->` creates the
+  Node, Task, CodeModule, and final source atomically and reports all three
+  opaque IDs. `oo flow check` validates the immutable Revision only; credential
+  availability and real Connector side effects are checked only by an explicit
+  `oo flow run`.
+- `oo flow open [flow]` opens the official Console Workbench in the system
+  browser and also prints its URL. `oo flow workbench [flow]` prints the same
+  URL without launching a browser, for scripts and agent-hosted previews. A
+  Team must be selected because Console Workbench routes are Team-scoped. The
+  URL carries a short-lived, one-time browser sign-in code for the effective
+  CLI account and redirects to the requested Workbench after the exchange. It
+  must not be shared or stored; the API key itself is never placed in the URL.
+- Host telemetry records this delegation only as top-level command `flow`, its
+  success or failure, and duration. It records no delegated subcommand, flags,
+  Project/Flow ID, free-form argument, or command output.
+
+Local repository example:
+
+```bash
+cd /path/to/open-flow
+bun run --filter @oomol-lab/open-flow build
+
+cd /path/to/oo-cli
+OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
+  bun run index.ts flow --help
+```
+
+Test the online dev Cloud with a locally built Open Flow command (requires a
+dev login and an effective Team):
+
+```bash
+OO_ENDPOINT=oomol.dev \
+OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
+  bun run index.ts flow project list
+```
 
 ## JSON Output
 

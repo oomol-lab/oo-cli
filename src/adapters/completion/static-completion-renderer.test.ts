@@ -58,4 +58,14 @@ describe("StaticCompletionRenderer", () => {
         );
         expect(output).toContain("en zh");
     });
+
+    test("shows flow completion only for the online dev endpoint", () => {
+        const renderer = new StaticCompletionRenderer(createTranslator("en"));
+        const hiddenOutput = renderer.render("fish", createCliCatalog());
+        const devOutput = renderer.render("fish", createCliCatalog("oomol.dev"));
+        const flowCompletion = `complete -c ${APP_NAME} -n '__fish_use_subcommand' -a 'flow'`;
+
+        expect(hiddenOutput).not.toContain(flowCompletion);
+        expect(devOutput).toContain(flowCompletion);
+    });
 });

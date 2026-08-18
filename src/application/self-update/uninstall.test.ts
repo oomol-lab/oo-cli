@@ -200,6 +200,13 @@ describe("buildSelfUninstallPlan", () => {
         expect(userData.length).toBeGreaterThanOrEqual(4);
         expect(paths(userData).some(path => path.endsWith("auth.toml"))).toBe(true);
         expect(paths(userData).some(path => path.endsWith("settings.toml"))).toBe(true);
+        expect(paths(userData)).toContain(join(
+            tempHome,
+            ".cache",
+            "oo",
+            "open-flow",
+            "command-artifact-v2",
+        ));
 
         // The config root itself is removed, and it must be the last user-data
         // item so it sweeps anything the explicit child items did not cover.

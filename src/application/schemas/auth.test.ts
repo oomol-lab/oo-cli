@@ -7,6 +7,7 @@ import {
     getNextAuthAccount,
     renderAuthFile,
     setAccountDefaultTeam,
+    setAccountFlowProject,
     upsertAuthAccount,
 } from "./auth.ts";
 
@@ -136,6 +137,40 @@ describe("authTomlFileSchema", () => {
         });
     });
 
+    test("parses a Team-scoped Flow Project", () => {
+        expect(authTomlFileSchema.parse({
+            auth: [
+                {
+                    api_key: "secret-1",
+                    endpoint: "oomol.com",
+                    flow_project_id: "project-1",
+                    flow_project_team: "id:team-1",
+                    id: "user-1",
+                    name: "Alice",
+                },
+            ],
+            id: "user-1",
+        }).auth[0]?.flowProject).toEqual({
+            projectId: "project-1",
+            team: "id:team-1",
+        });
+    });
+
+    test("ignores an incomplete Flow Project context", () => {
+        expect(authTomlFileSchema.parse({
+            auth: [
+                {
+                    api_key: "secret-1",
+                    endpoint: "oomol.com",
+                    flow_project_id: "project-1",
+                    id: "user-1",
+                    name: "Alice",
+                },
+            ],
+            id: "user-1",
+        }).auth[0]?.flowProject).toBeUndefined();
+    });
+
     test("treats a blank default team as unset", () => {
         expect(authTomlFileSchema.parse({
             auth: [
@@ -220,6 +255,21 @@ describe("setAccountDefaultTeam", () => {
     });
 });
 
+describe("setAccountFlowProject", () => {
+    test("stores the Project on the named account only", () => {
+        const next = setAccountFlowProject(createAuthFile(), "user-2", {
+            projectId: "project-1",
+            team: "id:team-1",
+        });
+
+        expect(next.auth[1]?.flowProject).toEqual({
+            projectId: "project-1",
+            team: "id:team-1",
+        });
+        expect(next.auth[0]?.flowProject).toBeUndefined();
+    });
+});
+
 describe("clearAccountDefaultTeam", () => {
     test("removes both team fields", () => {
         const withTeam = setAccountDefaultTeam(createAuthFile(), "user-1", {
@@ -244,12 +294,16 @@ describe("clearAccountDefaultTeam", () => {
 });
 
 describe("upsertAuthAccount", () => {
-    test("keeps the stored default team when the account logs in again", () => {
+    test("keeps the stored Team and Flow Project when the account logs in again", () => {
         const withTeam = setAccountDefaultTeam(createAuthFile(), "user-1", {
             id: "team-1",
             name: "acme",
         });
-        const next = upsertAuthAccount(withTeam, {
+        const withProject = setAccountFlowProject(withTeam, "user-1", {
+            projectId: "project-1",
+            team: "id:team-1",
+        });
+        const next = upsertAuthAccount(withProject, {
             apiKey: "rotated-secret",
             endpoint: "oomol.com",
             id: "user-1",
@@ -259,6 +313,10 @@ describe("upsertAuthAccount", () => {
         expect(next.auth[0]).toEqual({
             apiKey: "rotated-secret",
             endpoint: "oomol.com",
+            flowProject: {
+                projectId: "project-1",
+                team: "id:team-1",
+            },
             id: "user-1",
             name: "Alice",
             team: "acme",
@@ -317,6 +375,37 @@ describe("renderAuthFile", () => {
                 "endpoint = \"oomol.com\"",
                 "team = \"acme\"",
                 "team_id = \"team-1\"",
+                "",
+            ].join("\n"),
+        );
+    });
+
+    test("renders the Team-scoped Flow Project", () => {
+        expect(renderAuthFile({
+            auth: [
+                {
+                    apiKey: "secret-1",
+                    endpoint: "oomol.com",
+                    flowProject: {
+                        projectId: "project-1",
+                        team: "id:team-1",
+                    },
+                    id: "user-1",
+                    name: "Alice",
+                },
+            ],
+            id: "user-1",
+        })).toBe(
+            [
+                "id = \"user-1\"",
+                "",
+                "[[auth]]",
+                "id = \"user-1\"",
+                "name = \"Alice\"",
+                "api_key = \"secret-1\"",
+                "endpoint = \"oomol.com\"",
+                "flow_project_team = \"id:team-1\"",
+                "flow_project_id = \"project-1\"",
                 "",
             ].join("\n"),
         );

@@ -10,6 +10,7 @@ import {
     getConfiguredFileDownloadOutDir,
 } from "../../schemas/settings.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
+import { createDownloadProgressReporter } from "../shared/download-progress.ts";
 import {
     finalizeDownloadedFile,
     openTemporaryDownloadFile,
@@ -22,7 +23,6 @@ import {
     parseFileDownloadUrl,
 } from "./download/input.ts";
 import { resolveDownloadPlan } from "./download/plan.ts";
-import { createDownloadProgressReporter } from "./download/progress.ts";
 import {
     createDownloadSessionKey,
     deleteDownloadSessionBestEffort,

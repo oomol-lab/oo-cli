@@ -9,6 +9,7 @@ import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { resolveSelfUpdatePaths } from "../self-update/paths.ts";
 import { pathExists } from "../shared/fs-utils.ts";
+import { resolveOpenFlowCommandCacheRoot } from "./flow-artifact.ts";
 import { resolveManagedSkillMetadataFilePath } from "./skills/managed-skill-paths.ts";
 import {
     createBundledSkillMetadata,
@@ -185,6 +186,10 @@ describe("oo uninstall", () => {
         try {
             await seedRuntime(sandbox);
             const store = storePaths(sandbox);
+            const openFlowCommandCacheRoot = resolveOpenFlowCommandCacheRoot({
+                env: sandbox.env,
+                platform: process.platform,
+            });
 
             await mkdir(store.rootDirectory, { recursive: true });
             await writeFile(store.authFilePath, "id = \"\"\n");
@@ -192,6 +197,8 @@ describe("oo uninstall", () => {
             // A residual file that no explicit child item targets: it must still
             // be gone because --purge removes the whole config root.
             await writeFile(join(store.rootDirectory, "leftover.txt"), "x");
+            await mkdir(openFlowCommandCacheRoot, { recursive: true });
+            await writeFile(join(openFlowCommandCacheRoot, "entry.js"), "cached");
             const registrySkill = await seedHostSkill({
                 sandbox,
                 skillName: "demo",
@@ -216,6 +223,7 @@ describe("oo uninstall", () => {
             // every platform.
             expect(await Bun.file(store.authFilePath).exists()).toBe(false);
             expect(await Bun.file(store.settingsFilePath).exists()).toBe(false);
+            expect(await pathExists(openFlowCommandCacheRoot)).toBe(false);
             // All registry skills removed under purge
             expect(await Bun.file(join(registrySkill, "SKILL.md")).exists()).toBe(false);
             // Local still retained even under purge
