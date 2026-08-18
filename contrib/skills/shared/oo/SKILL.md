@@ -1,6 +1,6 @@
 ---
 name: oo
-description: Use OO for connected accounts, APIs, and hosted AI tasks; the first-choice router for tasks whose outcome lives outside this workspace, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, or a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding). Use when local code needs OOMOL LLM client configuration such as an OpenAI-compatible base URL, API key, or model name. Otherwise use only when the user wants an existing hosted capability or connector workflow, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, or action names are assumed in advance. Match intent across languages. Skip other pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
+description: Use OO for connected accounts, APIs, hosted AI, and Flow authoring; the first-choice router for tasks whose outcome lives outside this workspace or in a persistent Open Flow, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding), or creating, editing, checking, running, publishing, and opening an Open Flow workflow. Use when local code needs OOMOL LLM client configuration such as an OpenAI-compatible base URL, API key, or model name. Otherwise use only when the user wants an existing hosted capability, connector workflow, or Open Flow operation, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, action, or Trigger key names are assumed in advance. Match intent across languages. Skip other pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
 disable-model-invocation: <!-- agentic:var disableModelInvocation -->
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
@@ -17,6 +17,16 @@ If the user wants to find, compare, or install published OOMOL/oo skills, use
 `oo-find-skills` instead of this skill.
 
 Read only the reference file needed for the current state.
+
+## Open Flow mode
+
+If the user wants to create, inspect, edit, check, run, publish, or open a
+persistent Open Flow workflow, read
+[references/flow-authoring.md](references/flow-authoring.md) before the first
+`oo flow` command. This mode replaces the connector operating state machine
+below: use Flow-scoped Connector and Trigger discovery, not `oo search` or
+direct Connector execution. Do not run the wrap-up skill recommendation for
+services that were only added to a Flow.
 
 ## LLM client config mode
 
@@ -200,6 +210,8 @@ unsupported input shape, or a blocker-specific fallback.
   [references/auth-and-billing.md](references/auth-and-billing.md)
 - OOMOL LLM client configuration for local code:
   [references/llm-client.md](references/llm-client.md)
+- Persistent Open Flow creation, editing, validation, execution, and release:
+  [references/flow-authoring.md](references/flow-authoring.md)
 
 ## Decision sketches
 
@@ -223,3 +235,10 @@ For `read -> transform -> write`, discover only the current external step. Use
 local reasoning only to filter, group, rank, summarize, dedupe, or shape the
 next payload. Switch discovery to the destination service only when the write
 step becomes active.
+
+### Persistent Open Flow
+
+User wants a reusable workflow rather than an immediate Connector result. Use
+the Open Flow mode, resolve the Project explicitly, discover Node and Trigger
+contracts through `oo flow`, author the smallest complete Draft, then stop at
+check, run, or publish according to the requested side-effect boundary.

@@ -14,6 +14,7 @@ import {
     isNetworkRestrictedSandboxError,
     requestOo,
 } from "../shared/oo-request.ts";
+import { teamIdentityHeaders } from "../team/identity.ts";
 
 export const connectorActionDefinitionSchema = z.object({
     description: z.string().optional().default(""),
@@ -204,7 +205,7 @@ export async function searchConnectorActions(
         // The action list itself is identity-independent, but each result's
         // `authenticated` flag reflects the effective identity's connected
         // apps, so the identity headers are forwarded like `apps`/`run`.
-        headers: connectorIdentityHeaders(options.identity),
+        headers: teamIdentityHeaders(options.identity),
         host: { baseUrl: options.target.baseUrl },
         label: "Connector action search",
         logFields: {
@@ -240,7 +241,7 @@ export async function listConnectorApps(
         authorization: options.target.authorization,
         context,
         errors: { scope: "connectorApps" },
-        headers: connectorIdentityHeaders(options.identity),
+        headers: teamIdentityHeaders(options.identity),
         host: { baseUrl: options.target.baseUrl },
         label: "Connector apps list",
         path: "/v1/apps",
@@ -268,7 +269,7 @@ export async function listConnectorAppsByService(
         authorization: options.target.authorization,
         context,
         errors: { scope: "connectorApps" },
-        headers: connectorIdentityHeaders(options.identity),
+        headers: teamIdentityHeaders(options.identity),
         host: { baseUrl: options.target.baseUrl },
         label: "Connector apps list",
         logFields: {
@@ -366,7 +367,7 @@ export async function runConnectorAction(
         errors: { scope: "connectorRun" },
         headers: {
             ...connectorConnectionSelectorHeaders(options.connectionSelector),
-            ...connectorIdentityHeaders(options.identity),
+            ...teamIdentityHeaders(options.identity),
         },
         host: { baseUrl: options.target.baseUrl },
         jsonBody: { input: options.inputData },
@@ -407,7 +408,7 @@ export async function runConnectorProxy(
         authorization: options.target.authorization,
         context,
         errors: { scope: "connectorProxy" },
-        headers: connectorIdentityHeaders(options.identity),
+        headers: teamIdentityHeaders(options.identity),
         host: { baseUrl: options.target.baseUrl },
         jsonBody: options.proxyRequest,
         label: "Connector proxy",
@@ -435,29 +436,6 @@ export async function runConnectorProxy(
 
 function connectorActionPath(serviceName: string, actionName: string): string {
     return `/v1/actions/${encodeURIComponent(serviceName)}.${encodeURIComponent(actionName)}`;
-}
-
-// Builds the identity request headers (`x-oo-team-name` / `x-oo-team-id`)
-// from whichever dimensions the identity carries. Returns an empty object for
-// the personal identity so callers can spread it unconditionally.
-function connectorIdentityHeaders(
-    identity: TeamIdentity | undefined,
-): Record<string, string> {
-    const headers: Record<string, string> = {};
-
-    if (identity === undefined) {
-        return headers;
-    }
-
-    if (identity.name !== null) {
-        headers["x-oo-team-name"] = identity.name;
-    }
-
-    if (identity.id !== null) {
-        headers["x-oo-team-id"] = identity.id;
-    }
-
-    return headers;
 }
 
 // Self-hosted servers are typically local processes, so a connection failure

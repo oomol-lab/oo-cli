@@ -4,6 +4,10 @@ import { z } from "zod";
 export const authAccountSchema = z.object({
     apiKey: z.string().min(1),
     endpoint: z.string().min(1),
+    flowProject: z.object({
+        projectId: z.string().min(1),
+        team: z.string().min(1),
+    }).strict().optional(),
     id: z.string().min(1),
     name: z.string().min(1),
     // The account's default team identity. `team` is the name every backend
@@ -22,6 +26,8 @@ export const authFileSchema = z.object({
 // purpose: a hand-edited blank value must degrade to "no default team", not
 // brick every command that needs a credential.
 const authAccountTeamTomlShape = {
+    flow_project_id: z.string().optional(),
+    flow_project_team: z.string().optional(),
     team: z.string().optional(),
     team_id: z.string().optional(),
 };
@@ -50,6 +56,10 @@ const authAccountTomlSchema = z.union([
     endpoint: account.endpoint,
     id: "id" in account ? account.id : account.ID,
     name: account.name,
+    ...optionalFlowProject(
+        account.flow_project_team,
+        account.flow_project_id,
+    ),
     ...optionalTeamFields(account.team, account.team_id),
 }));
 
@@ -86,6 +96,13 @@ export function renderAuthFile(authFile: AuthFile): string {
         if (account.teamId !== undefined) {
             lines.push(renderTomlLine("team_id", account.teamId));
         }
+
+        if (account.flowProject !== undefined) {
+            lines.push(
+                renderTomlLine("flow_project_team", account.flowProject.team),
+                renderTomlLine("flow_project_id", account.flowProject.projectId),
+            );
+        }
     }
 
     return `${lines.join("\n")}\n`;
@@ -115,6 +132,10 @@ export function upsertAuthAccount(
     const existingAccount = authFile.auth[existingIndex]!;
     const mergedAccount: AuthAccount = {
         ...account,
+        ...optionalFlowProject(
+            account.flowProject?.team ?? existingAccount.flowProject?.team,
+            account.flowProject?.projectId ?? existingAccount.flowProject?.projectId,
+        ),
         ...optionalTeamFields(
             account.team ?? existingAccount.team,
             account.teamId ?? existingAccount.teamId,
@@ -127,6 +148,17 @@ export function upsertAuthAccount(
         ),
         id: account.id,
     };
+}
+
+export function setAccountFlowProject(
+    authFile: AuthFile,
+    accountId: string,
+    flowProject: NonNullable<AuthAccount["flowProject"]>,
+): AuthFile {
+    return mapAuthAccount(authFile, accountId, account => ({
+        ...account,
+        flowProject,
+    }));
 }
 
 /**
@@ -261,4 +293,23 @@ function optionalTeamFields(
             ? {}
             : { teamId: trimmedTeamId }),
     };
+}
+
+function optionalFlowProject(
+    team: string | undefined,
+    projectId: string | undefined,
+): { flowProject?: NonNullable<AuthAccount["flowProject"]> } {
+    const normalizedTeam = team?.trim();
+    const normalizedProjectId = projectId?.trim();
+
+    if (
+        normalizedTeam === undefined
+        || normalizedTeam === ""
+        || normalizedProjectId === undefined
+        || normalizedProjectId === ""
+    ) {
+        return {};
+    }
+
+    return { flowProject: { projectId: normalizedProjectId, team: normalizedTeam } };
 }

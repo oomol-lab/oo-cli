@@ -36,6 +36,10 @@ import {
 import { createTranslator } from "../../i18n/translator.ts";
 import { migrateLegacyDefaultTeam } from "../auth/default-team.ts";
 import { createCliCatalog } from "../commands/catalog.ts";
+import {
+    resolveOpenFlowInvocation,
+    runOpenFlowCommand,
+} from "../commands/flow.ts";
 import { synchronizeManagedSkillsForAvailableHosts } from "../commands/skills/auto-sync.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import {
@@ -155,8 +159,12 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     const startTimeMs = Date.now();
     const sessionId = Bun.randomUUIDv7();
     const telemetryRecorder = createTelemetryInvocationRecorder();
-    const debugPathEnabled = hasCliDebugFlag(invocation.argv);
-    const rawCliLanguage = detectCliLanguageFlag(invocation.argv);
+    const openFlowInvocation = resolveOpenFlowInvocation(invocation.argv);
+    const ooArgv = openFlowInvocation === undefined
+        ? invocation.argv
+        : invocation.argv.slice(0, openFlowInvocation.commandIndex);
+    const debugPathEnabled = hasCliDebugFlag(ooArgv);
+    const rawCliLanguage = detectCliLanguageFlag(ooArgv);
     const parsedCliLanguage = parseExplicitLocale(rawCliLanguage);
     const storePaths = resolveStorePaths({
         appName: APP_NAME,
@@ -267,7 +275,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 systemLocale: invocation.systemLocale,
             }),
         );
-        const catalog = createCliCatalog();
+        const catalog = createCliCatalog(invocation.env.OO_ENDPOINT?.trim());
         const completionRenderer = new StaticCompletionRenderer(translator);
         const packageName = invocation.packageName ?? packageManifest.name;
 
@@ -326,12 +334,31 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             await synchronizeManagedSkillsForAvailableHosts(context);
         }
 
-        exitCode = await adapter.run({
-            argv: invocation.argv,
-            catalog,
-            context,
-            observer: telemetryRecorder.observer,
-        });
+        if (openFlowInvocation !== undefined) {
+            telemetryRecorder.observer.onCommandResolved?.({
+                argCount: 0,
+                commandPath: ["flow"],
+                excludeFromTelemetry: false,
+                flagsCount: 0,
+                outputFormat: "text",
+            });
+            exitCode = await runOpenFlowCommand(openFlowInvocation.args, context);
+
+            if (exitCode === 0) {
+                telemetryRecorder.observer.onCommandCompleted?.({ exitCode });
+            }
+            else {
+                telemetryRecorder.observer.onCommandFailed?.({ exitCode });
+            }
+        }
+        else {
+            exitCode = await adapter.run({
+                argv: invocation.argv,
+                catalog,
+                context,
+                observer: telemetryRecorder.observer,
+            });
+        }
     }
     catch (error) {
         if (error instanceof CliUserError) {
@@ -676,6 +703,17 @@ function getSystemLocale(): string | undefined {
 }
 
 function redactSensitiveCliArguments(argv: readonly string[]): string[] {
+    const openFlowInvocation = resolveOpenFlowInvocation(argv);
+
+    if (openFlowInvocation !== undefined) {
+        return [
+            ...argv.slice(0, openFlowInvocation.commandIndex + 1),
+            ...(openFlowInvocation.args.length === 0
+                ? []
+                : [redactedCliArgumentValue]),
+        ];
+    }
+
     const positionalRule = sensitiveCliPositionalRules.find(rule =>
         rule.commandPath.every((word, index) => argv[index] === word),
     );

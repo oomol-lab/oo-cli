@@ -142,6 +142,20 @@ export const enMessages = {
     "commands.file.upload.description":
         "Upload a file and store the signed download URL locally.",
     "commands.file.upload.summary": "Upload a file",
+    "commands.flow.description":
+        "Run the Open Flow CLI with all following arguments passed through unchanged.",
+    "commands.flow.summary": "Run Open Flow",
+    "arguments.flowArgs": "Arguments passed to Open Flow",
+    "flow.download.complete": "Downloaded and verified Open Flow {version}.",
+    "flow.download.start": "Downloading Open Flow {version}...",
+    "errors.flow.commandArtifactUnavailable":
+        "Open Flow {version} could not be downloaded or verified. Check the network connection and local cache, then try again.",
+    "errors.flow.commandEntryInvalid":
+        "The Open Flow command entry at {path} is invalid.",
+    "errors.flow.commandEntryLoadFailed":
+        "Failed to load the Open Flow command entry at {path}: {message}",
+    "errors.flow.bunVersionMismatch":
+        "Open Flow requires Bun {required}, but oo is running Bun {actual}.",
     "commands.info.description":
         "Print CLI environment details, persisted store paths, and detected skill agents.",
     "commands.info.summary": "Show CLI environment info",
@@ -312,6 +326,10 @@ export const enMessages = {
         "Timed out after {timeout} waiting for the device login to complete.",
     "errors.auth.noSavedAccounts":
         "There are no auth accounts to switch to.",
+    "errors.auth.accountSelectorAmbiguous":
+        "Multiple saved accounts match {selector}. Use an account ID instead.",
+    "errors.auth.accountSelectorNotFound":
+        "No saved account matches {selector}. Use an account ID or endpoint/name.",
     "errors.auth.required":
         "You must log in before using this command.",
     "errors.auth.requiredConnectorOnly":
@@ -1544,6 +1562,18 @@ export const zhMessages = {
     "commands.file.summary": "管理临时文件传输",
     "commands.file.upload.description": "上传文件，并在本地保存带签名的下载地址。",
     "commands.file.upload.summary": "上传文件",
+    "commands.flow.description": "运行 Open Flow CLI，并将后续参数原样传递给它。",
+    "commands.flow.summary": "运行 Open Flow",
+    "arguments.flowArgs": "传递给 Open Flow 的参数",
+    "flow.download.complete": "已下载并验证 Open Flow {version}。",
+    "flow.download.start": "正在下载 Open Flow {version}…",
+    "errors.flow.commandArtifactUnavailable":
+        "无法下载或验证 Open Flow {version}。请检查网络连接和本地缓存后重试。",
+    "errors.flow.commandEntryInvalid": "{path} 中的 Open Flow 命令入口无效。",
+    "errors.flow.commandEntryLoadFailed":
+        "无法加载 {path} 中的 Open Flow 命令入口：{message}",
+    "errors.flow.bunVersionMismatch":
+        "Open Flow 需要 Bun {required}，但 oo 当前运行的是 Bun {actual}。",
     "commands.info.description":
         "打印 CLI 运行环境信息、本地存储路径以及检测到的 skill 代理。",
     "commands.info.summary": "显示 CLI 环境信息",
@@ -1699,6 +1729,10 @@ export const zhMessages = {
     "errors.auth.loginRequestFailed": "auth login 请求返回了 HTTP {status}。",
     "errors.auth.loginTimeout": "等待 device login 完成超过 {timeout}，已超时。",
     "errors.auth.noSavedAccounts": "没有可切换的认证账号。",
+    "errors.auth.accountSelectorAmbiguous":
+        "有多个已保存账号匹配 {selector}，请改用账号 ID。",
+    "errors.auth.accountSelectorNotFound":
+        "没有已保存账号匹配 {selector}，请使用账号 ID 或 endpoint/name。",
     "errors.auth.required":
         "使用此命令前请先登录。",
     "errors.auth.requiredConnectorOnly":

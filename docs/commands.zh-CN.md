@@ -21,6 +21,16 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   子目录）。优先级高于 `XDG_CONFIG_HOME`。
 - `OO_DATA_DIR`：覆盖数据目录，其中包含本地缓存、上传和下载会话状态。默认值为
   `<配置根目录>/data`。
+- `OO_OPEN_FLOW_COMMAND_DIR`：本地联调 Open Flow 时，让 `oo flow`
+  使用指定的已展开命令产物目录。该目录必须包含 `entry.js`；Open Flow
+  仓库的标准构建会将它写到
+  `packages/open-flow/dist/command/open-flow-command`。未设置时，`oo flow`
+  使用当前 `oo` 版本固定的 Open Flow release。
+- `OO_FLOW_PROJECT`：只为当前调用选择 Open Flow Cloud Project。它的优先级
+  高于 `oo flow project use` 按账号和 Team 保存的 Project，且不会写回配置。
+- `OO_FLOW_ACCOUNT`：只为当前 `oo flow` 调用选择一个已保存账号，不修改
+  `auth.toml` 中的 active account。值可以是精确账号 ID 或 `endpoint/name`；如果
+  后者匹配多个账号，必须改用账号 ID。与 `OO_API_KEY` 同时设置时仍然后者优先。
 - `OO_LOG_DIR`：覆盖 debug 日志目录。优先级高于所有平台默认值。
 - `OO_API_KEY`：使用该 API key 执行命令，无需交互式登录。设置后 CLI 会构造一个
   内存账号，不读取、不要求、也不写入 `auth.toml`，且优先级高于任何已保存的账号。
@@ -64,6 +74,98 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill 文件。
 - `OO_NO_SELF_UPDATE`：设为真值会禁用 `oo update`、`oo install` 和
   `oo check-update`，并强制关闭 self-update 的 PATH 改写。
+
+## Open Flow
+
+### `oo flow [args...]`
+
+运行当前 `oo` 版本固定的 Open Flow CLI release。首次调用会下载并验证对应的
+不可变命令归档；之后直接离线复用已验证的本地缓存，不会在每次启动时检查更新。
+
+- `flow` 后的全部参数都会原样传给 Open Flow；主 `oo` CLI
+  不解析、不重排，也不把这些参数写入日志。
+- 当前生效的 `oo --lang` locale 会以 `en` 或 `zh-CN` 传给 Open Flow；
+  Open Flow 自己拥有并随版本发布对应的命令翻译文案。
+- 因此 `oo flow --help` 和 `oo flow --version` 都属于 Open Flow 命令。
+  如需在不加载 Open Flow 的情况下查看宿主侧命令说明，请使用 `oo help flow`。
+- 只有设置 `OO_ENDPOINT=oomol.dev` 时，根帮助和生成的 shell 补全才会列出
+  `flow`。其他 endpoint 只会隐藏该命令，不会禁用直接调用 `oo flow` 或
+  `oo help flow`。
+- `--lang`、`--debug` 等 `oo` 全局选项必须放在 `flow` 前面；
+  `flow` 后的选项归 Open Flow 所有。
+- Open Flow 使用当前进程的工作目录、标准输入输出、环境变量和信号；
+  它的退出码会直接成为 `oo` 的退出码。
+- 未传入后续参数时，只有 stdin 和 stdout 都是 TTY，Open Flow 才会显示
+  Project → Flow → 操作菜单；非交互调用只打印帮助，不等待输入。菜单可以选择或
+  创建 Project 与 Flow，并调用和非交互命令相同的查看、重命名、检查、Draft Run、
+  发布和 Workbench handler。
+- 只有归档长度、SHA-256、内部 manifest、完整文件集合和 Bun 版本都与 `oo`
+  固定的 release 一致时，下载内容才会被接受。
+- Command Artifact v2 只包含 Cloud CLI entry 和 license 文件，不包含 Workbench
+  assets、Deployment Runtime、skills 或本地 Project 实现。
+- 缓存未命中时，交互式终端会在 stderr 原地刷新字节进度；非交互式输出会分别打印
+  一行开始和完成信息。命中缓存时保持静默。
+- `OO_OPEN_FLOW_COMMAND_DIR` 仅用于本地仓库联调；设置后会跳过下载和缓存解析。
+- Open Flow Cloud 子命令使用当前 `oo` 登录凭证和生效的 Team。Cloud gateway
+  由当前 endpoint 派生为 `https://open-flow.<endpoint>`；例如
+  `OO_ENDPOINT=oomol.dev` 使用 `https://open-flow.oomol.dev`。
+- `OO_FLOW_ACCOUNT=<account-id|endpoint/name>` 只为本次 Flow 调用选择已保存账号，
+  同时使用该账号的 endpoint、Team 和已保存 Project context，不会修改全局 active
+  account。
+- `oo` 登录凭证和 Team identity 只附加到上述 gateway 的 `/v1/` 请求。宿主会先
+  删除 command artifact 提供的身份 header，再写入当前 credential 和 Team selector。
+  Connector 与 Trigger 操作仍通过 Cloud API，artifact 不直连它们的后端服务。
+- `oo flow project use <project>` 会先通过 Cloud 验证 Project，再按当前账号和 Team
+  保存其 ID。切换账号或 Team 后不会复用其他 scope 的 Project。`OO_API_KEY`
+  身份没有可持久化的账号 scope，应改用 `OO_FLOW_PROJECT`。
+- Cloud-only 命令覆盖 Project 与 Flow authoring、节点、连线、CodeModule、
+  Connector Task、Trigger、检查、Draft/Live Run、Publication、Rollback 和
+  Workbench deep link。`--json` 输出带版本的机器格式，`--project <ID 或精确名称>`
+  只覆盖当前命令的 Project。
+- `oo flow inspect <flow>` 固定并读取一个不可变 Draft Revision，一次返回 Node、
+  Task/CodeModule、Edge、Trigger 和该 Revision 的权威 check；它不会执行用户代码或
+  调用外部服务。
+- `oo flow apply <flow> --file <path|-> [--expected-revision <revision>]` 接受
+  version 1 的一次性 JSON authoring request，并用一次 Draft CAS 提交其中的所有新
+  Node 和 Edge。`nodes` 使用 request-local reference 作为 key；Code Node 的 `code`
+  可以是内联 JavaScript 或 `@path`，Connector Node 使用 `action`、可选的
+  `connection`（支持 `default`）和可选 `inputs`；每条 Edge 包含 `source`、
+  `output`、`target` 与 `input`。该 request 不是本地 Project 或 import 格式。
+  apply 成功后会检查新 Revision，但不会运行或发布。Connector add 与 apply 在
+  `connection` 省略或为 `default` 时选择 Action 当前的 active default Connection，
+  JSON 输出会报告实际选择的 Connection。若写入已成功但最终 check 暂时不可用，
+  输出仍会报告已接受的 Revision，并明确提示调用方不要重试 apply。
+- `oo flow node add <flow> code <name> --code <javascript|@file|->` 在一个原子
+  change set 中创建 Node、Task、CodeModule 和最终 source，并返回三个 opaque ID。
+  `oo flow check` 只校验不可变 Revision；credential 当前是否可用以及 Connector 的
+  真实副作用只会由显式 `oo flow run` 检查。
+- `oo flow open [flow]` 会在系统浏览器中打开当前 endpoint 与 Team 对应的官方
+  Console Workbench，并同时输出 URL。`oo flow workbench [flow]` 只输出相同 URL，
+  不启动浏览器，适用于脚本和 Agent 内置预览。Console Workbench 路由按 Team
+  隔离，因此必须先选择 Team。该 URL 携带当前 CLI 有效账号的短期一次性网页登录
+  code；交换完成后会跳转到目标 Workbench。不要分享或持久化这个 URL；API key
+  本身不会写入 URL。
+- 宿主 telemetry 只把本次委托记录为顶层命令 `flow`，并记录成功/失败和耗时；
+  不记录委托的子命令、flags、Project/Flow ID、自由文本参数或命令输出。
+
+本地仓库联调示例：
+
+```bash
+cd /path/to/open-flow
+bun run --filter @oomol-lab/open-flow build
+
+cd /path/to/oo-cli
+OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
+  bun run index.ts flow --help
+```
+
+使用本地构建的 Open Flow 命令测试线上 dev Cloud（需要已登录 dev 账号及已选择 Team）：
+
+```bash
+OO_ENDPOINT=oomol.dev \
+OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
+  bun run index.ts flow project list
+```
 
 ## JSON 输出
 

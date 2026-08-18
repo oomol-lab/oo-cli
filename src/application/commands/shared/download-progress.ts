@@ -1,19 +1,20 @@
-import type { CliExecutionContext } from "../../../contracts/cli.ts";
+import type { CliExecutionContext } from "../../contracts/cli.ts";
 
 import {
     moveCursorUp,
     rewriteTerminalLine,
-} from "../../../terminal-control.ts";
+} from "../../terminal-control.ts";
 
 export function createDownloadProgressReporter(
     writer: CliExecutionContext["stderr"],
     totalBytes: number | undefined,
+    subject?: string,
 ): DownloadProgressReporter | undefined {
     if (writer.isTTY !== true) {
         return undefined;
     }
 
-    return new DownloadProgressReporter(writer, totalBytes);
+    return new DownloadProgressReporter(writer, totalBytes, subject);
 }
 
 export class DownloadProgressReporter {
@@ -25,6 +26,7 @@ export class DownloadProgressReporter {
     constructor(
         private readonly writer: Pick<CliExecutionContext["stderr"], "write">,
         private readonly totalBytes: number | undefined,
+        private readonly subject?: string,
     ) {}
 
     render(downloadedBytes: number): void {
@@ -44,7 +46,12 @@ export class DownloadProgressReporter {
         this.lastRenderedBytes = downloadedBytes;
         this.lastRenderedAt = now;
         this.writeProgressLine(
-            formatProgressStatusLine("Downloading", downloadedBytes, this.totalBytes),
+            formatProgressStatusLine(
+                "Downloading",
+                downloadedBytes,
+                this.totalBytes,
+                this.subject,
+            ),
         );
     }
 
@@ -52,7 +59,12 @@ export class DownloadProgressReporter {
         this.lastRenderedBytes = downloadedBytes;
         this.lastRenderedAt = Date.now();
         this.writeProgressLine(
-            formatProgressStatusLine("Downloading", downloadedBytes, this.totalBytes),
+            formatProgressStatusLine(
+                "Downloading",
+                downloadedBytes,
+                this.totalBytes,
+                this.subject,
+            ),
         );
     }
 
@@ -60,7 +72,12 @@ export class DownloadProgressReporter {
         this.lastRenderedBytes = downloadedBytes;
         this.lastRenderedAt = Date.now();
         this.writeProgressLine(
-            formatProgressStatusLine("Downloaded", downloadedBytes, this.totalBytes),
+            formatProgressStatusLine(
+                "Downloaded",
+                downloadedBytes,
+                this.totalBytes,
+                this.subject,
+            ),
         );
     }
 
@@ -85,9 +102,12 @@ function formatProgressStatusLine(
     status: "Downloaded" | "Downloading",
     downloadedBytes: number,
     totalBytes: number | undefined,
+    subject: string | undefined,
 ): string {
+    const prefix = subject === undefined ? status : `${status} ${subject}:`;
+
     if (totalBytes === undefined) {
-        return `${status} ${formatByteCount(downloadedBytes)}`;
+        return `${prefix} ${formatByteCount(downloadedBytes)}`;
     }
 
     const percent = totalBytes === 0
@@ -95,7 +115,7 @@ function formatProgressStatusLine(
         : Math.max(0, Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)));
 
     return [
-        status,
+        prefix,
         formatByteCount(downloadedBytes),
         "/",
         formatByteCount(totalBytes),

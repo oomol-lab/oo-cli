@@ -25,6 +25,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -34,6 +35,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -43,6 +45,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -52,6 +55,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -61,6 +65,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -70,6 +75,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -79,6 +85,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -88,6 +95,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -97,6 +105,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -106,6 +115,7 @@ describe("embedded skill assets", () => {
             "agents/openai.yaml",
             "references/auth-and-billing.md",
             "references/llm-client.md",
+            "references/flow-authoring.md",
             "references/search-and-selection.md",
             "references/connector-execution.md",
             "references/file-transfer.md",
@@ -422,6 +432,41 @@ describe("embedded skill assets", () => {
             expect(content).not.toContain("`1. Install <skillName> (<packageName>)`");
             expect(content).not.toContain("`2. Do not install`");
             expect(content).not.toContain("Do not install unless the user explicitly agrees");
+        }
+    });
+
+    test("routes persistent workflows through Flow-scoped authoring", async () => {
+        for (const agentName of availableBundledSkillAgentNames) {
+            const skillFiles = getBundledSkillFiles("oo", agentName);
+            const skillFile = skillFiles.find(file => file.relativePath === "SKILL.md");
+            const flowGuide = skillFiles.find(
+                file => file.relativePath === "references/flow-authoring.md",
+            );
+
+            if (skillFile === undefined || flowGuide === undefined) {
+                throw new Error(`Missing ${agentName} oo Flow authoring guidance`);
+            }
+
+            const skillContent = normalizeMarkdownWrappingForAssertion(
+                await readBundledSkillFileContent(skillFile),
+            );
+            const flowContent = normalizeMarkdownWrappingForAssertion(
+                await readBundledSkillFileContent(flowGuide),
+            );
+
+            expect(skillContent).toContain("Open Flow mode");
+            expect(skillContent).toContain("references/flow-authoring.md");
+            expect(skillContent).toContain("replaces the connector operating state machine");
+            expect(skillContent).toContain("services that were only added to a Flow");
+            expect(flowContent).toContain("oo flow connector search <query>");
+            expect(flowContent).toContain("Prefer one `oo flow apply`");
+            expect(flowContent).toContain("Triggers are not `apply` Nodes");
+            expect(flowContent).toContain("Do not retry apply");
+            expect(flowContent).toContain("Do neither unless the user explicitly requested");
+            expect(flowContent).toContain("Never substitute `oo search`");
+            expect(flowContent).toContain("array output to a string input");
+            expect(flowContent).toContain("An empty schema `{}` is dynamic, not a conversion");
+            expect(flowContent).toContain("On `flow.invalid` after `apply`");
         }
     });
 

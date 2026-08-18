@@ -176,6 +176,27 @@ export function teamNameStatusForTelemetry(
     return identity?.status ?? "none";
 }
 
+// Builds the standard team identity headers for OOMOL service requests.
+export function teamIdentityHeaders(
+    identity: TeamIdentity | undefined,
+): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    if (identity === undefined) {
+        return headers;
+    }
+
+    if (identity.name !== null) {
+        headers["x-oo-team-name"] = identity.name;
+    }
+
+    if (identity.id !== null) {
+        headers["x-oo-team-id"] = identity.id;
+    }
+
+    return headers;
+}
+
 // Renders the identity for humans: the name with its id in parentheses when
 // both are known, otherwise whichever one is.
 export function formatTeamIdentityValue(

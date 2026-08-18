@@ -6,6 +6,7 @@ import type { SelfUpdatePaths } from "./paths.ts";
 import { mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
+import { resolveOpenFlowCommandCacheRoot } from "../commands/flow-artifact.ts";
 import {
     canonicalBundledSkillsDirectoryName,
     managedSkillsDirectoryName,
@@ -147,7 +148,17 @@ export async function buildSelfUninstallPlan(
     });
 
     if (options.purge) {
-        addUserDataItems({ deferred, immediate, isWindows, storePaths });
+        addUserDataItems({
+            deferred,
+            immediate,
+            isWindows,
+            openFlowCommandCacheRoot: resolveOpenFlowCommandCacheRoot({
+                env: options.env,
+                homeDirectory: options.homeDirectory,
+                platform: options.platform,
+            }),
+            storePaths,
+        });
     }
 
     return {
@@ -300,6 +311,7 @@ function addUserDataItems(args: {
     deferred: UninstallPlanItem[];
     immediate: UninstallPlanItem[];
     isWindows: boolean;
+    openFlowCommandCacheRoot: string;
     storePaths: ReturnType<typeof resolveStorePaths>;
 }): void {
     args.immediate.push(
@@ -327,6 +339,11 @@ function addUserDataItems(args: {
     });
 
     args.immediate.push(
+        {
+            category: "user-data",
+            label: "Open Flow command cache",
+            path: args.openFlowCommandCacheRoot,
+        },
         {
             category: "user-data",
             label: "Telemetry",

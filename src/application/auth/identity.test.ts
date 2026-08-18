@@ -201,6 +201,67 @@ describe("requireIdentity", () => {
         });
     });
 
+    test.each([
+        { selector: "user-2", expectedId: "user-2" },
+        { selector: "oomol.dev/Alice", expectedId: "user-2" },
+    ])("selects a saved account for one invocation with $selector", async ({ selector, expectedId }) => {
+        const devAccount = {
+            apiKey: "dev-key",
+            endpoint: "oomol.dev",
+            id: "user-2",
+            name: "Alice",
+        };
+        const { context } = createIdentityContext({
+            authFile: { auth: [activeAccount, devAccount], id: activeAccount.id },
+        });
+
+        const identity = await requireIdentity(context, selector);
+
+        expect(identity.account.id).toBe(expectedId);
+        expect(identity.account.endpoint).toBe("oomol.dev");
+        expect(identity.source).toBe("file");
+    });
+
+    test("fails when a per-invocation account selector is not found", async () => {
+        const { context } = createIdentityContext({
+            authFile: { auth: [activeAccount], id: activeAccount.id },
+        });
+
+        await expect(requireIdentity(context, "oomol.dev/Alice")).rejects.toMatchObject({
+            exitCode: 1,
+            key: "errors.auth.accountSelectorNotFound",
+        });
+    });
+
+    test("requires an account ID when endpoint/name is ambiguous", async () => {
+        const { context } = createIdentityContext({
+            authFile: {
+                auth: [
+                    { ...activeAccount, endpoint: "oomol.dev" },
+                    { ...activeAccount, apiKey: "second-key", endpoint: "oomol.dev", id: "user-2" },
+                ],
+                id: activeAccount.id,
+            },
+        });
+
+        await expect(requireIdentity(context, "oomol.dev/Alice")).rejects.toMatchObject({
+            exitCode: 1,
+            key: "errors.auth.accountSelectorAmbiguous",
+        });
+    });
+
+    test("keeps OO_API_KEY above a per-invocation saved-account selector", async () => {
+        const { context } = createIdentityContext({
+            authStore: createThrowingAuthStore(),
+            env: { OO_API_KEY: "env-key" },
+        });
+
+        const identity = await requireIdentity(context, "missing-account");
+
+        expect(identity.source).toBe("env");
+        expect(identity.account.id).toBe("oo-env-override");
+    });
+
     test("uses the shared auth-required key when no account is active", async () => {
         const { context } = createIdentityContext();
 

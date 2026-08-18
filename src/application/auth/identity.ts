@@ -3,7 +3,7 @@ import type {
     CliExecutionContext,
     CliTelemetryPropertyValue,
 } from "../contracts/cli.ts";
-import type { AuthAccount } from "../schemas/auth.ts";
+import type { AuthAccount, AuthFile } from "../schemas/auth.ts";
 
 import { writeAuthBlock } from "../commands/auth/shared.ts";
 import { writeLine } from "../commands/shared/output.ts";
@@ -39,6 +39,8 @@ const envOverrideAccountId = "oo-env-override";
 const envOverrideAccountName = "Environment (OO_API_KEY)";
 
 const authErrorKeys = {
+    accountSelectorAmbiguous: "errors.auth.accountSelectorAmbiguous",
+    accountSelectorNotFound: "errors.auth.accountSelectorNotFound",
     activeAccountMissing: "auth.account.activeAccountMissing",
     required: "errors.auth.required",
     requiredConnectorOnly: "errors.auth.requiredConnectorOnly",
@@ -126,6 +128,7 @@ export async function resolveIdentity(
  */
 export async function requireIdentity(
     context: RequireIdentityContext,
+    accountSelector?: string,
 ): Promise<RequiredIdentity> {
     const envIdentity = resolveEnvIdentity(context.env);
 
@@ -134,7 +137,7 @@ export async function requireIdentity(
     }
 
     const authFile = await context.authStore.read();
-    const currentAccount = getCurrentAuthAccount(authFile);
+    const currentAccount = selectAuthAccount(authFile, accountSelector);
 
     logResolvedAccount(context, authFile.auth.length, authFile.id, currentAccount);
 
@@ -163,6 +166,34 @@ export async function requireIdentity(
             : authErrorKeys.required,
         1,
     );
+}
+
+function selectAuthAccount(
+    authFile: AuthFile,
+    selector: string | undefined,
+): AuthAccount | undefined {
+    if (selector === undefined) {
+        return getCurrentAuthAccount(authFile);
+    }
+
+    const matches = authFile.auth.filter(account =>
+        account.id === selector
+        || `${account.endpoint}/${account.name}` === selector,
+    );
+
+    if (matches.length === 1) {
+        return matches[0];
+    }
+
+    if (matches.length > 1) {
+        throw new CliUserError(authErrorKeys.accountSelectorAmbiguous, 1, {
+            selector,
+        });
+    }
+
+    throw new CliUserError(authErrorKeys.accountSelectorNotFound, 1, {
+        selector,
+    });
 }
 
 /**

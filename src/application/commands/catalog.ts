@@ -7,6 +7,7 @@ import { completionCommand } from "./completion.ts";
 import { configCommand } from "./config/index.ts";
 import { connectorCommand } from "./connector/index.ts";
 import { fileCommand } from "./file/index.ts";
+import { flowCommand } from "./flow.ts";
 import { infoCommand } from "./info.ts";
 import { installCommand } from "./install.ts";
 import { llmCommand } from "./llm/index.ts";
@@ -38,7 +39,9 @@ const globalOptions = [
     },
 ] as const;
 
-export function createCliCatalog(): CliCatalog {
+const onlineDevEndpoint = "oomol.dev";
+
+export function createCliCatalog(endpoint?: string): CliCatalog {
     return {
         name: APP_NAME,
         descriptionKey: "app.description",
@@ -48,6 +51,10 @@ export function createCliCatalog(): CliCatalog {
             checkUpdateCommand,
             connectorCommand,
             fileCommand,
+            {
+                ...flowCommand,
+                hidden: endpoint !== onlineDevEndpoint,
+            },
             infoCommand,
             installCommand,
             llmCommand,

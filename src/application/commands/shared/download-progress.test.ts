@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { createTextBuffer } from "../../../../../__tests__/helpers.ts";
-import { createDownloadProgressReporter, formatByteCount } from "./progress.ts";
+import { createTextBuffer } from "../../../../__tests__/helpers.ts";
+import { createDownloadProgressReporter, formatByteCount } from "./download-progress.ts";
 
 describe("formatByteCount", () => {
     test("keeps byte-sized values in bytes", () => {
@@ -42,6 +42,25 @@ describe("createDownloadProgressReporter", () => {
         expect(stderr.read()).toBe(
             "Downloading 1 B / 4 B (25%)\n"
             + "\u001B[1A\r\u001B[2KDownloaded 4 B / 4 B (100%)\n",
+        );
+    });
+
+    test("identifies a named download", () => {
+        const stderr = createTextBuffer({
+            isTTY: true,
+        });
+        const reporter = createDownloadProgressReporter(
+            stderr.writer,
+            4,
+            "Open Flow 1.2.3",
+        );
+
+        reporter!.render(1);
+        reporter!.complete(4);
+
+        expect(stderr.read()).toBe(
+            "Downloading Open Flow 1.2.3: 1 B / 4 B (25%)\n"
+            + "\u001B[1A\r\u001B[2KDownloaded Open Flow 1.2.3: 4 B / 4 B (100%)\n",
         );
     });
 });
