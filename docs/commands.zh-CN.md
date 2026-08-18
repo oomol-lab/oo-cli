@@ -117,24 +117,31 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   Connector 与 Trigger 操作仍通过 Cloud API，artifact 不直连它们的后端服务。
 - `oo flow project use <project>` 会先通过 Cloud 验证 Project，再按当前账号和 Team
   保存其 ID。切换账号或 Team 后不会复用其他 scope 的 Project。`OO_API_KEY`
-  身份没有可持久化的账号 scope，应改用 `OO_FLOW_PROJECT`。
+  身份没有可持久化的账号 scope，应改用 `OO_FLOW_PROJECT`。选择 current Project
+  后，后续 Flow 命令可以省略 `--project`；该选项只用于单次命令临时覆盖。
 - Cloud-only 命令覆盖 Project 与 Flow authoring、节点、连线、CodeModule、
   Connector Task、Trigger、检查、Draft/Live Run、Publication、Rollback 和
   Workbench deep link。`--json` 输出带版本的机器格式，`--project <ID 或精确名称>`
   只覆盖当前命令的 Project。
 - `oo flow inspect <flow>` 固定并读取一个不可变 Draft Revision，一次返回 Node、
-  Task/CodeModule、Edge、Trigger 和该 Revision 的权威 check；它不会执行用户代码或
-  调用外部服务。
+  Task/CodeModule、Edge、Trigger 和该 Revision 的权威 check。`--summary` 保留同一份
+  Edge、check 与 Revision 结构视图，但只返回紧凑的 Node/Trigger identity，不包含
+  Code source、完整 Task 或完整 Trigger 对象。两种形式都不会执行用户代码或调用
+  外部服务。
 - `oo flow apply <flow> --file <path|-> [--expected-revision <revision>]` 接受
   version 1 的一次性 JSON authoring request，并用一次 Draft CAS 提交其中的所有新
-  Node 和 Edge。`nodes` 使用 request-local reference 作为 key；Code Node 的 `code`
-  可以是内联 JavaScript 或 `@path`，Connector Node 使用 `action`、可选的
-  `connection`（支持 `default`）和可选 `inputs`；每条 Edge 包含 `source`、
-  `output`、`target` 与 `input`。该 request 不是本地 Project 或 import 格式。
-  apply 成功后会检查新 Revision，但不会运行或发布。Connector add 与 apply 在
-  `connection` 省略或为 `default` 时选择 Action 当前的 active default Connection，
-  JSON 输出会报告实际选择的 Connection。若写入已成功但最终 check 暂时不可用，
-  输出仍会报告已接受的 Revision，并明确提示调用方不要重试 apply。
+  Node、Trigger 和 Edge。`nodes` 与 `triggers` 都使用 request-local reference 作为
+  key。Trigger kind 支持 `webhook`、`cron` 与 `provider`；provider Trigger 使用
+  `key`、可选 `connection`、`config`、`every` 或 `cron` 以及 `timezone`。Code Node
+  的 `code` 可以是内联 JavaScript 或 `@path`；Connector Node 使用 `action`、可选的
+  `connection`（支持 `default`）和可选 `inputs`。每条 Edge 包含 `source`、
+  `output`、`target` 与 `input`；request-local Trigger 可以作为 `source`，其输出为
+  `payload`。该 request 不是本地 Project 或 import 格式。apply 成功后会检查新
+  Revision，但不会运行或发布。Connector add 与 apply 在 `connection` 省略或为
+  `default` 时选择 Action 当前的 active default Connection；不存在默认连接时仍会
+  保存未绑定的 Connector Node，JSON 输出不包含 `connectionId`。provider Trigger
+  必须使用 active Connection。若写入已成功但最终 check 暂时不可用，输出仍会报告
+  已接受的 Revision，并明确提示调用方不要重试 apply。
 - `oo flow node add <flow> code <name> --code <javascript|@file|->` 在一个原子
   change set 中创建 Node、Task、CodeModule 和最终 source，并返回三个 opaque ID。
   `oo flow check` 只校验不可变 Revision；credential 当前是否可用以及 Connector 的

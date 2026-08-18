@@ -147,27 +147,36 @@ requiring network access.
 - `oo flow project use <project>` verifies the Project through Cloud and saves
   its ID for the current account and Team. Switching account or Team ignores a
   Project saved in another scope. An `OO_API_KEY` identity has no persistent
-  account scope, so use `OO_FLOW_PROJECT` instead.
+  account scope, so use `OO_FLOW_PROJECT` instead. Once a current Project is
+  selected, later Flow commands can omit `--project`; use that option only for
+  a per-command override.
 - The Cloud-only command surface covers Project and Flow authoring, Nodes,
   Edges, CodeModules, Connector Tasks, Triggers, checks, Draft/Live Runs,
   Publications, rollback, and Workbench deep links. Use `--json` for versioned
   machine output and `--project <id-or-exact-name>` for a per-command Project.
 - `oo flow inspect <flow>` reads one immutable Draft Revision and reports its
   Nodes, Task/CodeModule details, Edges, Triggers, and authoritative Revision
-  check together. It does not execute user code or call external services.
+  check together. `--summary` keeps the same structural Edge/check/Revision
+  view but returns compact Node and Trigger identities without Code source or
+  complete Task and Trigger objects. Neither form executes user code or calls
+  external services.
 - `oo flow apply <flow> --file <path|-> [--expected-revision <revision>]`
-  accepts a version-1 one-shot JSON authoring request and commits all new Nodes
-  and Edges with one Draft CAS write. `nodes` is keyed by request-local
-  references; Code nodes use `code` with inline JavaScript or `@path`, Connector
-  nodes use `action`, optional `connection` (`default` is accepted), and
-  optional `inputs`; each Edge contains `source`, `output`, `target`, and
-  `input`. The request is not a local Project or import format. A successful
-  apply checks the new Revision but never runs or publishes it. Connector add
-  and apply choose the action's active default connection when `connection` is
-  omitted or set to `default`, and JSON output reports the selected connection.
-  If the write succeeds but that final check is unavailable, output still
-  reports the accepted Revision and explicitly tells callers not to retry the
-  apply.
+  accepts a version-1 one-shot JSON authoring request and commits all new Nodes,
+  Triggers, and Edges with one Draft CAS write. `nodes` and `triggers` are keyed
+  by request-local references. Trigger kinds are `webhook`, `cron`, and
+  `provider`; provider Triggers use `key`, optional `connection`, `config`,
+  `every` or `cron`, and `timezone`. Code Nodes use `code` with inline
+  JavaScript or `@path`; Connector Nodes use `action`, optional `connection`
+  (`default` is accepted), and optional `inputs`. Each Edge contains `source`,
+  `output`, `target`, and `input`; a request-local Trigger can be its source with
+  output `payload`. The request is not a local Project or import format. A
+  successful apply checks the new Revision but never runs or publishes it.
+  Connector add and apply choose the action's active default connection when
+  `connection` is omitted or set to `default`; when none exists, the Connector
+  Node remains unbound and JSON output omits its `connectionId`. Provider
+  Triggers require an active Connection. If the write succeeds but that final
+  check is unavailable, output still reports the accepted Revision and
+  explicitly tells callers not to retry the apply.
 - `oo flow node add <flow> code <name> --code <javascript|@file|->` creates the
   Node, Task, CodeModule, and final source atomically and reports all three
   opaque IDs. `oo flow check` validates the immutable Revision only; credential
