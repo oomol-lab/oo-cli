@@ -1,6 +1,6 @@
 ---
 name: oo
-description: Use OO for connected accounts, APIs, hosted AI, and Flow authoring; the first-choice router for tasks whose outcome lives outside this workspace or in a persistent Open Flow, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding), or creating, editing, checking, running, publishing, and opening an Open Flow workflow. Use when local code needs OOMOL LLM client configuration such as an OpenAI-compatible base URL, API key, or model name. Otherwise use only when the user wants an existing hosted capability, connector workflow, or Open Flow operation, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, action, or Trigger key names are assumed in advance. Match intent across languages. Skip other pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
+description: Use OO for connected accounts, APIs, hosted AI, and Flow authoring; the first-choice router for tasks whose outcome lives outside this workspace or in a persistent Open Flow, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding), creating, editing, checking, running, publishing, or opening an Open Flow workflow, and converting n8n workflow or template JSON into Open Flow. Use when local code needs OOMOL LLM client configuration such as an OpenAI-compatible base URL, API key, or model name. Otherwise use only when the user wants an existing hosted capability, connector workflow, or Open Flow operation, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, action, or Trigger key names are assumed in advance. Match intent across languages. Skip other pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
 disable-model-invocation: <!-- agentic:var disableModelInvocation -->
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
@@ -27,6 +27,12 @@ persistent Open Flow workflow, read
 below: use Flow-scoped Connector and Trigger discovery, not `oo search` or
 direct Connector execution. Do not run the wrap-up skill recommendation for
 services that were only added to a Flow.
+
+If the user supplies, links, or points to n8n workflow or template JSON and
+asks to migrate, rewrite, import, reproduce, or assess it for Open Flow, also
+read
+[references/flow-n8n-conversion.md](references/flow-n8n-conversion.md) before
+analyzing the workflow or issuing the first `oo flow` command.
 
 ## LLM client config mode
 
@@ -212,6 +218,8 @@ unsupported input shape, or a blocker-specific fallback.
   [references/llm-client.md](references/llm-client.md)
 - Persistent Open Flow creation, editing, validation, execution, and release:
   [references/flow-authoring.md](references/flow-authoring.md)
+- n8n workflow JSON analysis and behavioral conversion to Open Flow:
+  [references/flow-n8n-conversion.md](references/flow-n8n-conversion.md)
 
 ## Decision sketches
 
