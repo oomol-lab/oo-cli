@@ -24,6 +24,12 @@ and mutation contract.
   boundary after reviewing the conversion.
 - Never persist n8n credential IDs, credential names, webhook IDs, instance
   URLs, execution metadata, or pinned package versions.
+- Before mutation, inspect node parameters, headers, query values, request
+  bodies, expressions, and Code source for embedded credentials or secrets.
+  Map provider credentials to a Connection and use another sensitive value only
+  through a binding proven by the current Open Flow contract. Never copy it
+  into an apply spec or generated Code. Classify an unresolved sensitive value
+  as `needs-input` and do not mutate the Draft.
 - Never call a third-party API directly to replace a missing Open Flow
   Connector or Trigger.
 - Do not mutate a Flow until every required source behavior has a disposition.
@@ -69,6 +75,8 @@ Retain for each enabled node:
 - specialized edge types such as `ai_languageModel`, `ai_outputParser`,
   `ai_tool`, `ai_memory`, and `ai_retriever`;
 - every expression and Code source field;
+- node execution settings, including `executeOnce`, `alwaysOutputData`,
+  `retryOnFail`, retry limits and delays, `onError`, and `continueOnFail`;
 - item cardinality entering and leaving Merge, Split, Aggregate, Code, and
   provider nodes.
 
@@ -123,6 +131,25 @@ directly to a side-effect node.
 
 For Merge, prove mode, join keys, ordering, duplicate behavior, and empty-side
 behavior. Use Code only when these are explicit and bounded.
+
+### Node Execution Settings
+
+Preserve node settings by their observable behavior, not their labels:
+
+- `executeOnce` changes which input items are consumed. Reproduce the exact
+  first-item and empty-input behavior with explicit collection handling.
+- `alwaysOutputData` changes item cardinality and whether downstream branches
+  activate when a node produces no data. Do not treat an absent output as an
+  empty record.
+- `retryOnFail`, retry limits, and retry delays can repeat external side
+  effects. Use them only when the selected Open Flow Task contract proves
+  equivalent retry behavior.
+- `onError` and `continueOnFail` change failure propagation and may emit error
+  data on a separate branch. Preserve both the branch and its payload contract.
+
+If a required setting cannot be preserved by a proven Flow contract or an
+explicit bounded redesign, classify the behavior as `unsupported`. It is an
+execution-model mismatch, not a missing Connector or Trigger capability.
 
 ## Node Family Mapping
 
@@ -213,9 +240,11 @@ Request: https://oomol.com/support/
 ```
 
 Use `unsupported` when the mismatch belongs to execution semantics, implicit
-lineage, an external response lifecycle, or durable state. Stop at the first
-conclusive required mismatch and explain it precisely. Do not redirect a
-fundamental incompatibility as a provider catalog request.
+lineage, an external response lifecycle, or durable state. A conclusive required
+mismatch stops mutation, not analysis: continue the offline inventory, contract
+discovery, and classification until every enabled node and Edge has a
+disposition, then report every blocker without creating a partial Draft. Do not
+redirect a fundamental incompatibility as a provider catalog request.
 
 Keep catalog absence separate from authentication. An unavailable action is a
 product capability gap; an existing action without an active Connection is
