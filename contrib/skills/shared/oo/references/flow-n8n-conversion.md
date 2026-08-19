@@ -149,11 +149,15 @@ handling as one failure contract:
 - Retries happen before terminal error routing. Preserve attempt limits, delays,
   and the fact that a retry can repeat an external side effect; only an
   exhausted failure reaches the selected error path.
-- Legacy `continueOnFail` can place an error item on the regular output.
-  `onError: "continueRegularOutput"` also continues through the regular output,
-  while `onError: "continueErrorOutput"` separates failed items onto an error
-  output and keeps successful items on the normal output. Preserve exact output
-  indexes, payloads, and cardinality.
+- Legacy `continueOnFail` can place an error item on the regular output, and
+  `onError: "continueRegularOutput"` also continues through the regular output.
+  Do not assume that `onError: "continueErrorOutput"` sends every failure to the
+  error output: n8n can split returned error items in `handleNodeErrorOutput`,
+  while a thrown whole-node failure can pass input through the regular output.
+  For the specific node and `typeVersion`, inventory which failure forms are
+  reachable and prove each path separately. Preserve exact output indexes,
+  payloads, and cardinality; if either reachable path is unproven, classify the
+  mapping as `unsupported`.
 - When an export contains both legacy `continueOnFail` and modern `onError`, do
   not guess precedence. Prove the effective behavior for that n8n version and
   node implementation because execution paths may interpret the combination
