@@ -76,7 +76,8 @@ Retain for each enabled node:
   `ai_tool`, `ai_memory`, and `ai_retriever`;
 - every expression and Code source field;
 - node execution settings, including `executeOnce`, `alwaysOutputData`,
-  `retryOnFail`, retry limits and delays, `onError`, and `continueOnFail`;
+  `retryOnFail`, retry limits and delays, `onError`, and `continueOnFail`, plus
+  the workflow-level error handler;
 - item cardinality entering and leaving Merge, Split, Aggregate, Code, and
   provider nodes.
 
@@ -141,15 +142,29 @@ Preserve node settings by their observable behavior, not their labels:
 - `alwaysOutputData` changes item cardinality and whether downstream branches
   activate when a node produces no data. Do not treat an absent output as an
   empty record.
-- `retryOnFail`, retry limits, and retry delays can repeat external side
-  effects. Use them only when the selected Open Flow Task contract proves
-  equivalent retry behavior.
-- `onError` and `continueOnFail` change failure propagation and may emit error
-  data on a separate branch. Preserve both the branch and its payload contract.
 
-If a required setting cannot be preserved by a proven Flow contract or an
-explicit bounded redesign, classify the behavior as `unsupported`. It is an
-execution-model mismatch, not a missing Connector or Trigger capability.
+Treat `retryOnFail`, `onError`, `continueOnFail`, and workflow-level error
+handling as one failure contract:
+
+- Retries happen before terminal error routing. Preserve attempt limits, delays,
+  and the fact that a retry can repeat an external side effect; only an
+  exhausted failure reaches the selected error path.
+- Legacy `continueOnFail` can place an error item on the regular output.
+  `onError: "continueRegularOutput"` also continues through the regular output,
+  while `onError: "continueErrorOutput"` separates failed items onto an error
+  output and keeps successful items on the normal output. Preserve exact output
+  indexes, payloads, and cardinality.
+- When an export contains both legacy `continueOnFail` and modern `onError`, do
+  not guess precedence. Prove the effective behavior for that n8n version and
+  node implementation because execution paths may interpret the combination
+  differently.
+- Preserve whether a handled node error lets the workflow finish successfully
+  or an unhandled error fails the workflow and invokes its configured
+  workflow-level error handler.
+
+If the combined failure contract cannot be preserved by a proven Flow contract
+or an explicit bounded redesign, classify the behavior as `unsupported`. It is
+an execution-model mismatch, not a missing Connector or Trigger capability.
 
 ## Node Family Mapping
 
