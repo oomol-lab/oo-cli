@@ -20,6 +20,7 @@ import ooAuthAndBillingReferencePath from "../../../../contrib/skills/shared/oo/
 import ooConnectorExecutionReferencePath from "../../../../contrib/skills/shared/oo/references/connector-execution.md" with { type: "file" };
 import ooFileTransferReferencePath from "../../../../contrib/skills/shared/oo/references/file-transfer.md" with { type: "file" };
 import ooFlowAuthoringReferencePath from "../../../../contrib/skills/shared/oo/references/flow-authoring.md" with { type: "file" };
+import ooFlowN8nConversionReferencePath from "../../../../contrib/skills/shared/oo/references/flow-n8n-conversion.md" with { type: "file" };
 import ooLlmClientReferencePath from "../../../../contrib/skills/shared/oo/references/llm-client.md" with { type: "file" };
 import ooSearchAndSelectionReferencePath from "../../../../contrib/skills/shared/oo/references/search-and-selection.md" with { type: "file" };
 import ooSkillPath from "../../../../contrib/skills/shared/oo/SKILL.md" with { type: "file" };
@@ -75,6 +76,7 @@ const bundledSkillRegistry = {
             connectorExecution: ooConnectorExecutionReferencePath,
             fileTransfer: ooFileTransferReferencePath,
             flowAuthoring: ooFlowAuthoringReferencePath,
+            flowN8nConversion: ooFlowN8nConversionReferencePath,
             llmClient: ooLlmClientReferencePath,
             searchAndSelection: ooSearchAndSelectionReferencePath,
         }),
@@ -191,6 +193,7 @@ function createOoReferenceFiles(sourcePaths: {
     connectorExecution: string;
     fileTransfer: string;
     flowAuthoring: string;
+    flowN8nConversion: string;
     llmClient: string;
     searchAndSelection: string;
 }): readonly BundledSkillSourceFile[] {
@@ -198,6 +201,7 @@ function createOoReferenceFiles(sourcePaths: {
         createRenderedBundledSkillFile("references/auth-and-billing.md", sourcePaths.authAndBilling),
         createRenderedBundledSkillFile("references/llm-client.md", sourcePaths.llmClient),
         createRenderedBundledSkillFile("references/flow-authoring.md", sourcePaths.flowAuthoring),
+        createRenderedBundledSkillFile("references/flow-n8n-conversion.md", sourcePaths.flowN8nConversion),
         createRenderedBundledSkillFile("references/search-and-selection.md", sourcePaths.searchAndSelection),
         createRenderedBundledSkillFile("references/connector-execution.md", sourcePaths.connectorExecution),
         createRenderedBundledSkillFile("references/file-transfer.md", sourcePaths.fileTransfer),
