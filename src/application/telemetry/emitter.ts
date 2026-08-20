@@ -10,6 +10,7 @@ import process from "node:process";
 import { buildEnvApiKeyAccount } from "../auth/identity.ts";
 import { getCurrentAuthAccount } from "../schemas/auth.ts";
 import { detectInstallationMethodFromExecPath } from "../self-update/installation.ts";
+import { detectTelemetryAgentClient } from "./agent-client.ts";
 import {
     telemetryInternalCommand,
     telemetryInternalEnvKey,
@@ -89,6 +90,7 @@ export async function emitCliCommandTelemetry(
                 options.authStore,
                 options.env,
             ),
+            agentClient: await detectTelemetryAgentClient(),
             arch: arch(),
             ciName: ci.name,
             cliCommit: options.buildCommit,

@@ -33,6 +33,7 @@ describe("telemetry payload", () => {
         expect(request.batch[0].properties.distinct_id).toBe(
             "019a0cca-0000-7000-8000-000000000001",
         );
+        expect(request.batch[0].properties.agent_client).toBe("claude");
         expect(request.batch[0].properties.$ip).toBe("");
         expect(request.batch[0].properties.$geoip_disable).toBe(true);
         expect(request.batch[0].properties.$process_person_profile).toBe(false);
@@ -224,6 +225,13 @@ describe("telemetry payload", () => {
                 ...itemRecord,
                 properties: {
                     ...properties,
+                    agent_client: "not-an-allowlisted-agent",
+                },
+            },
+            {
+                ...itemRecord,
+                properties: {
+                    ...properties,
                     error_message: "full error text",
                 },
             },
@@ -267,6 +275,7 @@ describe("telemetry payload", () => {
             { command_full: "malicious.override" },
             { distinct_id: "019a0cca-0000-7000-8000-000000000002" },
             { schema_version: "2" },
+            { agent_client: "cursor" },
         ];
 
         for (const properties of reservedProperties) {
@@ -369,6 +378,7 @@ function createCanonicalTelemetryItem() {
 function createCanonicalTelemetryOptions() {
     return {
         accountState: "authenticated",
+        agentClient: "claude",
         arch: "arm64",
         ciName: "none",
         cliCommit: "abcdef0",

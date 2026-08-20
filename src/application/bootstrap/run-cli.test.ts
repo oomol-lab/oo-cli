@@ -448,6 +448,43 @@ describe("runCli bootstrap", () => {
         }
     });
 
+    test("reports the detected agent client in telemetry", async () => {
+        const sandbox = await createCliSandbox();
+        // @vercel/detect-agent reads process.env directly and AI_AGENT
+        // outranks every other marker, so setting it keeps this test
+        // deterministic no matter which host runs the suite.
+        const originalAiAgent = process.env.AI_AGENT;
+
+        try {
+            process.env.AI_AGENT = "v0";
+
+            const result = await sandbox.run(["config", "list"]);
+            const rows = readTelemetryRowsForTest(
+                resolveSandboxTelemetryDirectory(sandbox),
+            );
+            const payload = parseTelemetryRowPayload(rows[0]!);
+
+            expect(result.exitCode).toBe(0);
+            expect(rows).toHaveLength(1);
+            expect(payload).toMatchObject({
+                properties: {
+                    agent_client: "v0",
+                    command_full: "config.list",
+                },
+            });
+        }
+        finally {
+            if (originalAiAgent === undefined) {
+                delete process.env.AI_AGENT;
+            }
+            else {
+                process.env.AI_AGENT = originalAiAgent;
+            }
+
+            await sandbox.cleanup();
+        }
+    });
+
     test("runs the internal telemetry flusher without recursive telemetry", async () => {
         const sandbox = await createCliSandbox();
         const stdout = createTextBuffer();
