@@ -769,6 +769,7 @@ function readForbiddenTelemetryDecisionPropertyReason(
 function createBaseTelemetryPropertyNames(): ReadonlySet<string> {
     const item = createCliCommandTelemetryPayload({
         accountState: "authenticated",
+        agentClient: "unknown",
         arch: "arm64",
         ciName: "github_actions",
         cliCommit: "test-commit",

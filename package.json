@@ -43,6 +43,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@vercel/detect-agent": "^1.2.5",
     "@wopjs/cast": "^0.1.16",
     "agentic-markdown": "^0.0.4",
     "ajv": "^8.18.0",

@@ -1,6 +1,8 @@
 import type { CliTelemetryPropertyValue } from "../contracts/cli.ts";
+import type { TelemetryAgentClient } from "./agent-client.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
+import { isTelemetryAgentClient } from "./agent-client.ts";
 import {
     telemetryEventName,
     telemetryMaxEventBytes,
@@ -40,6 +42,7 @@ export interface TelemetryCommandOutcome {
 
 export interface CreateCliCommandTelemetryPayloadOptions {
     accountState: TelemetryAccountState;
+    agentClient: TelemetryAgentClient;
     arch: string;
     cliCommit: string;
     cliInstallMethod: string;
@@ -82,6 +85,9 @@ const telemetryPropertiesSchema = z.object({
     $ip: z.literal(""),
     $process_person_profile: z.literal(false),
     account_state: z.enum(["authenticated", "anonymous", "unknown"]),
+    // Validated against the library-derived allowlist plus the two sentinel
+    // values, so a dependency upgrade needs no schema change here.
+    agent_client: z.string().refine(isTelemetryAgentClient),
     arch: z.string().min(1),
     arg_count: z.number().int().nonnegative(),
     ci_name: z.string().min(1),
@@ -175,6 +181,7 @@ export function createCliCommandTelemetryPayload(
         $ip: "",
         $process_person_profile: false,
         account_state: options.accountState,
+        agent_client: options.agentClient,
         arch: options.arch,
         arg_count: options.command.argCount ?? 0,
         ci_name: options.ciName,

@@ -5,6 +5,7 @@ export function createTelemetryItemForTest(index: number) {
 
     return createCliCommandTelemetryPayload({
         accountState: "anonymous",
+        agentClient: "unknown",
         arch: "arm64",
         ciName: "none",
         cliCommit: "unknown",
