@@ -23,7 +23,6 @@ const commandArtifactVersion = 2;
 
 interface CommandModule {
     readonly commandArtifactVersion: unknown;
-    readonly requiredBunVersion: unknown;
     readonly runOpenFlowCommand: unknown;
 }
 
@@ -118,13 +117,6 @@ export async function runOpenFlowCommand(
         commandDirectory = resolve(context.cwd, configuredDirectory);
     }
     else {
-        if (openFlowCommandRelease.bunVersion !== Bun.version) {
-            throw new CliUserError("errors.flow.bunVersionMismatch", 1, {
-                actual: Bun.version,
-                required: openFlowCommandRelease.bunVersion,
-            });
-        }
-
         const progressReporter = createDownloadProgressReporter(
             context.stderr,
             openFlowCommandRelease.archive.length,
@@ -201,18 +193,10 @@ export async function runOpenFlowCommand(
 
     if (
         commandModule.commandArtifactVersion !== commandArtifactVersion
-        || typeof commandModule.requiredBunVersion !== "string"
         || typeof commandModule.runOpenFlowCommand !== "function"
     ) {
         throw new CliUserError("errors.flow.commandEntryInvalid", 1, {
             path: entryPath,
-        });
-    }
-
-    if (commandModule.requiredBunVersion !== Bun.version) {
-        throw new CliUserError("errors.flow.bunVersionMismatch", 1, {
-            actual: Bun.version,
-            required: commandModule.requiredBunVersion,
         });
     }
 

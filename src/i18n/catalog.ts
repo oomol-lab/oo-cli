@@ -157,8 +157,6 @@ export const enMessages = {
         "The Open Flow command entry at {path} is invalid.",
     "errors.flow.commandEntryLoadFailed":
         "Failed to load the Open Flow command entry at {path}: {message}",
-    "errors.flow.bunVersionMismatch":
-        "Open Flow requires Bun {required}, but oo is running Bun {actual}.",
     "commands.info.description":
         "Print CLI environment details, persisted store paths, and detected skill agents.",
     "commands.info.summary": "Show CLI environment info",
@@ -1579,8 +1577,6 @@ export const zhMessages = {
     "errors.flow.commandEntryInvalid": "{path} 中的 Open Flow 命令入口无效。",
     "errors.flow.commandEntryLoadFailed":
         "无法加载 {path} 中的 Open Flow 命令入口：{message}",
-    "errors.flow.bunVersionMismatch":
-        "Open Flow 需要 Bun {required}，但 oo 当前运行的是 Bun {actual}。",
     "commands.info.description":
         "打印 CLI 运行环境信息、本地存储路径以及检测到的 skill 代理。",
     "commands.info.summary": "显示 CLI 环境信息",

@@ -422,21 +422,19 @@ describe("flow CLI", () => {
         }
     });
 
-    test("rejects a command artifact built for another Bun version", async () => {
+    test("loads a Cloud command entry without runtime Bun metadata", async () => {
         const sandbox = await createCliSandbox();
         const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
 
         try {
-            await writeCommandEntry(commandDirectory, ["return 0;"], "0.0.0");
+            await writeCommandEntry(commandDirectory, ["return 0;"]);
             sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
 
             const result = await sandbox.run(["flow", "--version"]);
 
-            expect(result.exitCode).toBe(1);
+            expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe("");
-            expect(result.stderr).toContain(
-                `Open Flow requires Bun 0.0.0, but oo is running Bun ${Bun.version}.`,
-            );
+            expect(result.stderr).toBe("");
         }
         finally {
             await Promise.all([
@@ -486,14 +484,12 @@ describe("flow CLI", () => {
 async function writeCommandEntry(
     commandDirectory: string,
     body: readonly string[],
-    requiredBunVersion: string = Bun.version,
 ): Promise<void> {
     await mkdir(commandDirectory, { recursive: true });
     await writeFile(
         join(commandDirectory, "entry.js"),
         [
             "export const commandArtifactVersion = 2;",
-            `export const requiredBunVersion = ${JSON.stringify(requiredBunVersion)};`,
             "export async function runOpenFlowCommand(args, host) {",
             ...body,
             "}",
