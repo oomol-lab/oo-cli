@@ -39,6 +39,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2.2.0
@@ -84,6 +85,7 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2.2.0
@@ -134,6 +136,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2.2.0
@@ -227,6 +230,8 @@ jobs:
       - name: Checkout
         if: env.FEISHU_RELEASE_WEBHOOK != ''
         uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Bun
         if: env.FEISHU_RELEASE_WEBHOOK != ''

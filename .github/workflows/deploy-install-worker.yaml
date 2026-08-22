@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.sha }}
+          persist-credentials: false
 
       - name: Prepare install worker assets
         run: |
