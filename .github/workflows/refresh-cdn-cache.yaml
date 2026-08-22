@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Cache Aliyun CLI
         id: cache_aliyun_cli
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.local/bin/aliyun
           key: aliyun-cli-${{ runner.os }}-${{ runner.arch }}-${{ env.PINNED_ALIYUN_CLI_VERSION }}
