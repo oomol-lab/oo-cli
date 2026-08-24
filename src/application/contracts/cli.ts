@@ -12,9 +12,11 @@ import type { Translator } from "./translator.ts";
 
 export const supportedLocaleValues = ["en", "zh"] as const;
 export const supportedShellValues = ["bash", "zsh", "fish"] as const;
+export const completionProviderValues = ["team-names"] as const;
 
 export type SupportedLocale = (typeof supportedLocaleValues)[number];
 export type SupportedShell = (typeof supportedShellValues)[number];
+export type CompletionProvider = (typeof completionProviderValues)[number];
 
 export interface Writer {
     write: (chunk: string) => void;
@@ -52,6 +54,7 @@ export interface CliArgumentDefinition {
     descriptionKey: string;
     required?: boolean;
     choices?: readonly string[];
+    completionProvider?: CompletionProvider;
     variadic?: boolean;
 }
 

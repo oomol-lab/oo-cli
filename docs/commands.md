@@ -621,6 +621,9 @@ Set the default team identity to `<name>` after checking the active account can
 access it.
 
 - Arguments: `<name>` is the team name, as shown by `oo team list`.
+- Shell completion: generated Bash, Zsh, and Fish completion scripts suggest
+  accessible team names. Membership results are cached per account and endpoint
+  for up to one minute; a failed lookup produces no suggestions.
 - Behavior: the name is validated against the teams the account can access; an
   inaccessible name is rejected with exit `1` and the default is left unchanged.
   On success the team name and id are saved on the active account.
@@ -2647,3 +2650,6 @@ Generate a shell completion script.
 
 - Arguments: `<shell>` is the target shell. Supported values: `bash`, `zsh`,
   `fish`.
+- Behavior: the generated script dynamically completes accessible team names
+  for `oo team use <name>`. These candidates use a per-account, per-endpoint
+  cache with a one-minute lifetime.

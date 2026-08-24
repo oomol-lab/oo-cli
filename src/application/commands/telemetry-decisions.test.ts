@@ -74,6 +74,10 @@ const globalTelemetryDecisionProperties = {
 } as const;
 
 const commandTelemetryDecisions = {
+    "__complete": {
+        kind: "excluded",
+        reason: "Internal shell completion queries must not generate telemetry on every Tab press.",
+    },
     "auth": {
         kind: "generic",
         reason: "Command group; child commands record command-specific auth dimensions.",

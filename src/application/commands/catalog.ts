@@ -10,6 +10,7 @@ import { fileCommand } from "./file/index.ts";
 import { flowCommand } from "./flow.ts";
 import { infoCommand } from "./info.ts";
 import { installCommand } from "./install.ts";
+import { internalCompletionCommand } from "./internal-completion.ts";
 import { llmCommand } from "./llm/index.ts";
 import { logCommand } from "./log/index.ts";
 import { loginCommand } from "./login.ts";
@@ -57,6 +58,7 @@ export function createCliCatalog(endpoint?: string): CliCatalog {
             },
             infoCommand,
             installCommand,
+            internalCompletionCommand,
             llmCommand,
             loginCommand,
             logoutCommand,

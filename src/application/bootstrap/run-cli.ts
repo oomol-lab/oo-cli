@@ -160,6 +160,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     const sessionId = Bun.randomUUIDv7();
     const telemetryRecorder = createTelemetryInvocationRecorder();
     const openFlowInvocation = resolveOpenFlowInvocation(invocation.argv);
+    const shellCompletionInvocation = isShellCompletionInvocation(invocation.argv);
     const ooArgv = openFlowInvocation === undefined
         ? invocation.argv
         : invocation.argv.slice(0, openFlowInvocation.commandIndex);
@@ -248,24 +249,25 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         const settings = await initializedStores.settingsStore.read();
         settingsForTelemetry = settings;
 
-        // Every command runs behind this, not a hand-maintained list of the
-        // team-aware ones, so no future command can be added that quietly
-        // skips it. It is handed the settings already read above and returns
-        // immediately when there is nothing to move.
-        await migrateLegacyDefaultTeam(
-            {
-                authStore: initializedStores.authStore,
-                env: invocation.env,
-                logger,
-                settingsStore: initializedStores.settingsStore,
-                telemetry: {
-                    directoryPath: storePaths.telemetryDirectory,
-                    recordProperties: telemetryRecorder.recordProperties,
-                    suppressCurrentInvocation: telemetryRecorder.suppress,
+        // Every user-facing command runs behind this, not a hand-maintained
+        // list of the team-aware ones, so no future command can be added that
+        // quietly skips it. The internal shell-completion query stays read-only.
+        if (!shellCompletionInvocation) {
+            await migrateLegacyDefaultTeam(
+                {
+                    authStore: initializedStores.authStore,
+                    env: invocation.env,
+                    logger,
+                    settingsStore: initializedStores.settingsStore,
+                    telemetry: {
+                        directoryPath: storePaths.telemetryDirectory,
+                        recordProperties: telemetryRecorder.recordProperties,
+                        suppressCurrentInvocation: telemetryRecorder.suppress,
+                    },
                 },
-            },
-            settings,
-        );
+                settings,
+            );
+        }
 
         translator = createTranslator(
             resolvePreferredLocale({
@@ -288,21 +290,26 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             "CLI invocation started.",
         );
 
-        currentVersionActiveMarkerResource = await initializeCurrentVersionActiveMarker({
-            currentVersion: version,
-            runtime: {
-                env: invocation.env,
-                execPath: currentExecPath,
-                logger,
-                platform: process.platform,
-                processId: process.pid,
-            },
-        });
+        if (!shellCompletionInvocation) {
+            currentVersionActiveMarkerResource = await initializeCurrentVersionActiveMarker({
+                currentVersion: version,
+                runtime: {
+                    env: invocation.env,
+                    execPath: currentExecPath,
+                    logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                },
+            });
+        }
 
-        const fetcher = createRetryingFetcher({
-            fetcher: invocation.fetcher ?? fetch,
-            logger,
-        });
+        const invocationFetcher = invocation.fetcher ?? fetch;
+        const fetcher = shellCompletionInvocation
+            ? invocationFetcher
+            : createRetryingFetcher({
+                    fetcher: invocationFetcher,
+                    logger,
+                });
         const context = createCliExecutionContext({
             authStore: initializedStores.authStore,
             buildInfo,
@@ -330,7 +337,10 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         // OO_SKILLS_SYNC_DISABLED suppresses the startup skills synchronization
         // so embedded callers never write skill files into other agents' home
         // directories (e.g. ~/.agents, ~/.claude).
-        if (readEnvBoolean(invocation.env.OO_SKILLS_SYNC_DISABLED) !== true) {
+        if (
+            !shellCompletionInvocation
+            && readEnvBoolean(invocation.env.OO_SKILLS_SYNC_DISABLED) !== true
+        ) {
             await synchronizeManagedSkillsForAvailableHosts(context);
         }
 
@@ -554,6 +564,10 @@ function createCliExecutionContext(
 function isTelemetryFlushInvocation(invocation: CliInvocation): boolean {
     return invocation.argv[0] === telemetryInternalCommand
         && invocation.env[telemetryInternalEnvKey] === "1";
+}
+
+function isShellCompletionInvocation(argv: readonly string[]): boolean {
+    return argv[0] === "__complete";
 }
 
 function hasCliDebugFlag(argv: readonly string[]): boolean {

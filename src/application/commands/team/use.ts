@@ -30,6 +30,7 @@ export const teamUseCommand: CliCommandDefinition<TeamUseInput> = {
             name: "name",
             descriptionKey: "arguments.teamUseName",
             required: true,
+            completionProvider: "team-names",
         },
     ],
     inputSchema: z.object({

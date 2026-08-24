@@ -7,8 +7,8 @@ import { StaticCompletionRenderer } from "./static-completion-renderer.ts";
 
 describe("StaticCompletionRenderer", () => {
     test("renders bash completion with commands and options", () => {
-        const renderer = new StaticCompletionRenderer(createTranslator("en"));
-        const output = renderer.render("bash", createCliCatalog());
+        const { catalog, renderer } = createCompletionRendererFixture("en");
+        const output = renderer.render("bash", catalog);
 
         expect(output).toContain("auth");
         expect(output).toContain("completion");
@@ -24,8 +24,8 @@ describe("StaticCompletionRenderer", () => {
     });
 
     test("renders zsh completion with the expected command hook", () => {
-        const renderer = new StaticCompletionRenderer(createTranslator("en"));
-        const output = renderer.render("zsh", createCliCatalog());
+        const { catalog, renderer } = createCompletionRendererFixture("en");
+        const output = renderer.render("zsh", catalog);
 
         expect(output).toContain(`#compdef ${APP_NAME}`);
         expect(output).toContain("auth switch");
@@ -38,8 +38,8 @@ describe("StaticCompletionRenderer", () => {
     });
 
     test("renders fish completion entries", () => {
-        const renderer = new StaticCompletionRenderer(createTranslator("zh"));
-        const output = renderer.render("fish", createCliCatalog());
+        const { catalog, renderer } = createCompletionRendererFixture("zh");
+        const output = renderer.render("fish", catalog);
 
         expect(output).toContain(`complete -c ${APP_NAME} -f`);
         expect(output).toContain("auth");
@@ -60,12 +60,48 @@ describe("StaticCompletionRenderer", () => {
     });
 
     test("shows flow completion only for the online dev endpoint", () => {
-        const renderer = new StaticCompletionRenderer(createTranslator("en"));
-        const hiddenOutput = renderer.render("fish", createCliCatalog());
-        const devOutput = renderer.render("fish", createCliCatalog("oomol.dev"));
+        const hiddenFixture = createCompletionRendererFixture("en");
+        const devFixture = createCompletionRendererFixture("en", "oomol.dev");
+        const hiddenOutput = hiddenFixture.renderer.render(
+            "fish",
+            hiddenFixture.catalog,
+        );
+        const devOutput = devFixture.renderer.render("fish", devFixture.catalog);
         const flowCompletion = `complete -c ${APP_NAME} -n '__fish_use_subcommand' -a 'flow'`;
 
         expect(hiddenOutput).not.toContain(flowCompletion);
         expect(devOutput).toContain(flowCompletion);
     });
+
+    test("renders dynamic team name completion for every shell", () => {
+        const { catalog, renderer } = createCompletionRendererFixture("en");
+        const bashOutput = renderer.render("bash", catalog);
+        const zshOutput = renderer.render("zsh", catalog);
+        const fishOutput = renderer.render("fish", catalog);
+
+        expect(bashOutput).toContain(`"team use:0")`);
+        expect(bashOutput).toContain(
+            `"\${COMP_WORDS[0]}" __complete team-names -- "$cur"`,
+        );
+        expect(zshOutput).toContain(`"team use:0")`);
+        expect(zshOutput).toContain(
+            `"\${words[1]}" __complete team-names -- "$cur"`,
+        );
+        expect(fishOutput).toContain(
+            "__fish_seen_subcommand_from team use; and __fish_is_nth_token 4",
+        );
+        expect(fishOutput).toContain(
+            `command ${APP_NAME} __complete team-names -- (commandline -ct)`,
+        );
+    });
 });
+
+function createCompletionRendererFixture(
+    locale: "en" | "zh",
+    endpoint?: string,
+) {
+    return {
+        catalog: createCliCatalog(endpoint),
+        renderer: new StaticCompletionRenderer(createTranslator(locale)),
+    };
+}
