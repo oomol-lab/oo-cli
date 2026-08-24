@@ -15,6 +15,7 @@ export const supportedShellValues = ["bash", "zsh", "fish"] as const;
 
 export type SupportedLocale = (typeof supportedLocaleValues)[number];
 export type SupportedShell = (typeof supportedShellValues)[number];
+export type CompletionProvider = "team-names";
 
 export interface Writer {
     write: (chunk: string) => void;
@@ -52,6 +53,7 @@ export interface CliArgumentDefinition {
     descriptionKey: string;
     required?: boolean;
     choices?: readonly string[];
+    completionProvider?: CompletionProvider;
     variadic?: boolean;
 }
 

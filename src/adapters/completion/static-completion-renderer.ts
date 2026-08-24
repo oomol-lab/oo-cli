@@ -1,6 +1,7 @@
 import type {
     CliCatalog,
     CliCommandDefinition,
+    CompletionProvider,
     CompletionRenderer,
     SupportedShell,
 } from "../../application/contracts/cli.ts";
@@ -19,6 +20,7 @@ interface CompletionNode {
     }>;
     readonly options: readonly string[];
     readonly argumentChoices: readonly (readonly string[])[];
+    readonly argumentCompletionProviders: readonly (CompletionProvider | undefined)[];
 }
 
 export class StaticCompletionRenderer implements CompletionRenderer {
@@ -49,6 +51,7 @@ function buildCompletionNodes(
         path: readonly string[],
         commands: readonly CliCommandDefinition[],
         argumentChoices: readonly (readonly string[])[] = [],
+        argumentCompletionProviders: readonly (CompletionProvider | undefined)[] = [],
     ): void => {
         const pathKey = path.join(" ");
         const hiddenNames = new Set(
@@ -83,13 +86,17 @@ function buildCompletionNodes(
                 ...(path.length === 0 ? ["-V", "--version"] : []),
             ],
             argumentChoices,
+            argumentCompletionProviders,
         });
 
         for (const command of commands) {
+            const arguments_ = command.arguments ?? [];
+
             visit(
                 [...path, command.name],
                 command.children ?? [],
-                (command.arguments ?? []).map(argument => argument.choices ?? []),
+                arguments_.map(argument => argument.choices ?? []),
+                arguments_.map(argument => argument.completionProvider),
             );
         }
     };
@@ -119,7 +126,7 @@ function renderBashCompletion(
 ): string {
     return `#!/usr/bin/env bash
 _${commandName}_completion() {
-    local cur prev token path_key index arg_index skip_next
+    local cur prev token path_key index arg_index skip_next candidate
     COMPREPLY=()
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev=""
@@ -203,6 +210,7 @@ function renderZshCompletion(
     return `#compdef ${commandName}
 _${commandName}() {
     local cur prev token path_key index arg_index skip_next
+    local -a candidates
     cur="$words[CURRENT]"
     prev=""
 
@@ -356,6 +364,20 @@ function renderFishCompletion(
         );
     }
 
+    for (const node of nodes) {
+        for (const [index, provider] of node.argumentCompletionProviders.entries()) {
+            if (provider === undefined) {
+                continue;
+            }
+
+            const tokenIndex = node.path.length + index + 2;
+
+            lines.push(
+                `complete -c ${commandName} -n '__fish_seen_subcommand_from ${node.path.join(" ")}; and __fish_is_nth_token ${tokenIndex}' -a '(command ${commandName} __complete ${provider} -- (commandline -ct) 2>/dev/null)'`,
+            );
+        }
+    }
+
     return `${lines.join("\n")}\n`;
 }
 
@@ -387,7 +409,39 @@ function buildArgumentCases(
     const lines: string[] = [];
 
     for (const node of nodes) {
-        for (const [index, choices] of node.argumentChoices.entries()) {
+        const argumentCount = Math.max(
+            node.argumentChoices.length,
+            node.argumentCompletionProviders.length,
+        );
+
+        for (let index = 0; index < argumentCount; index += 1) {
+            const provider = node.argumentCompletionProviders[index];
+
+            if (provider !== undefined) {
+                if (shell === "bash") {
+                    lines.push(
+                        `        "${node.pathKey}:${index}")`,
+                        `            while IFS= read -r candidate; do`,
+                        `                COMPREPLY+=("$candidate")`,
+                        `            done < <("\${COMP_WORDS[0]}" __complete ${provider} -- "$cur" 2>/dev/null)`,
+                        "            return",
+                        "            ;;",
+                    );
+                    continue;
+                }
+
+                lines.push(
+                    `        "${node.pathKey}:${index}")`,
+                    `            candidates=("\${(@f)$("\${words[1]}" __complete ${provider} -- "$cur" 2>/dev/null)}")`,
+                    `            compadd -- "\${candidates[@]}"`,
+                    "            return",
+                    "            ;;",
+                );
+                continue;
+            }
+
+            const choices = node.argumentChoices[index] ?? [];
+
             if (choices.length === 0) {
                 continue;
             }

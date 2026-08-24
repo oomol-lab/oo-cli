@@ -68,4 +68,27 @@ describe("StaticCompletionRenderer", () => {
         expect(hiddenOutput).not.toContain(flowCompletion);
         expect(devOutput).toContain(flowCompletion);
     });
+
+    test("renders dynamic team name completion for every shell", () => {
+        const renderer = new StaticCompletionRenderer(createTranslator("en"));
+        const catalog = createCliCatalog();
+        const bashOutput = renderer.render("bash", catalog);
+        const zshOutput = renderer.render("zsh", catalog);
+        const fishOutput = renderer.render("fish", catalog);
+
+        expect(bashOutput).toContain(`"team use:0")`);
+        expect(bashOutput).toContain(
+            `"\${COMP_WORDS[0]}" __complete team-names -- "$cur"`,
+        );
+        expect(zshOutput).toContain(`"team use:0")`);
+        expect(zshOutput).toContain(
+            `"\${words[1]}" __complete team-names -- "$cur"`,
+        );
+        expect(fishOutput).toContain(
+            "__fish_seen_subcommand_from team use; and __fish_is_nth_token 4",
+        );
+        expect(fishOutput).toContain(
+            `command ${APP_NAME} __complete team-names -- (commandline -ct)`,
+        );
+    });
 });
