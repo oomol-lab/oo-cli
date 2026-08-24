@@ -24,6 +24,36 @@ const teamsResponse = {
             role: "member",
             system_created: false,
         },
+        {
+            id: "team-3",
+            name: "atlas",
+            role: "member",
+            system_created: false,
+        },
+        {
+            id: "team-4",
+            name: "ansi\u001B[31m",
+            role: "member",
+            system_created: false,
+        },
+        {
+            id: "team-5",
+            name: "alert\u0007",
+            role: "member",
+            system_created: false,
+        },
+        {
+            id: "team-6",
+            name: "alpha\u007F",
+            role: "member",
+            system_created: false,
+        },
+        {
+            id: "team-7",
+            name: "archive\u0085",
+            role: "member",
+            system_created: false,
+        },
     ],
 };
 
@@ -55,7 +85,7 @@ describe("internal completion command", () => {
             expect(firstResult).toEqual({
                 exitCode: 0,
                 stderr: "",
-                stdout: "acme\n",
+                stdout: "acme\natlas\n",
             });
             expect(secondResult).toEqual({
                 exitCode: 0,

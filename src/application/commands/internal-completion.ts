@@ -1,18 +1,22 @@
-import type { CliCommandContext, CliCommandDefinition } from "../contracts/cli.ts";
+import type {
+    CliCommandContext,
+    CliCommandDefinition,
+    CompletionProvider,
+} from "../contracts/cli.ts";
 import type { AuthAccount } from "../schemas/auth.ts";
 
 import { z } from "zod";
 import { buildEnvApiKeyAccount, requireIdentity } from "../auth/identity.ts";
+import { completionProviderValues } from "../contracts/cli.ts";
 import { listMemberTeams } from "./team/shared.ts";
 
-const completionProviderValues = ["team-names"] as const;
 const teamNamesCacheId = "shell-completion-team-names-v1";
 const teamNamesCacheTtlMs = 60_000;
 const teamNamesCacheMaxEntries = 20;
 
 interface InternalCompletionInput {
     prefix?: string;
-    provider: typeof completionProviderValues[number];
+    provider: CompletionProvider;
 }
 
 export const internalCompletionCommand: CliCommandDefinition<InternalCompletionInput> = {
@@ -88,7 +92,16 @@ async function readTeamNames(
 }
 
 function isCompletionCandidate(value: string): boolean {
-    return !value.includes("\n")
-        && !value.includes("\r")
-        && !value.includes("\t");
+    for (const character of value) {
+        const codePoint = character.codePointAt(0)!;
+
+        if (
+            codePoint <= 0x1F
+            || (codePoint >= 0x7F && codePoint <= 0x9F)
+        ) {
+            return false;
+        }
+    }
+
+    return true;
 }
