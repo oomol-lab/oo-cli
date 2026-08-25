@@ -32,6 +32,21 @@ const telemetrySettingsShape = {
 const telemetrySettingsReadSchema = z.object(telemetrySettingsShape);
 const telemetrySettingsSchema = z.object(telemetrySettingsShape).strict();
 
+const serverProjectSettingsShape = {
+    origin: z.string().trim().min(1),
+    project_id: z.string().trim().min(1),
+};
+
+const serverProjectSettingsReadSchema = z.object(serverProjectSettingsShape);
+const serverProjectSettingsSchema = z.object(serverProjectSettingsShape).strict();
+
+const openFlowSettingsReadSchema = z.object({
+    server_projects: z.array(serverProjectSettingsReadSchema).optional(),
+});
+const openFlowSettingsSchema = z.object({
+    server_projects: z.array(serverProjectSettingsSchema).optional(),
+}).strict();
+
 // Legacy home of the default team identity, kept readable so an installation
 // that predates the account-scoped default still resolves one. Nothing writes
 // it any more: it is migrated into the active account on the next run and
@@ -78,6 +93,7 @@ export const settingsFileReadSchema = z.object({
     file: fileSettingsReadSchema.optional(),
     identity: identitySettingsReadSchema.optional(),
     lang: localeSchema.optional(),
+    open_flow: openFlowSettingsReadSchema.optional(),
     skills: skillsSettingsReadSchema.optional(),
     telemetry: telemetrySettingsReadSchema.optional(),
 });
@@ -86,6 +102,7 @@ export const settingsFileSchema = z.object({
     file: fileSettingsSchema.optional(),
     identity: identitySettingsSchema.optional(),
     lang: localeSchema.optional(),
+    open_flow: openFlowSettingsSchema.optional(),
     skills: skillsSettingsSchema.optional(),
     telemetry: telemetrySettingsSchema.optional(),
 }).strict();
@@ -161,6 +178,15 @@ export function renderSettingsFile(settings: AppSettings): string {
     if (parsedSettings.telemetry?.enabled !== undefined) {
         persistedSettings.telemetry = {
             enabled: parsedSettings.telemetry.enabled,
+        };
+    }
+
+    if (
+        parsedSettings.open_flow?.server_projects !== undefined
+        && parsedSettings.open_flow.server_projects.length > 0
+    ) {
+        persistedSettings.open_flow = {
+            server_projects: parsedSettings.open_flow.server_projects,
         };
     }
 
@@ -271,6 +297,33 @@ export function unsetFileDownloadOutDir(
     }
 
     return deleteNestedProperty(settings, ["file", "download", "out_dir"]);
+}
+
+export function getOpenFlowServerProject(
+    settings: AppSettings,
+    origin: string,
+): string | undefined {
+    return settings.open_flow?.server_projects?.find(
+        project => project.origin === origin,
+    )?.project_id;
+}
+
+export function setOpenFlowServerProject(
+    settings: AppSettings,
+    origin: string,
+    projectId: string,
+): AppSettings {
+    const serverProjects = [
+        ...(settings.open_flow?.server_projects?.filter(
+            project => project.origin !== origin,
+        ) ?? []),
+        { origin, project_id: projectId },
+    ].sort((left, right) => left.origin.localeCompare(right.origin));
+
+    return {
+        ...settings,
+        open_flow: { server_projects: serverProjects },
+    };
 }
 
 export function getConfiguredTelemetryEnabled(

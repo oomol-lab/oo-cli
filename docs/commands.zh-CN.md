@@ -26,8 +26,14 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   仓库的标准构建会将它写到
   `packages/open-flow/dist/command/open-flow-command`。未设置时，`oo flow`
   使用当前 `oo` 版本固定的 Open Flow release。
-- `OO_FLOW_PROJECT`：只为当前调用选择 Open Flow Cloud Project。它的优先级
-  高于 `oo flow project use` 按账号和 Team 保存的 Project，且不会写回配置。
+- `OO_OPEN_FLOW_URL`：用完整 HTTP(S) origin 选择自部署 Open Flow Server，例如
+  `http://127.0.0.1:3000`。必须与 `OO_OPEN_FLOW_TOKEN` 同时设置；两者生效时，
+  `oo flow` 不使用 OOMOL 账号、Team 或 `OO_ENDPOINT`。
+- `OO_OPEN_FLOW_TOKEN`：自部署 Server 的 operator token，值应与该部署的
+  `OPEN_FLOW_TOKEN` 相同。它只会作为 Bearer token 发往所选 origin 的
+  `/v1/` API，并且必须与 `OO_OPEN_FLOW_URL` 同时设置。
+- `OO_FLOW_PROJECT`：只为当前调用选择 Open Flow Project。它的优先级高于
+  `oo flow project use` 按账号和 Team 保存的 Project，且不会写回配置。
 - `OO_FLOW_ACCOUNT`：只为当前 `oo flow` 调用选择一个已保存账号，不修改
   `auth.toml` 中的 active account。值可以是精确账号 ID 或 `endpoint/name`；如果
   后者匹配多个账号，必须改用账号 ID。与 `OO_API_KEY` 同时设置时仍然后者优先。
@@ -88,9 +94,9 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   Open Flow 自己拥有并随版本发布对应的命令翻译文案。
 - 因此 `oo flow --help` 和 `oo flow --version` 都属于 Open Flow 命令。
   如需在不加载 Open Flow 的情况下查看宿主侧命令说明，请使用 `oo help flow`。
-- 只有设置 `OO_ENDPOINT=oomol.dev` 时，根帮助和生成的 shell 补全才会列出
-  `flow`。其他 endpoint 只会隐藏该命令，不会禁用直接调用 `oo flow` 或
-  `oo help flow`。
+- 设置 `OO_ENDPOINT=oomol.dev` 或用 `OO_OPEN_FLOW_URL` 选择自部署 Server 时，
+  根帮助和生成的 shell 补全会列出 `flow`。其他 Hosted endpoint 只会隐藏该命令，
+  不会禁用直接调用 `oo flow` 或 `oo help flow`。
 - `--lang`、`--debug` 等 `oo` 全局选项必须放在 `flow` 前面；
   `flow` 后的选项归 Open Flow 所有。
 - Open Flow 使用当前进程的工作目录、标准输入输出、环境变量和信号；
@@ -99,27 +105,34 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   Project → Flow → 操作菜单；非交互调用只打印帮助，不等待输入。菜单可以选择或
   创建 Project 与 Flow，并调用和非交互命令相同的查看、重命名、检查、Draft Run、
   发布和 Workbench handler。
-- 只有归档长度、SHA-256、内部 manifest、完整文件集合和 Bun 版本都与 `oo`
-  固定的 release 一致时，下载内容才会被接受。
-- Command Artifact v2 只包含 Cloud CLI entry 和 license 文件，不包含 Workbench
-  assets、Deployment Runtime、skills 或本地 Project 实现。
+- 只有归档长度和 SHA-256 与 `oo` 固定的 release 一致，且内部 manifest 和完整
+  文件集合与该 release 相符时，下载内容才会被接受。Artifact 中记录的 Bun 构建
+  版本不需要与 `oo` 使用的 Bun runtime 版本一致。
+- Command Artifact v2 只包含 Control API CLI entry 和 license 文件，不包含
+  Workbench assets、Deployment Runtime、skills 或本地 Project 实现。
 - 缓存未命中时，交互式终端会在 stderr 原地刷新字节进度；非交互式输出会分别打印
   一行开始和完成信息。命中缓存时保持静默。
 - `OO_OPEN_FLOW_COMMAND_DIR` 仅用于本地仓库联调；设置后会跳过下载和缓存解析。
-- Open Flow Cloud 子命令使用当前 `oo` 登录凭证和生效的 Team。Cloud gateway
-  由当前 endpoint 派生为 `https://open-flow.<endpoint>`；例如
+- 默认情况下，Open Flow 子命令使用当前 `oo` 登录凭证和生效的 Team。Hosted
+  gateway 由当前 endpoint 派生为 `https://open-flow.<endpoint>`；例如
   `OO_ENDPOINT=oomol.dev` 使用 `https://open-flow.oomol.dev`。
-- `OO_FLOW_ACCOUNT=<account-id|endpoint/name>` 只为本次 Flow 调用选择已保存账号，
-  同时使用该账号的 endpoint、Team 和已保存 Project context，不会修改全局 active
-  account。
-- `oo` 登录凭证和 Team identity 只附加到上述 gateway 的 `/v1/` 请求。宿主会先
-  删除 command artifact 提供的身份 header，再写入当前 credential 和 Team selector。
-  Connector 与 Trigger 操作仍通过 Cloud API，artifact 不直连它们的后端服务。
-- `oo flow project use <project>` 会先通过 Cloud 验证 Project，再按当前账号和 Team
-  保存其 ID。切换账号或 Team 后不会复用其他 scope 的 Project。`OO_API_KEY`
-  身份没有可持久化的账号 scope，应改用 `OO_FLOW_PROJECT`。选择 current Project
-  后，后续 Flow 命令可以省略 `--project`；该选项只用于单次命令临时覆盖。
-- Cloud-only 命令覆盖 Project 与 Flow authoring、节点、连线、CodeModule、
+- 同时设置 `OO_OPEN_FLOW_URL` 与 `OO_OPEN_FLOW_TOKEN` 后，CLI 会改为直连该自部署
+  Server。此模式不读取 OOMOL 账号或 Team，也不使用 `OO_ENDPOINT`；token 必须与
+  Server 部署的 `OPEN_FLOW_TOKEN` 相同。
+- `OO_FLOW_ACCOUNT=<account-id|endpoint/name>` 只为本次 Hosted Flow 调用选择已保存
+  账号，同时使用该账号的 endpoint、Team 和已保存 Project context，不会修改全局
+  active account；自部署变量生效时它不起作用。
+- 凭据只附加到所选 origin 的 `/v1/` 请求。宿主会先删除 command artifact 提供的
+  身份 header 和 Cookie，再写入 Hosted credential 与 Team selector，或 Server
+  Bearer token。Connector 与 Trigger 操作仍通过 Control API，artifact 不直连它们的
+  后端服务。
+- `oo flow project use <project>` 会先通过所选部署验证 Project；Hosted 模式再按当前
+  账号和 Team 保存其 ID。切换账号或 Team 后不会复用其他 scope 的 Project。
+  `OO_API_KEY` 身份没有可持久化的账号 scope，因此应改用 `OO_FLOW_PROJECT`。
+  自部署模式会按 Server origin 把选择结果保存在本地 CLI settings 中，不会写入
+  OOMOL 账号。选择 current Project 后，后续 Flow 命令可以省略 `--project`；
+  该选项只用于单次命令临时覆盖。
+- 命令覆盖 Project 与 Flow authoring、节点、连线、CodeModule、
   Connector Task、Trigger、检查、Draft/Live Run、Publication、Rollback 和
   Workbench deep link。`--json` 输出带版本的机器格式，`--project <ID 或精确名称>`
   只覆盖当前命令的 Project。
@@ -146,12 +159,11 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   change set 中创建 Node、Task、CodeModule 和最终 source，并返回三个 opaque ID。
   `oo flow check` 只校验不可变 Revision；credential 当前是否可用以及 Connector 的
   真实副作用只会由显式 `oo flow run` 检查。
-- `oo flow open [flow]` 会在系统浏览器中打开当前 endpoint 与 Team 对应的官方
-  Console Workbench，并同时输出 URL。`oo flow workbench [flow]` 只输出相同 URL，
-  不启动浏览器，适用于脚本和 Agent 内置预览。Console Workbench 路由按 Team
-  隔离，因此必须先选择 Team。该 URL 携带当前 CLI 有效账号的短期一次性网页登录
-  code；交换完成后会跳转到目标 Workbench。不要分享或持久化这个 URL；API key
-  本身不会写入 URL。
+- `oo flow open [flow]` 会在系统浏览器打开所选部署的 Workbench，并同时输出 URL；
+  `oo flow workbench [flow]` 只输出相同 URL，不打开浏览器，适用于脚本和 Agent
+  内置预览。Hosted URL 会携带当前 CLI 账号的短期一次性网页登录 code，并要求已
+  选择 Team。自部署 URL 直接指向 Server Workbench，由浏览器自行建立 operator
+  session；operator token 不会写入 URL。
 - 宿主 telemetry 只把本次委托记录为顶层命令 `flow`，并记录成功/失败和耗时；
   不记录委托的子命令、flags、Project/Flow ID、自由文本参数或命令输出。
 
@@ -173,6 +185,17 @@ OO_ENDPOINT=oomol.dev \
 OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
   bun run index.ts flow project list
 ```
+
+连接自部署 Server：
+
+```bash
+export OO_OPEN_FLOW_URL=http://127.0.0.1:3000
+export OO_OPEN_FLOW_TOKEN="$OPEN_FLOW_TOKEN"
+oo flow
+```
+
+交互菜单会从该 Server 加载 Project，并按这个 origin 记住选择。脚本仍可使用
+`OO_FLOW_PROJECT` 或 `--project` 做单次调用覆盖。
 
 ## JSON 输出
 

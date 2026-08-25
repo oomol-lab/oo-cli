@@ -7,16 +7,52 @@ import {
     getAutoTriggerDisabledSkills,
     getDismissedSkillRecommendations,
     getLegacyIdentityTeam,
+    getOpenFlowServerProject,
     isSkillAutoTriggerDisabledForAll,
     isSkillRecommendationsMuted,
     removeAutoTriggerDisabledSkills,
     removeDismissedSkillRecommendations,
     renderSettingsFile,
+    setOpenFlowServerProject,
     setSkillAutoTriggerDisabledForAll,
     setSkillRecommendationsMuted,
     settingsFileReadSchema,
     unsetLegacyIdentityTeam,
 } from "./settings.ts";
+
+describe("Open Flow Server Project settings", () => {
+    test("persists one selected Project per Server origin", () => {
+        const first = setOpenFlowServerProject(
+            {},
+            "https://flow-b.example.test",
+            "project-b",
+        );
+        const settings = setOpenFlowServerProject(
+            first,
+            "https://flow-a.example.test",
+            "project-a",
+        );
+        const replaced = setOpenFlowServerProject(
+            settings,
+            "https://flow-b.example.test",
+            "project-b-next",
+        );
+        const parsed = settingsFileReadSchema.parse(
+            parseToml(renderSettingsFile(replaced)),
+        );
+
+        expect(getOpenFlowServerProject(parsed, "https://flow-a.example.test")).toBe(
+            "project-a",
+        );
+        expect(getOpenFlowServerProject(parsed, "https://flow-b.example.test")).toBe(
+            "project-b-next",
+        );
+        expect(parsed.open_flow?.server_projects?.map(project => project.origin)).toEqual([
+            "https://flow-a.example.test",
+            "https://flow-b.example.test",
+        ]);
+    });
+});
 
 describe("skill auto-trigger settings", () => {
     test("defaults to auto-trigger enabled with no per-skill entries", () => {

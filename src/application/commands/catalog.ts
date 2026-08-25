@@ -42,7 +42,7 @@ const globalOptions = [
 
 const onlineDevEndpoint = "oomol.dev";
 
-export function createCliCatalog(endpoint?: string): CliCatalog {
+export function createCliCatalog(endpoint?: string, openFlowUrl?: string): CliCatalog {
     return {
         name: APP_NAME,
         descriptionKey: "app.description",
@@ -54,7 +54,7 @@ export function createCliCatalog(endpoint?: string): CliCatalog {
             fileCommand,
             {
                 ...flowCommand,
-                hidden: endpoint !== onlineDevEndpoint,
+                hidden: endpoint !== onlineDevEndpoint && openFlowUrl === undefined,
             },
             infoCommand,
             installCommand,

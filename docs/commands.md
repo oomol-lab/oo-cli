@@ -29,9 +29,17 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   `packages/open-flow/dist/command/open-flow-command`. When this variable is
   unset, `oo flow` uses the Open Flow release bundled with the current `oo`
   release.
-- `OO_FLOW_PROJECT`: Select an Open Flow Cloud Project for the current
-  invocation. It takes precedence over the account-and-Team-scoped Project
-  saved by `oo flow project use` and is not persisted.
+- `OO_OPEN_FLOW_URL`: Select a self-hosted Open Flow Server using its complete
+  HTTP(S) origin, such as `http://127.0.0.1:3000`. It must be set together with
+  `OO_OPEN_FLOW_TOKEN`; when both are present, `oo flow` does not use an OOMOL
+  account, Team, or `OO_ENDPOINT`.
+- `OO_OPEN_FLOW_TOKEN`: The self-hosted Server operator token, equal to that
+  deployment's `OPEN_FLOW_TOKEN`. It is sent only to the selected
+  origin's `/v1/` API as a Bearer token and must be set together with
+  `OO_OPEN_FLOW_URL`.
+- `OO_FLOW_PROJECT`: Select an Open Flow Project for the current invocation. It
+  takes precedence over the account-and-Team-scoped Project saved by
+  `oo flow project use` and is not persisted.
 - `OO_FLOW_ACCOUNT`: Select a saved account for the current `oo flow`
   invocation without changing the active account in `auth.toml`. Use the exact
   account ID or `endpoint/name`; an ambiguous `endpoint/name` must be replaced
@@ -109,9 +117,10 @@ requiring network access.
 - `oo flow --help` and `oo flow --version` are therefore Open Flow commands.
   Use `oo help flow` to show the host-side command description without loading
   Open Flow.
-- Root help and generated shell completions list `flow` only when
-  `OO_ENDPOINT=oomol.dev`. Other endpoints hide it without disabling direct
-  `oo flow` or `oo help flow` invocations.
+- Root help and generated shell completions list `flow` when
+  `OO_ENDPOINT=oomol.dev` or `OO_OPEN_FLOW_URL` selects a self-hosted Server.
+  Other Hosted endpoints hide it without disabling direct `oo flow` or
+  `oo help flow` invocations.
 - Main `oo` global options such as `--lang` and `--debug` must appear before
   `flow`. Options after `flow` belong to Open Flow.
 - Open Flow uses the current process's working directory, standard streams,
@@ -121,36 +130,45 @@ requiring network access.
   help and never wait for input. The menu can select or create Projects and
   Flows, then call the same stateless view, rename, check, Draft Run, publish,
   and Workbench handlers used by non-interactive commands.
-- The downloaded archive is accepted only when its length, SHA-256 digest,
-  internal manifest, complete file set, and Bun version match the release
-  pinned by `oo`.
-- Command Artifact v2 contains only the Cloud CLI entry and license files. It
-  does not contain Workbench assets, a Deployment Runtime, skills, or a local
-  Project implementation.
+- The downloaded archive is accepted only when its length and SHA-256 digest
+  match the release pinned by `oo`, and its internal manifest and complete file
+  set agree with that release. The Bun build version recorded by the artifact
+  does not need to match the Bun runtime used by `oo`.
+- Command Artifact v2 contains only the Control API CLI entry and license
+  files. It does not contain Workbench assets, a Deployment Runtime, skills,
+  or a local Project implementation.
 - On a cache miss, interactive terminals show in-place byte progress on stderr;
   non-interactive streams receive one start and one completion line. Cache hits
   remain silent.
 - `OO_OPEN_FLOW_COMMAND_DIR` bypasses download and cache resolution for local
   repository integration testing.
-- Open Flow Cloud commands use the current `oo` credential and effective Team.
-  The Cloud gateway is derived from the current endpoint as
+- By default, Open Flow commands use the current `oo` credential and effective
+  Team. The Hosted gateway is derived from the current endpoint as
   `https://open-flow.<endpoint>`; for example, `OO_ENDPOINT=oomol.dev` uses
   `https://open-flow.oomol.dev`.
+- Setting both `OO_OPEN_FLOW_URL` and `OO_OPEN_FLOW_TOKEN` instead connects
+  directly to that self-hosted Server. This mode does not read an OOMOL account
+  or Team and does not use `OO_ENDPOINT`. The token must be the same value as
+  the Server deployment's `OPEN_FLOW_TOKEN`.
 - `OO_FLOW_ACCOUNT=<account-id|endpoint/name>` selects a saved account only for
-  the current Flow invocation, including that account's endpoint, Team, and
-  saved Project context. It does not mutate the globally active account.
-- The `oo` credential and Team identity are attached only to `/v1/` requests
-  for that gateway. Identity headers supplied by the command artifact are
-  removed before the host writes the current credential and Team selector.
-  Connector and Trigger operations remain Cloud API operations; the artifact
-  does not connect to their backing services directly.
-- `oo flow project use <project>` verifies the Project through Cloud and saves
-  its ID for the current account and Team. Switching account or Team ignores a
-  Project saved in another scope. An `OO_API_KEY` identity has no persistent
-  account scope, so use `OO_FLOW_PROJECT` instead. Once a current Project is
-  selected, later Flow commands can omit `--project`; use that option only for
-  a per-command override.
-- The Cloud-only command surface covers Project and Flow authoring, Nodes,
+  the current Hosted Flow invocation, including that account's endpoint, Team,
+  and saved Project context. It does not mutate the globally active account and
+  has no effect while the self-hosted variables are active.
+- Credentials are attached only to `/v1/` requests for the selected origin.
+  Identity and Cookie headers supplied by the command artifact are removed
+  before the host writes the Hosted credential and Team selector or the Server
+  Bearer token. Connector and Trigger operations remain Control API operations;
+  the artifact does not connect to their backing services directly.
+- `oo flow project use <project>` verifies the Project through the selected
+  deployment and saves its ID for the current account and Team in Hosted mode.
+  Switching account or Team ignores a Project saved in another scope. An
+  `OO_API_KEY` identity has no persistent
+  account scope, so use `OO_FLOW_PROJECT` instead. In self-hosted mode the
+  selection is stored by Server origin in local CLI settings, without writing
+  it into an OOMOL account. Once a current Project is selected, later Flow
+  commands can omit `--project`; use that option only for a per-command
+  override.
+- The command surface covers Project and Flow authoring, Nodes,
   Edges, CodeModules, Connector Tasks, Triggers, checks, Draft/Live Runs,
   Publications, rollback, and Workbench deep links. Use `--json` for versioned
   machine output and `--project <id-or-exact-name>` for a per-command Project.
@@ -182,13 +200,13 @@ requiring network access.
   opaque IDs. `oo flow check` validates the immutable Revision only; credential
   availability and real Connector side effects are checked only by an explicit
   `oo flow run`.
-- `oo flow open [flow]` opens the official Console Workbench in the system
+- `oo flow open [flow]` opens the selected deployment's Workbench in the system
   browser and also prints its URL. `oo flow workbench [flow]` prints the same
-  URL without launching a browser, for scripts and agent-hosted previews. A
-  Team must be selected because Console Workbench routes are Team-scoped. The
-  URL carries a short-lived, one-time browser sign-in code for the effective
-  CLI account and redirects to the requested Workbench after the exchange. It
-  must not be shared or stored; the API key itself is never placed in the URL.
+  URL without launching a browser, for scripts and agent-hosted previews. The
+  Hosted URL carries a short-lived, one-time browser sign-in code for the
+  effective CLI account and requires a Team. A self-hosted URL points directly
+  to the Server Workbench; the browser establishes its own operator session,
+  and the operator token is never placed in the URL.
 - Host telemetry records this delegation only as top-level command `flow`, its
   success or failure, and duration. It records no delegated subcommand, flags,
   Project/Flow ID, free-form argument, or command output.
@@ -212,6 +230,18 @@ OO_ENDPOINT=oomol.dev \
 OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
   bun run index.ts flow project list
 ```
+
+Connect to a self-hosted Server:
+
+```bash
+export OO_OPEN_FLOW_URL=http://127.0.0.1:3000
+export OO_OPEN_FLOW_TOKEN="$OPEN_FLOW_TOKEN"
+oo flow
+```
+
+The interactive menu loads Projects from that Server and remembers the
+selection for this origin. Scripts can still use `OO_FLOW_PROJECT` or
+`--project` as a per-invocation override.
 
 ## JSON Output
 

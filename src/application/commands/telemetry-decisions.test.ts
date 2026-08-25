@@ -251,7 +251,7 @@ const commandTelemetryDecisions = {
     },
     "flow": {
         kind: "generic",
-        reason: "Generic command telemetry records only the delegated flow command and its exit code; Open Flow arguments, flags, paths, project, account, and team identities, and tokens are not inspected.",
+        reason: "Generic command telemetry records only the delegated flow command and its exit code; Open Flow arguments, flags, paths, project, deployment origin, account and team identities, and hosted or Server tokens are not inspected.",
     },
     "info": {
         kind: "generic",

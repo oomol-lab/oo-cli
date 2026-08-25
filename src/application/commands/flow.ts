@@ -7,6 +7,10 @@ import { readDefaultTeam } from "../auth/default-team.ts";
 import { readTrimmedEnv, requireIdentity } from "../auth/identity.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { setAccountFlowProject } from "../schemas/auth.ts";
+import {
+    getOpenFlowServerProject,
+    setOpenFlowServerProject,
+} from "../schemas/settings.ts";
 import { createBrowserSignIn } from "./auth/web.ts";
 import { installOpenFlowCommandRelease } from "./flow-artifact.ts";
 import { openFlowCommandRelease } from "./flow-release.ts";
@@ -19,11 +23,12 @@ import {
 
 const commandDirectoryEnvName = "OO_OPEN_FLOW_COMMAND_DIR";
 const flowAccountEnvName = "OO_FLOW_ACCOUNT";
+const serverOriginEnvName = "OO_OPEN_FLOW_URL";
+const serverTokenEnvName = "OO_OPEN_FLOW_TOKEN";
 const commandArtifactVersion = 2;
 
 interface CommandModule {
     readonly commandArtifactVersion: unknown;
-    readonly requiredBunVersion: unknown;
     readonly runOpenFlowCommand: unknown;
 }
 
@@ -32,17 +37,27 @@ interface OpenFlowInvocation {
     readonly commandIndex: number;
 }
 
-interface OpenFlowCloudSession {
+interface HostedSession {
     readonly accountId?: string;
     readonly apiKey: string;
     readonly consoleOrigin: URL;
     readonly endpoint: string;
+    readonly kind: "hosted";
     readonly origin: URL;
     readonly projectId?: string;
     readonly projectTeam: string;
     readonly teamName?: string;
     readonly teamHeaders: Record<string, string>;
 }
+
+interface ServerSession {
+    readonly kind: "server";
+    readonly origin: URL;
+    readonly projectId?: string;
+    readonly token: string;
+}
+
+type OpenFlowSession = HostedSession | ServerSession;
 
 interface OpenFlowCommandHost {
     readonly cloudRequest: (path: string, init?: RequestInit) => Promise<Response>;
@@ -118,13 +133,6 @@ export async function runOpenFlowCommand(
         commandDirectory = resolve(context.cwd, configuredDirectory);
     }
     else {
-        if (openFlowCommandRelease.bunVersion !== Bun.version) {
-            throw new CliUserError("errors.flow.bunVersionMismatch", 1, {
-                actual: Bun.version,
-                required: openFlowCommandRelease.bunVersion,
-            });
-        }
-
         const progressReporter = createDownloadProgressReporter(
             context.stderr,
             openFlowCommandRelease.archive.length,
@@ -201,7 +209,6 @@ export async function runOpenFlowCommand(
 
     if (
         commandModule.commandArtifactVersion !== commandArtifactVersion
-        || typeof commandModule.requiredBunVersion !== "string"
         || typeof commandModule.runOpenFlowCommand !== "function"
     ) {
         throw new CliUserError("errors.flow.commandEntryInvalid", 1, {
@@ -209,18 +216,11 @@ export async function runOpenFlowCommand(
         });
     }
 
-    if (commandModule.requiredBunVersion !== Bun.version) {
-        throw new CliUserError("errors.flow.bunVersionMismatch", 1, {
-            actual: Bun.version,
-            required: commandModule.requiredBunVersion,
-        });
-    }
-
-    let cloudSession: Promise<OpenFlowCloudSession> | undefined;
+    let sessionPromise: Promise<OpenFlowSession> | undefined;
     let selectedProject: string | undefined;
     const host: OpenFlowCommandHost = {
         async cloudRequest(path, init = {}) {
-            const session = await (cloudSession ??= resolveOpenFlowCloudSession(context));
+            const session = await (sessionPromise ??= resolveOpenFlowSession(context));
             const url = new URL(path, session.origin);
 
             if (
@@ -231,31 +231,48 @@ export async function runOpenFlowCommand(
                 || url.hash !== ""
             ) {
                 throw new TypeError(
-                    "Open Flow Cloud requests must target the configured /v1/ gateway.",
+                    "Open Flow requests must target the configured /v1/ gateway.",
                 );
             }
 
             const headers = new Headers(init.headers);
 
             headers.delete("authorization");
+            headers.delete("cookie");
             headers.delete("x-oo-team-id");
             headers.delete("x-oo-team-name");
             headers.delete("x-oomol-token");
-            headers.set("authorization", session.apiKey);
 
-            for (const [name, value] of Object.entries(session.teamHeaders)) {
-                headers.set(name, value);
+            if (session.kind === "hosted") {
+                headers.set("authorization", session.apiKey);
+
+                for (const [name, value] of Object.entries(session.teamHeaders)) {
+                    headers.set(name, value);
+                }
+            }
+            else {
+                headers.set("authorization", `Bearer ${session.token}`);
             }
 
             return await context.fetcher(url, { ...init, headers });
         },
         async getProject() {
-            const session = await (cloudSession ??= resolveOpenFlowCloudSession(context));
+            const session = await (sessionPromise ??= resolveOpenFlowSession(context));
 
             return selectedProject ?? session.projectId;
         },
         async getWorkbenchUrl(projectId, flowId) {
-            const session = await (cloudSession ??= resolveOpenFlowCloudSession(context));
+            const session = await (sessionPromise ??= resolveOpenFlowSession(context));
+
+            if (session.kind === "server") {
+                const projectPath = `/projects/${encodeURIComponent(projectId)}`;
+                const pathname
+                    = flowId === undefined
+                        ? projectPath
+                        : `${projectPath}/flows/${encodeURIComponent(flowId)}/design`;
+
+                return new URL(pathname, session.origin).href;
+            }
 
             if (session.teamName === undefined) {
                 throw new TypeError("Select a Team before opening the Open Flow Workbench.");
@@ -277,7 +294,16 @@ export async function runOpenFlowCommand(
         },
         language: resolveRequestLanguage(context.translator.locale),
         async setProject(projectId) {
-            const session = await (cloudSession ??= resolveOpenFlowCloudSession(context));
+            const session = await (sessionPromise ??= resolveOpenFlowSession(context));
+
+            if (session.kind === "server") {
+                await context.settingsStore.update(settings =>
+                    setOpenFlowServerProject(settings, session.origin.origin, projectId),
+                );
+                selectedProject = projectId;
+                return;
+            }
+
             const accountId = session.accountId;
 
             if (accountId === undefined) {
@@ -308,7 +334,7 @@ export async function runOpenFlowCommand(
     return exitCode;
 }
 
-async function resolveOpenFlowCloudSession(
+async function resolveOpenFlowSession(
     context: Pick<
         CliExecutionContext,
         | "authStore"
@@ -319,7 +345,45 @@ async function resolveOpenFlowCloudSession(
         | "settingsStore"
         | "translator"
     >,
-): Promise<OpenFlowCloudSession> {
+): Promise<OpenFlowSession> {
+    const serverOrigin = readTrimmedEnv(context.env, serverOriginEnvName);
+    const serverToken = readTrimmedEnv(context.env, serverTokenEnvName);
+
+    if (serverOrigin !== undefined || serverToken !== undefined) {
+        if (serverOrigin === undefined || serverToken === undefined) {
+            throw new CliUserError("errors.flow.serverConfigIncomplete", 1);
+        }
+
+        let origin: URL;
+
+        try {
+            origin = new URL(serverOrigin);
+        }
+        catch {
+            throw new CliUserError("errors.flow.serverOriginInvalid", 1);
+        }
+
+        if (
+            (origin.protocol !== "http:" && origin.protocol !== "https:")
+            || origin.username !== ""
+            || origin.password !== ""
+            || origin.pathname !== "/"
+            || origin.search !== ""
+            || origin.hash !== ""
+        ) {
+            throw new CliUserError("errors.flow.serverOriginInvalid", 1);
+        }
+
+        const settings = await context.settingsStore.read();
+
+        return {
+            kind: "server",
+            origin,
+            projectId: getOpenFlowServerProject(settings, origin.origin),
+            token: serverToken,
+        };
+    }
+
     const accountSelector = readTrimmedEnv(context.env, flowAccountEnvName);
     const { account, source } = await requireIdentity(context, accountSelector);
     const defaultTeam
@@ -351,6 +415,7 @@ async function resolveOpenFlowCloudSession(
         apiKey: account.apiKey,
         consoleOrigin: new URL(`https://console.${account.endpoint}`),
         endpoint: account.endpoint,
+        kind: "hosted",
         origin: new URL(`https://open-flow.${account.endpoint}`),
         ...(account.flowProject?.team === projectTeam
             ? { projectId: account.flowProject.projectId }

@@ -240,6 +240,23 @@ describe("Open Flow command artifact", () => {
             .toBe(fixture.entrySource);
     });
 
+    test("installs an artifact built with a different Bun version", async () => {
+        const fixture = createCommandReleaseFixture(9, "0.0.0");
+        const environment = await createTestEnvironment();
+
+        const commandDirectory = await installOpenFlowCommandRelease(
+            fixture.release,
+            {
+                env: environment.env,
+                execPath: process.execPath,
+                fetcher: createArchiveFetcher(fixture.archive),
+            },
+        );
+
+        expect(await readFile(join(commandDirectory, "entry.js"), "utf8"))
+            .toBe(fixture.entrySource);
+    });
+
     test("serializes concurrent installation of the same digest", async () => {
         const fixture = createCommandReleaseFixture();
         const environment = await createTestEnvironment();
@@ -276,14 +293,13 @@ describe("Open Flow command artifact", () => {
     });
 });
 
-function createCommandReleaseFixture(compressionLevel = 9): {
+function createCommandReleaseFixture(compressionLevel = 9, bunVersion = Bun.version): {
     archive: Uint8Array;
     entrySource: string;
     release: OpenFlowCommandRelease;
 } {
     const entrySource = [
         "export const commandArtifactVersion = 2;",
-        `export const requiredBunVersion = ${JSON.stringify(Bun.version)};`,
         "export async function runOpenFlowCommand() { return 0; }",
         "",
     ].join("\n");
@@ -297,7 +313,7 @@ function createCommandReleaseFixture(compressionLevel = 9): {
         path: file.path,
     }));
     const manifest = `${JSON.stringify({
-        bunVersion: Bun.version,
+        bunVersion,
         entry: "entry.js",
         files,
         format: "open-flow-command-artifact",
@@ -323,11 +339,11 @@ function createCommandReleaseFixture(compressionLevel = 9): {
     return {
         archive,
         entrySource,
-        release: createRelease(archive),
+        release: createRelease(archive, bunVersion),
     };
 }
 
-function createRelease(archive: Uint8Array): OpenFlowCommandRelease {
+function createRelease(archive: Uint8Array, bunVersion = Bun.version): OpenFlowCommandRelease {
     const digest = sha256(archive);
     const openFlowVersion = "1.2.3-test";
 
@@ -337,7 +353,7 @@ function createRelease(archive: Uint8Array): OpenFlowCommandRelease {
             length: archive.byteLength,
             url: `https://static.example.test/open-flow-${openFlowVersion}-${digest}.tar.gz`,
         },
-        bunVersion: Bun.version,
+        bunVersion,
         format: "open-flow-command-release",
         openFlowVersion,
         version: 1,

@@ -107,10 +107,6 @@ export async function installOpenFlowCommandRelease(
         ) => () => void;
     },
 ): Promise<string> {
-    if (release.bunVersion !== Bun.version) {
-        invalid(`Open Flow requires Bun ${release.bunVersion}; received ${Bun.version}.`);
-    }
-
     const cacheRoot = resolveOpenFlowCommandCacheRoot({
         env: options.env,
         platform: process.platform,
