@@ -125,11 +125,8 @@ requiring network access.
   `flow`. Options after `flow` belong to Open Flow.
 - Open Flow uses the current process's working directory, standard streams,
   environment, and signals. Its exit code becomes the `oo` exit code.
-- With no delegated arguments, Open Flow shows a Project → Flow → action menu
-  only when both stdin and stdout are TTYs. Non-interactive invocations print
-  help and never wait for input. The menu can select or create Projects and
-  Flows, then call the same stateless view, rename, check, Draft Run, publish,
-  and Workbench handlers used by non-interactive commands.
+- With no delegated arguments, Open Flow prints help and never waits for
+  input, including when stdin and stdout are TTYs.
 - The downloaded archive is accepted only when its length and SHA-256 digest
   match the release pinned by `oo`, and its internal manifest and complete file
   set agree with that release. The Bun build version recorded by the artifact
@@ -239,9 +236,9 @@ export OO_OPEN_FLOW_TOKEN="$OPEN_FLOW_TOKEN"
 oo flow
 ```
 
-The interactive menu loads Projects from that Server and remembers the
-selection for this origin. Scripts can still use `OO_FLOW_PROJECT` or
-`--project` as a per-invocation override.
+Use `oo flow project use <project>` to remember a Project for that Server
+origin. Scripts can use `OO_FLOW_PROJECT` or `--project` as a per-invocation
+override.
 
 ## JSON Output
 

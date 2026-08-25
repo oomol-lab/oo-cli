@@ -101,10 +101,8 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   `flow` 后的选项归 Open Flow 所有。
 - Open Flow 使用当前进程的工作目录、标准输入输出、环境变量和信号；
   它的退出码会直接成为 `oo` 的退出码。
-- 未传入后续参数时，只有 stdin 和 stdout 都是 TTY，Open Flow 才会显示
-  Project → Flow → 操作菜单；非交互调用只打印帮助，不等待输入。菜单可以选择或
-  创建 Project 与 Flow，并调用和非交互命令相同的查看、重命名、检查、Draft Run、
-  发布和 Workbench handler。
+- 未传入后续参数时，Open Flow 只打印帮助且不等待输入；stdin 和 stdout 都是
+  TTY 时也保持相同行为。
 - 只有归档长度和 SHA-256 与 `oo` 固定的 release 一致，且内部 manifest 和完整
   文件集合与该 release 相符时，下载内容才会被接受。Artifact 中记录的 Bun 构建
   版本不需要与 `oo` 使用的 Bun runtime 版本一致。
@@ -194,8 +192,8 @@ export OO_OPEN_FLOW_TOKEN="$OPEN_FLOW_TOKEN"
 oo flow
 ```
 
-交互菜单会从该 Server 加载 Project，并按这个 origin 记住选择。脚本仍可使用
-`OO_FLOW_PROJECT` 或 `--project` 做单次调用覆盖。
+使用 `oo flow project use <project>` 可以按该 Server origin 记住 Project。
+脚本可以使用 `OO_FLOW_PROJECT` 或 `--project` 做单次调用覆盖。
 
 ## JSON 输出
 

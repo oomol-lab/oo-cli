@@ -84,15 +84,21 @@ or config fields. Take them from Flow-scoped search/show output. Keep action
 discovery separate from authorization readiness:
 
 - **Draft-ready** means the Connector action contract is known. A Connector
-  Node may be saved without `connectionId`; `oo flow check` can still be valid
-  because it validates an immutable Revision and does not inspect credentials.
+  Node may be saved without `connectionId`, but the resulting Draft remains
+  structurally invalid until a Connection identity is selected. Validation is
+  deterministic: it requires that identity but does not inspect credentials or
+  current provider state.
 - **Runtime-ready** means every Connector and provider Trigger used by the
   target Flow has an active Connection. This is required before Run or Publish.
 
 An omitted Connector connection or `connection: "default"` selects the active
 default when one exists; otherwise apply can return a Connector identity with
-no `connectionId`. Inspect the mutation result and report missing Connections
-at the Draft boundary. Before Run or Publish, verify a service with
+no `connectionId`. If `connector show` has no `defaultConnection` and the edit
+would use the default, call `oo flow connector connections <service> --json`
+before applying so the missing selection is known in advance. At the Draft
+boundary, save an unconfigured Connector only when doing so still fulfills the
+requested edit, then report that the Draft is invalid until it is configured.
+Before Run or Publish, verify a service with
 `oo flow connector connections <service> --json` when
 the selected identity has no Connection or readiness is otherwise uncertain.
 Require an explicit empty/inactive result or an authorization error before
@@ -171,7 +177,7 @@ between typed ports only when its implementation returns a value accepted by
 the destination. For example, convert a message array to text explicitly:
 
 ```js
-export function run(input) {
+export default function run(input) {
   return { result: input.value.map((item) => item.subject).join("\n") };
 }
 ```
@@ -259,11 +265,11 @@ it or when diagnosing an observed stale view.
   Do not drop the expected Revision and overwrite concurrent work.
 - On `flow.mutation-outcome-unknown`, inspect before retrying because the write
   may already have been accepted.
-- On `flow.apply-check-failed`, the mutation was accepted. Do not retry apply;
-  run `oo flow check` against the current Flow instead.
-- On `flow.invalid` after `apply`, the mutation was accepted but the Draft has
-  diagnostics. Do not retry the same request. Inspect the current Revision and
-  repair the reported inputs or Edges.
+- A successful `flow apply --json` response is authoritative even when
+  `check.valid` is `false` or `check.status` is `unavailable`: the mutation was
+  accepted and the response identifies the new Revision. Do not retry the same
+  request. Repair reported diagnostics, or inspect the current Revision when
+  the check was unavailable.
 - Stop on missing Connector or Trigger authorization at the requested Run or
   Publish boundary and report the direct connection or re-authorization
   action. Do not replace a Flow Node with a direct third-party API call.
