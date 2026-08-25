@@ -471,12 +471,14 @@ describe("embedded skill assets", () => {
             expect(flowContent).toContain("oo flow connector search <query>");
             expect(flowContent).toContain("Prefer one `oo flow apply`");
             expect(flowContent).toContain("Triggers are not `apply` Nodes");
-            expect(flowContent).toContain("Do not retry apply");
+            expect(flowContent).toContain("export default function run");
+            expect(flowContent).toContain("the resulting Draft remains structurally invalid");
             expect(flowContent).toContain("Do neither unless the user explicitly requested");
             expect(flowContent).toContain("Never substitute `oo search`");
             expect(flowContent).toContain("array output to a string input");
             expect(flowContent).toContain("An empty schema `{}` is dynamic, not a conversion");
-            expect(flowContent).toContain("On `flow.invalid` after `apply`");
+            expect(flowContent).toContain("`check.valid` is `false`");
+            expect(flowContent).toContain("Do not retry the same request");
         }
     });
 
