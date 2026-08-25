@@ -157,6 +157,10 @@ export const enMessages = {
         "The Open Flow command entry at {path} is invalid.",
     "errors.flow.commandEntryLoadFailed":
         "Failed to load the Open Flow command entry at {path}: {message}",
+    "errors.flow.serverConfigIncomplete":
+        "OO_OPEN_FLOW_URL and OO_OPEN_FLOW_TOKEN must be set together.",
+    "errors.flow.serverOriginInvalid":
+        "OO_OPEN_FLOW_URL must be an HTTP(S) origin without credentials, a path, query, or fragment.",
     "commands.info.description":
         "Print CLI environment details, persisted store paths, and detected skill agents.",
     "commands.info.summary": "Show CLI environment info",
@@ -1577,6 +1581,10 @@ export const zhMessages = {
     "errors.flow.commandEntryInvalid": "{path} 中的 Open Flow 命令入口无效。",
     "errors.flow.commandEntryLoadFailed":
         "无法加载 {path} 中的 Open Flow 命令入口：{message}",
+    "errors.flow.serverConfigIncomplete":
+        "必须同时设置 OO_OPEN_FLOW_URL 和 OO_OPEN_FLOW_TOKEN。",
+    "errors.flow.serverOriginInvalid":
+        "OO_OPEN_FLOW_URL 必须是不含凭据、路径、查询参数或片段的 HTTP(S) origin。",
     "commands.info.description":
         "打印 CLI 运行环境信息、本地存储路径以及检测到的 skill 代理。",
     "commands.info.summary": "显示 CLI 环境信息",

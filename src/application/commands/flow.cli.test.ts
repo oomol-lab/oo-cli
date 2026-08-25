@@ -128,6 +128,85 @@ describe("flow CLI", () => {
         }
     });
 
+    test("connects directly to Open Flow Server with the deployment operator token", async () => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+
+        try {
+            await writeCommandEntry(commandDirectory, [
+                "const response = await host.cloudRequest('/v1/projects?limit=10', {",
+                "    headers: { authorization: 'forged', cookie: 'forged=1', 'x-oo-team-id': 'forged-team', 'x-oo-team-name': 'forged-name', 'x-oomol-token': 'forged-token' },",
+                "});",
+                "return response.status === 200 ? 0 : 9;",
+            ]);
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+            sandbox.env.OO_OPEN_FLOW_TOKEN = "server-operator-token";
+            sandbox.env.OO_OPEN_FLOW_URL = "http://127.0.0.1:3000";
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(["flow", "project", "list"], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return new Response(null, { status: 200 });
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.url).toBe("http://127.0.0.1:3000/v1/projects?limit=10");
+            expect(requests[0]?.headers.get("authorization")).toBe(
+                "Bearer server-operator-token",
+            );
+            expect(requests[0]?.headers.get("cookie")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+            expect(requests[0]?.headers.get("x-oomol-token")).toBeNull();
+        }
+        finally {
+            await Promise.all([
+                sandbox.cleanup(),
+                rm(commandDirectory, { force: true, recursive: true }),
+            ]);
+        }
+    });
+
+    test("requires a complete, origin-only Open Flow Server configuration", async () => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+
+        try {
+            await writeCommandEntry(commandDirectory, [
+                "await host.cloudRequest('/v1/projects');",
+                "return 0;",
+            ]);
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+            sandbox.env.OO_OPEN_FLOW_URL = "http://127.0.0.1:3000";
+
+            const incomplete = await sandbox.run(["flow", "project", "list"]);
+
+            expect(incomplete.exitCode).toBe(1);
+            expect(incomplete.stderr).toContain(
+                "OO_OPEN_FLOW_URL and OO_OPEN_FLOW_TOKEN must be set together.",
+            );
+
+            sandbox.env.OO_OPEN_FLOW_TOKEN = "server-operator-token";
+            sandbox.env.OO_OPEN_FLOW_URL = "http://127.0.0.1:3000/control";
+
+            const invalid = await sandbox.run(["flow", "project", "list"]);
+
+            expect(invalid.exitCode).toBe(1);
+            expect(invalid.stderr).toContain(
+                "OO_OPEN_FLOW_URL must be an HTTP(S) origin without credentials, a path, query, or fragment.",
+            );
+        }
+        finally {
+            await Promise.all([
+                sandbox.cleanup(),
+                rm(commandDirectory, { force: true, recursive: true }),
+            ]);
+        }
+    });
+
     test("selects a saved Flow account for one invocation without changing the active account", async () => {
         const sandbox = await createCliSandbox();
         const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
@@ -213,7 +292,7 @@ describe("flow CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(requestCount).toBe(0);
             expect(Reflect.get(globalThis, captureKey)).toBe(
-                "Open Flow Cloud requests must target the configured /v1/ gateway.",
+                "Open Flow requests must target the configured /v1/ gateway.",
             );
         }
         finally {
@@ -293,6 +372,58 @@ describe("flow CLI", () => {
         }
     });
 
+    test("persists the selected Project independently for each Open Flow Server", async () => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+        const captureKey = `open-flow-server-project-context-${Bun.randomUUIDv7()}`;
+
+        try {
+            await writeCommandEntry(commandDirectory, [
+                "const before = await host.getProject();",
+                "await host.setProject('project-1');",
+                "const after = await host.getProject();",
+                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, { before, after });`,
+                "return 0;",
+            ]);
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+            sandbox.env.OO_OPEN_FLOW_TOKEN = "server-operator-token";
+            sandbox.env.OO_OPEN_FLOW_URL = "http://127.0.0.1:3000";
+
+            const first = await sandbox.run(["flow", "project", "use", "project-1"]);
+
+            expect(first.exitCode).toBe(0);
+            expect(Reflect.get(globalThis, captureKey)).toEqual({
+                after: "project-1",
+                before: undefined,
+            });
+
+            const second = await sandbox.run(["flow", "project", "current"]);
+
+            expect(second.exitCode).toBe(0);
+            expect(Reflect.get(globalThis, captureKey)).toEqual({
+                after: "project-1",
+                before: "project-1",
+            });
+
+            sandbox.env.OO_OPEN_FLOW_URL = "http://127.0.0.1:4000";
+
+            const otherServer = await sandbox.run(["flow", "project", "current"]);
+
+            expect(otherServer.exitCode).toBe(0);
+            expect(Reflect.get(globalThis, captureKey)).toEqual({
+                after: "project-1",
+                before: undefined,
+            });
+        }
+        finally {
+            Reflect.deleteProperty(globalThis, captureKey);
+            await Promise.all([
+                sandbox.cleanup(),
+                rm(commandDirectory, { force: true, recursive: true }),
+            ]);
+        }
+    });
+
     test("hands browser authentication to the official Team-scoped Workbench deep link", async () => {
         const sandbox = await createCliSandbox();
         const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
@@ -340,6 +471,44 @@ describe("flow CLI", () => {
             expect(requests[0]?.url).toBe("https://api.oomol.dev/v1/auth/session_code");
             expect(requests[0]?.headers.get("authorization")).toBe("Bearer dev-secret");
             expect(await readLatestLogContent(sandbox)).not.toContain("workbench-code");
+        }
+        finally {
+            Reflect.deleteProperty(globalThis, captureKey);
+            await Promise.all([
+                sandbox.cleanup(),
+                rm(commandDirectory, { force: true, recursive: true }),
+            ]);
+        }
+    });
+
+    test("returns a direct Workbench deep link for Open Flow Server", async () => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+        const captureKey = `open-flow-server-workbench-url-${Bun.randomUUIDv7()}`;
+
+        try {
+            await writeCommandEntry(commandDirectory, [
+                "const url = await host.getWorkbenchUrl('project/1', 'flow/1');",
+                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, url);`,
+                "return 0;",
+            ]);
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+            sandbox.env.OO_OPEN_FLOW_TOKEN = "server-operator-token";
+            sandbox.env.OO_OPEN_FLOW_URL = "https://flow.example.test:8443";
+
+            let requestCount = 0;
+            const result = await sandbox.run(["flow", "workbench", "flow/1"], {
+                fetcher: async () => {
+                    requestCount += 1;
+                    return new Response(null, { status: 200 });
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requestCount).toBe(0);
+            expect(Reflect.get(globalThis, captureKey)).toBe(
+                "https://flow.example.test:8443/projects/project%2F1/flows/flow%2F1/design",
+            );
         }
         finally {
             Reflect.deleteProperty(globalThis, captureKey);
@@ -444,7 +613,7 @@ describe("flow CLI", () => {
         }
     });
 
-    test("shows flow in root help only for the online dev endpoint", async () => {
+    test("shows flow in root help for the online dev endpoint or Open Flow Server", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -453,6 +622,10 @@ describe("flow CLI", () => {
             const productionHelp = await sandbox.run(["--help"]);
             sandbox.env.OO_ENDPOINT = "  oomol.dev  ";
             const devHelp = await sandbox.run(["--help"]);
+            delete sandbox.env.OO_ENDPOINT;
+            sandbox.env.OO_OPEN_FLOW_TOKEN = "server-operator-token";
+            sandbox.env.OO_OPEN_FLOW_URL = "http://127.0.0.1:3000";
+            const serverHelp = await sandbox.run(["--help"]);
 
             expect(defaultHelp.exitCode).toBe(0);
             expect(defaultHelp.stdout).not.toContain("  flow [args...]");
@@ -460,6 +633,8 @@ describe("flow CLI", () => {
             expect(productionHelp.stdout).not.toContain("  flow [args...]");
             expect(devHelp.exitCode).toBe(0);
             expect(devHelp.stdout).toContain("  flow [args...]");
+            expect(serverHelp.exitCode).toBe(0);
+            expect(serverHelp.stdout).toContain("  flow [args...]");
         }
         finally {
             await sandbox.cleanup();
