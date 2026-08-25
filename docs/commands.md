@@ -130,9 +130,10 @@ requiring network access.
   help and never wait for input. The menu can select or create Projects and
   Flows, then call the same stateless view, rename, check, Draft Run, publish,
   and Workbench handlers used by non-interactive commands.
-- The downloaded archive is accepted only when its length, SHA-256 digest,
-  internal manifest, complete file set, and Bun version match the release
-  pinned by `oo`.
+- The downloaded archive is accepted only when its length and SHA-256 digest
+  match the release pinned by `oo`, and its internal manifest and complete file
+  set agree with that release. The Bun build version recorded by the artifact
+  does not need to match the Bun runtime used by `oo`.
 - Command Artifact v2 contains only the Control API CLI entry and license
   files. It does not contain Workbench assets, a Deployment Runtime, skills,
   or a local Project implementation.
