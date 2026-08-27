@@ -342,17 +342,19 @@ Return only:
 Use this URL:
 
 ```text
-https://console.oomol.com/app-connections?provider=${serviceName}
+https://console.oomol.com/team/${teamName}/connections/${serviceName}
 ```
 
-Replace `${serviceName}` with the selected connector service.
+Replace `${teamName}` with the team already selected for the connector
+operation and `${serviceName}` with the selected connector service. Never
+guess a team name or substitute a team id. If no team name is available, use
+`https://console.oomol.com/connections` instead.
 
 That URL applies to the OOMOL-hosted connector. When the user is on a
 self-hosted connector (see the self-hosted connector mode in
 [auth-and-billing.md](auth-and-billing.md)), point connection fixes at the
 self-hosted console instead: use the `connector.url` value from
-`oo auth status --json` as the console address, not
-`https://console.oomol.com/app-connections?provider=...`.
+`oo auth status --json` as the console address, not an OOMOL Console URL.
 
 For `connection_required`, `app_not_found`, or `app_not_ready`, explain that
 the connector has not been connected or authorized yet. For

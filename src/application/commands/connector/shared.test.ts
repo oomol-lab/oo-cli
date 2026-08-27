@@ -13,7 +13,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import {
-    billingTokenRechargeUrl,
+    billingUrl,
     insufficientCreditErrorCode,
 } from "../shared/billing.ts";
 import {
@@ -658,7 +658,7 @@ describe("connector shared requests", () => {
 
             expect(error.key).toBe("errors.billing.insufficientCredit");
             expect(error.params).toEqual({
-                url: billingTokenRechargeUrl,
+                url: billingUrl,
             });
         });
 

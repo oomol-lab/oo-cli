@@ -106,7 +106,7 @@ Failure handling:
 - If any `oo` output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop
   immediately, tell the user their current account has insufficient credit or
   is overdue, and direct them to
-  `https://console.oomol.com/billing/token-recharge` before retrying.
+  `https://console.oomol.com/billing` before retrying.
 - If a command fails with a message saying the self-hosted connector only
   supports connector commands, or with JSON error code `not_authenticated` in
   self-hosted connector mode, an OOMOL account is required. Ask the user to

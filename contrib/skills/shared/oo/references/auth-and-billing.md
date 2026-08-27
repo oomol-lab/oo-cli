@@ -93,7 +93,7 @@ When either appears in any `oo` command output:
 - Ask the user to recharge before retrying at:
 
 ```text
-https://console.oomol.com/billing/token-recharge
+https://console.oomol.com/billing
 ```
 
 ## Other blockers
