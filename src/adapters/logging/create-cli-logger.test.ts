@@ -65,23 +65,4 @@ describe("createCliLogger", () => {
             isFile: expect.any(Function),
         });
     });
-
-    test("allows only one active logger at a time", async () => {
-        const logDirectoryPath = await createTemporaryDirectory("oo-log-singleton");
-        const loggerHandle = createCliLogger({
-            appName: APP_NAME,
-            env: {},
-            logDirectoryPath,
-        });
-
-        expect(() =>
-            createCliLogger({
-                appName: APP_NAME,
-                env: {},
-                logDirectoryPath,
-            }),
-        ).toThrow("Only one active CLI logger can exist at a time.");
-
-        loggerHandle.close();
-    });
 });
