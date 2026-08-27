@@ -18,7 +18,6 @@ import { pathExists, writeChunk } from "../shared/fs-utils.ts";
 import {
     buildCliBinaryDownloadUrl,
     fetchLatestCliReleaseVersion,
-    parseLatestCliSemverReleaseVersion,
 } from "../update/release-metadata.ts";
 import { attemptManagedSkillInstall } from "./bundled-skills.ts";
 import { resolveSelfUpdateCommandResolution } from "./command-resolution.ts";
@@ -104,7 +103,6 @@ export async function resolveLatestSelfUpdateVersion(options: {
         currentVersion: options.currentVersion,
         fetcher: options.fetcher,
         logger: options.logger,
-        parseVersion: parseLatestCliSemverReleaseVersion,
         timeoutMs: selfUpdateReleaseRequestTimeoutMs,
     });
 
