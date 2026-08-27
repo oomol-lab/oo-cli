@@ -308,7 +308,6 @@ const emptyCatalog: CliCatalog = {
 const translator: Translator = {
     locale: "en",
     t: key => key,
-    resolveLocale: () => "en",
 };
 const stdin: InteractiveInput = {
     on() {},

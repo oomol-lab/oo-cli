@@ -69,7 +69,6 @@ const translator: Translator = {
                 return key;
         }
     },
-    resolveLocale: () => "en",
 };
 const stdin: InteractiveInput = {
     on() {},
