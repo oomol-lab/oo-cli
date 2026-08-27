@@ -8,7 +8,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { billingTokenRechargeUrl } from "./billing.ts";
+import { billingUrl } from "./billing.ts";
 import {
     isNetworkRestrictedSandboxError,
     probeOo,
@@ -329,7 +329,7 @@ describe("requestOo", () => {
                 },
             })).rejects.toMatchObject({
                 key: "errors.billing.insufficientCredit",
-                params: { url: billingTokenRechargeUrl },
+                params: { url: billingUrl },
             });
 
             expect(statusErrorsCalled).toBeFalse();

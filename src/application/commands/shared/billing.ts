@@ -2,12 +2,11 @@ import { CliUserError } from "../../contracts/cli.ts";
 
 export const insufficientCreditHttpStatus = 402;
 export const insufficientCreditErrorCode = "OOMOL_INSUFFICIENT_CREDIT";
-export const billingTokenRechargeUrl
-    = "https://console.oomol.com/billing/token-recharge";
+export const billingUrl = "https://console.oomol.com/billing";
 
 export function createInsufficientCreditError(): CliUserError {
     return new CliUserError("errors.billing.insufficientCredit", 1, {
-        url: billingTokenRechargeUrl,
+        url: billingUrl,
     });
 }
 
