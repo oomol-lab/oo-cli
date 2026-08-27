@@ -11,10 +11,11 @@ import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallation,
 } from "../managed-skill-hosts.ts";
+import { publishManagedBundledSkill } from "../shared.ts";
 import {
-    isUnmanagedBundledSkillDirectory,
-    publishManagedBundledSkill,
-} from "../shared.ts";
+    isBundledSkillDirectoryWritable,
+    readSkillDirectoryState,
+} from "../skill-directory-state.ts";
 
 type SkillAutoTriggerPublishContext = Pick<
     CliExecutionContext,
@@ -71,11 +72,9 @@ async function publishOneBundledSkill(
     };
 
     try {
-        const unmanaged = await Promise.all([
-            isUnmanagedBundledSkillDirectory(
-                installation.installedSkillDirectoryPath,
-            ),
-            isUnmanagedBundledSkillDirectory(
+        const states = await Promise.all([
+            readSkillDirectoryState(installation.installedSkillDirectoryPath),
+            readSkillDirectoryState(
                 resolveBundledSkillCanonicalDirectoryPath(
                     settingsFilePath,
                     skillName,
@@ -83,8 +82,12 @@ async function publishOneBundledSkill(
                 ),
             ),
         ]);
+        const blocked = states.some(state => !isBundledSkillDirectoryWritable(
+            state,
+            { reclaimNonDirectory: true },
+        ));
 
-        if (unmanaged.includes(true)) {
+        if (blocked) {
             context.logger.warn(
                 logFields,
                 "Auto-trigger publication skipped because the target is not managed by oo.",

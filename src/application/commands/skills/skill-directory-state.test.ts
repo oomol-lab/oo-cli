@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createTemporaryDirectory } from "../../../../__tests__/helpers.ts";
 import { resolveManagedSkillMetadataFilePath } from "./managed-skill-paths.ts";
 import {
+    isBundledSkillDirectoryWritable,
     isCurrentRegistryPublication,
     isSkillDirectoryAbsent,
     readSkillDirectoryState,
@@ -306,6 +307,95 @@ describe("isSkillDirectoryAbsent", () => {
             expect(isSkillDirectoryAbsent(state)).toBeFalse();
         });
     }
+});
+
+describe("isBundledSkillDirectoryWritable", () => {
+    // These answers do not depend on reclaimNonDirectory, so each is asserted
+    // under both callers' policies.
+    const writableCases = [
+        { state: { kind: "missing" }, title: "a missing state" },
+        { state: { kind: "empty" }, title: "an empty state" },
+        {
+            state: {
+                kind: "managed",
+                metadata: createBundledSkillMetadata("1.2.3"),
+                publicationCurrent: true,
+            },
+            title: "oo's own bundled metadata",
+        },
+        {
+            state: {
+                kind: "managed",
+                metadata: createBundledSkillMetadata("1.2.3"),
+                publicationCurrent: false,
+            },
+            title: "a stale bundled publication",
+        },
+    ] satisfies readonly { state: SkillDirectoryState; title: string }[];
+
+    const blockedCases = [
+        {
+            state: { kind: "unmanaged", metadataFilePresent: false },
+            title: "an unmanaged state without a metadata file",
+        },
+        {
+            state: { kind: "unmanaged", metadataFilePresent: true },
+            title: "an unmanaged state with an unparseable metadata file",
+        },
+        {
+            state: {
+                kind: "managed",
+                metadata: createRegistrySkillMetadata({
+                    packageName: "@scope/package",
+                    version: "1.2.3",
+                }),
+                publicationCurrent: true,
+            },
+            title: "a registry skill",
+        },
+        {
+            state: {
+                kind: "managed",
+                metadata: createLocalSkillMetadata(),
+                publicationCurrent: true,
+            },
+            title: "a local skill",
+        },
+    ] satisfies readonly { state: SkillDirectoryState; title: string }[];
+
+    for (const { state, title } of writableCases) {
+        test(`treats ${title} as writable`, () => {
+            expect(isBundledSkillDirectoryWritable(state, {
+                reclaimNonDirectory: true,
+            })).toBeTrue();
+            expect(isBundledSkillDirectoryWritable(state, {
+                reclaimNonDirectory: false,
+            })).toBeTrue();
+        });
+    }
+
+    for (const { state, title } of blockedCases) {
+        test(`refuses ${title}`, () => {
+            expect(isBundledSkillDirectoryWritable(state, {
+                reclaimNonDirectory: true,
+            })).toBeFalse();
+            expect(isBundledSkillDirectoryWritable(state, {
+                reclaimNonDirectory: false,
+            })).toBeFalse();
+        });
+    }
+
+    test("reclaims a not-directory state when the caller allows it", () => {
+        expect(isBundledSkillDirectoryWritable({ kind: "not-directory" }, {
+            reclaimNonDirectory: true,
+        })).toBeTrue();
+    });
+
+    test("refuses a not-directory state when the caller forbids it", () => {
+        expect(isBundledSkillDirectoryWritable({ kind: "not-directory" }, {
+            reclaimNonDirectory: false,
+        })).toBeFalse();
+    });
 });
 
 async function writeSkillDirectory(metadataContent: string): Promise<string> {

@@ -134,6 +134,74 @@ describe("skills CLI", () => {
         }
     });
 
+    // An install interrupted after the target directory was created but before
+    // its files were written leaves an empty directory. It holds no skill, so
+    // startup synchronization fills it like a missing one. Same state #337
+    // fixed for the install path.
+    test("synchronizes a bundled skill into an empty target directory during cli startup", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
+
+        try {
+            await mkdir(skillDirectoryPath, { recursive: true });
+
+            const result = await sandbox.run(["--help"], {
+                version: "9.9.9",
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(await readFile(join(skillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                await readBundledSkillSourceContent("oo", "SKILL.md"),
+            );
+            expect(
+                await readFile(
+                    resolveBundledSkillMetadataFilePath(skillDirectoryPath),
+                    "utf8",
+                ),
+            ).toBe(renderSkillMetadataJson(createBundledSkillMetadata("9.9.9")));
+            expect(content).toContain(
+                `"msg":"Bundled skill synchronized during CLI startup."`,
+            );
+            expect(content).not.toContain(
+                `"msg":"Bundled skill startup synchronization skipped because the target is not managed by oo."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    // The other half of the ownership policy: startup synchronization runs
+    // unasked, so it never deletes a file the user never pointed it at.
+    test("leaves a file occupying a bundled skill target path untouched during cli startup", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const skillTargetPath = join(universalHomeDirectory, "skills", "oo");
+
+        try {
+            await mkdir(join(universalHomeDirectory, "skills"), { recursive: true });
+            await Bun.write(skillTargetPath, "not a directory\n");
+
+            const result = await sandbox.run(["--help"], {
+                version: "9.9.9",
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(await readFile(skillTargetPath, "utf8")).toBe("not a directory\n");
+            expect(content).toContain(
+                `"msg":"Bundled skill startup synchronization skipped because the target is not managed by oo."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("does not auto-refresh installed bundled skills during development-version cli startup", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");

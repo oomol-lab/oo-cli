@@ -35,7 +35,10 @@ import {
     resolveAvailableManagedSkillHosts,
     resolveManagedSkillHostInstallation,
 } from "./managed-skill-hosts.ts";
-import { readSkillDirectoryState } from "./skill-directory-state.ts";
+import {
+    isBundledSkillDirectoryWritable,
+    readSkillDirectoryState,
+} from "./skill-directory-state.ts";
 
 export interface BundledSkillHostInstallation extends ManagedSkillHostInstallation {
     canonicalSkillDirectoryPath: string;
@@ -206,10 +209,14 @@ async function validateBundledSkillInstallationTarget(
     context: Pick<CliExecutionContext, "logger">,
     force: boolean,
 ): Promise<void> {
+    const installedState = await readSkillDirectoryState(
+        installation.installedSkillDirectoryPath,
+    );
+
     if (
-        await isUnmanagedBundledSkillDirectory(
-            installation.installedSkillDirectoryPath,
-        )
+        !isBundledSkillDirectoryWritable(installedState, {
+            reclaimNonDirectory: true,
+        })
     ) {
         reportUnmanagedBundledSkillConflict(context.logger, {
             agentName: installation.agentName,
@@ -222,10 +229,14 @@ async function validateBundledSkillInstallationTarget(
         });
     }
 
+    const canonicalState = await readSkillDirectoryState(
+        installation.canonicalSkillDirectoryPath,
+    );
+
     if (
-        !(await isUnmanagedBundledSkillDirectory(
-            installation.canonicalSkillDirectoryPath,
-        ))
+        isBundledSkillDirectoryWritable(canonicalState, {
+            reclaimNonDirectory: true,
+        })
     ) {
         return;
     }
@@ -239,17 +250,6 @@ async function validateBundledSkillInstallationTarget(
         path: installation.canonicalSkillDirectoryPath,
         skillName,
     });
-}
-
-// A directory is present at the path but does not carry bundled oo metadata,
-// so installing over it would clobber content oo does not own.
-export async function isUnmanagedBundledSkillDirectory(
-    skillDirectoryPath: string,
-): Promise<boolean> {
-    const state = await readSkillDirectoryState(skillDirectoryPath);
-
-    return state.kind === "unmanaged"
-        || (state.kind === "managed" && state.metadata.kind !== "bundled");
 }
 
 function reportUnmanagedBundledSkillConflict(

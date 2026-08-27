@@ -31,6 +31,7 @@ import {
 } from "./managed-skill-paths.ts";
 import { publishManagedBundledSkill } from "./shared.ts";
 import {
+    isBundledSkillDirectoryWritable,
     managedMetadataOfKind,
     readSkillDirectoryState,
 } from "./skill-directory-state.ts";
@@ -105,9 +106,11 @@ async function synchronizeBundledSkill(
         const targetState = await readSkillDirectoryState(
             installation.installedSkillDirectoryPath,
         );
-        const installedMetadata = managedMetadataOfKind(targetState, "bundled");
-
-        if (targetState.kind !== "missing" && installedMetadata === undefined) {
+        if (
+            !isBundledSkillDirectoryWritable(targetState, {
+                reclaimNonDirectory: false,
+            })
+        ) {
             context.logger.warn(
                 {
                     agentName: host.agentName,
@@ -118,6 +121,8 @@ async function synchronizeBundledSkill(
             );
             return;
         }
+
+        const installedMetadata = managedMetadataOfKind(targetState, "bundled");
 
         if (installedMetadata?.version === context.version) {
             return;
@@ -215,13 +220,10 @@ async function canWriteBundledCanonicalSkill(
         canonicalSkillDirectoryPath,
     );
 
-    // A path occupied by a non-directory is not writable, so "absent" is too
-    // wide here; an empty directory is reclaimable like a missing one.
     if (
-        canonicalState.kind === "missing"
-        || canonicalState.kind === "empty"
-        || (canonicalState.kind === "managed"
-            && canonicalState.metadata.kind === "bundled")
+        isBundledSkillDirectoryWritable(canonicalState, {
+            reclaimNonDirectory: false,
+        })
     ) {
         return true;
     }

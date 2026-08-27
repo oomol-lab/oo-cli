@@ -1130,7 +1130,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   skill，用 `oo skills update` 刷新 registry skill，从而显式替换历史软链接。成功
   的 `oo install` / `oo update` 会运行这两个维护步骤。
 - 安全规则：启动同步不会请求 registry，不要求登录，不会产生额外命令输出，也
-  不会覆盖不由 `oo` 管理的同名目标。
+  不会覆盖不由 `oo` 管理的同名目标。空的目标目录不含任何 skill，因此会像缺失
+  目标一样被直接填充。
 
 ### `oo skills info`
 

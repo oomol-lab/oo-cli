@@ -1355,7 +1355,9 @@ missing), and for every other supported host directory that already exists.
   Successful `oo install` and `oo update` workflows run both maintenance steps.
 - Safety: startup synchronization does not fetch registry data, does not
   require authentication, does not print additional command output, and does
-  not overwrite same-name targets that are not managed by `oo`.
+  not overwrite same-name targets that are not managed by `oo`. An empty
+  target directory holds no skill, so it is filled the same way a missing one
+  is.
 
 ### `oo skills info`
 

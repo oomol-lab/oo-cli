@@ -1,6 +1,6 @@
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
@@ -142,6 +142,45 @@ describe("skills install --json", () => {
                 status: "installed",
                 previousState: "unmanaged",
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    // The other half of the bundled ownership policy: an explicit publication
+    // reclaims a regular file occupying the target path, with no --force. This
+    // has always been the behavior; the test exists so it cannot change by
+    // accident.
+    test("bundled install replaces a file occupying the target path without --force", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const homeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+            const ooDir = resolveManagedSkillDirectoryPath(homeDirectory, "oo");
+
+            await mkdir(dirname(ooDir), { recursive: true });
+            await writeFile(ooDir, "not a directory\n");
+
+            const result = await sandbox.run(
+                ["skills", "install", "oo", "--json"],
+                { version: TEST_CLI_VERSION },
+            );
+
+            expect(result.exitCode).toBe(0);
+            const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+            const skills = payload.skills as Array<Record<string, unknown>>;
+            const ooSkill = skills.find(s => s.skillId === "oo");
+
+            expect(ooSkill).toBeDefined();
+            const targets = ooSkill!.targets as Array<Record<string, unknown>>;
+            const universalTarget = targets.find(t => t.agentId === "universal");
+
+            expect(universalTarget).toMatchObject({
+                status: "installed",
+                previousState: "absent",
+            });
+            expect(await readFile(join(ooDir, "SKILL.md"), "utf8")).not.toBe("");
         }
         finally {
             await sandbox.cleanup();
