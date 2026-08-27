@@ -24,10 +24,17 @@ describe("createTranslator", () => {
         })).toBe("Logged in to $& account $$");
     });
 
-    test("falls back to the english message and then to the key", () => {
-        const translator = createTranslator("zh");
+    test("resolves the message for the requested locale", () => {
+        expect(createTranslator("zh").t("labels.status")).toBe("状态");
+        expect(createTranslator("en").t("labels.status")).toBe("Status");
+    });
 
-        expect(translator.t("labels.status")).toBe("状态");
-        expect(translator.t("no.such.key")).toBe("no.such.key");
+    // The remaining branch, falling back to the English message when a locale
+    // lacks the key, cannot be exercised against the real catalog: the
+    // "both locales declare the same key set" test in catalog.test.ts makes an
+    // English-only key impossible to ship, so the branch is defensive only.
+    test("returns the key itself when no message exists", () => {
+        expect(createTranslator("zh").t("no.such.key")).toBe("no.such.key");
+        expect(createTranslator("en").t("no.such.key")).toBe("no.such.key");
     });
 });
