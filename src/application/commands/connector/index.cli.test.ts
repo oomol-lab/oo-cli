@@ -159,6 +159,7 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("gmail.send_mail");
             expect(result.stdout).toContain("Send a Gmail message.");
             expect(result.stdout).toContain("Authenticated: yes");
+            expect(result.stdout).toContain("Access status: available");
             expect(result.stdout).not.toContain("Schema path");
             expect(JSON.parse(schemaResult.stdout)).toEqual({
                 description: "Fresh Send a Gmail message.",
@@ -278,6 +279,7 @@ describe("connectorCommand CLI", () => {
                         if (request.url.includes("/v1/actions/search")) {
                             return createConnectorSearchResponse([
                                 {
+                                    accessStatus: "connection_required",
                                     authenticated: false,
                                     description: "Submit OpenAI image generation.",
                                     name: "openai_image_async_submit",
@@ -431,6 +433,7 @@ describe("connectorCommand CLI", () => {
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
             expect(JSON.parse(result.stdout)).toEqual([
                 {
+                    accessStatus: "connection_required",
                     authenticated: false,
                     description: "Send a Gmail message.",
                     name: "send_mail",
@@ -487,6 +490,9 @@ describe("connectorCommand CLI", () => {
                 `${colors.hex(connectorSearchServiceColor)("gmail")}.${colors.hex(connectorSearchActionColor)("send_mail")}`,
             );
             expect(result.stdout).toContain(`Authenticated: ${colors.green("yes")}`);
+            expect(result.stdout).toContain(
+                `Access status: ${colors.green("available")}`,
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -5363,6 +5369,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.headers.get("Authorization")).toBe("Bearer oct_test");
             expect(JSON.parse(result.stdout)).toEqual([
                 {
+                    accessStatus: "available",
                     authenticated: true,
                     description: "Send a Gmail message.",
                     name: "send_mail",
@@ -5459,6 +5466,7 @@ function createAsyncResultActionSchema(
 
 function createConnectorSearchResponse(
     actions: Array<{
+        accessStatus?: "available" | "connection_required";
         authenticated: boolean;
         description: string;
         inputSchema?: Record<string, unknown>;

@@ -297,8 +297,8 @@ status, a non-JSON body, or an envelope where `success` or `data.ok` is not
 ### Search response (`GET /v1/actions/search`)
 
 Return a JSON object with a `data` array. Each entry describes one action; the
-CLI reads `service`, `name`, `description`, `authenticated`, `inputSchema`, and
-`outputSchema`:
+CLI reads `service`, `name`, `description`, `authenticated`, `accessStatus`,
+`inputSchema`, and `outputSchema`:
 
 ```json
 {
@@ -308,6 +308,7 @@ CLI reads `service`, `name`, `description`, `authenticated`, `inputSchema`, and
       "name": "send_email",
       "description": "Send an email",
       "authenticated": true,
+      "accessStatus": "available",
       "inputSchema": { "...": "..." },
       "outputSchema": { "...": "..." }
     }
@@ -316,8 +317,12 @@ CLI reads `service`, `name`, `description`, `authenticated`, `inputSchema`, and
 ```
 
 `authenticated` reflects whether the service already has a connected,
-authorized app on the server. The CLI surfaces it directly in search output and
-warms its local schema cache from the returned `inputSchema` / `outputSchema`.
+authorized app on the server. `accessStatus` is either `available` or
+`connection_required` and indicates whether the action can be used immediately.
+The server may omit `accessStatus`; the CLI then derives `available` when
+`authenticated` is `true`, and `connection_required` otherwise.
+The CLI surfaces both fields directly in search output and warms its local schema
+cache from the returned `inputSchema` / `outputSchema`.
 
 ### Metadata response (`GET /v1/actions/<service>.<action>`)
 

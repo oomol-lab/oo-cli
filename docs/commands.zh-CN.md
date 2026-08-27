@@ -888,14 +888,15 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   当前账号保存的默认团队，最后回退到个人身份。
 - 选项：`--personal` 以个人身份报告 `authenticated`，忽略 `OO_TEAM_ID` /
   `OO_TEAM_NAME` 环境变量与任何已配置的默认团队；不能与 `--team` 同用。
-- 输出：每条结果都会包含 `authenticated`。
+- 输出：每条结果都会包含 `authenticated` 和 `accessStatus`。
 - 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
-  `authenticated`。
+  `authenticated` 和 `accessStatus`。`accessStatus` 的值为 `available` 或
+  `connection_required`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
-  描述和认证状态。
-- 说明：action 列表本身与身份无关，只有每条结果的 `authenticated` 状态反映
-  有效身份下的已连接应用；因此连接在团队下的应用只有当该团队为有效身份时才显示
-  为已认证。
+  描述、认证状态和访问状态。
+- 说明：action 列表本身与身份无关，每条结果的 `authenticated` 和
+  `accessStatus` 字段反映有效身份下的已连接应用；因此团队下的连接只有当该团队为
+  有效身份时才会影响这两个字段。
 - 说明：使用 `oo connector schema "<service>.<action>"` 查看选中 action 的
   contract。
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
@@ -1089,14 +1090,15 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   当前账号保存的默认团队，最后回退到个人身份。
 - 选项：`--personal` 以个人身份报告 `authenticated`，忽略 `OO_TEAM_ID` /
   `OO_TEAM_NAME` 环境变量与任何已配置的默认团队；不能与 `--team` 同用。
-- 输出：每条结果都会包含 `authenticated`。
+- 输出：每条结果都会包含 `authenticated` 和 `accessStatus`。
 - 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
-  `authenticated`。
+  `authenticated` 和 `accessStatus`。`accessStatus` 的值为 `available` 或
+  `connection_required`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
-  描述和认证状态。
-- 说明：action 列表本身与身份无关，只有每条结果的 `authenticated` 状态反映
-  有效身份下的已连接应用；因此连接在团队下的应用只有当该团队为有效身份时才显示
-  为已认证。
+  描述、认证状态和访问状态。
+- 说明：action 列表本身与身份无关，每条结果的 `authenticated` 和
+  `accessStatus` 字段反映有效身份下的已连接应用；因此团队下的连接只有当该团队为
+  有效身份时才会影响这两个字段。
 - 说明：使用 `oo connector schema "<service>.<action>"` 获取完整 connector
   action contract。
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后

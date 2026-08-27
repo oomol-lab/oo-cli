@@ -1063,15 +1063,16 @@ Search connector actions with free-form text.
 - Options: `--personal` reports `authenticated` under your personal identity and
   ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
   configured default team. It cannot be combined with `--team`.
-- Output: every match includes `authenticated`.
+- Output: every match includes `authenticated` and `accessStatus`.
 - Output: JSON entries include the stable CLI fields `service`, `name`,
-  `description`, and `authenticated`.
+  `description`, `authenticated`, and `accessStatus`. `accessStatus` is either
+  `available` or `connection_required`.
 - Output: text output prints one block per action with the service/action
-  label, optional description, and authenticated state.
-- Notes: the action list itself does not depend on identity; only each result's
-  `authenticated` state reflects the effective identity's connected apps, so an
-  app connected under a team appears as authenticated only when that team is the
-  effective identity.
+  label, optional description, authenticated state, and access status.
+- Notes: the action list itself does not depend on identity; each result's
+  `authenticated` and `accessStatus` fields reflect the effective identity's
+  connected apps, so a connection under a team affects both fields only when
+  that team is the effective identity.
 - Notes: use `oo connector schema "<service>.<action>"` to inspect the selected
   action contract.
 - Notes: search results also warm the local action schema cache when schema
@@ -1305,15 +1306,16 @@ Search connector actions with one free-form query.
 - Options: `--personal` reports `authenticated` under your personal identity and
   ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
   configured default team. It cannot be combined with `--team`.
-- Output: every match includes `authenticated`.
+- Output: every match includes `authenticated` and `accessStatus`.
 - Output: JSON entries include the stable CLI fields `service`, `name`,
-  `description`, and `authenticated`.
+  `description`, `authenticated`, and `accessStatus`. `accessStatus` is either
+  `available` or `connection_required`.
 - Output: text output prints one block per action with the service/action
-  label, optional description, and authenticated state.
-- Notes: the action list itself does not depend on identity; only each result's
-  `authenticated` state reflects the effective identity's connected apps, so an
-  app connected under a team appears as authenticated only when that team is the
-  effective identity.
+  label, optional description, authenticated state, and access status.
+- Notes: the action list itself does not depend on identity; each result's
+  `authenticated` and `accessStatus` fields reflect the effective identity's
+  connected apps, so a connection under a team affects both fields only when
+  that team is the effective identity.
 - Notes: use `oo connector schema "<service>.<action>"` to inspect the full
   connector action contract.
 - Notes: search results also warm the local action schema cache when schema

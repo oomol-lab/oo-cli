@@ -8,6 +8,7 @@ exports[`searchCommand CLI searches connector actions with text output 1`] = `
 "gmail.send_mail
 Send a Gmail message.
 Authenticated: yes
+Access status: available
 "
 ,
 }
@@ -18,7 +19,7 @@ exports[`searchCommand CLI supports connector search with json output 1`] = `
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"[{"authenticated":false,"description":"Send a Gmail message.","name":"send_mail","service":"gmail"}]
+"[{"accessStatus":"connection_required","authenticated":false,"description":"Send a Gmail message.","name":"send_mail","service":"gmail"}]
 "
 ,
 }

@@ -76,14 +76,24 @@ export const connectorActionMetadataSchema = connectorActionDefinitionSchema.ext
     ),
 }).passthrough();
 
+const connectorActionAccessStatusSchema = z.enum([
+    "available",
+    "connection_required",
+]);
+
 const connectorActionSearchResultSchema = z.object({
+    accessStatus: connectorActionAccessStatusSchema.optional(),
     authenticated: z.boolean(),
     description: z.string().optional().default(""),
     inputSchema: z.unknown(),
     name: z.string().min(1),
     outputSchema: z.unknown(),
     service: z.string().min(1),
-});
+}).transform(({ accessStatus, ...result }) => ({
+    accessStatus: accessStatus
+        ?? (result.authenticated ? "available" : "connection_required"),
+    ...result,
+}));
 
 const connectorActionSearchResponseSchema = z.object({
     data: z.array(connectorActionSearchResultSchema).optional().default([]),
@@ -179,6 +189,7 @@ export function requireConnectorActionName(rawAction: string | undefined): strin
 }
 
 export type ConnectorActionSearchResult = z.output<typeof connectorActionSearchResultSchema>;
+export type ConnectorActionAccessStatus = z.output<typeof connectorActionAccessStatusSchema>;
 export type ConnectorActionAsyncLifecycle = z.output<typeof connectorActionAsyncLifecycleSchema>;
 export type ConnectorActionMetadata = z.output<typeof connectorActionMetadataSchema>;
 export type ConnectorActionRunResponse = z.output<typeof connectorActionRunResponseSchema>;

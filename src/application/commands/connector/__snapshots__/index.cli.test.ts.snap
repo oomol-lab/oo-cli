@@ -8,6 +8,7 @@ exports[`connectorCommand CLI supports connector search with text output without
 "gmail.send_mail
 Send a Gmail message.
 Authenticated: yes
+Access status: available
 "
 ,
 }
@@ -18,7 +19,7 @@ exports[`connectorCommand CLI supports connector search with json output and omi
   "exitCode": 0,
   "stderr": "",
   "stdout": 
-"[{"authenticated":false,"description":"Send a Gmail message.","name":"send_mail","service":"gmail"}]
+"[{"accessStatus":"connection_required","authenticated":false,"description":"Send a Gmail message.","name":"send_mail","service":"gmail"}]
 "
 ,
 }
@@ -32,6 +33,7 @@ exports[`connectorCommand CLI renders connector search output with field-specifi
 "gmail.send_mail
 Send a Gmail message.
 Authenticated: yes
+Access status: available
 "
 ,
 }

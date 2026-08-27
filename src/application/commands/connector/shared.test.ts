@@ -41,6 +41,7 @@ describe("connector shared requests", () => {
                         message: "ok",
                         data: [
                             {
+                                accessStatus: "available",
                                 authenticated: true,
                                 description: "Send a Gmail message.",
                                 inputSchema: {
@@ -60,6 +61,7 @@ describe("connector shared requests", () => {
 
         expect(actions).toEqual([
             {
+                accessStatus: "available",
                 authenticated: true,
                 description: "Send a Gmail message.",
                 inputSchema: {
@@ -102,6 +104,7 @@ describe("connector shared requests", () => {
 
         expect(actions).toEqual([
             {
+                accessStatus: "connection_required",
                 authenticated: false,
                 description: "",
                 inputSchema: undefined,
@@ -870,6 +873,7 @@ describe("connector shared requests", () => {
 
         expect(actions).toEqual([
             {
+                accessStatus: "connection_required",
                 authenticated: false,
                 description: "Send a Gmail message.",
                 inputSchema: undefined,

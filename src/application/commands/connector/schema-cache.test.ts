@@ -851,6 +851,7 @@ function createSearchResultFixture(
     overrides: Partial<ConnectorActionSearchResult> = {},
 ): ConnectorActionSearchResult {
     return {
+        accessStatus: "available",
         authenticated: true,
         ...createConnectorActionFixture(),
         ...overrides,

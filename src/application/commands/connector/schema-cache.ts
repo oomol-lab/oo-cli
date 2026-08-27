@@ -156,11 +156,11 @@ export async function loadConnectorActionSchema(
  * Best-effort bulk populator that warms the action schema cache from connector
  * search responses. Owns the whole warm-time policy: results without both
  * schema payloads are not cacheable and are skipped, identity-scoped fields
- * (notably the team-scoped `authenticated` flag, which must not enter a cache
- * keyed without a team dimension) are stripped before storing, and failures
- * are logged instead of surfacing — the caller's flow never fails on a cache
- * write. `loadConnectorActionSchema` still fills the cache lazily from the
- * metadata API for anything search did not cover.
+ * (notably the team-scoped `authenticated` and `accessStatus` fields, which
+ * must not enter a cache keyed without a team dimension) are stripped before
+ * storing, and failures are logged instead of surfacing — the caller's flow
+ * never fails on a cache write. `loadConnectorActionSchema` still fills the
+ * cache lazily from the metadata API for anything search did not cover.
  */
 export async function warmConnectorActionSchemas(
     actions: readonly ConnectorActionSearchResult[],

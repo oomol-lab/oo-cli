@@ -39,6 +39,7 @@ describe("connector search provider", () => {
                             message: "ok",
                             data: [
                                 {
+                                    accessStatus: "available",
                                     authenticated: true,
                                     description: "Send a Gmail message.",
                                     inputSchema: {
@@ -61,6 +62,7 @@ describe("connector search provider", () => {
 
         expect(results).toEqual([
             {
+                accessStatus: "available",
                 authenticated: true,
                 description: "Send a Gmail message.",
                 name: "send_mail",
@@ -72,8 +74,8 @@ describe("connector search provider", () => {
         ]);
 
         // The warmed entry serves a later schema load without a fetch (the
-        // context fetcher rejects every request), and the identity-scoped
-        // `authenticated` flag from the search response is not stored.
+        // context fetcher rejects every request), and identity-scoped fields
+        // from the search response are not stored.
         const warmed = await loadConnectorActionSchema(
             {
                 target: createConnectorTargetFixture(),
@@ -100,6 +102,7 @@ describe("connector search provider", () => {
             service: "gmail",
         });
         expect("authenticated" in warmed).toBeFalse();
+        expect("accessStatus" in warmed).toBeFalse();
     });
 
     test("returns search results when schema cache warming fails", async () => {
@@ -139,6 +142,7 @@ describe("connector search provider", () => {
 
         expect(results).toEqual([
             {
+                accessStatus: "available",
                 authenticated: true,
                 description: "Send a Gmail message.",
                 name: "send_mail",
@@ -192,12 +196,14 @@ describe("connector search provider", () => {
         ]);
         expect(results).toEqual([
             {
+                accessStatus: "available",
                 authenticated: true,
                 description: "Send a Gmail message.",
                 name: "send_mail",
                 service: "gmail",
             },
             {
+                accessStatus: "connection_required",
                 authenticated: false,
                 description: "Send a Slack message.",
                 name: "post_message",
@@ -225,12 +231,14 @@ describe("connector search provider", () => {
                         success: true,
                         data: [
                             {
+                                accessStatus: "available",
                                 authenticated: true,
                                 description: "Send a Gmail message.",
                                 name: "send_mail",
                                 service: "gmail",
                             },
                             {
+                                accessStatus: "connection_required",
                                 authenticated: false,
                                 description: "Send a Slack message.",
                                 name: "post_message",
@@ -247,12 +255,14 @@ describe("connector search provider", () => {
         ]);
         expect(results).toEqual([
             {
+                accessStatus: "available",
                 authenticated: true,
                 description: "Send a Gmail message.",
                 name: "send_mail",
                 service: "gmail",
             },
             {
+                accessStatus: "connection_required",
                 authenticated: false,
                 description: "Send a Slack message.",
                 name: "post_message",
