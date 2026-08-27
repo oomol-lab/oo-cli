@@ -84,9 +84,6 @@ export function createDownloadSessionStoreSpy(
             findDownloadSessions() {
                 return Promise.resolve(currentSession === undefined ? [] : [currentSession]);
             },
-            getFilePath() {
-                return "";
-            },
             saveDownloadSession(record) {
                 savedSessions.push(record);
                 currentSession = record;

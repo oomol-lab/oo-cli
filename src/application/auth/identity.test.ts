@@ -440,7 +440,6 @@ function createThrowingConnectorStore(): ConnectorStore {
     };
 
     return {
-        getFilePath: () => "<broken-connector-store>",
         read: async () => fail(),
         write: async () => fail(),
         update: async () => fail(),

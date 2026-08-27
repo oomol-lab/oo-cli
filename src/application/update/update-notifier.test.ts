@@ -516,6 +516,5 @@ function createMemoryCacheStore(now: () => number): CacheStore {
 
             return cache;
         },
-        getFilePath: () => "",
     };
 }

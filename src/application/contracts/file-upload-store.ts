@@ -18,7 +18,6 @@ export interface FileUploadListOptions {
 }
 
 export interface FileUploadRecordStore {
-    getFilePath: () => string;
     save: (record: FileUploadRecord) => void;
     list: (options: FileUploadListOptions) => FileUploadRecord[];
     deleteExpired: (now: number) => number;

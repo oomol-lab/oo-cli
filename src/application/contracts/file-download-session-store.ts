@@ -18,7 +18,6 @@ export interface FileDownloadSessionRecord extends FileDownloadSessionKey {
 }
 
 export interface FileDownloadSessionStore {
-    getFilePath: () => string;
     deleteDownloadSession: (id: string) => Promise<boolean>;
     deleteDownloadSessionsUpdatedBefore: (cutoffMs: number) => Promise<number>;
     findDownloadSession: (

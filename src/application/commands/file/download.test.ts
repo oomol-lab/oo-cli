@@ -344,9 +344,6 @@ function createFailingMetadataSessionStore(): CliExecutionContext["fileDownloadS
         findDownloadSessions() {
             return Promise.resolve([]);
         },
-        getFilePath() {
-            return "";
-        },
         saveDownloadSession() {
             return Promise.reject(new Error("save failed"));
         },

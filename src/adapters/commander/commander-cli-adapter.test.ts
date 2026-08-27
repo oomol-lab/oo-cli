@@ -358,9 +358,6 @@ function createCommanderContext(
             write: async auth => auth,
         },
         connectorStore: {
-            getFilePath() {
-                return "";
-            },
             read: async () => ({}),
             update: async updater => updater({}),
             write: async connectorFile => connectorFile,
@@ -381,9 +378,6 @@ function createCommanderContext(
                     },
                     set() {},
                 };
-            },
-            getFilePath() {
-                return "";
             },
         },
         catalog,

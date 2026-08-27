@@ -65,10 +65,6 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
         private readonly options: SidecarFileDownloadSessionStoreOptions = {},
     ) {}
 
-    getFilePath(): string {
-        return this.directoryPath;
-    }
-
     async findDownloadSession(
         key: FileDownloadSessionKey,
     ): Promise<FileDownloadSessionRecord | undefined> {

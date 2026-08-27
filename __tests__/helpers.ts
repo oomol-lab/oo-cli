@@ -176,7 +176,6 @@ export function createNoopFileUploadStore(): FileUploadRecordStore {
     return {
         close() {},
         deleteExpired: () => 0,
-        getFilePath: () => "",
         list: () => [],
         save() {},
     };
@@ -189,7 +188,6 @@ export function createNoopFileDownloadSessionStore(): FileDownloadSessionStore {
         deleteDownloadSessionsUpdatedBefore: () => Promise.resolve(0),
         findDownloadSession: () => Promise.resolve(undefined),
         findDownloadSessions: () => Promise.resolve([]),
-        getFilePath: () => "",
         saveDownloadSession: () => Promise.resolve(),
     };
 }
@@ -523,7 +521,6 @@ export function createInMemoryConnectorStore(
     let connectorFile: ConnectorFile = initial;
 
     return {
-        getFilePath: () => "<in-memory-connector-store>",
         read: async () => connectorFile,
         update: async (updater) => {
             connectorFile = updater(connectorFile);
@@ -1011,7 +1008,6 @@ export function createCacheStore<Value>(
     cacheOptions?: CacheOptions[],
 ): CacheStore {
     return {
-        getFilePath: () => "",
         getCache: <CurrentValue>(options: CacheOptions) => {
             cacheOptions?.push(options);
 

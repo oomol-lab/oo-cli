@@ -870,9 +870,6 @@ function createCleanupCacheStore(
                 set() {},
             };
         },
-        getFilePath() {
-            return "";
-        },
     };
 }
 
@@ -890,9 +887,6 @@ function createCleanupFileUploadStore(
         },
         deleteExpired() {
             return 0;
-        },
-        getFilePath() {
-            return "";
         },
         list() {
             return [];
@@ -924,9 +918,6 @@ function createCleanupFileDownloadSessionStore(
         },
         findDownloadSessions() {
             return Promise.resolve([]);
-        },
-        getFilePath() {
-            return "";
         },
         saveDownloadSession() {
             return Promise.resolve();
