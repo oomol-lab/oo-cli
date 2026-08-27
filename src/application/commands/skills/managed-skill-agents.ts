@@ -192,6 +192,28 @@ export function parseManagedSkillAgentOption(
     });
 }
 
+/**
+ * Resolves the `--agent` value for a command that cannot run without one.
+ * A missing value and a value the parser rejects both mean "no agent was
+ * chosen", so both raise the caller's agentRequired error.
+ */
+export function parseRequiredManagedSkillAgent(
+    value: string | undefined,
+    errorKeys: { agentRequired: string; invalidAgent: string },
+): BundledSkillAgentName {
+    if (value === undefined) {
+        throw createMissingRequiredSkillAgentError(errorKeys.agentRequired);
+    }
+
+    const agentName = parseManagedSkillAgentOption(value, errorKeys.invalidAgent);
+
+    if (agentName === undefined) {
+        throw createMissingRequiredSkillAgentError(errorKeys.agentRequired);
+    }
+
+    return agentName;
+}
+
 export function createMissingRequiredSkillAgentError(errorKey: string): CliUserError {
     return new CliUserError(errorKey, 1, {
         agents: formatSupportedSkillAgentNames(),

@@ -1,6 +1,5 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 
-import type { BundledSkillAgentName } from "./embedded-assets.ts";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -13,8 +12,7 @@ import {
 import { resolveRequestedManagedSkillHost } from "./check.ts";
 import { writeLocalSkillMetadata } from "./local-skill-ownership.ts";
 import {
-    createMissingRequiredSkillAgentError,
-    parseManagedSkillAgentOption,
+    parseRequiredManagedSkillAgent,
 } from "./managed-skill-agents.ts";
 import {
     isPathWithinDirectory,
@@ -86,7 +84,10 @@ async function initializeLocalSkill(
     context: CliExecutionContext,
 ): Promise<void> {
     const skillName = normalizeSkillName(input.name);
-    const agentName = parseRequiredSkillsInitAgent(input.agent);
+    const agentName = parseRequiredManagedSkillAgent(input.agent, {
+        agentRequired: "errors.skills.init.agentRequired",
+        invalidAgent: "errors.skills.init.invalidAgent",
+    });
 
     if (skillName === "") {
         throw new CliUserError("errors.skills.init.invalidName", 1, {
@@ -176,25 +177,6 @@ async function initializeLocalSkill(
 
         throw error;
     }
-}
-
-function parseRequiredSkillsInitAgent(
-    value: string | undefined,
-): BundledSkillAgentName {
-    if (value === undefined) {
-        throw createMissingRequiredSkillAgentError("errors.skills.init.agentRequired");
-    }
-
-    const agentName = parseManagedSkillAgentOption(
-        value,
-        "errors.skills.init.invalidAgent",
-    );
-
-    if (agentName === undefined) {
-        throw createMissingRequiredSkillAgentError("errors.skills.init.agentRequired");
-    }
-
-    return agentName;
 }
 
 function createLocalSkillInitTargetError(

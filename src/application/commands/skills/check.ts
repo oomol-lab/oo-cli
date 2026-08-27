@@ -13,8 +13,7 @@ import {
 } from "./bundled-skill-paths.ts";
 import {
     createManagedSkillAgentNotInstalledError,
-    createMissingRequiredSkillAgentError,
-    parseManagedSkillAgentOption,
+    parseRequiredManagedSkillAgent,
     resolveManagedSkillAgentHomeDirectory,
 } from "./managed-skill-agents.ts";
 
@@ -43,7 +42,10 @@ export const skillsCheckCommand: CliCommandDefinition<SkillsCheckInput> = {
         agent: z.string().optional(),
     }),
     handler: async (input, context) => {
-        const agentName = parseRequiredSkillsCheckAgent(input.agent);
+        const agentName = parseRequiredManagedSkillAgent(input.agent, {
+            agentRequired: "errors.skills.check.agentRequired",
+            invalidAgent: "errors.skills.check.invalidAgent",
+        });
         const result = await checkLocalSkillAuthoringEnvironment(context, {
             agentName,
         });
@@ -106,25 +108,6 @@ export async function resolveRequestedManagedSkillHost(
 
 function resolveManagedSkillHostPublishRoot(host: ManagedSkillHost): string {
     return join(host.homeDirectory, managedSkillsDirectoryName);
-}
-
-function parseRequiredSkillsCheckAgent(
-    value: string | undefined,
-): BundledSkillAgentName {
-    if (value === undefined) {
-        throw createMissingRequiredSkillAgentError("errors.skills.check.agentRequired");
-    }
-
-    const agentName = parseManagedSkillAgentOption(
-        value,
-        "errors.skills.check.invalidAgent",
-    );
-
-    if (agentName === undefined) {
-        throw createMissingRequiredSkillAgentError("errors.skills.check.agentRequired");
-    }
-
-    return agentName;
 }
 
 async function verifyWritableDirectory(directoryPath: string): Promise<void> {
