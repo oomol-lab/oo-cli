@@ -227,7 +227,8 @@ function parseRegistryPackageSkillInfo(
     }
 }
 
-function resolveRegistryPackageTarballPackageName(packageName: string): string {
+// npm serves a scoped package's tarball under its unscoped name.
+export function resolveRegistryPackageTarballPackageName(packageName: string): string {
     if (!packageName.startsWith("@")) {
         return packageName;
     }
