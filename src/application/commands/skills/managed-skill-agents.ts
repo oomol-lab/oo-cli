@@ -194,8 +194,10 @@ export function parseManagedSkillAgentOption(
 
 /**
  * Resolves the `--agent` value for a command that cannot run without one.
- * A missing value and a value the parser rejects both mean "no agent was
- * chosen", so both raise the caller's agentRequired error.
+ * A missing value raises the caller's agentRequired error; an unsupported one
+ * raises the caller's invalidAgent error from parseManagedSkillAgentOption.
+ * The undefined check after that call is type narrowing, not a second policy:
+ * the option parser only returns undefined for an undefined input.
  */
 export function parseRequiredManagedSkillAgent(
     value: string | undefined,
