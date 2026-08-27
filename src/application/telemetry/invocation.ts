@@ -22,7 +22,6 @@ export interface TelemetryInvocationRecorder {
 
 interface MutableTelemetryInvocationState {
     command?: TelemetryCommandSnapshot;
-    commanderCode?: string;
     errorKey?: string;
     exitCode?: number;
     parseErrorKind?: CliParseErrorKind;
@@ -54,7 +53,6 @@ export function createTelemetryInvocationRecorder(): TelemetryInvocationRecorder
                 };
             },
             onParseError(event) {
-                state.commanderCode = event.commanderCode;
                 state.parseErrorKind = event.parseErrorKind;
 
                 if (state.command === undefined) {
@@ -76,7 +74,6 @@ export function createTelemetryInvocationRecorder(): TelemetryInvocationRecorder
         },
         readOutcome(fallbackExitCode) {
             return {
-                commanderCode: state.commanderCode,
                 errorKey: state.errorKey,
                 exitCode: state.exitCode ?? fallbackExitCode,
                 parseErrorKind: state.parseErrorKind,
@@ -101,7 +98,6 @@ function applyFailedEvent(
     state: MutableTelemetryInvocationState,
     event: CliCommandFailedEvent,
 ): void {
-    state.commanderCode = event.commanderCode;
     state.errorKey = event.errorKey;
     state.exitCode = event.exitCode;
 

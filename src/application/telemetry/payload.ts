@@ -34,7 +34,6 @@ export interface TelemetryCommandSnapshot {
 }
 
 export interface TelemetryCommandOutcome {
-    commanderCode?: string;
     errorKey?: string;
     exitCode: number;
     parseErrorKind?: string;

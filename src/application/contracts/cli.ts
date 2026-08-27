@@ -125,7 +125,6 @@ export interface CliCommandCompletedEvent {
 }
 
 export interface CliCommandFailedEvent {
-    commanderCode?: string;
     errorKey?: string;
     exitCode: number;
     parseErrorKind?: CliParseErrorKind;
@@ -136,7 +135,6 @@ export interface CliCommandObserver {
     onCommandFailed?: (event: CliCommandFailedEvent) => void;
     onCommandResolved?: (event: CliCommandResolvedEvent) => void;
     onParseError?: (event: {
-        commanderCode?: string;
         parseErrorKind: CliParseErrorKind;
     }) => void;
 }
