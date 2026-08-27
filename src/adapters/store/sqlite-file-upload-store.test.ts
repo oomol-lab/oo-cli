@@ -209,4 +209,67 @@ describe("SqliteFileUploadStore", () => {
             store.close();
         }
     });
+
+    test("persists a record whose file name is only whitespace", async () => {
+        const root = await createTemporaryDirectory("oo-upload-store-blank-name");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+        const store = new SqliteFileUploadStore(storePaths.uploadsFilePath);
+
+        try {
+            store.save({
+                downloadUrl: "https://example.com/files/blank",
+                expiresAtMs: 3_000,
+                fileName: " ",
+                fileSize: 10,
+                id: "0195f5fe-ec27-7000-8000-000000000008",
+                uploadedAtMs: 1_000,
+            });
+
+            expect(store.list({ now: 1_000 })).toEqual([
+                {
+                    downloadUrl: "https://example.com/files/blank",
+                    expiresAtMs: 3_000,
+                    fileName: " ",
+                    fileSize: 10,
+                    id: "0195f5fe-ec27-7000-8000-000000000008",
+                    uploadedAtMs: 1_000,
+                },
+            ]);
+        }
+        finally {
+            store.close();
+        }
+    });
+
+    // parsePositiveIntegerOption only checks Number.isInteger, so "1e16" from
+    // argv reaches the store as a non-safe integer. This check is the real
+    // boundary for --limit and must not be removed with the other validators.
+    test("rejects a limit that is not a safe integer", async () => {
+        const root = await createTemporaryDirectory("oo-upload-store-limit");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+        const store = new SqliteFileUploadStore(storePaths.uploadsFilePath);
+
+        try {
+            expect(() => store.list({ limit: 1e16, now: 0 })).toThrow(
+                "File upload record limit must be a positive integer.",
+            );
+        }
+        finally {
+            store.close();
+        }
+    });
 });

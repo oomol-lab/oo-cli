@@ -7,7 +7,6 @@ import type {
     FileUploadRecordStore,
 } from "../../application/contracts/file-upload-store.ts";
 import { withStorePath } from "../../application/logging/log-fields.ts";
-import { validateMillisecondTimestamp } from "../../application/shared/timestamps.ts";
 import { closeSqliteDatabase, openSqliteDatabase } from "./sqlite-utils.ts";
 
 interface FileUploadRow {
@@ -34,8 +33,6 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
     }
 
     save(record: FileUploadRecord): void {
-        validateFileUploadRecord(record);
-
         this.getDatabase().query(
             [
                 `INSERT INTO ${uploadedFilesTableName} (`,
@@ -82,7 +79,6 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
         };
         const whereClauses: string[] = [];
 
-        validateMillisecondTimestamp(options.now, "File upload record");
         validateLimit(options.limit);
 
         if (options.status === "active") {
@@ -137,8 +133,6 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
     }
 
     deleteExpired(now: number): number {
-        validateMillisecondTimestamp(now, "File upload record");
-
         const result = this.getDatabase().query(
             [
                 `DELETE FROM ${uploadedFilesTableName}`,
@@ -218,27 +212,9 @@ function ensureUploadTable(database: Database): void {
     );
 }
 
-function validateFileUploadRecord(record: FileUploadRecord): void {
-    if (record.id.trim() === "") {
-        throw new Error("File upload record id cannot be empty.");
-    }
-
-    if (record.fileName.trim() === "") {
-        throw new Error("File upload record fileName cannot be empty.");
-    }
-
-    if (!Number.isSafeInteger(record.fileSize) || record.fileSize < 0) {
-        throw new Error("File upload record fileSize must be a safe integer.");
-    }
-
-    if (record.downloadUrl.trim() === "") {
-        throw new Error("File upload record downloadUrl cannot be empty.");
-    }
-
-    validateMillisecondTimestamp(record.uploadedAtMs, "File upload record");
-    validateMillisecondTimestamp(record.expiresAtMs, "File upload record");
-}
-
+// The real boundary for --limit: parsePositiveIntegerOption only checks
+// Number.isInteger, so a raw argv value such as "1e16" reaches the store as a
+// non-safe integer and would otherwise be bound as a SQLite REAL.
 function validateLimit(limit: number | undefined): void {
     if (
         limit !== undefined

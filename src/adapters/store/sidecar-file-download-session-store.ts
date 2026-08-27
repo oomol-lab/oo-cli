@@ -19,7 +19,6 @@ import {
     resolveDownloadTempLockFilePath,
 } from "../../application/shared/download-temp-lock.ts";
 import { isPathMissingError } from "../../application/shared/fs-errors.ts";
-import { validateMillisecondTimestamp } from "../../application/shared/timestamps.ts";
 
 const sidecarSchemaVersion = 1;
 const sidecarCleanupEntryThreshold = 1000;
@@ -68,7 +67,6 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
     async findDownloadSessions(
         key: FileDownloadSessionKey,
     ): Promise<readonly FileDownloadSessionRecord[]> {
-        validateDownloadSessionKey(key);
         await this.runSelfDefenseCleanup();
 
         const records = await this.readSessionFiles();
@@ -84,13 +82,13 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
     }
 
     async saveDownloadSession(record: FileDownloadSessionRecord): Promise<void> {
-        validateDownloadSessionRecord(record);
-
         const sidecar: SidecarDownloadSession = {
             ...record,
             schemaVersion: sidecarSchemaVersion,
         };
         const content = `${JSON.stringify(sidecar)}\n`;
+        // Load-bearing position: this validates the id before any path is
+        // built or written. Do not move it below the temporary path join.
         const finalPath = this.resolveSessionFilePath(record.id);
         const temporaryPath = join(
             this.directoryPath,
@@ -133,8 +131,6 @@ export class SidecarFileDownloadSessionStore implements FileDownloadSessionStore
     }
 
     async deleteDownloadSessionsUpdatedBefore(cutoffMs: number): Promise<number> {
-        validateMillisecondTimestamp(cutoffMs, "Download session");
-
         const expiredRecords = (await this.readSessionFiles(Number.POSITIVE_INFINITY))
             .filter(record => record.updatedAtMs < cutoffMs);
         const lockedFlags = await Promise.all(
@@ -345,43 +341,6 @@ function compareSidecarSessionFilesByRecency(
 ): number {
     return right.modifiedAtMs - left.modifiedAtMs
         || right.name.localeCompare(left.name);
-}
-
-function validateDownloadSessionKey(key: FileDownloadSessionKey): void {
-    if (key.requestUrl.trim() === "") {
-        throw new Error("Download session requestUrl cannot be empty.");
-    }
-
-    if (key.outDirPath.trim() === "") {
-        throw new Error("Download session outDirPath cannot be empty.");
-    }
-}
-
-function validateDownloadSessionRecord(record: FileDownloadSessionRecord): void {
-    validateDownloadSessionId(record.id);
-
-    validateDownloadSessionKey(record);
-
-    if (record.resolvedBaseName.trim() === "") {
-        throw new Error("Download session resolvedBaseName cannot be empty.");
-    }
-
-    if (record.tempFileName.trim() === "") {
-        throw new Error("Download session tempFileName cannot be empty.");
-    }
-
-    if (record.finalUrl.trim() === "") {
-        throw new Error("Download session finalUrl cannot be empty.");
-    }
-
-    if (
-        record.totalBytes !== undefined
-        && (!Number.isSafeInteger(record.totalBytes) || record.totalBytes < 0)
-    ) {
-        throw new Error("Download session totalBytes must be a safe integer.");
-    }
-
-    validateMillisecondTimestamp(record.updatedAtMs, "Download session");
 }
 
 function validateDownloadSessionId(id: string): void {
