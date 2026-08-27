@@ -836,7 +836,7 @@ describe("self-update commands", () => {
         }
     });
 
-    test("upgrade uses the same update path and repairs a same-version package-manager install", async () => {
+    test("upgrade uses the same update path and migrates a same-version package-manager install without re-downloading", async () => {
         const sandbox = await createCliSandbox();
         const legacyCleanup = createCapturedSelfUpdateRuntime();
         const releasePlatform = await detectSelfUpdateReleasePlatform({
@@ -889,7 +889,10 @@ describe("self-update commands", () => {
             });
 
             expect(createCliSnapshot(result, { sandbox })).toMatchSnapshot();
-            expect(binaryRequestCount).toBe(1);
+            // One install route: `oo update` at the latest version now reuses
+            // the materialized managed binary instead of re-downloading it.
+            expect(binaryRequestCount).toBe(0);
+            expect(await Bun.file(currentVersionPath).text()).toBe("existing-binary");
             expect(legacyCleanup.commands).toEqual([
                 ...createExpectedManagedSkillInstallCommands(currentVersionPath),
                 {

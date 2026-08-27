@@ -5,18 +5,11 @@ import process from "node:process";
 import { z } from "zod";
 import { CliUserError } from "../contracts/cli.ts";
 import {
-    attemptManagedSkillInstall,
-    isManagedVersionExecutableInstalled,
-    resolveManagedSkillInstallCommandPath,
-} from "../self-update/bundled-skills.ts";
-import {
-    ensureSelfUpdateExecutableDirectoryOnPath,
     performSelfUpdateOperation,
     renderSelfUpdateLockBusyMessage,
     resolveLatestSelfUpdateVersion,
     selfUpdateDevelopmentVersion,
 } from "../self-update/core.ts";
-import { detectInstallationMethodFromExecPath } from "../self-update/installation.ts";
 import { resolveSelfUpdateModifyPath } from "../self-update/modify-path-preference.ts";
 import { resolveSelfUpdateShowPathShadowingWarning } from "../self-update/path-shadowing-warning-preference.ts";
 import { isSelfUpdateDisabledByEnv } from "../self-update/self-update-disabled-preference.ts";
@@ -112,60 +105,9 @@ export const updateCommand: CliCommandDefinition<
                 version_kind: classifyTelemetryVersionKind(latestVersion),
             });
 
-            if (
-                latestVersion === context.version
-                && detectInstallationMethodFromExecPath({
-                    env: context.env,
-                    execPath: context.execPath,
-                    platform: process.platform,
-                }) === "native"
-                && await isManagedVersionExecutableInstalled({
-                    env: context.env,
-                    platform: process.platform,
-                    version: context.version,
-                })
-            ) {
-                await attemptManagedSkillInstall({
-                    commandPath: await resolveManagedSkillInstallCommandPath({
-                        env: context.env,
-                        platform: process.platform,
-                        version: context.version,
-                    }),
-                    runtime: {
-                        env: context.env,
-                        logger: context.logger,
-                        ...context.selfUpdateRuntime,
-                    },
-                });
-                const { commandResolution, executableDirectory, pathConfiguration }
-                    = await ensureSelfUpdateExecutableDirectoryOnPath({
-                        modifyPath: effectiveModifyPath,
-                        runtime: {
-                            env: context.env,
-                            logger: context.logger,
-                            platform: process.platform,
-                            ...context.selfUpdateRuntime,
-                        },
-                    });
-                recordSelfUpdatePathTelemetry(context.telemetry, pathConfiguration);
-                progressReporter?.finish();
-                writeLine(
-                    context.stdout,
-                    context.translator.t("checkUpdate.upToDate", {
-                        version: context.version,
-                    }),
-                );
-                writePathNote({
-                    commandResolution,
-                    executableDirectory,
-                    pathConfiguration,
-                });
-                return;
-            }
-
             const result = await performSelfUpdateOperation({
                 currentVersion: context.version,
-                forceReinstall: true,
+                forceReinstall: latestVersion !== context.version,
                 modifyPath: effectiveModifyPath,
                 reportStage: progressReporter?.createReportStage(),
                 runtime: {

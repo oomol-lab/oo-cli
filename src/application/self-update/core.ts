@@ -14,7 +14,7 @@ import { CliUserError } from "../contracts/cli.ts";
 import { sanitizeUrlForLogging } from "../logging/url-sanitizer.ts";
 import { isSemver } from "../semver.ts";
 import { isFileMissingError, isPathMissingError } from "../shared/fs-errors.ts";
-import { pathExists, writeChunk } from "../shared/fs-utils.ts";
+import { isExecutableFile, pathExists, writeChunk } from "../shared/fs-utils.ts";
 import {
     buildCliBinaryDownloadUrl,
     fetchLatestCliReleaseVersion,
@@ -411,9 +411,15 @@ async function materializeTargetVersion(options: {
         options.targetVersion,
     );
 
+    // The slot must hold a runnable binary, not just something at the path:
+    // reusing a directory placeholder or a non-executable file would activate
+    // a bricked entrypoint that verifyInstalledEntrypoint cannot detect.
     if (
         !options.forceReinstall
-        && await pathExists(targetVersionExecutablePath)
+        && await isExecutableFile(
+            targetVersionExecutablePath,
+            options.runtime.platform,
+        )
     ) {
         options.reportStage?.({
             stage: "reuse",
