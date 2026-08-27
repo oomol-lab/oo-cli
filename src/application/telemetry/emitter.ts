@@ -98,7 +98,7 @@ export async function emitCliCommandTelemetry(
                 env: options.env,
                 execPath: options.execPath,
                 platform: process.platform,
-            }).method,
+            }),
             cliVersion: options.version,
             command,
             distinctId: deviceId.deviceId,

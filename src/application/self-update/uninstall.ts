@@ -107,7 +107,7 @@ export async function buildSelfUninstallPlan(
         env: options.env,
         execPath: options.execPath,
         platform: options.platform,
-    }).method;
+    });
     const isWindows = options.platform === "win32";
     const immediate: UninstallPlanItem[] = [];
     const deferred: UninstallPlanItem[] = [];

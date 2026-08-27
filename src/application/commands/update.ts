@@ -118,7 +118,7 @@ export const updateCommand: CliCommandDefinition<
                     env: context.env,
                     execPath: context.execPath,
                     platform: process.platform,
-                }).method === "native"
+                }) === "native"
                 && await isManagedVersionExecutableInstalled({
                     env: context.env,
                     platform: process.platform,

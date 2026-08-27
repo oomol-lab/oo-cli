@@ -14,51 +14,17 @@ export type InstallationMethod
     = | PackageManagerInstallationMethod
         | "native"
         | "unknown";
-export type InstallationDetectionConfidence
-    = | "explicit"
-        | "inferred"
-        | "unknown";
-export type InstallationDetectionSource
-    = | "execPath"
-        | "managedPath"
-        | "unknown";
-
-export interface InstallationDetection {
-    confidence: InstallationDetectionConfidence;
-    method: InstallationMethod;
-    source: InstallationDetectionSource;
-}
-
 export function detectInstallationMethodFromExecPath(options: {
     env: Record<string, string | undefined>;
     execPath: string;
     platform: NodeJS.Platform;
-}): InstallationDetection {
+}): InstallationMethod {
     if (isManagedNativeExecutablePath(options)) {
-        return {
-            confidence: "explicit",
-            method: "native",
-            source: "managedPath",
-        };
+        return "native";
     }
 
-    const packageManager = detectPackageManagerInstallationMethodFromExecPath(
-        options.execPath,
-    );
-
-    if (packageManager !== undefined) {
-        return {
-            confidence: "inferred",
-            method: packageManager,
-            source: "execPath",
-        };
-    }
-
-    return {
-        confidence: "unknown",
-        method: "unknown",
-        source: "unknown",
-    };
+    return detectPackageManagerInstallationMethodFromExecPath(options.execPath)
+        ?? "unknown";
 }
 
 function detectPackageManagerInstallationMethodFromExecPath(

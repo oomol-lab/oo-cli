@@ -1,5 +1,5 @@
 import type { SelfUpdateCommandRuntime } from "./command-runner.ts";
-import type { InstallationDetection, PackageManagerInstallationMethod } from "./installation.ts";
+import type { InstallationMethod, PackageManagerInstallationMethod } from "./installation.ts";
 import { resolveCommandPathCandidates } from "./command-path.ts";
 import { runSelfUpdateCommandWithLogging } from "./command-runner.ts";
 import { detectInstallationMethodFromExecPath } from "./installation.ts";
@@ -62,20 +62,20 @@ async function resolveLegacyPackageManagersToUninstall(
         return pathResolution.targets;
     }
 
-    const installation = detectInstallationMethodFromExecPath({
+    const method = detectInstallationMethodFromExecPath({
         env: runtime.env,
         execPath: runtime.execPath,
         platform: runtime.platform,
     });
 
-    return installation.method === "native" || installation.method === "unknown"
+    return method === "native" || method === "unknown"
         ? []
         : [{
-                method: installation.method,
+                method,
                 prefix: resolvePackageManagerPrefix({
                     candidateDirectoryPath: readPathModule(runtime.platform)
                         .dirname(runtime.execPath),
-                    installation,
+                    method,
                     platform: runtime.platform,
                     resolvedPath: runtime.execPath,
                 }),
@@ -118,7 +118,7 @@ async function resolveLegacyPackageManagersFromPath(
             method: installation.method,
             prefix: resolvePackageManagerPrefix({
                 candidateDirectoryPath: candidate.directoryPath,
-                installation,
+                method: installation.method,
                 platform: runtime.platform,
                 resolvedPath: installation.resolvedPath,
             }),
@@ -143,26 +143,26 @@ async function detectInstallationMethodFromPathCandidate(options: {
     candidatePath: string;
     env: Record<string, string | undefined>;
     platform: NodeJS.Platform;
-}): Promise<InstallationDetection & { resolvedPath: string }> {
+}): Promise<{ method: InstallationMethod; resolvedPath: string }> {
     const resolvedCandidatePath = await readRealPathOrFallback(options.candidatePath);
-    const resolvedInstallation = detectInstallationMethodFromExecPath({
+    const resolvedMethod = detectInstallationMethodFromExecPath({
         env: options.env,
         execPath: resolvedCandidatePath,
         platform: options.platform,
     });
 
     if (
-        resolvedInstallation.method !== "unknown"
+        resolvedMethod !== "unknown"
         || resolvedCandidatePath === options.candidatePath
     ) {
         return {
-            ...resolvedInstallation,
+            method: resolvedMethod,
             resolvedPath: resolvedCandidatePath,
         };
     }
 
     return {
-        ...detectInstallationMethodFromExecPath({
+        method: detectInstallationMethodFromExecPath({
             env: options.env,
             execPath: options.candidatePath,
             platform: options.platform,
@@ -173,11 +173,11 @@ async function detectInstallationMethodFromPathCandidate(options: {
 
 function resolvePackageManagerPrefix(options: {
     candidateDirectoryPath?: string;
-    installation: InstallationDetection;
+    method: InstallationMethod;
     platform: NodeJS.Platform;
     resolvedPath: string;
 }): string | undefined {
-    if (options.installation.method !== "npm") {
+    if (options.method !== "npm") {
         return undefined;
     }
 
