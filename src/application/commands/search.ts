@@ -1,87 +1,16 @@
-import type { CliCommandDefinition } from "../contracts/cli.ts";
+import { connectorSearchCommand } from "./connector/search.ts";
 
-import { z } from "zod";
-
-import {
-    bucketTelemetryCount,
-    bucketTelemetryStringLength,
-} from "../telemetry/buckets.ts";
-import {
-    formatConnectorSearchResultsAsText,
-    loadConnectorSearchResults,
-} from "./connector/search-provider.ts";
-import {
-    resolveConnectorSession,
-    teamIdentityInputShape,
-    teamIdentityOptions,
-} from "./connector/session.ts";
-
-interface SearchInput {
-    team?: string;
-    personal?: boolean;
-    text: string;
-}
-
-export const searchCommand: CliCommandDefinition<SearchInput> = {
-    name: "search",
+/**
+ * `oo search` is the top-level entry to connector action discovery. It is the
+ * same command as `oo connector search` - same argument, options, output
+ * contract and handler - and differs only in its help text, which addresses a
+ * reader who has not navigated into the connector group.
+ *
+ * It became a duplicate in b861d8a: it used to search packages and connector
+ * actions together, and package search was removed.
+ */
+export const searchCommand: typeof connectorSearchCommand = {
+    ...connectorSearchCommand,
     summaryKey: "commands.search.summary",
     descriptionKey: "commands.search.description",
-    missingArgumentBehavior: "showHelp",
-    arguments: [
-        {
-            name: "text",
-            descriptionKey: "arguments.text",
-            required: true,
-        },
-    ],
-    options: [
-        ...teamIdentityOptions({
-            personal: "options.searchPersonal",
-            team: "options.searchTeam",
-        }),
-    ],
-    output: "standard",
-    inputSchema: z.object({
-        ...teamIdentityInputShape,
-        text: z.string(),
-    }),
-    handler: async (input, context) => {
-        context.telemetry?.recordProperties({
-            query_length_bucket: bucketTelemetryStringLength(input.text),
-        });
-
-        const { identity, target } = await resolveConnectorSession(
-            {
-                personal: input.personal,
-                team: input.team,
-            },
-            context,
-        );
-
-        const results = await loadConnectorSearchResults(
-            {
-                identity,
-                target,
-                text: input.text,
-            },
-            context,
-        );
-
-        context.telemetry?.recordProperties({
-            result_count_bucket: bucketTelemetryCount(results.length),
-        });
-
-        context.output.emit(results, () => {
-            if (results.length === 0) {
-                context.stdout.write(
-                    `${context.translator.t("connector.search.text.noResults")}\n`,
-                );
-                return;
-            }
-
-            context.stdout.write(
-                `${formatConnectorSearchResultsAsText(results, context)}\n`,
-            );
-        });
-    },
 };

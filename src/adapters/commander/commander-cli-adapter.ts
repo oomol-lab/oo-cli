@@ -159,7 +159,6 @@ export class CommanderCliAdapter {
 
             if (parseErrorKind !== undefined) {
                 observer?.onParseError?.({
-                    commanderCode: error.code,
                     parseErrorKind,
                 });
             }
@@ -181,7 +180,6 @@ export class CommanderCliAdapter {
             context.stderr.write(`${localizedMessage}\n`);
 
             observer?.onCommandFailed?.({
-                commanderCode: error.code,
                 exitCode: 2,
                 parseErrorKind,
             });

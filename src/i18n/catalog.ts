@@ -509,10 +509,6 @@ export const enMessages = {
         "Invalid action id \"{actionId}\". Use the form <service>.<action>, for example cal.create_schedule.",
     "errors.connectorSchema.legacyActionSingleService":
         "The --action option accepts exactly one bare service name. To look up one or more actions by identifier, omit --action and pass <service>.<action> arguments instead.",
-    "errors.connectorSchema.readFailed":
-        "Failed to read the connector action schema cache at {path}: {message}",
-    "errors.connectorSchema.writeFailed":
-        "Failed to write the connector action schema cache at {path}: {message}",
     "errors.connectorSearch.invalidResponse":
         "The connector action search response body is unsupported.",
     "errors.connectorSearch.requestError":
@@ -567,8 +563,6 @@ export const enMessages = {
         "Invalid file.download.out_dir value: {value}. Use a non-empty path.",
     "errors.config.invalidTelemetryEnabledValue":
         "Invalid telemetry.enabled value: {value}. Use true or false.",
-    "errors.skills.invalidName":
-        "Unsupported skill: {value}. Use {choices}.",
     "errors.skills.invalidPath":
         "Skill name {name} resolves outside the local skill directories.",
     "errors.skills.init.invalidIcon":
@@ -605,8 +599,6 @@ export const enMessages = {
         "Unsupported skill agent: {value}. Use {agents}.",
     "errors.skills.publish.invalidPackageMetadata":
         "Invalid skill package metadata: {message}",
-    "errors.skills.publish.invalidAgent":
-        "Unsupported skill agent: {value}. Use {agents}.",
     "errors.skills.locate.invalidAgent":
         "Unsupported skill agent: {value}. Use {agents}.",
     "errors.skills.locate.ambiguous":
@@ -625,12 +617,8 @@ export const enMessages = {
         "Bundled skill {name} cannot be published directly because it is managed by the oo CLI release. Create a local skill before publishing.",
     "errors.skills.publish.envApiKeyPackageName":
         "Publishing with OO_API_KEY requires an explicit scoped package name. Add a `packageName` (for example `@scope/name`) to the skill's frontmatter.",
-    "errors.skills.publish.localSkillAmbiguous":
-        "Local skill {name} exists in multiple local sources ({agents}). Pass --agent to choose which agent-native skill to publish.",
     "errors.skills.share.localSkillAmbiguous":
         "Local skill {name} exists in multiple local sources ({agents}). Pass --agent to choose which agent-native skill to share.",
-    "errors.skills.publish.registryMetadataMissing":
-        "Registry skill {name} cannot be published because its metadata file at {path} does not identify a packageName.",
     "errors.skills.publish.registryPackageConfirmationRequired":
         "Skill {name} is installed from {packageName}. Run in an interactive terminal to confirm publishing it as {targetPackageName}.",
     "errors.skills.publish.registryPackageMismatch":
@@ -993,9 +981,6 @@ export const enMessages = {
     "help.arguments": "Arguments:",
     "help.commands": "Commands:",
     "help.extra.choices": "choices",
-    "help.extra.default": "default",
-    "help.extra.env": "env",
-    "help.extra.preset": "preset",
     "help.globalOptions": "Global Options:",
     "help.options": "Options:",
     "help.appDescription.colored":
@@ -1003,9 +988,7 @@ export const enMessages = {
     "help.usage": "Usage:",
     "arguments.install.version":
         "Specify the target CLI version to install",
-    "options.blockId": "Specify the target block id",
     "options.action": "Specify the target action name",
-    "options.blockName": "Alias for --block-id",
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
     "options.connectorRunWait":
@@ -1082,20 +1065,11 @@ export const enMessages = {
     "options.visibility":
         "Set package visibility (private or public)",
     "options.agent": "Check one supported skill host",
-    "options.nextToken": "Specify the pagination token for the next page",
-    "options.packageId": "Filter by package id",
-    "options.packageName": "Alias for --package-id",
-    "options.page": "Specify the log page number",
-    "options.showUrl": "Include download URLs in text output",
-    "options.size": "Specify the number of items per page",
-    "options.status": "Filter by task status",
     "options.apiKey": "Log in with an existing API key",
     "options.sessionToken": "Log in with a session token",
     "options.loginTeam": "Set the default team identity after login",
     "options.schema": "Provide response JSON Schema or @path to a JSON file",
     "options.system": "System prompt text or @path to a text file",
-    "options.timeout":
-        "Set how long to wait before timing out (default 6h, range 10s to 24h)",
     "options.yes": "Skip confirmation prompts",
     "options.skills.install.force":
         "Force install even when a same-name skill directory exists and is not managed by oo",
@@ -1153,7 +1127,6 @@ export const enMessages = {
         "Local skill editing is ready. Writable storage: {path}. Supported hosts: {count}.",
     "skills.list.noResults":
         "No skills were found.",
-    "skills.list.host": "Host",
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codebuddy": "CodeBuddy",
     "skills.list.host.deepseek-tui": "DeepSeek TUI",
@@ -1164,11 +1137,7 @@ export const enMessages = {
     "skills.list.host.trae-cn": "Trae CN",
     "skills.list.host.universal": "Universal",
     "skills.list.host.workbuddy": "WorkBuddy",
-    "skills.list.source": "Source",
     "skills.list.package": "Package",
-    "skills.list.path": "Path",
-    "skills.list.summary":
-        "Found {count} skills.",
     "skills.info.summary":
         "Found {count} skills (bundled: {bundled}, registry: {registry}, local: {local}).",
     "skills.info.kind": "Kind",
@@ -1305,7 +1274,6 @@ export const enMessages = {
     "arguments.actionId": "Action id(s) in the form <service>.<action>, for example cal.create_schedule",
     "arguments.shell": "Target shell",
     "arguments.skill": "Skill name",
-    "arguments.taskId": "Task id",
     "arguments.text": "Search text",
     "arguments.url": "URL",
     "arguments.value": "Configuration value",
@@ -1906,10 +1874,6 @@ export const zhMessages = {
         "无效的 action id “{actionId}”。请使用 <service>.<action> 形式，例如 cal.create_schedule。",
     "errors.connectorSchema.legacyActionSingleService":
         "--action 选项只接受一个纯服务名（不含点号）。若要按标识查询一个或多个 action，请省略 --action 并改用 <service>.<action> 形式的参数。",
-    "errors.connectorSchema.readFailed":
-        "读取 {path} 的 connector action schema cache 失败：{message}",
-    "errors.connectorSchema.writeFailed":
-        "写入 {path} 的 connector action schema cache 失败：{message}",
     "errors.connectorSearch.invalidResponse":
         "connector action 搜索返回了不受支持的响应内容。",
     "errors.connectorSearch.requestError":
@@ -1964,8 +1928,6 @@ export const zhMessages = {
         "无效的 file.download.out_dir 值：{value}。请使用非空路径。",
     "errors.config.invalidTelemetryEnabledValue":
         "无效的 telemetry.enabled 值：{value}。请使用 true 或 false。",
-    "errors.skills.invalidName":
-        "不支持的 skill：{value}。请使用 {choices}。",
     "errors.skills.invalidPath":
         "skill 名称 {name} 解析到了本地 skill 目录之外。",
     "errors.skills.init.invalidIcon":
@@ -2002,8 +1964,6 @@ export const zhMessages = {
         "不支持的 skill Agent：{value}。请使用 {agents}。",
     "errors.skills.publish.invalidPackageMetadata":
         "skill 包元数据无效：{message}",
-    "errors.skills.publish.invalidAgent":
-        "不支持的 skill Agent：{value}。请使用 {agents}。",
     "errors.skills.locate.invalidAgent":
         "不支持的 skill Agent：{value}。请使用 {agents}。",
     "errors.skills.locate.ambiguous":
@@ -2022,12 +1982,8 @@ export const zhMessages = {
         "不能直接发布内置 skill {name}，因为它由 oo CLI 版本管理。请先创建本地 skill 再发布。",
     "errors.skills.publish.envApiKeyPackageName":
         "使用 OO_API_KEY 发布时需要显式的带 scope 的包名。请在 skill 的 frontmatter 中添加 `packageName`（例如 `@scope/name`）。",
-    "errors.skills.publish.localSkillAmbiguous":
-        "本地 skill {name} 存在于多个本地来源（{agents}）。请传入 --agent 选择要发布的 Agent 本地 skill。",
     "errors.skills.share.localSkillAmbiguous":
         "本地 skill {name} 存在于多个本地来源（{agents}）。请传入 --agent 选择要分享的 Agent 本地 skill。",
-    "errors.skills.publish.registryMetadataMissing":
-        "无法发布 registry skill {name}，因为它位于 {path} 的元数据文件没有标识 packageName。",
     "errors.skills.publish.registryPackageConfirmationRequired":
         "skill {name} 安装自 {packageName}。请在交互式终端中确认是否将它发布为 {targetPackageName}。",
     "errors.skills.publish.registryPackageMismatch":
@@ -2385,9 +2341,6 @@ export const zhMessages = {
     "help.arguments": "参数：",
     "help.commands": "命令：",
     "help.extra.choices": "可选值",
-    "help.extra.default": "默认值",
-    "help.extra.env": "环境变量",
-    "help.extra.preset": "预设值",
     "help.globalOptions": "全局选项：",
     "help.options": "选项：",
     "help.appDescription.colored":
@@ -2395,9 +2348,7 @@ export const zhMessages = {
     "help.usage": "用法：",
     "arguments.install.version":
         "指定要安装的目标 CLI 版本",
-    "options.blockId": "指定目标 block id",
     "options.action": "指定目标 action 名称",
-    "options.blockName": "--block-id 的别名",
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
     "options.connectorRunWait":
@@ -2472,19 +2423,11 @@ export const zhMessages = {
     "options.visibility":
         "设置包可见性（private 或 public）",
     "options.agent": "检查一个受支持的 Agent",
-    "options.nextToken": "指定下一页分页令牌",
-    "options.packageId": "按 package id 过滤",
-    "options.packageName": "--package-id 的别名",
-    "options.page": "指定日志页码",
-    "options.showUrl": "在文本输出中包含下载 URL",
-    "options.size": "指定每页数量",
-    "options.status": "按任务状态过滤",
     "options.apiKey": "使用已有 API key 登录",
     "options.sessionToken": "使用 session token 登录",
     "options.loginTeam": "登录后设置的默认团队身份",
     "options.schema": "提供响应 JSON Schema，或使用 @路径 读取 JSON 文件",
     "options.system": "System prompt 文本，或使用 @路径 读取文本文件",
-    "options.timeout": "设置等待超时时间（默认 6h，范围 10s 到 24h）",
     "options.yes": "跳过确认提示",
     "options.skills.install.force":
         "强制安装，即使同名 skill 目录已存在且不受 oo 管理",
@@ -2542,7 +2485,6 @@ export const zhMessages = {
         "本地 skill 编辑环境可用。可写存储：{path}。受支持 Agents：{count}。",
     "skills.list.noResults":
         "未找到 skill。",
-    "skills.list.host": "Agents",
     "skills.list.host.claude": "Claude Code",
     "skills.list.host.codebuddy": "CodeBuddy",
     "skills.list.host.deepseek-tui": "DeepSeek TUI",
@@ -2553,11 +2495,7 @@ export const zhMessages = {
     "skills.list.host.trae-cn": "Trae CN",
     "skills.list.host.universal": "Universal",
     "skills.list.host.workbuddy": "WorkBuddy",
-    "skills.list.source": "来源",
     "skills.list.package": "Package",
-    "skills.list.path": "路径",
-    "skills.list.summary":
-        "找到 {count} 个 skill。",
     "skills.info.summary":
         "找到 {count} 个 skill（bundled: {bundled}, registry: {registry}, local: {local}）。",
     "skills.info.kind": "类型",
@@ -2694,7 +2632,6 @@ export const zhMessages = {
     "arguments.actionId": "<service>.<action> 形式的 action id（可多个），例如 cal.create_schedule",
     "arguments.shell": "目标 shell",
     "arguments.skill": "skill 名称",
-    "arguments.taskId": "任务 ID",
     "arguments.text": "搜索文本",
     "arguments.url": "URL",
     "arguments.value": "配置值",

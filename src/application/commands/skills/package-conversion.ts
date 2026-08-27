@@ -20,6 +20,7 @@ import {
 import skillPackageGitAttributesTemplate from "./package-template-files/gitattributes.template" with { type: "text" };
 import skillPackageGitIgnoreTemplate from "./package-template-files/gitignore.template" with { type: "text" };
 import { removeManagedOoSkillArtifacts } from "./registry-skill-markdown.ts";
+import { resolveRegistryPackageTarballPackageName } from "./registry-skill-source.ts";
 import {
     hasFrontmatter,
     isNonBlankString,
@@ -968,20 +969,6 @@ function escapePackageName(name: string): string {
     return name.startsWith("@")
         ? name.replace("/", "%2f")
         : encodeURIComponent(name);
-}
-
-function resolveRegistryPackageTarballPackageName(packageName: string): string {
-    if (!packageName.startsWith("@")) {
-        return packageName;
-    }
-
-    const scopeSeparatorIndex = packageName.indexOf("/");
-
-    if (scopeSeparatorIndex < 0 || scopeSeparatorIndex === packageName.length - 1) {
-        return packageName;
-    }
-
-    return packageName.slice(scopeSeparatorIndex + 1);
 }
 
 function trimTrailingSlash(value: string): string {

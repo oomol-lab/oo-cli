@@ -1,7 +1,16 @@
 import type { FileHandle } from "node:fs/promises";
 
+import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import process from "node:process";
 import { describe, expect, test } from "bun:test";
-import { pathExists, writeChunk } from "./fs-utils.ts";
+import {
+    createTemporaryDirectory,
+    useTemporaryDirectoryCleanup,
+} from "../../../__tests__/helpers.ts";
+import { isExecutableFile, pathExists, writeChunk } from "./fs-utils.ts";
+
+const { track: trackDirectory } = useTemporaryDirectoryCleanup();
 
 describe("fs utils", () => {
     test("pathExists treats a file in the middle of the path as missing", async () => {
@@ -13,6 +22,41 @@ describe("fs utils", () => {
         };
 
         expect(await pathExists("/tmp/version/oo", metadataReader)).toBeFalse();
+    });
+
+    test("isExecutableFile returns true for an executable file", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-fs-utils-executable");
+        const executablePath = join(rootDirectory, "bin", "oo");
+
+        trackDirectory(rootDirectory);
+        await writeExecutable(executablePath);
+
+        expect(await isExecutableFile(executablePath, process.platform)).toBeTrue();
+    });
+
+    test("isExecutableFile returns false for a directory", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-fs-utils-directory");
+        const executablePath = join(rootDirectory, "bin", "oo");
+
+        trackDirectory(rootDirectory);
+        await mkdir(executablePath, { recursive: true });
+
+        expect(await isExecutableFile(executablePath, process.platform)).toBeFalse();
+    });
+
+    test("isExecutableFile returns false for a non-executable file on POSIX", async () => {
+        if (process.platform === "win32") {
+            return;
+        }
+
+        const rootDirectory = await createTemporaryDirectory("oo-fs-utils-non-executable");
+        const executablePath = join(rootDirectory, "bin", "oo");
+
+        trackDirectory(rootDirectory);
+        await mkdir(dirname(executablePath), { recursive: true });
+        await writeFile(executablePath, "binary", { mode: 0o644 });
+
+        expect(await isExecutableFile(executablePath, process.platform)).toBeFalse();
     });
 
     test("writeChunk retries partial writes until the chunk is complete", async () => {
@@ -65,4 +109,13 @@ function createFileHandleWriteStub(
             };
         },
     } as Pick<FileHandle, "write">;
+}
+
+async function writeExecutable(path: string): Promise<void> {
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, "binary");
+
+    if (process.platform !== "win32") {
+        await chmod(path, 0o755);
+    }
 }

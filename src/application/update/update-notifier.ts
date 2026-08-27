@@ -1,13 +1,11 @@
-import type { CliExecutionContext, Fetcher, Writer } from "../contracts/cli.ts";
+import type { CliExecutionContext, Writer } from "../contracts/cli.ts";
 
 import type { TerminalColors } from "../terminal-colors.ts";
 import { APP_NAME } from "../config/app-config.ts";
-import { measureDisplayWidth } from "../display-width.ts";
 import { compareSemver, isSemver as isValidSemver } from "../semver.ts";
 import { createWriterColors } from "../terminal-colors.ts";
 import {
     fetchLatestCliReleaseVersion,
-    parseLatestCliSemverReleaseVersion,
 } from "./release-metadata.ts";
 
 export const cliUpdateCommand = `${APP_NAME} update`;
@@ -51,7 +49,7 @@ export async function checkForCliUpdate(
             },
             "CLI update check started.",
         );
-        const latestVersion = await fetchLatestReleaseVersion({
+        const latestVersion = await fetchLatestCliReleaseVersion({
             currentVersion: context.version,
             fetcher: context.fetcher,
             logger: context.logger,
@@ -129,7 +127,7 @@ function renderNoticeBox(
 ): string {
     const horizontalPadding = 2;
     const contentWidth = lines.reduce((maxWidth, line) => {
-        const lineWidth = measureDisplayWidth(colors.strip(line));
+        const lineWidth = Bun.stringWidth(line);
 
         return lineWidth > maxWidth ? lineWidth : maxWidth;
     }, 0);
@@ -160,7 +158,7 @@ function renderNoticeBodyLine(
     colors: TerminalColors,
     horizontalPadding: number,
 ): string {
-    const visibleLineWidth = measureDisplayWidth(colors.strip(line));
+    const visibleLineWidth = Bun.stringWidth(line);
     const remainingWidth = width - visibleLineWidth;
     const leftSpacing = Math.floor(remainingWidth / 2);
     const rightSpacing = remainingWidth - leftSpacing;
@@ -173,17 +171,4 @@ function renderNoticeBodyLine(
         " ".repeat(horizontalPadding + rightSpacing),
         sideBorder,
     ].join("");
-}
-
-async function fetchLatestReleaseVersion(options: {
-    currentVersion: string;
-    fetcher: Fetcher;
-    logger: CliExecutionContext["logger"];
-}): Promise<string | null> {
-    return fetchLatestCliReleaseVersion({
-        currentVersion: options.currentVersion,
-        fetcher: options.fetcher,
-        logger: options.logger,
-        parseVersion: parseLatestCliSemverReleaseVersion,
-    });
 }

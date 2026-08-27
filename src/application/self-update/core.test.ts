@@ -162,6 +162,56 @@ describe("performSelfUpdateOperation", () => {
         }
     });
 
+    // The reuse gate must reject a slot that is not a runnable binary. A
+    // directory placeholder there would otherwise be activated, and
+    // verifyInstalledEntrypoint cannot detect that because it only compares
+    // realpaths.
+    test("does not reuse a version slot that is not a runnable executable", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-corrupt-slot");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
+            paths,
+            "1.2.3",
+        );
+        const logCapture = createLogCapture();
+        let fetchCount = 0;
+
+        trackDirectory(rootDirectory);
+        await mkdir(targetVersionPath, { recursive: true });
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "1.2.3",
+                forceReinstall: false,
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: process.execPath,
+                    fetcher: async () => {
+                        fetchCount += 1;
+                        return new Response("binary");
+                    },
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(),
+                },
+                targetVersion: "1.2.3",
+            });
+
+            expect(result.status).toBe("installed");
+            expect(fetchCount).toBe(1);
+            expect(await Bun.file(targetVersionPath).text()).toBe("binary");
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
     test("downloads a target version as an executable inside the version directory", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-self-update-version-directory");
         const env = createSelfUpdateEnv(rootDirectory);

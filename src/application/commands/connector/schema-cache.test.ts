@@ -441,8 +441,6 @@ describe("connector schema cache", () => {
             outputSchema: {
                 type: "object",
             },
-            providerPermissions: [],
-            requiredScopes: [],
             service: "gmail",
         });
     });

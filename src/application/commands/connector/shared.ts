@@ -74,10 +74,6 @@ export const connectorActionMetadataSchema = connectorActionDefinitionSchema.ext
         normalizeConnectorActionAsyncLifecycle,
         connectorActionAsyncLifecycleSchema.optional(),
     ),
-    followUpActions: z.unknown().optional(),
-    id: z.string().optional(),
-    providerPermissions: z.array(z.string()).optional().default([]),
-    requiredScopes: z.array(z.string()).optional().default([]),
 }).passthrough();
 
 const connectorActionSearchResultSchema = z.object({

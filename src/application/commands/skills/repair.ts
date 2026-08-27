@@ -129,14 +129,14 @@ export const skillsRepairCommand: CliCommandDefinition<SkillsRepairInput> = {
         skill: z.array(z.string()).optional(),
     }),
     handler: async (input, context) => {
-        const skillNames = dedupePreserveOrder(input.skill ?? []);
+        const skillNames = [...new Set(input.skill ?? [])];
 
         if (skillNames.length === 0) {
             throw new CliUserError("errors.skills.repair.skillRequired", 2);
         }
 
         const agentNames = await resolveRepairAgents(
-            dedupePreserveOrder(input.agent ?? []),
+            [...new Set(input.agent ?? [])],
             context,
         );
         const sources = await resolveRepairSources(skillNames, context);
@@ -479,20 +479,6 @@ function groupAgentsBySkill(
 
         existing.push(entry.agentId);
         result.set(entry.skill, existing);
-    }
-
-    return result;
-}
-
-function dedupePreserveOrder<T>(values: readonly T[]): T[] {
-    const seen = new Set<T>();
-    const result: T[] = [];
-
-    for (const value of values) {
-        if (!seen.has(value)) {
-            seen.add(value);
-            result.push(value);
-        }
     }
 
     return result;

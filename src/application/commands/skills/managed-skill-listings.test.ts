@@ -11,7 +11,7 @@ import {
     renderSkillMetadataJson,
 } from "./skill-metadata.ts";
 
-describe("skills list command helpers", () => {
+describe("managed skill listings", () => {
     test("lists bundled skills before the remaining sorted names", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-skills-list");
         const skillsDirectoryPath = join(rootDirectory, "skills");

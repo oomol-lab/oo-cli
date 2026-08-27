@@ -41,32 +41,19 @@ export class LocalizedHelp extends Help {
         }
     }
 
-    override optionDescription(option: Option): string {
-        return formatHelpDescription(option.description, [
-            option.argChoices?.length
-                ? `${this.translator.t("help.extra.choices")}: ${formatChoices(option.argChoices)}`
-                : undefined,
-            option.defaultValue !== undefined
-                ? `${this.translator.t("help.extra.default")}: ${String(option.defaultValueDescription ?? JSON.stringify(option.defaultValue))}`
-                : undefined,
-            option.presetArg !== undefined && option.optional
-                ? `${this.translator.t("help.extra.preset")}: ${String(JSON.stringify(option.presetArg))}`
-                : undefined,
-            option.envVar !== undefined
-                ? `${this.translator.t("help.extra.env")}: ${option.envVar}`
-                : undefined,
-        ]);
-    }
-
+    // Choices are the only extra info the CLI contract can express: an
+    // argument definition carries `choices`, and an option definition carries
+    // no default, preset, env var, or choices at all.
     override argumentDescription(argument: Argument): string {
-        return formatHelpDescription(argument.description, [
-            argument.argChoices?.length
-                ? `${this.translator.t("help.extra.choices")}: ${formatChoices(argument.argChoices)}`
-                : undefined,
-            argument.defaultValue !== undefined
-                ? `${this.translator.t("help.extra.default")}: ${String(argument.defaultValueDescription ?? JSON.stringify(argument.defaultValue))}`
-                : undefined,
-        ]);
+        if (!argument.argChoices?.length) {
+            return argument.description ?? "";
+        }
+
+        const choices = `(${this.translator.t("help.extra.choices")}: ${formatChoices(argument.argChoices)})`;
+
+        return argument.description
+            ? `${argument.description} ${choices}`
+            : choices;
     }
 
     override subcommandTerm(cmd: Command): string {
@@ -135,25 +122,4 @@ function findRootCommand(command: Command): Command {
 
 function formatChoices(choices: readonly string[]): string {
     return choices.map(choice => JSON.stringify(choice)).join(", ");
-}
-
-function formatHelpDescription(
-    description: string | undefined,
-    extraInfo: Array<string | undefined>,
-): string {
-    const resolvedExtraInfo = extraInfo.filter(
-        (item): item is string => item !== undefined,
-    );
-
-    if (resolvedExtraInfo.length === 0) {
-        return description ?? "";
-    }
-
-    const extraDescription = `(${resolvedExtraInfo.join(", ")})`;
-
-    if (description) {
-        return `${description} ${extraDescription}`;
-    }
-
-    return extraDescription;
 }

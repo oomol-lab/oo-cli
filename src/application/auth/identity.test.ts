@@ -440,7 +440,6 @@ function createThrowingConnectorStore(): ConnectorStore {
     };
 
     return {
-        getFilePath: () => "<broken-connector-store>",
         read: async () => fail(),
         write: async () => fail(),
         update: async () => fail(),
@@ -469,7 +468,6 @@ function createIdentityContext(
     const translator: Translator = {
         locale: "en",
         t: key => key,
-        resolveLocale: () => "en",
     };
     const stdin: InteractiveInput = {
         on() {},

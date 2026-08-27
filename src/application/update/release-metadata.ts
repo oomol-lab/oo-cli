@@ -14,10 +14,6 @@ export const cliLatestReleaseMetadataUrl = `${cliReleaseBaseUrl}/latest.json`;
 const sanitizedReleaseMetadataUrlLogValue = sanitizeUrlForLogging(cliLatestReleaseMetadataUrl);
 export const cliReleaseRequestTimeoutMs = 2000;
 
-const latestReleaseVersionSchema = z.object({
-    version: z.string().trim().min(1),
-});
-
 const latestReleaseSemverVersionSchema = z.object({
     version: z.string().trim().min(1).refine(isSemver),
 });
@@ -26,10 +22,8 @@ export async function fetchLatestCliReleaseVersion(options: {
     currentVersion: string;
     fetcher: Fetcher;
     logger: Logger;
-    parseVersion?: (payload: unknown) => string | null;
     timeoutMs?: number;
 }): Promise<string | null> {
-    const parseVersion = options.parseVersion ?? parseLatestCliReleaseVersion;
     const timeoutMs = options.timeoutMs ?? cliReleaseRequestTimeoutMs;
     const requestStartedAt = Date.now();
 
@@ -94,7 +88,7 @@ export async function fetchLatestCliReleaseVersion(options: {
         return null;
     }
 
-    const latestVersion = parseVersion(payload);
+    const latestVersion = parseLatestCliSemverReleaseVersion(payload);
 
     if (latestVersion === null) {
         options.logger.warn(
@@ -121,13 +115,11 @@ export async function fetchLatestCliReleaseVersion(options: {
     return latestVersion;
 }
 
-export function parseLatestCliReleaseVersion(payload: unknown): string | null {
-    const result = latestReleaseVersionSchema.safeParse(payload);
-
-    return result.success ? result.data.version : null;
-}
-
-export function parseLatestCliSemverReleaseVersion(
+// The CLI contract requires semver in both directions: checkForCliUpdate
+// refuses a non-semver current version, and the self-update path rejects a
+// non-semver target, so a leniently parsed value could only reach a later
+// throw.
+function parseLatestCliSemverReleaseVersion(
     payload: unknown,
 ): string | null {
     const result = latestReleaseSemverVersionSchema.safeParse(payload);
@@ -146,6 +138,10 @@ export function buildCliBinaryDownloadUrl(options: {
     return `${cliReleaseBaseUrl}/${options.version}/${options.platform}/${binaryName}`;
 }
 
+// Deliberately not AbortSignal.timeout: that timer is unref'd, so it does not
+// hold the event loop open and a caller whose fetch only settles on abort can
+// wait forever. The same requirement is recorded at the stall timer in
+// self-update/core.ts.
 async function fetchWithTimeout(
     fetcher: Fetcher,
     input: string,

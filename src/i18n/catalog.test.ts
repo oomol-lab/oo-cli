@@ -1,6 +1,15 @@
+import { dirname, join } from "node:path";
+import { Glob } from "bun";
 import { describe, expect, test } from "bun:test";
 
 import { enMessages, zhMessages } from "./catalog.ts";
+
+/**
+ * Keys the scanner cannot attribute to a consumer but that are still live.
+ * Prefer fixing the call site over adding entries here: a key that reaches
+ * this list is one the next reader cannot trace either.
+ */
+const intentionallyUnreferencedKeys = new Set<string>();
 
 describe("message catalog", () => {
     test("uses shared keys for consolidated labels and errors", () => {
@@ -46,75 +55,132 @@ describe("message catalog", () => {
         expect(zhMessages["labels.version"]).toBe("版本");
     });
 
-    test("does not keep removed duplicate keys", () => {
-        const removedKeys = [
-            "options.connectorKeywords",
-            "errors.connectorAuthenticated.invalidResponse",
-            "errors.connectorAuthenticated.requestError",
-            "errors.connectorAuthenticated.requestFailed",
-            "options.skill",
-            "options.all",
-            "errors.skills.install.nonInteractiveSelection",
-            "skills.install.selection.prompt",
-            "skills.install.status.conflict",
-            "skills.install.progress.installing.start",
-            "skills.install.progress.installing.complete",
-            "skills.install.progress.installing.failed",
-            "skills.install.progress.removing.start",
-            "skills.install.progress.removing.complete",
-            "skills.install.progress.removing.failed",
-            "auth.login.success",
-            "auth.status.loggedIn",
-            "auth.status.missing",
-            "errors.auth.activeAccountMissing",
-            "errors.file.invalidFormat",
-            "errors.fileList.invalidLimit",
-            "errors.packageInfo.invalidFormat",
-            "errors.search.invalidFormat",
-            "errors.search.invalidResponse",
-            "errors.search.requestError",
-            "errors.search.requestFailed",
-            "errors.skillsSearch.invalidFormat",
-            "file.text.status",
-            "labels.blocks",
-            "arguments.packageSpecifier",
-            "options.onlyPackageId",
-            "commands.package.summary",
-            "commands.package.description",
-            "commands.package.info.summary",
-            "commands.package.info.description",
-            "commands.mixedSearch.summary",
-            "commands.mixedSearch.description",
-            "mixedSearch.text.kind",
-            "mixedSearch.text.kind.connector",
-            "mixedSearch.text.kind.package",
-            "mixedSearch.text.noResults",
-            "packageInfo.text.blocks",
-            "packageInfo.text.inputHandle",
-            "packageInfo.text.outputHandle",
-            "packageInfo.text.optional",
-            "packageInfo.text.required",
-            "search.text.blocks",
-            "search.text.noResults",
-            "search.text.unnamedBlock",
-            "search.text.unnamedPackage",
-            "skills.list.version",
-            "skills.list.source.bundled",
-            "skills.list.source.local",
-            "options.skills.checkUpdate.skill",
-            "errors.skills.update.notInstalled",
-            "errors.skills.update.notManaged",
-            "errors.skills.update.packageNameMissing",
-            "skills.listLocal.noResults",
-            "skills.listLocal.summary",
-            "commands.skills.listLocal.description",
-            "commands.skills.listLocal.summary",
-            "versionInfo.version",
-        ] as const;
+    test("both locales declare the same key set", () => {
+        expect(Object.keys(zhMessages).sort()).toEqual(
+            Object.keys(enMessages).sort(),
+        );
+    });
 
-        for (const key of removedKeys) {
-            expect(Object.hasOwn(enMessages, key)).toBeFalse();
-            expect(Object.hasOwn(zhMessages, key)).toBeFalse();
-        }
+    test("every catalog key has a consumer", async () => {
+        const sources = await readCatalogConsumerSources();
+        const dynamicPrefixes = collectDynamicKeyPrefixes(sources);
+
+        const unreferenced = Object.keys(enMessages).filter(
+            key => !intentionallyUnreferencedKeys.has(key)
+                && !sources.some(source => source.includes(`"${key}"`))
+                && !dynamicPrefixes.some(prefix => key.startsWith(`${prefix}.`)),
+        );
+
+        expect(unreferenced).toEqual([]);
     });
 });
+
+/**
+ * Reads every file that may consume a catalog key. The catalog and this test
+ * are both excluded: the catalog so a key is never its own consumer, and this
+ * file because its assertions quote keys and its own documentation spells out
+ * a dynamic prefix, either of which would let an orphaned key vouch for
+ * itself.
+ */
+async function readCatalogConsumerSources(): Promise<string[]> {
+    const repositoryRoot = dirname(dirname(import.meta.dir));
+    const selfExcludedPaths = new Set([
+        join(import.meta.dir, "catalog.ts"),
+        join(import.meta.dir, "catalog.test.ts"),
+    ]);
+    const sources: string[] = [];
+
+    for (const directory of ["src", "contrib"]) {
+        const glob = new Glob("**/*.ts");
+        const scanRoot = join(repositoryRoot, directory);
+
+        for await (const relativePath of glob.scan(scanRoot)) {
+            const filePath = join(scanRoot, relativePath);
+
+            if (selfExcludedPaths.has(filePath)) {
+                continue;
+            }
+
+            sources.push(await Bun.file(filePath).text());
+        }
+    }
+
+    return sources;
+}
+
+/**
+ * Recovers the key prefixes that are completed at run time, so a dynamically
+ * built key is not reported as unreferenced. Two shapes produce them: template
+ * literals such as `skills.info.kind.${skill.kind}`, and the `scope` of an oo
+ * request, which expands to the `errors.<scope>.*` triplet.
+ */
+function collectDynamicKeyPrefixes(sources: readonly string[]): string[] {
+    const prefixes = new Set<string>();
+
+    for (const source of sources) {
+        collectTemplateLiteralPrefixes(source, prefixes);
+        collectRequestScopePrefixes(source, prefixes);
+    }
+
+    return [...prefixes];
+}
+
+/**
+ * Finds `some.key.prefix.${...}` inside a template literal and keeps the
+ * static part. The interpolation must be preceded by a dotted run of key
+ * characters that starts right after the opening backtick.
+ */
+function collectTemplateLiteralPrefixes(
+    source: string,
+    prefixes: Set<string>,
+): void {
+    const interpolation = ".${";
+    let index = source.indexOf(interpolation);
+
+    while (index >= 0) {
+        let start = index;
+
+        while (start > 0 && isKeyCharacter(source[start - 1]!)) {
+            start--;
+        }
+
+        const prefix = source.slice(start, index);
+
+        if (source[start - 1] === "`" && prefix.includes(".")) {
+            prefixes.add(prefix);
+        }
+
+        index = source.indexOf(interpolation, index + interpolation.length);
+    }
+}
+
+/**
+ * An oo request names an `errors.<scope>` namespace instead of spelling out
+ * its requestFailed/requestError/invalidResponse keys.
+ */
+function collectRequestScopePrefixes(
+    source: string,
+    prefixes: Set<string>,
+): void {
+    const marker = "scope: \"";
+    let index = source.indexOf(marker);
+
+    while (index >= 0) {
+        const start = index + marker.length;
+        const end = source.indexOf("\"", start);
+
+        if (end > start) {
+            prefixes.add(`errors.${source.slice(start, end)}`);
+        }
+
+        index = source.indexOf(marker, start);
+    }
+}
+
+function isKeyCharacter(character: string): boolean {
+    return character === "."
+        || character === "_"
+        || (character >= "a" && character <= "z")
+        || (character >= "A" && character <= "Z")
+        || (character >= "0" && character <= "9");
+}

@@ -42,6 +42,8 @@ const proxyRequestSchema = z.object({
     query: z.record(z.string(), proxyQueryValueSchema).optional(),
 }).strict();
 
+type ConnectorProxyRequest = z.output<typeof proxyRequestSchema>;
+
 interface ConnectorProxyInput {
     body?: string;
     data?: string;
@@ -137,8 +139,8 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(proxyRequest)),
             ),
-            has_body: hasProxyBody(proxyRequest),
-            method: readProxyMethod(proxyRequest),
+            has_body: proxyRequest.body !== undefined,
+            method: proxyRequest.method,
         });
 
         let response: ConnectorProxyResponse;
@@ -167,7 +169,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
 async function buildConnectorProxyRequest(
     input: ConnectorProxyInput,
     context: Pick<CliExecutionContext, "cwd">,
-): Promise<unknown> {
+): Promise<ConnectorProxyRequest> {
     if (input.data !== undefined && hasSplitProxyRequestInput(input)) {
         throw new CliUserError("errors.connectorProxy.dataConflict", 2);
     }
@@ -214,7 +216,7 @@ function hasSplitProxyRequestInput(input: ConnectorProxyInput): boolean {
         || input.body !== undefined;
 }
 
-function parseProxyRequest(value: unknown): unknown {
+function parseProxyRequest(value: unknown): ConnectorProxyRequest {
     const parsed = proxyRequestSchema.safeParse(value);
 
     if (!parsed.success) {
@@ -246,25 +248,6 @@ function parseJsonOption(value: string, errorKey: string): unknown {
             message: error instanceof Error ? error.message : String(error),
         });
     }
-}
-
-function hasProxyBody(proxyRequest: unknown): boolean {
-    return typeof proxyRequest === "object"
-        && proxyRequest !== null
-        && "body" in proxyRequest;
-}
-
-function readProxyMethod(proxyRequest: unknown): string {
-    if (
-        typeof proxyRequest === "object"
-        && proxyRequest !== null
-        && "method" in proxyRequest
-        && typeof proxyRequest.method === "string"
-    ) {
-        return proxyRequest.method;
-    }
-
-    return "unknown";
 }
 
 function formatConnectorProxyResponseAsText(

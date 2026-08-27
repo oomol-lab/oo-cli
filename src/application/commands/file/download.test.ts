@@ -338,14 +338,8 @@ function createFailingMetadataSessionStore(): CliExecutionContext["fileDownloadS
         deleteDownloadSessionsUpdatedBefore() {
             return Promise.reject(new Error("cleanup failed"));
         },
-        findDownloadSession() {
-            return Promise.resolve(undefined);
-        },
         findDownloadSessions() {
             return Promise.resolve([]);
-        },
-        getFilePath() {
-            return "";
         },
         saveDownloadSession() {
             return Promise.reject(new Error("save failed"));

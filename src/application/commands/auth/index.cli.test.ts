@@ -169,7 +169,7 @@ describe("auth CLI", () => {
 
         try {
             const result = await runPrintedAuthLogin(sandbox, "secret-1");
-            const plainOutput = createTerminalColors(true).strip(result.stdout);
+            const plainOutput = Bun.stripANSI(result.stdout);
             const outputLines = plainOutput.split("\n");
             const loginUrl = findLoginUrl(result.stdout);
 
@@ -195,7 +195,7 @@ describe("auth CLI", () => {
             const result = await runPrintedAuthLogin(sandbox, "secret-1", {
                 argv: ["--lang", "zh", "auth", "login"],
             });
-            const plainOutput = createTerminalColors(true).strip(result.stdout);
+            const plainOutput = Bun.stripANSI(result.stdout);
             const outputLines = plainOutput.split("\n");
             const loginUrl = findLoginUrl(result.stdout);
 

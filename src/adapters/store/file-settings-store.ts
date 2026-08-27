@@ -20,7 +20,7 @@ import {
     settingsFileReadSchema,
     settingsFileSchema,
 } from "../../application/schemas/settings.ts";
-import { isFileAlreadyExistsError, isFileMissingError } from "./file-store-utils.ts";
+import { isFileAlreadyExistsError, isFileMissingError } from "../../application/shared/fs-errors.ts";
 import { defaultSettingsFileName, resolveStoreDirectory } from "./store-path.ts";
 
 interface FileSettingsStoreSharedOptions {

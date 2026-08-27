@@ -1,11 +1,13 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { TerminalColors } from "../../terminal-colors.ts";
 
-import type { ConnectorAppView } from "./shared.ts";
+import type { TextTableColumn } from "../shared/text-table.ts";
 
+import type { ConnectorAppView } from "./shared.ts";
 import { z } from "zod";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
+import { formatTextTable } from "../shared/text-table.ts";
 import { connectorSearchServiceColor } from "./search-provider.ts";
 import {
     resolveConnectorSession,
@@ -127,11 +129,6 @@ function createConnectorAppListItem(app: ConnectorAppView): ConnectorAppListItem
 
 type ConnectorAppsTranslator = Pick<CliExecutionContext["translator"], "t">;
 
-interface ConnectorAppsColumn {
-    header: string;
-    render: (app: ConnectorAppListItem) => string;
-}
-
 // Renders the app listing as a color-coded, column-aligned table. Colors are
 // applied through the writer-aware palette, so a non-TTY / NO_COLOR stream (and
 // tests) receive plain aligned text.
@@ -149,36 +146,27 @@ export function formatConnectorAppsAsText(
         );
     }
 
-    const columns = createConnectorAppsColumns(listScope, translator, colors);
-    const headerCells = columns.map(column => colors.dim(column.header));
-    const rows = apps.map(app => columns.map(column => column.render(app)));
-    // Column widths use the terminal display width, which ignores ANSI color
-    // escapes and counts wide CJK/emoji glyphs as two columns, so neither color
-    // codes nor multi-cell characters skew the alignment.
-    const widths = columns.map((_, index) => Math.max(
-        visibleWidth(headerCells[index]!),
-        ...rows.map(row => visibleWidth(row[index]!)),
-    ));
-
-    return [headerCells, ...rows]
-        .map(cells => joinConnectorAppsRow(cells, widths))
-        .join("\n");
+    return formatTextTable(
+        createConnectorAppsColumns(listScope, translator, colors),
+        apps,
+        colors,
+    );
 }
 
 function createConnectorAppsColumns(
     listScope: ConnectorAppsListScope,
     translator: ConnectorAppsTranslator,
     colors: TerminalColors,
-): ConnectorAppsColumn[] {
+): TextTableColumn<ConnectorAppListItem>[] {
     const serviceColor = colors.hex(connectorSearchServiceColor);
     // The list-all view spans services, so it leads with a Service column; the
     // by-service view keeps its original columns because the service is implied
     // by the argument.
-    const serviceColumn: ConnectorAppsColumn = {
+    const serviceColumn: TextTableColumn<ConnectorAppListItem> = {
         header: translator.t("connector.apps.text.service"),
         render: app => serviceColor(app.service),
     };
-    const columns: ConnectorAppsColumn[] = [
+    const columns: TextTableColumn<ConnectorAppListItem>[] = [
         {
             header: translator.t("connector.apps.text.connectionName"),
             render: app => app.connectionName ?? colors.dim("-"),
@@ -210,23 +198,4 @@ function colorConnectorAppStatus(status: string, colors: TerminalColors): string
         : "gray";
 
     return colors[colorName](status);
-}
-
-// Pads every cell except the last to its column width (measured in display
-// columns) and joins the row with a two-space gutter.
-function joinConnectorAppsRow(
-    cells: readonly string[],
-    widths: readonly number[],
-): string {
-    return cells
-        .map((cell, index) => index === cells.length - 1
-            ? cell
-            : cell + " ".repeat(widths[index]! - visibleWidth(cell)))
-        .join("  ");
-}
-
-// Terminal display width of the cell: ANSI color escapes count as zero and wide
-// CJK/emoji glyphs count as two columns, unlike `String.length` (UTF-16 units).
-function visibleWidth(cell: string): number {
-    return Bun.stringWidth(cell);
 }

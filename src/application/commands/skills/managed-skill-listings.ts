@@ -104,7 +104,7 @@ export async function listManagedSkillInstallations(
         .sort(compareManagedSkillListItems);
 }
 
-export function readManagedSkillListSource(
+function readManagedSkillListSource(
     skill: Pick<ManagedSkillListItem, "metadata" | "name">,
 ): SkillListSource {
     if (skill.metadata?.kind === "local") {

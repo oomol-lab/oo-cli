@@ -69,7 +69,6 @@ const translator: Translator = {
                 return key;
         }
     },
-    resolveLocale: () => "en",
 };
 const stdin: InteractiveInput = {
     on() {},
@@ -204,7 +203,6 @@ function createSearchContext(options: {
             getCache() {
                 throw new Error("Unexpected cache access.");
             },
-            getFilePath: () => "",
         },
         connectorStore: createInMemoryConnectorStore(),
         currentLogFilePath: "",

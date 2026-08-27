@@ -67,7 +67,6 @@ export type TerminalFormatter = (value: TerminalInput) => string;
 export type TerminalColors = Record<TerminalFormatterName, TerminalFormatter> & {
     isColorSupported: boolean;
     hex: (color: string) => TerminalFormatter;
-    strip: (value: string) => string;
 };
 
 export function createTerminalColors(enabled: boolean): TerminalColors {
@@ -75,7 +74,6 @@ export function createTerminalColors(enabled: boolean): TerminalColors {
         ...createNamedFormatters(enabled),
         isColorSupported: enabled,
         hex: color => createHexFormatter(enabled, color),
-        strip: value => Bun.stripANSI(value),
     };
 }
 

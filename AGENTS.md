@@ -88,7 +88,7 @@ When identical logic appears in 2+ files, extract it to a shared module. Common 
 - Auth account checking → `shared/auth-utils.ts`
 - Output helpers → `shared/output.ts`
 - Database open/close → `sqlite-utils.ts`
-- File error checks → `file-store-utils.ts`
+- File error checks → `application/shared/fs-errors.ts`
 
 Parameterize the varying parts (error message keys, config values) rather than duplicating the whole function.
 

@@ -21,7 +21,6 @@ import { loadRegistryPackageSkillInfoAllowingMissing } from "../registry-skill-s
 import { createPackageNamesTelemetryProperties } from "../telemetry.ts";
 import { applyRecommendationCooldown } from "./recommendation-cooldown.ts";
 import {
-    dedupePreserveOrder,
     deriveSkillPackageName,
     partitionRecommendations,
 } from "./recommendation-plan.ts";
@@ -78,12 +77,12 @@ export const skillsRecommendPlanCommand: CliCommandDefinition<SkillsRecommendPla
     }),
     handler: async (input, context) => {
         // Each connector service maps to one published `oo-<service>` package.
-        const packageNames = dedupePreserveOrder(
+        const packageNames = [...new Set(
             (input.connectorServices ?? [])
                 .map(service => service.trim())
                 .filter(service => service.length > 0)
                 .map(deriveSkillPackageName),
-        );
+        )];
         const settings = await context.settingsStore.read();
         const dismissed = new Set(getDismissedSkillRecommendations(settings));
         const muted = isSkillRecommendationsMuted(settings);

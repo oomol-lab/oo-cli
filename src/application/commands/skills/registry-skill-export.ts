@@ -18,8 +18,7 @@ import {
     tryReportRegistryPackageDownload,
 } from "./registry-skill-source.ts";
 import {
-    normalizeSkillFilterTokens,
-    selectSkillsByFilter,
+    selectFilteredSkills,
 } from "./skill-filter.ts";
 import { isSkillIdReference } from "./skill-id.ts";
 
@@ -79,8 +78,8 @@ export async function exportRegistrySkills(
         });
     }
 
-    const selectedSkills = selectExportSkills(
-        packageInfo,
+    const selectedSkills = selectFilteredSkills(
+        packageInfo.skills,
         request.skillFilter,
         request.reportSkillFilterMiss,
     );
@@ -192,31 +191,6 @@ async function exportRegistrySkill(options: {
         skillName: options.skill.name,
         targetSkillDirectoryPath,
     };
-}
-
-// Narrow the package's published skills by the `--skill` filter. Returns every
-// skill when no filter is active. When the filter matches nothing, exports
-// nothing and reports the package's published skill names through `reportMiss`.
-function selectExportSkills(
-    packageInfo: RegistryPackageSkillInfo,
-    skillFilter: readonly string[] | undefined,
-    reportMiss: ((availableSkillNames: readonly string[]) => void) | undefined,
-): RegistrySkillSummary[] {
-    const tokens = normalizeSkillFilterTokens(skillFilter);
-
-    if (tokens === undefined) {
-        return packageInfo.skills;
-    }
-
-    const selected = selectSkillsByFilter(packageInfo.skills, tokens);
-
-    if (selected.length === 0) {
-        reportMiss?.(packageInfo.skills.map(skill => skill.name));
-
-        return [];
-    }
-
-    return selected;
 }
 
 // List the files written for an exported skill as forward-slash relative paths,

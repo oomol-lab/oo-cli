@@ -18,7 +18,6 @@ export interface Cache<Value> {
 }
 
 export interface CacheStore {
-    getFilePath: () => string;
     getCache: <Value>(options: CacheOptions) => Cache<Value>;
     close: () => void;
 }

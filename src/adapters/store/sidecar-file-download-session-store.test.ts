@@ -41,11 +41,11 @@ describe("SidecarFileDownloadSessionStore", () => {
                 "new.oodownload",
                 "old.oodownload",
             ]);
-            expect((await store.findDownloadSession(key))?.tempFileName).toBe("new.oodownload");
+            expect((await store.findDownloadSessions(key))[0]?.tempFileName).toBe("new.oodownload");
             expect(
                 await store.deleteDownloadSession("0195f5fe-ec31-7000-8000-000000000012"),
             ).toBeTrue();
-            expect((await store.findDownloadSession(key))?.tempFileName).toBe("old.oodownload");
+            expect((await store.findDownloadSessions(key))[0]?.tempFileName).toBe("old.oodownload");
         }
         finally {
             store.close();

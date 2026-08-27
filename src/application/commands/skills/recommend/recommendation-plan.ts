@@ -83,18 +83,3 @@ export function partitionRecommendations(
 
     return { recommendations, skipped };
 }
-
-// De-duplicates strings while preserving first-seen order.
-export function dedupePreserveOrder(values: readonly string[]): string[] {
-    const seen = new Set<string>();
-    const result: string[] = [];
-
-    for (const value of values) {
-        if (!seen.has(value)) {
-            seen.add(value);
-            result.push(value);
-        }
-    }
-
-    return result;
-}

@@ -18,12 +18,8 @@ export interface FileDownloadSessionRecord extends FileDownloadSessionKey {
 }
 
 export interface FileDownloadSessionStore {
-    getFilePath: () => string;
     deleteDownloadSession: (id: string) => Promise<boolean>;
     deleteDownloadSessionsUpdatedBefore: (cutoffMs: number) => Promise<number>;
-    findDownloadSession: (
-        key: FileDownloadSessionKey,
-    ) => Promise<FileDownloadSessionRecord | undefined>;
     findDownloadSessions: (
         key: FileDownloadSessionKey,
     ) => Promise<readonly FileDownloadSessionRecord[]>;

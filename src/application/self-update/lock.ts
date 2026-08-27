@@ -21,10 +21,10 @@ const activeVersionMarkerSchema = versionOwnerSchema.extend({
     markerId: z.string().trim().min(1),
 });
 
-const ownedInstallVersionLocks = new Map<string, {
-    lock: VersionOwner;
-    referenceCount: number;
-}>();
+// Reference count per lock file, so re-entrant acquisitions in one process
+// share the file and only the last release removes it. The lock file itself is
+// the record of who owns it; this map deliberately mirrors nothing from it.
+const ownedInstallVersionLocks = new Map<string, number>();
 
 export type ActiveVersionMarker = z.infer<typeof activeVersionMarkerSchema>;
 export type VersionOwner = z.infer<typeof versionOwnerSchema>;
@@ -37,8 +37,6 @@ export interface ActiveVersionMarkerHandle {
 
 export interface InstallVersionLockHandle {
     close: () => Promise<void>;
-    closeSync: () => void;
-    data: VersionOwner;
 }
 
 export type InstallVersionLockAcquisitionResult
@@ -279,20 +277,10 @@ function createActiveVersionMarkerHandle(
 function createInstallVersionLockHandle(
     lockFilePath: string,
 ): InstallVersionLockHandle {
-    const ownedLock = ownedInstallVersionLocks.get(lockFilePath);
-
-    if (!ownedLock) {
-        throw new Error(`Expected to own install version lock: ${lockFilePath}`);
-    }
-
     return {
         close: async () => {
             await releaseInstallVersionLock(lockFilePath);
         },
-        closeSync: () => {
-            releaseInstallVersionLockSync(lockFilePath);
-        },
-        data: ownedLock.lock,
     };
 }
 
@@ -319,10 +307,7 @@ async function tryAcquireInstallVersionLock(
         const existingLockData = await readVersionOwner(lockFilePath);
 
         if (existingLockData?.pid === lockData.pid) {
-            incrementOwnedInstallVersionLockReferenceCount(
-                lockFilePath,
-                existingLockData,
-            );
+            incrementOwnedInstallVersionLockReferenceCount(lockFilePath);
 
             return {
                 handle: createInstallVersionLockHandle(lockFilePath),
@@ -363,10 +348,7 @@ async function tryAcquireInstallVersionLock(
         };
     }
 
-    ownedInstallVersionLocks.set(lockFilePath, {
-        lock: confirmedLockData,
-        referenceCount: 1,
-    });
+    ownedInstallVersionLocks.set(lockFilePath, 1);
 
     return {
         handle: createInstallVersionLockHandle(lockFilePath),
@@ -375,14 +357,14 @@ async function tryAcquireInstallVersionLock(
 }
 
 async function releaseInstallVersionLock(lockFilePath: string): Promise<void> {
-    const ownedLock = ownedInstallVersionLocks.get(lockFilePath);
+    const referenceCount = ownedInstallVersionLocks.get(lockFilePath);
 
-    if (!ownedLock) {
+    if (referenceCount === undefined) {
         return;
     }
 
-    if (ownedLock.referenceCount > 1) {
-        ownedLock.referenceCount -= 1;
+    if (referenceCount > 1) {
+        ownedInstallVersionLocks.set(lockFilePath, referenceCount - 1);
         return;
     }
 
@@ -390,45 +372,13 @@ async function releaseInstallVersionLock(lockFilePath: string): Promise<void> {
     await rm(lockFilePath, { force: true });
 }
 
-function releaseInstallVersionLockSync(lockFilePath: string): void {
-    const ownedLock = ownedInstallVersionLocks.get(lockFilePath);
-
-    if (!ownedLock) {
-        return;
-    }
-
-    if (ownedLock.referenceCount > 1) {
-        ownedLock.referenceCount -= 1;
-        return;
-    }
-
-    ownedInstallVersionLocks.delete(lockFilePath);
-
-    try {
-        unlinkSync(lockFilePath);
-    }
-    catch {}
-}
-
 function incrementOwnedInstallVersionLockReferenceCount(
     lockFilePath: string,
-    lockData?: VersionOwner,
 ): void {
-    const ownedLock = ownedInstallVersionLocks.get(lockFilePath);
-
-    if (ownedLock) {
-        ownedLock.referenceCount += 1;
-        return;
-    }
-
-    if (!lockData) {
-        throw new Error(`Expected existing install version lock data: ${lockFilePath}`);
-    }
-
-    ownedInstallVersionLocks.set(lockFilePath, {
-        lock: lockData,
-        referenceCount: 1,
-    });
+    ownedInstallVersionLocks.set(
+        lockFilePath,
+        (ownedInstallVersionLocks.get(lockFilePath) ?? 0) + 1,
+    );
 }
 
 async function cleanupStaleActiveVersionMarkers(

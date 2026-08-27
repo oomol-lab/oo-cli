@@ -3,9 +3,9 @@ import { describe, expect, test } from "bun:test";
 import {
     isFileAlreadyExistsError,
     isFileMissingError,
-} from "./file-store-utils.ts";
+} from "./fs-errors.ts";
 
-describe("file store utils", () => {
+describe("fs errors", () => {
     test("detects missing-file errors by ENOENT", () => {
         const missingError = new Error("missing") as NodeJS.ErrnoException;
         missingError.code = "ENOENT";

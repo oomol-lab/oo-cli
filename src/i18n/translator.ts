@@ -5,7 +5,6 @@ import type {
 import type { Translator } from "../application/contracts/translator.ts";
 import type { MessageKey } from "./catalog.ts";
 import { messageCatalog } from "./catalog.ts";
-import { normalizeLocale } from "./locale.ts";
 
 function interpolate(
     template: string,
@@ -18,7 +17,9 @@ function interpolate(
     let output = template;
 
     for (const [key, value] of Object.entries(params)) {
-        output = output.split(`{${key}}`).join(String(value));
+        // A replacer function is required, not cosmetic: a plain replacement
+        // string would expand $&, $`, $' and $$ inside the value.
+        output = output.replaceAll(`{${key}}`, () => String(value));
     }
 
     return output;
@@ -27,7 +28,6 @@ function interpolate(
 export function createTranslator(locale: SupportedLocale): Translator {
     return {
         locale,
-        resolveLocale: normalizeLocale,
         t(key, params) {
             const catalogKey = key as MessageKey;
             const message

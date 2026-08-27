@@ -131,6 +131,31 @@ export function isSkillDirectoryAbsent(state: SkillDirectoryState): boolean {
         || state.kind === "empty";
 }
 
+// True when a bundled skill publication may overwrite whatever is at the path:
+// nothing is there, the directory is empty (it holds nothing oo could
+// destroy), or oo's own bundled metadata is there - including a stale
+// symlinked publication, which is oo's to replace. Anything else belongs to
+// somebody else: a non-empty directory without parseable oo metadata, or a
+// registry or local skill.
+//
+// `reclaimNonDirectory` is the one policy the callers disagree on, and they
+// always have. An explicit publication - `oo skills install`,
+// `oo skills auto-trigger` - deletes a regular file occupying the path and
+// installs over it. Startup synchronization never does: it runs unasked on
+// every invocation, so it must not delete a file the user never pointed it at.
+export function isBundledSkillDirectoryWritable(
+    state: SkillDirectoryState,
+    options: { reclaimNonDirectory: boolean },
+): boolean {
+    if (state.kind === "not-directory") {
+        return options.reclaimNonDirectory;
+    }
+
+    return state.kind === "missing"
+        || state.kind === "empty"
+        || (state.kind === "managed" && state.metadata.kind === "bundled");
+}
+
 export function managedMetadataOfKind<Kind extends SkillMetadata["kind"]>(
     state: SkillDirectoryState,
     kind: Kind,

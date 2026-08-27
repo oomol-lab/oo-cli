@@ -78,14 +78,8 @@ export function createDownloadSessionStoreSpy(
                 deletedSessionCutoffs.push(cutoffMs);
                 return Promise.resolve(0);
             },
-            findDownloadSession() {
-                return Promise.resolve(currentSession);
-            },
             findDownloadSessions() {
                 return Promise.resolve(currentSession === undefined ? [] : [currentSession]);
-            },
-            getFilePath() {
-                return "";
             },
             saveDownloadSession(record) {
                 savedSessions.push(record);
