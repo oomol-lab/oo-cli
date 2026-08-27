@@ -21,7 +21,7 @@ import {
     defaultAuthFile,
     renderAuthFile,
 } from "../../application/schemas/auth.ts";
-import { isFileAlreadyExistsError, isFileMissingError } from "./file-store-utils.ts";
+import { isFileAlreadyExistsError, isFileMissingError } from "../../application/shared/fs-errors.ts";
 import { defaultAuthFileName, resolveStoreDirectory } from "./store-path.ts";
 
 interface FileAuthStoreSharedOptions {

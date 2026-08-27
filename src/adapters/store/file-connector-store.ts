@@ -18,7 +18,7 @@ import {
     defaultConnectorFile,
     renderConnectorFile,
 } from "../../application/schemas/connector.ts";
-import { isFileMissingError } from "./file-store-utils.ts";
+import { isFileMissingError } from "../../application/shared/fs-errors.ts";
 import { defaultConnectorFileName, resolveStoreDirectory } from "./store-path.ts";
 
 interface FileConnectorStoreSharedOptions {
