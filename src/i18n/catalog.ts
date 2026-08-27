@@ -981,9 +981,6 @@ export const enMessages = {
     "help.arguments": "Arguments:",
     "help.commands": "Commands:",
     "help.extra.choices": "choices",
-    "help.extra.default": "default",
-    "help.extra.env": "env",
-    "help.extra.preset": "preset",
     "help.globalOptions": "Global Options:",
     "help.options": "Options:",
     "help.appDescription.colored":
@@ -2344,9 +2341,6 @@ export const zhMessages = {
     "help.arguments": "参数：",
     "help.commands": "命令：",
     "help.extra.choices": "可选值",
-    "help.extra.default": "默认值",
-    "help.extra.env": "环境变量",
-    "help.extra.preset": "预设值",
     "help.globalOptions": "全局选项：",
     "help.options": "选项：",
     "help.appDescription.colored":
