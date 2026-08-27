@@ -319,6 +319,8 @@ CLI reads `service`, `name`, `description`, `authenticated`, `accessStatus`,
 `authenticated` reflects whether the service already has a connected,
 authorized app on the server. `accessStatus` is either `available` or
 `connection_required` and indicates whether the action can be used immediately.
+The server may omit `accessStatus`; the CLI then derives `available` when
+`authenticated` is `true`, and `connection_required` otherwise.
 The CLI surfaces both fields directly in search output and warms its local schema
 cache from the returned `inputSchema` / `outputSchema`.
 

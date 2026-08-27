@@ -894,9 +894,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `connection_required`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
   描述、认证状态和访问状态。
-- 说明：action 列表本身与身份无关，只有每条结果的 `authenticated` 状态反映
-  有效身份下的已连接应用；因此连接在团队下的应用只有当该团队为有效身份时才显示
-  为已认证。
+- 说明：action 列表本身与身份无关，每条结果的 `authenticated` 和
+  `accessStatus` 字段反映有效身份下的已连接应用；因此团队下的连接只有当该团队为
+  有效身份时才会影响这两个字段。
 - 说明：使用 `oo connector schema "<service>.<action>"` 查看选中 action 的
   contract。
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
@@ -1096,9 +1096,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `connection_required`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
   描述、认证状态和访问状态。
-- 说明：action 列表本身与身份无关，只有每条结果的 `authenticated` 状态反映
-  有效身份下的已连接应用；因此连接在团队下的应用只有当该团队为有效身份时才显示
-  为已认证。
+- 说明：action 列表本身与身份无关，每条结果的 `authenticated` 和
+  `accessStatus` 字段反映有效身份下的已连接应用；因此团队下的连接只有当该团队为
+  有效身份时才会影响这两个字段。
 - 说明：使用 `oo connector schema "<service>.<action>"` 获取完整 connector
   action contract。
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后

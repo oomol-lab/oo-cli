@@ -1069,10 +1069,10 @@ Search connector actions with free-form text.
   `available` or `connection_required`.
 - Output: text output prints one block per action with the service/action
   label, optional description, authenticated state, and access status.
-- Notes: the action list itself does not depend on identity; only each result's
-  `authenticated` state reflects the effective identity's connected apps, so an
-  app connected under a team appears as authenticated only when that team is the
-  effective identity.
+- Notes: the action list itself does not depend on identity; each result's
+  `authenticated` and `accessStatus` fields reflect the effective identity's
+  connected apps, so a connection under a team affects both fields only when
+  that team is the effective identity.
 - Notes: use `oo connector schema "<service>.<action>"` to inspect the selected
   action contract.
 - Notes: search results also warm the local action schema cache when schema
@@ -1312,10 +1312,10 @@ Search connector actions with one free-form query.
   `available` or `connection_required`.
 - Output: text output prints one block per action with the service/action
   label, optional description, authenticated state, and access status.
-- Notes: the action list itself does not depend on identity; only each result's
-  `authenticated` state reflects the effective identity's connected apps, so an
-  app connected under a team appears as authenticated only when that team is the
-  effective identity.
+- Notes: the action list itself does not depend on identity; each result's
+  `authenticated` and `accessStatus` fields reflect the effective identity's
+  connected apps, so a connection under a team affects both fields only when
+  that team is the effective identity.
 - Notes: use `oo connector schema "<service>.<action>"` to inspect the full
   connector action contract.
 - Notes: search results also warm the local action schema cache when schema

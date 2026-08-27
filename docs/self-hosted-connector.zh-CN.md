@@ -283,9 +283,10 @@ service 与 action 名称会经过 URL 编码；run/schema 路径使用 `<servic
 ```
 
 `authenticated` 表示该服务在服务端是否已有已连接、已授权的 app。`accessStatus` 的值为
-`available` 或 `connection_required`，表示该 action 是否可以立即使用。CLI 会在搜索
-输出中直接呈现这两个字段，并用返回的 `inputSchema` / `outputSchema` 预热本地 schema
-缓存。
+`available` 或 `connection_required`，表示该 action 是否可以立即使用。服务端可以省略
+`accessStatus`；此时 CLI 会在 `authenticated` 为 `true` 时推导为
+`available`，否则推导为 `connection_required`。CLI 会在搜索输出中直接呈现这两个
+字段，并用返回的 `inputSchema` / `outputSchema` 预热本地 schema 缓存。
 
 ### 元数据响应（`GET /v1/actions/<service>.<action>`）
 
