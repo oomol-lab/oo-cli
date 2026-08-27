@@ -181,12 +181,14 @@ Tie-breakers:
   not connected, provide
   `https://console.oomol.com/team/<team>/connections/<service>` when the
   selected team name is known, or `https://console.oomol.com/connections`
-  otherwise, and ask the user to connect it first. Do not run
-  `oo connector schema`, inspect adjacent actions, or provide usage examples
-  until the user confirms the service is connected. On a self-hosted connector
-  the `authenticated` field reflects the server's connected apps; when a needed
-  connector is not connected, direct the user to the self-hosted console at the
-  `connector.url` from `oo auth status --json` instead of console.oomol.com.
+  otherwise. Percent-encode `<team>` and `<service>` as individual URL path
+  segments using `encodeURIComponent` semantics before substitution, then ask
+  the user to connect the service first. Do not run `oo connector schema`,
+  inspect adjacent actions, or provide usage examples until the user confirms
+  the service is connected. On a self-hosted connector the `authenticated`
+  field reflects the server's connected apps; when a needed connector is not
+  connected, direct the user to the self-hosted console at the `connector.url`
+  from `oo auth status --json` instead of console.oomol.com.
 - If both `fusion-api` and an authenticated non-Fusion connector are suitable,
   choose the one whose output contract best matches the user's requested result.
   Ask the user only when the choice changes provider, account, cost, compliance,

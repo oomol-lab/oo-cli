@@ -347,7 +347,9 @@ https://console.oomol.com/team/${teamName}/connections/${serviceName}
 
 Replace `${teamName}` with the team already selected for the connector
 operation and `${serviceName}` with the selected connector service. Never
-guess a team name or substitute a team id. If no team name is available, use
+guess a team name or substitute a team id. Percent-encode both values as
+individual URL path segments using `encodeURIComponent` semantics before
+substitution. If no team name is available, use
 `https://console.oomol.com/connections` instead.
 
 That URL applies to the OOMOL-hosted connector. When the user is on a
