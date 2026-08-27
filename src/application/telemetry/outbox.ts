@@ -277,20 +277,6 @@ export function openTelemetryDatabase(
     }
 }
 
-export function reclaimExpiredTelemetryLeases(
-    database: Database,
-    nowMs: number,
-): void {
-    database.query(
-        [
-            `UPDATE ${telemetryEventsTableName}`,
-            "SET lease_until_ms = NULL",
-            "WHERE lease_until_ms IS NOT NULL",
-            "AND lease_until_ms <= $nowMs",
-        ].join(" "),
-    ).run({ nowMs });
-}
-
 export function deleteExpiredTelemetryEvents(
     database: Database,
     nowMs: number,
@@ -513,12 +499,6 @@ function initializeTelemetryDatabase(database: Database): void {
         [
             `CREATE INDEX IF NOT EXISTS ${telemetryEventsTableName}_ready_idx`,
             `ON ${telemetryEventsTableName}(available_at_ms, created_at_ms)`,
-        ].join(" "),
-    );
-    database.run(
-        [
-            `CREATE INDEX IF NOT EXISTS ${telemetryEventsTableName}_lease_idx`,
-            `ON ${telemetryEventsTableName}(lease_until_ms)`,
         ].join(" "),
     );
     database.run(

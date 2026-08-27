@@ -21,7 +21,6 @@ import {
     leaseReadyTelemetryRows,
     openTelemetryDatabase,
     parseTelemetryRowPayload,
-    reclaimExpiredTelemetryLeases,
     recordTelemetryRowsAttempted,
     releaseTelemetryRowsWithoutAttempt,
     writeTelemetryStateNumber,
@@ -56,7 +55,6 @@ export async function flushTelemetryOutbox(
     try {
         const nowMs = now();
 
-        reclaimExpiredTelemetryLeases(database, nowMs);
         deleteExpiredTelemetryEvents(database, nowMs);
 
         const leasedRows = leaseReadyTelemetryRows(database, nowMs);
