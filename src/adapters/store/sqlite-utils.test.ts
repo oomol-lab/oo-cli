@@ -1,11 +1,15 @@
 import type { Database } from "bun:sqlite";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { constants } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 
 import { createLogCapture } from "../../../__tests__/helpers.ts";
 import { closeSqliteDatabase, isRecoverableSqliteError } from "./sqlite-utils.ts";
 
-const storeFilePath = "/tmp/oo-sqlite-utils/store.sqlite";
+// Never touched on disk: the stub database performs no IO, and the path only
+// travels into the log fields.
+const storeFilePath = join(tmpdir(), "oo-sqlite-utils", "store.sqlite");
 
 describe("isRecoverableSqliteError", () => {
     test("treats sqlite extended recoverable error codes as recoverable", () => {
