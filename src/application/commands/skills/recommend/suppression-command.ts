@@ -9,7 +9,6 @@ import {
 } from "../../../schemas/settings.ts";
 import { writeLine } from "../../shared/output.ts";
 import { createPackageNamesTelemetryProperties } from "../telemetry.ts";
-import { dedupePreserveOrder } from "./recommendation-plan.ts";
 
 interface SuppressionCommandInput {
     all?: boolean;
@@ -57,7 +56,7 @@ export function createSuppressionCommand(
         }),
         handler: async (input, context) => {
             const all = input.all === true;
-            const packageNames = dedupePreserveOrder(input.packageNames ?? []);
+            const packageNames = [...new Set(input.packageNames ?? [])];
 
             if (all && packageNames.length > 0) {
                 throw new CliUserError("errors.skills.recommend.conflictingScope", 2);

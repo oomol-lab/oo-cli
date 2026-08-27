@@ -2,7 +2,6 @@ import type { ResolvedCandidate } from "./recommendation-plan.ts";
 
 import { describe, expect, test } from "bun:test";
 import {
-    dedupePreserveOrder,
     deriveSkillPackageName,
     partitionRecommendations,
 
@@ -81,15 +80,5 @@ describe("partitionRecommendations", () => {
 
         expect(partition.recommendations.map(entry => entry.packageName)).toEqual(["a", "c"]);
         expect(partition.skipped.map(entry => entry.packageName)).toEqual(["b"]);
-    });
-});
-
-describe("dedupePreserveOrder", () => {
-    test("removes duplicates while preserving first-seen order", () => {
-        expect(dedupePreserveOrder(["b", "a", "b", "c", "a"])).toEqual(["b", "a", "c"]);
-    });
-
-    test("returns an empty array for empty input", () => {
-        expect(dedupePreserveOrder([])).toEqual([]);
     });
 });

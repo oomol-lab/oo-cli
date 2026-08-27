@@ -127,7 +127,7 @@ export const skillsCheckUpdateCommand: CliCommandDefinition<SkillsCheckUpdateInp
             context.env,
             context.settingsStore.getFilePath(),
         );
-        const packageNames = dedupePreserveOrder(input.packageNames ?? []);
+        const packageNames = [...new Set(input.packageNames ?? [])];
         // Record the skill-filter dimension before the no-match check can throw,
         // so the telemetry is present even when --skill excludes every entry.
         // Derive it from the normalized tokens so blank values are not reported
@@ -436,20 +436,6 @@ function computeSummary(results: readonly CheckUpdateResultEntry[]): CheckUpdate
         registrySkillsCurrent: results.filter(entry => entry.status === "up-to-date").length,
         registrySkillFailures: results.filter(entry => entry.status === "failed").length,
     };
-}
-
-function dedupePreserveOrder<T>(values: readonly T[]): T[] {
-    const seen = new Set<T>();
-    const result: T[] = [];
-
-    for (const value of values) {
-        if (!seen.has(value)) {
-            seen.add(value);
-            result.push(value);
-        }
-    }
-
-    return result;
 }
 
 function writeText(
