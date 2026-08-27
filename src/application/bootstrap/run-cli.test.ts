@@ -913,9 +913,6 @@ function createCleanupFileDownloadSessionStore(
         deleteDownloadSessionsUpdatedBefore() {
             return Promise.resolve(0);
         },
-        findDownloadSession() {
-            return Promise.resolve(undefined);
-        },
         findDownloadSessions() {
             return Promise.resolve([]);
         },

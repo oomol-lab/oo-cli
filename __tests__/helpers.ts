@@ -186,7 +186,6 @@ export function createNoopFileDownloadSessionStore(): FileDownloadSessionStore {
         close() {},
         deleteDownloadSession: () => Promise.resolve(false),
         deleteDownloadSessionsUpdatedBefore: () => Promise.resolve(0),
-        findDownloadSession: () => Promise.resolve(undefined),
         findDownloadSessions: () => Promise.resolve([]),
         saveDownloadSession: () => Promise.resolve(),
     };
