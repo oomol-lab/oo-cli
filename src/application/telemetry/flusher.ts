@@ -195,6 +195,9 @@ async function postTelemetryChunk(
 ): Promise<{
     kind: "payload_too_large" | "permanent" | "retriable" | "success";
 }> {
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+
     try {
         const response = await fetcher(telemetryEndpoint, {
             body,
@@ -202,7 +205,7 @@ async function postTelemetryChunk(
                 "content-type": "application/json",
             },
             method: "POST",
-            signal: AbortSignal.timeout(timeoutMs),
+            signal: abortController.signal,
         });
 
         if (response.ok) {
@@ -229,6 +232,9 @@ async function postTelemetryChunk(
     }
     catch {
         return { kind: "retriable" };
+    }
+    finally {
+        clearTimeout(timeoutId);
     }
 }
 

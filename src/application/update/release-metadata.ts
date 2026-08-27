@@ -138,19 +138,29 @@ export function buildCliBinaryDownloadUrl(options: {
     return `${cliReleaseBaseUrl}/${options.version}/${options.platform}/${binaryName}`;
 }
 
+// Deliberately not AbortSignal.timeout: that timer is unref'd, so it does not
+// hold the event loop open and a caller whose fetch only settles on abort can
+// wait forever. The same requirement is recorded at the stall timer in
+// self-update/core.ts.
 async function fetchWithTimeout(
     fetcher: Fetcher,
     input: string,
     init: RequestInit,
     timeoutMs: number,
 ): Promise<Response | null> {
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+
     try {
         return await fetcher(input, {
             ...init,
-            signal: AbortSignal.timeout(timeoutMs),
+            signal: abortController.signal,
         });
     }
     catch {
         return null;
+    }
+    finally {
+        clearTimeout(timeoutId);
     }
 }
