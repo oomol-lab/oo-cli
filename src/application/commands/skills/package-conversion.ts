@@ -892,11 +892,6 @@ async function requestSkillPackagePublish(options: {
     requestTimeoutMs: number;
     requestUrl: URL;
 }): Promise<Response> {
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(
-        () => abortController.abort(),
-        options.requestTimeoutMs,
-    );
     let response: Response;
 
     try {
@@ -909,7 +904,7 @@ async function requestSkillPackagePublish(options: {
                 "User-Agent": npmCompatiblePublishUserAgent,
             },
             method: "PUT",
-            signal: abortController.signal,
+            signal: AbortSignal.timeout(options.requestTimeoutMs),
         });
     }
     catch (error) {
@@ -919,9 +914,6 @@ async function requestSkillPackagePublish(options: {
                 options.context.translator,
             ),
         });
-    }
-    finally {
-        clearTimeout(timeoutId);
     }
 
     if (response.ok) {
