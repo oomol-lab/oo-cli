@@ -43,7 +43,6 @@ import { CliUserError } from "../src/application/contracts/cli.ts";
 import { serializeErrorForLogging } from "../src/application/logging/url-sanitizer.ts";
 import { defaultSettings, renderSettingsFile } from "../src/application/schemas/settings.ts";
 import { isPathMissingError } from "../src/application/shared/fs-errors.ts";
-import { createTerminalColors } from "../src/application/terminal-colors.ts";
 
 export interface TextBuffer {
     readonly writer: Writer;
@@ -784,7 +783,7 @@ export function expectCliUserError(
 }
 
 export function findLoginUrl(output: string): string | undefined {
-    const plainOutput = createTerminalColors(true).strip(output);
+    const plainOutput = Bun.stripANSI(output);
 
     for (const line of plainOutput.split("\n")) {
         const urlStart = line.indexOf("https://");
@@ -815,7 +814,7 @@ function normalizeSnapshotText(
         .join("\n");
 
     if (stripAnsi) {
-        normalized = createTerminalColors(true).strip(normalized);
+        normalized = Bun.stripANSI(normalized);
     }
 
     for (const replacement of replacements) {

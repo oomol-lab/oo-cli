@@ -2,7 +2,6 @@ import type { CliExecutionContext, Fetcher, Writer } from "../contracts/cli.ts";
 
 import type { TerminalColors } from "../terminal-colors.ts";
 import { APP_NAME } from "../config/app-config.ts";
-import { measureDisplayWidth } from "../display-width.ts";
 import { compareSemver, isSemver as isValidSemver } from "../semver.ts";
 import { createWriterColors } from "../terminal-colors.ts";
 import {
@@ -129,7 +128,7 @@ function renderNoticeBox(
 ): string {
     const horizontalPadding = 2;
     const contentWidth = lines.reduce((maxWidth, line) => {
-        const lineWidth = measureDisplayWidth(colors.strip(line));
+        const lineWidth = Bun.stringWidth(line);
 
         return lineWidth > maxWidth ? lineWidth : maxWidth;
     }, 0);
@@ -160,7 +159,7 @@ function renderNoticeBodyLine(
     colors: TerminalColors,
     horizontalPadding: number,
 ): string {
-    const visibleLineWidth = measureDisplayWidth(colors.strip(line));
+    const visibleLineWidth = Bun.stringWidth(line);
     const remainingWidth = width - visibleLineWidth;
     const leftSpacing = Math.floor(remainingWidth / 2);
     const rightSpacing = remainingWidth - leftSpacing;

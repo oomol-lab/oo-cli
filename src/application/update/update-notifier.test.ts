@@ -14,7 +14,6 @@ import { defaultAuthFile } from "../schemas/auth.ts";
 import { defaultSettings } from "../schemas/settings.ts";
 import { compareSemver } from "../semver.ts";
 import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
-import { createTerminalColors } from "../terminal-colors.ts";
 import {
     checkForCliUpdate,
     cliUpdateCommand,
@@ -84,7 +83,7 @@ describe("update notifier", () => {
                 updateCommand: cliUpdateCommand,
                 writer: stdout.writer,
             });
-            const strippedNotice = createTerminalColors(true).strip(notice);
+            const strippedNotice = Bun.stripANSI(notice);
 
             expect(result).toEqual({
                 latestVersion: "1.2.0",
