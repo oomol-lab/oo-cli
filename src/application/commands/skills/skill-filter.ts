@@ -60,3 +60,29 @@ export function selectSkillsByFilter<T extends SkillFilterCandidate>(
 ): T[] {
     return candidates.filter(candidate => skillMatchesFilterTokens(candidate, tokens));
 }
+
+// Narrow a package's published skills by the `--skill` filter. Returns every
+// skill when no filter is active. When the filter matches nothing, selects
+// nothing and reports the package's published skill names through
+// `reportMiss`; the caller decides whether an empty result is an error.
+export function selectFilteredSkills<T extends SkillFilterCandidate>(
+    skills: readonly T[],
+    skillFilter: readonly string[] | undefined,
+    reportMiss: ((availableSkillNames: readonly string[]) => void) | undefined,
+): readonly T[] {
+    const tokens = normalizeSkillFilterTokens(skillFilter);
+
+    if (tokens === undefined) {
+        return skills;
+    }
+
+    const selected = selectSkillsByFilter(skills, tokens);
+
+    if (selected.length === 0) {
+        reportMiss?.(skills.map(skill => skill.name));
+
+        return [];
+    }
+
+    return selected;
+}

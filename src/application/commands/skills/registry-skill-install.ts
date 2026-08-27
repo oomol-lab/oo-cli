@@ -40,8 +40,7 @@ import {
     readSkillDirectoryState,
 } from "./skill-directory-state.ts";
 import {
-    normalizeSkillFilterTokens,
-    selectSkillsByFilter,
+    selectFilteredSkills,
 } from "./skill-filter.ts";
 import { createSkillIdsTelemetryProperties } from "./telemetry.ts";
 
@@ -283,8 +282,8 @@ async function resolveInstallSkillNames(
 
     // Default behavior: install every published skill in the package, narrowed
     // by the optional `--skill` filter.
-    const selectedSkills = applyInstallSkillFilter(
-        packageInfo,
+    const selectedSkills = selectFilteredSkills(
+        packageInfo.skills,
         request.skillFilter,
         request.reportSkillFilterMiss,
     );
@@ -319,32 +318,6 @@ async function resolveInstallSkillNames(
     }
 
     return selectedSkills.map(skill => skill.name);
-}
-
-// Narrow the package's published skills by the `--skill` filter. Returns every
-// skill when no filter is active. When the filter matches nothing, installs
-// nothing and reports the package's published skill names through `reportMiss`;
-// the caller decides whether an empty result across all packages is an error.
-function applyInstallSkillFilter(
-    packageInfo: RegistryPackageSkillInfo,
-    skillFilter: readonly string[] | undefined,
-    reportMiss: ((availableSkillNames: readonly string[]) => void) | undefined,
-): RegistrySkillSummary[] {
-    const tokens = normalizeSkillFilterTokens(skillFilter);
-
-    if (tokens === undefined) {
-        return packageInfo.skills;
-    }
-
-    const selected = selectSkillsByFilter(packageInfo.skills, tokens);
-
-    if (selected.length === 0) {
-        reportMiss?.(packageInfo.skills.map(skill => skill.name));
-
-        return [];
-    }
-
-    return selected;
 }
 
 async function filterConfirmedSkillNames(
