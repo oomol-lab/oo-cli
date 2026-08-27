@@ -350,63 +350,41 @@ async function synchronizeRegistrySkill(
 async function listCanonicalRegistrySkills(
     context: Pick<SkillSyncContext, "logger" | "settingsStore">,
 ): Promise<CanonicalRegistrySkill[]> {
-    return listCanonicalSkills({
-        canonicalRootDirectoryPath: resolveManagedSkillCanonicalRootDirectoryPath(
-            context.settingsStore.getFilePath(),
-        ),
-        inspect: async (entryName, canonicalSkillDirectoryPath) => {
-            const canonicalMetadata = managedMetadataOfKind(
-                await readSkillDirectoryState(canonicalSkillDirectoryPath),
-                "registry",
-            );
-
-            if (canonicalMetadata === undefined) {
-                return undefined;
-            }
-
-            return {
-                metadata: canonicalMetadata,
-                name: entryName,
-                path: canonicalSkillDirectoryPath,
-            } satisfies CanonicalRegistrySkill;
-        },
-        inspectionFailureMessage:
-            "Canonical registry skill inspection failed during startup synchronization.",
-        logger: context.logger,
-    });
-}
-
-async function listCanonicalSkills<T>(options: {
-    canonicalRootDirectoryPath: string;
-    inspect: (
-        entryName: string,
-        canonicalSkillDirectoryPath: string,
-    ) => Promise<T | undefined>;
-    inspectionFailureMessage: string;
-    logger: SkillSyncContext["logger"];
-}): Promise<T[]> {
-    const entries = await readSkillsDirectoryEntries(
-        options.canonicalRootDirectoryPath,
+    const canonicalRootDirectoryPath = resolveManagedSkillCanonicalRootDirectoryPath(
+        context.settingsStore.getFilePath(),
     );
-
+    const entries = await readSkillsDirectoryEntries(canonicalRootDirectoryPath);
     const skills = await Promise.all(
         entries.map(async (entryName) => {
             const canonicalSkillDirectoryPath = join(
-                options.canonicalRootDirectoryPath,
+                canonicalRootDirectoryPath,
                 entryName,
             );
 
             try {
-                return await options.inspect(entryName, canonicalSkillDirectoryPath);
+                const canonicalMetadata = managedMetadataOfKind(
+                    await readSkillDirectoryState(canonicalSkillDirectoryPath),
+                    "registry",
+                );
+
+                if (canonicalMetadata === undefined) {
+                    return undefined;
+                }
+
+                return {
+                    metadata: canonicalMetadata,
+                    name: entryName,
+                    path: canonicalSkillDirectoryPath,
+                } satisfies CanonicalRegistrySkill;
             }
             catch (error) {
-                options.logger.warn(
+                context.logger.warn(
                     {
                         err: error,
                         path: canonicalSkillDirectoryPath,
                         skillName: entryName,
                     },
-                    options.inspectionFailureMessage,
+                    "Canonical registry skill inspection failed during startup synchronization.",
                 );
 
                 return undefined;
