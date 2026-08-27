@@ -9,15 +9,28 @@ export interface OpenSqliteDatabaseOptions {
     busyTimeoutMs?: number;
 }
 
-const recoverableSqliteErrorCodes = new Set([
+export interface CloseSqliteDatabaseOptions {
+    checkpointMode: "PASSIVE" | "TRUNCATE";
+    closedLogMessage: string;
+    filePath: string;
+    logger?: Logger;
+}
+
+// The single registry of SQLite failures a caller may degrade past rather than
+// escalate. Matching is by family, so an extended code such as
+// SQLITE_IOERR_FSYNC is recognized as the SQLITE_IOERR it is.
+const recoverableSqliteLockCodes = new Set([
     "SQLITE_BUSY",
     "SQLITE_LOCKED",
+]);
+const recoverableSqliteErrorCodes = new Set([
+    ...recoverableSqliteLockCodes,
     "SQLITE_CANTOPEN",
     "SQLITE_CORRUPT",
+    "SQLITE_FULL",
     "SQLITE_IOERR",
     "SQLITE_NOTADB",
     "SQLITE_READONLY",
-    "SQLITE_FULL",
 ]);
 
 export function openSqliteDatabase(
@@ -51,14 +64,14 @@ export function openSqliteDatabase(
 
 export function closeSqliteDatabase(
     database: Database,
-    logger: Logger | undefined,
-    filePath: string,
-    logMessage: string,
+    options: CloseSqliteDatabaseOptions,
 ): void {
+    const { checkpointMode, closedLogMessage, filePath, logger } = options;
+
     try {
         try {
             database.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
-            database.run("PRAGMA wal_checkpoint(PASSIVE);");
+            database.run(`PRAGMA wal_checkpoint(${checkpointMode});`);
         }
         catch (error) {
             if (!isRecoverableSqliteError(error)) {
@@ -67,7 +80,8 @@ export function closeSqliteDatabase(
 
             logger?.debug(
                 {
-                    error,
+                    err: error,
+                    sqliteErrorCode: error.code,
                     ...withStorePath(filePath),
                 },
                 "Sqlite checkpoint skipped after a recoverable failure.",
@@ -80,15 +94,45 @@ export function closeSqliteDatabase(
             {
                 ...withStorePath(filePath),
             },
-            logMessage,
+            closedLogMessage,
         );
     }
 }
 
-export function isRecoverableSqliteError(error: unknown): boolean {
-    if (!(error instanceof Error) || !("code" in error)) {
-        return false;
+export function isRecoverableSqliteError(error: unknown): error is Error & {
+    code: string;
+} {
+    return error instanceof Error
+        && "code" in error
+        && typeof error.code === "string"
+        && resolveRecoverableSqliteErrorCodeFamily(error.code) !== undefined;
+}
+
+export function isRecoverableSqliteLockCode(code: string): boolean {
+    for (const recoverableCode of recoverableSqliteLockCodes) {
+        if (matchesSqliteErrorCodeFamily(code, recoverableCode)) {
+            return true;
+        }
     }
 
-    return recoverableSqliteErrorCodes.has(String(error.code));
+    return false;
+}
+
+export function resolveRecoverableSqliteErrorCodeFamily(
+    code: string,
+): string | undefined {
+    for (const recoverableCode of recoverableSqliteErrorCodes) {
+        if (matchesSqliteErrorCodeFamily(code, recoverableCode)) {
+            return recoverableCode;
+        }
+    }
+
+    return undefined;
+}
+
+function matchesSqliteErrorCodeFamily(
+    code: string,
+    recoverableCode: string,
+): boolean {
+    return code === recoverableCode || code.startsWith(`${recoverableCode}_`);
 }

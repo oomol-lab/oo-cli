@@ -10,7 +10,6 @@ import type {
 import { createHash } from "node:crypto";
 import { accessSync, constants as fsConstants, statSync } from "node:fs";
 import { dirname } from "node:path";
-import { constants as sqliteConstants } from "bun:sqlite";
 import { logCategory } from "../../application/logging/log-categories.ts";
 import {
     withCacheId,
@@ -18,7 +17,13 @@ import {
     withKeyFingerprint,
     withStorePath,
 } from "../../application/logging/log-fields.ts";
-import { openSqliteDatabase } from "../store/sqlite-utils.ts";
+import {
+    closeSqliteDatabase,
+    isRecoverableSqliteError,
+    isRecoverableSqliteLockCode,
+    openSqliteDatabase,
+    resolveRecoverableSqliteErrorCodeFamily,
+} from "../store/sqlite-utils.ts";
 
 interface CacheRow {
     value: string;
@@ -55,8 +60,7 @@ interface StorePathDiagnostics {
 
 type RecoverableSqliteStorePathDiagnosticsPolicy
     = | "always"
-        | "except-lock"
-        | "never";
+        | "except-lock";
 
 interface RecoverableSqliteErrorContext {
     description: string;
@@ -66,19 +70,6 @@ interface RecoverableSqliteErrorContext {
     includeStorePathDiagnostics: boolean;
 }
 
-const recoverableSqliteLockCodes = new Set([
-    "SQLITE_BUSY",
-    "SQLITE_LOCKED",
-]);
-const recoverableSqliteCacheErrorCodes = new Set([
-    ...recoverableSqliteLockCodes,
-    "SQLITE_CANTOPEN",
-    "SQLITE_CORRUPT",
-    "SQLITE_FULL",
-    "SQLITE_IOERR",
-    "SQLITE_NOTADB",
-    "SQLITE_READONLY",
-]);
 const sqliteBusyTimeoutMs = 250;
 
 export class SqliteCacheStore implements CacheStore {
@@ -183,42 +174,12 @@ export class SqliteCacheStore implements CacheStore {
         }
 
         this.database = undefined;
-
-        try {
-            try {
-                database.fileControl(sqliteConstants.SQLITE_FCNTL_PERSIST_WAL, 0);
-                database.run("PRAGMA wal_checkpoint(TRUNCATE);");
-            }
-            catch (error) {
-                const recoverableError = resolveRecoverableSqliteErrorContext(
-                    error,
-                    "never",
-                );
-
-                if (recoverableError === undefined) {
-                    throw error;
-                }
-
-                this.logger?.debug(
-                    {
-                        ...withCategory(logCategory.recoverableCache),
-                        err: error,
-                        sqliteErrorCode: recoverableError.error.code,
-                        ...withStorePath(this.filePath),
-                    },
-                    `Sqlite cache store close skipped WAL checkpoint because ${recoverableError.description}.`,
-                );
-            }
-        }
-        finally {
-            database.close();
-            this.logger?.debug(
-                {
-                    ...withStorePath(this.filePath),
-                },
-                "Sqlite cache store closed.",
-            );
-        }
+        closeSqliteDatabase(database, {
+            checkpointMode: "TRUNCATE",
+            closedLogMessage: "Sqlite cache store closed.",
+            filePath: this.filePath,
+            logger: this.logger,
+        });
     }
 
     private getDatabase(): Database {
@@ -629,22 +590,11 @@ function createCacheKeyFingerprint(key: string): string {
     return createHash("sha256").update(key).digest("hex").slice(0, 12);
 }
 
-function isRecoverableSqliteCacheError(
-    error: unknown,
-): error is Error & {
-    code: string;
-} {
-    return error instanceof Error
-        && "code" in error
-        && typeof error.code === "string"
-        && isRecoverableSqliteCacheErrorCode(error.code);
-}
-
 function resolveRecoverableSqliteErrorContext(
     error: unknown,
     storePathDiagnosticsPolicy: RecoverableSqliteStorePathDiagnosticsPolicy,
 ): RecoverableSqliteErrorContext | undefined {
-    if (!isRecoverableSqliteCacheError(error)) {
+    if (!isRecoverableSqliteError(error)) {
         return undefined;
     }
 
@@ -696,40 +646,7 @@ function resolveRecoverableSqliteStorePathDiagnosticsPolicy(
             return true;
         case "except-lock":
             return !isRecoverableSqliteLockCode(error.code);
-        case "never":
-            return false;
     }
-}
-
-export function isRecoverableSqliteCacheErrorCode(code: string): boolean {
-    return resolveRecoverableSqliteErrorCodeFamily(code) !== undefined;
-}
-
-function isRecoverableSqliteLockCode(code: string): boolean {
-    for (const recoverableCode of recoverableSqliteLockCodes) {
-        if (matchesSqliteErrorCodeFamily(code, recoverableCode)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function resolveRecoverableSqliteErrorCodeFamily(code: string): string | undefined {
-    for (const recoverableCode of recoverableSqliteCacheErrorCodes) {
-        if (matchesSqliteErrorCodeFamily(code, recoverableCode)) {
-            return recoverableCode;
-        }
-    }
-
-    return undefined;
-}
-
-function matchesSqliteErrorCodeFamily(
-    code: string,
-    recoverableCode: string,
-): boolean {
-    return code === recoverableCode || code.startsWith(`${recoverableCode}_`);
 }
 
 function readStorePathDiagnostics(filePath: string): StorePathDiagnostics {

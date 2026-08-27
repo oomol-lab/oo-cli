@@ -163,7 +163,12 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
         }
 
         this.database = undefined;
-        closeSqliteDatabase(database, this.logger, this.filePath, "Sqlite file upload store closed.");
+        closeSqliteDatabase(database, {
+            checkpointMode: "PASSIVE",
+            closedLogMessage: "Sqlite file upload store closed.",
+            filePath: this.filePath,
+            logger: this.logger,
+        });
     }
 
     private getDatabase(): Database {
