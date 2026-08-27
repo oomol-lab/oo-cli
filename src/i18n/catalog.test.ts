@@ -76,12 +76,18 @@ describe("message catalog", () => {
 });
 
 /**
- * Reads every file that may consume a catalog key. The catalog itself is
- * excluded so a key is never treated as its own consumer.
+ * Reads every file that may consume a catalog key. The catalog and this test
+ * are both excluded: the catalog so a key is never its own consumer, and this
+ * file because its assertions quote keys and its own documentation spells out
+ * a dynamic prefix, either of which would let an orphaned key vouch for
+ * itself.
  */
 async function readCatalogConsumerSources(): Promise<string[]> {
     const repositoryRoot = dirname(dirname(import.meta.dir));
-    const catalogPath = join(import.meta.dir, "catalog.ts");
+    const selfExcludedPaths = new Set([
+        join(import.meta.dir, "catalog.ts"),
+        join(import.meta.dir, "catalog.test.ts"),
+    ]);
     const sources: string[] = [];
 
     for (const directory of ["src", "contrib"]) {
@@ -91,7 +97,7 @@ async function readCatalogConsumerSources(): Promise<string[]> {
         for await (const relativePath of glob.scan(scanRoot)) {
             const filePath = join(scanRoot, relativePath);
 
-            if (filePath === catalogPath) {
+            if (selfExcludedPaths.has(filePath)) {
                 continue;
             }
 
