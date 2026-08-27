@@ -17,7 +17,9 @@ function interpolate(
     let output = template;
 
     for (const [key, value] of Object.entries(params)) {
-        output = output.replaceAll(`{${key}}`, String(value));
+        // A replacer function is required, not cosmetic: a plain replacement
+        // string would expand $&, $`, $' and $$ inside the value.
+        output = output.replaceAll(`{${key}}`, () => String(value));
     }
 
     return output;
