@@ -3,6 +3,7 @@ import type { TerminalColors } from "../../terminal-colors.ts";
 
 import type { TeamIdentity } from "../team/identity.ts";
 import type { ConnectorSchemaRequestTarget } from "./schema-cache.ts";
+import type { ConnectorActionAccessStatus } from "./shared.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { warmConnectorActionSchemas } from "./schema-cache.ts";
 
@@ -12,6 +13,7 @@ export const connectorSearchActionColor = "#59F78D";
 export const connectorSearchServiceColor = "#CAA8FA";
 
 export interface ConnectorSearchResult {
+    accessStatus: ConnectorActionAccessStatus;
     authenticated: boolean;
     description: string;
     name: string;
@@ -40,6 +42,7 @@ export async function loadConnectorSearchResults(
     await warmConnectorActionSchemas(actions, options.target.cacheScope, context);
 
     return actions.map(action => ({
+        accessStatus: action.accessStatus,
         authenticated: action.authenticated,
         description: action.description,
         name: action.name,
@@ -78,9 +81,26 @@ export function formatConnectorSearchResultAsText(
 
     lines.push(
         `${context.translator.t("connector.search.text.authenticated")}: ${formatConnectorAuthenticationLabel(result.authenticated, context, colors)}`,
+        `${context.translator.t("connector.search.text.accessStatus")}: ${formatConnectorAccessStatusLabel(result.accessStatus, context, colors)}`,
     );
 
     return lines.join("\n");
+}
+
+function formatConnectorAccessStatusLabel(
+    accessStatus: ConnectorActionAccessStatus,
+    context: Pick<CliExecutionContext, "translator">,
+    colors: TerminalColors,
+): string {
+    if (accessStatus === "available") {
+        return colors.green(
+            context.translator.t("connector.search.text.accessStatus.available"),
+        );
+    }
+
+    return colors.yellow(
+        context.translator.t("connector.search.text.accessStatus.connectionRequired"),
+    );
 }
 
 function formatConnectorAuthenticationLabel(

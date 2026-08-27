@@ -148,6 +148,7 @@ describe("searchCommand CLI", () => {
                                 message: "ok",
                                 data: [
                                     {
+                                        accessStatus: "connection_required",
                                         authenticated: false,
                                         description: "Send a Gmail message.",
                                         inputSchema: {
@@ -175,6 +176,7 @@ describe("searchCommand CLI", () => {
             // of the search output contract.
             expect(JSON.parse(result.stdout)).toEqual([
                 {
+                    accessStatus: "connection_required",
                     authenticated: false,
                     description: "Send a Gmail message.",
                     name: "send_mail",
