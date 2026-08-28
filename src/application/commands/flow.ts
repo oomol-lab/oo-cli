@@ -6,11 +6,6 @@ import { resolveRequestLanguage } from "../../i18n/locale.ts";
 import { readDefaultTeam } from "../auth/default-team.ts";
 import { readTrimmedEnv, requireIdentity } from "../auth/identity.ts";
 import { CliUserError } from "../contracts/cli.ts";
-import { setAccountFlowProject } from "../schemas/auth.ts";
-import {
-    getOpenFlowServerProject,
-    setOpenFlowServerProject,
-} from "../schemas/settings.ts";
 import { createBrowserSignIn } from "./auth/web.ts";
 import { installOpenFlowCommandRelease } from "./flow-artifact.ts";
 import { openFlowCommandRelease } from "./flow-release.ts";
@@ -38,14 +33,11 @@ interface OpenFlowInvocation {
 }
 
 interface HostedSession {
-    readonly accountId?: string;
     readonly apiKey: string;
     readonly consoleOrigin: URL;
     readonly endpoint: string;
     readonly kind: "hosted";
     readonly origin: URL;
-    readonly projectId?: string;
-    readonly projectTeam: string;
     readonly teamName?: string;
     readonly teamHeaders: Record<string, string>;
 }
@@ -53,7 +45,6 @@ interface HostedSession {
 interface ServerSession {
     readonly kind: "server";
     readonly origin: URL;
-    readonly projectId?: string;
     readonly token: string;
 }
 
@@ -61,10 +52,8 @@ type OpenFlowSession = HostedSession | ServerSession;
 
 interface OpenFlowCommandHost {
     readonly cloudRequest: (path: string, init?: RequestInit) => Promise<Response>;
-    readonly getWorkbenchUrl: (projectId: string, flowId?: string) => Promise<string>;
-    readonly getProject: () => Promise<string | undefined>;
+    readonly getWorkbenchUrl: (flowId?: string) => Promise<string>;
     readonly language: "en" | "zh-CN";
-    readonly setProject: (projectId: string) => Promise<void>;
 }
 
 export const flowCommand = {
@@ -217,7 +206,6 @@ export async function runOpenFlowCommand(
     }
 
     let sessionPromise: Promise<OpenFlowSession> | undefined;
-    let selectedProject: string | undefined;
     const host: OpenFlowCommandHost = {
         async cloudRequest(path, init = {}) {
             const session = await (sessionPromise ??= resolveOpenFlowSession(context));
@@ -256,20 +244,14 @@ export async function runOpenFlowCommand(
 
             return await context.fetcher(url, { ...init, headers });
         },
-        async getProject() {
-            const session = await (sessionPromise ??= resolveOpenFlowSession(context));
-
-            return selectedProject ?? session.projectId;
-        },
-        async getWorkbenchUrl(projectId, flowId) {
+        async getWorkbenchUrl(flowId) {
             const session = await (sessionPromise ??= resolveOpenFlowSession(context));
 
             if (session.kind === "server") {
-                const projectPath = `/projects/${encodeURIComponent(projectId)}`;
                 const pathname
                     = flowId === undefined
-                        ? projectPath
-                        : `${projectPath}/flows/${encodeURIComponent(flowId)}/design`;
+                        ? "/flows"
+                        : `/flows/${encodeURIComponent(flowId)}/design`;
 
                 return new URL(pathname, session.origin).href;
             }
@@ -278,11 +260,11 @@ export async function runOpenFlowCommand(
                 throw new TypeError("Select a Team before opening the Open Flow Workbench.");
             }
 
-            const projectPath = `/team/${encodeURIComponent(session.teamName)}/flows/${encodeURIComponent(projectId)}`;
+            const flowPath = `/team/${encodeURIComponent(session.teamName)}/flows`;
             const pathname
                 = flowId === undefined
-                    ? projectPath
-                    : `${projectPath}/${encodeURIComponent(flowId)}/design`;
+                    ? flowPath
+                    : `${flowPath}/${encodeURIComponent(flowId)}/design`;
             const redirect = new URL(pathname, session.consoleOrigin).href;
             const signIn = await createBrowserSignIn(
                 { apiKey: session.apiKey, endpoint: session.endpoint },
@@ -293,30 +275,6 @@ export async function runOpenFlowCommand(
             return signIn.url;
         },
         language: resolveRequestLanguage(context.translator.locale),
-        async setProject(projectId) {
-            const session = await (sessionPromise ??= resolveOpenFlowSession(context));
-
-            if (session.kind === "server") {
-                await context.settingsStore.update(settings =>
-                    setOpenFlowServerProject(settings, session.origin.origin, projectId),
-                );
-                selectedProject = projectId;
-                return;
-            }
-
-            const accountId = session.accountId;
-
-            if (accountId === undefined) {
-                throw new TypeError(
-                    "A Project selected under OO_API_KEY cannot be persisted; use OO_FLOW_PROJECT instead.",
-                );
-            }
-
-            await context.authStore.update(auth =>
-                setAccountFlowProject(auth, accountId, { projectId, team: session.projectTeam }),
-            );
-            selectedProject = projectId;
-        },
     };
     const exitCode = await commandModule.runOpenFlowCommand(args, host);
 
@@ -374,18 +332,15 @@ async function resolveOpenFlowSession(
             throw new CliUserError("errors.flow.serverOriginInvalid", 1);
         }
 
-        const settings = await context.settingsStore.read();
-
         return {
             kind: "server",
             origin,
-            projectId: getOpenFlowServerProject(settings, origin.origin),
             token: serverToken,
         };
     }
 
     const accountSelector = readTrimmedEnv(context.env, flowAccountEnvName);
-    const { account, source } = await requireIdentity(context, accountSelector);
+    const { account } = await requireIdentity(context, accountSelector);
     const defaultTeam
         = accountSelector === undefined
             ? await readDefaultTeam(context)
@@ -404,23 +359,12 @@ async function resolveOpenFlowSession(
         context,
     );
 
-    let projectTeam = "personal";
-
-    if (identity !== undefined) {
-        projectTeam = identity.id === null ? `name:${identity.name}` : `id:${identity.id}`;
-    }
-
     return {
-        ...(source === "file" ? { accountId: account.id } : {}),
         apiKey: account.apiKey,
         consoleOrigin: new URL(`https://console.${account.endpoint}`),
         endpoint: account.endpoint,
         kind: "hosted",
         origin: new URL(`https://open-flow.${account.endpoint}`),
-        ...(account.flowProject?.team === projectTeam
-            ? { projectId: account.flowProject.projectId }
-            : {}),
-        projectTeam,
         ...(identity?.name === null || identity?.name === undefined
             ? {}
             : { teamName: identity.name }),

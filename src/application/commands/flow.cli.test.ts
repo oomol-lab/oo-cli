@@ -304,126 +304,6 @@ describe("flow CLI", () => {
         }
     });
 
-    test("persists the selected Project for the current account and Team", async () => {
-        const sandbox = await createCliSandbox();
-        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
-        const captureKey = `open-flow-project-context-${Bun.randomUUIDv7()}`;
-
-        try {
-            const authPath = await writeAuthFile(sandbox, {
-                accounts: [
-                    {
-                        id: "user-1",
-                        name: "Alice",
-                        apiKey: "dev-secret",
-                        endpoint: "oomol.com",
-                        team: "platform",
-                        teamId: "team-1",
-                    },
-                ],
-            });
-            await writeCommandEntry(commandDirectory, [
-                "const before = await host.getProject();",
-                "await host.setProject('project-1');",
-                "const after = await host.getProject();",
-                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, { before, after });`,
-                "return 0;",
-            ]);
-            sandbox.env.OO_ENDPOINT = "oomol.dev";
-            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
-
-            const first = await sandbox.run(["flow", "project", "use", "project-1"]);
-
-            expect(first.exitCode).toBe(0);
-            expect(Reflect.get(globalThis, captureKey)).toEqual({
-                after: "project-1",
-                before: undefined,
-            });
-
-            const second = await sandbox.run(["flow", "project", "current"]);
-
-            expect(second.exitCode).toBe(0);
-            expect(Reflect.get(globalThis, captureKey)).toEqual({
-                after: "project-1",
-                before: "project-1",
-            });
-
-            const auth = await Bun.file(authPath).text();
-            await Bun.write(
-                authPath,
-                auth
-                    .replace("team = \"platform\"", "team = \"other\"")
-                    .replace("team_id = \"team-1\"", "team_id = \"team-2\""),
-            );
-            const changedTeam = await sandbox.run(["flow", "project", "current"]);
-
-            expect(changedTeam.exitCode).toBe(0);
-            expect(Reflect.get(globalThis, captureKey)).toEqual({
-                after: "project-1",
-                before: undefined,
-            });
-        }
-        finally {
-            Reflect.deleteProperty(globalThis, captureKey);
-            await Promise.all([
-                sandbox.cleanup(),
-                rm(commandDirectory, { force: true, recursive: true }),
-            ]);
-        }
-    });
-
-    test("persists the selected Project independently for each Open Flow Server", async () => {
-        const sandbox = await createCliSandbox();
-        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
-        const captureKey = `open-flow-server-project-context-${Bun.randomUUIDv7()}`;
-
-        try {
-            await writeCommandEntry(commandDirectory, [
-                "const before = await host.getProject();",
-                "await host.setProject('project-1');",
-                "const after = await host.getProject();",
-                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, { before, after });`,
-                "return 0;",
-            ]);
-            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
-            sandbox.env.OO_OPEN_FLOW_TOKEN = "server-operator-token";
-            sandbox.env.OO_OPEN_FLOW_URL = "http://127.0.0.1:3000";
-
-            const first = await sandbox.run(["flow", "project", "use", "project-1"]);
-
-            expect(first.exitCode).toBe(0);
-            expect(Reflect.get(globalThis, captureKey)).toEqual({
-                after: "project-1",
-                before: undefined,
-            });
-
-            const second = await sandbox.run(["flow", "project", "current"]);
-
-            expect(second.exitCode).toBe(0);
-            expect(Reflect.get(globalThis, captureKey)).toEqual({
-                after: "project-1",
-                before: "project-1",
-            });
-
-            sandbox.env.OO_OPEN_FLOW_URL = "http://127.0.0.1:4000";
-
-            const otherServer = await sandbox.run(["flow", "project", "current"]);
-
-            expect(otherServer.exitCode).toBe(0);
-            expect(Reflect.get(globalThis, captureKey)).toEqual({
-                after: "project-1",
-                before: undefined,
-            });
-        }
-        finally {
-            Reflect.deleteProperty(globalThis, captureKey);
-            await Promise.all([
-                sandbox.cleanup(),
-                rm(commandDirectory, { force: true, recursive: true }),
-            ]);
-        }
-    });
-
     test("hands browser authentication to the official Team-scoped Workbench deep link", async () => {
         const sandbox = await createCliSandbox();
         const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
@@ -443,8 +323,9 @@ describe("flow CLI", () => {
                 ],
             });
             await writeCommandEntry(commandDirectory, [
-                "const url = await host.getWorkbenchUrl('project/1', 'flow/1');",
-                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, url);`,
+                "const catalogUrl = await host.getWorkbenchUrl();",
+                "const flowUrl = await host.getWorkbenchUrl('flow/1');",
+                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, { catalogUrl, flowUrl });`,
                 "return 0;",
             ]);
             sandbox.env.OO_ENDPOINT = "oomol.dev";
@@ -457,16 +338,17 @@ describe("flow CLI", () => {
 
                     return new Response(JSON.stringify({
                         expires_in: 300,
-                        session_code: "workbench-code",
+                        session_code: `workbench-code-${requests.length}`,
                     }));
                 },
             });
 
             expect(result.exitCode).toBe(0);
-            expect(Reflect.get(globalThis, captureKey)).toBe(
-                "https://api.oomol.dev/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.dev%2Fteam%2Fplatform%252Fteam%2Fflows%2Fproject%252F1%2Fflow%252F1%2Fdesign&session_code=workbench-code",
-            );
-            expect(requests).toHaveLength(1);
+            expect(Reflect.get(globalThis, captureKey)).toEqual({
+                catalogUrl: "https://api.oomol.dev/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.dev%2Fteam%2Fplatform%252Fteam%2Fflows&session_code=workbench-code-1",
+                flowUrl: "https://api.oomol.dev/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.dev%2Fteam%2Fplatform%252Fteam%2Fflows%2Fflow%252F1%2Fdesign&session_code=workbench-code-2",
+            });
+            expect(requests).toHaveLength(2);
             expect(requests[0]?.method).toBe("POST");
             expect(requests[0]?.url).toBe("https://api.oomol.dev/v1/auth/session_code");
             expect(requests[0]?.headers.get("authorization")).toBe("Bearer dev-secret");
@@ -488,8 +370,9 @@ describe("flow CLI", () => {
 
         try {
             await writeCommandEntry(commandDirectory, [
-                "const url = await host.getWorkbenchUrl('project/1', 'flow/1');",
-                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, url);`,
+                "const catalogUrl = await host.getWorkbenchUrl();",
+                "const flowUrl = await host.getWorkbenchUrl('flow/1');",
+                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, { catalogUrl, flowUrl });`,
                 "return 0;",
             ]);
             sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
@@ -506,9 +389,10 @@ describe("flow CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(requestCount).toBe(0);
-            expect(Reflect.get(globalThis, captureKey)).toBe(
-                "https://flow.example.test:8443/projects/project%2F1/flows/flow%2F1/design",
-            );
+            expect(Reflect.get(globalThis, captureKey)).toEqual({
+                catalogUrl: "https://flow.example.test:8443/flows",
+                flowUrl: "https://flow.example.test:8443/flows/flow%2F1/design",
+            });
         }
         finally {
             Reflect.deleteProperty(globalThis, captureKey);
@@ -613,35 +497,25 @@ describe("flow CLI", () => {
         }
     });
 
-    test("shows flow in root help for the online dev endpoint or Open Flow Server", async () => {
+    test("shows flow in root help", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             const defaultHelp = await sandbox.run(["--help"]);
             sandbox.env.OO_ENDPOINT = "oomol.com";
             const productionHelp = await sandbox.run(["--help"]);
-            sandbox.env.OO_ENDPOINT = "  oomol.dev  ";
-            const devHelp = await sandbox.run(["--help"]);
-            delete sandbox.env.OO_ENDPOINT;
-            sandbox.env.OO_OPEN_FLOW_TOKEN = "server-operator-token";
-            sandbox.env.OO_OPEN_FLOW_URL = "http://127.0.0.1:3000";
-            const serverHelp = await sandbox.run(["--help"]);
 
             expect(defaultHelp.exitCode).toBe(0);
-            expect(defaultHelp.stdout).not.toContain("  flow [args...]");
+            expect(defaultHelp.stdout).toContain("  flow [args...]");
             expect(productionHelp.exitCode).toBe(0);
-            expect(productionHelp.stdout).not.toContain("  flow [args...]");
-            expect(devHelp.exitCode).toBe(0);
-            expect(devHelp.stdout).toContain("  flow [args...]");
-            expect(serverHelp.exitCode).toBe(0);
-            expect(serverHelp.stdout).toContain("  flow [args...]");
+            expect(productionHelp.stdout).toContain("  flow [args...]");
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("provides host-side flow help while the command is hidden", async () => {
+    test("provides host-side flow help", async () => {
         const sandbox = await createCliSandbox();
 
         try {

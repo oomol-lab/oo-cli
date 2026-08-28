@@ -150,17 +150,6 @@ export function upsertAuthAccount(
     };
 }
 
-export function setAccountFlowProject(
-    authFile: AuthFile,
-    accountId: string,
-    flowProject: NonNullable<AuthAccount["flowProject"]>,
-): AuthFile {
-    return mapAuthAccount(authFile, accountId, account => ({
-        ...account,
-        flowProject,
-    }));
-}
-
 /**
  * Records the default team identity on one account. The id is stored only
  * when known, so a default migrated from the legacy global setting (which

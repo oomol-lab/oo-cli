@@ -277,10 +277,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 systemLocale: invocation.systemLocale,
             }),
         );
-        const catalog = createCliCatalog(
-            invocation.env.OO_ENDPOINT?.trim(),
-            invocation.env.OO_OPEN_FLOW_URL?.trim() || undefined,
-        );
+        const catalog = createCliCatalog();
         const completionRenderer = new StaticCompletionRenderer(translator);
         const packageName = invocation.packageName ?? packageManifest.name;
 

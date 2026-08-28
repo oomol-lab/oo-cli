@@ -299,33 +299,6 @@ export function unsetFileDownloadOutDir(
     return deleteNestedProperty(settings, ["file", "download", "out_dir"]);
 }
 
-export function getOpenFlowServerProject(
-    settings: AppSettings,
-    origin: string,
-): string | undefined {
-    return settings.open_flow?.server_projects?.find(
-        project => project.origin === origin,
-    )?.project_id;
-}
-
-export function setOpenFlowServerProject(
-    settings: AppSettings,
-    origin: string,
-    projectId: string,
-): AppSettings {
-    const serverProjects = [
-        ...(settings.open_flow?.server_projects?.filter(
-            project => project.origin !== origin,
-        ) ?? []),
-        { origin, project_id: projectId },
-    ].sort((left, right) => left.origin.localeCompare(right.origin));
-
-    return {
-        ...settings,
-        open_flow: { server_projects: serverProjects },
-    };
-}
-
 export function getConfiguredTelemetryEnabled(
     settings: AppSettings,
 ): boolean | undefined {
