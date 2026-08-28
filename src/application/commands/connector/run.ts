@@ -15,14 +15,14 @@ import { createWriterColors } from "../../terminal-colors.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
 import {
+    teamIdentityInputShape,
+    teamIdentityOptions,
+} from "../team/identity.ts";
+import {
     invalidateConnectorActionSchemaOnNotFound,
     loadConnectorActionSchema,
 } from "./schema-cache.ts";
-import {
-    resolveConnectorSession,
-    teamIdentityInputShape,
-    teamIdentityOptions,
-} from "./session.ts";
+import { resolveConnectorSession } from "./session.ts";
 import {
     requireConnectorActionName,
     runConnectorAction,

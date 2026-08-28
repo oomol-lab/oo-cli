@@ -7,10 +7,10 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import {
-    resolveConnectorSession,
     teamIdentityInputShape,
     teamIdentityOptions,
-} from "./session.ts";
+} from "../team/identity.ts";
+import { resolveConnectorSession } from "./session.ts";
 import { runConnectorProxy } from "./shared.ts";
 import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 

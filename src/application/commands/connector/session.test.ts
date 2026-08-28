@@ -15,7 +15,7 @@ import {
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import { createConnectorSchemaCacheScope } from "./schema-cache.ts";
-import { resolveConnectorSession, teamIdentityOptions } from "./session.ts";
+import { resolveConnectorSession } from "./session.ts";
 
 const testAccount = {
     id: "user-1",
@@ -47,7 +47,7 @@ describe("resolveConnectorSession flag guards", () => {
             resolveConnectorSession({ personal: true, team: "acme" }, context),
         );
 
-        expect(error.key).toBe("errors.connectorRun.identityConflict");
+        expect(error.key).toBe("errors.team.identityConflict");
         expect(error.exitCode).toBe(2);
         expect(context.requests).toHaveLength(0);
     });
@@ -62,7 +62,7 @@ describe("resolveConnectorSession flag guards", () => {
             resolveConnectorSession({ team }, context),
         );
 
-        expect(error.key).toBe("errors.connectorRun.teamEmpty");
+        expect(error.key).toBe("errors.team.teamEmpty");
         expect(error.exitCode).toBe(2);
         expect(context.requests).toHaveLength(0);
     });
@@ -296,27 +296,6 @@ describe("resolveConnectorSession backend policy", () => {
         });
         expect(context.recordedProperties).toEqual([
             { connector_kind: "oomol", identity_source: "env_id" },
-        ]);
-    });
-});
-
-describe("teamIdentityOptions", () => {
-    test("declares the shared flags with the caller's description keys", () => {
-        expect(teamIdentityOptions({
-            personal: "options.connectorRunPersonal",
-            team: "options.connectorRunTeam",
-        })).toEqual([
-            {
-                name: "team",
-                longFlag: "--team",
-                valueName: "team",
-                descriptionKey: "options.connectorRunTeam",
-            },
-            {
-                name: "personal",
-                longFlag: "--personal",
-                descriptionKey: "options.connectorRunPersonal",
-            },
         ]);
     });
 });

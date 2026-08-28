@@ -2621,7 +2621,7 @@ describe("auth CLI login default team", () => {
                 "Default team identity: alice-team",
             );
             expect(result.stdout).toContain(
-                "Connector commands keep using the team from OO_TEAM_ID, not this default.",
+                "Team-aware commands keep using the team from OO_TEAM_ID, not this default.",
             );
             // The default is still persisted; only its effect is deferred
             // while the env override is set.
@@ -2642,7 +2642,7 @@ describe("auth CLI login default team", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toContain(
-                "Connector commands keep using the team from OO_TEAM_NAME, not this default.",
+                "Team-aware commands keep using the team from OO_TEAM_NAME, not this default.",
             );
         }
         finally {

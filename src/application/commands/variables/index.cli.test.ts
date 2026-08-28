@@ -1,10 +1,18 @@
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createInteractiveInput,
+    expectTelemetryFreeOfTeamIdentity,
     toRequest,
     writeAuthFile,
+    writeAuthFileWithDefaultTeam,
 } from "../../../../__tests__/helpers.ts";
+import { APP_NAME } from "../../config/app-config.ts";
+import {
+    parseTelemetryRowPayload,
+    readTelemetryRowsForTest,
+} from "../../telemetry/outbox.ts";
 
 const VARIABLE = {
     name: "model-config",
@@ -442,6 +450,324 @@ describe("variables validation & auth", () => {
             });
 
             expect(result.exitCode).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
+
+describe("variables team identity", () => {
+    test("sends the account default team as x-oo-team-name", async () => {
+        const sandbox = await createCliSandbox();
+        const requests: Request[] = [];
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "acme", { teamId: "team-1" });
+
+            const result = await sandbox.run(["variables", "list"], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return new Response(JSON.stringify({ variables: [VARIABLE] }));
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]!.headers.get("x-oo-team-name")).toBe("acme");
+            expect(requests[0]!.headers.get("x-oo-team-id")).toBe("team-1");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--team overrides the account default and sends the name only", async () => {
+        const sandbox = await createCliSandbox();
+        const requests: Request[] = [];
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "acme", { teamId: "team-1" });
+
+            const result = await sandbox.run(["variables", "get", "model-config", "--team", "beta"], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return new Response(JSON.stringify(VARIABLE));
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requests[0]!.headers.get("x-oo-team-name")).toBe("beta");
+            expect(requests[0]!.headers.get("x-oo-team-id")).toBeNull();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--personal drops the saved default and sends no team header", async () => {
+        const sandbox = await createCliSandbox();
+        const requests: Request[] = [];
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "acme", { teamId: "team-1" });
+
+            const result = await sandbox.run(["variables", "delete", "k", "--personal"], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return new Response("", { status: 204 });
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requests[0]!.headers.get("x-oo-team-name")).toBeNull();
+            expect(requests[0]!.headers.get("x-oo-team-id")).toBeNull();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("OO_TEAM_ID is validated and sends both halves of the identity", async () => {
+        const sandbox = await createCliSandbox();
+        const requests: Request[] = [];
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "acme", { teamId: "team-1" });
+            sandbox.env.OO_TEAM_ID = "team-9";
+
+            const result = await sandbox.run(["variables", "create", "k", "v"], {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    requests.push(request);
+
+                    if (new URL(request.url).host === "relation-control.oomol.com") {
+                        return new Response(JSON.stringify({
+                            id: "team-9",
+                            name: "platform",
+                            role: "member",
+                            system_created: false,
+                        }));
+                    }
+
+                    return new Response(JSON.stringify({ ...VARIABLE, name: "k", value: "v" }));
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(new URL(requests[0]!.url).pathname).toBe("/v1/teams/team-9");
+
+            const variablesRequest = requests[1]!;
+            expect(new URL(variablesRequest.url).host).toBe("cli-api.oomol.com");
+            expect(variablesRequest.headers.get("x-oo-team-id")).toBe("team-9");
+            expect(variablesRequest.headers.get("x-oo-team-name")).toBe("platform");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("--team with --personal errors with exit 2 and sends no request", async () => {
+        const sandbox = await createCliSandbox();
+        let called = false;
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["variables", "list", "--team", "acme", "--personal"], {
+                fetcher: async () => {
+                    called = true;
+                    return new Response("{}");
+                },
+            });
+
+            expect(result.exitCode).toBe(2);
+            expect(called).toBe(false);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("an empty --team errors with exit 2 and sends no request", async () => {
+        const sandbox = await createCliSandbox();
+        let called = false;
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["variables", "list", "--team", "  "], {
+                fetcher: async () => {
+                    called = true;
+                    return new Response("{}");
+                },
+            });
+
+            expect(result.exitCode).toBe(2);
+            expect(called).toBe(false);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("create rejects a blank --team before it reads the value source", async () => {
+        const sandbox = await createCliSandbox();
+        let called = false;
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const missingPath = `${sandbox.env.HOME}/missing.txt`;
+            const result = await sandbox.run(
+                ["variables", "create", "k", "--from-file", missingPath, "--team", "  "],
+                {
+                    fetcher: async () => {
+                        called = true;
+                        return new Response("{}");
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).not.toContain("Failed to read value file");
+            expect(called).toBe(false);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("401 Team context required reports that the account has no team", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["variables", "list"], {
+                fetcher: async () => new Response(
+                    JSON.stringify({ message: "Team context required" }),
+                    { status: 401 },
+                ),
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("belongs to no team");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("401 without the team-context message stays the generic request failure", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["variables", "list"], {
+                fetcher: async () => new Response(
+                    JSON.stringify({ message: "Invalid API key" }),
+                    { status: 401 },
+                ),
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("status 401");
+            expect(result.stderr).not.toContain("belongs to no team");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("503 reports that the team could not be verified", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["variables", "list"], {
+                fetcher: async () => new Response(
+                    JSON.stringify({ code: "TEAM_UNAVAILABLE" }),
+                    { status: 503 },
+                ),
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("Could not verify your team right now");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("403 reports that the account cannot use the selected team", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["variables", "get", "k", "--team", "beta"], {
+                fetcher: async () => new Response("", { status: 403 }),
+            });
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("cannot use the selected team");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("records the identity source without the team name", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(["variables", "list", "--team", "acme"], {
+                fetcher: async () => new Response(JSON.stringify({ variables: [] })),
+            });
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "variables.list",
+                    identity_source: "flag",
+                },
+            });
+            expectTelemetryFreeOfTeamIdentity(telemetryPayload?.properties, ["acme"]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("updatedBy is reported when present and optional when the backend omits it", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const withUpdatedBy = await sandbox.run(["variables", "get", "k", "--json"], {
+                fetcher: async () => new Response(
+                    JSON.stringify({ ...VARIABLE, updatedBy: "user-1" }),
+                ),
+            });
+            const withoutUpdatedBy = await sandbox.run(["variables", "get", "k", "--json"], {
+                fetcher: async () => new Response(JSON.stringify(VARIABLE)),
+            });
+
+            expect(withUpdatedBy.exitCode).toBe(0);
+            expect(JSON.parse(withUpdatedBy.stdout)).toMatchObject({ updatedBy: "user-1" });
+            expect(withoutUpdatedBy.exitCode).toBe(0);
+            expect(JSON.parse(withoutUpdatedBy.stdout)).not.toHaveProperty("updatedBy");
         }
         finally {
             await sandbox.cleanup();

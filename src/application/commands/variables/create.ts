@@ -2,9 +2,11 @@ import type { CliCommandDefinition } from "../../contracts/cli.ts";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { writeLine } from "../shared/output.ts";
+import { teamIdentityInputShape, teamIdentityOptions } from "../team/identity.ts";
 import {
     mapVariablesInputError,
     putVariable,
+    resolveVariablesIdentity,
     resolveVariableValue,
     variableNameSchema,
 } from "./shared.ts";
@@ -14,6 +16,8 @@ interface VariablesCreateInput {
     value?: string;
     fromFile?: string;
     stdin?: boolean;
+    team?: string;
+    personal?: boolean;
 }
 
 export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> = {
@@ -46,9 +50,14 @@ export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> 
             longFlag: "--stdin",
             descriptionKey: "options.variablesStdin",
         },
+        ...teamIdentityOptions({
+            personal: "options.variablesPersonal",
+            team: "options.variablesTeam",
+        }),
     ],
     output: "standard",
     inputSchema: z.object({
+        ...teamIdentityInputShape,
         name: variableNameSchema,
         value: z.string().optional(),
         fromFile: z.string().optional(),
@@ -57,8 +66,9 @@ export const variablesCreateCommand: CliCommandDefinition<VariablesCreateInput> 
     mapInputError: mapVariablesInputError,
     handler: async (input, context) => {
         const { account } = await requireIdentity(context);
+        const identity = await resolveVariablesIdentity(input, account, context);
         const value = await resolveVariableValue(input, context);
-        const variable = await putVariable(account, input.name, value, context);
+        const variable = await putVariable(account, identity, input.name, value, context);
 
         context.output.emit(variable, () => {
             writeLine(context.stdout, context.translator.t("variables.create.success", {
