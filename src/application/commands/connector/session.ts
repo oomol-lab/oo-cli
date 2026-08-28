@@ -1,8 +1,8 @@
 // The connector session: which connector server this invocation talks to, and
 // under whose team identity — resolved once, behind one call. Handlers do
 // their own pure input validation first, then everything identity-shaped
-// happens here: the --team/--personal flag guards, target resolution, the
-// self-hosted team rejection, the configured default, the team identity
+// happens here: the shared --team/--personal flag guards, target resolution,
+// the self-hosted team rejection, the configured default, the team identity
 // ladder with its execution gate, and the identity telemetry.
 //
 // The self-hosted runtime is single-user and has no team concept: an explicit
@@ -10,14 +10,14 @@
 // override is silently ignored so a shared config does not break self-hosted
 // usage. This module is the only place that rule exists.
 
-import type { CliExecutionContext, CliOptionDefinition } from "../../contracts/cli.ts";
+import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type { TeamIdentity } from "../team/identity.ts";
 import type { ConnectorTarget } from "./target.ts";
 
-import { z } from "zod";
 import { readDefaultTeam } from "../../auth/default-team.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
+    assertTeamIdentityFlags,
     requireValidTeamIdentity,
     resolveTeamIdentity,
 } from "../team/identity.ts";
@@ -65,15 +65,7 @@ export async function resolveConnectorSession(
     },
     context: ConnectorSessionContext,
 ): Promise<ConnectorSession> {
-    if (options.personal === true && options.team !== undefined) {
-        throw new CliUserError("errors.connectorRun.identityConflict", 2);
-    }
-
-    const teamFlag = options.team?.trim();
-
-    if (options.team !== undefined && teamFlag === "") {
-        throw new CliUserError("errors.connectorRun.teamEmpty", 2);
-    }
+    const teamFlag = assertTeamIdentityFlags(options);
 
     const target = await resolveConnectorTarget(context);
 
@@ -110,34 +102,3 @@ export async function resolveConnectorSession(
 
     return { identity, target };
 }
-
-/**
- * The `--team` / `--personal` option pair every session-resolving command
- * declares. Flags and value names live here once; each command supplies its
- * own description keys so the help text keeps its verb.
- */
-export function teamIdentityOptions(descriptionKeys: {
-    personal: string;
-    team: string;
-}): readonly CliOptionDefinition[] {
-    return [
-        {
-            name: "team",
-            longFlag: "--team",
-            valueName: "team",
-            descriptionKey: descriptionKeys.team,
-        },
-        {
-            name: "personal",
-            longFlag: "--personal",
-            descriptionKey: descriptionKeys.personal,
-        },
-    ];
-}
-
-// The input-schema counterpart of teamIdentityOptions, spread into each
-// command's zod object so the field pair cannot drift across commands.
-export const teamIdentityInputShape = {
-    personal: z.boolean().optional(),
-    team: z.string().optional(),
-};

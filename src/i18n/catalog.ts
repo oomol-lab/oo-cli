@@ -192,19 +192,19 @@ export const enMessages = {
     "commands.logout.summary":
         "Log out the current account (alias for auth logout)",
     "commands.team.description":
-        "List the teams your account can access and manage the default team identity used by connector commands.",
+        "List the teams your account can access and manage the default team identity used by team-aware commands (connector, variables).",
     "commands.team.summary": "Manage team identity",
     "commands.team.list.description":
         "List the teams the active account can authenticate as, marking the current default.",
     "commands.team.list.summary": "List accessible teams",
     "commands.team.current.description":
-        "Show the default team identity used by connector commands when no --team / --personal flag is given.",
+        "Show the default team identity used by team-aware commands (connector, variables) when no --team / --personal flag is given.",
     "commands.team.current.summary": "Show the default team identity",
     "commands.team.use.description":
-        "Set the default team identity used by connector commands, after checking the account can access it.",
+        "Set the default team identity used by team-aware commands (connector, variables), after checking the account can access it.",
     "commands.team.use.summary": "Set the default team identity",
     "commands.team.clear.description":
-        "Clear the default team identity so connector commands run under your personal identity.",
+        "Clear the default team identity so team-aware commands (connector, variables) stop using it.",
     "commands.team.clear.summary": "Clear the default team identity",
     "commands.search.description":
         "Search connector actions with one free-form query.",
@@ -403,6 +403,8 @@ export const enMessages = {
         "The team id \"{teamId}\" from OO_TEAM_ID cannot be used: {reason}. Run `oo team list` to see the teams you can use.",
     "errors.team.envNameNotAccessible":
         "The active account cannot access the team \"{team}\" from OO_TEAM_NAME. Run `oo team list` to see the teams you can use.",
+    "errors.team.identityConflict":
+        "Use either --team or --personal, not both.",
     "errors.team.invalidResponse":
         "The team list response body is unsupported.",
     "errors.team.nameEmpty": "The team name must not be empty.",
@@ -411,6 +413,8 @@ export const enMessages = {
     "errors.team.requestError": "The team list request failed: {message}",
     "errors.team.requestFailed":
         "The team list request returned HTTP {status}.",
+    "errors.team.teamEmpty":
+        "The --team value cannot be empty.",
     "errors.connectorMetadata.invalidResponse":
         "The connector action metadata response body is unsupported.",
     "errors.connectorMetadata.requestError":
@@ -461,10 +465,6 @@ export const enMessages = {
         "The --wait option is only supported for connector actions with an async result lifecycle.",
     "errors.connectorRun.waitModeConflict":
         "Use either --wait or --wait-result, not both.",
-    "errors.connectorRun.identityConflict":
-        "Use either --team or --personal, not both.",
-    "errors.connectorRun.teamEmpty":
-        "The --team value cannot be empty.",
     "errors.connectorRun.waitResultActionUnsupported":
         "The result action {action} configured for --wait-result must declare an async result lifecycle.",
     "errors.connectorRun.waitResultUnsupported":
@@ -1299,10 +1299,10 @@ export const enMessages = {
     "team.list.text.role": "Role",
     "team.list.text.default": "Default",
     "team.list.text.noTeams":
-        "The active account has no teams; connector commands run under your personal identity.",
+        "The active account has no teams; connector commands run under your personal identity and variables commands use the server-side default team.",
     "team.current.text.accountDefault": "Default team identity: {team}",
     "team.current.text.personal":
-        "No default team; connector commands run under your personal identity.",
+        "No default team; connector commands run under your personal identity and variables commands use the server-side default team.",
     "team.current.text.envId":
         "Team identity comes from the OO_TEAM_ID environment variable: {team}",
     "team.current.text.envName":
@@ -1324,15 +1324,15 @@ export const enMessages = {
     "team.use.envOverrideNoop":
         "Nothing was saved: the active credential comes from OO_API_KEY, which has no saved default team. Pin a team with OO_TEAM_ID or OO_TEAM_NAME instead.",
     "team.use.envOverrideHint":
-        "Connector commands keep using the team from {envVar}, not this default. Unset {envVar} to use the saved default.",
+        "Team-aware commands keep using the team from {envVar}, not this default. Unset {envVar} to use the saved default.",
     "team.clear.success":
-        "Cleared the default team identity; connector commands now run under your personal identity.",
+        "Cleared the default team identity; connector commands now run under your personal identity and variables commands use the server-side default team.",
     "team.clear.alreadyPersonal":
-        "No default team was set; connector commands already run under your personal identity.",
+        "No default team was set; connector commands already run under your personal identity and variables commands use the server-side default team.",
     "team.clear.successEnvOverride":
-        "Cleared the default team identity, but {envVar} still selects the team for connector commands. Unset {envVar} to run under your personal identity.",
+        "Cleared the default team identity, but {envVar} still selects the team for team-aware commands. Unset {envVar} to stop selecting a team.",
     "team.clear.alreadyPersonalEnvHint":
-        "No default team was set, but {envVar} still selects a team for connector commands.",
+        "No default team was set, but {envVar} still selects a team for team-aware commands.",
     "team.clear.envOverrideNoop":
         "Nothing was cleared: the active credential comes from OO_API_KEY, which already runs under your personal identity unless OO_TEAM_ID or OO_TEAM_NAME selects a team.",
     "connector.run.text.dryRunPassed": "Validation passed.",
@@ -1381,24 +1381,29 @@ export const enMessages = {
     "arguments.variableName": "Variable name",
     "arguments.variableValue": "Variable value (string)",
     "commands.variables.summary": "Manage cloud-stored variables",
-    "commands.variables.description": "List, read, create, update, and delete cloud-stored string variables for the current account.",
+    "commands.variables.description": "List, read, create, update, and delete cloud-stored string variables for the current team; every member of the team shares them.",
     "commands.variables.list.summary": "List variables",
-    "commands.variables.list.description": "List all variables for the current account, most recently updated first.",
+    "commands.variables.list.description": "List all variables of the current team, most recently updated first.",
     "commands.variables.get.summary": "Read a variable",
-    "commands.variables.get.description": "Read the value of a variable for the current account.",
+    "commands.variables.get.description": "Read the value of a variable of the current team.",
     "commands.variables.create.summary": "Create or update a variable",
-    "commands.variables.create.description": "Create or update the value of a variable for the current account (last-write-wins).",
+    "commands.variables.create.description": "Create or update the value of a variable for the current team (last-write-wins).",
     "commands.variables.delete.summary": "Delete a variable",
-    "commands.variables.delete.description": "Delete a variable for the current account. Idempotent: succeeds even if the name does not exist.",
+    "commands.variables.delete.description": "Delete a variable of the current team. Idempotent: succeeds even if the name does not exist.",
     "options.variablesFromFile": "Read the variable value from a file (UTF-8)",
     "options.variablesStdin": "Read the variable value from standard input (UTF-8)",
+    "options.variablesTeam": "Run the command for the given team",
+    "options.variablesPersonal": "Use the server-side default team, ignoring OO_TEAM_ID / OO_TEAM_NAME and any saved default team",
     "errors.variables.invalidName": "Invalid variable name: {value}. Names must be 1-256 characters and must not contain '/' or control characters.",
     "errors.variables.valueSource": "Provide exactly one variable value source: a value argument, --from-file, or --stdin.",
     "errors.variables.stdinTty": "--stdin requires piped input; refusing to read from an interactive terminal.",
     "errors.variables.fromFileReadFailed": "Failed to read value file: {message}",
     "errors.variables.valueTooLarge": "Variable value exceeds the maximum size of {max} bytes (UTF-8).",
     "errors.variables.notFound": "Variable not found: {name}",
-    "errors.variables.quotaExceeded": "Variable quota exceeded. Each account can store at most 200 variables.",
+    "errors.variables.quotaExceeded": "Variable quota exceeded. Each team can store at most 200 variables.",
+    "errors.variables.teamRequired": "Variables are stored per team, and this account belongs to no team. Create or join a team, then run the command again.",
+    "errors.variables.teamAccessDenied": "This account cannot use the selected team for variables: it is not a member, or the team does not exist.",
+    "errors.variables.teamUnavailable": "Could not verify your team right now; try again later.",
     "errors.variables.requestFailed": "Variables request failed with status {status}.",
     "errors.variables.requestError": "Variables request failed: {message}",
     "errors.variables.invalidResponse": "The variables service returned an unexpected response.",
@@ -1583,19 +1588,19 @@ export const zhMessages = {
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
     "commands.logout.summary": "登出当前账号（auth logout 的别名）",
     "commands.team.description":
-        "列出当前账号可访问的团队，并管理 connector 命令使用的默认团队身份。",
+        "列出当前账号可访问的团队，并管理团队相关命令（connector、variables）使用的默认团队身份。",
     "commands.team.summary": "管理团队身份",
     "commands.team.list.description":
         "列出当前活动账号可认证的团队，并标出当前默认团队。",
     "commands.team.list.summary": "列出可访问的团队",
     "commands.team.current.description":
-        "显示未传 --team / --personal 时 connector 命令使用的默认团队身份。",
+        "显示未传 --team / --personal 时团队相关命令（connector、variables）使用的默认团队身份。",
     "commands.team.current.summary": "显示默认团队身份",
     "commands.team.use.description":
-        "在确认账号可访问后，设置 connector 命令使用的默认团队身份。",
+        "在确认账号可访问后，设置团队相关命令（connector、variables）使用的默认团队身份。",
     "commands.team.use.summary": "设置默认团队身份",
     "commands.team.clear.description":
-        "清除默认团队身份，让 connector 命令以个人身份运行。",
+        "清除默认团队身份，让团队相关命令（connector、variables）不再使用它。",
     "commands.team.clear.summary": "清除默认团队身份",
     "commands.search.description":
         "使用一个自由文本查询搜索 connector action。",
@@ -1771,6 +1776,8 @@ export const zhMessages = {
         "无法使用 OO_TEAM_ID 指定的团队 id “{teamId}”：{reason}。运行 `oo team list` 查看可用的团队。",
     "errors.team.envNameNotAccessible":
         "当前活动账号无法访问 OO_TEAM_NAME 指定的团队 “{team}”。运行 `oo team list` 查看可用的团队。",
+    "errors.team.identityConflict":
+        "--team 和 --personal 只能使用其中一个。",
     "errors.team.invalidResponse":
         "团队列表返回了不受支持的响应内容。",
     "errors.team.nameEmpty": "团队名称不能为空。",
@@ -1779,6 +1786,8 @@ export const zhMessages = {
     "errors.team.requestError": "获取团队列表失败：{message}",
     "errors.team.requestFailed":
         "获取团队列表返回了 HTTP {status}。",
+    "errors.team.teamEmpty":
+        "--team 的值不能为空。",
     "errors.connectorMetadata.invalidResponse":
         "connector action 元数据返回了不受支持的响应内容。",
     "errors.connectorMetadata.requestError":
@@ -1829,10 +1838,6 @@ export const zhMessages = {
         "--wait 选项仅支持带有异步结果 lifecycle 的 connector action。",
     "errors.connectorRun.waitModeConflict":
         "--wait 和 --wait-result 只能使用其中一个。",
-    "errors.connectorRun.identityConflict":
-        "--team 和 --personal 只能使用其中一个。",
-    "errors.connectorRun.teamEmpty":
-        "--team 的值不能为空。",
     "errors.connectorRun.waitResultActionUnsupported":
         "--wait-result 配置的结果 action {action} 必须声明异步结果 lifecycle。",
     "errors.connectorRun.waitResultUnsupported":
@@ -2659,10 +2664,10 @@ export const zhMessages = {
     "team.list.text.role": "角色",
     "team.list.text.default": "默认",
     "team.list.text.noTeams":
-        "当前活动账号没有任何团队；connector 命令以个人身份运行。",
+        "当前活动账号没有任何团队；connector 命令以个人身份运行，variables 命令使用服务端默认团队。",
     "team.current.text.accountDefault": "默认团队身份：{team}",
     "team.current.text.personal":
-        "未设置默认团队；connector 命令以个人身份运行。",
+        "未设置默认团队；connector 命令以个人身份运行，variables 命令使用服务端默认团队。",
     "team.current.text.envId":
         "团队身份来自 OO_TEAM_ID 环境变量：{team}",
     "team.current.text.envName":
@@ -2682,15 +2687,15 @@ export const zhMessages = {
     "team.use.envOverrideNoop":
         "未保存任何内容：当前凭据来自 OO_API_KEY，它没有保存的默认团队。如需固定团队，请使用 OO_TEAM_ID 或 OO_TEAM_NAME。",
     "team.use.envOverrideHint":
-        "connector 命令仍会使用 {envVar} 指定的团队，而不是这个默认值。取消 {envVar} 后保存的默认值才会生效。",
+        "团队相关命令仍会使用 {envVar} 指定的团队，而不是这个默认值。取消 {envVar} 后保存的默认值才会生效。",
     "team.clear.success":
-        "已清除默认团队身份；connector 命令现在以个人身份运行。",
+        "已清除默认团队身份；connector 命令现在以个人身份运行，variables 命令使用服务端默认团队。",
     "team.clear.alreadyPersonal":
-        "未设置默认团队；connector 命令本就以个人身份运行。",
+        "未设置默认团队；connector 命令本就以个人身份运行，variables 命令使用服务端默认团队。",
     "team.clear.successEnvOverride":
-        "已清除默认团队身份，但 {envVar} 仍会为 connector 命令选择团队。取消 {envVar} 后才会以个人身份运行。",
+        "已清除默认团队身份，但 {envVar} 仍会为团队相关命令选择团队。取消 {envVar} 后才不会选择团队。",
     "team.clear.alreadyPersonalEnvHint":
-        "未设置默认团队，但 {envVar} 仍会为 connector 命令选择团队。",
+        "未设置默认团队，但 {envVar} 仍会为团队相关命令选择团队。",
     "team.clear.envOverrideNoop":
         "未清除任何内容：当前凭据来自 OO_API_KEY，除非 OO_TEAM_ID 或 OO_TEAM_NAME 选择了团队，否则它本就以个人身份运行。",
     "connector.run.text.dryRunPassed": "校验通过。",
@@ -2737,24 +2742,29 @@ export const zhMessages = {
     "arguments.variableName": "变量 name",
     "arguments.variableValue": "变量值（字符串）",
     "commands.variables.summary": "管理云端变量",
-    "commands.variables.description": "列出、读取、创建、更新和删除当前账号的云端字符串变量。",
+    "commands.variables.description": "列出、读取、创建、更新和删除当前团队的云端字符串变量；团队成员共享同一份变量。",
     "commands.variables.list.summary": "列出变量",
-    "commands.variables.list.description": "列出当前账号的全部变量，按最近更新时间倒序。",
+    "commands.variables.list.description": "列出当前团队的全部变量，按最近更新时间倒序。",
     "commands.variables.get.summary": "读取变量",
-    "commands.variables.get.description": "读取当前账号指定 name 的变量值。",
+    "commands.variables.get.description": "读取当前团队指定 name 的变量值。",
     "commands.variables.create.summary": "创建或更新变量",
-    "commands.variables.create.description": "为当前账号创建或替换指定 name 的变量（last-write-wins）。",
+    "commands.variables.create.description": "为当前团队创建或替换指定 name 的变量（last-write-wins）。",
     "commands.variables.delete.summary": "删除变量",
-    "commands.variables.delete.description": "删除当前账号指定 name 的变量。幂等：即使 name 不存在也成功。",
+    "commands.variables.delete.description": "删除当前团队指定 name 的变量。幂等：即使 name 不存在也成功。",
     "options.variablesFromFile": "从文件读取变量值（UTF-8）",
     "options.variablesStdin": "从标准输入读取变量值（UTF-8）",
+    "options.variablesTeam": "以指定团队执行该命令",
+    "options.variablesPersonal": "使用服务端默认团队，忽略 OO_TEAM_ID / OO_TEAM_NAME 与已保存的默认团队",
     "errors.variables.invalidName": "无效的变量 name：{value}。name 必须为 1-256 个字符，且不能包含 '/' 或控制字符。",
     "errors.variables.valueSource": "请只提供一个变量值来源：value 参数、--from-file 或 --stdin。",
     "errors.variables.stdinTty": "--stdin 需要管道输入；拒绝从交互式终端读取。",
     "errors.variables.fromFileReadFailed": "读取变量值文件失败：{message}",
     "errors.variables.valueTooLarge": "变量值超过最大限制 {max} 字节（UTF-8）。",
     "errors.variables.notFound": "变量不存在：{name}",
-    "errors.variables.quotaExceeded": "变量数量超出上限。每个账号最多存储 200 个变量。",
+    "errors.variables.quotaExceeded": "变量数量超出上限。每个团队最多存储 200 个变量。",
+    "errors.variables.teamRequired": "变量按团队存储，而当前账号不属于任何团队。请先创建或加入团队，然后重新执行该命令。",
+    "errors.variables.teamAccessDenied": "当前账号无法使用所选团队的变量：不是该团队成员，或团队不存在。",
+    "errors.variables.teamUnavailable": "暂时无法校验团队信息，请稍后重试。",
     "errors.variables.requestFailed": "variables 请求失败，状态码 {status}。",
     "errors.variables.requestError": "variables 请求失败：{message}",
     "errors.variables.invalidResponse": "variables 服务返回了非预期的响应。",

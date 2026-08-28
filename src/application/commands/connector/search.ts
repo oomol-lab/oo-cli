@@ -6,14 +6,14 @@ import {
     bucketTelemetryStringLength,
 } from "../../telemetry/buckets.ts";
 import {
+    teamIdentityInputShape,
+    teamIdentityOptions,
+} from "../team/identity.ts";
+import {
     formatConnectorSearchResultsAsText,
     loadConnectorSearchResults,
 } from "./search-provider.ts";
-import {
-    resolveConnectorSession,
-    teamIdentityInputShape,
-    teamIdentityOptions,
-} from "./session.ts";
+import { resolveConnectorSession } from "./session.ts";
 
 interface ConnectorSearchInput {
     team?: string;

@@ -12,9 +12,11 @@ import {
 import { createTranslator } from "../../../i18n/translator.ts";
 import {
     appendTeamIdentityStatus,
+    assertTeamIdentityFlags,
     formatTeamIdentityValue,
     requireValidTeamIdentity,
     resolveTeamIdentity,
+    teamIdentityOptions,
     teamNameStatusForTelemetry,
 } from "./identity.ts";
 
@@ -669,6 +671,56 @@ describe("teamNameStatusForTelemetry", () => {
         },
     ])("collapses $case to $expected", ({ expected, identity }) => {
         expect(teamNameStatusForTelemetry(identity)).toBe(expected);
+    });
+});
+
+describe("assertTeamIdentityFlags", () => {
+    test("rejects combining --team and --personal", () => {
+        const error = expectCliUserError(
+            () => assertTeamIdentityFlags({ personal: true, team: "acme" }),
+        );
+
+        expect(error.key).toBe("errors.team.identityConflict");
+        expect(error.exitCode).toBe(2);
+    });
+
+    test.each([
+        { case: "an empty --team value", team: "" },
+        { case: "a whitespace --team value", team: "   " },
+    ])("rejects $case", ({ team }) => {
+        const error = expectCliUserError(() => assertTeamIdentityFlags({ team }));
+
+        expect(error.key).toBe("errors.team.teamEmpty");
+        expect(error.exitCode).toBe(2);
+    });
+
+    test.each([
+        { case: "no flags", expected: undefined, input: {} },
+        { case: "--personal alone", expected: undefined, input: { personal: true } },
+        { case: "a padded --team value", expected: "acme", input: { team: "  acme  " } },
+    ])("returns $expected for $case", ({ expected, input }) => {
+        expect(assertTeamIdentityFlags(input)).toBe(expected);
+    });
+});
+
+describe("teamIdentityOptions", () => {
+    test("declares the shared flags with the caller's description keys", () => {
+        expect(teamIdentityOptions({
+            personal: "options.connectorRunPersonal",
+            team: "options.connectorRunTeam",
+        })).toEqual([
+            {
+                name: "team",
+                longFlag: "--team",
+                valueName: "team",
+                descriptionKey: "options.connectorRunTeam",
+            },
+            {
+                name: "personal",
+                longFlag: "--personal",
+                descriptionKey: "options.connectorRunPersonal",
+            },
+        ]);
     });
 });
 

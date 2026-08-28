@@ -13,10 +13,11 @@
 // explicitly (`--personal`) or by nothing else selecting a team.
 
 import type { AccountDefaultTeam } from "../../auth/default-team.ts";
-import type { CliExecutionContext } from "../../contracts/cli.ts";
+import type { CliExecutionContext, CliOptionDefinition } from "../../contracts/cli.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
 
 import type { TeamLookupStatus } from "./shared.ts";
+import { z } from "zod";
 import { readTrimmedEnv } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { fetchTeamById, fetchTeamByName } from "./shared.ts";
@@ -196,6 +197,63 @@ export function teamIdentityHeaders(
 
     return headers;
 }
+
+/**
+ * The usage guards on the `--team` / `--personal` pair, shared by every
+ * team-aware command so one flag combination cannot be a usage error in one
+ * command and accepted in another: the two flags are mutually exclusive, and a
+ * `--team` that was passed but is blank is a typo, not an unset flag.
+ *
+ * Returns the trimmed `--team` value, ready for the ladder — `undefined` when
+ * the flag was not passed, and never the empty string.
+ */
+export function assertTeamIdentityFlags(input: {
+    personal?: boolean;
+    team?: string;
+}): string | undefined {
+    if (input.personal === true && input.team !== undefined) {
+        throw new CliUserError("errors.team.identityConflict", 2);
+    }
+
+    const teamFlag = input.team?.trim();
+
+    if (input.team !== undefined && teamFlag === "") {
+        throw new CliUserError("errors.team.teamEmpty", 2);
+    }
+
+    return teamFlag;
+}
+
+/**
+ * The `--team` / `--personal` option pair every team-aware command declares.
+ * Flags and value names live here once; each command supplies its own
+ * description keys so the help text keeps its verb.
+ */
+export function teamIdentityOptions(descriptionKeys: {
+    personal: string;
+    team: string;
+}): readonly CliOptionDefinition[] {
+    return [
+        {
+            name: "team",
+            longFlag: "--team",
+            valueName: "team",
+            descriptionKey: descriptionKeys.team,
+        },
+        {
+            name: "personal",
+            longFlag: "--personal",
+            descriptionKey: descriptionKeys.personal,
+        },
+    ];
+}
+
+// The input-schema counterpart of teamIdentityOptions, spread into each
+// command's zod object so the field pair cannot drift across commands.
+export const teamIdentityInputShape = {
+    personal: z.boolean().optional(),
+    team: z.string().optional(),
+};
 
 // Renders the identity for humans: the name with its id in parentheses when
 // both are known, otherwise whichever one is.

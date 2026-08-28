@@ -59,23 +59,26 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - Connector 相关命令按以下优先级解析目标服务：
   `OO_CONNECTOR_URL` > `OO_API_KEY` > 已保存的自部署 Connector 配置
   （`oo connector login`）> 当前激活账号。
-- `OO_TEAM_ID`：让 connector 命令（`oo connector run`、`oo connector proxy`、
-  `oo connector apps`、`oo connector search` / `oo search`）以该 id 对应的团队
-  身份运行。优先级高于 `OO_TEAM_NAME`
-  和账号保存的默认团队；每次运行的 `--team` 与 `--personal`
-  标志仍然优先于它。执行前 CLI 会校验该 id 并解析出团队名称（每次调用多一个
-  请求），因此请求会同时携带名称与 id；账号无法使用的 id——不是成员、团队
-  不存在、团队已删除——以退出码 `1` 失败。若查询本身无法完成，则只按原样
-  发送 id，由服务端裁决。当 connector 目标为自部署服务时会被忽略。
+- `OO_TEAM_ID`：让团队相关命令（`oo connector run`、`oo connector proxy`、
+  `oo connector apps`、`oo connector search` / `oo search`，以及
+  `oo variables list/get/create/delete`）以该 id 对应的团队身份运行。
+  优先级高于 `OO_TEAM_NAME` 和账号保存的默认团队；每次运行的 `--team`
+  与 `--personal` 标志仍然优先于它。执行前 CLI 会校验该 id 并解析出团队
+  名称（每次调用多一个请求），因此请求会同时携带名称与 id；账号无法使用
+  的 id——不是成员、团队不存在、团队已删除——以退出码 `1` 失败。若查询
+  本身无法完成，则只按原样发送 id，由服务端裁决。connector 目标为自部署
+  服务时，只有 connector 命令会忽略它；variables 命令始终遵循它。
 - `OO_TEAM_NAME`：与 `OO_TEAM_ID` 相同，但按名称选择团队。执行前 CLI
   会通过账号的团队成员关系将名称解析为团队 id（每次调用多一个请求），
   因此请求会同时携带名称与 id；账号无法访问的名称以退出码 `1` 失败。
   若查询本身无法完成，则只发送名称，由服务端裁决。`oo connector run
   --dry-run` 不发送执行请求，也会完全跳过该查询，保持离线。设置了
-  `OO_TEAM_ID` 或 connector 目标为自部署服务时会被忽略。
-- Connector 相关命令按以下优先级解析团队身份：
+  `OO_TEAM_ID` 时会被忽略；connector 目标为自部署服务时，只有 connector
+  命令会忽略它，variables 命令始终遵循它。
+- 团队相关命令按以下优先级解析团队身份：
   `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` >
-  当前账号保存的默认团队 > 个人身份。
+  当前账号保存的默认团队 > 个人身份。variables 命令没有个人作用域：
+  没有选中任何团队时回落到服务端默认团队。
 - `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步，
   使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill 文件。
 - `OO_NO_SELF_UPDATE`：设为真值会禁用 `oo update`、`oo install` 和
@@ -470,11 +473,12 @@ oo flow
 
 ## 团队
 
-团队身份让 connector 命令（`oo connector run`、`oo connector proxy`、`oo connector
-apps`）以某个团队身份运行，而非个人账号。它由同一条优先级阶梯选出：先是每次运行的
-`--personal`（强制个人身份）或 `--team <name>`，其次是环境变量 `OO_TEAM_ID` /
-`OO_TEAM_NAME`，最后是保存在当前账号上的默认团队。下列命令用于发现当前账号可用的
-团队并管理该默认值。
+团队身份让团队相关命令以某个团队身份运行，而非个人账号：包括 connector 命令
+（`oo connector run`、`oo connector proxy`、`oo connector apps`）与 variables
+命令（`oo variables list/get/create/delete`，其数据本身就归团队所有）。它由同一条
+优先级阶梯选出：先是每次运行的 `--personal`（放弃所有已保存与 env 选定的团队）或
+`--team <name>`，其次是环境变量 `OO_TEAM_ID` / `OO_TEAM_NAME`，最后是保存在当前
+账号上的默认团队。下列命令用于发现当前账号可用的团队并管理该默认值。
 
 默认团队属于已保存的账号：用 `oo auth switch` 切换账号时默认团队随之切换，
 `oo auth logout` 会连同账号一起移除它。旧版本把默认团队保存在全局配置项
@@ -503,15 +507,16 @@ apps`）以某个团队身份运行，而非个人账号。它由同一条优先
 - 输出：将 `name` 的值传给 `--team <name>`（或 `oo team use <name>`），将 `id`
   的值传给 `OO_TEAM_ID`。
 - 输出：文本输出为每个团队打印一行列对齐的记录，并标出当前默认团队。当账号没有任何
-  团队时，会提示 connector 命令以个人身份运行。
+  团队时，会提示 connector 命令以个人身份运行，variables 命令使用服务端
+  默认团队。
 - 行为：当账号保存的默认团队缺少团队 id 时，该命令会用刚获取的成员关系列表补齐
   它，不发送额外请求；写入失败会被忽略。
 
 ### `oo team current`
 
-显示未传 `--team` / `--personal` 时 connector 命令使用的团队身份：设置了
-`OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时为 env 指定的团队，否则为当前账号
-保存的默认团队。
+显示未传 `--team` / `--personal` 时团队相关命令（connector、variables）使用的
+团队身份：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时为 env 指定的团队，
+否则为当前账号保存的默认团队。
 
 - 仅当身份来自 `OO_TEAM_ID` 或 `OO_TEAM_NAME` 时才发送 1 次请求，补全并校验
   缺失的那一半：id 解析出团队名称，名称通过账号的团队成员关系解析出 id——这
@@ -548,16 +553,16 @@ apps`）以某个团队身份运行，而非个人账号。它由同一条优先
 
 ### `oo team clear`
 
-清除当前账号保存的默认团队身份。之后 connector 命令以个人身份运行；但若
-`OO_TEAM_ID` / `OO_TEAM_NAME` 仍在选择团队则不然——该命令只移除已保存的
-默认值，不影响环境变量覆盖。该命令离线运行。
+清除当前账号保存的默认团队身份。之后 connector 命令以个人身份运行，variables
+命令使用服务端默认团队；但若 `OO_TEAM_ID` / `OO_TEAM_NAME` 仍在选择团队则不然
+——该命令只移除已保存的默认值，不影响环境变量覆盖。该命令离线运行。
 
 - 行为：从当前账号移除默认团队。当未保存默认值时，会提示 connector 命令
-  本就以个人身份运行。
+  本就以个人身份运行，variables 命令使用服务端默认团队。
 - 行为：设置了 `OO_API_KEY` 时命令不清除任何内容，以 `0` 退出，并说明该变量
   本就以个人身份运行。
 - 行为：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时，输出会说明该环境变量仍会为
-  connector 命令选择团队，因此清除默认值并不会让它们切换到个人身份；需要取消
+  团队相关命令选择团队，因此清除默认值并不会让它们不再选择团队；需要取消
   该环境变量才可以。
 
 ## LLM
@@ -2201,44 +2206,64 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 
 ## Variables
 
-在 OOMOL 云端存取当前账号的具名字符串变量。别名：`oo variable`、`oo var`、
+在 OOMOL 云端存取具名字符串变量。别名：`oo variable`、`oo var`、
 `oo vars`。所有子命令都需要当前账号；value 以字符串存储（如需存 JSON 请自行序列化）。
+
+变量属于团队而不是单个用户：团队全体成员读写同一份变量，同名写入 last-write-wins。
+每个子命令按同一条阶梯解析所使用的团队：`--personal` > `--team <team>` >
+`OO_TEAM_ID` > `OO_TEAM_NAME` > 当前账号保存的默认团队 > 服务端默认团队。
+`--personal` 的含义是"不发送任何团队选择"，由服务端套用它自己的默认团队；它不会
+产生按用户私有的作用域，也不能与 `--team` 同时使用（同时使用以退出码 `2` 失败，
+`--team` 传空值同样如此）。
+
+所有子命令都支持 `--team <team>` 与 `--personal`。当前账号不属于任何团队时无法使用
+变量：命令以退出码 `1` 失败并给出说明。选择了账号不是成员的团队，或团队不存在时，
+同样以退出码 `1` 失败。
 
 ### `oo variables list`
 
-列出当前账号的全部变量，按最近更新时间倒序（无分页；每个账号最多 200 个）。
+列出当前团队的全部变量，按最近更新时间倒序（无分页；每个团队最多 200 个）。
 
 - 文本输出：每行一个变量，只显示 `name` 和 `updatedAt`；不打印完整 value。读取
   value 请用 `oo variables get` 或 `--json`。
+- 选项：`--team <team>` 以该团队执行命令；`--personal` 使用服务端默认团队，忽略
+  `OO_TEAM_ID` / `OO_TEAM_NAME` 与已保存的默认团队。
 - 选项：`--format <format>` / `--json` 返回结构化输出
-  `{ "variables": [{ "name", "value", "updatedAt" }] }`，包含完整 value。
+  `{ "variables": [{ "name", "value", "updatedAt", "updatedBy" }] }`，包含完整
+  value。`updatedBy` 为最后写入该变量的团队成员 id，服务端未提供时不出现。
 
 ### `oo variables get <name>`
 
-读取变量的值。
+读取当前团队指定变量的值。
 
 - 参数：`<name>` 必填（1-256 个字符；不能包含 `/` 或控制字符）。
 - 文本输出：原始 value，并追加换行。
-- 选项：`--format <format>` / `--json` 返回 `{ "name", "value", "updatedAt" }`。
+- 选项：`--team <team>` 与 `--personal` 用于选择团队，含义同 `oo variables list`。
+- 选项：`--format <format>` / `--json` 返回
+  `{ "name", "value", "updatedAt", "updatedBy" }`。
 - 说明：变量不存在时以非零码退出。
 
 ### `oo variables create <name> [value]`（别名：`oo variables update`）
 
-为当前账号创建或替换变量（last-write-wins）。`create` 与 `update` 完全等价。
+为当前团队创建或替换变量（last-write-wins）。`create` 与 `update` 完全等价。
 
 - 参数：`<name>` 必填。`[value]` 为可选的位置参数值。
 - value 来源：`[value]`、`--from-file <path>`、`--stdin` 三者必须且只能提供一个。
   允许空字符串。
 - 选项：`--from-file <path>` 按 UTF-8 原文读取文件内容作为 value。
 - 选项：`--stdin` 从标准输入读取到 EOF 作为 value（原文）；当 stdin 是交互式终端时报错。
-- 选项：`--format <format>` / `--json` 返回 `{ "name", "value", "updatedAt" }`。
+- 选项：`--team <team>` 与 `--personal` 用于选择团队，含义同 `oo variables list`。
+- 选项：`--format <format>` / `--json` 返回
+  `{ "name", "value", "updatedAt", "updatedBy" }`。
 - 说明：value 上限为 64 KiB（65536 字节，UTF-8）。
+- 说明：每个团队最多存储 200 个变量；超出配额时以退出码 `1` 失败。
 
 ### `oo variables delete <name>`
 
-删除当前账号的变量。幂等：即使 name 不存在也成功。
+删除当前团队的变量。幂等：即使 name 不存在也成功。
 
 - 参数：`<name>` 必填。
+- 选项：`--team <team>` 与 `--personal` 用于选择团队，含义同 `oo variables list`。
 - 选项：`--json` 返回 `{ "name", "deleted": true }`。
 
 ## Shell 补全

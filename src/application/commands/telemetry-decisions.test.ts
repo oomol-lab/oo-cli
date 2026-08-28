@@ -613,20 +613,24 @@ const commandTelemetryDecisions = {
         reason: "Command group; child commands never record variable names or values.",
     },
     "variables.list": {
-        kind: "generic",
-        reason: "Generic command telemetry is enough; variable names and values are not recorded.",
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records the identity source (personal/flag/env_id/env_name/account) that selected the team; never records team names or ids, variable names, or values.",
     },
     "variables.get": {
-        kind: "generic",
-        reason: "Generic command telemetry is enough; the variable name and value are not recorded.",
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records the identity source (personal/flag/env_id/env_name/account) that selected the team; never records team names or ids, the variable name, or its value.",
     },
     "variables.create": {
-        kind: "generic",
-        reason: "Generic command telemetry is enough; the variable name and value are not recorded.",
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records the identity source (personal/flag/env_id/env_name/account) that selected the team; never records team names or ids, the variable name, or its value.",
     },
     "variables.delete": {
-        kind: "generic",
-        reason: "Generic command telemetry is enough; the variable name is not recorded.",
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records the identity source (personal/flag/env_id/env_name/account) that selected the team; never records team names or ids or the variable name.",
     },
     "version": {
         kind: "generic",

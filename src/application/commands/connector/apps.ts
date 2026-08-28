@@ -8,12 +8,12 @@ import { z } from "zod";
 import { bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { formatTextTable } from "../shared/text-table.ts";
-import { connectorSearchServiceColor } from "./search-provider.ts";
 import {
-    resolveConnectorSession,
     teamIdentityInputShape,
     teamIdentityOptions,
-} from "./session.ts";
+} from "../team/identity.ts";
+import { connectorSearchServiceColor } from "./search-provider.ts";
+import { resolveConnectorSession } from "./session.ts";
 import {
     listConnectorApps,
     listConnectorAppsByService,
