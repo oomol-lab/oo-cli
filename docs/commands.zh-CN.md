@@ -60,8 +60,9 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   `OO_CONNECTOR_URL` > `OO_API_KEY` > 已保存的自部署 Connector 配置
   （`oo connector login`）> 当前激活账号。
 - `OO_TEAM_ID`：让团队相关命令（`oo connector run`、`oo connector proxy`、
-  `oo connector apps`、`oo connector search` / `oo search`，以及
-  `oo variables list/get/create/delete`）以该 id 对应的团队身份运行。
+  `oo connector apps`、`oo connector search` / `oo search`、
+  `oo variables list/get/create/delete`，以及 `oo file upload`）以该 id
+  对应的团队身份运行。
   优先级高于 `OO_TEAM_NAME` 和账号保存的默认团队；每次运行的 `--team`
   与 `--personal` 标志仍然优先于它。执行前 CLI 会校验该 id 并解析出团队
   名称（每次调用多一个请求），因此请求会同时携带名称与 id；账号无法使用
@@ -77,8 +78,8 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   命令会忽略它，variables 命令始终遵循它。
 - 团队相关命令按以下优先级解析团队身份：
   `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` >
-  当前账号保存的默认团队 > 个人身份。variables 命令没有个人作用域：
-  没有选中任何团队时回落到服务端默认团队。
+  当前账号保存的默认团队 > 个人身份。variables 命令与 `oo file upload`
+  没有个人作用域：没有选中任何团队时回落到服务端默认团队。
 - `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步，
   使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill 文件。
 - `OO_NO_SELF_UPDATE`：设为真值会禁用 `oo update`、`oo install` 和
@@ -473,8 +474,9 @@ oo flow
 ## 团队
 
 团队身份让团队相关命令以某个团队身份运行，而非个人账号：包括 connector 命令
-（`oo connector run`、`oo connector proxy`、`oo connector apps`）与 variables
-命令（`oo variables list/get/create/delete`，其数据本身就归团队所有）。它由同一条
+（`oo connector run`、`oo connector proxy`、`oo connector apps`）、variables
+命令（`oo variables list/get/create/delete`，其数据本身就归团队所有），以及
+`oo file upload`（上传按该团队计费与计量）。它由同一条
 优先级阶梯选出：先是每次运行的 `--personal`（放弃所有已保存与 env 选定的团队）或
 `--team <name>`，其次是环境变量 `OO_TEAM_ID` / `OO_TEAM_NAME`，最后是保存在当前
 账号上的默认团队。下列命令用于发现当前账号可用的团队并管理该默认值。
@@ -513,7 +515,8 @@ oo flow
 
 ### `oo team current`
 
-显示未传 `--team` / `--personal` 时团队相关命令（connector、variables）使用的
+显示未传 `--team` / `--personal` 时团队相关命令（connector、variables、file
+upload）使用的
 团队身份：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时为 env 指定的团队，
 否则为当前账号保存的默认团队。
 
@@ -2174,6 +2177,12 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 - 参数：`<filePath>` 为要上传的本地文件路径。
 - 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
 - 选项：`--json` 是 `--format=json` 的别名。
+- 选项：`--team <team>` 以指定团队上传该文件，上传按该团队计费与计量。
+  未传时，团队来自已设置的 `OO_TEAM_ID` / `OO_TEAM_NAME`，否则为当前账号
+  保存的默认团队。
+- 选项：`--personal` 不发送任何团队选择，忽略 `OO_TEAM_ID` / `OO_TEAM_NAME`
+  与账号默认团队，由服务端套用它自己的默认团队。不能与 `--team` 同时使用。
+- 说明：团队选择只随文件服务请求发送；分片上传直接发往存储服务，不携带它。
 - 说明：上传后的文件有效期为七天，到期后会由服务端删除。
 - 说明：文件大小超过 `500 MiB` 时会被拒绝。
 - 说明：上传成功后，CLI 会在本地 sqlite 中记录上传时间、文件名、文件大小、

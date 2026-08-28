@@ -74,8 +74,9 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   `OO_CONNECTOR_URL` > `OO_API_KEY` > the saved self-hosted connector
   configuration (`oo connector login`) > the active account.
 - `OO_TEAM_ID`: Run team-aware commands (`oo connector run`, `oo connector
-  proxy`, `oo connector apps`, `oo connector search` / `oo search`, and
-  `oo variables list/get/create/delete`) under the team with this id. It takes
+  proxy`, `oo connector apps`, `oo connector search` / `oo search`,
+  `oo variables list/get/create/delete`, and `oo file upload`) under the team
+  with this id. It takes
   precedence over `OO_TEAM_NAME` and the account's default team; the per-run
   `--team` and `--personal` flags still outrank it. Before execution the CLI
   validates the id and resolves its team name (one extra request per
@@ -95,8 +96,9 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   target is self-hosted; variables commands always honor it.
 - Team-aware commands resolve their team identity with this precedence:
   `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the active account's
-  default team > your personal identity. Variables commands have no personal
-  scope: with nothing selected they fall back to the server-side default team.
+  default team > your personal identity. Variables commands and `oo file
+  upload` have no personal scope: with nothing selected they fall back to the
+  server-side default team.
 - `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
   synchronization, so the CLI writes no skill files into agent home directories
   such as `~/.agents` or `~/.claude`.
@@ -570,8 +572,9 @@ Alias for `oo auth logout`.
 
 Team identity lets team-aware commands act as a team instead of your personal
 account: the connector commands (`oo connector run`, `oo connector proxy`,
-`oo connector apps`) and the variables commands (`oo variables
-list/get/create/delete`), whose data is team-owned in the first place. One
+`oo connector apps`), the variables commands (`oo variables
+list/get/create/delete`), whose data is team-owned in the first place, and
+`oo file upload`, whose upload is billed and metered under the team. One
 ladder selects it: the per-run `--personal` (drop every saved and env-selected
 team) or `--team <name>` first, then the `OO_TEAM_ID` / `OO_TEAM_NAME`
 environment overrides, then the default saved on the active account. These
@@ -619,9 +622,10 @@ read-only.
 
 ### `oo team current`
 
-Show the team identity used by team-aware commands (connector, variables) when
-no `--team` / `--personal` flag is given: the `OO_TEAM_ID` / `OO_TEAM_NAME`
-environment override when set, otherwise the active account's default team.
+Show the team identity used by team-aware commands (connector, variables, file
+upload) when no `--team` / `--personal` flag is given: the `OO_TEAM_ID` /
+`OO_TEAM_NAME` environment override when set, otherwise the active account's
+default team.
 
 - Sends one request only when `OO_TEAM_ID` or `OO_TEAM_NAME` supplies the
   identity, to complete and validate the missing half: an id resolves to its
@@ -2596,6 +2600,15 @@ Upload one file to the temporary file cache.
 - Options: `--format <format>` returns structured output. Supported value:
   `json`.
 - Options: `--json` is an alias for `--format=json`.
+- Options: `--team <team>` uploads the file under the given team, so the upload
+  is billed and metered under that team. When omitted, the team comes from
+  `OO_TEAM_ID` / `OO_TEAM_NAME` when set, otherwise the active account's
+  default team.
+- Options: `--personal` sends no team selection, ignoring `OO_TEAM_ID` /
+  `OO_TEAM_NAME` and the account default, and lets the server apply its own
+  default team. It cannot be combined with `--team`.
+- Notes: the team selection is sent only to the file service requests; the
+  presigned part uploads go straight to storage without it.
 - Notes: the uploaded file expires after seven days and is deleted on the server.
 - Notes: files larger than `500 MiB` are rejected.
 - Notes: successful uploads persist a local sqlite record with the upload time,

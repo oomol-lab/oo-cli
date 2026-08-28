@@ -5,12 +5,20 @@ import type {
     FileUploadStatus,
 } from "../../contracts/file-upload-store.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type { TeamIdentity } from "../team/identity.ts";
 
 import { z } from "zod";
+import { readDefaultTeam } from "../../auth/default-team.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createRetryingFetcher } from "../../shared/retrying-fetcher.ts";
 import { parsePositiveIntegerOption } from "../shared/input-parsing.ts";
 import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
+import {
+    assertTeamIdentityFlags,
+    requireValidTeamIdentity,
+    resolveTeamIdentity,
+    teamIdentityHeaders,
+} from "../team/identity.ts";
 
 export const fileUploadExpiresInMs = ((7 * 24 * 60 * 60) - 1) * 1000;
 export const maxFileUploadSizeBytes = 500 * 1024 * 1024;
@@ -149,8 +157,62 @@ export function normalizeFileUploadDownloadUrlForDisplay(
     }
 }
 
+// MARK: - Team identity
+
+type FileUploadIdentityContext = Pick<
+    CliExecutionContext,
+    | "authStore"
+    | "env"
+    | "fetcher"
+    | "logger"
+    | "settingsStore"
+    | "telemetry"
+    | "translator"
+>;
+
+/**
+ * Resolves the team the upload is attributed to: the shared flag guards, the
+ * one shared identity ladder (`--personal` > `--team` > `OO_TEAM_ID` >
+ * `OO_TEAM_NAME` > the account default), its execution gate, and the identity
+ * telemetry. The gateway bills the resolved team's payer and the file service
+ * meters the upload under that team.
+ *
+ * `undefined` means no team header is sent, which lets the gateway apply the
+ * server-side default team; it is not a private, per-user scope.
+ */
+export async function resolveFileUploadIdentity(
+    input: { personal?: boolean; team?: string },
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    context: FileUploadIdentityContext,
+): Promise<TeamIdentity | undefined> {
+    const teamFlag = assertTeamIdentityFlags(input);
+
+    const identity = requireValidTeamIdentity(
+        await resolveTeamIdentity(
+            {
+                account,
+                defaultTeam: await readDefaultTeam(context),
+                teamFlag,
+                personalFlag: input.personal === true,
+                resolveAgainstBackend: true,
+            },
+            context,
+        ),
+        context,
+    );
+
+    context.telemetry?.recordProperties({
+        identity_source: identity?.source ?? "personal",
+    });
+
+    return identity;
+}
+
+// MARK: - Requests
+
 export async function createMultipartFileUpload(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    identity: TeamIdentity | undefined,
     fileName: string,
     fileSize: number,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
@@ -158,6 +220,7 @@ export async function createMultipartFileUpload(
     const response = await requestFileUploadAction(
         "create-multipart-upload",
         account,
+        identity,
         {
             fileSize,
             filename: fileName,
@@ -176,12 +239,14 @@ export async function createMultipartFileUpload(
 
 export async function generatePresignedFileUploadPartUrls(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    identity: TeamIdentity | undefined,
     session: MultipartUploadSession,
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
 ): Promise<PresignedPartUrl[]> {
     const response = await requestFileUploadAction(
         "generate-presigned-urls",
         account,
+        identity,
         {
             key: session.key,
             partNumbers: Array.from(
@@ -231,6 +296,7 @@ export async function uploadFileParts(
 
 export async function completeMultipartFileUpload(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    identity: TeamIdentity | undefined,
     session: MultipartUploadSession,
     parts: readonly UploadedPart[],
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
@@ -238,6 +304,7 @@ export async function completeMultipartFileUpload(
     const response = await requestFileUploadAction(
         "complete-multipart-upload",
         account,
+        identity,
         {
             key: session.key,
             parts,
@@ -263,9 +330,12 @@ function normalizeFileUploadDownloadUrlValue(rawUrl: string): string {
     return new URL(rawUrl).href;
 }
 
+// The file service calls carry the team headers; the presigned part uploads
+// go straight to storage and never do (see uploadFilePart).
 async function requestFileUploadAction<Value>(
     actionName: string,
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    identity: TeamIdentity | undefined,
     jsonBody: unknown,
     schema: { parse: (input: unknown) => Value },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
@@ -274,6 +344,7 @@ async function requestFileUploadAction<Value>(
         authorization: account.apiKey,
         context,
         errors: { scope: "fileUpload" },
+        headers: teamIdentityHeaders(identity),
         host: { endpoint: account.endpoint, service: "fusion-api" },
         jsonBody,
         label: "File upload",

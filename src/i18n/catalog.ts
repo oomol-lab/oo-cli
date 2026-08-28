@@ -1009,6 +1009,10 @@ export const enMessages = {
         "Run the action under the given team identity",
     "options.connectorRunPersonal":
         "Run the action under your personal identity, ignoring any configured default team",
+    "options.fileUploadTeam":
+        "Upload the file under the given team identity",
+    "options.fileUploadPersonal":
+        "Upload the file under the server-side default team, ignoring OO_TEAM_ID / OO_TEAM_NAME and any saved default team",
     "options.connectorLoginToken":
         "Runtime API token for the self-hosted connector (created on the server's /access page)",
     "options.connectorProxyBody":
@@ -2377,6 +2381,10 @@ export const zhMessages = {
         "以指定团队身份运行该 action",
     "options.connectorRunPersonal":
         "以个人身份运行该 action，忽略已配置的默认团队",
+    "options.fileUploadTeam":
+        "以指定团队身份上传该文件",
+    "options.fileUploadPersonal":
+        "以服务端默认团队上传该文件，忽略 OO_TEAM_ID / OO_TEAM_NAME 与已保存的默认团队",
     "options.connectorLoginToken":
         "自部署 Connector 的 Runtime API 令牌（在服务的 /access 页面创建）",
     "options.connectorProxyBody":
