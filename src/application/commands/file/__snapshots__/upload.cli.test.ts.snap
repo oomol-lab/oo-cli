@@ -50,8 +50,9 @@ Arguments:
 
 Options:
   --team <team>          Upload the file under the given team identity
-  --personal             Upload the file under your personal identity, ignoring
-                         any configured default team
+  --personal             Upload the file under the server-side default team,
+                         ignoring OO_TEAM_ID / OO_TEAM_NAME and any saved
+                         default team
   --format <format>      Specify output format (use json for structured output)
   --json                 Alias for --format=json
   --show-schema-version  Include schemaVersion in JSON output (no effect without
