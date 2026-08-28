@@ -41,10 +41,11 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - `OO_API_KEY`：使用该 API key 执行命令，无需交互式登录。设置后 CLI 会构造一个
   内存账号，不读取、不要求、也不写入 `auth.toml`，且优先级高于任何已保存的账号。
   由于设置它之后任何已保存账号都不会生效，`oo auth logout`、`oo auth switch`、
-  `oo team use` 与 `oo team clear` 会成为空操作并保持 `auth.toml` 不变；
+  `oo team use` 会成为空操作并保持 `auth.toml` 不变；
   `oo auth login` 仍会保存账号，但会说明该变量的优先级高于它。`oo auth status`
   会展示该变量提供的身份。已保存的默认团队同样不会生效：该 key 可能属于另一个
-  账号，因此除非设置了 `OO_TEAM_ID` 或 `OO_TEAM_NAME`，命令都以个人身份运行。
+  账号，因此除非设置了 `OO_TEAM_ID` 或 `OO_TEAM_NAME`，命令都不发送团队选择，
+  由服务端套用默认团队。
 - `OO_ENDPOINT`：基础域名（例如 `oomol.com` 或 `oomol.dev`），用于派生执行命令的
   所有服务 URL。它与 `OO_API_KEY` 搭配使用，会覆盖已保存账号的 endpoint（包括
   `oo auth status` 展示与校验所用的 endpoint），并决定 `oo auth login` 校验所用的
@@ -62,9 +63,8 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - `OO_TEAM_ID`：让团队相关命令（`oo connector run`、`oo connector proxy`、
   `oo connector apps`、`oo connector search` / `oo search`、
   `oo variables list/get/create/delete`，以及 `oo file upload`）以该 id
-  对应的团队身份运行。
-  优先级高于 `OO_TEAM_NAME` 和账号保存的默认团队；每次运行的 `--team`
-  与 `--personal` 标志仍然优先于它。执行前 CLI 会校验该 id 并解析出团队
+  对应的团队身份运行。优先级高于 `OO_TEAM_NAME` 和账号保存的默认团队；
+  每次运行的 `--team` 标志仍然优先于它。执行前 CLI 会校验该 id 并解析出团队
   名称（每次调用多一个请求），因此请求会同时携带名称与 id；账号无法使用
   的 id——不是成员、团队不存在、团队已删除——以退出码 `1` 失败。若查询
   本身无法完成，则只按原样发送 id，由服务端裁决。connector 目标为自部署
@@ -77,9 +77,9 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   `OO_TEAM_ID` 时会被忽略；connector 目标为自部署服务时，只有 connector
   命令会忽略它，variables 命令始终遵循它。
 - 团队相关命令按以下优先级解析团队身份：
-  `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` >
-  当前账号保存的默认团队 > 个人身份。variables 命令与 `oo file upload`
-  没有个人作用域：没有选中任何团队时回落到服务端默认团队。
+  `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > 当前账号保存的默认团队。
+  没有选中任何团队时不发送团队选择，由服务端套用它自己的默认团队；不存在
+  按用户私有的作用域。
 - `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步，
   使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill 文件。
 - `OO_NO_SELF_UPDATE`：设为真值会禁用 `oo update`、`oo install` 和
@@ -290,9 +290,9 @@ oo flow
   发出的请求数。
 - 当前身份区块还会显示一行「默认团队」，其解析方式与 `oo team current`
   相同：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时显示 env 覆盖值（并标注来源
-  变量），否则显示当前账号保存的默认团队，都未设置时显示个人身份
-  （未设置默认团队）。设置了 `OO_API_KEY` 时，除非 `OO_TEAM_*` 变量选择了
-  团队，否则该行恒为个人身份。
+  变量），否则显示当前账号保存的默认团队，都未设置时显示服务端默认团队
+  （未保存默认团队）。设置了 `OO_API_KEY` 时，除非 `OO_TEAM_*` 变量选择了
+  团队，否则该行恒为服务端默认团队。
 - 当身份来自 `OO_TEAM_ID` 或 `OO_TEAM_NAME` 时，会查询补全缺失的那一半——id
   解析出名称，名称通过账号的团队成员关系解析出 id——该行显示为
   `<名称>（<id>）`。查询未成功时仍会显示 env 提供的值，并附上原因：当前账号
@@ -473,13 +473,13 @@ oo flow
 
 ## 团队
 
-团队身份让团队相关命令以某个团队身份运行，而非个人账号：包括 connector 命令
+团队身份决定团队相关命令以哪个团队运行：包括 connector 命令
 （`oo connector run`、`oo connector proxy`、`oo connector apps`）、variables
 命令（`oo variables list/get/create/delete`，其数据本身就归团队所有），以及
-`oo file upload`（上传按该团队计费与计量）。它由同一条
-优先级阶梯选出：先是每次运行的 `--personal`（放弃所有已保存与 env 选定的团队）或
-`--team <name>`，其次是环境变量 `OO_TEAM_ID` / `OO_TEAM_NAME`，最后是保存在当前
-账号上的默认团队。下列命令用于发现当前账号可用的团队并管理该默认值。
+`oo file upload`（上传按该团队计费与计量）。它由同一条优先级阶梯选出：先是每次
+运行的 `--team <name>`，其次是环境变量 `OO_TEAM_ID` / `OO_TEAM_NAME`，最后是
+保存在当前账号上的默认团队。没有任何一项选中团队时，命令不发送团队选择，由服务端
+套用该账号的默认团队。下列命令用于发现当前账号可用的团队并管理该默认值。
 
 默认团队属于已保存的账号：用 `oo auth switch` 切换账号时默认团队随之切换，
 `oo auth logout` 会连同账号一起移除它。旧版本把默认团队保存在全局配置项
@@ -488,9 +488,8 @@ oo flow
 `OO_TEAM_NAME`。
 
 `oo team list` 与 `oo team use` 需要向 OOMOL 查询团队成员关系，因此需要 OOMOL
-账号；当仅配置了自部署 Connector 时不可用。`oo team current` 与 `oo team clear`
-不受此限制：它们读写本地状态，`oo team current` 只在有账号可用时才额外查询
-团队名称来丰富输出。
+账号；当仅配置了自部署 Connector 时不可用。`oo team current` 不受此限制：它只读
+本地状态，且只在有账号可用时才额外查询团队名称来丰富输出。
 
 `oo auth login`（及其别名 `oo login`）会自动持久化该默认值：账号上仍然有效的
 默认团队会被保留，否则采用后端创建的 `system_created` 默认团队
@@ -508,17 +507,16 @@ oo flow
 - 输出：将 `name` 的值传给 `--team <name>`（或 `oo team use <name>`），将 `id`
   的值传给 `OO_TEAM_ID`。
 - 输出：文本输出为每个团队打印一行列对齐的记录，并标出当前默认团队。当账号没有任何
-  团队时，会提示 connector 命令以个人身份运行，variables 命令使用服务端
-  默认团队。
+  团队时，会提示团队相关命令不会发送团队选择。
 - 行为：当账号保存的默认团队缺少团队 id 时，该命令会用刚获取的成员关系列表补齐
   它，不发送额外请求；写入失败会被忽略。
 
 ### `oo team current`
 
-显示未传 `--team` / `--personal` 时团队相关命令（connector、variables、file
-upload）使用的
+显示未传 `--team` 时团队相关命令（connector、variables、file upload）使用的
 团队身份：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时为 env 指定的团队，
-否则为当前账号保存的默认团队。
+否则为当前账号保存的默认团队。两者都未设置时，命令不发送团队选择，由服务端
+套用它自己的默认团队。
 
 - 仅当身份来自 `OO_TEAM_ID` 或 `OO_TEAM_NAME` 时才发送 1 次请求，补全并校验
   缺失的那一半：id 解析出团队名称，名称通过账号的团队成员关系解析出 id——这
@@ -529,7 +527,7 @@ upload）使用的
 - 选项：`--format=json` 与 `--json` 输出 JSON 对象。
 - 输出：JSON 为 `{ "team": <name|null>, "teamId": <id|null>, "source":
   <"env_id"|"env_name"|"account"|null>, "status": <status|null> }`。`source`
-  表示团队由哪种机制选定；connector 命令以个人身份运行时为 `null`。`status`
+  表示团队由哪种机制选定；未保存默认团队 (命令使用服务端默认团队) 时为 `null`。`status`
   报告团队查询的结果：未尝试查询时为 `null`（account 来源，或 `--dry-run` 这类
   离线路径），否则为 `valid`、`not_a_member`、`not_found`、`deleted`、
   `request_failed`、`request_failed_sandbox` 或 `no_credential` 之一。
@@ -552,20 +550,6 @@ upload）使用的
   环境变量在取消之前持续优先于它。
 - 行为：设置了 `OO_API_KEY` 时命令不保存任何内容，以 `0` 退出，并说明该变量没有
   可保存的默认团队。
-
-### `oo team clear`
-
-清除当前账号保存的默认团队身份。之后 connector 命令以个人身份运行，variables
-命令使用服务端默认团队；但若 `OO_TEAM_ID` / `OO_TEAM_NAME` 仍在选择团队则不然
-——该命令只移除已保存的默认值，不影响环境变量覆盖。该命令离线运行。
-
-- 行为：从当前账号移除默认团队。当未保存默认值时，会提示 connector 命令
-  本就以个人身份运行，variables 命令使用服务端默认团队。
-- 行为：设置了 `OO_API_KEY` 时命令不清除任何内容，以 `0` 退出，并说明该变量
-  本就以个人身份运行。
-- 行为：设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时，输出会说明该环境变量仍会为
-  团队相关命令选择团队，因此清除默认值并不会让它们不再选择团队；需要取消
-  该环境变量才可以。
 
 ## LLM
 
@@ -647,7 +631,7 @@ upload）使用的
   CLI 还会立即尝试清空待发送 telemetry 事件，并且本次 `config set` 调用自身不会被记录为
   telemetry。
   它设置 `oo connector run`、`oo connector proxy`、`oo connector apps` 和
-  `oo connector search` / `oo search` 在未传 `--team` 或 `--personal`、且未
+  `oo connector search` / `oo search` 在未传 `--team`、且未
   设置 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时使用的默认团队身份。
 
 ### `oo config unset <key>`
@@ -890,11 +874,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 参数：`<text>` 为语义搜索文本。
 - 选项：`--format=json` 和 `--json` 会输出匹配 action 条目的 JSON 数组。
-- 选项：`--team <name>` 以指定团队身份（而非个人身份）报告每条结果的
-  `authenticated` 状态。省略时有效身份依次取 `OO_TEAM_ID` / `OO_TEAM_NAME`、
-  当前账号保存的默认团队，最后回退到个人身份。
-- 选项：`--personal` 以个人身份报告 `authenticated`，忽略 `OO_TEAM_ID` /
-  `OO_TEAM_NAME` 环境变量与任何已配置的默认团队；不能与 `--team` 同用。
+- 选项：`--team <name>` 以指定团队身份报告每条结果的 `authenticated` 状态。
+  省略时有效身份依次取 `OO_TEAM_ID` / `OO_TEAM_NAME`、当前账号保存的默认团队，
+  最后回退到服务端默认团队。
 - 输出：每条结果都会包含 `authenticated` 和 `accessStatus`。
 - 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
   `authenticated` 和 `accessStatus`。`accessStatus` 的值为 `available` 或
@@ -958,11 +940,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   schema 声明了异步结果 lifecycle 时，这个选项才有效。
 - 选项：`--wait-result` 会提交异步 submit action，然后轮询它配置的结果
   action。只有选中 action 的 schema 声明了异步 submit lifecycle 时，这个选项才有效。
-- 选项：`--team <name>` 以指定团队身份运行该 action，而非个人身份。省略时，若设置了
+- 选项：`--team <name>` 以指定团队身份运行该 action。省略时，若设置了
   `OO_TEAM_ID` / `OO_TEAM_NAME` 则使用 env 选定的团队，其次使用
-  当前账号保存的默认团队，否则使用个人身份。
-- 选项：`--personal` 以个人身份运行该 action，并忽略 `OO_TEAM_ID` /
-  `OO_TEAM_NAME` 环境变量和已配置的默认团队。不能与 `--team` 同时使用。
+  当前账号保存的默认团队，否则使用服务端默认团队。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：非 dry-run 的 JSON 输出会保持稳定结构
   `{ data, meta: { executionId } }`。
@@ -981,7 +961,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   显示进度。JSON 输出不会混入进度文本。
 - 说明：面向自部署 Connector 时，传入 `--team` 会被拒绝（exit `2`），
   账号保存的默认团队和 `OO_TEAM_ID` / `OO_TEAM_NAME`
-  环境变量会被忽略，`--personal` 仍可使用。
+  环境变量会被忽略。
   由于自部署 runtime 不提供异步 lifecycle contract，`--wait` 和
   `--wait-result` 会以现有的“不支持”错误失败。
 
@@ -991,11 +971,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 参数：`[serviceName]` 可选。省略时列出所有 provider 下已连接的 app；提供时仅列出
   该服务的 app。
-- 选项：`--team <name>` 以指定团队身份列出已连接的 app，而非个人身份。省略时，若设置了
+- 选项：`--team <name>` 以指定团队身份列出已连接的 app。省略时，若设置了
   `OO_TEAM_ID` / `OO_TEAM_NAME` 则按 env 选定的团队列出，其次按
-  当前账号保存的默认团队列出，否则按个人身份列出。
-- 选项：`--personal` 以个人身份列出已连接的 app，并忽略 `OO_TEAM_ID` /
-  `OO_TEAM_NAME` 环境变量和已配置的默认团队。该选项不能与 `--team` 同时使用。
+  当前账号保存的默认团队列出，否则按服务端默认团队列出。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 数组。
 - 输出：JSON 条目包含稳定 CLI 字段 `service`、`connectionName`、`displayName`、
   `accountLabel`、`status`、`authType`、`isDefault` 和 `scopes`。不会包含
@@ -1007,8 +985,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：可将列出的 `connectionName` 值传给
   `oo connector run <serviceName> --connection-name <connection-name>`。
 - 说明：对自部署 Connector，`--team` 会以退出码 `2` 拒绝，已配置的
-  账号保存的默认团队和 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量会被忽略，
-  `--personal` 可正常使用。
+  账号保存的默认团队和 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量会被忽略。
 
 ### `oo connector proxy <serviceName>`
 
@@ -1033,11 +1010,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   credential。
 - 选项：`--body` 会按 JSON 解析。如需发送文本 body，请传 JSON string，例如
   `"hello"`。
-- 选项：`--team <name>` 以指定团队身份运行该 proxy 请求，而非个人身份。省略时，若设置了
+- 选项：`--team <name>` 以指定团队身份运行该 proxy 请求。省略时，若设置了
   `OO_TEAM_ID` / `OO_TEAM_NAME` 则使用 env 选定的团队，其次使用
-  当前账号保存的默认团队，否则使用个人身份。
-- 选项：`--personal` 以个人身份运行该 proxy 请求，并忽略 `OO_TEAM_ID` /
-  `OO_TEAM_NAME` 环境变量和已配置的默认团队。不能与 `--team` 同时使用。
+  当前账号保存的默认团队，否则使用服务端默认团队。
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：JSON 输出保持稳定结构
   `{ data: { status, headers, data }, meta: { executionId, service } }`。
@@ -1092,11 +1067,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 参数：`<text>` 为语义搜索文本。
 - 选项：`--format=json` 和 `--json` 会输出匹配 action 条目的 JSON 数组。
-- 选项：`--team <name>` 以指定团队身份（而非个人身份）报告每条结果的
-  `authenticated` 状态。省略时有效身份依次取 `OO_TEAM_ID` / `OO_TEAM_NAME`、
-  当前账号保存的默认团队，最后回退到个人身份。
-- 选项：`--personal` 以个人身份报告 `authenticated`，忽略 `OO_TEAM_ID` /
-  `OO_TEAM_NAME` 环境变量与任何已配置的默认团队；不能与 `--team` 同用。
+- 选项：`--team <name>` 以指定团队身份报告每条结果的 `authenticated` 状态。
+  省略时有效身份依次取 `OO_TEAM_ID` / `OO_TEAM_NAME`、当前账号保存的默认团队，
+  最后回退到服务端默认团队。
 - 输出：每条结果都会包含 `authenticated` 和 `accessStatus`。
 - 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
   `authenticated` 和 `accessStatus`。`accessStatus` 的值为 `available` 或
@@ -2180,8 +2153,6 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 - 选项：`--team <team>` 以指定团队上传该文件，上传按该团队计费与计量。
   未传时，团队来自已设置的 `OO_TEAM_ID` / `OO_TEAM_NAME`，否则为当前账号
   保存的默认团队。
-- 选项：`--personal` 不发送任何团队选择，忽略 `OO_TEAM_ID` / `OO_TEAM_NAME`
-  与账号默认团队，由服务端套用它自己的默认团队。不能与 `--team` 同时使用。
 - 说明：团队选择只随文件服务请求发送；分片上传直接发往存储服务，不携带它。
 - 说明：上传后的文件有效期为七天，到期后会由服务端删除。
 - 说明：文件大小超过 `500 MiB` 时会被拒绝。
@@ -2218,13 +2189,12 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 `oo vars`。所有子命令都需要当前账号；value 以字符串存储（如需存 JSON 请自行序列化）。
 
 变量属于团队而不是单个用户：团队全体成员读写同一份变量，同名写入 last-write-wins。
-每个子命令按同一条阶梯解析所使用的团队：`--personal` > `--team <team>` >
-`OO_TEAM_ID` > `OO_TEAM_NAME` > 当前账号保存的默认团队 > 服务端默认团队。
-`--personal` 的含义是"不发送任何团队选择"，由服务端套用它自己的默认团队；它不会
-产生按用户私有的作用域，也不能与 `--team` 同时使用（同时使用以退出码 `2` 失败，
-`--team` 传空值同样如此）。
+每个子命令按同一条阶梯解析所使用的团队：`--team <team>` > `OO_TEAM_ID` >
+`OO_TEAM_NAME` > 当前账号保存的默认团队 > 服务端默认团队。没有选中任何团队时
+不发送团队选择，由服务端套用它自己的默认团队；不存在按用户私有的作用域。
+`--team` 传空值以退出码 `2` 失败。
 
-所有子命令都支持 `--team <team>` 与 `--personal`。当前账号不属于任何团队时无法使用
+所有子命令都支持 `--team <team>`。当前账号不属于任何团队时无法使用
 变量：命令以退出码 `1` 失败并给出说明。选择了账号不是成员的团队，或团队不存在时，
 同样以退出码 `1` 失败。
 
@@ -2234,8 +2204,7 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 
 - 文本输出：每行一个变量，只显示 `name` 和 `updatedAt`；不打印完整 value。读取
   value 请用 `oo variables get` 或 `--json`。
-- 选项：`--team <team>` 以该团队执行命令；`--personal` 使用服务端默认团队，忽略
-  `OO_TEAM_ID` / `OO_TEAM_NAME` 与已保存的默认团队。
+- 选项：`--team <team>` 以该团队执行命令。
 - 选项：`--format <format>` / `--json` 返回结构化输出
   `{ "variables": [{ "name", "value", "updatedAt", "updatedBy" }] }`，包含完整
   value。`updatedBy` 为最后写入该变量的团队成员 id，服务端未提供时不出现。
@@ -2246,7 +2215,7 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 
 - 参数：`<name>` 必填（1-256 个字符；不能包含 `/` 或控制字符）。
 - 文本输出：原始 value，并追加换行。
-- 选项：`--team <team>` 与 `--personal` 用于选择团队，含义同 `oo variables list`。
+- 选项：`--team <team>` 用于选择团队，含义同 `oo variables list`。
 - 选项：`--format <format>` / `--json` 返回
   `{ "name", "value", "updatedAt", "updatedBy" }`。
 - 说明：变量不存在时以非零码退出。
@@ -2260,7 +2229,7 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
   允许空字符串。
 - 选项：`--from-file <path>` 按 UTF-8 原文读取文件内容作为 value。
 - 选项：`--stdin` 从标准输入读取到 EOF 作为 value（原文）；当 stdin 是交互式终端时报错。
-- 选项：`--team <team>` 与 `--personal` 用于选择团队，含义同 `oo variables list`。
+- 选项：`--team <team>` 用于选择团队，含义同 `oo variables list`。
 - 选项：`--format <format>` / `--json` 返回
   `{ "name", "value", "updatedAt", "updatedBy" }`。
 - 说明：value 上限为 64 KiB（65536 字节，UTF-8）。
@@ -2271,7 +2240,7 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 删除当前团队的变量。幂等：即使 name 不存在也成功。
 
 - 参数：`<name>` 必填。
-- 选项：`--team <team>` 与 `--personal` 用于选择团队，含义同 `oo variables list`。
+- 选项：`--team <team>` 用于选择团队，含义同 `oo variables list`。
 - 选项：`--json` 返回 `{ "name", "deleted": true }`。
 
 ## Shell 补全

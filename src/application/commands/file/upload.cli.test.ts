@@ -606,64 +606,6 @@ describe("file upload team identity", () => {
             await sandbox.cleanup();
         }
     });
-
-    test("sends no team headers with --personal", async () => {
-        const sandbox = await createCliSandbox();
-        const localFilePath = join(sandbox.env.HOME!, "sample.txt");
-
-        try {
-            await writeAuthFileWithDefaultTeam(sandbox, "alice-team", {
-                teamId: "team-system-1",
-            });
-            await Bun.write(localFilePath, "hello world");
-
-            const { requests, result } = await runRecordedUpload(sandbox, [
-                "file",
-                "upload",
-                localFilePath,
-                "--personal",
-            ]);
-            const telemetryPayload = readUploadTelemetryPayload(sandbox);
-
-            expect(result.exitCode).toBe(0);
-            expect(readTeamHeaders(fileServiceRequests(requests))).toEqual([
-                [null, null],
-                [null, null],
-                [null, null],
-            ]);
-            expect(telemetryPayload?.properties).toMatchObject({
-                identity_source: "personal",
-            });
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("rejects --team combined with --personal before any request", async () => {
-        const sandbox = await createCliSandbox();
-        const localFilePath = join(sandbox.env.HOME!, "sample.txt");
-
-        try {
-            await writeAuthFile(sandbox);
-            await Bun.write(localFilePath, "hello world");
-
-            const { requests, result } = await runRecordedUpload(sandbox, [
-                "file",
-                "upload",
-                localFilePath,
-                "--team",
-                "acme",
-                "--personal",
-            ]);
-
-            expect(result.exitCode).toBe(2);
-            expect(requests).toHaveLength(0);
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
 });
 
 async function runRecordedUpload(

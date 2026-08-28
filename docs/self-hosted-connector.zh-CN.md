@@ -158,10 +158,10 @@ oo connector run gmail --action send_email --data '@payload.json'
 
 自部署运行时暴露的能力比 OOMOL 服务更小，CLI 会做如下适配：
 
-- **不支持团队身份。** `oo connector run`、`oo connector proxy` 与 `oo connector
-  apps` 上的 `--team` 会以退出码 `2` 被拒绝，账号保存的默认团队
-  和 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量都会被忽略；`--personal` 可以使用
-  （它本就是实际行为）。
+- **不支持团队身份。** `oo connector run`、`oo connector proxy`、`oo connector
+  apps` 与 `oo connector search` / `oo search` 上的 `--team` 会以退出码 `2`
+  被拒绝，账号保存的默认团队
+  和 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量都会被忽略。
 - **无法等待异步生命周期。** `--wait` 与 `--wait-result` 会以既有的「不支持」
   错误失败，因为自部署运行时未暴露异步结果生命周期契约。
 - **Proxy 取决于服务支持。** 只有当你的服务实现了 proxy 端点时，
@@ -327,5 +327,5 @@ CLI 会发送 `Content-Type: application/json`，请求体形如：
 | `The connector server rejected the request (HTTP 401).`（退出码 1） | 服务需要令牌。请在 `<url>/access` 创建令牌，并通过 `--token` 传入。 |
 | `The server at ... did not return a connector health response.`（退出码 1） | URL 指向的并非 connector 服务，或 `/v1/health` 未返回预期信封。 |
 | `Could not reach the self-hosted connector at ...`（执行命令时） | 已保存的服务已宕机。请启动它，或运行 `oo connector login` 重新配置。这不是沙箱或权限问题，请勿以提升权限重试。 |
-| `The --team option is not supported by a self-hosted connector.`（退出码 2） | 自部署运行时没有团队身份。请去掉 `--team`，或改用 `--personal`。 |
+| `The --team option is not supported by a self-hosted connector.`（退出码 2） | 自部署运行时没有团队身份。请去掉 `--team`。 |
 | 某命令需要 OOMOL 账号 | 非 connector 功能（文件上传、LLM、skills）仍需 `oo auth login`。 |

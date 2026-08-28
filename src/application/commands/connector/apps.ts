@@ -10,7 +10,7 @@ import { createWriterColors } from "../../terminal-colors.ts";
 import { formatTextTable } from "../shared/text-table.ts";
 import {
     teamIdentityInputShape,
-    teamIdentityOptions,
+    teamOption,
 } from "../team/identity.ts";
 import { connectorSearchServiceColor } from "./search-provider.ts";
 import { resolveConnectorSession } from "./session.ts";
@@ -35,7 +35,6 @@ type ConnectorAppsListScope = "all" | "service";
 
 interface ConnectorAppsInput {
     team?: string;
-    personal?: boolean;
     serviceName?: string;
 }
 
@@ -62,10 +61,7 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
         },
     ],
     options: [
-        ...teamIdentityOptions({
-            personal: "options.connectorAppsPersonal",
-            team: "options.connectorAppsTeam",
-        }),
+        teamOption("options.connectorAppsTeam"),
     ],
     output: "standard",
     inputSchema: z.object({
@@ -79,7 +75,6 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
 
         const { identity, target } = await resolveConnectorSession(
             {
-                personal: input.personal,
                 team: input.team,
             },
             context,

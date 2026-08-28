@@ -18,7 +18,7 @@ const teamResponseItemSchema = z.object({
 });
 
 // `GET /v1/me/teams` wraps the memberships in a `teams` array. The array is
-// optional/defaulted so an empty account (personal identity only) parses
+// optional/defaulted so an account with no teams parses
 // cleanly instead of failing validation.
 const teamsResponseSchema = z.object({
     teams: z.array(teamResponseItemSchema).optional().default([]),

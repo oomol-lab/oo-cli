@@ -50,8 +50,6 @@ Arguments:
 Options:
   --team <team>          Report each action's authenticated status under the
                          given team identity
-  --personal             Report authenticated status under your personal
-                         identity, ignoring any configured default team
   --format <format>      Specify output format (use json for structured output)
   --json                 Alias for --format=json
   --show-schema-version  Include schemaVersion in JSON output (no effect without
@@ -77,8 +75,6 @@ Arguments:
 Options:
   --team <team>          Report each action's authenticated status under the
                          given team identity
-  --personal             Report authenticated status under your personal
-                         identity, ignoring any configured default team
   --format <format>      Specify output format (use json for structured output)
   --json                 Alias for --format=json
   --show-schema-version  Include schemaVersion in JSON output (no effect without

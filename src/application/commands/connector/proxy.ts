@@ -8,7 +8,7 @@ import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import {
     teamIdentityInputShape,
-    teamIdentityOptions,
+    teamOption,
 } from "../team/identity.ts";
 import { resolveConnectorSession } from "./session.ts";
 import { runConnectorProxy } from "./shared.ts";
@@ -51,7 +51,6 @@ interface ConnectorProxyInput {
     headers?: string;
     method?: string;
     team?: string;
-    personal?: boolean;
     query?: string;
     serviceName: string;
 }
@@ -107,10 +106,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             valueName: "body",
             descriptionKey: "options.connectorProxyBody",
         },
-        ...teamIdentityOptions({
-            personal: "options.connectorProxyPersonal",
-            team: "options.connectorProxyTeam",
-        }),
+        teamOption("options.connectorProxyTeam"),
     ],
     output: "standard",
     inputSchema: z.object({
@@ -129,7 +125,6 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         const proxyRequest = await buildConnectorProxyRequest(input, context);
         const { identity, target } = await resolveConnectorSession(
             {
-                personal: input.personal,
                 team: input.team,
             },
             context,

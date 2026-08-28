@@ -178,10 +178,10 @@ A self-hosted runtime exposes a smaller surface than the OOMOL service. The CLI
 adapts as follows:
 
 - **Team identity is not supported.** `--team` is rejected with exit code `2` on
-  `oo connector run`, `oo connector proxy`, and `oo connector apps`, and any
+  `oo connector run`, `oo connector proxy`, `oo connector apps`, and
+  `oo connector search` / `oo search`, and any
   saved account default team and the `OO_TEAM_ID` / `OO_TEAM_NAME`
-  environment variables are ignored. `--personal` is accepted (it is already
-  the effective behavior).
+  environment variables are ignored.
 - **Async lifecycle waiting is unavailable.** `--wait` and `--wait-result` fail
   with the existing "unsupported" errors because the self-hosted runtime does
   not expose the async result-lifecycle contract.
@@ -364,5 +364,5 @@ and manage runtime tokens. The CLI references it in login output and in the
 | `The connector server rejected the request (HTTP 401).` (exit 1) | The server requires a token. Create one at `<url>/access` and pass it with `--token`. |
 | `The server at ... did not return a connector health response.` (exit 1) | The URL points at something that is not a connector server, or `/v1/health` does not return the expected envelope. |
 | `Could not reach the self-hosted connector at ...` (during a command) | The saved server is down. Start it, or run `oo connector login` to reconfigure. This is not a sandbox or permission problem — do not retry with elevated permissions. |
-| `The --team option is not supported by a self-hosted connector.` (exit 2) | Self-hosted runtimes have no team identity. Drop `--team`, or use `--personal`. |
+| `The --team option is not supported by a self-hosted connector.` (exit 2) | Self-hosted runtimes have no team identity. Drop `--team`. |
 | A command needs an OOMOL account | Non-connector features (file upload, LLM, skills) still require `oo auth login`. |

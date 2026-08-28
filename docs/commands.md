@@ -50,12 +50,12 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   login. When set, the CLI builds an in-memory account and does not read,
   require, or write `auth.toml`, and it takes precedence over any saved account.
   Because no saved account can be in effect while it is set, `oo auth logout`,
-  `oo auth switch`, `oo team use`, and `oo team clear` become no-ops that leave
-  `auth.toml` untouched, and `oo auth login` still saves the account but reports
-  that this variable outranks it. `oo auth status` reports the identity this
-  variable provides. No saved default team applies either: the key may belong to
-  a different account, so commands run under the personal identity unless
-  `OO_TEAM_ID` or `OO_TEAM_NAME` selects a team.
+  `oo auth switch`, and `oo team use` become no-ops that leave `auth.toml`
+  untouched, and `oo auth login` still saves the account but reports that this
+  variable outranks it. `oo auth status` reports the identity this variable
+  provides. No saved default team applies either: the key may belong to a
+  different account, so commands send no team selection (the server applies
+  its default team) unless `OO_TEAM_ID` or `OO_TEAM_NAME` selects a team.
 - `OO_ENDPOINT`: Base endpoint domain (for example `oomol.com` or `oomol.dev`)
   used to derive every service URL for execution commands. It pairs with
   `OO_API_KEY`, overrides the endpoint of a saved account (including the
@@ -76,9 +76,8 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
 - `OO_TEAM_ID`: Run team-aware commands (`oo connector run`, `oo connector
   proxy`, `oo connector apps`, `oo connector search` / `oo search`,
   `oo variables list/get/create/delete`, and `oo file upload`) under the team
-  with this id. It takes
-  precedence over `OO_TEAM_NAME` and the account's default team; the per-run
-  `--team` and `--personal` flags still outrank it. Before execution the CLI
+  with this id. It takes precedence over `OO_TEAM_NAME` and the account's
+  default team; the per-run `--team` flag still outranks it. Before execution the CLI
   validates the id and resolves its team name (one extra request per
   invocation), so requests carry both the name and the id; an id the account
   cannot use — not a member, no such team, team deleted — fails with exit
@@ -95,10 +94,9 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   `OO_TEAM_ID` is set, and ignored by connector commands when the connector
   target is self-hosted; variables commands always honor it.
 - Team-aware commands resolve their team identity with this precedence:
-  `--personal` / `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the active account's
-  default team > your personal identity. Variables commands and `oo file
-  upload` have no personal scope: with nothing selected they fall back to the
-  server-side default team.
+  `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the active account's default team.
+  With nothing selected they send no team selection and the server applies its
+  own default team; there is no private, per-user scope.
 - `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
   synchronization, so the CLI writes no skill files into agent home directories
   such as `~/.agents` or `~/.claude`.
@@ -359,9 +357,9 @@ Show every saved auth account and validate the API key of the active one.
 - The active-identity block also shows a `Default team` line, resolved the same
   way `oo team current` resolves it: the `OO_TEAM_ID` / `OO_TEAM_NAME` env
   override when set (annotated with the variable that supplies it), otherwise
-  the active account's default team, otherwise `personal (no default team)`.
-  With `OO_API_KEY` set the line always reads `personal (no default team)`
-  unless an `OO_TEAM_*` variable selects one.
+  the active account's default team, otherwise `server default (no saved
+  team)`. With `OO_API_KEY` set the line always reads `server default (no saved
+  team)` unless an `OO_TEAM_*` variable selects one.
 - When `OO_TEAM_ID` or `OO_TEAM_NAME` supplies the identity, the missing half
   is looked up — the id resolves to its name, the name to its id through the
   account's team memberships — and the line shows `<name> (<id>)`. If the
@@ -570,15 +568,15 @@ Alias for `oo auth logout`.
 
 ## Teams
 
-Team identity lets team-aware commands act as a team instead of your personal
-account: the connector commands (`oo connector run`, `oo connector proxy`,
-`oo connector apps`), the variables commands (`oo variables
-list/get/create/delete`), whose data is team-owned in the first place, and
-`oo file upload`, whose upload is billed and metered under the team. One
-ladder selects it: the per-run `--personal` (drop every saved and env-selected
-team) or `--team <name>` first, then the `OO_TEAM_ID` / `OO_TEAM_NAME`
-environment overrides, then the default saved on the active account. These
-commands help discover which teams your account can use and manage that
+Team identity selects the team that team-aware commands act for: the connector
+commands (`oo connector run`, `oo connector proxy`, `oo connector apps`), the
+variables commands (`oo variables list/get/create/delete`), whose data is
+team-owned in the first place, and `oo file upload`, whose upload is billed and
+metered under the team. One ladder selects it: the per-run `--team <name>`
+first, then the `OO_TEAM_ID` / `OO_TEAM_NAME` environment overrides, then the
+default saved on the active account. When nothing selects a team the command
+sends no team selection and the server applies the account's default team.
+These commands help discover which teams your account can use and manage that
 default.
 
 The default team belongs to the saved account, so switching accounts with
@@ -590,9 +588,9 @@ no saved default applies at all — use `OO_TEAM_ID` / `OO_TEAM_NAME` there.
 
 `oo team list` and `oo team use` query OOMOL for your team memberships, so they
 require an OOMOL account and are unavailable when only a self-hosted connector
-is configured. `oo team current` and `oo team clear` work regardless: they read
-and write local state, and `oo team current` only enriches its output with a
-team name when an account is available to look one up.
+is configured. `oo team current` works regardless: it reads local state and
+only enriches its output with a team name when an account is available to look
+one up.
 
 `oo auth login` (and its `oo login` alias) persists the default automatically:
 it keeps the account's still-valid stored default, otherwise adopts the
@@ -613,9 +611,8 @@ read-only.
 - Output: pass the `name` value to `--team <name>` (or `oo team use <name>`),
   and the `id` value to `OO_TEAM_ID`.
 - Output: text output prints one column-aligned row per team and marks the
-  current default. When the account has no teams, it reports that connector
-  commands run under your personal identity and variables commands use the
-  server-side default team.
+  current default. When the account has no teams, it reports that team-aware
+  commands send no team selection.
 - Behavior: when the account's default team was stored without its id, this
   command fills the id in from the listing it already fetched. No extra
   request is sent, and a failure to write is ignored.
@@ -623,9 +620,10 @@ read-only.
 ### `oo team current`
 
 Show the team identity used by team-aware commands (connector, variables, file
-upload) when no `--team` / `--personal` flag is given: the `OO_TEAM_ID` /
-`OO_TEAM_NAME` environment override when set, otherwise the active account's
-default team.
+upload) when no `--team` flag is given: the `OO_TEAM_ID` / `OO_TEAM_NAME`
+environment override when set, otherwise the active account's default team.
+When neither is set, the commands send no team selection and the server
+applies its own default team.
 
 - Sends one request only when `OO_TEAM_ID` or `OO_TEAM_NAME` supplies the
   identity, to complete and validate the missing half: an id resolves to its
@@ -639,8 +637,9 @@ default team.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON is `{ "team": <name|null>, "teamId": <id|null>, "source":
   <"env_id"|"env_name"|"account"|null>, "status": <status|null> }`. `source`
-  says which mechanism selects the team, and is `null` when connector commands
-  run under your personal identity. `status` reports the team lookup: `null`
+  says which mechanism selects the team, and is `null` when no default team is
+  saved (commands then use the server-side default team). `status` reports the
+  team lookup: `null`
   whenever none was attempted (the `account` source, or `--dry-run`-style
   offline paths), otherwise one of `valid`, `not_a_member`, `not_found`,
   `deleted`, `request_failed`, `request_failed_sandbox`, or `no_credential`.
@@ -668,24 +667,6 @@ access it.
   it until unset.
 - Behavior: with `OO_API_KEY` set the command saves nothing, exits `0`, and
   reports that this variable has no saved default team.
-
-### `oo team clear`
-
-Clear the active account's default team identity. Connector commands then run
-under your personal identity and variables commands use the server-side default
-team, unless `OO_TEAM_ID` / `OO_TEAM_NAME` still selects a team — this command
-removes only the saved default and does not affect the environment override.
-This command is offline.
-
-- Behavior: removes the default team from the active account. When no default
-  is saved it reports that connector commands already run under your personal
-  identity and variables commands use the server-side default team.
-- Behavior: with `OO_API_KEY` set the command clears nothing, exits `0`, and
-  reports that this variable already runs under your personal identity.
-- Behavior: when `OO_TEAM_ID` / `OO_TEAM_NAME` is set, the output reports that
-  the environment variable still selects a team for team-aware commands, so
-  clearing the default does not stop a team from being selected. Unset the
-  variable to do that.
 
 ## LLM
 
@@ -1067,12 +1048,9 @@ Search connector actions with free-form text.
 - Options: `--format=json` and `--json` print a JSON array of matching action
   entries.
 - Options: `--team <name>` reports each result's `authenticated` state under the
-  given team identity instead of your personal identity. When omitted, the
-  effective identity follows `OO_TEAM_ID` / `OO_TEAM_NAME`, then the
-  active account's default team, otherwise your personal identity.
-- Options: `--personal` reports `authenticated` under your personal identity and
-  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
-  configured default team. It cannot be combined with `--team`.
+  given team identity. When omitted, the effective identity follows
+  `OO_TEAM_ID` / `OO_TEAM_NAME`, then the active account's default team,
+  otherwise the server-side default team.
 - Output: every match includes `authenticated` and `accessStatus`.
 - Output: JSON entries include the stable CLI fields `service`, `name`,
   `description`, `authenticated`, and `accessStatus`. `accessStatus` is either
@@ -1143,13 +1121,10 @@ Validate input data and run one connector action.
 - Options: `--wait-result` submits an async submit action and then polls its
   configured result action. This option is only valid when the selected action
   schema declares an async submit lifecycle.
-- Options: `--team <name>` runs the action under the given team identity
-  instead of your personal identity. When omitted, the action runs under the
-  team selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the
-  active account's default team, otherwise your personal identity.
-- Options: `--personal` runs the action under your personal identity and
-  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
-  configured default team. It cannot be combined with `--team`.
+- Options: `--team <name>` runs the action under the given team identity. When
+  omitted, the action runs under the team selected by `OO_TEAM_ID` /
+  `OO_TEAM_NAME` if set, then the active account's default team, otherwise the
+  server-side default team.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.
@@ -1172,8 +1147,8 @@ Validate input data and run one connector action.
   terminals show progress on stderr. JSON output does not include progress text.
 - Notes: against a self-hosted connector, `--team` is rejected with
   exit `2`, the account's default team and the `OO_TEAM_ID` /
-  `OO_TEAM_NAME` environment variables are ignored, and `--personal` is
-  accepted. `--wait` and `--wait-result` fail with the existing unsupported
+  `OO_TEAM_NAME` environment variables are ignored. `--wait` and
+  `--wait-result` fail with the existing unsupported
   errors because the self-hosted runtime does not expose the async lifecycle
   contract.
 
@@ -1185,13 +1160,10 @@ read-only.
 - Arguments: `[serviceName]` is optional. When omitted, the command lists every
   connected app across all providers. When provided, the listing is scoped to
   that one service.
-- Options: `--team <name>` lists connected apps under the given team identity
-  instead of your personal identity. When omitted, the listing uses the team
-  selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the account's default
-  team, otherwise your personal identity.
-- Options: `--personal` lists connected apps under your personal identity and
-  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
-  configured default team. It cannot be combined with `--team`.
+- Options: `--team <name>` lists connected apps under the given team identity.
+  When omitted, the listing uses the team selected by `OO_TEAM_ID` /
+  `OO_TEAM_NAME` if set, then the account's default team, otherwise the
+  server-side default team.
 - Options: `--format=json` and `--json` print a JSON array.
 - Output: JSON entries include the stable CLI fields `service`,
   `connectionName`, `displayName`, `accountLabel`, `status`, `authType`,
@@ -1206,9 +1178,8 @@ read-only.
 - Notes: use the listed `connectionName` value with
   `oo connector run <serviceName> --connection-name <connection-name>`.
 - Notes: against a self-hosted connector, `--team` is rejected with exit
-  `2`, the account's default team and the `OO_TEAM_ID` /
-  `OO_TEAM_NAME` environment variables are ignored, and `--personal` is
-  accepted.
+  `2`, and the account's default team and the `OO_TEAM_ID` /
+  `OO_TEAM_NAME` environment variables are ignored.
 
 ### `oo connector proxy <serviceName>`
 
@@ -1235,13 +1206,10 @@ Proxy a provider API request through a connected connector app.
   options.
 - Options: `--body` is parsed as JSON. To send a text body, pass a JSON string
   such as `"hello"`.
-- Options: `--team <name>` runs the proxy request under the given team identity
-  instead of your personal identity. When omitted, the request runs under the
-  team selected by `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the
-  active account's default team, otherwise your personal identity.
-- Options: `--personal` runs the proxy request under your personal identity and
-  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
-  configured default team. It cannot be combined with `--team`.
+- Options: `--team <name>` runs the proxy request under the given team
+  identity. When omitted, the request runs under the team selected by
+  `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the active account's default team,
+  otherwise the server-side default team.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON output keeps the stable shape
   `{ data: { status, headers, data }, meta: { executionId, service } }`.
@@ -1310,12 +1278,9 @@ Search connector actions with one free-form query.
 - Options: `--format=json` and `--json` print a JSON array of matching action
   entries.
 - Options: `--team <name>` reports each result's `authenticated` state under the
-  given team identity instead of your personal identity. When omitted, the
-  effective identity follows `OO_TEAM_ID` / `OO_TEAM_NAME`, then the
-  active account's default team, otherwise your personal identity.
-- Options: `--personal` reports `authenticated` under your personal identity and
-  ignores the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables and any
-  configured default team. It cannot be combined with `--team`.
+  given team identity. When omitted, the effective identity follows
+  `OO_TEAM_ID` / `OO_TEAM_NAME`, then the active account's default team,
+  otherwise the server-side default team.
 - Output: every match includes `authenticated` and `accessStatus`.
 - Output: JSON entries include the stable CLI fields `service`, `name`,
   `description`, `authenticated`, and `accessStatus`. `accessStatus` is either
@@ -2604,9 +2569,6 @@ Upload one file to the temporary file cache.
   is billed and metered under that team. When omitted, the team comes from
   `OO_TEAM_ID` / `OO_TEAM_NAME` when set, otherwise the active account's
   default team.
-- Options: `--personal` sends no team selection, ignoring `OO_TEAM_ID` /
-  `OO_TEAM_NAME` and the account default, and lets the server apply its own
-  default team. It cannot be combined with `--team`.
 - Notes: the team selection is sent only to the file service requests; the
   presigned part uploads go straight to storage without it.
 - Notes: the uploaded file expires after seven days and is deleted on the server.
@@ -2651,14 +2613,13 @@ account; values are stored as strings (serialize JSON yourself if needed).
 
 Variables belong to a team, not to a single user: every member of the team
 reads and writes the same set, and the last write wins. Each subcommand
-resolves the team it acts for with the shared ladder `--personal` > `--team
-<team>` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the active account's default team >
-the server-side default team. `--personal` means "send no team selection", so
-the server applies its own default team; it does not create a private,
-per-user scope, and it cannot be combined with `--team` (exit `2`, as is an
-empty `--team` value).
+resolves the team it acts for with the shared ladder `--team <team>` >
+`OO_TEAM_ID` > `OO_TEAM_NAME` > the active account's default team > the
+server-side default team. With nothing selected the command sends no team
+selection and the server applies its own default team; there is no private,
+per-user scope. An empty `--team` value exits `2`.
 
-Every subcommand accepts `--team <team>` and `--personal`. An account that
+Every subcommand accepts `--team <team>`. An account that
 belongs to no team at all cannot use variables: the command exits `1` and says
 so. Selecting a team the account is not a member of, or one that does not
 exist, also exits `1`.
@@ -2670,9 +2631,7 @@ pagination; up to 200 per team).
 
 - Text output: one line per variable, `name` and `updatedAt` only. Full values
   are not printed; use `oo variables get` or `--json` to read a value.
-- Options: `--team <team>` runs the command for that team; `--personal` uses
-  the server-side default team, ignoring `OO_TEAM_ID` / `OO_TEAM_NAME` and any
-  saved default team.
+- Options: `--team <team>` runs the command for that team.
 - Options: `--format <format>` / `--json` return structured output as
   `{ "variables": [{ "name", "value", "updatedAt", "updatedBy" }] }` with full
   values. `updatedBy` is the id of the team member who last wrote the variable
@@ -2685,8 +2644,7 @@ Read the value of a variable of the current team.
 - Arguments: `<name>` is required (1-256 characters; no `/` or control
   characters).
 - Text output: the raw value followed by a newline.
-- Options: `--team <team>` and `--personal` select the team, as for
-  `oo variables list`.
+- Options: `--team <team>` selects the team, as for `oo variables list`.
 - Options: `--format <format>` / `--json` return
   `{ "name", "value", "updatedAt", "updatedBy" }`.
 - Notes: exits non-zero if the variable does not exist.
@@ -2702,8 +2660,7 @@ Create or replace a variable for the current team (last-write-wins).
 - Options: `--from-file <path>` reads the value verbatim from a UTF-8 file.
 - Options: `--stdin` reads the value verbatim from standard input until EOF;
   it errors if stdin is an interactive terminal.
-- Options: `--team <team>` and `--personal` select the team, as for
-  `oo variables list`.
+- Options: `--team <team>` selects the team, as for `oo variables list`.
 - Options: `--format <format>` / `--json` return
   `{ "name", "value", "updatedAt", "updatedBy" }`.
 - Notes: the value is limited to 64 KiB (65536 bytes, UTF-8).
@@ -2716,8 +2673,7 @@ Delete a variable of the current team. Idempotent: succeeds even if the name
 does not exist.
 
 - Arguments: `<name>` is required.
-- Options: `--team <team>` and `--personal` select the team, as for
-  `oo variables list`.
+- Options: `--team <team>` selects the team, as for `oo variables list`.
 - Options: `--json` returns `{ "name", "deleted": true }`.
 
 ## Shell Completion

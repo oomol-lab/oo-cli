@@ -3,7 +3,6 @@ import type { AuthFile } from "./auth.ts";
 import { describe, expect, test } from "bun:test";
 import {
     authTomlFileSchema,
-    clearAccountDefaultTeam,
     getNextAuthAccount,
     renderAuthFile,
     setAccountDefaultTeam,
@@ -251,29 +250,6 @@ describe("setAccountDefaultTeam", () => {
             id: null,
             name: "acme",
         })).toBe(authFile);
-    });
-});
-
-describe("clearAccountDefaultTeam", () => {
-    test("removes both team fields", () => {
-        const withTeam = setAccountDefaultTeam(createAuthFile(), "user-1", {
-            id: "team-1",
-            name: "acme",
-        });
-        const next = clearAccountDefaultTeam(withTeam, "user-1");
-
-        expect(next.auth[0]).toEqual({
-            apiKey: "secret-1",
-            endpoint: "oomol.com",
-            id: "user-1",
-            name: "Alice",
-        });
-    });
-
-    test("leaves the file untouched when no default team is stored", () => {
-        const authFile = createAuthFile();
-
-        expect(clearAccountDefaultTeam(authFile, "user-1")).toBe(authFile);
     });
 });
 

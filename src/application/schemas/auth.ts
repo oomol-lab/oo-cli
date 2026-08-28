@@ -166,20 +166,6 @@ export function setAccountDefaultTeam(
     }));
 }
 
-/** Removes the default team identity from one account. */
-export function clearAccountDefaultTeam(
-    authFile: AuthFile,
-    accountId: string,
-): AuthFile {
-    return mapAuthAccount(authFile, accountId, (account) => {
-        if (account.team === undefined && account.teamId === undefined) {
-            return account;
-        }
-
-        return withoutTeamFields(account);
-    });
-}
-
 export function removeCurrentAuthAccount(authFile: AuthFile): AuthFile {
     return {
         auth: authFile.auth.filter(account => account.id !== authFile.id),

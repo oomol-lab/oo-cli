@@ -16,7 +16,7 @@ import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
 import {
     teamIdentityInputShape,
-    teamIdentityOptions,
+    teamOption,
 } from "../team/identity.ts";
 import {
     invalidateConnectorActionSchemaOnNotFound,
@@ -60,7 +60,6 @@ interface ConnectorRunInput {
     data?: string;
     dryRun?: boolean;
     team?: string;
-    personal?: boolean;
     serviceName: string;
     wait?: boolean;
     waitResult?: boolean;
@@ -115,10 +114,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             longFlag: "--wait-result",
             descriptionKey: "options.connectorRunWaitResult",
         },
-        ...teamIdentityOptions({
-            personal: "options.connectorRunPersonal",
-            team: "options.connectorRunTeam",
-        }),
+        teamOption("options.connectorRunTeam"),
     ],
     output: "standard",
     inputSchema: z.object({
@@ -150,7 +146,6 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 
         const { identity, target } = await resolveConnectorSession(
             {
-                personal: input.personal,
                 team: input.team,
                 // A dry run never sends the execution request that needs the
                 // completed identity, so it must not pay (or fail on) the

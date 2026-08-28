@@ -45,7 +45,7 @@ export const enMessages = {
     "auth.status.selfHostedConnectorToken.yes": "yes",
     "auth.status.team": "Default team",
     "auth.status.teamEnvOverride": "{team} (via {envVar})",
-    "auth.status.teamPersonal": "personal (no default team)",
+    "auth.status.teamServerDefault": "server default (no saved team)",
     "auth.switch.envOverrideNoop":
         "Nothing was switched: the active credential comes from OO_API_KEY, not from a saved account.",
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
@@ -192,20 +192,17 @@ export const enMessages = {
     "commands.logout.summary":
         "Log out the current account (alias for auth logout)",
     "commands.team.description":
-        "List the teams your account can access and manage the default team identity used by team-aware commands (connector, variables).",
+        "List the teams your account can access and manage the default team identity used by team-aware commands (connector, variables, file upload).",
     "commands.team.summary": "Manage team identity",
     "commands.team.list.description":
         "List the teams the active account can authenticate as, marking the current default.",
     "commands.team.list.summary": "List accessible teams",
     "commands.team.current.description":
-        "Show the default team identity used by team-aware commands (connector, variables) when no --team / --personal flag is given.",
+        "Show the default team identity used by team-aware commands (connector, variables, file upload) when no --team flag is given.",
     "commands.team.current.summary": "Show the default team identity",
     "commands.team.use.description":
-        "Set the default team identity used by team-aware commands (connector, variables), after checking the account can access it.",
+        "Set the default team identity used by team-aware commands (connector, variables, file upload), after checking the account can access it.",
     "commands.team.use.summary": "Set the default team identity",
-    "commands.team.clear.description":
-        "Clear the default team identity so team-aware commands (connector, variables) stop using it.",
-    "commands.team.clear.summary": "Clear the default team identity",
     "commands.search.description":
         "Search connector actions with one free-form query.",
     "commands.search.summary": "Search connector actions",
@@ -403,8 +400,6 @@ export const enMessages = {
         "The team id \"{teamId}\" from OO_TEAM_ID cannot be used: {reason}. Run `oo team list` to see the teams you can use.",
     "errors.team.envNameNotAccessible":
         "The active account cannot access the team \"{team}\" from OO_TEAM_NAME. Run `oo team list` to see the teams you can use.",
-    "errors.team.identityConflict":
-        "Use either --team or --personal, not both.",
     "errors.team.invalidResponse":
         "The team list response body is unsupported.",
     "errors.team.nameEmpty": "The team name must not be empty.",
@@ -999,20 +994,12 @@ export const enMessages = {
         "Run the action with the connector app connection name",
     "options.connectorAppsTeam":
         "List connected apps under the given team identity",
-    "options.connectorAppsPersonal":
-        "List connected apps under your personal identity, ignoring any configured default team",
     "options.searchTeam":
         "Report each action's authenticated status under the given team identity",
-    "options.searchPersonal":
-        "Report authenticated status under your personal identity, ignoring any configured default team",
     "options.connectorRunTeam":
         "Run the action under the given team identity",
-    "options.connectorRunPersonal":
-        "Run the action under your personal identity, ignoring any configured default team",
     "options.fileUploadTeam":
         "Upload the file under the given team identity",
-    "options.fileUploadPersonal":
-        "Upload the file under the server-side default team, ignoring OO_TEAM_ID / OO_TEAM_NAME and any saved default team",
     "options.connectorLoginToken":
         "Runtime API token for the self-hosted connector (created on the server's /access page)",
     "options.connectorProxyBody":
@@ -1027,8 +1014,6 @@ export const enMessages = {
         "Specify the upstream HTTP method",
     "options.connectorProxyTeam":
         "Run the proxy request under the given team identity",
-    "options.connectorProxyPersonal":
-        "Run the proxy request under your personal identity, ignoring any configured default team",
     "options.connectorProxyQuery":
         "Specify upstream query parameters as a JSON object",
     "options.debug": "Print the current log file path when the CLI exits",
@@ -1303,10 +1288,10 @@ export const enMessages = {
     "team.list.text.role": "Role",
     "team.list.text.default": "Default",
     "team.list.text.noTeams":
-        "The active account has no teams; connector commands run under your personal identity and variables commands use the server-side default team.",
+        "The active account has no teams; team-aware commands send no team selection.",
     "team.current.text.accountDefault": "Default team identity: {team}",
-    "team.current.text.personal":
-        "No default team; connector commands run under your personal identity and variables commands use the server-side default team.",
+    "team.current.text.serverDefault":
+        "No default team saved; team-aware commands use the server-side default team.",
     "team.current.text.envId":
         "Team identity comes from the OO_TEAM_ID environment variable: {team}",
     "team.current.text.envName":
@@ -1329,16 +1314,6 @@ export const enMessages = {
         "Nothing was saved: the active credential comes from OO_API_KEY, which has no saved default team. Pin a team with OO_TEAM_ID or OO_TEAM_NAME instead.",
     "team.use.envOverrideHint":
         "Team-aware commands keep using the team from {envVar}, not this default. Unset {envVar} to use the saved default.",
-    "team.clear.success":
-        "Cleared the default team identity; connector commands now run under your personal identity and variables commands use the server-side default team.",
-    "team.clear.alreadyPersonal":
-        "No default team was set; connector commands already run under your personal identity and variables commands use the server-side default team.",
-    "team.clear.successEnvOverride":
-        "Cleared the default team identity, but {envVar} still selects the team for team-aware commands. Unset {envVar} to stop selecting a team.",
-    "team.clear.alreadyPersonalEnvHint":
-        "No default team was set, but {envVar} still selects a team for team-aware commands.",
-    "team.clear.envOverrideNoop":
-        "Nothing was cleared: the active credential comes from OO_API_KEY, which already runs under your personal identity unless OO_TEAM_ID or OO_TEAM_NAME selects a team.",
     "connector.run.text.dryRunPassed": "Validation passed.",
     "connector.login.manageTokens": "Manage runtime tokens at {accessUrl}",
     "connector.login.noToken":
@@ -1397,7 +1372,6 @@ export const enMessages = {
     "options.variablesFromFile": "Read the variable value from a file (UTF-8)",
     "options.variablesStdin": "Read the variable value from standard input (UTF-8)",
     "options.variablesTeam": "Run the command for the given team",
-    "options.variablesPersonal": "Use the server-side default team, ignoring OO_TEAM_ID / OO_TEAM_NAME and any saved default team",
     "errors.variables.invalidName": "Invalid variable name: {value}. Names must be 1-256 characters and must not contain '/' or control characters.",
     "errors.variables.valueSource": "Provide exactly one variable value source: a value argument, --from-file, or --stdin.",
     "errors.variables.stdinTty": "--stdin requires piped input; refusing to read from an interactive terminal.",
@@ -1458,7 +1432,7 @@ export const zhMessages = {
     "auth.status.savedAccountsIgnored": "设置了 OO_API_KEY 时，保存的账号不会被使用。",
     "auth.status.team": "默认团队",
     "auth.status.teamEnvOverride": "{team}（来自 {envVar}）",
-    "auth.status.teamPersonal": "个人身份（未设置默认团队）",
+    "auth.status.teamServerDefault": "服务端默认团队（未保存默认团队）",
     "auth.switch.envOverrideNoop":
         "没有切换任何账号：当前生效的凭证来自 OO_API_KEY，而不是保存的账号。",
     "auth.switch.success": "已将 {endpoint} 的当前激活账号切换为 {name}",
@@ -1592,20 +1566,17 @@ export const zhMessages = {
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
     "commands.logout.summary": "登出当前账号（auth logout 的别名）",
     "commands.team.description":
-        "列出当前账号可访问的团队，并管理团队相关命令（connector、variables）使用的默认团队身份。",
+        "列出当前账号可访问的团队，并管理团队相关命令（connector、variables、file upload）使用的默认团队身份。",
     "commands.team.summary": "管理团队身份",
     "commands.team.list.description":
         "列出当前活动账号可认证的团队，并标出当前默认团队。",
     "commands.team.list.summary": "列出可访问的团队",
     "commands.team.current.description":
-        "显示未传 --team / --personal 时团队相关命令（connector、variables）使用的默认团队身份。",
+        "显示未传 --team 时团队相关命令（connector、variables、file upload）使用的默认团队身份。",
     "commands.team.current.summary": "显示默认团队身份",
     "commands.team.use.description":
-        "在确认账号可访问后，设置团队相关命令（connector、variables）使用的默认团队身份。",
+        "在确认账号可访问后，设置团队相关命令（connector、variables、file upload）使用的默认团队身份。",
     "commands.team.use.summary": "设置默认团队身份",
-    "commands.team.clear.description":
-        "清除默认团队身份，让团队相关命令（connector、variables）不再使用它。",
-    "commands.team.clear.summary": "清除默认团队身份",
     "commands.search.description":
         "使用一个自由文本查询搜索 connector action。",
     "commands.search.summary": "搜索 connector action",
@@ -1780,8 +1751,6 @@ export const zhMessages = {
         "无法使用 OO_TEAM_ID 指定的团队 id “{teamId}”：{reason}。运行 `oo team list` 查看可用的团队。",
     "errors.team.envNameNotAccessible":
         "当前活动账号无法访问 OO_TEAM_NAME 指定的团队 “{team}”。运行 `oo team list` 查看可用的团队。",
-    "errors.team.identityConflict":
-        "--team 和 --personal 只能使用其中一个。",
     "errors.team.invalidResponse":
         "团队列表返回了不受支持的响应内容。",
     "errors.team.nameEmpty": "团队名称不能为空。",
@@ -2371,20 +2340,12 @@ export const zhMessages = {
         "使用指定 connector app 连接名称运行该 action",
     "options.connectorAppsTeam":
         "以指定团队身份列出已连接的 app",
-    "options.connectorAppsPersonal":
-        "以个人身份列出已连接的 app，忽略已配置的默认团队",
     "options.searchTeam":
         "以指定团队身份报告每个 action 的 authenticated 状态",
-    "options.searchPersonal":
-        "以个人身份报告 authenticated 状态，忽略已配置的默认团队",
     "options.connectorRunTeam":
         "以指定团队身份运行该 action",
-    "options.connectorRunPersonal":
-        "以个人身份运行该 action，忽略已配置的默认团队",
     "options.fileUploadTeam":
         "以指定团队身份上传该文件",
-    "options.fileUploadPersonal":
-        "以服务端默认团队上传该文件，忽略 OO_TEAM_ID / OO_TEAM_NAME 与已保存的默认团队",
     "options.connectorLoginToken":
         "自部署 Connector 的 Runtime API 令牌（在服务的 /access 页面创建）",
     "options.connectorProxyBody":
@@ -2399,8 +2360,6 @@ export const zhMessages = {
         "指定上游 HTTP method",
     "options.connectorProxyTeam":
         "以指定团队身份运行该 proxy 请求",
-    "options.connectorProxyPersonal":
-        "以个人身份运行该 proxy 请求，忽略已配置的默认团队",
     "options.connectorProxyQuery":
         "以 JSON object 指定上游 query 参数",
     "options.debug": "在 CLI 退出时打印当前日志文件路径",
@@ -2672,10 +2631,10 @@ export const zhMessages = {
     "team.list.text.role": "角色",
     "team.list.text.default": "默认",
     "team.list.text.noTeams":
-        "当前活动账号没有任何团队；connector 命令以个人身份运行，variables 命令使用服务端默认团队。",
+        "当前活动账号没有任何团队；团队相关命令不会发送团队选择。",
     "team.current.text.accountDefault": "默认团队身份：{team}",
-    "team.current.text.personal":
-        "未设置默认团队；connector 命令以个人身份运行，variables 命令使用服务端默认团队。",
+    "team.current.text.serverDefault":
+        "未保存默认团队；团队相关命令使用服务端默认团队。",
     "team.current.text.envId":
         "团队身份来自 OO_TEAM_ID 环境变量：{team}",
     "team.current.text.envName":
@@ -2696,16 +2655,6 @@ export const zhMessages = {
         "未保存任何内容：当前凭据来自 OO_API_KEY，它没有保存的默认团队。如需固定团队，请使用 OO_TEAM_ID 或 OO_TEAM_NAME。",
     "team.use.envOverrideHint":
         "团队相关命令仍会使用 {envVar} 指定的团队，而不是这个默认值。取消 {envVar} 后保存的默认值才会生效。",
-    "team.clear.success":
-        "已清除默认团队身份；connector 命令现在以个人身份运行，variables 命令使用服务端默认团队。",
-    "team.clear.alreadyPersonal":
-        "未设置默认团队；connector 命令本就以个人身份运行，variables 命令使用服务端默认团队。",
-    "team.clear.successEnvOverride":
-        "已清除默认团队身份，但 {envVar} 仍会为团队相关命令选择团队。取消 {envVar} 后才不会选择团队。",
-    "team.clear.alreadyPersonalEnvHint":
-        "未设置默认团队，但 {envVar} 仍会为团队相关命令选择团队。",
-    "team.clear.envOverrideNoop":
-        "未清除任何内容：当前凭据来自 OO_API_KEY，除非 OO_TEAM_ID 或 OO_TEAM_NAME 选择了团队，否则它本就以个人身份运行。",
     "connector.run.text.dryRunPassed": "校验通过。",
     "connector.login.manageTokens": "可在 {accessUrl} 管理 Runtime Token。",
     "connector.login.noToken":
@@ -2762,7 +2711,6 @@ export const zhMessages = {
     "options.variablesFromFile": "从文件读取变量值（UTF-8）",
     "options.variablesStdin": "从标准输入读取变量值（UTF-8）",
     "options.variablesTeam": "以指定团队执行该命令",
-    "options.variablesPersonal": "使用服务端默认团队，忽略 OO_TEAM_ID / OO_TEAM_NAME 与已保存的默认团队",
     "errors.variables.invalidName": "无效的变量 name：{value}。name 必须为 1-256 个字符，且不能包含 '/' 或控制字符。",
     "errors.variables.valueSource": "请只提供一个变量值来源：value 参数、--from-file 或 --stdin。",
     "errors.variables.stdinTty": "--stdin 需要管道输入；拒绝从交互式终端读取。",

@@ -38,20 +38,6 @@ const teamByIdResponse = {
 };
 
 describe("resolveConnectorSession flag guards", () => {
-    test("rejects combining --team and --personal before resolving anything", async () => {
-        // No auth on the context: the guard must fire before target
-        // resolution gets a chance to demand a login.
-        const context = createSessionContext();
-
-        const error = await expectCliUserError(
-            resolveConnectorSession({ personal: true, team: "acme" }, context),
-        );
-
-        expect(error.key).toBe("errors.team.identityConflict");
-        expect(error.exitCode).toBe(2);
-        expect(context.requests).toHaveLength(0);
-    });
-
     test.each([
         { case: "an empty --team value", team: "" },
         { case: "a whitespace --team value", team: "   " },
@@ -83,7 +69,7 @@ describe("resolveConnectorSession flag guards", () => {
 });
 
 describe("resolveConnectorSession on a self-hosted target", () => {
-    test("pins the personal identity, ignoring the config default and the env team", async () => {
+    test("pins no team identity for a self-hosted target, ignoring the config default and the env team", async () => {
         const context = createSessionContext({
             env: {
                 OO_CONNECTOR_URL: "http://localhost:3000",
@@ -108,13 +94,13 @@ describe("resolveConnectorSession on a self-hosted target", () => {
         });
         expect(context.requests).toHaveLength(0);
         expect(context.recordedProperties).toEqual([
-            { connector_kind: "self_hosted", identity_source: "personal" },
+            { connector_kind: "self_hosted", identity_source: "none" },
         ]);
     });
 });
 
 describe("resolveConnectorSession identity ladder", () => {
-    test("resolves to personal when nothing selects a team", async () => {
+    test("resolves to no team identity when nothing selects a team", async () => {
         const context = createSessionContext({ auth: authFileWith(testAccount) });
 
         const session = await resolveConnectorSession({}, context);
@@ -131,23 +117,8 @@ describe("resolveConnectorSession identity ladder", () => {
             accountEndpoint: "oomol.com",
         });
         expect(context.recordedProperties).toEqual([
-            { connector_kind: "oomol", identity_source: "personal" },
-        ]);
-    });
-
-    test("forces the personal identity with --personal over the config default and env team", async () => {
-        const context = createSessionContext({
-            auth: authFileWith(testAccount),
-            env: { OO_TEAM_ID: "team-1" },
-            settings: { identity: { team: "acme" } },
-        });
-
-        const session = await resolveConnectorSession({ personal: true }, context);
-
-        expect(session.identity).toBeUndefined();
-        expect(context.requests).toHaveLength(0);
-        expect(context.recordedProperties).toEqual([
-            { connector_kind: "oomol", identity_source: "personal" },
+            { connector_kind: "oomol" },
+            { identity_source: "none" },
         ]);
     });
 
@@ -168,7 +139,8 @@ describe("resolveConnectorSession identity ladder", () => {
         });
         expect(context.requests).toHaveLength(0);
         expect(context.recordedProperties).toEqual([
-            { connector_kind: "oomol", identity_source: "flag" },
+            { connector_kind: "oomol" },
+            { identity_source: "flag" },
         ]);
     });
 
@@ -213,7 +185,8 @@ describe("resolveConnectorSession identity ladder", () => {
         );
         expect(context.requests[0]!.authorization).toBe("api-secret-1");
         expect(context.recordedProperties).toEqual([
-            { connector_kind: "oomol", identity_source: "env_id" },
+            { connector_kind: "oomol" },
+            { identity_source: "env_id" },
         ]);
     });
 
@@ -295,7 +268,8 @@ describe("resolveConnectorSession backend policy", () => {
             envVar: "OO_TEAM_ID",
         });
         expect(context.recordedProperties).toEqual([
-            { connector_kind: "oomol", identity_source: "env_id" },
+            { connector_kind: "oomol" },
+            { identity_source: "env_id" },
         ]);
     });
 });

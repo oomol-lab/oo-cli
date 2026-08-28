@@ -439,7 +439,7 @@ describe("connector shared requests", () => {
         expect(requests[0]?.headers.get("x-oo-connector-alias")).toBe("work");
     });
 
-    test("runConnectorAction omits the team query and header for the personal identity", async () => {
+    test("runConnectorAction omits the team query and header when no team identity is selected", async () => {
         const requests: Request[] = [];
         await runConnectorAction(
             {

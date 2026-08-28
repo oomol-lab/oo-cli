@@ -12,12 +12,13 @@ import {
 import { createTranslator } from "../../../i18n/translator.ts";
 import {
     appendTeamIdentityStatus,
-    assertTeamIdentityFlags,
     formatTeamIdentityValue,
+    readTeamFlag,
     requireValidTeamIdentity,
     resolveTeamIdentity,
-    teamIdentityOptions,
     teamNameStatusForTelemetry,
+    teamOption,
+    teamSourceForTelemetry,
 } from "./identity.ts";
 
 const testAccount = {
@@ -40,7 +41,7 @@ const teamByIdResponse = {
 };
 
 describe("resolveTeamIdentity precedence", () => {
-    test("resolves to personal when nothing selects a team", async () => {
+    test("resolves to no team identity when nothing selects a team", async () => {
         expect(await resolveTeamIdentity(
             {
                 account: testAccount,
@@ -49,29 +50,6 @@ describe("resolveTeamIdentity precedence", () => {
             },
             createContext({}),
         )).toBeUndefined();
-    });
-
-    test("personal flag overrides the team flag, the env override, and the config default", async () => {
-        let requested = false;
-
-        expect(await resolveTeamIdentity(
-            {
-                account: testAccount,
-                defaultTeam: { id: null, name: "config-team" },
-                teamFlag: "flag-team",
-                personalFlag: true,
-                resolveAgainstBackend: true,
-            },
-            createContext(
-                { OO_TEAM_ID: "team-1", OO_TEAM_NAME: "beta" },
-                async () => {
-                    requested = true;
-
-                    return new Response(JSON.stringify(teamByIdResponse));
-                },
-            ),
-        )).toBeUndefined();
-        expect(requested).toBe(false);
     });
 
     test("team flag overrides the env override and the config default without a lookup", async () => {
@@ -440,7 +418,7 @@ describe("resolveTeamIdentity env validation", () => {
 
 describe("requireValidTeamIdentity", () => {
     const passThroughCases: { case: string; identity: TeamIdentity | undefined }[] = [
-        { case: "the personal identity", identity: undefined },
+        { case: "no team identity", identity: undefined },
         {
             case: "a flag identity",
             identity: { name: "flag-team", id: null, source: "flag", status: null },
@@ -674,21 +652,12 @@ describe("teamNameStatusForTelemetry", () => {
     });
 });
 
-describe("assertTeamIdentityFlags", () => {
-    test("rejects combining --team and --personal", () => {
-        const error = expectCliUserError(
-            () => assertTeamIdentityFlags({ personal: true, team: "acme" }),
-        );
-
-        expect(error.key).toBe("errors.team.identityConflict");
-        expect(error.exitCode).toBe(2);
-    });
-
+describe("readTeamFlag", () => {
     test.each([
         { case: "an empty --team value", team: "" },
         { case: "a whitespace --team value", team: "   " },
     ])("rejects $case", ({ team }) => {
-        const error = expectCliUserError(() => assertTeamIdentityFlags({ team }));
+        const error = expectCliUserError(() => readTeamFlag({ team }));
 
         expect(error.key).toBe("errors.team.teamEmpty");
         expect(error.exitCode).toBe(2);
@@ -696,31 +665,33 @@ describe("assertTeamIdentityFlags", () => {
 
     test.each([
         { case: "no flags", expected: undefined, input: {} },
-        { case: "--personal alone", expected: undefined, input: { personal: true } },
         { case: "a padded --team value", expected: "acme", input: { team: "  acme  " } },
     ])("returns $expected for $case", ({ expected, input }) => {
-        expect(assertTeamIdentityFlags(input)).toBe(expected);
+        expect(readTeamFlag(input)).toBe(expected);
     });
 });
 
-describe("teamIdentityOptions", () => {
-    test("declares the shared flags with the caller's description keys", () => {
-        expect(teamIdentityOptions({
-            personal: "options.connectorRunPersonal",
-            team: "options.connectorRunTeam",
-        })).toEqual([
-            {
-                name: "team",
-                longFlag: "--team",
-                valueName: "team",
-                descriptionKey: "options.connectorRunTeam",
-            },
-            {
-                name: "personal",
-                longFlag: "--personal",
-                descriptionKey: "options.connectorRunPersonal",
-            },
-        ]);
+describe("teamOption", () => {
+    test("declares the shared flag with the caller's description key", () => {
+        expect(teamOption("options.connectorRunTeam")).toEqual({
+            name: "team",
+            longFlag: "--team",
+            valueName: "team",
+            descriptionKey: "options.connectorRunTeam",
+        });
+    });
+});
+
+describe("teamSourceForTelemetry", () => {
+    test.each([
+        { case: "no team identity", expected: "none", identity: undefined },
+        {
+            case: "an account default",
+            expected: "account",
+            identity: { id: null, name: "acme", source: "account", status: null } as const,
+        },
+    ])("reports $expected for $case", ({ expected, identity }) => {
+        expect(teamSourceForTelemetry(identity)).toBe(expected);
     });
 });
 

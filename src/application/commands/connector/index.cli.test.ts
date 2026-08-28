@@ -583,7 +583,6 @@ describe("connectorCommand CLI", () => {
                 "Submit an async action and wait for its result action",
             );
             expect(result.stdout).toContain("--team");
-            expect(result.stdout).toContain("--personal");
             expect(result.stdout).toContain("--connection-name");
             expect(help).toContain(
                 "Run the action under the given team identity",
@@ -612,7 +611,6 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toContain("--headers");
             expect(result.stdout).toContain("--body");
             expect(result.stdout).toContain("--team");
-            expect(result.stdout).toContain("--personal");
             expect(help).toContain(
                 "Proxy a provider API request through a connected connector app",
             );
@@ -1014,7 +1012,7 @@ describe("connectorCommand CLI", () => {
                     error_code: "invalid_input",
                     has_body: false,
                     http_status: 400,
-                    identity_source: "personal",
+                    identity_source: "none",
                     method: "GET",
                 },
             });
@@ -1339,7 +1337,6 @@ describe("connectorCommand CLI", () => {
             expect(appsHelp.exitCode).toBe(0);
             expect(appsHelp.stdout).toContain("--json");
             expect(appsHelp.stdout).toContain("--team");
-            expect(appsHelp.stdout).toContain("--personal");
             expect(appsHelp.stdout).toContain("List connected connector apps");
             expect(appsHelp.stdout).not.toContain("disconnect");
             expect(appsHelp.stdout).not.toContain("reconnect");
@@ -1434,7 +1431,7 @@ describe("connectorCommand CLI", () => {
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "connector.apps",
-                    identity_source: "personal",
+                    identity_source: "none",
                     list_scope: "all",
                     result_count_bucket: "1-5",
                 },
@@ -1654,7 +1651,7 @@ describe("connectorCommand CLI", () => {
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     connector_kind: "self_hosted",
-                    identity_source: "personal",
+                    identity_source: "none",
                     list_scope: "all",
                 },
             });
@@ -1760,7 +1757,7 @@ describe("connectorCommand CLI", () => {
                     connection_selector: "none",
                     data_size_bucket: "<1KB",
                     dry_run: false,
-                    identity_source: "personal",
+                    identity_source: "none",
                     service: "gmail",
                     wait: false,
                 },
@@ -4982,51 +4979,6 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).toBe("");
             expect(result.stderr).toContain(
                 "The --team value cannot be empty.",
-            );
-            expect(requestCount).toBe(0);
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("rejects combining --team and --personal before sending requests", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            let requestCount = 0;
-            const result = await sandbox.run(
-                [
-                    "connector",
-                    "run",
-                    "gmail",
-                    "-a",
-                    "send_mail",
-                    "-d",
-                    "{\"to\":\"foo@bar.com\"}",
-                    "--team",
-                    "acme",
-                    "--personal",
-                    "--json",
-                ],
-                {
-                    fetcher: async () => {
-                        requestCount += 1;
-
-                        return new Response(JSON.stringify({
-                            data: {},
-                            meta: {
-                                executionId: "exec-1",
-                            },
-                        }));
-                    },
-                },
-            );
-
-            expect(result.exitCode).toBe(2);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toContain(
-                "Use either --team or --personal, not both.",
             );
             expect(requestCount).toBe(0);
         }

@@ -505,29 +505,6 @@ describe("variables team identity", () => {
         }
     });
 
-    test("--personal drops the saved default and sends no team header", async () => {
-        const sandbox = await createCliSandbox();
-        const requests: Request[] = [];
-
-        try {
-            await writeAuthFileWithDefaultTeam(sandbox, "acme", { teamId: "team-1" });
-
-            const result = await sandbox.run(["variables", "delete", "k", "--personal"], {
-                fetcher: async (input, init) => {
-                    requests.push(toRequest(input, init));
-                    return new Response("", { status: 204 });
-                },
-            });
-
-            expect(result.exitCode).toBe(0);
-            expect(requests[0]!.headers.get("x-oo-team-name")).toBeNull();
-            expect(requests[0]!.headers.get("x-oo-team-id")).toBeNull();
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
     test("OO_TEAM_ID is validated and sends both halves of the identity", async () => {
         const sandbox = await createCliSandbox();
         const requests: Request[] = [];
@@ -561,28 +538,6 @@ describe("variables team identity", () => {
             expect(new URL(variablesRequest.url).host).toBe("cli-api.oomol.com");
             expect(variablesRequest.headers.get("x-oo-team-id")).toBe("team-9");
             expect(variablesRequest.headers.get("x-oo-team-name")).toBe("platform");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("--team with --personal errors with exit 2 and sends no request", async () => {
-        const sandbox = await createCliSandbox();
-        let called = false;
-
-        try {
-            await writeAuthFile(sandbox);
-
-            const result = await sandbox.run(["variables", "list", "--team", "acme", "--personal"], {
-                fetcher: async () => {
-                    called = true;
-                    return new Response("{}");
-                },
-            });
-
-            expect(result.exitCode).toBe(2);
-            expect(called).toBe(false);
         }
         finally {
             await sandbox.cleanup();

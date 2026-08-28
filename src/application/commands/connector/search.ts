@@ -7,7 +7,7 @@ import {
 } from "../../telemetry/buckets.ts";
 import {
     teamIdentityInputShape,
-    teamIdentityOptions,
+    teamOption,
 } from "../team/identity.ts";
 import {
     formatConnectorSearchResultsAsText,
@@ -17,7 +17,6 @@ import { resolveConnectorSession } from "./session.ts";
 
 interface ConnectorSearchInput {
     team?: string;
-    personal?: boolean;
     text: string;
 }
 
@@ -34,10 +33,7 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
         },
     ],
     options: [
-        ...teamIdentityOptions({
-            personal: "options.searchPersonal",
-            team: "options.searchTeam",
-        }),
+        teamOption("options.searchTeam"),
     ],
     output: "standard",
     inputSchema: z.object({
@@ -51,7 +47,6 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
 
         const { identity, target } = await resolveConnectorSession(
             {
-                personal: input.personal,
                 team: input.team,
             },
             context,

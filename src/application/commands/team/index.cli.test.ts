@@ -103,7 +103,7 @@ describe("teamCommand CLI", () => {
         }
     });
 
-    test("reports personal identity when the account has no teams", async () => {
+    test("reports no team selection when the account has no teams", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -114,7 +114,7 @@ describe("teamCommand CLI", () => {
             });
 
             expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("personal identity");
+            expect(result.stdout).toContain("send no team selection");
         }
         finally {
             await sandbox.cleanup();
@@ -165,7 +165,7 @@ describe("teamCommand CLI", () => {
         }
     });
 
-    test("reports personal identity via current when no default is configured", async () => {
+    test("reports the server-side default team via current when no default is configured", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -181,7 +181,7 @@ describe("teamCommand CLI", () => {
                 source: null,
                 status: null,
             });
-            expect(textResult.stdout).toContain("personal identity");
+            expect(textResult.stdout).toContain("server-side default team");
         }
         finally {
             await sandbox.cleanup();
@@ -238,44 +238,6 @@ describe("teamCommand CLI", () => {
                 source: null,
                 status: null,
             });
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("clears the default team identity", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            await writeAuthFileWithDefaultTeam(sandbox, "acme");
-
-            const clearResult = await sandbox.run(["team", "clear"]);
-            const currentResult = await sandbox.run(["team", "current", "--json"]);
-
-            expect(clearResult.exitCode).toBe(0);
-            expect(JSON.parse(currentResult.stdout)).toEqual({
-                team: null,
-                teamId: null,
-                source: null,
-                status: null,
-            });
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("reports already-personal when clearing with no configured team", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            await writeAuthFile(sandbox);
-
-            const result = await sandbox.run(["team", "clear"]);
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("personal identity");
         }
         finally {
             await sandbox.cleanup();
@@ -524,36 +486,6 @@ describe("teamCommand CLI", () => {
         }
     });
 
-    test("hints that the env override still selects a team after clearing", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            await writeAuthFileWithDefaultTeam(sandbox, "acme");
-            sandbox.env.OO_TEAM_ID = "team-1";
-
-            const clearResult = await sandbox.run(["team", "clear"]);
-            const repeatResult = await sandbox.run(["team", "clear"]);
-
-            expect(clearResult.exitCode).toBe(0);
-            expect(clearResult.stdout).toContain("OO_TEAM_ID");
-            // The saved default is gone, but the env override still selects a
-            // team, so the output must not claim connector commands now run
-            // personally — it reports the override instead.
-            expect(clearResult.stdout).toContain("Cleared the default team identity");
-            expect(clearResult.stdout).not.toContain(
-                "connector commands now run under your personal identity",
-            );
-            // The follow-up clear has nothing to remove but still points at
-            // the env override instead of promising a personal identity.
-            expect(repeatResult.exitCode).toBe(0);
-            expect(repeatResult.stdout).toContain("OO_TEAM_ID");
-            expect(repeatResult.stdout).not.toContain("personal identity");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
     test("backfills the team id of a default that only has a name", async () => {
         const sandbox = await createCliSandbox();
 
@@ -607,27 +539,6 @@ describe("teamCommand CLI", () => {
             await sandbox.cleanup();
         }
     });
-
-    test("reports that clearing does nothing under OO_API_KEY", async () => {
-        const sandbox = await createCliSandbox();
-
-        sandbox.env.OO_API_KEY = "env-key-1";
-
-        try {
-            await writeAuthFileWithDefaultTeam(sandbox, "acme");
-
-            const result = await sandbox.run(["team", "clear"]);
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stdout).toContain("OO_API_KEY");
-            // The saved account keeps its default; it simply does not apply
-            // while OO_API_KEY supplies the credential.
-            expect(await readAuthFileContent(sandbox)).toContain("team = \"acme\"");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
 });
 
 describe("legacy default team migration", () => {
@@ -669,7 +580,7 @@ describe("legacy default team migration", () => {
             const currentResult = await sandbox.run(["team", "current", "--json"]);
 
             // Nothing to migrate onto, so the value stays put and still
-            // resolves rather than silently becoming a personal identity.
+            // resolves rather than silently falling back to the server default.
             expect(await readSettingsFileContent(sandbox)).toContain(
                 "team = \"acme\"",
             );
@@ -694,7 +605,7 @@ describe("legacy default team migration", () => {
 
             const currentResult = await sandbox.run(["team", "current", "--json"]);
 
-            // OO_API_KEY runs as a personal identity, and the untouched value
+            // OO_API_KEY has no saved default team, and the untouched value
             // still applies the moment the variable is unset.
             expect(JSON.parse(currentResult.stdout)).toEqual({
                 team: null,

@@ -24,7 +24,7 @@ exports[`auth CLI writes auth-store and auth status logs 1`] = `
 "✓ Logged in to oomol.com account Alice
   - Active account: true
   - API key status: Valid
-  - Default team: personal (no default team)
+  - Default team: server default (no saved team)
   - Accounts:
     * Alice [active] (oomol.com)
 "
@@ -168,7 +168,7 @@ exports[`auth CLI supports auth status for valid and invalid api keys 1`] = `
 "X Logged in to oomol.com account Alice
   - Active account: true
   - API key status: Invalid
-  - Default team: personal (no default team)
+  - Default team: server default (no saved team)
   - Accounts:
     * Alice [active] (oomol.com)
 "
@@ -181,7 +181,7 @@ exports[`auth CLI supports auth status for valid and invalid api keys 1`] = `
 "✓ Logged in to oomol.com account Alice
   - Active account: true
   - API key status: Valid
-  - Default team: personal (no default team)
+  - Default team: server default (no saved team)
   - Accounts:
     * Alice [active] (oomol.com)
 "

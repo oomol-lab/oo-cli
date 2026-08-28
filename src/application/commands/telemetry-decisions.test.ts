@@ -167,7 +167,7 @@ const commandTelemetryDecisions = {
             "list_scope",
             "result_count_bucket",
         ],
-        reason: "Records bounded connector app list size, the connector target kind (oomol/self_hosted), the identity source (personal/flag/env_id/env_name/account), and whether the listing was scoped to all apps or one service, without app ids, connection names, account labels, team names or ids, or server URLs.",
+        reason: "Records bounded connector app list size, the connector target kind (oomol/self_hosted), the identity source (none/flag/env_id/env_name/account), and whether the listing was scoped to all apps or one service, without app ids, connection names, account labels, team names or ids, or server URLs.",
     },
     "connector.login": {
         kind: "properties",
@@ -193,7 +193,7 @@ const commandTelemetryDecisions = {
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (personal/flag/env_id/env_name/account), and none/connectionName selector mode without the team name/id or connection name value.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (none/flag/env_id/env_name/account), and none/connectionName selector mode without the team name/id or connection name value.",
     },
     "connector.proxy": {
         kind: "properties",
@@ -206,7 +206,7 @@ const commandTelemetryDecisions = {
             "identity_source",
             "method",
         ],
-        reason: "Records connector proxy bucketed payload size, method enum, identity source (personal/flag/env_id/env_name/account), stable error code, and HTTP status without service name, endpoint, headers, body, or team name/id.",
+        reason: "Records connector proxy bucketed payload size, method enum, identity source (none/flag/env_id/env_name/account), stable error code, and HTTP status without service name, endpoint, headers, body, or team name/id.",
     },
     "connector.search": {
         kind: "properties",
@@ -216,7 +216,7 @@ const commandTelemetryDecisions = {
             "query_length_bucket",
             "result_count_bucket",
         ],
-        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (personal/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
+        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
     },
     "connector.schema": {
         kind: "properties",
@@ -247,7 +247,7 @@ const commandTelemetryDecisions = {
     "file.upload": {
         kind: "properties",
         properties: ["bytes_total_bucket", "identity_source", "rejected_too_large"],
-        reason: "Records upload size bucket, rejection state, and the identity source (personal/flag/env_id/env_name/account) without path, filename, or team name/id.",
+        reason: "Records upload size bucket, rejection state, and the identity source (none/flag/env_id/env_name/account) without path, filename, or team name/id.",
     },
     "flow": {
         kind: "generic",
@@ -326,11 +326,6 @@ const commandTelemetryDecisions = {
         properties: ["credential_source"],
         reason: "Records whether OO_API_KEY made the command a no-op (it has no saved account to hold a default team); the team name is never recorded.",
     },
-    "team.clear": {
-        kind: "properties",
-        properties: ["credential_source"],
-        reason: "Records whether OO_API_KEY made the command a no-op; no team details are recorded.",
-    },
     "search": {
         kind: "properties",
         properties: [
@@ -339,7 +334,7 @@ const commandTelemetryDecisions = {
             "query_length_bucket",
             "result_count_bucket",
         ],
-        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (personal/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
+        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
     },
     "skills": {
         kind: "generic",
@@ -615,22 +610,22 @@ const commandTelemetryDecisions = {
     "variables.list": {
         kind: "properties",
         properties: ["identity_source"],
-        reason: "Records the identity source (personal/flag/env_id/env_name/account) that selected the team; never records team names or ids, variable names, or values.",
+        reason: "Records the identity source (none/flag/env_id/env_name/account) that selected the team; never records team names or ids, variable names, or values.",
     },
     "variables.get": {
         kind: "properties",
         properties: ["identity_source"],
-        reason: "Records the identity source (personal/flag/env_id/env_name/account) that selected the team; never records team names or ids, the variable name, or its value.",
+        reason: "Records the identity source (none/flag/env_id/env_name/account) that selected the team; never records team names or ids, the variable name, or its value.",
     },
     "variables.create": {
         kind: "properties",
         properties: ["identity_source"],
-        reason: "Records the identity source (personal/flag/env_id/env_name/account) that selected the team; never records team names or ids, the variable name, or its value.",
+        reason: "Records the identity source (none/flag/env_id/env_name/account) that selected the team; never records team names or ids, the variable name, or its value.",
     },
     "variables.delete": {
         kind: "properties",
         properties: ["identity_source"],
-        reason: "Records the identity source (personal/flag/env_id/env_name/account) that selected the team; never records team names or ids or the variable name.",
+        reason: "Records the identity source (none/flag/env_id/env_name/account) that selected the team; never records team names or ids or the variable name.",
     },
     "version": {
         kind: "generic",

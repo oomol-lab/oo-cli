@@ -2782,7 +2782,7 @@ describe("auth CLI status default team", () => {
         }
     });
 
-    test("reports the personal identity under OO_API_KEY despite a saved default", async () => {
+    test("reports the server default team under OO_API_KEY despite a saved default", async () => {
         const sandbox = await createCliSandbox();
 
         sandbox.env.OO_API_KEY = "env-key-1";
@@ -2807,7 +2807,7 @@ describe("auth CLI status default team", () => {
             // OO_TEAM_NAME.
             expect(textResult.exitCode).toBe(0);
             expect(textResult.stdout).toContain(
-                "- Default team: personal (no default team)",
+                "- Default team: server default (no saved team)",
             );
             expect(payload.status).toBe("logged-in");
             expect(payload.envOverride).toBeDefined();
