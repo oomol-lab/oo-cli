@@ -26,7 +26,7 @@ async function readBundledOoDescription(): Promise<string> {
 }
 
 describe("bundled oo skill Hermes index prefix", () => {
-    test("front-loads the connected accounts, APIs, hosted AI, and Flow routing signals within the Hermes truncation budget", async () => {
+    test("front-loads the connected accounts, APIs, hosted AI, Flow, and OOMOL routing signals within the Hermes truncation budget", async () => {
         const description = await readBundledOoDescription();
         const indexPrefix = description
             .slice(0, hermesSkillIndexPrefixLength)
@@ -36,6 +36,7 @@ describe("bundled oo skill Hermes index prefix", () => {
         expect(indexPrefix).toContain("api");
         expect(indexPrefix).toContain("hosted ai");
         expect(indexPrefix).toContain("flow");
+        expect(indexPrefix).toContain("oomol");
     });
 
     test("keeps the full description detailed instead of narrowing it to a single service", async () => {

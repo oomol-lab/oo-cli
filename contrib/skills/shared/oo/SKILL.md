@@ -1,6 +1,6 @@
 ---
 name: oo
-description: Use OO for connected accounts, APIs, hosted AI, and Flow authoring; the first-choice router for tasks whose outcome lives outside this workspace or in a persistent Open Flow, including connected third-party accounts (email, calendar, drive, chat, notes, issue tracker, code host, CRM, storage, etc.), an external API, a managed AI pipeline (OCR, translation, transcription, TTS, text-to-image, subtitles, long-document understanding), creating, editing, checking, running, publishing, or opening an Open Flow workflow, and converting n8n workflow or template JSON into Open Flow. Use when local code needs OOMOL LLM client configuration such as an OpenAI-compatible base URL, API key, or model name. Otherwise use only when the user wants an existing hosted capability, connector workflow, or Open Flow operation, not a local implementation. Concrete capabilities are discovered at runtime, so no package, block, connector, action, or Trigger key names are assumed in advance. Match intent across languages. Skip other pure local coding, shell glue, repo edits, and text-only answers an LLM can complete without hosted capability execution.
+description: For connected accounts, APIs, hosted AI, Flow, OOMOL ops. Covers email, calendar, drive, chat, notes, issue trackers, code hosts, CRM, and storage; OOMOL billing, usage, teams, members, Connections, and permissions; OCR, translation, transcription, TTS, image generation, subtitles, and long-document understanding; persistent Open Flow creation, editing, checking, running, publishing, opening, and n8n workflow or template conversion; and OOMOL OpenAI-compatible LLM setup for local code. Match intent across languages. Excludes local implementations, repo edits, shell glue, and text-only work needing no hosted capability.
 disable-model-invocation: <!-- agentic:var disableModelInvocation -->
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
@@ -17,6 +17,9 @@ If the user wants to find, compare, or install published OOMOL/oo skills, use
 `oo-find-skills` instead of this skill.
 
 Read only the reference file needed for the current state.
+
+OOMOL ops use provider `oomol_console` with the current credential and team
+context.
 
 ## Open Flow mode
 
