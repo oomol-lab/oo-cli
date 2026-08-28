@@ -12,7 +12,6 @@ import {
     createSettingsStore,
 } from "../../../__tests__/helpers.ts";
 import {
-    clearDefaultTeam,
     migrateLegacyDefaultTeam,
     readDefaultTeam,
     writeDefaultTeam,
@@ -86,7 +85,7 @@ describe("readDefaultTeam", () => {
         });
     });
 
-    test("resolves to personal when nothing is stored", async () => {
+    test("resolves to no default team when nothing is stored", async () => {
         const { context } = createDefaultTeamContext({
             authFile: { auth: [account], id: "user-1" },
         });
@@ -94,7 +93,7 @@ describe("readDefaultTeam", () => {
         await expect(readDefaultTeam(context)).resolves.toBeUndefined();
     });
 
-    test("resolves to personal under OO_API_KEY without touching any store", async () => {
+    test("resolves to no default team under OO_API_KEY without touching any store", async () => {
         const { context } = createDefaultTeamContext({
             authStore: createThrowingAuthStore(),
             env: { OO_API_KEY: "env-key" },
@@ -146,62 +145,6 @@ describe("writeDefaultTeam", () => {
         await expect(writeDefaultTeam(context, { id: "team-1", name: "acme" }))
             .resolves
             .toBe(true);
-    });
-});
-
-describe("clearDefaultTeam", () => {
-    test("clears the account default", async () => {
-        const { context, readAuthFile } = createDefaultTeamContext({
-            authFile: {
-                auth: [{ ...account, team: "acme", teamId: "team-1" }],
-                id: "user-1",
-            },
-        });
-
-        await expect(clearDefaultTeam(context)).resolves.toBe(true);
-        expect((await readAuthFile()).auth[0]).toEqual(account);
-    });
-
-    test("clears a legacy value that no account could hold", async () => {
-        const { context, readSettings } = createDefaultTeamContext({
-            authFile: { auth: [], id: "" },
-            settings: { identity: { team: "legacy-team" } },
-        });
-
-        await expect(clearDefaultTeam(context)).resolves.toBe(true);
-        expect(await readSettings()).toEqual({});
-    });
-
-    test("reports nothing to clear for an account already on the personal identity", async () => {
-        const { context } = createDefaultTeamContext({
-            authFile: { auth: [account], id: "user-1" },
-        });
-
-        await expect(clearDefaultTeam(context)).resolves.toBe(false);
-    });
-
-    test("still clears the legacy value when auth.toml cannot be read", async () => {
-        const { context, readSettings } = createDefaultTeamContext({
-            authStore: createUnreadableAuthStore(),
-            settings: { identity: { team: "legacy-team" } },
-        });
-
-        // readDefaultTeam keeps honouring the legacy value in this state, so
-        // clearing has to reach it too — otherwise the one default still in
-        // effect is the one that cannot be cleared.
-        await expect(clearDefaultTeam(context)).resolves.toBe(true);
-        expect(await readSettings()).toEqual({});
-    });
-
-    test("reports the legacy removal as a migration", async () => {
-        const { context, recordedProperties } = createDefaultTeamContext({
-            authFile: { auth: [account], id: "user-1" },
-            settings: { identity: { team: "legacy-team" } },
-        });
-
-        await clearDefaultTeam(context);
-
-        expect(recordedProperties).toEqual([{ team_default_migrated: true }]);
     });
 });
 

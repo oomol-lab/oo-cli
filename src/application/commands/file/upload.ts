@@ -11,8 +11,9 @@ import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
 import {
+    resolveAccountTeamIdentity,
     teamIdentityInputShape,
-    teamIdentityOptions,
+    teamOption,
 } from "../team/identity.ts";
 import {
     completeMultipartFileUpload,
@@ -20,7 +21,6 @@ import {
     fileUploadExpiresInMs,
     generatePresignedFileUploadPartUrls,
     maxFileUploadSizeBytes,
-    resolveFileUploadIdentity,
     serializeFileUploadRecord,
     uploadFileParts,
 } from "./shared.ts";
@@ -28,7 +28,6 @@ import { formatFileUploadRecordDetailsAsText } from "./text.ts";
 
 interface FileUploadInput {
     filePath: string;
-    personal?: boolean;
     team?: string;
 }
 
@@ -48,10 +47,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
             required: true,
         },
     ],
-    options: teamIdentityOptions({
-        personal: "options.fileUploadPersonal",
-        team: "options.fileUploadTeam",
-    }),
+    options: [teamOption("options.fileUploadTeam")],
     output: "standard",
     inputSchema: z.object({
         filePath: z.string(),
@@ -59,7 +55,7 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
     }),
     handler: async (input, context) => {
         const { account } = await requireIdentity(context);
-        const identity = await resolveFileUploadIdentity(input, account, context);
+        const identity = await resolveAccountTeamIdentity(input, account, context);
         const sourceFile = await readSourceFile(
             input.filePath,
             context.cwd,

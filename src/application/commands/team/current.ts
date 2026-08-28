@@ -16,8 +16,8 @@ import {
 } from "./identity.ts";
 
 // `source` says which mechanism selects the team: the OO_TEAM_ID /
-// OO_TEAM_NAME env override, the account's saved default, or none
-// (personal). `team` carries the name and `teamId` the id.
+// OO_TEAM_NAME env override, the account's saved default, or none (the
+// server-side default team). `team` carries the name and `teamId` the id.
 //
 // `status` reports how the backend lookup ended and is `null` whenever none
 // was attempted — env-selected identities are looked up in whichever
@@ -29,8 +29,8 @@ interface TeamCurrentJsonPayload {
     status: TeamNameStatus | null;
 }
 
-// Reports the team identity that connector commands use when no `--team` /
-// `--personal` flag is given: the OO_TEAM_ID / OO_TEAM_NAME env override when
+// Reports the team identity that team-aware commands use when no `--team`
+// flag is given: the OO_TEAM_ID / OO_TEAM_NAME env override when
 // set, otherwise the active account's saved default team.
 //
 // An env-selected identity starts out with only the dimension the variable
@@ -73,7 +73,7 @@ export const teamCurrentCommand: CliCommandDefinition = {
             if (identity === undefined) {
                 writeLine(
                     context.stdout,
-                    context.translator.t("team.current.text.personal"),
+                    context.translator.t("team.current.text.serverDefault"),
                 );
                 return;
             }

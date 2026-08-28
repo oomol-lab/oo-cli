@@ -6,16 +6,10 @@ import type { TeamIdentity } from "../team/identity.ts";
 import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
-import { readDefaultTeam } from "../../auth/default-team.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
 import { readStdinToEnd } from "../shared/stdin.ts";
-import {
-    assertTeamIdentityFlags,
-    requireValidTeamIdentity,
-    resolveTeamIdentity,
-    teamIdentityHeaders,
-} from "../team/identity.ts";
+import { teamIdentityHeaders } from "../team/identity.ts";
 
 export const MAX_VARIABLE_NAME_LENGTH = 256;
 export const MAX_VARIABLE_VALUE_BYTES = 65536;
@@ -32,22 +26,6 @@ export interface Variable {
 
 type RequestContext = Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
 type VariableAccount = Pick<AuthAccount, "apiKey" | "endpoint">;
-
-type VariablesIdentityContext = Pick<
-    CliExecutionContext,
-    | "authStore"
-    | "env"
-    | "fetcher"
-    | "logger"
-    | "settingsStore"
-    | "telemetry"
-    | "translator"
->;
-
-interface VariablesIdentityInput {
-    personal?: boolean;
-    team?: string;
-}
 
 // MARK: - Validation
 
@@ -128,45 +106,6 @@ export async function resolveVariableValue(
     }
 
     return value;
-}
-
-// MARK: - Team identity
-
-/**
- * Resolves the team the variables commands act for: the shared flag guards,
- * the one shared identity ladder (`--personal` > `--team` > `OO_TEAM_ID` >
- * `OO_TEAM_NAME` > the account default), its execution gate, and the identity
- * telemetry — everything the four subcommands must agree on.
- *
- * `undefined` means no team header is sent, which lets the gateway apply the
- * server-side default team; it is not a private, per-user scope.
- */
-export async function resolveVariablesIdentity(
-    input: VariablesIdentityInput,
-    account: VariableAccount,
-    context: VariablesIdentityContext,
-): Promise<TeamIdentity | undefined> {
-    const teamFlag = assertTeamIdentityFlags(input);
-
-    const identity = requireValidTeamIdentity(
-        await resolveTeamIdentity(
-            {
-                account,
-                defaultTeam: await readDefaultTeam(context),
-                teamFlag,
-                personalFlag: input.personal === true,
-                resolveAgainstBackend: true,
-            },
-            context,
-        ),
-        context,
-    );
-
-    context.telemetry?.recordProperties({
-        identity_source: identity?.source ?? "personal",
-    });
-
-    return identity;
 }
 
 // MARK: - Requests

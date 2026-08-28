@@ -1,16 +1,16 @@
 // The team identity: which team an invocation acts for, and whether that team
 // is real.
 //
-// Three modules used to each encode the "--personal > --team > OO_TEAM_ID >
-// OO_TEAM_NAME > the account default > personal" ladder and validate only the
-// direction they happened to resolve, which is how `oo auth status` could
-// vouch for an identity `oo connector run` rejected — and vice versa. Every
-// team-aware command now resolves through this module, so the ladder, the
-// validation policy, and the source vocabulary have exactly one owner.
+// Three modules used to each encode the "--team > OO_TEAM_ID > OO_TEAM_NAME >
+// the account default" ladder and validate only the direction they happened
+// to resolve, which is how `oo auth status` could vouch for an identity
+// `oo connector run` rejected — and vice versa. Every team-aware command now
+// resolves through this module, so the ladder, the validation policy, and the
+// source vocabulary have exactly one owner.
 //
-// Personal is the absence of a team identity, not a fifth kind of team:
-// resolveTeamIdentity returns undefined for it, whether it was picked
-// explicitly (`--personal`) or by nothing else selecting a team.
+// `undefined` is the absence of a team identity, not a fifth kind of team: no
+// team header is sent and the gateway applies the account's server-side
+// default team. It is never a private, per-user scope.
 
 import type { AccountDefaultTeam } from "../../auth/default-team.ts";
 import type { CliExecutionContext, CliOptionDefinition } from "../../contracts/cli.ts";
@@ -18,6 +18,7 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 
 import type { TeamLookupStatus } from "./shared.ts";
 import { z } from "zod";
+import { readDefaultTeam } from "../../auth/default-team.ts";
 import { readTrimmedEnv } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { fetchTeamById, fetchTeamByName } from "./shared.ts";
@@ -53,9 +54,9 @@ type ResolveTeamIdentityContext = Pick<
 /**
  * Resolves the team identity from the per-run flags, the env override, and
  * the account default — one ladder for every team-aware command:
- * `--personal` > `--team` > OO_TEAM_ID > OO_TEAM_NAME > the account default >
- * personal (undefined). A higher tier fully replaces the lower ones, and a
- * trimmed-empty flag or stored name counts as unset.
+ * `--team` > OO_TEAM_ID > OO_TEAM_NAME > the account default > none
+ * (undefined, the server-side default team). A higher tier fully replaces the
+ * lower ones, and a trimmed-empty flag or stored name counts as unset.
  *
  * With `resolveAgainstBackend: true`, an env-selected identity is completed
  * and validated through the lookup matching its direction (id-to-name via the
@@ -73,15 +74,10 @@ export async function resolveTeamIdentity(
         account: Pick<AuthAccount, "apiKey" | "endpoint"> | undefined;
         defaultTeam: AccountDefaultTeam | undefined;
         teamFlag?: string;
-        personalFlag?: boolean;
         resolveAgainstBackend: boolean;
     },
     context: ResolveTeamIdentityContext,
 ): Promise<TeamIdentity | undefined> {
-    if (input.personalFlag === true) {
-        return undefined;
-    }
-
     const teamFlag = normalizeTeamValue(input.teamFlag);
 
     if (teamFlag !== undefined) {
@@ -177,6 +173,63 @@ export function teamNameStatusForTelemetry(
     return identity?.status ?? "none";
 }
 
+// The identity-source telemetry enum: the mechanism that selected the team,
+// or `none` when nothing did and the server-side default team applies.
+export function teamSourceForTelemetry(
+    identity: TeamIdentity | undefined,
+): TeamIdentitySource | "none" {
+    return identity?.source ?? "none";
+}
+
+type ResolveAccountTeamIdentityContext = Pick<
+    CliExecutionContext,
+    | "authStore"
+    | "env"
+    | "fetcher"
+    | "logger"
+    | "settingsStore"
+    | "telemetry"
+    | "translator"
+>;
+
+/**
+ * The one pipeline every team-aware command runs before acting for a team:
+ * the `--team` guard, the account's saved default, the shared ladder, the
+ * execution gate, and the `identity_source` telemetry property. `account` is
+ * the credential backing any env-team lookup.
+ *
+ * `undefined` means no team header is sent, which lets the gateway apply the
+ * server-side default team; it is not a private, per-user scope.
+ *
+ * `resolveAgainstBackend: false` (`--dry-run`) keeps the resolution fully
+ * offline.
+ */
+export async function resolveAccountTeamIdentity(
+    input: { team?: string },
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    context: ResolveAccountTeamIdentityContext,
+    options: { resolveAgainstBackend?: boolean } = {},
+): Promise<TeamIdentity | undefined> {
+    const identity = requireValidTeamIdentity(
+        await resolveTeamIdentity(
+            {
+                account,
+                defaultTeam: await readDefaultTeam(context),
+                teamFlag: readTeamFlag(input),
+                resolveAgainstBackend: options.resolveAgainstBackend !== false,
+            },
+            context,
+        ),
+        context,
+    );
+
+    context.telemetry?.recordProperties({
+        identity_source: teamSourceForTelemetry(identity),
+    });
+
+    return identity;
+}
+
 // Builds the standard team identity headers for OOMOL service requests.
 export function teamIdentityHeaders(
     identity: TeamIdentity | undefined,
@@ -199,22 +252,14 @@ export function teamIdentityHeaders(
 }
 
 /**
- * The usage guards on the `--team` / `--personal` pair, shared by every
- * team-aware command so one flag combination cannot be a usage error in one
- * command and accepted in another: the two flags are mutually exclusive, and a
+ * The usage guard on `--team`, shared by every team-aware command so the same
+ * input cannot be a usage error in one command and accepted in another: a
  * `--team` that was passed but is blank is a typo, not an unset flag.
  *
  * Returns the trimmed `--team` value, ready for the ladder — `undefined` when
  * the flag was not passed, and never the empty string.
  */
-export function assertTeamIdentityFlags(input: {
-    personal?: boolean;
-    team?: string;
-}): string | undefined {
-    if (input.personal === true && input.team !== undefined) {
-        throw new CliUserError("errors.team.identityConflict", 2);
-    }
-
+export function readTeamFlag(input: { team?: string }): string | undefined {
     const teamFlag = input.team?.trim();
 
     if (input.team !== undefined && teamFlag === "") {
@@ -225,33 +270,22 @@ export function assertTeamIdentityFlags(input: {
 }
 
 /**
- * The `--team` / `--personal` option pair every team-aware command declares.
- * Flags and value names live here once; each command supplies its own
- * description keys so the help text keeps its verb.
+ * The `--team` option every team-aware command declares. The flag and value
+ * name live here once; each command supplies its own description key so the
+ * help text keeps its verb.
  */
-export function teamIdentityOptions(descriptionKeys: {
-    personal: string;
-    team: string;
-}): readonly CliOptionDefinition[] {
-    return [
-        {
-            name: "team",
-            longFlag: "--team",
-            valueName: "team",
-            descriptionKey: descriptionKeys.team,
-        },
-        {
-            name: "personal",
-            longFlag: "--personal",
-            descriptionKey: descriptionKeys.personal,
-        },
-    ];
+export function teamOption(descriptionKey: string): CliOptionDefinition {
+    return {
+        name: "team",
+        longFlag: "--team",
+        valueName: "team",
+        descriptionKey,
+    };
 }
 
 // The input-schema counterpart of teamIdentityOptions, spread into each
-// command's zod object so the field pair cannot drift across commands.
+// command's zod object so the field cannot drift across commands.
 export const teamIdentityInputShape = {
-    personal: z.boolean().optional(),
     team: z.string().optional(),
 };
 

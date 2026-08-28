@@ -344,7 +344,7 @@ function writeSelfHostedConnectorText(
 
 // Renders the default-team detail row. The value spells out the identity in
 // effect: the account default by name, an env override with the variable that
-// supplies it, or the personal fallback when no default team is set.
+// supplies it, or the server-side default when no default team is saved.
 function formatStatusTeamDetail(
     context: CliExecutionContext,
     teamIdentity: TeamIdentity | undefined,
@@ -354,7 +354,7 @@ function formatStatusTeamDetail(
     if (teamIdentity === undefined) {
         return {
             label,
-            value: context.translator.t("auth.status.teamPersonal"),
+            value: context.translator.t("auth.status.teamServerDefault"),
         };
     }
 

@@ -171,8 +171,8 @@ the user said:
 - If the user does not mention any team, add nothing extra. The run then uses
   the team selected by the `OO_TEAM_ID` / `OO_TEAM_NAME` environment variables
   when set, then the default team saved on their account when one is set, and
-  their personal identity otherwise — omitting the flags does not force a
-  personal run. Check `oo team current` when you need to know which one applies.
+  the server-side default team otherwise. Check `oo team current` when you need
+  to know which one applies.
 - If the user asks to run as a specific team (for example "run this as Acme" or
   "use my Acme team"), add `--team "<name>"`, using the team name the user gave:
 
@@ -194,13 +194,12 @@ oo connector proxy "<serviceName>" \
   --json
 ```
 
-- If the user has a default team (from the env variables or the config default)
-  but explicitly asks for this one run to be personal, add `--personal`. This is
-  the only way to force a personal run when a default team is in effect.
+- There is no personal run: every run is attributed to a team, and with no
+  flag the server applies the account's default team. To run as a different
+  team than the default, name it with `--team`.
 
 Facts:
 
-- `--team` and `--personal` cannot be combined.
 - Do not guess a team name. If the user is vague about which team to use, ask
   before running.
 - The action schema itself is identity-independent, so `oo connector schema`

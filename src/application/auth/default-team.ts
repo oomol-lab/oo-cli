@@ -18,7 +18,6 @@ import type { CliExecutionContext } from "../contracts/cli.ts";
 import type { AppSettings } from "../schemas/settings.ts";
 
 import {
-    clearAccountDefaultTeam,
     getCurrentAuthAccount,
     setAccountDefaultTeam,
 } from "../schemas/auth.ts";
@@ -54,8 +53,9 @@ type MigrateDefaultTeamContext = Pick<
 >;
 
 /**
- * Reads the default team in effect for the active account, or undefined for
- * the personal identity.
+ * Reads the default team in effect for the active account, or undefined when
+ * none is saved (team-aware commands then send no team header and the gateway
+ * applies the server-side default team).
  *
  * With OO_API_KEY set there is no persisted default at all: the credential
  * may belong to an entirely different account, and lending it a saved
@@ -126,36 +126,6 @@ export async function writeDefaultTeam(
     await dropLegacyIdentityTeam(context);
 
     return true;
-}
-
-/**
- * Clears the default team. The legacy value goes too: leaving it behind would
- * let the next read resurrect the team this call just cleared.
- *
- * Returns whether anything was actually cleared, so the caller can tell
- * "cleared" from "already personal" without reading the stores itself.
- *
- * The auth read is tolerant, unlike the one in `writeDefaultTeam`: clearing is
- * the one write here that runs without resolving an identity first, so it is
- * what a user with an unreadable auth.toml reaches for — and the legacy value
- * `readDefaultTeam` still honours in that state has to stay clearable. An
- * unreadable file yields no account, so nothing overwrites it.
- */
-export async function clearDefaultTeam(
-    context: WriteDefaultTeamContext,
-): Promise<boolean> {
-    const { authFile } = await context.authStore.readTolerantState();
-    const account = getCurrentAuthAccount(authFile);
-    const nextAuthFile = account === undefined
-        ? authFile
-        : clearAccountDefaultTeam(authFile, account.id);
-    const clearedAccountTeam = nextAuthFile !== authFile;
-
-    if (clearedAccountTeam) {
-        await context.authStore.write(nextAuthFile);
-    }
-
-    return await dropLegacyIdentityTeam(context) || clearedAccountTeam;
 }
 
 /**
