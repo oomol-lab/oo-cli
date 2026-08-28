@@ -7,7 +7,6 @@ import {
     getNextAuthAccount,
     renderAuthFile,
     setAccountDefaultTeam,
-    setAccountFlowProject,
     upsertAuthAccount,
 } from "./auth.ts";
 
@@ -255,21 +254,6 @@ describe("setAccountDefaultTeam", () => {
     });
 });
 
-describe("setAccountFlowProject", () => {
-    test("stores the Project on the named account only", () => {
-        const next = setAccountFlowProject(createAuthFile(), "user-2", {
-            projectId: "project-1",
-            team: "id:team-1",
-        });
-
-        expect(next.auth[1]?.flowProject).toEqual({
-            projectId: "project-1",
-            team: "id:team-1",
-        });
-        expect(next.auth[0]?.flowProject).toBeUndefined();
-    });
-});
-
 describe("clearAccountDefaultTeam", () => {
     test("removes both team fields", () => {
         const withTeam = setAccountDefaultTeam(createAuthFile(), "user-1", {
@@ -295,15 +279,21 @@ describe("clearAccountDefaultTeam", () => {
 
 describe("upsertAuthAccount", () => {
     test("keeps the stored Team and Flow Project when the account logs in again", () => {
-        const withTeam = setAccountDefaultTeam(createAuthFile(), "user-1", {
-            id: "team-1",
-            name: "acme",
+        const authFile = createAuthFile({
+            auth: [{
+                apiKey: "secret-1",
+                endpoint: "oomol.com",
+                flowProject: {
+                    projectId: "project-1",
+                    team: "id:team-1",
+                },
+                id: "user-1",
+                name: "Alice",
+                team: "acme",
+                teamId: "team-1",
+            }],
         });
-        const withProject = setAccountFlowProject(withTeam, "user-1", {
-            projectId: "project-1",
-            team: "id:team-1",
-        });
-        const next = upsertAuthAccount(withProject, {
+        const next = upsertAuthAccount(authFile, {
             apiKey: "rotated-secret",
             endpoint: "oomol.com",
             id: "user-1",
